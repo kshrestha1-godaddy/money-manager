@@ -1,17 +1,13 @@
-"use client";
+import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
+import { authOptions } from "./lib/auth";
 
-import { Button } from "@repo/ui/button";
+export default async function Page() {
+  const session = await getServerSession(authOptions);
 
-import AllUsers from "./components/AllUsers";
-
-export default function Page() {
-  return (
-    <div className="flex flex-col items-center justify-center h-screen">
-      
-      <Button onClick={() => alert("Button clicked")}>Click me</Button>
-
-      <AllUsers />
-
-    </div>
-  );
+  if (session?.user) {
+    redirect("/dashboard");
+  } else {
+    redirect("/api/auth/signin");
+  }
 }
