@@ -1,4 +1,8 @@
+"use client";
+
 import { LinkComponent } from "./components/LinkComponent";
+import { Button } from "@repo/ui/button";
+
 
 export default function Page() {
   return (
@@ -7,7 +11,7 @@ export default function Page() {
 
       <LinkComponent />
 
-
+      <Button onClick={() => alert("Button clicked")}>Click me</Button>
 
     </div>
   );
