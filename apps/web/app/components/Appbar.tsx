@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@repo/ui/button";
 
+import { useBalance } from "@repo/store/balance";
+
 interface AppbarProps {
     user?: {
         name?: string | null;
@@ -13,10 +15,12 @@ interface AppbarProps {
 }
 
 export const AppbarComponent = ({ user, onSignin, onSignout }: AppbarProps) => {
+    const balance = useBalance();
     return (
         <div className="flex justify-between border-b px-4 border-slate-300">
             <div className="text-lg flex flex-col justify-center">PayTM</div>
-            <div className="text-lg flex flex-col justify-center">{user?.name}</div>
+            <div className="text-lg flex flex-col justify-center">{user?.name} - {balance}</div>
+
             <div className="flex flex-col justify-center pt-2">
                 <Button onClick={user ? onSignout : onSignin}>
                     {user ? "Logout" : "Login"}
