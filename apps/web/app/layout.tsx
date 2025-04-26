@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 
 import { Providers } from "./components/providers";
-import { AppbarClient } from "./components/Appbarclient";
+import { Appbar } from "./components/Appbar";
 
 
 const inter = Inter({ subsets: ["latin"] });
@@ -25,7 +25,7 @@ export default function RootLayout({
         <body className={inter.className}>
           <div className="min-w-screen min-h-screen">
             <div className="m-3">
-              <AppbarClient />
+              <Appbar />
               {children}
             </div>
           </div>
