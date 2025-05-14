@@ -21,4 +21,5 @@ model User {
   name  String?
   number String @unique
   password String
+  profilePictureUrl String?
 }

@@ -10,6 +10,7 @@ async function main() {
             number: "1111111111",
             password: await bcrypt.hash("alice", 10),
             name: "alice",
+            profilePictureUrl: "../public/alice.webp",
         },
     });
     const bob = await prisma.user.upsert({
@@ -19,6 +20,7 @@ async function main() {
             number: "2222222222",
             password: await bcrypt.hash("bob", 10),
             name: "bob",
+            profilePictureUrl: "../public/bob.webp",
         },
     });
     console.log({ alice, bob });
