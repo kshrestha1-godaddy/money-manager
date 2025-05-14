@@ -4,7 +4,6 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 
 import { Providers } from "./providers";
-import { Appbar } from "./components/Appbar";
 
 
 const inter = Inter({ subsets: ["latin"] });
@@ -25,7 +24,6 @@ export default function RootLayout({
         <body className={inter.className}>
           <div className="min-w-screen min-h-screen">
             <div className="m-3">
-              <Appbar />
               {children}
             </div>
           </div>
