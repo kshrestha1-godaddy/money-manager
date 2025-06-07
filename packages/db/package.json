@@ -11,9 +11,13 @@
   "license": "ISC",
   "dependencies": {
     "@prisma/client": "^6.6.0",
-    "prisma": "^6.6.0"
+    "prisma": "^6.6.0",
+    "ts-node": "^10.9.2"
   },
   "exports": {
     "./client": "./src/index.ts"
+  },
+  "prisma": {
+    "seed": "npx ts-node prisma/seed.ts"
   }
 }

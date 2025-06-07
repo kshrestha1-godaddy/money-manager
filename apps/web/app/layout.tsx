@@ -4,14 +4,13 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 
 import { Providers } from "./providers";
-import { Appbar } from "./components/Appbar";
-
-
+import NavBar from "./components/NavBar";
+import Footer from "./components/Footer";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Wallet",
-  description: "Simple wallet app",
+  title: "Financial Tracker",
+  description: "Simple financial tracker - track your income and expenses",
 };
 
 export default function RootLayout({
@@ -22,13 +21,21 @@ export default function RootLayout({
   return (
     <html lang="en">
       <Providers>
-        <body className={inter.className}>
-          <div className="min-w-screen min-h-screen">
-            <div className="m-3">
-              <Appbar />
-              {children}
-            </div>
+        <body className={inter.className + " flex flex-col min-h-screen"}>
+
+
+          <NavBar />
+
+
+          <div className="m-3 flex-grow">
+            {children}
           </div>
+
+
+          <Footer />
+
+
+          
         </body>
       </Providers>
     </html>
