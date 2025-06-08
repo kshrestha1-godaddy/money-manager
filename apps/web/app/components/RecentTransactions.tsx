@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Transaction } from "../types/financial";
 import { formatDate } from "../utils/date";
 import { formatCurrency } from "../utils/currency";
@@ -11,12 +12,14 @@ export function RecentTransactions() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const { currency: userCurrency } = useCurrency();
+    const router = useRouter();
 
     useEffect(() => {
         const loadTransactions = async () => {
             try {
                 setLoading(true);
                 const recentTransactions = await getRecentTransactions(10);
+                
                 setTransactions(recentTransactions);
             } catch (error) {
                 console.error("Error loading recent transactions:", error);
@@ -124,7 +127,10 @@ export function RecentTransactions() {
                 </table>
             </div>
             <div className="px-6 py-3 bg-gray-50 text-center">
-                <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                <button 
+                    onClick={() => router.push('/transactions')}
+                    className="text-sm text-blue-600 hover:text-blue-800 font-medium hover:underline transition-all duration-200"
+                >
                     View All Transactions
                 </button>
             </div>

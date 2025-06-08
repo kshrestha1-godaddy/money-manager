@@ -2,12 +2,14 @@
 
 import { signIn, signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
-import { CURRENCIES, getCurrencySymbol } from "../utils/currency";
+import { CURRENCIES, getCurrencySymbol, formatCurrency } from "../utils/currency";
 import { useCurrency } from "../providers/CurrencyProvider";
+import { useTotalBalance } from "../hooks/useTotalBalance";
 
 export default function NavBar() {
   const { data: session, status } = useSession();
   const { currency: selectedCurrency, updateCurrency } = useCurrency();
+  const { totalBalance, loading: balanceLoading } = useTotalBalance();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   // Close dropdown when clicking outside
@@ -45,7 +47,7 @@ export default function NavBar() {
   
   
   return (
-    <nav className="w-full flex items-center justify-between px-6 py-4 bg-white shadow-md mb-6">
+    <nav className="fixed top-0 left-0 right-0 w-full flex items-center justify-between px-6 py-4 bg-white shadow-md z-50">
       {/* Left side: User image if authenticated */}
     
       <div className="w-32 flex items-center">
@@ -61,13 +63,22 @@ export default function NavBar() {
         )}
       </div>
 
-      {/* Center: User name */}
+      {/* Center: User name and Balance */}
       <div className="flex-1 flex justify-center">
-        {status === "authenticated" && session?.user?.name && (
-            <span className="text-gray-700 font-bold text-lg">
+        <div className="text-center">
+          {status === "authenticated" && session?.user?.name && (
+            <div>
+              <span className="text-gray-700 font-bold text-lg block">
                 {session.user.name}
-            </span>
-        )}
+              </span>
+              {!balanceLoading && (
+                <span className="text-green-600 font-semibold text-sm">
+                  Balance: {formatCurrency(totalBalance, selectedCurrency)}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Currency Selector and Logout button */}
