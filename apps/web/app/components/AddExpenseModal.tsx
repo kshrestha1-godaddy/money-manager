@@ -56,7 +56,7 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, categories, accounts }
             categoryId: selectedCategory.id,
             account: selectedAccount,
             accountId: parseInt(formData.accountId),
-            userId: 5, // Using seeded user ID  
+            userId: 0, // This will be overridden by the server action
             tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : [],
             notes: formData.notes || undefined,
             isRecurring: formData.isRecurring,

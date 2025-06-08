@@ -55,7 +55,7 @@ export function AddIncomeModal({ isOpen, onClose, onAdd, categories, accounts }:
             categoryId: selectedCategory.id,
             account: selectedAccount,
             accountId: selectedAccount.id,
-            userId: 1, // TODO: Get from session
+            userId: 0, // This will be set by the server action from session
             tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : [],
             notes: formData.notes || undefined,
             isRecurring: formData.isRecurring,

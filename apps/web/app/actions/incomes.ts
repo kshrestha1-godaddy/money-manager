@@ -3,10 +3,32 @@
 import { revalidatePath } from "next/cache";
 import { Income } from "../types/financial";
 import prisma from "@repo/db/client";
+import { getServerSession } from "next-auth";
+import { authOptions } from "../lib/auth";
+
+// Helper function to get user ID from session
+function getUserIdFromSession(sessionUserId: string): number {
+    // If it's a very large number (OAuth provider), take last 5 digits
+    if (sessionUserId.length > 5) {
+        return parseInt(sessionUserId.slice(-5));
+    }
+    // Otherwise parse normally
+    return parseInt(sessionUserId);
+}
 
 export async function getIncomes() {
     try {
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+
         const incomes = await prisma.income.findMany({
+            where: {
+                userId: userId
+            },
             include: {
                 category: true,
                 account: true,
@@ -41,6 +63,13 @@ export async function getIncomes() {
 
 export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'updatedAt'>) {
     try {
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+
         const income = await prisma.income.create({
             data: {
                 title: data.title,
@@ -49,7 +78,7 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
                 date: data.date,
                 categoryId: data.categoryId,
                 accountId: data.accountId,
-                userId: data.userId,
+                userId: userId,
                 tags: data.tags,
                 notes: data.notes,
                 isRecurring: data.isRecurring,
@@ -62,7 +91,7 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
             }
         });
 
-        revalidatePath("/incomes");
+        revalidatePath("/(dashboard)/incomes");
 
         // Transform Prisma result to match our Income type
         return {
@@ -88,6 +117,25 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
 
 export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' | 'createdAt' | 'updatedAt'>>) {
     try {
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Verify the income belongs to the user
+        const existingIncome = await prisma.income.findFirst({
+            where: {
+                id,
+                userId: userId,
+            },
+        });
+
+        if (!existingIncome) {
+            throw new Error("Income not found or unauthorized");
+        }
+
         const updateData: any = {};
         
         if (data.title !== undefined) updateData.title = data.title;
@@ -96,7 +144,6 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
         if (data.date !== undefined) updateData.date = data.date;
         if (data.categoryId !== undefined) updateData.categoryId = data.categoryId;
         if (data.accountId !== undefined) updateData.accountId = data.accountId;
-        if (data.userId !== undefined) updateData.userId = data.userId;
         if (data.tags !== undefined) updateData.tags = data.tags;
         if (data.notes !== undefined) updateData.notes = data.notes;
         if (data.isRecurring !== undefined) updateData.isRecurring = data.isRecurring;
@@ -112,7 +159,7 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
             }
         });
 
-        revalidatePath("/incomes");
+        revalidatePath("/(dashboard)/incomes");
 
         return {
             ...income,
@@ -137,11 +184,30 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
 
 export async function deleteIncome(id: number) {
     try {
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Verify the income belongs to the user
+        const existingIncome = await prisma.income.findFirst({
+            where: {
+                id,
+                userId: userId,
+            },
+        });
+
+        if (!existingIncome) {
+            throw new Error("Income not found or unauthorized");
+        }
+
         await prisma.income.delete({
             where: { id }
         });
 
-        revalidatePath("/incomes");
+        revalidatePath("/(dashboard)/incomes");
         return { success: true };
     } catch (error) {
         console.error("Error deleting income:", error);
@@ -151,8 +217,18 @@ export async function deleteIncome(id: number) {
 
 export async function getIncomesByCategory(categoryId: number) {
     try {
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+
         const incomes = await prisma.income.findMany({
-            where: { categoryId },
+            where: { 
+                categoryId,
+                userId: userId
+            },
             include: {
                 category: true,
                 account: true,
@@ -186,12 +262,20 @@ export async function getIncomesByCategory(categoryId: number) {
 
 export async function getIncomesByDateRange(startDate: Date, endDate: Date) {
     try {
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+
         const incomes = await prisma.income.findMany({
             where: {
                 date: {
                     gte: startDate,
                     lte: endDate
-                }
+                },
+                userId: userId
             },
             include: {
                 category: true,

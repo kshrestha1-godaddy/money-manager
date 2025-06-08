@@ -12,6 +12,7 @@ import { ViewAccountModal } from "../../components/ViewAccountModal";
 import { getUserAccounts, createAccount, updateAccount, deleteAccount } from "../../actions/accounts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
+import { BankBalanceChart } from "../../components/BankBalanceChart";
 
 export default function Accounts() {
     const [accounts, setAccounts] = useState<AccountInterface[]>([]);
@@ -202,6 +203,11 @@ export default function Accounts() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Bank Balance Chart */}
+            {accounts.length > 0 && (
+                <BankBalanceChart accounts={filteredAndSortedAccounts} currency={userCurrency} />
             )}
 
             {/* Filters and Search */}

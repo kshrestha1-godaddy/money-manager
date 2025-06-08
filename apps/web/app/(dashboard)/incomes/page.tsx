@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { Button } from "@repo/ui/button";
 import { Income, Category } from "../../types/financial";
 import { AccountInterface } from "../../types/accounts";
@@ -9,6 +9,7 @@ import { AddIncomeModal } from "../../components/AddIncomeModal";
 import { EditIncomeModal } from "../../components/EditIncomeModal";
 import { DeleteConfirmationModal } from "../../components/DeleteConfirmationModal";
 import { AddCategoryModal } from "../../components/AddCategoryModal";
+import { FinancialAreaChart } from "../../components/FinancialAreaChart";
 import { useSearchParams } from "next/navigation";
 import { getCategories, createCategory } from "../../actions/categories";
 import { getIncomes, createIncome, updateIncome, deleteIncome } from "../../actions/incomes";
@@ -16,7 +17,7 @@ import { getUserAccounts } from "../../actions/accounts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 
-export default function Incomes() {
+function IncomesContent() {
     const [incomes, setIncomes] = useState<Income[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [accounts, setAccounts] = useState<AccountInterface[]>([]);
@@ -76,7 +77,8 @@ export default function Incomes() {
     const filteredIncomes = incomes.filter(income => {
         const matchesSearch = income.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             income.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            income.notes?.toLowerCase().includes(searchTerm.toLowerCase());
+                            income.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            income.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
         const matchesCategory = selectedCategory === "" || income.category.name === selectedCategory;
         
         // Bank filtering
@@ -100,7 +102,14 @@ export default function Incomes() {
             const end = new Date(endDate);
             end.setHours(23, 59, 59, 999);
             matchesDateRange = incomeDate <= end;
+        } else if (!startDate && !endDate && !searchTerm && !selectedCategory && !selectedBank) {
+            // Default: show only last 30 days when NO filters are applied
+            const incomeDate = new Date(income.date);
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            matchesDateRange = incomeDate >= thirtyDaysAgo;
         }
+        // If any other filters are applied but no date filters, show all data (matchesDateRange stays true)
         
         return matchesSearch && matchesCategory && matchesBank && matchesDateRange;
     });
@@ -214,6 +223,14 @@ export default function Incomes() {
                     </div>
                 </div>
             </div>
+
+            {/* Income Area Chart */}
+            <FinancialAreaChart 
+                data={filteredIncomes} 
+                currency={userCurrency} 
+                type="income" 
+                hasPageFilters={!!(searchTerm || selectedCategory || selectedBank || startDate || endDate)}
+            />
 
             {/* Filters */}
             <div className="bg-white rounded-lg shadow p-6">
@@ -364,5 +381,13 @@ export default function Incomes() {
                 type="INCOME"
             />
         </div>
+    );
+}
+
+export default function Incomes() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <IncomesContent />
+        </Suspense>
     );
 }

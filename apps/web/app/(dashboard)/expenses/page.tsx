@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { Button } from "@repo/ui/button";
 import { Expense, Category } from "../../types/financial";
 import { AccountInterface } from "../../types/accounts";
@@ -15,9 +15,9 @@ import { getExpenses, createExpense, updateExpense, deleteExpense } from "../../
 import { getUserAccounts } from "../../actions/accounts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
+import { FinancialAreaChart } from "../../components/FinancialAreaChart";
 
-
-export default function Expenses() {
+function ExpensesContent() {
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [accounts, setAccounts] = useState<AccountInterface[]>([]);
@@ -77,7 +77,9 @@ export default function Expenses() {
     const filteredExpenses = expenses.filter(expense => {
         const matchesSearch = expense.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             expense.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            expense.notes?.toLowerCase().includes(searchTerm.toLowerCase());
+                            expense.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            expense.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+
         const matchesCategory = selectedCategory === "" || expense.category.name === selectedCategory;
         
         // Bank filtering
@@ -101,7 +103,14 @@ export default function Expenses() {
             const end = new Date(endDate);
             end.setHours(23, 59, 59, 999);
             matchesDateRange = expenseDate <= end;
+        } else if (!startDate && !endDate && !searchTerm && !selectedCategory && !selectedBank) {
+            // Default: show only last 30 days when NO filters are applied
+            const expenseDate = new Date(expense.date);
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            matchesDateRange = expenseDate >= thirtyDaysAgo;
         }
+        // If any other filters are applied but no date filters, show all data (matchesDateRange stays true)
         
         return matchesSearch && matchesCategory && matchesBank && matchesDateRange;
     });
@@ -185,7 +194,6 @@ export default function Expenses() {
                     <Button onClick={() => setIsAddCategoryModalOpen(true)}>
                         Add Category
                     </Button>
-
                 </div>
             </div>
 
@@ -215,6 +223,14 @@ export default function Expenses() {
                     </div>
                 </div>
             </div>
+
+            {/* Expense Chart */}
+            <FinancialAreaChart 
+                data={filteredExpenses} 
+                currency={userCurrency} 
+                type="expense" 
+                hasPageFilters={!!(searchTerm || selectedCategory || selectedBank || startDate || endDate)}
+            />
 
             {/* Filters */}
             <div className="bg-white rounded-lg shadow p-6">
@@ -365,5 +381,13 @@ export default function Expenses() {
                 type="EXPENSE"
             />
         </div>
+    );
+}
+
+export default function Expenses() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <ExpensesContent />
+        </Suspense>
     );
 }

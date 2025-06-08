@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { Income } from "../types/financial";
 import { formatCurrency } from "../utils/currency";
 import { formatDate } from "../utils/date";
@@ -11,7 +12,88 @@ interface IncomeListProps {
     onDelete?: (income: Income) => void;
 }
 
+type SortField = 'title' | 'category' | 'account' | 'date' | 'amount';
+type SortDirection = 'asc' | 'desc';
+
 export function IncomeList({ incomes, currency = "USD", onEdit, onDelete }: IncomeListProps) {
+    const [sortField, setSortField] = useState<SortField>('date');
+    const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+    const sortedIncomes = useMemo(() => {
+        const sorted = [...incomes].sort((a, b) => {
+            let aValue: any;
+            let bValue: any;
+
+            switch (sortField) {
+                case 'title':
+                    aValue = a.title.toLowerCase();
+                    bValue = b.title.toLowerCase();
+                    break;
+                case 'category':
+                    aValue = a.category.name.toLowerCase();
+                    bValue = b.category.name.toLowerCase();
+                    break;
+                case 'account':
+                    aValue = a.account?.bankName?.toLowerCase() || '';
+                    bValue = b.account?.bankName?.toLowerCase() || '';
+                    break;
+                case 'date':
+                    aValue = new Date(a.date).getTime();
+                    bValue = new Date(b.date).getTime();
+                    break;
+                case 'amount':
+                    aValue = a.amount;
+                    bValue = b.amount;
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (aValue < bValue) {
+                return sortDirection === 'asc' ? -1 : 1;
+            }
+            if (aValue > bValue) {
+                return sortDirection === 'asc' ? 1 : -1;
+            }
+            return 0;
+        });
+
+        return sorted;
+    }, [incomes, sortField, sortDirection]);
+
+    const handleSort = (field: SortField) => {
+        if (field === sortField) {
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortDirection('asc');
+        }
+    };
+
+    const getSortIcon = (field: SortField) => {
+        if (sortField !== field) {
+            return (
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                </svg>
+            );
+        }
+        
+        if (sortDirection === 'asc') {
+            return (
+                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+            );
+        } else {
+            return (
+                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+            );
+        }
+    };
+
     if (incomes.length === 0) {
         return (
             <div className="bg-white rounded-lg shadow p-8 text-center">
@@ -33,17 +115,41 @@ export function IncomeList({ incomes, currency = "USD", onEdit, onDelete }: Inco
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Income
+                            <th 
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                onClick={() => handleSort('title')}
+                            >
+                                <div className="flex items-center space-x-1">
+                                    <span>Income</span>
+                                    {getSortIcon('title')}
+                                </div>
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Category
+                            <th 
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                onClick={() => handleSort('category')}
+                            >
+                                <div className="flex items-center space-x-1">
+                                    <span>Category</span>
+                                    {getSortIcon('category')}
+                                </div>
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Account
+                            <th 
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                onClick={() => handleSort('account')}
+                            >
+                                <div className="flex items-center space-x-1">
+                                    <span>Account</span>
+                                    {getSortIcon('account')}
+                                </div>
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Date
+                            <th 
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                onClick={() => handleSort('date')}
+                            >
+                                <div className="flex items-center space-x-1">
+                                    <span>Date</span>
+                                    {getSortIcon('date')}
+                                </div>
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Tags
@@ -51,8 +157,14 @@ export function IncomeList({ incomes, currency = "USD", onEdit, onDelete }: Inco
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Notes
                             </th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Amount
+                            <th 
+                                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                onClick={() => handleSort('amount')}
+                            >
+                                <div className="flex items-center justify-end space-x-1">
+                                    <span>Amount</span>
+                                    {getSortIcon('amount')}
+                                </div>
                             </th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Actions
@@ -60,7 +172,7 @@ export function IncomeList({ incomes, currency = "USD", onEdit, onDelete }: Inco
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {incomes.map((income) => (
+                        {sortedIncomes.map((income) => (
                             <IncomeRow 
                                 key={income.id} 
                                 income={income} 

@@ -43,8 +43,8 @@ export async function createCategory(data: {
             }
         });
 
-        revalidatePath("/expenses");
-        revalidatePath("/incomes");
+        revalidatePath("/(dashboard)/expenses");
+        revalidatePath("/(dashboard)/incomes");
 
         return {
             ...category,
@@ -68,8 +68,8 @@ export async function updateCategory(id: number, data: {
             data: data
         });
 
-        revalidatePath("/expenses");
-        revalidatePath("/incomes");
+        revalidatePath("/(dashboard)/expenses");
+        revalidatePath("/(dashboard)/incomes");
 
         return {
             ...category,
@@ -88,8 +88,8 @@ export async function deleteCategory(id: number) {
             where: { id }
         });
 
-        revalidatePath("/expenses");
-        revalidatePath("/incomes");
+        revalidatePath("/(dashboard)/expenses");
+        revalidatePath("/(dashboard)/incomes");
         
         return { success: true };
     } catch (error) {
