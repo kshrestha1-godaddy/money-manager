@@ -43,7 +43,7 @@ export const authOptions = {
             image: existingUser.profilePictureUrl || credentials.image, 
           };
         } else {
-          console.log("User not found, creating new user");
+          console.log("User not found, signup new user");
           return null;
 
         }

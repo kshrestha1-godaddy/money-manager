@@ -23,6 +23,7 @@ export interface Expense {
   userId: number;
   tags: string[];
   receipt?: string;
+  notes?: string;
   isRecurring: boolean;
   recurringFrequency?: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
   createdAt: Date;
@@ -41,6 +42,7 @@ export interface Income {
   accountId: number;
   userId: number;
   tags: string[];
+  notes?: string;
   isRecurring: boolean;
   recurringFrequency?: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
   createdAt: Date;

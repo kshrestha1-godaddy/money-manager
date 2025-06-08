@@ -22,6 +22,7 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, categories, accounts }
         categoryId: '',
         accountId: '',
         tags: '',
+        notes: '',
         isRecurring: false,
         recurringFrequency: 'MONTHLY' as const
     });
@@ -40,6 +41,12 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, categories, accounts }
             return;
         }
 
+        const selectedAccount = accounts.find(a => a.id === parseInt(formData.accountId));
+        if (!selectedAccount) {
+            alert('Please select a valid account');
+            return;
+        }
+
         const expense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'> = {
             title: formData.title,
             description: formData.description || undefined,
@@ -47,9 +54,11 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, categories, accounts }
             date: new Date(formData.date + 'T00:00:00'),
             category: selectedCategory,
             categoryId: selectedCategory.id,
+            account: selectedAccount,
             accountId: parseInt(formData.accountId),
             userId: 5, // Using seeded user ID  
             tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : [],
+            notes: formData.notes || undefined,
             isRecurring: formData.isRecurring,
             recurringFrequency: formData.isRecurring ? formData.recurringFrequency : undefined
         };
@@ -65,6 +74,7 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, categories, accounts }
             categoryId: '',
             accountId: '',
             tags: '',
+            notes: '',
             isRecurring: false,
             recurringFrequency: 'MONTHLY'
         });
@@ -191,6 +201,19 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, categories, accounts }
                             onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="e.g., groceries, food (comma separated)"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Notes
+                        </label>
+                        <textarea
+                            value={formData.notes}
+                            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Optional notes or remarks"
+                            rows={2}
                         />
                     </div>
 

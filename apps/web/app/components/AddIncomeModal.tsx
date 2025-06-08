@@ -21,6 +21,7 @@ export function AddIncomeModal({ isOpen, onClose, onAdd, categories, accounts }:
         categoryId: '',
         accountId: '',
         tags: '',
+        notes: '',
         isRecurring: false,
         recurringFrequency: 'MONTHLY' as const
     });
@@ -56,6 +57,7 @@ export function AddIncomeModal({ isOpen, onClose, onAdd, categories, accounts }:
             accountId: selectedAccount.id,
             userId: 1, // TODO: Get from session
             tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : [],
+            notes: formData.notes || undefined,
             isRecurring: formData.isRecurring,
             recurringFrequency: formData.isRecurring ? formData.recurringFrequency : undefined
         };
@@ -71,6 +73,7 @@ export function AddIncomeModal({ isOpen, onClose, onAdd, categories, accounts }:
             categoryId: '',
             accountId: '',
             tags: '',
+            notes: '',
             isRecurring: false,
             recurringFrequency: 'MONTHLY'
         });
@@ -199,6 +202,19 @@ export function AddIncomeModal({ isOpen, onClose, onAdd, categories, accounts }:
                             onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="e.g., salary, regular (comma separated)"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Notes
+                        </label>
+                        <textarea
+                            value={formData.notes}
+                            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Optional notes or remarks"
+                            rows={2}
                         />
                     </div>
 

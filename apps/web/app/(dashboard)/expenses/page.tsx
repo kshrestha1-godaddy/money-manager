@@ -76,7 +76,8 @@ export default function Expenses() {
 
     const filteredExpenses = expenses.filter(expense => {
         const matchesSearch = expense.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            expense.description?.toLowerCase().includes(searchTerm.toLowerCase());
+                            expense.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            expense.notes?.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesCategory = selectedCategory === "" || expense.category.name === selectedCategory;
         
         // Bank filtering
@@ -107,11 +108,9 @@ export default function Expenses() {
 
     const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
 
-    // Get unique bank names for filter from expenses that have accounts
+    // Get unique bank names for filter from user's actual accounts only
     const uniqueBankNames = Array.from(new Set(
-        expenses
-            .filter(expense => expense.account)
-            .map(expense => expense.account.bankName)
+        accounts.map(account => account.bankName)
     )).sort();
 
     const handleAddExpense = async (newExpense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -226,7 +225,7 @@ export default function Expenses() {
                         </label>
                         <input
                             type="text"
-                            placeholder="Search by title or description..."
+                            placeholder="Search by title, description, or notes..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"

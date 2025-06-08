@@ -32,9 +32,7 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
   // Load user's currency preference on mount or when session changes
   useEffect(() => {
     if (status === "authenticated") {
-      // Using the seeded user ID (5) for testing
-      // In production, you'd get this from the session
-      getUserCurrency(5)
+      getUserCurrency()
         .then(setCurrency)
         .finally(() => setIsLoading(false));
     } else {
@@ -44,7 +42,7 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
 
   const updateCurrency = async (newCurrency: string) => {
     try {
-      await updateUserCurrency(5, newCurrency); // Using seeded user ID (5)
+      await updateUserCurrency(newCurrency);
       setCurrency(newCurrency);
     } catch (error) {
       console.error("Error updating currency:", error);

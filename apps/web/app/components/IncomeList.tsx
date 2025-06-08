@@ -48,6 +48,9 @@ export function IncomeList({ incomes, currency = "USD", onEdit, onDelete }: Inco
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Tags
                             </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Notes
+                            </th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Amount
                             </th>
@@ -144,6 +147,15 @@ function IncomeRow({ income, currency = "USD", onEdit, onDelete }: {
                         </span>
                     ))}
                 </div>
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap max-w-xs">
+                {income.notes ? (
+                    <div className="text-sm text-gray-600 truncate" title={income.notes}>
+                        {income.notes}
+                    </div>
+                ) : (
+                    <span className="text-xs text-gray-400">No notes</span>
+                )}
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right text-green-600">
                 {formatCurrency(income.amount, currency)}

@@ -23,6 +23,7 @@ export function EditExpenseModal({ isOpen, onClose, onEdit, categories, accounts
         categoryId: '',
         accountId: '',
         tags: '',
+        notes: '',
         isRecurring: false,
         recurringFrequency: 'MONTHLY' as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY'
     });
@@ -38,6 +39,7 @@ export function EditExpenseModal({ isOpen, onClose, onEdit, categories, accounts
                 categoryId: expense.categoryId.toString(),
                 accountId: expense.accountId.toString(),
                 tags: expense.tags.join(', '),
+                notes: expense.notes || '',
                 isRecurring: expense.isRecurring,
                 recurringFrequency: (expense.recurringFrequency ?? 'MONTHLY') as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY'
             });
@@ -66,6 +68,7 @@ export function EditExpenseModal({ isOpen, onClose, onEdit, categories, accounts
             category: selectedCategory,
             categoryId: selectedCategory.id,
             tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : [],
+            notes: formData.notes || undefined,
             accountId: parseInt(formData.accountId),
             isRecurring: formData.isRecurring,
             recurringFrequency: formData.isRecurring ? formData.recurringFrequency : undefined
@@ -195,6 +198,19 @@ export function EditExpenseModal({ isOpen, onClose, onEdit, categories, accounts
                             onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="e.g., groceries, food (comma separated)"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Notes
+                        </label>
+                        <textarea
+                            value={formData.notes}
+                            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Optional notes or remarks"
+                            rows={2}
                         />
                     </div>
 

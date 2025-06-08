@@ -52,6 +52,7 @@ export async function createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'up
                 userId: data.userId,
                 tags: data.tags,
                 receipt: data.receipt,
+                notes: data.notes,
                 isRecurring: data.isRecurring,
                 recurringFrequency: data.recurringFrequency
             },
@@ -99,6 +100,7 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
         if (data.userId !== undefined) updateData.userId = data.userId;
         if (data.tags !== undefined) updateData.tags = data.tags;
         if (data.receipt !== undefined) updateData.receipt = data.receipt;
+        if (data.notes !== undefined) updateData.notes = data.notes;
         if (data.isRecurring !== undefined) updateData.isRecurring = data.isRecurring;
         if (data.recurringFrequency !== undefined) updateData.recurringFrequency = data.recurringFrequency;
 

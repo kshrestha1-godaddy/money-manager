@@ -51,6 +51,7 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
                 accountId: data.accountId,
                 userId: data.userId,
                 tags: data.tags,
+                notes: data.notes,
                 isRecurring: data.isRecurring,
                 recurringFrequency: data.recurringFrequency
             },
@@ -97,6 +98,7 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
         if (data.accountId !== undefined) updateData.accountId = data.accountId;
         if (data.userId !== undefined) updateData.userId = data.userId;
         if (data.tags !== undefined) updateData.tags = data.tags;
+        if (data.notes !== undefined) updateData.notes = data.notes;
         if (data.isRecurring !== undefined) updateData.isRecurring = data.isRecurring;
         if (data.recurringFrequency !== undefined) updateData.recurringFrequency = data.recurringFrequency;
 

@@ -68,12 +68,12 @@ export default function NavBar() {
       </div>
 
       {/* Currency Selector and Logout button */}
-      <div className="w-32 flex justify-end items-center space-x-3">
+      <div className="flex items-center space-x-4">
         {status === "authenticated" && (
           <div className="relative currency-dropdown">
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center space-x-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium text-gray-700 transition-colors"
+              className="flex items-center space-x-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium text-gray-700 transition-colors h-10"
             >
               <span>{getCurrencySymbol(selectedCurrency)}</span>
               <span>{selectedCurrency}</span>
@@ -107,12 +107,15 @@ export default function NavBar() {
         )}
 
         {status === "authenticated" ? (
-          <Button onClick={() => signOut({ callbackUrl: "/api/auth/signin" })}>
+          <button
+            onClick={() => signOut({ callbackUrl: "/api/auth/signin" })}
+            className="px-4 py-2.5 bg-gray-800 text-white hover:bg-gray-900 rounded-md text-sm font-medium h-10 flex items-center transition-colors"
+          >
             Logout
-          </Button>
+          </button>
         ) : status === "unauthenticated" ? (
           <button
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="px-4 py-2.5 bg-blue-600 text-white rounded hover:bg-blue-700 h-10 flex items-center"
             onClick={() => signIn()}
           >
             Sign In

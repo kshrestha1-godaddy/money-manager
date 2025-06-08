@@ -75,7 +75,8 @@ export default function Incomes() {
 
     const filteredIncomes = incomes.filter(income => {
         const matchesSearch = income.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            income.description?.toLowerCase().includes(searchTerm.toLowerCase());
+                            income.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            income.notes?.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesCategory = selectedCategory === "" || income.category.name === selectedCategory;
         
         // Bank filtering
@@ -106,11 +107,9 @@ export default function Incomes() {
 
     const totalIncomes = filteredIncomes.reduce((sum, income) => sum + income.amount, 0);
 
-    // Get unique bank names for filter from incomes that have accounts
+    // Get unique bank names for filter from user's actual accounts only
     const uniqueBankNames = Array.from(new Set(
-        incomes
-            .filter(income => income.account)
-            .map(income => income.account.bankName)
+        accounts.map(account => account.bankName)
     )).sort();
 
     const handleAddIncome = async (newIncome: Omit<Income, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -225,7 +224,7 @@ export default function Incomes() {
                         </label>
                         <input
                             type="text"
-                            placeholder="Search by title or description..."
+                            placeholder="Search by title, description, or notes..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
