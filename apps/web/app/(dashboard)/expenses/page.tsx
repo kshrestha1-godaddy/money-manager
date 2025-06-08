@@ -74,46 +74,57 @@ function ExpensesContent() {
         loadData();
     }, []);
 
-    const filteredExpenses = expenses.filter(expense => {
-        const matchesSearch = expense.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            expense.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            expense.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            expense.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+    // Check if any filters are applied
+    const hasActiveFilters = !!(searchTerm || selectedCategory || selectedBank || startDate || endDate);
+    
+    // Base filtering logic (without default date filtering)
+    const getBaseFilteredExpenses = (applyDefaultDateFilter: boolean) => {
+        return expenses.filter(expense => {
+            const matchesSearch = expense.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                expense.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                expense.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                expense.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
 
-        const matchesCategory = selectedCategory === "" || expense.category.name === selectedCategory;
-        
-        // Bank filtering
-        const matchesBank = selectedBank === "" || (expense.account && expense.account.bankName === selectedBank);
-        
-        // Date filtering
-        let matchesDateRange = true;
-        if (startDate && endDate) {
-            const expenseDate = new Date(expense.date);
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            // Set end date to end of day to include the entire end date
-            end.setHours(23, 59, 59, 999);
-            matchesDateRange = expenseDate >= start && expenseDate <= end;
-        } else if (startDate) {
-            const expenseDate = new Date(expense.date);
-            const start = new Date(startDate);
-            matchesDateRange = expenseDate >= start;
-        } else if (endDate) {
-            const expenseDate = new Date(expense.date);
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
-            matchesDateRange = expenseDate <= end;
-        } else if (!startDate && !endDate && !searchTerm && !selectedCategory && !selectedBank) {
-            // Default: show only last 30 days when NO filters are applied
-            const expenseDate = new Date(expense.date);
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-            matchesDateRange = expenseDate >= thirtyDaysAgo;
-        }
-        // If any other filters are applied but no date filters, show all data (matchesDateRange stays true)
-        
-        return matchesSearch && matchesCategory && matchesBank && matchesDateRange;
-    });
+            const matchesCategory = selectedCategory === "" || expense.category.name === selectedCategory;
+            
+            // Bank filtering
+            const matchesBank = selectedBank === "" || (expense.account && expense.account.bankName === selectedBank);
+            
+            // Date filtering
+            let matchesDateRange = true;
+            if (startDate && endDate) {
+                const expenseDate = new Date(expense.date);
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                // Set end date to end of day to include the entire end date
+                end.setHours(23, 59, 59, 999);
+                matchesDateRange = expenseDate >= start && expenseDate <= end;
+            } else if (startDate) {
+                const expenseDate = new Date(expense.date);
+                const start = new Date(startDate);
+                matchesDateRange = expenseDate >= start;
+            } else if (endDate) {
+                const expenseDate = new Date(expense.date);
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                matchesDateRange = expenseDate <= end;
+            } else if (applyDefaultDateFilter && !hasActiveFilters) {
+                // Apply default 30-day filter only when specified and no other filters are active
+                const expenseDate = new Date(expense.date);
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                matchesDateRange = expenseDate >= thirtyDaysAgo;
+            }
+            
+            return matchesSearch && matchesCategory && matchesBank && matchesDateRange;
+        });
+    };
+
+    // Filtered expenses for the list (no default date filter)
+    const filteredExpenses = getBaseFilteredExpenses(false);
+    
+    // Filtered expenses for the chart (with default 30-day filter when no filters are applied)
+    const chartFilteredExpenses = getBaseFilteredExpenses(true);
 
     const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
 
@@ -226,10 +237,10 @@ function ExpensesContent() {
 
             {/* Expense Chart */}
             <FinancialAreaChart 
-                data={filteredExpenses} 
+                data={chartFilteredExpenses} 
                 currency={userCurrency} 
                 type="expense" 
-                hasPageFilters={!!(searchTerm || selectedCategory || selectedBank || startDate || endDate)}
+                hasPageFilters={hasActiveFilters}
             />
 
             {/* Filters */}

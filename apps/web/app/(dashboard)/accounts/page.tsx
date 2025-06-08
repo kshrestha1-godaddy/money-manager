@@ -317,7 +317,7 @@ export default function Accounts() {
                             onViewDetails={openViewModal}
                         />
                     ) : (
-                        <div className="p-6 flex flex-col gap-6 items-center">
+                        <div className="bg-white rounded-lg shadow p-6">
                             <AccountList 
                                 accounts={filteredAndSortedAccounts} 
                                 onEdit={openEditModal}

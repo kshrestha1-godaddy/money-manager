@@ -316,7 +316,7 @@ export function FinancialAreaChart({
                                             <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3">
                                                 <p className="text-sm text-gray-600 mb-1">{formattedDate}</p>
                                                 <p className={`text-sm font-medium ${type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                                                    {chartConfig.label}: {formatCurrency(dataPoint.amount, currency)}
+                                                   {formatCurrency(dataPoint.amount, currency)}
                                                 </p>
                                             </div>
                                         );

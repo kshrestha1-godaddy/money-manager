@@ -93,7 +93,7 @@ export function AccountGrid({ accounts, onEdit, onDelete, onViewDetails }: {
     onViewDetails?: (account: AccountInterface) => void;
 }) {
     return (
-        <div className="grid grid-cols-1 gap-6 max-w-4xl w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-full w-full">
             {accounts.map((acc, idx) => (
                 <AccountCard 
                     key={idx} 

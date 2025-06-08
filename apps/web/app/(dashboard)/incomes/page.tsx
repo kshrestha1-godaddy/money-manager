@@ -74,45 +74,57 @@ function IncomesContent() {
         loadData();
     }, []);
 
-    const filteredIncomes = incomes.filter(income => {
-        const matchesSearch = income.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            income.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            income.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            income.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
-        const matchesCategory = selectedCategory === "" || income.category.name === selectedCategory;
-        
-        // Bank filtering
-        const matchesBank = selectedBank === "" || (income.account && income.account.bankName === selectedBank);
-        
-        // Date filtering
-        let matchesDateRange = true;
-        if (startDate && endDate) {
-            const incomeDate = new Date(income.date);
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            // Set end date to end of day to include the entire end date
-            end.setHours(23, 59, 59, 999);
-            matchesDateRange = incomeDate >= start && incomeDate <= end;
-        } else if (startDate) {
-            const incomeDate = new Date(income.date);
-            const start = new Date(startDate);
-            matchesDateRange = incomeDate >= start;
-        } else if (endDate) {
-            const incomeDate = new Date(income.date);
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
-            matchesDateRange = incomeDate <= end;
-        } else if (!startDate && !endDate && !searchTerm && !selectedCategory && !selectedBank) {
-            // Default: show only last 30 days when NO filters are applied
-            const incomeDate = new Date(income.date);
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-            matchesDateRange = incomeDate >= thirtyDaysAgo;
-        }
-        // If any other filters are applied but no date filters, show all data (matchesDateRange stays true)
-        
-        return matchesSearch && matchesCategory && matchesBank && matchesDateRange;
-    });
+    // Check if any filters are applied
+    const hasActiveFilters = !!(searchTerm || selectedCategory || selectedBank || startDate || endDate);
+    
+    // Base filtering logic (without default date filtering)
+    const getBaseFilteredIncomes = (applyDefaultDateFilter: boolean) => {
+        return incomes.filter(income => {
+            const matchesSearch = income.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                income.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                income.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                income.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+                                
+            const matchesCategory = selectedCategory === "" || income.category.name === selectedCategory;
+            
+            // Bank filtering
+            const matchesBank = selectedBank === "" || (income.account && income.account.bankName === selectedBank);
+            
+            // Date filtering
+            let matchesDateRange = true;
+            if (startDate && endDate) {
+                const incomeDate = new Date(income.date);
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                // Set end date to end of day to include the entire end date
+                end.setHours(23, 59, 59, 999);
+                matchesDateRange = incomeDate >= start && incomeDate <= end;
+            } else if (startDate) {
+                const incomeDate = new Date(income.date);
+                const start = new Date(startDate);
+                matchesDateRange = incomeDate >= start;
+            } else if (endDate) {
+                const incomeDate = new Date(income.date);
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                matchesDateRange = incomeDate <= end;
+            } else if (applyDefaultDateFilter && !hasActiveFilters) {
+                // Apply default 30-day filter only when specified and no other filters are active
+                const incomeDate = new Date(income.date);
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                matchesDateRange = incomeDate >= thirtyDaysAgo;
+            }
+            
+            return matchesSearch && matchesCategory && matchesBank && matchesDateRange;
+        });
+    };
+
+    // Filtered incomes for the list (no default date filter)
+    const filteredIncomes = getBaseFilteredIncomes(false);
+    
+    // Filtered incomes for the chart (with default 30-day filter when no filters are applied)
+    const chartFilteredIncomes = getBaseFilteredIncomes(true);
 
     const totalIncomes = filteredIncomes.reduce((sum, income) => sum + income.amount, 0);
 
@@ -226,10 +238,10 @@ function IncomesContent() {
 
             {/* Income Area Chart */}
             <FinancialAreaChart 
-                data={filteredIncomes} 
+                data={chartFilteredIncomes} 
                 currency={userCurrency} 
                 type="income" 
-                hasPageFilters={!!(searchTerm || selectedCategory || selectedBank || startDate || endDate)}
+                hasPageFilters={hasActiveFilters}
             />
 
             {/* Filters */}

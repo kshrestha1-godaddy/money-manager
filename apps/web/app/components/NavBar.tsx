@@ -1,7 +1,6 @@
 "use client";
 
 import { signIn, signOut, useSession } from "next-auth/react";
-import { Button } from "@repo/ui/button";
 import { useState, useEffect } from "react";
 import { CURRENCIES, getCurrencySymbol } from "../utils/currency";
 import { useCurrency } from "../providers/CurrencyProvider";
@@ -41,10 +40,14 @@ export default function NavBar() {
   if (status === "loading") {
     return null; // or a loading skeleton
   }
-
+  console.log(session)
+  
+  
+  
   return (
     <nav className="w-full flex items-center justify-between px-6 py-4 bg-white shadow-md mb-6">
       {/* Left side: User image if authenticated */}
+    
       <div className="w-32 flex items-center">
         {status === "authenticated" && session?.user?.image && (
           <a href="/dashboard">
