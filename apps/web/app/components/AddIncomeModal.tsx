@@ -2,21 +2,24 @@
 
 import { useState } from "react";
 import { Income, Category } from "../types/financial";
+import { AccountInterface } from "../types/accounts";
 
 interface AddIncomeModalProps {
     isOpen: boolean;
     onClose: () => void;
     onAdd: (income: Omit<Income, 'id' | 'createdAt' | 'updatedAt'>) => void;
     categories: Category[];
+    accounts: AccountInterface[];
 }
 
-export function AddIncomeModal({ isOpen, onClose, onAdd, categories }: AddIncomeModalProps) {
+export function AddIncomeModal({ isOpen, onClose, onAdd, categories, accounts }: AddIncomeModalProps) {
     const [formData, setFormData] = useState({
         title: '',
         description: '',
         amount: '',
         date: new Date().toISOString().split('T')[0],
         categoryId: '',
+        accountId: '',
         tags: '',
         isRecurring: false,
         recurringFrequency: 'MONTHLY' as const
@@ -25,7 +28,7 @@ export function AddIncomeModal({ isOpen, onClose, onAdd, categories }: AddIncome
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
-        if (!formData.title || !formData.amount || !formData.categoryId) {
+        if (!formData.title || !formData.amount || !formData.categoryId || !formData.accountId) {
             alert('Please fill in all required fields');
             return;
         }
@@ -36,6 +39,12 @@ export function AddIncomeModal({ isOpen, onClose, onAdd, categories }: AddIncome
             return;
         }
 
+        const selectedAccount = accounts.find(a => a.id === parseInt(formData.accountId));
+        if (!selectedAccount) {
+            alert('Please select a valid account');
+            return;
+        }
+
         const income: Omit<Income, 'id' | 'createdAt' | 'updatedAt'> = {
             title: formData.title,
             description: formData.description || undefined,
@@ -43,7 +52,8 @@ export function AddIncomeModal({ isOpen, onClose, onAdd, categories }: AddIncome
             date: new Date(formData.date + 'T00:00:00'),
             category: selectedCategory,
             categoryId: selectedCategory.id,
-            accountId: 1, // TODO: Get from user's selected account
+            account: selectedAccount,
+            accountId: selectedAccount.id,
             userId: 1, // TODO: Get from session
             tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : [],
             isRecurring: formData.isRecurring,
@@ -59,6 +69,7 @@ export function AddIncomeModal({ isOpen, onClose, onAdd, categories }: AddIncome
             amount: '',
             date: new Date().toISOString().split('T')[0],
             categoryId: '',
+            accountId: '',
             tags: '',
             isRecurring: false,
             recurringFrequency: 'MONTHLY'
@@ -69,7 +80,7 @@ export function AddIncomeModal({ isOpen, onClose, onAdd, categories }: AddIncome
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4">
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold text-gray-900">Add New Income</h2>
                     <button
@@ -138,23 +149,44 @@ export function AddIncomeModal({ isOpen, onClose, onAdd, categories }: AddIncome
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Category *
-                        </label>
-                        <select
-                            value={formData.categoryId}
-                            onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        >
-                            <option value="">Select a category</option>
-                            {categories.map(category => (
-                                <option key={category.id} value={category.id}>
-                                    {category.name}
-                                </option>
-                            ))}
-                        </select>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Category *
+                            </label>
+                            <select
+                                value={formData.categoryId}
+                                onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                            >
+                                <option value="">Select a category</option>
+                                {categories.map(category => (
+                                    <option key={category.id} value={category.id}>
+                                        {category.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Account *
+                            </label>
+                            <select
+                                value={formData.accountId}
+                                onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                            >
+                                <option value="">Select an account</option>
+                                {accounts.map(account => (
+                                    <option key={account.id} value={account.id}>
+                                        {account.bankName} - {account.holderName} ({account.accountType})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
 
                     <div>
@@ -206,13 +238,13 @@ export function AddIncomeModal({ isOpen, onClose, onAdd, categories }: AddIncome
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 bg-gray-300 text-gray-700 hover:bg-gray-400 rounded-md"
+                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
                         >
                             Cancel
                         </button>
-                        <button 
+                        <button
                             type="submit"
-                            className="px-4 py-2 bg-green-600 text-white hover:bg-green-700 rounded-md"
+                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                             Add Income
                         </button>

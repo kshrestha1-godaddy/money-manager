@@ -2,9 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { Expense } from "../types/financial";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from "@repo/db/client";
 
 export async function getExpenses() {
     try {

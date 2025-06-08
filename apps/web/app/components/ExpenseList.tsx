@@ -2,6 +2,7 @@
 
 import { Expense } from "../types/financial";
 import { formatCurrency } from "../utils/currency";
+import { formatDate } from "../utils/date";
 
 interface ExpenseListProps {
     expenses: Expense[];
@@ -37,6 +38,9 @@ export function ExpenseList({ expenses, currency = "USD", onEdit, onDelete }: Ex
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Category
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Account
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Date
@@ -116,7 +120,10 @@ function ExpenseRow({ expense, currency = "USD", onEdit, onDelete }: {
                 </div>
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {expense.date.toLocaleDateString()}
+                {expense.account ? `${expense.account.bankName} - ${expense.account.accountType}` : '-'}
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                {formatDate(expense.date)}
             </td>
             <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex flex-wrap gap-1">

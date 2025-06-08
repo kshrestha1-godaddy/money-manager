@@ -2,7 +2,7 @@ export interface AccountInterface {
     id: number;
     holderName: string;
     accountNumber: string;
-    branchCode: string;
+    branchCode: string; // IFSC/Code
     bankName: string;
     branchName: string;
     bankAddress: string;
@@ -13,7 +13,7 @@ export interface AccountInterface {
     bankEmail: string;
     accountOpeningDate: Date;
     securityQuestion: string[];
-    balance: number;
+    balance?: number; // Make optional since it might not be set initially
     userId: number;
     createdAt: Date;
     updatedAt: Date;

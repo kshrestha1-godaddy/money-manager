@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@repo/ui/button";
 import { Expense, Category } from "../../types/financial";
+import { AccountInterface } from "../../types/accounts";
 import { ExpenseList } from "../../components/ExpenseList";
 import { AddExpenseModal } from "../../components/AddExpenseModal";
 import { EditExpenseModal } from "../../components/EditExpenseModal";
@@ -11,6 +12,7 @@ import { AddCategoryModal } from "../../components/AddCategoryModal";
 import { useSearchParams } from "next/navigation";
 import { getCategories, createCategory } from "../../actions/categories";
 import { getExpenses, createExpense, updateExpense, deleteExpense } from "../../actions/expenses";
+import { getUserAccounts } from "../../actions/accounts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 
@@ -18,12 +20,16 @@ import { useCurrency } from "../../providers/CurrencyProvider";
 export default function Expenses() {
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
+    const [accounts, setAccounts] = useState<AccountInterface[]>([]);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string>("");
+    const [selectedBank, setSelectedBank] = useState<string>("");
     const [searchTerm, setSearchTerm] = useState("");
+    const [startDate, setStartDate] = useState<string>("");
+    const [endDate, setEndDate] = useState<string>("");
     const [loading, setLoading] = useState(true);
     const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
     const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
@@ -42,12 +48,21 @@ export default function Expenses() {
         const loadData = async () => {
             try {
                 setLoading(true);
-                const [expenseCategories, expensesList] = await Promise.all([
+                const [expenseCategories, expensesList, userAccounts] = await Promise.all([
                     getCategories("EXPENSE"),
-                    getExpenses()
+                    getExpenses(),
+                    getUserAccounts()
                 ]);
                 setCategories(expenseCategories);
                 setExpenses(expensesList);
+                
+                // Handle accounts response
+                if (userAccounts && !('error' in userAccounts)) {
+                    setAccounts(userAccounts);
+                } else {
+                    console.error("Error loading accounts:", userAccounts?.error);
+                    setAccounts([]);
+                }
             } catch (error) {
                 console.error("Error loading data:", error);
                 // Show error to user instead of fallback data
@@ -63,10 +78,41 @@ export default function Expenses() {
         const matchesSearch = expense.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             expense.description?.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesCategory = selectedCategory === "" || expense.category.name === selectedCategory;
-        return matchesSearch && matchesCategory;
+        
+        // Bank filtering
+        const matchesBank = selectedBank === "" || (expense.account && expense.account.bankName === selectedBank);
+        
+        // Date filtering
+        let matchesDateRange = true;
+        if (startDate && endDate) {
+            const expenseDate = new Date(expense.date);
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            // Set end date to end of day to include the entire end date
+            end.setHours(23, 59, 59, 999);
+            matchesDateRange = expenseDate >= start && expenseDate <= end;
+        } else if (startDate) {
+            const expenseDate = new Date(expense.date);
+            const start = new Date(startDate);
+            matchesDateRange = expenseDate >= start;
+        } else if (endDate) {
+            const expenseDate = new Date(expense.date);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            matchesDateRange = expenseDate <= end;
+        }
+        
+        return matchesSearch && matchesCategory && matchesBank && matchesDateRange;
     });
 
     const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+
+    // Get unique bank names for filter from expenses that have accounts
+    const uniqueBankNames = Array.from(new Set(
+        expenses
+            .filter(expense => expense.account)
+            .map(expense => expense.account.bankName)
+    )).sort();
 
     const handleAddExpense = async (newExpense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => {
         try {
@@ -134,12 +180,13 @@ export default function Expenses() {
                     <p className="text-gray-600 mt-1">Track and manage your expenses</p>
                 </div>
                 <div className="flex space-x-3">
-                    <Button onClick={() => setIsAddCategoryModalOpen(true)}>
-                        Add Category
-                    </Button>
                     <Button onClick={() => setIsAddModalOpen(true)}>
                         Add Expense
                     </Button>
+                    <Button onClick={() => setIsAddCategoryModalOpen(true)}>
+                        Add Category
+                    </Button>
+
                 </div>
             </div>
 
@@ -172,7 +219,7 @@ export default function Expenses() {
 
             {/* Filters */}
             <div className="bg-white rounded-lg shadow p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Search Expenses
@@ -202,7 +249,64 @@ export default function Expenses() {
                             ))}
                         </select>
                     </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Filter by Bank
+                        </label>
+                        <select
+                            value={selectedBank}
+                            onChange={(e) => setSelectedBank(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">All Banks</option>
+                            {uniqueBankNames.map(bankName => (
+                                <option key={bankName} value={bankName}>
+                                    {bankName}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Start Date
+                        </label>
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            End Date
+                        </label>
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
                 </div>
+                
+                {/* Clear Filters Button */}
+                {(searchTerm || selectedCategory || selectedBank || startDate || endDate) && (
+                    <div className="mt-4 flex justify-end">
+                        <button
+                            onClick={() => {
+                                setSearchTerm("");
+                                setSelectedCategory("");
+                                setSelectedBank("");
+                                setStartDate("");
+                                setEndDate("");
+                            }}
+                            className="text-sm px-4 py-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            Clear All Filters
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Expenses List */}
@@ -227,6 +331,7 @@ export default function Expenses() {
                 onClose={() => setIsAddModalOpen(false)}
                 onAdd={handleAddExpense}
                 categories={categories}
+                accounts={accounts}
             />
 
             {/* Edit Expense Modal */}
@@ -238,6 +343,7 @@ export default function Expenses() {
                 }}
                 onEdit={handleEditExpense}
                 categories={categories}
+                accounts={accounts}
                 expense={expenseToEdit}
             />
 

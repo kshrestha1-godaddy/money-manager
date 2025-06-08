@@ -1,10 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { PrismaClient } from "@prisma/client";
+import prisma from "@repo/db/client";
 import { Category } from "../types/financial";
-
-const prisma = new PrismaClient();
 
 export async function getCategories(type?: "EXPENSE" | "INCOME") {
     try {

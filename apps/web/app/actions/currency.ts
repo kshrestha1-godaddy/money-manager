@@ -1,9 +1,7 @@
 "use server";
 
-import { PrismaClient } from "@prisma/client";
+import prisma from "@repo/db/client";
 import { revalidatePath } from "next/cache";
-
-const prisma = new PrismaClient();
 
 export async function getUserCurrency(userId: number): Promise<string> {
   try {

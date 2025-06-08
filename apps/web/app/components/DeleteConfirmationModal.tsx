@@ -1,16 +1,19 @@
 "use client";
 
-import { Expense } from "../types/financial";
+import { Expense, Income } from "../types/financial";
+import { formatDate } from "../utils/date";
 
 interface DeleteConfirmationModalProps {
     isOpen: boolean;
     onClose: () => void;
     onConfirm: () => void;
-    expense: Expense | null;
+    expense?: Expense | null;
+    income?: Income | null;
 }
 
-export function DeleteConfirmationModal({ isOpen, onClose, onConfirm, expense }: DeleteConfirmationModalProps) {
-    if (!isOpen || !expense) return null;
+export function DeleteConfirmationModal({ isOpen, onClose, onConfirm, expense, income }: DeleteConfirmationModalProps) {
+    const item = expense || income;
+    if (!isOpen || !item) return null;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -25,10 +28,10 @@ export function DeleteConfirmationModal({ isOpen, onClose, onConfirm, expense }:
                 
                 <div className="text-center">
                     <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        Delete Expense
+                        Delete {expense ? 'Expense' : 'Income'}
                     </h3>
                     <p className="text-sm text-gray-500 mb-4">
-                        Are you sure you want to delete "{expense.title}"?
+                        Are you sure you want to delete "{item.title}"?
                         <br />
                         <br />
                         <i><b>This action cannot be undone.</b></i>
@@ -36,15 +39,15 @@ export function DeleteConfirmationModal({ isOpen, onClose, onConfirm, expense }:
                     
                     <div className="bg-gray-50 rounded-lg p-3 mb-4">
                         <div className="text-sm">
-                            <div className="font-medium text-gray-900">{expense.title}</div>
-                            {expense.description && (
-                                <div className="text-gray-600 mt-1">{expense.description}</div>
+                            <div className="font-medium text-gray-900">{item.title}</div>
+                            {item.description && (
+                                <div className="text-gray-600 mt-1">{item.description}</div>
                             )}
-                            <div className="text-red-600 font-medium mt-1">
-                                ${expense.amount.toFixed(2)}
+                            <div className={`font-medium mt-1 ${expense ? 'text-red-600' : 'text-green-600'}`}>
+                                ${item.amount.toFixed(2)}
                             </div>
                             <div className="text-gray-500 text-xs mt-1">
-                                {expense.date.toLocaleDateString()} • {expense.category.name}
+                                {formatDate(item.date)} • {item.category.name}
                             </div>
                         </div>
                     </div>

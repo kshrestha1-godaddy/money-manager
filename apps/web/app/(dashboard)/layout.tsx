@@ -3,7 +3,7 @@ import { SidebarItem } from "../components/SidebarItem";
 export default function Layout({ children }: { children: React.ReactNode }) {
     return (
         <div className="flex min-h-screen">
-            <div className="flex justify-start w-64 border-r border-slate-300 min-h-screen mr-4 pt-28 flex-shrink-0">
+            <div className="flex justify-start w-64 border-r border-slate-300 min-h-screen mr-4 pt-2 flex-shrink-0">
                 <div className="flex flex-col gap-4">
                     <SidebarItem href={"/dashboard"} icon={<HomeIcon />} title="Home" />
                     <SidebarItem href={"/accounts"} icon={<AccountsIcon />} title="Accounts" />
@@ -15,7 +15,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <SidebarItem href={"/learnings"} icon={<LearningsIcon />} title="Learnings" />
                 </div>
             </div>
-            <div className="flex-1 pt-28 px-4">
+            <div className="flex-1 pt-2 px-4">
             {children}
             </div>
         </div>

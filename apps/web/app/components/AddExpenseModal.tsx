@@ -3,21 +3,24 @@
 import { useState } from "react";
 import { Button } from "@repo/ui/button";
 import { Expense, Category } from "../types/financial";
+import { AccountInterface } from "../types/accounts";
 
 interface AddExpenseModalProps {
     isOpen: boolean;
     onClose: () => void;
     onAdd: (expense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => void;
     categories: Category[];
+    accounts: AccountInterface[];
 }
 
-export function AddExpenseModal({ isOpen, onClose, onAdd, categories }: AddExpenseModalProps) {
+export function AddExpenseModal({ isOpen, onClose, onAdd, categories, accounts }: AddExpenseModalProps) {
     const [formData, setFormData] = useState({
         title: '',
         description: '',
         amount: '',
         date: new Date().toISOString().split('T')[0],
         categoryId: '',
+        accountId: '',
         tags: '',
         isRecurring: false,
         recurringFrequency: 'MONTHLY' as const
@@ -26,7 +29,7 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, categories }: AddExpen
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
-        if (!formData.title || !formData.amount || !formData.categoryId) {
+        if (!formData.title || !formData.amount || !formData.categoryId || !formData.accountId) {
             alert('Please fill in all required fields');
             return;
         }
@@ -44,7 +47,7 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, categories }: AddExpen
             date: new Date(formData.date + 'T00:00:00'),
             category: selectedCategory,
             categoryId: selectedCategory.id,
-            accountId: 1, // Using seeded account ID
+            accountId: parseInt(formData.accountId),
             userId: 5, // Using seeded user ID  
             tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : [],
             isRecurring: formData.isRecurring,
@@ -60,6 +63,7 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, categories }: AddExpen
             amount: '',
             date: new Date().toISOString().split('T')[0],
             categoryId: '',
+            accountId: '',
             tags: '',
             isRecurring: false,
             recurringFrequency: 'MONTHLY'
@@ -153,6 +157,25 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, categories }: AddExpen
                             {categories.map(category => (
                                 <option key={category.id} value={category.id}>
                                     {category.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Account *
+                        </label>
+                        <select
+                            value={formData.accountId}
+                            onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
+                        >
+                            <option value="">Select an account</option>
+                            {accounts.map(account => (
+                                <option key={account.id} value={account.id}>
+                                    {account.bankName} - {account.holderName} ({account.accountType})
                                 </option>
                             ))}
                         </select>

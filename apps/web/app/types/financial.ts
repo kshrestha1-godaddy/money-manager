@@ -1,3 +1,5 @@
+import { AccountInterface } from './accounts';
+
 export interface Category {
   id: number;
   name: string;
@@ -16,6 +18,7 @@ export interface Expense {
   date: Date;
   category: Category;
   categoryId: number;
+  account: AccountInterface;
   accountId: number;
   userId: number;
   tags: string[];
@@ -34,6 +37,7 @@ export interface Income {
   date: Date;
   category: Category;
   categoryId: number;
+  account: AccountInterface;
   accountId: number;
   userId: number;
   tags: string[];
@@ -74,7 +78,7 @@ export interface BudgetTarget {
 }
 
 export interface Transaction {
-  id: number;
+  id: string | number;
   type: 'EXPENSE' | 'INCOME';
   title: string;
   amount: number;

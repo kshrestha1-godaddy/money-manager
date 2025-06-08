@@ -1,59 +1,63 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Transaction } from "../types/financial";
-
-// Mock data - replace with actual API calls
-const mockTransactions: Transaction[] = [
-    {
-        id: 1,
-        type: 'EXPENSE',
-        title: 'Grocery Shopping',
-        amount: 85.50,
-        date: new Date('2024-01-15'),
-        category: 'Food & Dining',
-        account: 'Nabil Bank'
-    },
-    {
-        id: 2,
-        type: 'INCOME',
-        title: 'Salary',
-        amount: 5000,
-        date: new Date('2024-01-01'),
-        category: 'Salary',
-        account: 'Nabil Bank'
-    },
-    {
-        id: 3,
-        type: 'EXPENSE',
-        title: 'Netflix Subscription',
-        amount: 15.99,
-        date: new Date('2024-01-10'),
-        category: 'Entertainment',
-        account: 'Nabil Bank'
-    },
-    {
-        id: 4,
-        type: 'EXPENSE',
-        title: 'Gas Station',
-        amount: 45.00,
-        date: new Date('2024-01-08'),
-        category: 'Transportation',
-        account: 'Nabil Bank'
-    },
-    {
-        id: 5,
-        type: 'INCOME',
-        title: 'Freelance Project',
-        amount: 800,
-        date: new Date('2024-01-05'),
-        category: 'Freelance',
-        account: 'Nabil Bank'
-    }
-];
+import { formatDate } from "../utils/date";
+import { formatCurrency } from "../utils/currency";
+import { useCurrency } from "../providers/CurrencyProvider";
+import { getRecentTransactions } from "../actions/transactions";
 
 export function RecentTransactions() {
-    const transactions = mockTransactions;
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [loading, setLoading] = useState(true);
+    const { currency: userCurrency } = useCurrency();
+
+    useEffect(() => {
+        const loadTransactions = async () => {
+            try {
+                setLoading(true);
+                const recentTransactions = await getRecentTransactions(10);
+                setTransactions(recentTransactions);
+            } catch (error) {
+                console.error("Error loading recent transactions:", error);
+                setTransactions([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadTransactions();
+    }, []);
     
+    if (loading) {
+        return (
+            <div className="bg-white rounded-lg shadow">
+                <div className="px-6 py-4 border-b border-gray-200">
+                    <h2 className="text-xl font-semibold text-gray-900">Recent Transactions</h2>
+                </div>
+                <div className="p-8 text-center">
+                    <div className="text-gray-400 text-4xl mb-4">⏳</div>
+                    <p className="text-gray-500">Loading recent transactions...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (transactions.length === 0) {
+        return (
+            <div className="bg-white rounded-lg shadow">
+                <div className="px-6 py-4 border-b border-gray-200">
+                    <h2 className="text-xl font-semibold text-gray-900">Recent Transactions</h2>
+                </div>
+                <div className="p-8 text-center">
+                    <div className="text-gray-400 text-4xl mb-4">📝</div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No transactions found</h3>
+                    <p className="text-gray-500">Start by adding some income or expenses to see recent activity.</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="bg-white rounded-lg shadow">
             <div className="px-6 py-4 border-b border-gray-200">
@@ -107,12 +111,12 @@ export function RecentTransactions() {
                                     {transaction.account}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {transaction.date.toLocaleDateString()}
+                                    {formatDate(transaction.date)}
                                 </td>
                                 <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-right ${
                                     transaction.type === 'INCOME' ? 'text-green-600' : 'text-red-600'
                                 }`}>
-                                    {transaction.type === 'INCOME' ? '+' : '-'}${transaction.amount.toLocaleString()}
+                                    {transaction.type === 'INCOME' ? '+' : '-'}{formatCurrency(transaction.amount, userCurrency)}
                                 </td>
                             </tr>
                         ))}
