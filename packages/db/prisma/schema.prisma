@@ -27,6 +27,7 @@ model User {
   incomes Income[]
   investments Investment[]
   budgetTargets BudgetTarget[]
+  debts Debt[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -142,6 +143,36 @@ model BudgetTarget {
   updatedAt DateTime @updatedAt
 }
 
+model Debt {
+  id Int @id @default(autoincrement())
+  borrowerName String
+  borrowerContact String?
+  borrowerEmail String?
+  amount Decimal
+  interestRate Decimal @default(0) // Percentage interest rate
+  dueDate DateTime?
+  lentDate DateTime @default(now())
+  status DebtStatus @default(ACTIVE)
+  purpose String?
+  notes String?
+  repayments DebtRepayment[]
+  user User @relation(fields: [userId], references: [id])
+  userId Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DebtRepayment {
+  id Int @id @default(autoincrement())
+  amount Decimal
+  repaymentDate DateTime @default(now())
+  notes String?
+  debt Debt @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  debtId Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 enum CategoryType {
   EXPENSE
   INCOME
@@ -169,4 +200,12 @@ enum BudgetPeriod {
   MONTHLY
   QUARTERLY
   YEARLY
+}
+
+enum DebtStatus {
+  ACTIVE
+  PARTIALLY_PAID
+  FULLY_PAID
+  OVERDUE
+  DEFAULTED
 }

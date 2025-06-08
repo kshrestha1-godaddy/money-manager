@@ -43,6 +43,24 @@ export function getCurrencySymbol(currencyCode: string): string {
 }
 
 export function formatCurrency(amount: number, currencyCode: string): string {
+  // Handle edge cases
+  if (!isFinite(amount) || isNaN(amount)) {
+    return `${getCurrencySymbol(currencyCode)}0.00`;
+  }
+
   const symbol = getCurrencySymbol(currencyCode);
-  return `${symbol}${amount.toLocaleString()}`;
+  
+  // Use proper currency formatting with locale-specific options
+  try {
+    const formatted = new Intl.NumberFormat('en-US', {
+      style: 'decimal',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+    
+    return `${symbol}${formatted}`;
+  } catch (error) {
+    // Fallback to basic formatting if Intl fails
+    return `${symbol}${amount.toFixed(2)}`;
+  }
 } 

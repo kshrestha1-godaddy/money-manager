@@ -1,0 +1,337 @@
+"use client";
+
+import { useState, useMemo } from "react";
+import { DebtInterface } from "../types/debts";
+import { formatDate } from "../utils/date";
+import { formatCurrency } from "../utils/currency";
+import { useCurrency } from "../providers/CurrencyProvider";
+
+type SortField = 'borrowerName' | 'amount' | 'dueDate' | 'lentDate' | 'remaining';
+type SortDirection = 'asc' | 'desc';
+
+interface DebtTableProps {
+    debts: DebtInterface[];
+    onEdit?: (debt: DebtInterface) => void;
+    onDelete?: (debt: DebtInterface) => void;
+    onViewDetails?: (debt: DebtInterface) => void;
+    onAddRepayment?: (debt: DebtInterface) => void;
+}
+
+export function DebtTable({ debts, onEdit, onDelete, onViewDetails, onAddRepayment }: DebtTableProps) {
+    const { currency: userCurrency } = useCurrency();
+    const [sortField, setSortField] = useState<SortField>('dueDate');
+    const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+    const sortedDebts = useMemo(() => {
+        const sorted = [...debts].sort((a, b) => {
+            let aValue: any;
+            let bValue: any;
+
+            switch (sortField) {
+                case 'borrowerName':
+                    aValue = a.borrowerName.toLowerCase();
+                    bValue = b.borrowerName.toLowerCase();
+                    break;
+                case 'amount':
+                    aValue = a.amount;
+                    bValue = b.amount;
+                    break;
+                case 'dueDate':
+                    // Handle null due dates by putting them at the end
+                    aValue = a.dueDate ? a.dueDate.getTime() : (sortDirection === 'asc' ? Number.MAX_SAFE_INTEGER : 0);
+                    bValue = b.dueDate ? b.dueDate.getTime() : (sortDirection === 'asc' ? Number.MAX_SAFE_INTEGER : 0);
+                    break;
+                case 'lentDate':
+                    aValue = a.lentDate.getTime();
+                    bValue = b.lentDate.getTime();
+                    break;
+                case 'remaining':
+                    const aRemaining = a.amount - (a.repayments?.reduce((sum, rep) => sum + rep.amount, 0) || 0);
+                    const bRemaining = b.amount - (b.repayments?.reduce((sum, rep) => sum + rep.amount, 0) || 0);
+                    aValue = aRemaining;
+                    bValue = bRemaining;
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (aValue < bValue) {
+                return sortDirection === 'asc' ? -1 : 1;
+            }
+            if (aValue > bValue) {
+                return sortDirection === 'asc' ? 1 : -1;
+            }
+            return 0;
+        });
+
+        return sorted;
+    }, [debts, sortField, sortDirection]);
+
+    const handleSort = (field: SortField) => {
+        if (field === sortField) {
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortDirection('asc');
+        }
+    };
+
+    const getSortIcon = (field: SortField) => {
+        if (sortField !== field) {
+            return (
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                </svg>
+            );
+        }
+        
+        if (sortDirection === 'asc') {
+            return (
+                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+            );
+        } else {
+            return (
+                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+            );
+        }
+    };
+
+    if (debts.length === 0) {
+        return (
+            <div className="bg-white rounded-lg shadow p-8 text-center">
+                <div className="text-gray-400 text-6xl mb-4">💰</div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No debts found</h3>
+                <p className="text-gray-500">Start by adding your first debt record.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-900">
+                    Debts ({sortedDebts.length})
+                </h2>
+            </div>
+            <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                        <tr>
+                            <th 
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                onClick={() => handleSort('borrowerName')}
+                            >
+                                <div className="flex items-center space-x-1">
+                                    <span>Borrower Details</span>
+                                    {getSortIcon('borrowerName')}
+                                </div>
+                            </th>
+                            <th 
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                onClick={() => handleSort('amount')}
+                            >
+                                <div className="flex items-center space-x-1">
+                                    <span>Amount & Status</span>
+                                    {getSortIcon('amount')}
+                                </div>
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Interest & Progress
+                            </th>
+                            <th 
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                onClick={() => handleSort('dueDate')}
+                            >
+                                <div className="flex items-center space-x-1">
+                                    <span>Dates</span>
+                                    {getSortIcon('dueDate')}
+                                </div>
+                            </th>
+                            <th 
+                                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                onClick={() => handleSort('remaining')}
+                            >
+                                <div className="flex items-center justify-end space-x-1">
+                                    <span>Remaining</span>
+                                    {getSortIcon('remaining')}
+                                </div>
+                            </th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Actions
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                        {sortedDebts.map((debt) => (
+                            <DebtRow 
+                                key={debt.id} 
+                                debt={debt}
+                                currency={userCurrency}
+                                onEdit={onEdit}
+                                onDelete={onDelete}
+                                onViewDetails={onViewDetails}
+                                onAddRepayment={onAddRepayment}
+                            />
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
+function DebtRow({ debt, currency, onEdit, onDelete, onViewDetails, onAddRepayment }: { 
+    debt: DebtInterface;
+    currency: string;
+    onEdit?: (debt: DebtInterface) => void;
+    onDelete?: (debt: DebtInterface) => void;
+    onViewDetails?: (debt: DebtInterface) => void;
+    onAddRepayment?: (debt: DebtInterface) => void;
+}) {
+    // Calculate remaining amount and progress
+    const totalRepayments = debt.repayments?.reduce((sum, repayment) => sum + repayment.amount, 0) || 0;
+    const remainingAmount = debt.amount - totalRepayments;
+    const progressPercentage = (totalRepayments / debt.amount) * 100;
+
+    // Check if debt is overdue
+    const isOverdue = debt.dueDate && new Date() > debt.dueDate && remainingAmount > 0;
+
+    // Get status color
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'ACTIVE':
+                return 'text-blue-600 bg-blue-50';
+            case 'PARTIALLY_PAID':
+                return 'text-yellow-600 bg-yellow-50';
+            case 'FULLY_PAID':
+                return 'text-green-600 bg-green-50';
+            case 'OVERDUE':
+                return 'text-red-600 bg-red-50';
+            case 'DEFAULTED':
+                return 'text-gray-600 bg-gray-50';
+            default:
+                return 'text-gray-600 bg-gray-50';
+        }
+    };
+
+    const handleEdit = () => {
+        if (onEdit) {
+            onEdit(debt);
+        }
+    };
+
+    const handleDelete = () => {
+        if (onDelete) {
+            onDelete(debt);
+        }
+    };
+
+    const handleViewDetails = () => {
+        if (onViewDetails) {
+            onViewDetails(debt);
+        }
+    };
+
+    const handleAddRepayment = () => {
+        if (onAddRepayment) {
+            onAddRepayment(debt);
+        }
+    };
+
+    return (
+        <tr className={`hover:bg-gray-50 ${isOverdue ? 'bg-red-25' : ''}`}>
+            <td className="px-6 py-4 whitespace-nowrap">
+                <div>
+                    <div className="text-sm font-medium text-gray-900">
+                        {debt.borrowerName}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                        {debt.purpose || 'Personal Loan'}
+                    </div>
+                    {debt.borrowerContact && (
+                        <div className="text-xs text-gray-400">{debt.borrowerContact}</div>
+                    )}
+                </div>
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap">
+                <div>
+                    <div className="text-sm font-medium text-gray-900">
+                        {formatCurrency(debt.amount, currency)}
+                    </div>
+                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(debt.status)}`}>
+                        {debt.status.replace('_', ' ')}
+                    </span>
+                </div>
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap">
+                <div>
+                    <div className="text-sm text-gray-900">{debt.interestRate}% interest</div>
+                    <div className="text-xs text-gray-500 mb-1">
+                        {progressPercentage.toFixed(1)}% repaid
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div 
+                            className="bg-green-600 h-1.5 rounded-full transition-all duration-300" 
+                            style={{ width: `${Math.min(progressPercentage, 100)}%` }}
+                        ></div>
+                    </div>
+                </div>
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap">
+                <div>
+                    <div className="text-sm text-gray-900">
+                        Lent: {formatDate(debt.lentDate)}
+                    </div>
+                    <div className={`text-sm ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                        Due: {debt.dueDate ? formatDate(debt.dueDate) : 'No due date'}
+                    </div>
+                </div>
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
+                <span className={remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}>
+                    {formatCurrency(remainingAmount, currency)}
+                </span>
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <div className="flex justify-end space-x-2">
+                    {onViewDetails && (
+                        <button 
+                            onClick={handleViewDetails}
+                            className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-800 transition-colors"
+                        >
+                            View
+                        </button>
+                    )}
+                    {onAddRepayment && remainingAmount > 0 && (
+                        <button 
+                            onClick={handleAddRepayment}
+                            className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-green-600 bg-green-50 hover:bg-green-100 hover:text-green-800 transition-colors"
+                        >
+                            Repay
+                        </button>
+                    )}
+                    {onEdit && (
+                        <button 
+                            onClick={handleEdit}
+                            className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-800 transition-colors"
+                        >
+                            Edit
+                        </button>
+                    )}
+                    {onDelete && (
+                        <button 
+                            onClick={handleDelete}
+                            className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-800 transition-colors"
+                        >
+                            Delete
+                        </button>
+                    )}
+                </div>
+            </td>
+        </tr>
+    );
+} 

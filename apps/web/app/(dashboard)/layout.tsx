@@ -5,13 +5,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="flex min-h-screen">
             <div className="flex justify-start w-64 border-r border-slate-300 min-h-screen mr-4 pt-2 flex-shrink-0">
                 <div className="flex flex-col gap-4">
+                    {/* Tracking Section */}
                     <SidebarItem href={"/dashboard"} icon={<HomeIcon />} title="Home" />
-                    <SidebarItem href={"/accounts"} icon={<AccountsIcon />} title="Accounts" />
-                    <SidebarItem href={"/expenses"} icon={<ExpensesIcon />} title="Expenses" />
                     <SidebarItem href={"/incomes"} icon={<IncomesIcon />} title="Incomes" />
+                    <SidebarItem href={"/expenses"} icon={<ExpensesIcon />} title="Expenses" />
                     <SidebarItem href={"/history"} icon={<HistoryIcon />} title="History" />
                     <SidebarItem href={"/targets"} icon={<TargetsIcon />} title="Budget Targets" />
+                    
+                    {/* Finance Section - with separator */}
+                    <SidebarItem href={"/accounts"} icon={<AccountsIcon />} title="Accounts" showSeparator={true} />
+                    <SidebarItem href={"/debts"} icon={<DebtsIcon />} title="Debts" />
                     <SidebarItem href={"/investments"} icon={<InvestmentsIcon />} title="Investments" />
+                    <SidebarItem href={"/worth"} icon={<NetWorthIcon />} title="Net Worth" />
+                    
+                    {/* Additional items */}
                     <SidebarItem href={"/learnings"} icon={<LearningsIcon />} title="Learnings" />
                 </div>
             </div>
@@ -47,6 +54,15 @@ function AccountsIcon() {
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
             <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
         </svg>
+    );
+}
+
+function DebtsIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
+        </svg>
+
     );
 }
 
@@ -108,6 +124,15 @@ function LearningsIcon() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
         </svg>
 
+
+    );
+}
+
+function NetWorthIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5" />
+        </svg>
 
     );
 }
