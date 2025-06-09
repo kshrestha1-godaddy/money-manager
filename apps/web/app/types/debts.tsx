@@ -12,6 +12,7 @@ export interface DebtInterface {
     notes?: string;
     repayments?: DebtRepaymentInterface[];
     userId: number;
+    accountId?: number; // Bank account from which the debt amount is deducted
     createdAt: Date;
     updatedAt: Date;
 }
@@ -22,6 +23,7 @@ export interface DebtRepaymentInterface {
     repaymentDate: Date;
     notes?: string;
     debtId: number;
+    accountId?: number; // Bank account where the repayment is deposited
     createdAt: Date;
     updatedAt: Date;
 } 

@@ -53,6 +53,8 @@ model Account {
   expenses Expense[]
   incomes Income[]
   investments Investment[]
+  debts Debt[]
+  debtRepayments DebtRepayment[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -156,6 +158,8 @@ model Debt {
   purpose String?
   notes String?
   repayments DebtRepayment[]
+  account Account? @relation(fields: [accountId], references: [id])
+  accountId Int?
   user User @relation(fields: [userId], references: [id])
   userId Int
   createdAt DateTime @default(now())
@@ -169,6 +173,8 @@ model DebtRepayment {
   notes String?
   debt Debt @relation(fields: [debtId], references: [id], onDelete: Cascade)
   debtId Int
+  account Account? @relation(fields: [accountId], references: [id])
+  accountId Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

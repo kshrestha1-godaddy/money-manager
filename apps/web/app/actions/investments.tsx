@@ -4,6 +4,7 @@ import prisma from "@repo/db/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../lib/auth";
 import { InvestmentInterface } from "../types/investments";
+import { revalidatePath } from "next/cache";
 
 // Helper function to get user ID from session
 function getUserIdFromSession(sessionUserId: string): number {
@@ -164,34 +165,71 @@ export async function createInvestment(investment: Omit<InvestmentInterface, 'id
         }
     }
 
-    const newInvestment = await prisma.investment.create({
-        data: {
-            ...investment,
-            userId: user.id,
-        },
-        include: {
-            account: true,
-        },
+    // Use a transaction to ensure both investment creation and account balance are updated atomically
+    const result = await prisma.$transaction(async (tx) => {
+        // Validate account balance
+        const account = await tx.account.findUnique({
+            where: { id: investment.accountId },
+            select: { balance: true, bankName: true }
+        });
+
+        if (!account) {
+            throw new Error("Selected account not found");
+        }
+
+        const totalInvestmentAmount = investment.quantity * investment.purchasePrice;
+        const currentBalance = parseFloat(account.balance.toString());
+        
+        if (currentBalance < totalInvestmentAmount) {
+            throw new Error(`Insufficient balance in ${account.bankName}. Available: ${currentBalance}, Required: ${totalInvestmentAmount}`);
+        }
+
+        // Create the investment
+        const newInvestment = await tx.investment.create({
+            data: {
+                ...investment,
+                userId: user.id,
+            },
+            include: {
+                account: true,
+            },
+        });
+
+        // Update the account balance (decrease by investment amount)
+        await tx.account.update({
+            where: { id: investment.accountId },
+            data: {
+                balance: {
+                    decrement: totalInvestmentAmount
+                }
+            }
+        });
+
+        return newInvestment;
     });
+
+    // Revalidate related pages
+    revalidatePath("/(dashboard)/investments");
+    revalidatePath("/(dashboard)/accounts");
     
     // Convert Decimal amounts to number to prevent serialization issues
     // Transform nested account data if it exists
-    const transformedAccount = newInvestment.account ? {
-        ...newInvestment.account,
-        balance: parseFloat(newInvestment.account.balance.toString()),
-        accountOpeningDate: new Date(newInvestment.account.accountOpeningDate),
-        createdAt: new Date(newInvestment.account.createdAt),
-        updatedAt: new Date(newInvestment.account.updatedAt),
-    } : newInvestment.account;
+    const transformedAccount = result.account ? {
+        ...result.account,
+        balance: parseFloat(result.account.balance.toString()),
+        accountOpeningDate: new Date(result.account.accountOpeningDate),
+        createdAt: new Date(result.account.createdAt),
+        updatedAt: new Date(result.account.updatedAt),
+    } : result.account;
     
     return {
-        ...newInvestment,
-        quantity: parseFloat(newInvestment.quantity.toString()),
-        purchasePrice: parseFloat(newInvestment.purchasePrice.toString()),
-        currentPrice: parseFloat(newInvestment.currentPrice.toString()),
-        purchaseDate: new Date(newInvestment.purchaseDate),
-        createdAt: new Date(newInvestment.createdAt),
-        updatedAt: new Date(newInvestment.updatedAt),
+        ...result,
+        quantity: parseFloat(result.quantity.toString()),
+        purchasePrice: parseFloat(result.purchasePrice.toString()),
+        currentPrice: parseFloat(result.currentPrice.toString()),
+        purchaseDate: new Date(result.purchaseDate),
+        createdAt: new Date(result.createdAt),
+        updatedAt: new Date(result.updatedAt),
         account: transformedAccount,
     } as InvestmentInterface;
 }
@@ -216,34 +254,122 @@ export async function updateInvestment(id: number, investment: Partial<Omit<Inve
         throw new Error("Investment not found or unauthorized");
     }
 
-    const updatedInvestment = await prisma.investment.update({
-        where: {
-            id: id,
-        },
-        data: investment,
-        include: {
-            account: true,
-        },
+    // Use a transaction to handle investment update and account balance changes
+    const result = await prisma.$transaction(async (tx) => {
+        // Calculate old and new investment amounts
+        const oldQuantity = parseFloat(existingInvestment.quantity.toString());
+        const oldPurchasePrice = parseFloat(existingInvestment.purchasePrice.toString());
+        const oldAmount = oldQuantity * oldPurchasePrice;
+        
+        const newQuantity = investment.quantity !== undefined ? investment.quantity : oldQuantity;
+        const newPurchasePrice = investment.purchasePrice !== undefined ? investment.purchasePrice : oldPurchasePrice;
+        const newAmount = newQuantity * newPurchasePrice;
+        
+        const oldAccountId = existingInvestment.accountId;
+        const newAccountId = investment.accountId !== undefined ? investment.accountId : oldAccountId;
+
+        // Validate account balance for changes
+        if (newAccountId) {
+            const account = await tx.account.findUnique({
+                where: { id: newAccountId },
+                select: { balance: true, bankName: true }
+            });
+
+            if (!account) {
+                throw new Error("Selected account not found");
+            }
+
+            const currentBalance = parseFloat(account.balance.toString());
+
+            // If changing to a different account, check if new account has sufficient balance for full amount
+            if (oldAccountId !== newAccountId) {
+                if (currentBalance < newAmount) {
+                    throw new Error(`Insufficient balance in ${account.bankName}. Available: ${currentBalance}, Required: ${newAmount}`);
+                }
+            }
+            // If increasing amount on same account, check if there's sufficient balance for the increase
+            else if (newAmount > oldAmount) {
+                const amountIncrease = newAmount - oldAmount;
+                if (currentBalance < amountIncrease) {
+                    throw new Error(`Insufficient balance to increase investment by ${amountIncrease} in ${account.bankName}. Available: ${currentBalance}`);
+                }
+            }
+        }
+
+        // Update the investment
+        const updatedInvestment = await tx.investment.update({
+            where: { id },
+            data: investment,
+            include: {
+                account: true,
+            },
+        });
+
+        // Handle account balance changes
+        // If amount changed and same account
+        if ((investment.quantity !== undefined || investment.purchasePrice !== undefined) && oldAccountId === newAccountId && oldAccountId) {
+            const amountDifference = newAmount - oldAmount;
+            // For investments: if amount increased, decrease balance more; if decreased, increase balance
+            await tx.account.update({
+                where: { id: oldAccountId },
+                data: {
+                    balance: {
+                        decrement: amountDifference
+                    }
+                }
+            });
+        }
+        // If account changed
+        else if (investment.accountId !== undefined && oldAccountId !== newAccountId) {
+            // Add back to old account (investment no longer from that account)
+            if (oldAccountId) {
+                await tx.account.update({
+                    where: { id: oldAccountId },
+                    data: {
+                        balance: {
+                            increment: oldAmount
+                        }
+                    }
+                });
+            }
+            // Subtract from new account
+            if (newAccountId) {
+                await tx.account.update({
+                    where: { id: newAccountId },
+                    data: {
+                        balance: {
+                            decrement: newAmount
+                        }
+                    }
+                });
+            }
+        }
+
+        return updatedInvestment;
     });
+
+    // Revalidate related pages
+    revalidatePath("/(dashboard)/investments");
+    revalidatePath("/(dashboard)/accounts");
     
     // Convert Decimal amounts to number to prevent serialization issues
     // Transform nested account data if it exists
-    const transformedAccount = updatedInvestment.account ? {
-        ...updatedInvestment.account,
-        balance: parseFloat(updatedInvestment.account.balance.toString()),
-        accountOpeningDate: new Date(updatedInvestment.account.accountOpeningDate),
-        createdAt: new Date(updatedInvestment.account.createdAt),
-        updatedAt: new Date(updatedInvestment.account.updatedAt),
-    } : updatedInvestment.account;
+    const transformedAccount = result.account ? {
+        ...result.account,
+        balance: parseFloat(result.account.balance.toString()),
+        accountOpeningDate: new Date(result.account.accountOpeningDate),
+        createdAt: new Date(result.account.createdAt),
+        updatedAt: new Date(result.account.updatedAt),
+    } : result.account;
     
     return {
-        ...updatedInvestment,
-        quantity: parseFloat(updatedInvestment.quantity.toString()),
-        purchasePrice: parseFloat(updatedInvestment.purchasePrice.toString()),
-        currentPrice: parseFloat(updatedInvestment.currentPrice.toString()),
-        purchaseDate: new Date(updatedInvestment.purchaseDate),
-        createdAt: new Date(updatedInvestment.createdAt),
-        updatedAt: new Date(updatedInvestment.updatedAt),
+        ...result,
+        quantity: parseFloat(result.quantity.toString()),
+        purchasePrice: parseFloat(result.purchasePrice.toString()),
+        currentPrice: parseFloat(result.currentPrice.toString()),
+        purchaseDate: new Date(result.purchaseDate),
+        createdAt: new Date(result.createdAt),
+        updatedAt: new Date(result.updatedAt),
         account: transformedAccount,
     } as InvestmentInterface;
 }
@@ -268,11 +394,32 @@ export async function deleteInvestment(id: number) {
         throw new Error("Investment not found or unauthorized");
     }
 
-    await prisma.investment.delete({
-        where: {
-            id: id,
-        },
+    // Use a transaction to ensure both investment deletion and account balance update
+    await prisma.$transaction(async (tx) => {
+        // Calculate investment amount to return to account
+        const quantity = parseFloat(existingInvestment.quantity.toString());
+        const purchasePrice = parseFloat(existingInvestment.purchasePrice.toString());
+        const investmentAmount = quantity * purchasePrice;
+
+        // Delete the investment
+        await tx.investment.delete({
+            where: { id }
+        });
+
+        // Update the account balance (increase by investment amount since investment is removed)
+        await tx.account.update({
+            where: { id: existingInvestment.accountId },
+            data: {
+                balance: {
+                    increment: investmentAmount
+                }
+            }
+        });
     });
+
+    // Revalidate related pages
+    revalidatePath("/(dashboard)/investments");
+    revalidatePath("/(dashboard)/accounts");
 }
 
 export async function getUserAccounts(): Promise<{ data?: any[], error?: string }> {

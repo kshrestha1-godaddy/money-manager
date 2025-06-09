@@ -70,44 +70,63 @@ export async function createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'up
 
         const userId = getUserIdFromSession(session.user.id);
 
-        const expense = await prisma.expense.create({
-            data: {
-                title: data.title,
-                description: data.description,
-                amount: data.amount,
-                date: data.date,
-                categoryId: data.categoryId,
-                accountId: data.accountId,
-                userId: userId,
-                tags: data.tags,
-                receipt: data.receipt,
-                notes: data.notes,
-                isRecurring: data.isRecurring,
-                recurringFrequency: data.recurringFrequency
-            },
-            include: {
-                category: true,
-                account: true,
-                user: true
+        // Use a transaction to ensure both expense and account balance are updated atomically
+        const result = await prisma.$transaction(async (tx) => {
+            // Create the expense
+            const expense = await tx.expense.create({
+                data: {
+                    title: data.title,
+                    description: data.description,
+                    amount: data.amount,
+                    date: data.date,
+                    categoryId: data.categoryId,
+                    accountId: data.accountId,
+                    userId: userId,
+                    tags: data.tags,
+                    receipt: data.receipt,
+                    notes: data.notes,
+                    isRecurring: data.isRecurring,
+                    recurringFrequency: data.recurringFrequency
+                },
+                include: {
+                    category: true,
+                    account: true,
+                    user: true
+                }
+            });
+
+            // Update the account balance (decrease by expense amount)
+            if (data.accountId) {
+                await tx.account.update({
+                    where: { id: data.accountId },
+                    data: {
+                        balance: {
+                            decrement: data.amount
+                        }
+                    }
+                });
             }
+
+            return expense;
         });
 
         revalidatePath("/(dashboard)/expenses");
+        revalidatePath("/(dashboard)/accounts");
 
         // Transform Prisma result to match our Expense type
         return {
-            ...expense,
-            amount: parseFloat(expense.amount.toString()),
-            date: new Date(expense.date),
-            createdAt: new Date(expense.createdAt),
-            updatedAt: new Date(expense.updatedAt),
+            ...result,
+            amount: parseFloat(result.amount.toString()),
+            date: new Date(result.date),
+            createdAt: new Date(result.createdAt),
+            updatedAt: new Date(result.updatedAt),
             // Convert account balance from Decimal to number
-            account: expense.account ? {
-                ...expense.account,
-                balance: parseFloat(expense.account.balance.toString()),
-                accountOpeningDate: new Date(expense.account.accountOpeningDate),
-                createdAt: new Date(expense.account.createdAt),
-                updatedAt: new Date(expense.account.updatedAt)
+            account: result.account ? {
+                ...result.account,
+                balance: parseFloat((result.account.balance.toNumber() - data.amount).toString()),
+                accountOpeningDate: new Date(result.account.accountOpeningDate),
+                createdAt: new Date(result.account.createdAt),
+                updatedAt: new Date(result.account.updatedAt)
             } : null
         } as Expense;
     } catch (error) {
@@ -151,31 +170,83 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
         if (data.isRecurring !== undefined) updateData.isRecurring = data.isRecurring;
         if (data.recurringFrequency !== undefined) updateData.recurringFrequency = data.recurringFrequency;
 
-        const expense = await prisma.expense.update({
-            where: { id },
-            data: updateData,
-            include: {
-                category: true,
-                account: true,
-                user: true
+        // Use a transaction to handle expense update and account balance changes
+        const result = await prisma.$transaction(async (tx) => {
+            // Update the expense
+            const expense = await tx.expense.update({
+                where: { id },
+                data: updateData,
+                include: {
+                    category: true,
+                    account: true,
+                    user: true
+                }
+            });
+
+            // Handle account balance changes
+            const oldAmount = parseFloat(existingExpense.amount.toString());
+            const newAmount = data.amount !== undefined ? data.amount : oldAmount;
+            const oldAccountId = existingExpense.accountId;
+            const newAccountId = data.accountId !== undefined ? data.accountId : oldAccountId;
+
+            // If amount changed and same account
+            if (data.amount !== undefined && oldAccountId === newAccountId && oldAccountId) {
+                const amountDifference = newAmount - oldAmount;
+                // For expenses: if amount increased, decrease balance more; if decreased, increase balance
+                await tx.account.update({
+                    where: { id: oldAccountId },
+                    data: {
+                        balance: {
+                            decrement: amountDifference
+                        }
+                    }
+                });
             }
+            // If account changed
+            else if (data.accountId !== undefined && oldAccountId !== newAccountId) {
+                // Add back to old account (expense no longer from that account)
+                if (oldAccountId) {
+                    await tx.account.update({
+                        where: { id: oldAccountId },
+                        data: {
+                            balance: {
+                                increment: oldAmount
+                            }
+                        }
+                    });
+                }
+                // Subtract from new account
+                if (newAccountId) {
+                    await tx.account.update({
+                        where: { id: newAccountId },
+                        data: {
+                            balance: {
+                                decrement: newAmount
+                            }
+                        }
+                    });
+                }
+            }
+
+            return expense;
         });
 
         revalidatePath("/(dashboard)/expenses");
+        revalidatePath("/(dashboard)/accounts");
 
         return {
-            ...expense,
-            amount: parseFloat(expense.amount.toString()),
-            date: new Date(expense.date),
-            createdAt: new Date(expense.createdAt),
-            updatedAt: new Date(expense.updatedAt),
+            ...result,
+            amount: parseFloat(result.amount.toString()),
+            date: new Date(result.date),
+            createdAt: new Date(result.createdAt),
+            updatedAt: new Date(result.updatedAt),
             // Convert account balance from Decimal to number
-            account: expense.account ? {
-                ...expense.account,
-                balance: parseFloat(expense.account.balance.toString()),
-                accountOpeningDate: new Date(expense.account.accountOpeningDate),
-                createdAt: new Date(expense.account.createdAt),
-                updatedAt: new Date(expense.account.updatedAt)
+            account: result.account ? {
+                ...result.account,
+                balance: parseFloat(result.account.balance.toString()),
+                accountOpeningDate: new Date(result.account.accountOpeningDate),
+                createdAt: new Date(result.account.createdAt),
+                updatedAt: new Date(result.account.updatedAt)
             } : null
         } as Expense;
     } catch (error) {
@@ -205,11 +276,28 @@ export async function deleteExpense(id: number) {
             throw new Error("Expense not found or unauthorized");
         }
 
-        await prisma.expense.delete({
-            where: { id }
+        // Use a transaction to ensure both expense deletion and account balance update
+        await prisma.$transaction(async (tx) => {
+            // Delete the expense
+            await tx.expense.delete({
+                where: { id }
+            });
+
+            // Update the account balance (increase by expense amount since expense is removed)
+            if (existingExpense.accountId) {
+                await tx.account.update({
+                    where: { id: existingExpense.accountId },
+                    data: {
+                        balance: {
+                            increment: parseFloat(existingExpense.amount.toString())
+                        }
+                    }
+                });
+            }
         });
 
         revalidatePath("/(dashboard)/expenses");
+        revalidatePath("/(dashboard)/accounts");
         return { success: true };
     } catch (error) {
         console.error("Error deleting expense:", error);

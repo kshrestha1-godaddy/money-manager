@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { Button } from "@repo/ui/button";
 import { InvestmentInterface } from "../types/investments";
 import { getUserAccounts } from "../actions/investments";
+import { formatCurrency } from "../utils/currency";
+import { useCurrency } from "../providers/CurrencyProvider";
 
 interface AddInvestmentModalProps {
     isOpen: boolean;
@@ -16,9 +18,12 @@ interface Account {
     holderName: string;
     bankName: string;
     accountNumber: string;
+    balance: number;
 }
 
 export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModalProps) {
+    const { currency: userCurrency } = useCurrency();
+    
     const [formData, setFormData] = useState({
         name: "",
         type: "STOCKS" as const,
@@ -80,6 +85,17 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
             if (!formData.accountId) {
                 setError("Please select an account");
                 return;
+            }
+
+            // Validate account balance for investment amount
+            const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
+            const totalInvestmentAmount = parseFloat(formData.quantity) * parseFloat(formData.purchasePrice);
+            
+            if (selectedAccount && selectedAccount.balance !== undefined) {
+                if (totalInvestmentAmount > selectedAccount.balance) {
+                    setError(`Insufficient balance. Investment total of ${formatCurrency(totalInvestmentAmount, userCurrency)} exceeds account balance of ${formatCurrency(selectedAccount.balance, userCurrency)}.`);
+                    return;
+                }
             }
 
             const investmentData = {
@@ -269,7 +285,18 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
 
                     <div>
                         <label htmlFor="accountId" className="block text-sm font-medium text-gray-700 mb-1">
-                            Account *
+                            Account * {formData.accountId && (() => {
+                                const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
+                                const totalAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice || "0");
+                                if (selectedAccount && totalAmount > 0) {
+                                    return (
+                                        <span className="text-sm text-gray-500">
+                                            (Investment: {formatCurrency(totalAmount, userCurrency)})
+                                        </span>
+                                    );
+                                }
+                                return null;
+                            })()}
                         </label>
                         <select
                             id="accountId"
@@ -281,10 +308,22 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                             <option value="">Select an account</option>
                             {accounts.map(account => (
                                 <option key={account.id} value={account.id}>
-                                    {account.bankName} - {account.accountNumber}
+                                    {account.bankName} - {account.accountNumber} ({formatCurrency(account.balance, userCurrency)})
                                 </option>
                             ))}
                         </select>
+                        {formData.accountId && formData.quantity && formData.purchasePrice && (() => {
+                            const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
+                            const totalAmount = parseFloat(formData.quantity) * parseFloat(formData.purchasePrice);
+                            if (selectedAccount && selectedAccount.balance !== undefined && totalAmount > selectedAccount.balance) {
+                                return (
+                                    <p className="text-sm text-red-600 mt-1">
+                                        Insufficient balance. Available: {formatCurrency(selectedAccount.balance, userCurrency)}
+                                    </p>
+                                );
+                            }
+                            return null;
+                        })()}
                     </div>
 
                     <div>
@@ -312,8 +351,26 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                         </button>
                         <button
                             type="submit"
-                            disabled={loading}
-                            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md disabled:opacity-50"
+                            disabled={loading || (() => {
+                                if (formData.accountId && formData.quantity && formData.purchasePrice) {
+                                    const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
+                                    const totalAmount = parseFloat(formData.quantity) * parseFloat(formData.purchasePrice);
+                                    return selectedAccount && selectedAccount.balance !== undefined && totalAmount > selectedAccount.balance;
+                                }
+                                return false;
+                            })()}
+                            className={`flex-1 px-4 py-2 rounded-md disabled:opacity-50 ${
+                                (() => {
+                                    if (formData.accountId && formData.quantity && formData.purchasePrice) {
+                                        const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
+                                        const totalAmount = parseFloat(formData.quantity) * parseFloat(formData.purchasePrice);
+                                        if (selectedAccount && selectedAccount.balance !== undefined && totalAmount > selectedAccount.balance) {
+                                            return 'bg-gray-400 text-white cursor-not-allowed';
+                                        }
+                                    }
+                                    return 'bg-blue-600 hover:bg-blue-700 text-white';
+                                })()
+                            }`}
                         >
                             {loading ? "Adding..." : "Add Investment"}
                         </button>

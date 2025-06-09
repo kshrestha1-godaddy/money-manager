@@ -3,6 +3,10 @@
 import { useState, useEffect } from "react";
 import { Button } from "@repo/ui/button";
 import { DebtInterface } from "../types/debts";
+import { AccountInterface } from "../types/accounts";
+import { getUserAccounts } from "../actions/accounts";
+import { formatCurrency } from "../utils/currency";
+import { useCurrency } from "../providers/CurrencyProvider";
 
 interface EditDebtModalProps {
     isOpen: boolean;
@@ -12,6 +16,8 @@ interface EditDebtModalProps {
 }
 
 export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalProps) {
+    const { currency: userCurrency } = useCurrency();
+    
     const [formData, setFormData] = useState({
         borrowerName: "",
         borrowerContact: "",
@@ -23,7 +29,35 @@ export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalPr
         status: "ACTIVE" as 'ACTIVE' | 'PARTIALLY_PAID' | 'FULLY_PAID' | 'OVERDUE' | 'DEFAULTED',
         purpose: "",
         notes: "",
+        accountId: "",
     });
+
+    const [accounts, setAccounts] = useState<AccountInterface[]>([]);
+    const [loadingAccounts, setLoadingAccounts] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            loadAccounts();
+        }
+    }, [isOpen]);
+
+    const loadAccounts = async () => {
+        try {
+            setLoadingAccounts(true);
+            const userAccounts = await getUserAccounts();
+            if (userAccounts && !('error' in userAccounts)) {
+                setAccounts(userAccounts);
+            } else {
+                console.error("Error loading accounts:", userAccounts?.error);
+                setAccounts([]);
+            }
+        } catch (error) {
+            console.error("Error loading accounts:", error);
+            setAccounts([]);
+        } finally {
+            setLoadingAccounts(false);
+        }
+    };
 
     useEffect(() => {
         if (debt) {
@@ -40,6 +74,7 @@ export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalPr
                 status: debt.status as 'ACTIVE' | 'PARTIALLY_PAID' | 'FULLY_PAID' | 'OVERDUE' | 'DEFAULTED',
                 purpose: debt.purpose || "",
                 notes: debt.notes || "",
+                accountId: debt.accountId?.toString() || "",
             });
         }
     }, [debt]);
@@ -47,6 +82,26 @@ export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalPr
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!debt) return;
+
+        // Validate account balance if account is selected and amount is changing
+        if (formData.accountId) {
+            const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
+            if (selectedAccount && selectedAccount.balance !== undefined) {
+                // If changing to a different account, check if the new account has sufficient balance
+                if (parseInt(formData.accountId) !== debt.accountId && formData.amount > selectedAccount.balance) {
+                    alert(`Cannot move debt of ${formatCurrency(formData.amount, userCurrency)} to this account. Account balance is only ${formatCurrency(selectedAccount.balance, userCurrency)}.`);
+                    return;
+                }
+                // If increasing the amount on the same account, check if there's sufficient balance for the increase
+                if (parseInt(formData.accountId) === debt.accountId && formData.amount > debt.amount) {
+                    const amountIncrease = formData.amount - debt.amount;
+                    if (amountIncrease > selectedAccount.balance) {
+                        alert(`Cannot increase debt by ${formatCurrency(amountIncrease, userCurrency)}. Account balance is only ${formatCurrency(selectedAccount.balance, userCurrency)}.`);
+                        return;
+                    }
+                }
+            }
+        }
         
         const processedData = {
             borrowerName: formData.borrowerName,
@@ -59,6 +114,7 @@ export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalPr
             status: formData.status,
             purpose: formData.purpose || undefined,
             notes: formData.notes || undefined,
+            accountId: formData.accountId ? parseInt(formData.accountId) : undefined,
         };
 
         onEdit(debt.id, processedData);
@@ -112,6 +168,31 @@ export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalPr
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 required
                             />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Bank Account
+                            </label>
+                            <select
+                                value={formData.accountId}
+                                onChange={(e) => setFormData(prev => ({ ...prev, accountId: e.target.value }))}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                disabled={loadingAccounts}
+                            >
+                                <option value="">Select account (optional)</option>
+                                {accounts.map((account) => (
+                                    <option key={account.id} value={account.id}>
+                                        {account.bankName} - {account.accountNumber} ({account.balance !== undefined ? `Balance: ${formatCurrency(account.balance, userCurrency)}` : 'No balance info'})
+                                    </option>
+                                ))}
+                            </select>
+                            {loadingAccounts && (
+                                <p className="text-sm text-gray-500 mt-1">Loading accounts...</p>
+                            )}
+                            <p className="text-sm text-gray-500 mt-1">
+                                Changing the account will adjust balances accordingly
+                            </p>
                         </div>
 
                         <div>

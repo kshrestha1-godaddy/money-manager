@@ -14,6 +14,7 @@ import { AddRepaymentModal } from "../../components/AddRepaymentModal";
 import { getUserDebts, createDebt, updateDebt, deleteDebt } from "../../actions/debts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
+import { calculateRemainingWithInterest } from "../../utils/interestCalculation";
 
 export default function Debts() {
     const [debts, setDebts] = useState<DebtInterface[]>([]);
@@ -188,12 +189,24 @@ export default function Debts() {
         const repaid = debt.repayments?.reduce((repSum, rep) => repSum + rep.amount, 0) || 0;
         return sum + repaid;
     }, 0);
-    const totalRemainingAmount = totalLentAmount - totalRepaidAmount;
+    
+    // Calculate totals including interest
+    const totalWithInterest = debts.reduce((sum, debt) => {
+        const calc = calculateRemainingWithInterest(debt.amount, debt.interestRate, debt.lentDate, debt.dueDate, debt.repayments || []);
+        return sum + calc.totalWithInterest;
+    }, 0);
+    
+    const totalRemainingAmount = debts.reduce((sum, debt) => {
+        const calc = calculateRemainingWithInterest(debt.amount, debt.interestRate, debt.lentDate, debt.dueDate, debt.repayments || []);
+        return sum + calc.remainingAmount;
+    }, 0);
+    
+    const totalInterestAmount = totalWithInterest - totalLentAmount;
+    
     const activeDebts = debts.filter(debt => debt.status === 'ACTIVE' || debt.status === 'PARTIALLY_PAID').length;
     const overdueDebts = debts.filter(debt => {
-        const totalRepayments = debt.repayments?.reduce((sum, rep) => sum + rep.amount, 0) || 0;
-        const remainingAmount = debt.amount - totalRepayments;
-        return debt.dueDate && new Date() > debt.dueDate && remainingAmount > 0;
+        const calc = calculateRemainingWithInterest(debt.amount, debt.interestRate, debt.lentDate, debt.dueDate, debt.repayments || []);
+        return debt.dueDate && new Date() > debt.dueDate && calc.remainingAmount > 0;
     }).length;
 
     if (loading) {
@@ -273,7 +286,7 @@ export default function Debts() {
             {/* Summary Cards */}
             {debts.length > 0 && (
                 <div className="bg-white rounded-lg shadow p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-6">
                         <div>
                             <p className="text-sm font-medium text-gray-600">Total Debts</p>
                             <p className="text-2xl font-bold text-blue-600">{debts.length}</p>
@@ -287,13 +300,19 @@ export default function Debts() {
                             <p className="text-2xl font-bold text-red-600">{overdueDebts}</p>
                         </div>
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Total Lent</p>
+                            <p className="text-sm font-medium text-gray-600">Principal Lent</p>
                             <p className="text-2xl font-bold text-purple-600">
                                 {formatCurrency(totalLentAmount, userCurrency)}
                             </p>
                         </div>
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Repaid</p>
+                            <p className="text-sm font-medium text-gray-600">Interest Accrued</p>
+                            <p className="text-2xl font-bold text-orange-600">
+                                {formatCurrency(totalInterestAmount, userCurrency)}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-600">Total Repaid</p>
                             <p className="text-2xl font-bold text-green-600">
                                 {formatCurrency(totalRepaidAmount, userCurrency)}
                             </p>
@@ -303,6 +322,7 @@ export default function Debts() {
                             <p className="text-2xl font-bold text-red-600">
                                 {formatCurrency(totalRemainingAmount, userCurrency)}
                             </p>
+                            <p className="text-xs text-gray-500">with interest</p>
                         </div>
                     </div>
                 </div>

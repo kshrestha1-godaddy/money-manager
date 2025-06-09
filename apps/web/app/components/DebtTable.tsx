@@ -5,6 +5,7 @@ import { DebtInterface } from "../types/debts";
 import { formatDate } from "../utils/date";
 import { formatCurrency } from "../utils/currency";
 import { useCurrency } from "../providers/CurrencyProvider";
+import { calculateInterest, calculateRemainingWithInterest } from "../utils/interestCalculation";
 
 type SortField = 'borrowerName' | 'amount' | 'dueDate' | 'lentDate' | 'remaining';
 type SortDirection = 'asc' | 'desc';
@@ -46,10 +47,10 @@ export function DebtTable({ debts, onEdit, onDelete, onViewDetails, onAddRepayme
                     bValue = b.lentDate.getTime();
                     break;
                 case 'remaining':
-                    const aRemaining = a.amount - (a.repayments?.reduce((sum, rep) => sum + rep.amount, 0) || 0);
-                    const bRemaining = b.amount - (b.repayments?.reduce((sum, rep) => sum + rep.amount, 0) || 0);
-                    aValue = aRemaining;
-                    bValue = bRemaining;
+                    const aRemainingCalc = calculateRemainingWithInterest(a.amount, a.interestRate, a.lentDate, a.dueDate, a.repayments || []);
+                    const bRemainingCalc = calculateRemainingWithInterest(b.amount, b.interestRate, b.lentDate, b.dueDate, b.repayments || []);
+                    aValue = aRemainingCalc.remainingAmount;
+                    bValue = bRemainingCalc.remainingAmount;
                     break;
                 default:
                     return 0;
@@ -192,13 +193,21 @@ function DebtRow({ debt, currency, onEdit, onDelete, onViewDetails, onAddRepayme
     onViewDetails?: (debt: DebtInterface) => void;
     onAddRepayment?: (debt: DebtInterface) => void;
 }) {
-    // Calculate remaining amount and progress
+    // Calculate interest and remaining amounts
+    const interestCalc = calculateInterest(debt.amount, debt.interestRate, debt.lentDate, debt.dueDate);
+    const remainingCalc = calculateRemainingWithInterest(
+        debt.amount, 
+        debt.interestRate, 
+        debt.lentDate, 
+        debt.dueDate, 
+        debt.repayments || []
+    );
+    
     const totalRepayments = debt.repayments?.reduce((sum, repayment) => sum + repayment.amount, 0) || 0;
-    const remainingAmount = debt.amount - totalRepayments;
-    const progressPercentage = (totalRepayments / debt.amount) * 100;
+    const progressPercentage = (totalRepayments / remainingCalc.totalWithInterest) * 100;
 
     // Check if debt is overdue
-    const isOverdue = debt.dueDate && new Date() > debt.dueDate && remainingAmount > 0;
+    const isOverdue = debt.dueDate && new Date() > debt.dueDate && remainingCalc.remainingAmount > 0;
 
     // Get status color
     const getStatusColor = (status: string) => {
@@ -262,14 +271,36 @@ function DebtRow({ debt, currency, onEdit, onDelete, onViewDetails, onAddRepayme
                     <div className="text-sm font-medium text-gray-900">
                         {formatCurrency(debt.amount, currency)}
                     </div>
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(debt.status)}`}>
+                    {interestCalc.interestAmount > 0 && (
+                        <div className="text-xs text-gray-600">
+                            + {formatCurrency(interestCalc.interestAmount, currency)} total interest
+                        </div>
+                    )}
+                    {interestCalc.interestAmount > 0 && (
+                        <div className="text-xs font-medium text-blue-600">
+                            = {formatCurrency(interestCalc.totalAmountWithInterest, currency)} total
+                        </div>
+                    )}
+                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(debt.status)} mt-1`}>
                         {debt.status.replace('_', ' ')}
                     </span>
                 </div>
             </td>
             <td className="px-6 py-4 whitespace-nowrap">
                 <div>
-                    <div className="text-sm text-gray-900">{debt.interestRate}% interest</div>
+                    <div className="text-sm text-gray-900">
+                        {debt.interestRate}% interest
+                        {interestCalc.interestAmount > 0 && (
+                            <span className="text-xs text-gray-500 ml-1">
+                                ({interestCalc.daysElapsed} days)
+                            </span>
+                        )}
+                    </div>
+                    {interestCalc.interestAmount > 0 && (
+                        <div className="text-xs text-orange-600 font-medium">
+                            Total Interest: {formatCurrency(interestCalc.interestAmount, currency)}
+                        </div>
+                    )}
                     <div className="text-xs text-gray-500 mb-1">
                         {progressPercentage.toFixed(1)}% repaid
                     </div>
@@ -289,11 +320,16 @@ function DebtRow({ debt, currency, onEdit, onDelete, onViewDetails, onAddRepayme
                     <div className={`text-sm ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
                         Due: {debt.dueDate ? formatDate(debt.dueDate) : 'No due date'}
                     </div>
+                    {debt.dueDate && (
+                        <div className="text-xs text-gray-500 mt-1">
+                            {interestCalc.daysTotal} days total
+                        </div>
+                    )}
                 </div>
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
-                <span className={remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}>
-                    {formatCurrency(remainingAmount, currency)}
+                <span className={remainingCalc.remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}>
+                    {formatCurrency(remainingCalc.remainingAmount, currency)}
                 </span>
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -306,7 +342,7 @@ function DebtRow({ debt, currency, onEdit, onDelete, onViewDetails, onAddRepayme
                             View
                         </button>
                     )}
-                    {onAddRepayment && remainingAmount > 0 && (
+                    {onAddRepayment && remainingCalc.remainingAmount > 0 && (
                         <button 
                             onClick={handleAddRepayment}
                             className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-green-600 bg-green-50 hover:bg-green-100 hover:text-green-800 transition-colors"

@@ -204,28 +204,25 @@ export function InvestmentTable({ investments, onEdit, onDelete, onViewDetails }
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         {new Date(investment.purchaseDate).toLocaleDateString()}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        <div className="flex space-x-2">
-                                            <button
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <div className="flex justify-end space-x-2">
+                                            <button 
                                                 onClick={() => onViewDetails(investment)}
-                                                className="text-blue-600 hover:text-blue-900 text-xs"
-                                                title="View Details"
+                                                className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-800 transition-colors"
                                             >
-                                                👁️
+                                                View
                                             </button>
-                                            <button
+                                            <button 
                                                 onClick={() => onEdit(investment)}
-                                                className="text-indigo-600 hover:text-indigo-900 text-xs"
-                                                title="Edit"
+                                                className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-800 transition-colors"
                                             >
-                                                ✏️
+                                                Edit
                                             </button>
-                                            <button
+                                            <button 
                                                 onClick={() => onDelete(investment)}
-                                                className="text-red-600 hover:text-red-900 text-xs"
-                                                title="Delete"
+                                                className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-800 transition-colors"
                                             >
-                                                🗑️
+                                                Delete
                                             </button>
                                         </div>
                                     </td>

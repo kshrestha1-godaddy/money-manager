@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DebtInterface } from "../types/debts";
+import { AccountInterface } from "../types/accounts";
 import { formatCurrency } from "../utils/currency";
 import { useCurrency } from "../providers/CurrencyProvider";
 import { addRepayment } from "../actions/debts";
+import { getUserAccounts } from "../actions/accounts";
 
 interface AddRepaymentModalProps {
     debt: DebtInterface | null;
@@ -22,7 +24,35 @@ export function AddRepaymentModal({ debt, isOpen, onClose, onSuccess }: AddRepay
         amount: "",
         repaymentDate: new Date().toISOString().split('T')[0], // Today's date
         notes: "",
+        accountId: "",
     });
+
+    const [accounts, setAccounts] = useState<AccountInterface[]>([]);
+    const [loadingAccounts, setLoadingAccounts] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            loadAccounts();
+        }
+    }, [isOpen]);
+
+    const loadAccounts = async () => {
+        try {
+            setLoadingAccounts(true);
+            const userAccounts = await getUserAccounts();
+            if (userAccounts && !('error' in userAccounts)) {
+                setAccounts(userAccounts);
+            } else {
+                console.error("Error loading accounts:", userAccounts?.error);
+                setAccounts([]);
+            }
+        } catch (error) {
+            console.error("Error loading accounts:", error);
+            setAccounts([]);
+        } finally {
+            setLoadingAccounts(false);
+        }
+    };
 
     if (!isOpen || !debt) return null;
 
@@ -69,11 +99,16 @@ export function AddRepaymentModal({ debt, isOpen, onClose, onSuccess }: AddRepay
                 throw new Error("Please select a repayment date");
             }
 
+            if (!formData.accountId) {
+                throw new Error("Please select an account to receive the repayment");
+            }
+
             // Call the addRepayment action
             await addRepayment(
                 debt.id, 
                 amount, 
-                formData.notes || undefined
+                formData.notes || undefined,
+                formData.accountId ? parseInt(formData.accountId) : undefined
             );
 
             // Reset form
@@ -81,6 +116,7 @@ export function AddRepaymentModal({ debt, isOpen, onClose, onSuccess }: AddRepay
                 amount: "",
                 repaymentDate: new Date().toISOString().split('T')[0],
                 notes: "",
+                accountId: "",
             });
 
             onSuccess?.();
@@ -194,6 +230,37 @@ export function AddRepaymentModal({ debt, isOpen, onClose, onSuccess }: AddRepay
                             />
                         </div>
 
+                        {/* Bank Account Selection */}
+                        <div>
+                            <label htmlFor="accountId" className="block text-sm font-medium text-gray-700 mb-1">
+                                Deposit to Account *
+                            </label>
+                            <select
+                                id="accountId"
+                                value={formData.accountId}
+                                onChange={(e) => setFormData(prev => ({ ...prev, accountId: e.target.value }))}
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                disabled={loadingAccounts}
+                                required
+                            >
+                                <option value="">Select account to receive repayment</option>
+                                {accounts.map((account) => {
+                                    const isOriginalAccount = debt.accountId === account.id;
+                                    return (
+                                        <option key={account.id} value={account.id}>
+                                            {account.bankName} - {account.accountNumber} ({account.balance !== undefined ? `Balance: ${formatCurrency(account.balance, userCurrency)}` : 'No balance info'}){isOriginalAccount ? ' - Original Account' : ''}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                            {loadingAccounts && (
+                                <p className="text-sm text-gray-500 mt-1">Loading accounts...</p>
+                            )}
+                            <p className="text-sm text-gray-500 mt-1">
+                                Choose which account should receive this repayment
+                            </p>
+                        </div>
+
                         {/* Notes */}
                         <div>
                             <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
@@ -255,7 +322,7 @@ export function AddRepaymentModal({ debt, isOpen, onClose, onSuccess }: AddRepay
                             <div>
                                 <p className="text-sm text-blue-700 font-medium">Repayment Info</p>
                                 <p className="text-xs text-blue-600 mt-1">
-                                    This will be recorded as a payment from {debt.borrowerName}. The debt status will be automatically updated based on the remaining balance.
+                                    This will be recorded as a payment from {debt.borrowerName}. The repayment amount will be added to the selected account's balance, and the debt status will be automatically updated.
                                 </p>
                             </div>
                         </div>

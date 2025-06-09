@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { InvestmentInterface } from "../types/investments";
 import { getUserAccounts } from "../actions/investments";
+import { formatCurrency } from "../utils/currency";
+import { useCurrency } from "../providers/CurrencyProvider";
 
 interface EditInvestmentModalProps {
     investment: InvestmentInterface | null;
@@ -16,9 +18,12 @@ interface Account {
     holderName: string;
     bankName: string;
     accountNumber: string;
+    balance: number;
 }
 
 export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: EditInvestmentModalProps) {
+    const { currency: userCurrency } = useCurrency();
+    
     const [formData, setFormData] = useState({
         name: "",
         type: "STOCKS",
@@ -99,6 +104,27 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
             if (!formData.accountId) {
                 setError("Please select an account");
                 return;
+            }
+
+            // Validate account balance for investment changes
+            const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
+            const newTotalAmount = parseFloat(formData.quantity) * parseFloat(formData.purchasePrice);
+            const oldTotalAmount = investment.quantity * investment.purchasePrice;
+            
+            if (selectedAccount && selectedAccount.balance !== undefined) {
+                // If changing to a different account, check if the new account has sufficient balance
+                if (parseInt(formData.accountId) !== investment.accountId && newTotalAmount > selectedAccount.balance) {
+                    setError(`Cannot move investment of ${formatCurrency(newTotalAmount, userCurrency)} to this account. Account balance is only ${formatCurrency(selectedAccount.balance, userCurrency)}.`);
+                    return;
+                }
+                // If increasing the amount on the same account, check if there's sufficient balance for the increase
+                if (parseInt(formData.accountId) === investment.accountId && newTotalAmount > oldTotalAmount) {
+                    const amountIncrease = newTotalAmount - oldTotalAmount;
+                    if (amountIncrease > selectedAccount.balance) {
+                        setError(`Cannot increase investment by ${formatCurrency(amountIncrease, userCurrency)}. Account balance is only ${formatCurrency(selectedAccount.balance, userCurrency)}.`);
+                        return;
+                    }
+                }
             }
 
             const investmentData = {

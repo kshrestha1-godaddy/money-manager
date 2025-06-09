@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@repo/ui/button";
 import { DebtInterface } from "../types/debts";
+import { AccountInterface } from "../types/accounts";
+import { getUserAccounts } from "../actions/accounts";
+import { formatCurrency } from "../utils/currency";
+import { useCurrency } from "../providers/CurrencyProvider";
 
 interface AddDebtModalProps {
     isOpen: boolean;
@@ -11,6 +15,8 @@ interface AddDebtModalProps {
 }
 
 export function AddDebtModal({ isOpen, onClose, onAdd }: AddDebtModalProps) {
+    const { currency: userCurrency } = useCurrency();
+    
     const [formData, setFormData] = useState({
         borrowerName: "",
         borrowerContact: "",
@@ -22,11 +28,56 @@ export function AddDebtModal({ isOpen, onClose, onAdd }: AddDebtModalProps) {
         status: "ACTIVE" as const,
         purpose: "",
         notes: "",
+        accountId: "",
     });
+
+    const [accounts, setAccounts] = useState<AccountInterface[]>([]);
+    const [loadingAccounts, setLoadingAccounts] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            loadAccounts();
+        }
+    }, [isOpen]);
+
+    const loadAccounts = async () => {
+        try {
+            setLoadingAccounts(true);
+            const userAccounts = await getUserAccounts();
+            if (userAccounts && !('error' in userAccounts)) {
+                setAccounts(userAccounts);
+            } else {
+                console.error("Error loading accounts:", userAccounts?.error);
+                setAccounts([]);
+            }
+        } catch (error) {
+            console.error("Error loading accounts:", error);
+            setAccounts([]);
+        } finally {
+            setLoadingAccounts(false);
+        }
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
+        // Validate required fields
+        if (!formData.borrowerName || !formData.amount) {
+            alert("Please fill in all required fields");
+            return;
+        }
+
+        // Validate account balance if account is selected
+        if (formData.accountId) {
+            const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
+            if (selectedAccount && selectedAccount.balance !== undefined) {
+                if (formData.amount > selectedAccount.balance) {
+                    alert(`Cannot add debt of ${formatCurrency(formData.amount, userCurrency)}. Account balance is only ${formatCurrency(selectedAccount.balance, userCurrency)}.`);
+                    return;
+                }
+            }
+        }
+
         // Process dates properly
         let dueDate: Date | undefined = undefined;
         if (formData.dueDate && formData.dueDate.trim() !== "") {
@@ -45,6 +96,7 @@ export function AddDebtModal({ isOpen, onClose, onAdd }: AddDebtModalProps) {
             status: formData.status,
             purpose: formData.purpose || undefined, 
             notes: formData.notes || undefined,
+            accountId: formData.accountId ? parseInt(formData.accountId) : undefined,
         };
 
         onAdd(processedData);
@@ -63,6 +115,7 @@ export function AddDebtModal({ isOpen, onClose, onAdd }: AddDebtModalProps) {
             status: "ACTIVE" as const,
             purpose: "",
             notes: "",
+            accountId: "",
         });
     };
 
@@ -111,9 +164,52 @@ export function AddDebtModal({ isOpen, onClose, onAdd }: AddDebtModalProps) {
                                 min="0"
                                 value={formData.amount}
                                 onChange={(e) => setFormData(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                                    formData.accountId && formData.amount > 0 && (() => {
+                                        const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
+                                        return selectedAccount && selectedAccount.balance !== undefined && formData.amount > selectedAccount.balance;
+                                    })()
+                                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                        : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                                }`}
                                 required
                             />
+                            {formData.accountId && formData.amount > 0 && (() => {
+                                const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
+                                if (selectedAccount && selectedAccount.balance !== undefined && formData.amount > selectedAccount.balance) {
+                                    return (
+                                        <p className="text-sm text-red-600 mt-1">
+                                            Insufficient balance. Available: {formatCurrency(selectedAccount.balance, userCurrency)}
+                                        </p>
+                                    );
+                                }
+                                return null;
+                            })()}
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Bank Account
+                            </label>
+                            <select
+                                value={formData.accountId}
+                                onChange={(e) => setFormData(prev => ({ ...prev, accountId: e.target.value }))}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                disabled={loadingAccounts}
+                            >
+                                <option value="">Select account (optional)</option>
+                                {accounts.map((account) => (
+                                    <option key={account.id} value={account.id}>
+                                        {account.bankName} - {account.accountNumber} ({account.balance !== undefined ? `Balance: ${formatCurrency(account.balance, userCurrency)}` : 'No balance info'})
+                                    </option>
+                                ))}
+                            </select>
+                            {loadingAccounts && (
+                                <p className="text-sm text-gray-500 mt-1">Loading accounts...</p>
+                            )}
+                            <p className="text-sm text-gray-500 mt-1">
+                                If selected, the debt amount will be deducted from this account's balance
+                            </p>
                         </div>
 
                         <div>
@@ -235,7 +331,24 @@ export function AddDebtModal({ isOpen, onClose, onAdd }: AddDebtModalProps) {
                         </button>
                         <button
                             type="submit"
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            disabled={(() => {
+                                if (formData.accountId && formData.amount > 0) {
+                                    const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
+                                    return selectedAccount && selectedAccount.balance !== undefined && formData.amount > selectedAccount.balance;
+                                }
+                                return false;
+                            })()}
+                            className={`px-4 py-2 rounded-md focus:outline-none focus:ring-2 ${
+                                (() => {
+                                    if (formData.accountId && formData.amount > 0) {
+                                        const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
+                                        if (selectedAccount && selectedAccount.balance !== undefined && formData.amount > selectedAccount.balance) {
+                                            return 'bg-gray-400 text-white cursor-not-allowed';
+                                        }
+                                    }
+                                    return 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500';
+                                })()
+                            }`}
                         >
                             Add Debt
                         </button>
