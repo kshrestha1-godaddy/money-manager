@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Income, Expense } from "../types/financial";
 import { formatCurrency } from "../utils/currency";
+import { useChartExpansion } from "../utils/chartUtils";
+import { ChartControls } from "./ChartControls";
 
 type FinancialTransaction = Income | Expense;
 
@@ -30,6 +32,8 @@ export function FinancialAreaChart({
 }: FinancialAreaChartProps) {
     const [startDate, setStartDate] = useState<string>("");
     const [endDate, setEndDate] = useState<string>("");
+    const { isExpanded, toggleExpanded } = useChartExpansion();
+    const chartRef = useRef<HTMLDivElement>(null);
 
     // Get chart configuration based on type
     const chartConfig = {
@@ -193,11 +197,25 @@ export function FinancialAreaChart({
         setEndDate("");
     };
 
+    // Prepare CSV data for chart controls
+    const csvData = [
+        ['Date', 'Amount'],
+        ...chartData.map(item => [item.date, item.amount])
+    ];
+
     if (chartData.length === 0) {
         return (
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className={`bg-white rounded-lg shadow p-6 ${isExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}>
+                <ChartControls
+                    chartRef={chartRef}
+                    isExpanded={isExpanded}
+                    onToggleExpanded={toggleExpanded}
+                    fileName={`${type}-chart`}
+                    csvData={csvData}
+                    csvFileName={`${type}-data`}
+                    title={chartConfig.title}
+                />
                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">{chartConfig.title}</h3>
                     <div className="flex items-center space-x-3">
                         <div className="flex items-center space-x-2 text-xs">
                             <label htmlFor={`${type}-chart-start-date`} className="text-gray-600 font-medium">From:</label>
@@ -241,9 +259,17 @@ export function FinancialAreaChart({
     }
 
     return (
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className={`bg-white rounded-lg shadow p-6 ${isExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}>
+            <ChartControls
+                chartRef={chartRef}
+                isExpanded={isExpanded}
+                onToggleExpanded={toggleExpanded}
+                fileName={`${type}-chart`}
+                csvData={csvData}
+                csvFileName={`${type}-data`}
+                title={chartConfig.title}
+            />
             <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">{chartConfig.title}</h3>
                 <div className="flex items-center space-x-3">
                     <div className="flex items-center space-x-2 text-xs">
                         <label htmlFor={`${type}-chart-start-date`} className="text-gray-600 font-medium">From:</label>
@@ -276,7 +302,7 @@ export function FinancialAreaChart({
                     )}
                 </div>
             </div>
-            <div className="h-64 w-full">
+            <div ref={chartRef} className={`${isExpanded ? 'h-[70vh] w-full' : 'h-64 w-full'}`}>
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
                         data={chartData}

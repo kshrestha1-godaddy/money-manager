@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, LabelList, TooltipProps } from "recharts";
 import { formatCurrency } from "../utils/currency";
+import { useChartExpansion } from "../utils/chartUtils";
+import { ChartControls } from "./ChartControls";
 
 interface WaterfallChartProps {
     totalIncome: number;
@@ -19,7 +21,7 @@ interface WaterfallData {
 }
 
 export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD" }: WaterfallChartProps) {
-    const [isExpanded, setIsExpanded] = useState(false);
+    const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const totalSavings = totalIncome - totalExpenses;
     const savingsRate = totalIncome > 0 ? ((totalSavings / totalIncome) * 100) : 0;
@@ -81,129 +83,14 @@ export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD" }:
         return formatCurrency(value, currency);
     };
 
-    // Download chart as PNG
-    const downloadChart = (): void => {
-        if (chartRef.current) {
-            const svgElement = chartRef.current.querySelector('svg');
-            if (svgElement) {
-                try {
-                    // Clone the SVG to avoid modifying the original
-                    const clonedSvg = svgElement.cloneNode(true) as SVGElement;
-                    
-                    // Get computed styles and dimensions
-                    const bbox = svgElement.getBoundingClientRect();
-                    const width = bbox.width || 800;
-                    const height = bbox.height || 600;
-                    
-                    // Set explicit dimensions on cloned SVG
-                    clonedSvg.setAttribute('width', width.toString());
-                    clonedSvg.setAttribute('height', height.toString());
-                    clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-                    
-                    // Add white background
-                    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                    rect.setAttribute('width', '100%');
-                    rect.setAttribute('height', '100%');
-                    rect.setAttribute('fill', 'white');
-                    clonedSvg.insertBefore(rect, clonedSvg.firstChild);
-                    
-                    // Convert to string
-                    const svgData = new XMLSerializer().serializeToString(clonedSvg);
-                    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-                    const svgUrl = URL.createObjectURL(svgBlob);
-                    
-                    // Create canvas and image
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    const img = new Image();
-                    
-                    canvas.width = width * 2; // Higher resolution
-                    canvas.height = height * 2;
-                    
-                    img.onload = () => {
-                        if (ctx) {
-                            // Scale for higher quality
-                            ctx.scale(2, 2);
-                            ctx.drawImage(img, 0, 0);
-                            
-                            // Convert to PNG and download
-                            canvas.toBlob((blob) => {
-                                if (blob) {
-                                    const url = URL.createObjectURL(blob);
-                                    const downloadLink = document.createElement('a');
-                                    downloadLink.download = 'waterfall-chart.png';
-                                    downloadLink.href = url;
-                                    document.body.appendChild(downloadLink);
-                                    downloadLink.click();
-                                    document.body.removeChild(downloadLink);
-                                    URL.revokeObjectURL(url);
-                                }
-                            }, 'image/png', 1.0);
-                        }
-                        URL.revokeObjectURL(svgUrl);
-                    };
-                    
-                    img.onerror = () => {
-                        console.error('Failed to load SVG for PNG conversion');
-                        URL.revokeObjectURL(svgUrl);
-                        // Fallback: download as SVG
-                        downloadAsSvg();
-                    };
-                    
-                    img.src = svgUrl;
-                    
-                } catch (error) {
-                    console.error('Error converting to PNG:', error);
-                    // Fallback: download as SVG
-                    downloadAsSvg();
-                }
-            }
-        }
-    };
-
-    // Fallback: Download as SVG
-    const downloadAsSvg = (): void => {
-        if (chartRef.current) {
-            const svgElement = chartRef.current.querySelector('svg');
-            if (svgElement) {
-                const svgData = new XMLSerializer().serializeToString(svgElement);
-                const blob = new Blob([svgData], { type: 'image/svg+xml' });
-                const url = URL.createObjectURL(blob);
-                const downloadLink = document.createElement('a');
-                downloadLink.download = 'waterfall-chart.svg';
-                downloadLink.href = url;
-                document.body.appendChild(downloadLink);
-                downloadLink.click();
-                document.body.removeChild(downloadLink);
-                URL.revokeObjectURL(url);
-            }
-        }
-    };
-
-    // Download data as CSV
-    const downloadData = (): void => {
-        const csvData = [
-            ['Category', 'Amount', 'Type'],
-            ['Income', totalIncome.toString(), 'Positive'],
-            ['Expenses', totalExpenses.toString(), 'Negative'],
-            ['Net Savings', totalSavings.toString(), totalSavings >= 0 ? 'Positive' : 'Negative'],
-            ['Savings Rate', `${savingsRate.toFixed(1)}%`, 'Percentage']
-        ];
-        
-        const csvContent = csvData.map(row => row.join(',')).join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const downloadLink = document.createElement('a');
-        downloadLink.download = 'waterfall-data.csv';
-        downloadLink.href = url;
-        downloadLink.click();
-        window.URL.revokeObjectURL(url);
-    };
-
-    // Toggle expanded view
-    const toggleExpanded = (): void => {
-        setIsExpanded(!isExpanded);
-    };
+    // Prepare CSV data for chart controls
+    const csvData = [
+        ['Category', 'Amount', 'Type'],
+        ['Income', totalIncome.toString(), 'Positive'],
+        ['Expenses', totalExpenses.toString(), 'Negative'],
+        ['Net Savings', totalSavings.toString(), totalSavings >= 0 ? 'Positive' : 'Negative'],
+        ['Savings Rate', `${savingsRate.toFixed(1)}%`, 'Percentage']
+    ];
 
     return (
         <div 
@@ -211,66 +98,15 @@ export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD" }:
             role="region"
             aria-label="Financial Waterfall Chart"
         >
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">
-                    Financial Waterfall: Income → Expenses → Savings
-                </h3>
-                <div className="flex items-center gap-2">
-                    {/* Download Chart as PNG Button */}
-                    <button
-                        onClick={downloadChart}
-                        className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
-                        title="Download Chart as PNG (fallback to SVG)"
-                        aria-label="Download chart as PNG image"
-                    >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                    </button>
-                    
-                    {/* Download Chart as SVG Button */}
-                    <button
-                        onClick={downloadAsSvg}
-                        className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
-                        title="Download Chart as SVG"
-                        aria-label="Download chart as SVG image"
-                    >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                        </svg>
-                    </button>
-                    
-                    {/* Download Data Button */}
-                    <button
-                        onClick={downloadData}
-                        className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
-                        title="Download Data as CSV"
-                        aria-label="Download chart data as CSV file"
-                    >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                    </button>
-                    
-                    {/* Expand/Collapse Button */}
-                    <button
-                        onClick={toggleExpanded}
-                        className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
-                        title={isExpanded ? "Exit Fullscreen" : "Expand to Fullscreen"}
-                        aria-label={isExpanded ? "Exit fullscreen view" : "Enter fullscreen view"}
-                    >
-                        {isExpanded ? (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                            </svg>
-                        )}
-                    </button>
-                </div>
-            </div>
+            <ChartControls
+                chartRef={chartRef}
+                isExpanded={isExpanded}
+                onToggleExpanded={toggleExpanded}
+                fileName="waterfall-chart"
+                csvData={csvData}
+                csvFileName="waterfall-data"
+                title="Financial Waterfall: Income → Expenses → Savings"
+            />
 
             {/* Summary Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -382,10 +218,6 @@ export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD" }:
                 <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-blue-500 rounded"></div>
                     <span>Savings</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-orange-500 rounded"></div>
-                    <span>Losses</span>
                 </div>
             </div>
         </div>
