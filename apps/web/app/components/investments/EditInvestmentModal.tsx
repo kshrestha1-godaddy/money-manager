@@ -1,16 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button } from "@repo/ui/button";
-import { InvestmentInterface } from "../types/investments";
-import { getUserAccounts } from "../actions/investments";
-import { formatCurrency } from "../utils/currency";
-import { useCurrency } from "../providers/CurrencyProvider";
+import { InvestmentInterface } from "../../types/investments";
+import { getUserAccounts } from "../../actions/investments";
+import { formatCurrency } from "../../utils/currency";
+import { useCurrency } from "../../providers/CurrencyProvider";
 
-interface AddInvestmentModalProps {
+interface EditInvestmentModalProps {
+    investment: InvestmentInterface | null;
     isOpen: boolean;
     onClose: () => void;
-    onAdd: (investment: Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => void;
+    onEdit: (id: number, investment: Partial<Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>) => void;
 }
 
 interface Account {
@@ -21,17 +21,17 @@ interface Account {
     balance: number;
 }
 
-export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModalProps) {
+export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: EditInvestmentModalProps) {
     const { currency: userCurrency } = useCurrency();
     
     const [formData, setFormData] = useState({
         name: "",
-        type: "STOCKS" as const,
+        type: "STOCKS",
         symbol: "",
         quantity: "",
         purchasePrice: "",
         currentPrice: "",
-        purchaseDate: new Date().toISOString().split('T')[0],
+        purchaseDate: "",
         accountId: "",
         notes: "",
     });
@@ -45,6 +45,23 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
             loadAccounts();
         }
     }, [isOpen]);
+
+    useEffect(() => {
+        if (investment && isOpen) {
+            setFormData({
+                name: investment.name,
+                type: investment.type,
+                symbol: investment.symbol || "",
+                quantity: investment.quantity.toString(),
+                purchasePrice: investment.purchasePrice.toString(),
+                currentPrice: investment.currentPrice.toString(),
+                //@ts-ignore
+                purchaseDate: investment.purchaseDate ? new Date(investment.purchaseDate).toISOString().split('T')[0] : "",
+                accountId: investment.accountId.toString(),
+                notes: investment.notes ?? "",
+            });
+        }
+    }, [investment, isOpen]);
 
     const loadAccounts = async () => {
         try {
@@ -61,6 +78,8 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!investment) return;
+
         setLoading(true);
         setError(null);
 
@@ -87,20 +106,30 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                 return;
             }
 
-            // Validate account balance for investment amount
+            // Validate account balance for investment changes
             const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
-            const totalInvestmentAmount = parseFloat(formData.quantity) * parseFloat(formData.purchasePrice);
+            const newTotalAmount = parseFloat(formData.quantity) * parseFloat(formData.purchasePrice);
+            const oldTotalAmount = investment.quantity * investment.purchasePrice;
             
             if (selectedAccount && selectedAccount.balance !== undefined) {
-                if (totalInvestmentAmount > selectedAccount.balance) {
-                    setError(`Insufficient balance. Investment total of ${formatCurrency(totalInvestmentAmount, userCurrency)} exceeds account balance of ${formatCurrency(selectedAccount.balance, userCurrency)}.`);
+                // If changing to a different account, check if the new account has sufficient balance
+                if (parseInt(formData.accountId) !== investment.accountId && newTotalAmount > selectedAccount.balance) {
+                    setError(`Cannot move investment of ${formatCurrency(newTotalAmount, userCurrency)} to this account. Account balance is only ${formatCurrency(selectedAccount.balance, userCurrency)}.`);
                     return;
+                }
+                // If increasing the amount on the same account, check if there's sufficient balance for the increase
+                if (parseInt(formData.accountId) === investment.accountId && newTotalAmount > oldTotalAmount) {
+                    const amountIncrease = newTotalAmount - oldTotalAmount;
+                    if (amountIncrease > selectedAccount.balance) {
+                        setError(`Cannot increase investment by ${formatCurrency(amountIncrease, userCurrency)}. Account balance is only ${formatCurrency(selectedAccount.balance, userCurrency)}.`);
+                        return;
+                    }
                 }
             }
 
             const investmentData = {
                 name: formData.name.trim(),
-                type: formData.type,
+                type: formData.type as 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'OTHER',
                 symbol: formData.symbol.trim() || undefined,
                 quantity: parseFloat(formData.quantity),
                 purchasePrice: parseFloat(formData.purchasePrice),
@@ -110,22 +139,9 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                 notes: formData.notes.trim() || undefined,
             };
 
-            await onAdd(investmentData);
-            
-            // Reset form
-            setFormData({
-                name: "",
-                type: "STOCKS",
-                symbol: "",
-                quantity: "",
-                purchasePrice: "",
-                currentPrice: "",
-                purchaseDate: new Date().toISOString().split('T')[0],
-                accountId: "",
-                notes: "",
-            });
+            await onEdit(investment.id, investmentData);
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to add investment");
+            setError(err instanceof Error ? err.message : "Failed to update investment");
         } finally {
             setLoading(false);
         }
@@ -146,13 +162,13 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
         { value: 'OTHER', label: 'Other' },
     ];
 
-    if (!isOpen) return null;
+    if (!isOpen || !investment) return null;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold">Add New Investment</h2>
+                    <h2 className="text-xl font-semibold">Edit Investment</h2>
                     <button
                         onClick={onClose}
                         className="text-gray-500 hover:text-gray-700"
@@ -285,18 +301,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
 
                     <div>
                         <label htmlFor="accountId" className="block text-sm font-medium text-gray-700 mb-1">
-                            Account * {formData.accountId && (() => {
-                                const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
-                                const totalAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice || "0");
-                                if (selectedAccount && totalAmount > 0) {
-                                    return (
-                                        <span className="text-sm text-gray-500">
-                                            (Investment: {formatCurrency(totalAmount, userCurrency)})
-                                        </span>
-                                    );
-                                }
-                                return null;
-                            })()}
+                            Account *
                         </label>
                         <select
                             id="accountId"
@@ -308,22 +313,10 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                             <option value="">Select an account</option>
                             {accounts.map(account => (
                                 <option key={account.id} value={account.id}>
-                                    {account.bankName} - {account.accountNumber} ({formatCurrency(account.balance, userCurrency)})
+                                    {account.bankName} - {account.accountNumber}
                                 </option>
                             ))}
                         </select>
-                        {formData.accountId && formData.quantity && formData.purchasePrice && (() => {
-                            const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
-                            const totalAmount = parseFloat(formData.quantity) * parseFloat(formData.purchasePrice);
-                            if (selectedAccount && selectedAccount.balance !== undefined && totalAmount > selectedAccount.balance) {
-                                return (
-                                    <p className="text-sm text-red-600 mt-1">
-                                        Insufficient balance. Available: {formatCurrency(selectedAccount.balance, userCurrency)}
-                                    </p>
-                                );
-                            }
-                            return null;
-                        })()}
                     </div>
 
                     <div>
@@ -351,28 +344,10 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                         </button>
                         <button
                             type="submit"
-                            disabled={loading || (() => {
-                                if (formData.accountId && formData.quantity && formData.purchasePrice) {
-                                    const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
-                                    const totalAmount = parseFloat(formData.quantity) * parseFloat(formData.purchasePrice);
-                                    return selectedAccount && selectedAccount.balance !== undefined && totalAmount > selectedAccount.balance;
-                                }
-                                return false;
-                            })()}
-                            className={`flex-1 px-4 py-2 rounded-md disabled:opacity-50 ${
-                                (() => {
-                                    if (formData.accountId && formData.quantity && formData.purchasePrice) {
-                                        const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
-                                        const totalAmount = parseFloat(formData.quantity) * parseFloat(formData.purchasePrice);
-                                        if (selectedAccount && selectedAccount.balance !== undefined && totalAmount > selectedAccount.balance) {
-                                            return 'bg-gray-400 text-white cursor-not-allowed';
-                                        }
-                                    }
-                                    return 'bg-blue-600 hover:bg-blue-700 text-white';
-                                })()
-                            }`}
+                            disabled={loading}
+                            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md disabled:opacity-50"
                         >
-                            {loading ? "Adding..." : "Add Investment"}
+                            {loading ? "Updating..." : "Update Investment"}
                         </button>
                     </div>
                 </form>

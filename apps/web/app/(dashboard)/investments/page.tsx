@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
-import { InvestmentList } from "../../components/InvestmentList";
-import { InvestmentTable } from "../../components/InvestmentTable";
+import { InvestmentList } from "../../components/investments/InvestmentList";
+import { InvestmentTable } from "../../components/investments/InvestmentTable";
 import { InvestmentInterface } from "../../types/investments";
 import { Button } from "@repo/ui/button";
-import { AddInvestmentModal } from "../../components/AddInvestmentModal";
-import { EditInvestmentModal } from "../../components/EditInvestmentModal";
-import { DeleteInvestmentModal } from "../../components/DeleteInvestmentModal";
-import { ViewInvestmentModal } from "../../components/ViewInvestmentModal";
+import { AddInvestmentModal } from "../../components/investments/AddInvestmentModal";
+import { EditInvestmentModal } from "../../components/investments/EditInvestmentModal";
+import { DeleteInvestmentModal } from "../../components/investments/DeleteInvestmentModal";
+import { ViewInvestmentModal } from "../../components/investments/ViewInvestmentModal";
 import { getUserInvestments, createInvestment, updateInvestment, deleteInvestment } from "../../actions/investments";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";

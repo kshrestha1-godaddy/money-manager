@@ -2,7 +2,7 @@
 
 import React from "react";
 import { DebtGrid } from "./DebtCard";
-import { DebtInterface } from "../types/debts";
+import { DebtInterface } from "../../types/debts";
 
 export function DebtList({ debts, onEdit, onDelete, onViewDetails, onAddRepayment }: { 
   debts: DebtInterface[];

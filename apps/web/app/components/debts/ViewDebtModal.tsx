@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { DebtInterface } from "../types/debts";
-import { formatCurrency } from "../utils/currency";
-import { useCurrency } from "../providers/CurrencyProvider";
+import { DebtInterface } from "../../types/debts";
+import { formatCurrency } from "../../utils/currency";
+import { useCurrency } from "../../providers/CurrencyProvider";
 
 interface ViewDebtModalProps {
     debt: DebtInterface | null;

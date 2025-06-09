@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { InvestmentInterface } from "../types/investments";
-import { formatCurrency } from "../utils/currency";
-import { useCurrency } from "../providers/CurrencyProvider";
+import { InvestmentInterface } from "../../types/investments";
+import { formatCurrency } from "../../utils/currency";
+import { useCurrency } from "../../providers/CurrencyProvider";
 
 interface InvestmentTableProps {
     investments: InvestmentInterface[];

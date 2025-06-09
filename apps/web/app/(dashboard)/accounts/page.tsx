@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { AccountList } from "../../components/AccountList";
-import { AccountTable } from "../../components/AccountTable";
+import { AccountList } from "../../components/accounts/AccountList";
+import { AccountTable } from "../../components/accounts/AccountTable";
 import { AccountInterface } from "../../types/accounts";
 import { Button } from "@repo/ui/button";
-import { AddAccountModal } from "../../components/AddAccountModal";
-import { EditAccountModal } from "../../components/EditAccountModal";
-import { DeleteAccountModal } from "../../components/DeleteAccountModal";
-import { ViewAccountModal } from "../../components/ViewAccountModal";
+import { AddAccountModal } from "../../components/accounts/AddAccountModal";
+import { EditAccountModal } from "../../components/accounts/EditAccountModal";
+import { DeleteAccountModal } from "../../components/accounts/DeleteAccountModal";
+import { ViewAccountModal } from "../../components/accounts/ViewAccountModal";
 import { getUserAccounts, createAccount, updateAccount, deleteAccount } from "../../actions/accounts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
@@ -24,9 +24,6 @@ export default function Accounts() {
     const [accountToEdit, setAccountToEdit] = useState<AccountInterface | null>(null);
     const [accountToDelete, setAccountToDelete] = useState<AccountInterface | null>(null);
     const [accountToView, setAccountToView] = useState<AccountInterface | null>(null);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [selectedBank, setSelectedBank] = useState("");
-    const [sortBy, setSortBy] = useState<"bank" | "holder" | "balance">("bank");
     const [viewMode, setViewMode] = useState<"cards" | "table">("table");
     const { currency: userCurrency } = useCurrency();
 
@@ -109,37 +106,6 @@ export default function Accounts() {
         setIsViewModalOpen(true);
     };
 
-    // Get unique bank names for filter
-    const uniqueBanks = Array.from(new Set(accounts.map(account => account.bankName))).sort();
-
-    // Filter and sort accounts
-    const filteredAndSortedAccounts = accounts
-        .filter(account => {
-            const matchesSearch = 
-                account.holderName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                account.bankName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                account.accountNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                account.branchName.toLowerCase().includes(searchTerm.toLowerCase());
-            
-            const matchesBank = selectedBank === "" || account.bankName === selectedBank;
-            
-            return matchesSearch && matchesBank;
-        })
-        .sort((a, b) => {
-            switch (sortBy) {
-                case "bank":
-                    return a.bankName.localeCompare(b.bankName);
-                case "holder":
-                    return a.holderName.localeCompare(b.holderName);
-                case "balance":
-                    const balanceA = a.balance || 0;
-                    const balanceB = b.balance || 0;
-                    return balanceB - balanceA; // Descending order
-                default:
-                    return 0;
-            }
-        });
-
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -186,19 +152,19 @@ export default function Accounts() {
                             <p className="text-2xl font-bold text-blue-600">{accounts.length}</p>
                         </div>
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Showing</p>
-                            <p className="text-2xl font-bold text-purple-600">{filteredAndSortedAccounts.length}</p>
+                            <p className="text-sm font-medium text-gray-600">Active</p>
+                            <p className="text-2xl font-bold text-purple-600">{accounts.length}</p>
                         </div>
                         <div>
                             <p className="text-sm font-medium text-gray-600">Total Balance</p>
                             <p className="text-2xl font-bold text-green-600">
-                                {formatCurrency(filteredAndSortedAccounts.reduce((sum, acc) => sum + (acc.balance || 0), 0), userCurrency)}
+                                {formatCurrency(accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0), userCurrency)}
                             </p>
                         </div>
                         <div>
                             <p className="text-sm font-medium text-gray-600">Banks</p>
                             <p className="text-2xl font-bold text-gray-900">
-                                {new Set(filteredAndSortedAccounts.map(acc => acc.bankName)).size}
+                                {new Set(accounts.map(acc => acc.bankName)).size}
                             </p>
                         </div>
                     </div>
@@ -207,73 +173,7 @@ export default function Accounts() {
 
             {/* Bank Balance Chart */}
             {accounts.length > 0 && (
-                <BankBalanceChart accounts={filteredAndSortedAccounts} currency={userCurrency} />
-            )}
-
-            {/* Filters and Search */}
-            {accounts.length > 0 && (
-                <div className="bg-white rounded-lg shadow p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Search Accounts
-                            </label>
-                            <input
-                                type="text"
-                                placeholder="Search by name, bank, account number..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Filter by Bank
-                            </label>
-                            <select
-                                value={selectedBank}
-                                onChange={(e) => setSelectedBank(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="">All Banks</option>
-                                {uniqueBanks.map(bank => (
-                                    <option key={bank} value={bank}>
-                                        {bank}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Sort By
-                            </label>
-                            <select
-                                value={sortBy}
-                                onChange={(e) => setSortBy(e.target.value as "bank" | "holder" | "balance")}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="bank">Bank Name</option>
-                                <option value="holder">Account Holder</option>
-                                <option value="balance">Balance</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    {/* Clear Filters Button */}
-                    {(searchTerm || selectedBank) && (
-                        <div className="mt-4 flex justify-end">
-                            <button
-                                onClick={() => {
-                                    setSearchTerm("");
-                                    setSelectedBank("");
-                                }}
-                                className="text-sm px-4 py-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                Clear Filters
-                            </button>
-                        </div>
-                    )}
-                </div>
+                <BankBalanceChart accounts={accounts} currency={userCurrency} />
             )}
 
             {/* Account List */}
@@ -292,26 +192,11 @@ export default function Accounts() {
                         Add Your First Account
                     </Button>
                 </div>
-            ) : filteredAndSortedAccounts.length === 0 ? (
-                <div className="bg-white rounded-lg shadow p-8 text-center">
-                    <div className="text-gray-400 text-6xl mb-4">🔍</div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No accounts match your filters</h3>
-                    <p className="text-gray-500 mb-4">Try adjusting your search or filter criteria.</p>
-                    <button
-                        onClick={() => {
-                            setSearchTerm("");
-                            setSelectedBank("");
-                        }}
-                        className="text-sm px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                    >
-                        Clear Filters
-                    </button>
-                </div>
             ) : (
                 <div className="flex flex-col gap-6">
                     {viewMode === "table" ? (
                         <AccountTable 
-                            accounts={filteredAndSortedAccounts} 
+                            accounts={accounts} 
                             onEdit={openEditModal}
                             onDelete={openDeleteModal}
                             onViewDetails={openViewModal}
@@ -319,7 +204,7 @@ export default function Accounts() {
                     ) : (
                         <div className="bg-white rounded-lg shadow p-6">
                             <AccountList 
-                                accounts={filteredAndSortedAccounts} 
+                                accounts={accounts} 
                                 onEdit={openEditModal}
                                 onDelete={openDeleteModal}
                                 onViewDetails={openViewModal}

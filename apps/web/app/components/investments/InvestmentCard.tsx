@@ -1,8 +1,8 @@
 "use client";
 
-import { InvestmentInterface } from "../types/investments";
-import { formatCurrency } from "../utils/currency";
-import { useCurrency } from "../providers/CurrencyProvider";
+import { InvestmentInterface } from "../../types/investments";
+import { formatCurrency } from "../../utils/currency";
+import { useCurrency } from "../../providers/CurrencyProvider";
 
 interface InvestmentCardProps {
     investment: InvestmentInterface;

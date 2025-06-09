@@ -2,9 +2,9 @@
 
 import { Card } from "@repo/ui/card";
 import React, { useState } from "react";
-import { AccountInterface } from "../types/accounts";
-import { formatCurrency } from "../utils/currency";
-import { useCurrency } from "../providers/CurrencyProvider";
+import { AccountInterface } from "../../types/accounts";
+import { formatCurrency } from "../../utils/currency";
+import { useCurrency } from "../../providers/CurrencyProvider";
 
 export function AccountCard({ account, onEdit, onDelete, onViewDetails }: { 
     account: AccountInterface;

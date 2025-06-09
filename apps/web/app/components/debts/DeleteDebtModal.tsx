@@ -1,8 +1,8 @@
 "use client";
 
-import { DebtInterface } from "../types/debts";
-import { formatCurrency } from "../utils/currency";
-import { useCurrency } from "../providers/CurrencyProvider";
+import { DebtInterface } from "../../types/debts";
+import { formatCurrency } from "../../utils/currency";
+import { useCurrency } from "../../providers/CurrencyProvider";
 
 interface DeleteDebtModalProps {
     isOpen: boolean;

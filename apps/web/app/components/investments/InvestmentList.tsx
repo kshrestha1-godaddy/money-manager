@@ -1,7 +1,7 @@
 "use client";
 
-import { InvestmentInterface } from "../types/investments";
-import { InvestmentCard } from "../components/InvestmentCard";
+import { InvestmentInterface } from "../../types/investments";
+import { InvestmentCard } from "./InvestmentCard";
 
 interface InvestmentListProps {
     investments: InvestmentInterface[];

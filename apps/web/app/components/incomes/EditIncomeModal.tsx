@@ -2,19 +2,20 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@repo/ui/button";
-import { Expense, Category } from "../types/financial";
-import { AccountInterface } from "../types/accounts";
+import { Income, Category } from "../../types/financial";
+import { AccountInterface } from "../../types/accounts";
+import { isGeneratorObject } from "util/types";
 
-interface EditExpenseModalProps {
+interface EditIncomeModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onEdit: (id: number, expense: Partial<Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>>) => void;
+    onEdit: (id: number, income: Partial<Omit<Income, 'id' | 'createdAt' | 'updatedAt'>>) => void;
     categories: Category[];
     accounts: AccountInterface[];
-    expense: Expense | null;
+    income: Income | null;
 }
 
-export function EditExpenseModal({ isOpen, onClose, onEdit, categories, accounts, expense }: EditExpenseModalProps) {
+export function EditIncomeModal({ isOpen, onClose, onEdit, categories, accounts, income }: EditIncomeModalProps) {
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -29,27 +30,27 @@ export function EditExpenseModal({ isOpen, onClose, onEdit, categories, accounts
     });
 
     useEffect(() => {
-        if (expense) {
+        if (income) {
             setFormData({
-                title: expense.title,
-                description: expense.description || '',
-                amount: expense.amount.toString(),
+                title: income.title,
+                description: income.description || '',
+                amount: income.amount.toString(),
                 // @ts-ignore
-                date: expense.date.toISOString().split('T')[0],
-                categoryId: expense.categoryId.toString(),
-                accountId: expense.accountId.toString(),
-                tags: expense.tags.join(', '),
-                notes: expense.notes || '',
-                isRecurring: expense.isRecurring,
-                recurringFrequency: (expense.recurringFrequency ?? 'MONTHLY') as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY'
+                date: income.date.toISOString().split('T')[0],
+                categoryId: income.categoryId.toString(),
+                accountId: income.accountId?.toString() || '',
+                tags: income.tags.join(', '),
+                notes: income.notes || '',
+                isRecurring: income.isRecurring,
+                recurringFrequency: (income.recurringFrequency ?? 'MONTHLY') as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY'
             });
         }
-    }, [expense]);
+    }, [income]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
-        if (!formData.title || !formData.amount || !formData.categoryId || !formData.accountId || !expense) {
+        if (!formData.title || !formData.amount || !formData.categoryId || !formData.accountId || !income) {
             alert('Please fill in all required fields');
             return;
         }
@@ -60,30 +61,37 @@ export function EditExpenseModal({ isOpen, onClose, onEdit, categories, accounts
             return;
         }
 
-        const updatedExpense: Partial<Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>> = {
+        const selectedAccount = accounts.find(a => a.id === parseInt(formData.accountId));
+        if (!selectedAccount) {
+            alert('Please select a valid account');
+            return;
+        }
+
+        const updatedIncome: Partial<Omit<Income, 'id' | 'createdAt' | 'updatedAt'>> = {
             title: formData.title,
             description: formData.description || undefined,
             amount: parseFloat(formData.amount),
             date: new Date(formData.date + 'T00:00:00'),
             category: selectedCategory,
             categoryId: selectedCategory.id,
+            account: selectedAccount,
+            accountId: selectedAccount.id,
             tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : [],
             notes: formData.notes || undefined,
-            accountId: parseInt(formData.accountId),
             isRecurring: formData.isRecurring,
             recurringFrequency: formData.isRecurring ? formData.recurringFrequency : undefined
         };
 
-        onEdit(expense.id, updatedExpense);
+        onEdit(income.id, updatedIncome);
     };
 
-    if (!isOpen || !expense) return null;
+    if (!isOpen || !income) return null;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4">
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold text-gray-900">Edit Expense</h2>
+                    <h2 className="text-xl font-semibold text-gray-900">Edit Income</h2>
                     <button
                         onClick={onClose}
                         className="text-gray-400 hover:text-gray-600"
@@ -102,7 +110,7 @@ export function EditExpenseModal({ isOpen, onClose, onEdit, categories, accounts
                             value={formData.title}
                             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="e.g., Grocery Shopping"
+                            placeholder="e.g., Monthly Salary"
                             required
                         />
                     </div>
@@ -150,42 +158,44 @@ export function EditExpenseModal({ isOpen, onClose, onEdit, categories, accounts
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Category *
-                        </label>
-                        <select
-                            value={formData.categoryId}
-                            onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        >
-                            <option value="">Select a category</option>
-                            {categories.map(category => (
-                                <option key={category.id} value={category.id}>
-                                    {category.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Category *
+                            </label>
+                            <select
+                                value={formData.categoryId}
+                                onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                            >
+                                <option value="">Select a category</option>
+                                {categories.map(category => (
+                                    <option key={category.id} value={category.id}>
+                                        {category.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Account *
-                        </label>
-                        <select
-                            value={formData.accountId}
-                            onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        >
-                            <option value="">Select an account</option>
-                            {accounts.map(account => (
-                                <option key={account.id} value={account.id}>
-                                    {account.bankName} - {account.holderName} ({account.accountType})
-                                </option>
-                            ))}
-                        </select>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Account *
+                            </label>
+                            <select
+                                value={formData.accountId}
+                                onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                            >
+                                <option value="">Select an account</option>
+                                {accounts.map(account => (
+                                    <option key={account.id} value={account.id}>
+                                        {account.bankName} - {account.holderName} ({account.accountType})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
 
                     <div>
@@ -197,7 +207,7 @@ export function EditExpenseModal({ isOpen, onClose, onEdit, categories, accounts
                             value={formData.tags}
                             onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="e.g., groceries, food (comma separated)"
+                            placeholder="e.g., salary, freelance (comma separated)"
                         />
                     </div>
 
@@ -223,7 +233,7 @@ export function EditExpenseModal({ isOpen, onClose, onEdit, categories, accounts
                             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                         />
                         <label htmlFor="isRecurring" className="ml-2 block text-sm text-gray-900">
-                            This is a recurring expense
+                            This is a recurring income
                         </label>
                     </div>
 
@@ -240,6 +250,7 @@ export function EditExpenseModal({ isOpen, onClose, onEdit, categories, accounts
                                 <option value="DAILY">Daily</option>
                                 <option value="WEEKLY">Weekly</option>
                                 <option value="MONTHLY">Monthly</option>
+                                <option value="QUARTERLY">Quarterly</option>
                                 <option value="YEARLY">Yearly</option>
                             </select>
                         </div>
@@ -249,15 +260,15 @@ export function EditExpenseModal({ isOpen, onClose, onEdit, categories, accounts
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 bg-gray-300 text-gray-700 hover:bg-gray-400 rounded-md"
+                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
                         >
                             Cancel
                         </button>
-                        <button 
+                        <button
                             type="submit"
-                            className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md"
+                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                            Update Expense
+                            Update Income
                         </button>
                     </div>
                 </form>

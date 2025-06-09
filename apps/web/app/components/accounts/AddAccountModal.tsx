@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@repo/ui/button";
-import { AccountInterface } from "../types/accounts";
+import { AccountInterface } from "../../types/accounts";
 
 interface AddAccountModalProps {
     isOpen: boolean;
@@ -37,6 +37,7 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
             mobileNumbers: formData.mobileNumbers.filter(num => num.trim() !== ""),
             branchContacts: formData.branchContacts.filter(contact => contact.trim() !== ""),
             securityQuestion: formData.securityQuestion.filter(q => q.trim() !== ""),
+            //@ts-ignore
             accountOpeningDate: new Date(formData.accountOpeningDate || new Date().toISOString().split('T')[0]),
         };
 

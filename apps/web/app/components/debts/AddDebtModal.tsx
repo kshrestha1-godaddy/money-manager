@@ -2,20 +2,19 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@repo/ui/button";
-import { DebtInterface } from "../types/debts";
-import { AccountInterface } from "../types/accounts";
-import { getUserAccounts } from "../actions/accounts";
-import { formatCurrency } from "../utils/currency";
-import { useCurrency } from "../providers/CurrencyProvider";
+import { DebtInterface } from "../../types/debts";
+import { AccountInterface } from "../../types/accounts";
+import { getUserAccounts } from "../../actions/accounts";
+import { formatCurrency } from "../../utils/currency";
+import { useCurrency } from "../../providers/CurrencyProvider";
 
-interface EditDebtModalProps {
+interface AddDebtModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onEdit: (id: number, debt: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>) => void;
-    debt: DebtInterface | null;
+    onAdd: (debt: Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>) => void;
 }
 
-export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalProps) {
+export function AddDebtModal({ isOpen, onClose, onAdd }: AddDebtModalProps) {
     const { currency: userCurrency } = useCurrency();
     
     const [formData, setFormData] = useState({
@@ -25,8 +24,8 @@ export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalPr
         amount: 0,
         interestRate: 0,
         dueDate: "",
-        lentDate: "",
-        status: "ACTIVE" as 'ACTIVE' | 'PARTIALLY_PAID' | 'FULLY_PAID' | 'OVERDUE' | 'DEFAULTED',
+        lentDate: new Date().toISOString().split('T')[0],
+        status: "ACTIVE" as const,
         purpose: "",
         notes: "",
         accountId: "",
@@ -59,79 +58,79 @@ export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalPr
         }
     };
 
-    useEffect(() => {
-        if (debt) {
-            setFormData({
-                borrowerName: debt.borrowerName,
-                borrowerContact: (debt.borrowerContact || "") as string,
-                borrowerEmail: (debt.borrowerEmail || "") as string,
-                amount: debt.amount,
-                interestRate: debt.interestRate,
-                //@ts-ignore
-                dueDate: debt.dueDate ? debt.dueDate.toISOString().split('T')[0] : "",
-                //@ts-ignore
-                lentDate: debt.lentDate.toISOString().split('T')[0],
-                status: debt.status as 'ACTIVE' | 'PARTIALLY_PAID' | 'FULLY_PAID' | 'OVERDUE' | 'DEFAULTED',
-                purpose: debt.purpose || "",
-                notes: debt.notes || "",
-                accountId: debt.accountId?.toString() || "",
-            });
-        }
-    }, [debt]);
-
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!debt) return;
+        
+        // Validate required fields
+        if (!formData.borrowerName || !formData.amount) {
+            alert("Please fill in all required fields");
+            return;
+        }
 
-        // Validate account balance if account is selected and amount is changing
+        // Validate account balance if account is selected
         if (formData.accountId) {
             const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
             if (selectedAccount && selectedAccount.balance !== undefined) {
-                // If changing to a different account, check if the new account has sufficient balance
-                if (parseInt(formData.accountId) !== debt.accountId && formData.amount > selectedAccount.balance) {
-                    alert(`Cannot move debt of ${formatCurrency(formData.amount, userCurrency)} to this account. Account balance is only ${formatCurrency(selectedAccount.balance, userCurrency)}.`);
+                if (formData.amount > selectedAccount.balance) {
+                    alert(`Cannot add debt of ${formatCurrency(formData.amount, userCurrency)}. Account balance is only ${formatCurrency(selectedAccount.balance, userCurrency)}.`);
                     return;
-                }
-                // If increasing the amount on the same account, check if there's sufficient balance for the increase
-                if (parseInt(formData.accountId) === debt.accountId && formData.amount > debt.amount) {
-                    const amountIncrease = formData.amount - debt.amount;
-                    if (amountIncrease > selectedAccount.balance) {
-                        alert(`Cannot increase debt by ${formatCurrency(amountIncrease, userCurrency)}. Account balance is only ${formatCurrency(selectedAccount.balance, userCurrency)}.`);
-                        return;
-                    }
                 }
             }
         }
-        
+
+        // Process dates properly
+        let dueDate: Date | undefined = undefined;
+        if (formData.dueDate && formData.dueDate.trim() !== "") {
+            dueDate = new Date(formData.dueDate);
+        }
+
         const processedData = {
             borrowerName: formData.borrowerName,
             borrowerContact: formData.borrowerContact || undefined,
             borrowerEmail: formData.borrowerEmail || undefined,
             amount: formData.amount,
             interestRate: formData.interestRate,
+            // @ts-ignore - Date constructor handles string inputs properly
             lentDate: new Date(formData.lentDate),
-            dueDate: (formData.dueDate && formData.dueDate.trim() !== "") ? new Date(formData.dueDate as string) : undefined,
+            dueDate: dueDate,
             status: formData.status,
-            purpose: formData.purpose || undefined,
+            purpose: formData.purpose || undefined, 
             notes: formData.notes || undefined,
             accountId: formData.accountId ? parseInt(formData.accountId) : undefined,
         };
 
-        onEdit(debt.id, processedData);
-        onClose();
+        onAdd(processedData);
+        resetForm();
+    };
+
+    const resetForm = () => {
+        setFormData({
+            borrowerName: "",
+            borrowerContact: "",
+            borrowerEmail: "",
+            amount: 0,
+            interestRate: 0,
+            dueDate: "",
+            lentDate: new Date().toISOString().split('T')[0],
+            status: "ACTIVE" as const,
+            purpose: "",
+            notes: "",
+            accountId: "",
+        });
     };
 
     const handleClose = () => {
+        resetForm();
         onClose();
     };
 
-    if (!isOpen || !debt) return null;
+    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold text-gray-900">Edit Debt</h2>
+                    <h2 className="text-xl font-semibold text-gray-900">Add New Debt</h2>
                     <button
                         onClick={handleClose}
                         className="text-gray-400 hover:text-gray-600"
@@ -165,9 +164,27 @@ export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalPr
                                 min="0"
                                 value={formData.amount}
                                 onChange={(e) => setFormData(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                                    formData.accountId && formData.amount > 0 && (() => {
+                                        const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
+                                        return selectedAccount && selectedAccount.balance !== undefined && formData.amount > selectedAccount.balance;
+                                    })()
+                                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                        : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                                }`}
                                 required
                             />
+                            {formData.accountId && formData.amount > 0 && (() => {
+                                const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
+                                if (selectedAccount && selectedAccount.balance !== undefined && formData.amount > selectedAccount.balance) {
+                                    return (
+                                        <p className="text-sm text-red-600 mt-1">
+                                            Insufficient balance. Available: {formatCurrency(selectedAccount.balance, userCurrency)}
+                                        </p>
+                                    );
+                                }
+                                return null;
+                            })()}
                         </div>
 
                         <div>
@@ -191,7 +208,7 @@ export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalPr
                                 <p className="text-sm text-gray-500 mt-1">Loading accounts...</p>
                             )}
                             <p className="text-sm text-gray-500 mt-1">
-                                Changing the account will adjust balances accordingly
+                                If selected, the debt amount will be deducted from this account's balance
                             </p>
                         </div>
 
@@ -314,13 +331,30 @@ export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalPr
                         </button>
                         <button
                             type="submit"
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            disabled={(() => {
+                                if (formData.accountId && formData.amount > 0) {
+                                    const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
+                                    return selectedAccount && selectedAccount.balance !== undefined && formData.amount > selectedAccount.balance;
+                                }
+                                return false;
+                            })()}
+                            className={`px-4 py-2 rounded-md focus:outline-none focus:ring-2 ${
+                                (() => {
+                                    if (formData.accountId && formData.amount > 0) {
+                                        const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
+                                        if (selectedAccount && selectedAccount.balance !== undefined && formData.amount > selectedAccount.balance) {
+                                            return 'bg-gray-400 text-white cursor-not-allowed';
+                                        }
+                                    }
+                                    return 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500';
+                                })()
+                            }`}
                         >
-                            Update Debt
+                            Add Debt
                         </button>
                     </div>
                 </form>
             </div>
         </div>
     );
-} 
+}

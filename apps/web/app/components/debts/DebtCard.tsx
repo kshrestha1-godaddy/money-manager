@@ -2,9 +2,9 @@
 
 import { Card } from "@repo/ui/card";
 import React, { useState } from "react";
-import { DebtInterface } from "../types/debts";
-import { formatCurrency } from "../utils/currency";
-import { useCurrency } from "../providers/CurrencyProvider";
+import { DebtInterface } from "../../types/debts";
+import { formatCurrency } from "../../utils/currency";
+import { useCurrency } from "../../providers/CurrencyProvider";
 
 export function DebtCard({ debt, onEdit, onDelete, onViewDetails, onAddRepayment }: { 
     debt: DebtInterface;

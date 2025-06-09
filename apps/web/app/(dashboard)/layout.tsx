@@ -3,8 +3,9 @@ import { SidebarItem } from "../components/SidebarItem";
 export default function Layout({ children }: { children: React.ReactNode }) {
     return (
         <div className="flex min-h-screen">
-            <div className="flex justify-start w-64 border-r border-slate-300 min-h-screen mr-4 pt-2 flex-shrink-0">
-                <div className="flex flex-col gap-4">
+            {/* Fixed Sidebar */}
+            <div className="fixed left-5 top-10 w-64 h-screen bg-white border-r border-slate-300 pt-2 flex-shrink-0 z-30 overflow-y-auto">
+                <div className="flex flex-col gap-4 pt-20">
                     {/* Tracking Section */}
                     <SidebarItem href={"/dashboard"} icon={<HomeIcon />} title="Home" />
                     <SidebarItem href={"/incomes"} icon={<IncomesIcon />} title="Incomes" />
@@ -22,8 +23,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <SidebarItem href={"/learnings"} icon={<LearningsIcon />} title="Learnings" />
                 </div>
             </div>
-            <div className="flex-1 pt-2 px-4">
-            {children}
+            
+            {/* Main Content Area - with left margin to account for fixed sidebar */}
+            <div className="flex-1 ml-64 pt-2 px-4">
+                {children}
             </div>
         </div>
     );

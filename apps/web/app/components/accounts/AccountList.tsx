@@ -2,7 +2,7 @@
 
 import React from "react";
 import { AccountGrid    } from "./AccountCard";
-import { AccountInterface } from "../types/accounts";
+import { AccountInterface } from "../../types/accounts";
 
 export function AccountList({ accounts, onEdit, onDelete, onViewDetails }: { 
   accounts: AccountInterface[];

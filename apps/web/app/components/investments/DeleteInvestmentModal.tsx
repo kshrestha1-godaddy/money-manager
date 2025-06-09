@@ -1,6 +1,6 @@
 "use client";
 
-import { InvestmentInterface } from "../types/investments";
+import { InvestmentInterface } from "../../types/investments";
 
 interface DeleteInvestmentModalProps {
     investment: InvestmentInterface | null;

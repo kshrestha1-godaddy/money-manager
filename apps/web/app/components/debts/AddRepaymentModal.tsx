@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { DebtInterface } from "../types/debts";
-import { AccountInterface } from "../types/accounts";
-import { formatCurrency } from "../utils/currency";
-import { useCurrency } from "../providers/CurrencyProvider";
-import { addRepayment } from "../actions/debts";
-import { getUserAccounts } from "../actions/accounts";
+import { DebtInterface } from "../../types/debts";
+import { AccountInterface } from "../../types/accounts";
+import { formatCurrency } from "../../utils/currency";
+import { useCurrency } from "../../providers/CurrencyProvider";
+import { addRepayment } from "../../actions/debts";
+import { getUserAccounts } from "../../actions/accounts";
 
 interface AddRepaymentModalProps {
     debt: DebtInterface | null;

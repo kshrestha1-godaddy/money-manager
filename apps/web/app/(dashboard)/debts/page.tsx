@@ -2,15 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
-import { DebtList } from "../../components/DebtList";
-import { DebtTable } from "../../components/DebtTable";
+import { DebtList } from "../../components/debts/DebtList";
+import { DebtTable } from "../../components/debts/DebtTable";
 import { DebtInterface } from "../../types/debts";
 import { Button } from "@repo/ui/button";
-import { AddDebtModal } from "../../components/AddDebtModal";
-import { EditDebtModal } from "../../components/EditDebtModal";
-import { DeleteDebtModal } from "../../components/DeleteDebtModal";
-import { ViewDebtModal } from "../../components/ViewDebtModal";
-import { AddRepaymentModal } from "../../components/AddRepaymentModal";
+import { AddDebtModal } from "../../components/debts/AddDebtModal";
+import { EditDebtModal } from "../../components/debts/EditDebtModal";
+import { DeleteDebtModal } from "../../components/debts/DeleteDebtModal";
+import { ViewDebtModal } from "../../components/debts/ViewDebtModal";
+import { AddRepaymentModal } from "../../components/debts/AddRepaymentModal";
 import { getUserDebts, createDebt, updateDebt, deleteDebt } from "../../actions/debts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";

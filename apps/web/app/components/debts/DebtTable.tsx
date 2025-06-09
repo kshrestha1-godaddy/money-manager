@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { DebtInterface } from "../types/debts";
-import { formatDate } from "../utils/date";
-import { formatCurrency } from "../utils/currency";
-import { useCurrency } from "../providers/CurrencyProvider";
-import { calculateInterest, calculateRemainingWithInterest } from "../utils/interestCalculation";
+import { DebtInterface } from "../../types/debts";
+import { formatDate } from "../../utils/date";
+import { formatCurrency } from "../../utils/currency";
+import { useCurrency } from "../../providers/CurrencyProvider";
+import { calculateInterest, calculateRemainingWithInterest } from "../../utils/interestCalculation";
 
 type SortField = 'borrowerName' | 'amount' | 'dueDate' | 'lentDate' | 'remaining';
 type SortDirection = 'asc' | 'desc';

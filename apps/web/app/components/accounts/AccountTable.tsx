@@ -1,9 +1,10 @@
 "use client";
 
-import { AccountInterface } from "../types/accounts";
-import { formatDate } from "../utils/date";
-import { formatCurrency } from "../utils/currency";
-import { useCurrency } from "../providers/CurrencyProvider";
+import { useState, useMemo } from "react";
+import { AccountInterface } from "../../types/accounts";
+import { formatDate } from "../../utils/date";
+import { formatCurrency } from "../../utils/currency";
+import { useCurrency } from "../../providers/CurrencyProvider";
 
 interface AccountTableProps {
     accounts: AccountInterface[];
@@ -12,8 +13,88 @@ interface AccountTableProps {
     onViewDetails?: (account: AccountInterface) => void;
 }
 
+type SortField = 'holderName' | 'bankName' | 'accountNumber' | 'accountOpeningDate' | 'balance';
+type SortDirection = 'asc' | 'desc';
+
 export function AccountTable({ accounts, onEdit, onDelete, onViewDetails }: AccountTableProps) {
     const { currency: userCurrency } = useCurrency();
+    const [sortField, setSortField] = useState<SortField>('bankName');
+    const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+    const sortedAccounts = useMemo(() => {
+        const sorted = [...accounts].sort((a, b) => {
+            let aValue: any;
+            let bValue: any;
+
+            switch (sortField) {
+                case 'holderName':
+                    aValue = a.holderName.toLowerCase();
+                    bValue = b.holderName.toLowerCase();
+                    break;
+                case 'bankName':
+                    aValue = a.bankName.toLowerCase();
+                    bValue = b.bankName.toLowerCase();
+                    break;
+                case 'accountNumber':
+                    aValue = a.accountNumber.toLowerCase();
+                    bValue = b.accountNumber.toLowerCase();
+                    break;
+                case 'accountOpeningDate':
+                    aValue = new Date(a.accountOpeningDate).getTime();
+                    bValue = new Date(b.accountOpeningDate).getTime();
+                    break;
+                case 'balance':
+                    aValue = a.balance || 0;
+                    bValue = b.balance || 0;
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (aValue < bValue) {
+                return sortDirection === 'asc' ? -1 : 1;
+            }
+            if (aValue > bValue) {
+                return sortDirection === 'asc' ? 1 : -1;
+            }
+            return 0;
+        });
+
+        return sorted;
+    }, [accounts, sortField, sortDirection]);
+
+    const handleSort = (field: SortField) => {
+        if (field === sortField) {
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortDirection('asc');
+        }
+    };
+
+    const getSortIcon = (field: SortField) => {
+        if (sortField !== field) {
+            return (
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                </svg>
+            );
+        }
+        
+        if (sortDirection === 'asc') {
+            return (
+                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+            );
+        } else {
+            return (
+                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+            );
+        }
+    };
 
     if (accounts.length === 0) {
         return (
@@ -36,20 +117,50 @@ export function AccountTable({ accounts, onEdit, onDelete, onViewDetails }: Acco
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Account Details
+                            <th 
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                onClick={() => handleSort('holderName')}
+                            >
+                                <div className="flex items-center space-x-1">
+                                    <span>Account Details</span>
+                                    {getSortIcon('holderName')}
+                                </div>
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Bank & Branch
+                            <th 
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                onClick={() => handleSort('bankName')}
+                            >
+                                <div className="flex items-center space-x-1">
+                                    <span>Bank & Branch</span>
+                                    {getSortIcon('bankName')}
+                                </div>
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Account Number
+                            <th 
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                onClick={() => handleSort('accountNumber')}
+                            >
+                                <div className="flex items-center space-x-1">
+                                    <span>Account Number</span>
+                                    {getSortIcon('accountNumber')}
+                                </div>
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Opening Date
+                            <th 
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                onClick={() => handleSort('accountOpeningDate')}
+                            >
+                                <div className="flex items-center space-x-1">
+                                    <span>Opening Date</span>
+                                    {getSortIcon('accountOpeningDate')}
+                                </div>
                             </th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Balance
+                            <th 
+                                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                onClick={() => handleSort('balance')}
+                            >
+                                <div className="flex items-center justify-end space-x-1">
+                                    <span>Balance</span>
+                                    {getSortIcon('balance')}
+                                </div>
                             </th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Actions
@@ -57,7 +168,7 @@ export function AccountTable({ accounts, onEdit, onDelete, onViewDetails }: Acco
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {accounts.map((account) => (
+                        {sortedAccounts.map((account) => (
                             <AccountRow 
                                 key={account.id} 
                                 account={account}

@@ -1,6 +1,6 @@
 "use client";
 
-import { AccountInterface } from "../types/accounts";
+import { AccountInterface } from "../../types/accounts";
 
 interface DeleteAccountModalProps {
     isOpen: boolean;

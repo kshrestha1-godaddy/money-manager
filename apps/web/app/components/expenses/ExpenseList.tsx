@@ -1,26 +1,44 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Income } from "../types/financial";
-import { formatCurrency } from "../utils/currency";
-import { formatDate } from "../utils/date";
+import { Expense } from "../../types/financial";
+import { formatCurrency } from "../../utils/currency";
+import { formatDate } from "../../utils/date";
 
-interface IncomeListProps {
-    incomes: Income[];
+interface ExpenseListProps {
+    expenses: Expense[];
     currency?: string;
-    onEdit?: (income: Income) => void;
-    onDelete?: (income: Income) => void;
+    onEdit?: (expense: Expense) => void;
+    onDelete?: (expense: Expense) => void;
 }
 
 type SortField = 'title' | 'category' | 'account' | 'date' | 'amount';
 type SortDirection = 'asc' | 'desc';
 
-export function IncomeList({ incomes, currency = "USD", onEdit, onDelete }: IncomeListProps) {
+export function ExpenseList({ expenses, currency = "USD", onEdit, onDelete }: ExpenseListProps) {
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
-    const sortedIncomes = useMemo(() => {
-        const sorted = [...incomes].sort((a, b) => {
+    const handleSort = (field: SortField) => {
+        if (sortField === field) {
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortDirection('asc');
+        }
+    };
+
+    const getSortIcon = (field: SortField) => {
+        if (sortField !== field) {
+            return <span className="text-gray-400">↕</span>;
+        }
+        return sortDirection === 'asc' ? 
+            <span className="text-blue-600">↑</span> : 
+            <span className="text-blue-600">↓</span>;
+    };
+
+    const sortedExpenses = useMemo(() => {
+        return [...expenses].sort((a, b) => {
             let aValue: any;
             let bValue: any;
 
@@ -34,12 +52,14 @@ export function IncomeList({ incomes, currency = "USD", onEdit, onDelete }: Inco
                     bValue = b.category.name.toLowerCase();
                     break;
                 case 'account':
-                    aValue = a.account?.bankName?.toLowerCase() || '';
-                    bValue = b.account?.bankName?.toLowerCase() || '';
+                    aValue = a.account ? `${a.account.bankName} - ${a.account.accountType}` : '';
+                    bValue = b.account ? `${b.account.bankName} - ${b.account.accountType}` : '';
+                    aValue = aValue.toLowerCase();
+                    bValue = bValue.toLowerCase();
                     break;
                 case 'date':
-                    aValue = new Date(a.date).getTime();
-                    bValue = new Date(b.date).getTime();
+                    aValue = new Date(a.date);
+                    bValue = new Date(b.date);
                     break;
                 case 'amount':
                     aValue = a.amount;
@@ -57,49 +77,13 @@ export function IncomeList({ incomes, currency = "USD", onEdit, onDelete }: Inco
             }
             return 0;
         });
-
-        return sorted;
-    }, [incomes, sortField, sortDirection]);
-
-    const handleSort = (field: SortField) => {
-        if (field === sortField) {
-            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortField(field);
-            setSortDirection('asc');
-        }
-    };
-
-    const getSortIcon = (field: SortField) => {
-        if (sortField !== field) {
-            return (
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                </svg>
-            );
-        }
-        
-        if (sortDirection === 'asc') {
-            return (
-                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                </svg>
-            );
-        } else {
-            return (
-                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-            );
-        }
-    };
-
-    if (incomes.length === 0) {
+    }, [expenses, sortField, sortDirection]);
+    if (expenses.length === 0) {
         return (
             <div className="bg-white rounded-lg shadow p-8 text-center">
-                <div className="text-gray-400 text-6xl mb-4">💰</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No income found</h3>
-                <p className="text-gray-500">Start tracking your income by adding your first source.</p>
+                <div className="text-gray-400 text-6xl mb-4">💸</div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No expenses found</h3>
+                <p className="text-gray-500">Start tracking your expenses by adding your first transaction.</p>
             </div>
         );
     }
@@ -108,7 +92,7 @@ export function IncomeList({ incomes, currency = "USD", onEdit, onDelete }: Inco
         <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
                 <h2 className="text-lg font-semibold text-gray-900">
-                    Income Sources ({incomes.length})
+                    Expenses ({expenses.length})
                 </h2>
             </div>
             <div className="overflow-x-auto">
@@ -116,37 +100,37 @@ export function IncomeList({ incomes, currency = "USD", onEdit, onDelete }: Inco
                     <thead className="bg-gray-50">
                         <tr>
                             <th 
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                                 onClick={() => handleSort('title')}
                             >
-                                <div className="flex items-center space-x-1">
-                                    <span>Income</span>
+                                <div className="flex items-center justify-between">
+                                    <span>Expense</span>
                                     {getSortIcon('title')}
                                 </div>
                             </th>
                             <th 
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                                 onClick={() => handleSort('category')}
                             >
-                                <div className="flex items-center space-x-1">
+                                <div className="flex items-center justify-between">
                                     <span>Category</span>
                                     {getSortIcon('category')}
                                 </div>
                             </th>
                             <th 
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                                 onClick={() => handleSort('account')}
                             >
-                                <div className="flex items-center space-x-1">
+                                <div className="flex items-center justify-between">
                                     <span>Account</span>
                                     {getSortIcon('account')}
                                 </div>
                             </th>
                             <th 
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                                 onClick={() => handleSort('date')}
                             >
-                                <div className="flex items-center space-x-1">
+                                <div className="flex items-center justify-between">
                                     <span>Date</span>
                                     {getSortIcon('date')}
                                 </div>
@@ -158,10 +142,10 @@ export function IncomeList({ incomes, currency = "USD", onEdit, onDelete }: Inco
                                 Notes
                             </th>
                             <th 
-                                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                                 onClick={() => handleSort('amount')}
                             >
-                                <div className="flex items-center justify-end space-x-1">
+                                <div className="flex items-center justify-between">
                                     <span>Amount</span>
                                     {getSortIcon('amount')}
                                 </div>
@@ -172,10 +156,10 @@ export function IncomeList({ incomes, currency = "USD", onEdit, onDelete }: Inco
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {sortedIncomes.map((income) => (
-                            <IncomeRow 
-                                key={income.id} 
-                                income={income} 
+                        {sortedExpenses.map((expense) => (
+                            <ExpenseRow 
+                                key={expense.id} 
+                                expense={expense} 
                                 currency={currency}
                                 onEdit={onEdit}
                                 onDelete={onDelete}
@@ -188,38 +172,39 @@ export function IncomeList({ incomes, currency = "USD", onEdit, onDelete }: Inco
     );
 }
 
-function IncomeRow({ income, currency = "USD", onEdit, onDelete }: { 
-    income: Income; 
+function ExpenseRow({ expense, currency = "USD", onEdit, onDelete }: { 
+    expense: Expense; 
     currency?: string;
-    onEdit?: (income: Income) => void;
-    onDelete?: (income: Income) => void;
+    onEdit?: (expense: Expense) => void;
+    onDelete?: (expense: Expense) => void;
 }) {
     const handleEdit = () => {
         if (onEdit) {
-            onEdit(income);
+            onEdit(expense);
         }
     };
 
     const handleDelete = () => {
         if (onDelete) {
-            onDelete(income);
+            onDelete(expense);
         }
     };
+
     return (
         <tr className="hover:bg-gray-50">
             <td className="px-6 py-4 whitespace-nowrap">
                 <div>
                     <div className="text-sm font-medium text-gray-900">
-                        {income.title}
-                        {income.isRecurring && (
-                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        {expense.title}
+                        {expense.isRecurring && (
+                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
                                 Recurring
                             </span>
                         )}
                     </div>
-                    {income.description && (
+                    {expense.description && (
                         <div className="text-sm text-gray-500">
-                            {income.description}
+                            {expense.description}
                         </div>
                     )}
                 </div>
@@ -228,29 +213,20 @@ function IncomeRow({ income, currency = "USD", onEdit, onDelete }: {
                 <div className="flex items-center">
                     <div 
                         className="w-3 h-3 rounded-full mr-2"
-                        style={{ backgroundColor: income.category.color }}
+                        style={{ backgroundColor: expense.category.color }}
                     ></div>
-                    <span className="text-sm text-gray-900">{income.category.name}</span>
+                    <span className="text-sm text-gray-900">{expense.category.name}</span>
                 </div>
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {income.account ? (
-                    <div>
-                        <div className="font-medium">{income.account.bankName}</div>
-                        <div className="text-gray-500 text-xs">
-                            {income.account.holderName} ({income.account.accountType})
-                        </div>
-                    </div>
-                ) : (
-                    <span className="text-gray-400">No account</span>
-                )}
+                {expense.account ? `${expense.account.bankName} - ${expense.account.accountType}` : '-'}
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {formatDate(income.date)}
+                {formatDate(expense.date)}
             </td>
             <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex flex-wrap gap-1">
-                    {income.tags.map((tag, index) => (
+                    {expense.tags.map((tag, index) => (
                         <span
                             key={index}
                             className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800"
@@ -261,16 +237,16 @@ function IncomeRow({ income, currency = "USD", onEdit, onDelete }: {
                 </div>
             </td>
             <td className="px-6 py-4 whitespace-nowrap max-w-xs">
-                {income.notes ? (
-                    <div className="text-sm text-gray-600 truncate" title={income.notes}>
-                        {income.notes}
+                {expense.notes ? (
+                    <div className="text-sm text-gray-600 truncate" title={expense.notes}>
+                        {expense.notes}
                     </div>
                 ) : (
                     <span className="text-xs text-gray-400">No notes</span>
                 )}
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right text-green-600">
-                {formatCurrency(income.amount, currency)}
+            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right text-red-600">
+                {formatCurrency(expense.amount, currency)}
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <div className="flex justify-end space-x-2">

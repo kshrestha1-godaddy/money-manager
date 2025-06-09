@@ -176,7 +176,39 @@ export default function NetWorthPage() {
                 </div>
             </div>
 
-
+            {/* Financial Health Indicators */}
+            <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Financial Health</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                        <h4 className="font-medium text-gray-700 mb-2">Savings Rate (This Month)</h4>
+                        <p className="text-2xl font-bold text-blue-600">
+                            {thisMonthIncome > 0 ? `${((thisMonthNetIncome / thisMonthIncome) * 100).toFixed(1)}%` : '0%'}
+                        </p>
+                        <p className="text-sm text-gray-500 mt-1">
+                            {thisMonthNetIncome >= 0 ? 'You are saving money this month! 🎉' : 'You are spending more than earning this month 📉'}
+                        </p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                        <h4 className="font-medium text-gray-700 mb-2">Asset Allocation</h4>
+                        <p className="text-2xl font-bold text-purple-600">
+                            {totalAssets > 0 ? `${((totalInvestmentValue / totalAssets) * 100).toFixed(1)}%` : '0%'}
+                        </p>
+                        <p className="text-sm text-gray-500 mt-1">
+                            Percentage in investments
+                        </p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                        <h4 className="font-medium text-gray-700 mb-2">Debt to Asset Ratio</h4>
+                        <p className="text-2xl font-bold text-orange-600">
+                            {totalAssets > 0 ? `${((totalLiabilities / totalAssets) * 100).toFixed(1)}%` : '0%'}
+                        </p>
+                        <p className="text-sm text-gray-500 mt-1">
+                            {totalLiabilities === 0 ? 'Debt-free! 🎉' : 'Lower is better'}
+                        </p>
+                    </div>
+                </div>
+            </div>
 
             {/* Account Breakdown Table */}
             <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -493,39 +525,6 @@ export default function NetWorthPage() {
                 )}
             </div>
 
-            {/* Financial Health Indicators */}
-            <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Financial Health</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-700 mb-2">Savings Rate (This Month)</h4>
-                        <p className="text-2xl font-bold text-blue-600">
-                            {thisMonthIncome > 0 ? `${((thisMonthNetIncome / thisMonthIncome) * 100).toFixed(1)}%` : '0%'}
-                        </p>
-                        <p className="text-sm text-gray-500 mt-1">
-                            {thisMonthNetIncome >= 0 ? 'You are saving money this month! 🎉' : 'You are spending more than earning this month 📉'}
-                        </p>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-700 mb-2">Asset Allocation</h4>
-                        <p className="text-2xl font-bold text-purple-600">
-                            {totalAssets > 0 ? `${((totalInvestmentValue / totalAssets) * 100).toFixed(1)}%` : '0%'}
-                        </p>
-                        <p className="text-sm text-gray-500 mt-1">
-                            Percentage in investments
-                        </p>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-700 mb-2">Debt to Asset Ratio</h4>
-                        <p className="text-2xl font-bold text-orange-600">
-                            {totalAssets > 0 ? `${((totalLiabilities / totalAssets) * 100).toFixed(1)}%` : '0%'}
-                        </p>
-                        <p className="text-sm text-gray-500 mt-1">
-                            {totalLiabilities === 0 ? 'Debt-free! 🎉' : 'Lower is better'}
-                        </p>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 } 

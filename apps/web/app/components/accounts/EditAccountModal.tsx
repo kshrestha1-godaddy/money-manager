@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { AccountInterface } from "../types/accounts";
+import { AccountInterface } from "../../types/accounts";
 
 interface EditAccountModalProps {
     isOpen: boolean;
