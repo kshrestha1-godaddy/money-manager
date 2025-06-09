@@ -1,16 +1,42 @@
 "use client";
 
 import { signIn, signOut, useSession } from "next-auth/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, memo } from "react";
 import { CURRENCIES, getCurrencySymbol, formatCurrency } from "../utils/currency";
 import { useCurrency } from "../providers/CurrencyProvider";
 import { useTotalBalance } from "../hooks/useTotalBalance";
+
+// Memoized balance display component
+const BalanceDisplay = memo(({ totalBalance, selectedCurrency }: { totalBalance: number; selectedCurrency: string }) => (
+  <span className="text-green-600 font-semibold text-sm">
+    Balance: {formatCurrency(totalBalance, selectedCurrency)}
+  </span>
+));
+
+BalanceDisplay.displayName = 'BalanceDisplay';
 
 export default function NavBar() {
   const { data: session, status } = useSession();
   const { currency: selectedCurrency, updateCurrency } = useCurrency();
   const { totalBalance, loading: balanceLoading } = useTotalBalance();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  // Memoize the user display section
+  const userDisplaySection = useMemo(() => {
+    if (status === "authenticated" && session?.user?.name) {
+      return (
+        <div>
+          <span className="text-gray-700 font-bold text-lg block">
+            {session.user.name}
+          </span>
+          {!balanceLoading && (
+            <BalanceDisplay totalBalance={totalBalance} selectedCurrency={selectedCurrency} />
+          )}
+        </div>
+      );
+    }
+    return null;
+  }, [status, session?.user?.name, balanceLoading, totalBalance, selectedCurrency]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -66,18 +92,7 @@ export default function NavBar() {
       {/* Center: User name and Balance */}
       <div className="flex-1 flex justify-center">
         <div className="text-center">
-          {status === "authenticated" && session?.user?.name && (
-            <div>
-              <span className="text-gray-700 font-bold text-lg block">
-                {session.user.name}
-              </span>
-              {!balanceLoading && (
-                <span className="text-green-600 font-semibold text-sm">
-                  Balance: {formatCurrency(totalBalance, selectedCurrency)}
-                </span>
-              )}
-            </div>
-          )}
+          {userDisplaySection}
         </div>
       </div>
 

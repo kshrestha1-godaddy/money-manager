@@ -13,6 +13,7 @@ import { getUserAccounts, createAccount, updateAccount, deleteAccount } from "..
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { BankBalanceChart } from "../../components/BankBalanceChart";
+import { triggerBalanceRefresh } from "../../hooks/useTotalBalance";
 
 export default function Accounts() {
     const [accounts, setAccounts] = useState<AccountInterface[]>([]);
@@ -59,6 +60,8 @@ export default function Accounts() {
             const account = await createAccount(newAccount);
             setAccounts([account, ...accounts]);
             setIsAddModalOpen(false);
+            // Trigger balance refresh in NavBar
+            triggerBalanceRefresh();
         } catch (error) {
             console.error("Error adding account:", error);
             alert("Failed to add account. Please try again.");
@@ -71,6 +74,8 @@ export default function Accounts() {
             setAccounts(accounts.map(a => a.id === id ? account : a));
             setIsEditModalOpen(false);
             setAccountToEdit(null);
+            // Trigger balance refresh in NavBar
+            triggerBalanceRefresh();
         } catch (error) {
             console.error("Error updating account:", error);
             alert("Failed to update account. Please try again.");
@@ -85,6 +90,8 @@ export default function Accounts() {
             setAccounts(accounts.filter(a => a.id !== accountToDelete.id));
             setIsDeleteModalOpen(false);
             setAccountToDelete(null);
+            // Trigger balance refresh in NavBar
+            triggerBalanceRefresh();
         } catch (error) {
             console.error("Error deleting account:", error);
             alert("Failed to delete account. Please try again.");

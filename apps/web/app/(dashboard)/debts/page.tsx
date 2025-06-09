@@ -15,6 +15,7 @@ import { getUserDebts, createDebt, updateDebt, deleteDebt } from "../../actions/
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { calculateRemainingWithInterest } from "../../utils/interestCalculation";
+import { triggerBalanceRefresh } from "../../hooks/useTotalBalance";
 
 export default function Debts() {
     const [debts, setDebts] = useState<DebtInterface[]>([]);
@@ -47,6 +48,8 @@ export default function Debts() {
             
             if (userDebts && !('error' in userDebts)) {
                 setDebts(userDebts.data || []);
+                // Trigger balance refresh when debts are loaded (useful for repayments)
+                triggerBalanceRefresh();
             } else {
                 const errorMessage = userDebts?.error || "Unknown error";
                 console.error("Error loading debts:", errorMessage);
@@ -82,6 +85,8 @@ export default function Debts() {
             setDebts(prevDebts => [debt, ...prevDebts]);
             setIsAddModalOpen(false);
             setError(null); // Clear any previous errors
+            // Trigger balance refresh in NavBar
+            triggerBalanceRefresh();
         } catch (error) {
             console.error("Error adding debt:", error);
             const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -105,6 +110,8 @@ export default function Debts() {
             setIsEditModalOpen(false);
             setDebtToEdit(null);
             setError(null); // Clear any previous errors
+            // Trigger balance refresh in NavBar
+            triggerBalanceRefresh();
         } catch (error) {
             console.error("Error updating debt:", error);
             const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -130,6 +137,8 @@ export default function Debts() {
             setIsDeleteModalOpen(false);
             setDebtToDelete(null);
             setError(null); // Clear any previous errors
+            // Trigger balance refresh in NavBar
+            triggerBalanceRefresh();
         } catch (error) {
             console.error("Error deleting debt:", error);
             const errorMessage = error instanceof Error ? error.message : "Unknown error";

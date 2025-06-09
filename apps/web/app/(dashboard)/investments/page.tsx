@@ -13,6 +13,7 @@ import { ViewInvestmentModal } from "../../components/investments/ViewInvestment
 import { getUserInvestments, createInvestment, updateInvestment, deleteInvestment } from "../../actions/investments";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
+import { triggerBalanceRefresh } from "../../hooks/useTotalBalance";
 
 export default function Investments() {
     const [investments, setInvestments] = useState<InvestmentInterface[]>([]);
@@ -78,6 +79,8 @@ export default function Investments() {
             setInvestments(prevInvestments => [investment, ...prevInvestments]);
             setIsAddModalOpen(false);
             setError(null); // Clear any previous errors
+            // Trigger balance refresh in NavBar
+            triggerBalanceRefresh();
         } catch (error) {
             console.error("Error adding investment:", error);
             const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -101,6 +104,8 @@ export default function Investments() {
             setIsEditModalOpen(false);
             setInvestmentToEdit(null);
             setError(null); // Clear any previous errors
+            // Trigger balance refresh in NavBar
+            triggerBalanceRefresh();
         } catch (error) {
             console.error("Error updating investment:", error);
             const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -126,6 +131,8 @@ export default function Investments() {
             setIsDeleteModalOpen(false);
             setInvestmentToDelete(null);
             setError(null); // Clear any previous errors
+            // Trigger balance refresh in NavBar
+            triggerBalanceRefresh();
         } catch (error) {
             console.error("Error deleting investment:", error);
             const errorMessage = error instanceof Error ? error.message : "Unknown error";

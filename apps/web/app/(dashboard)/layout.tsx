@@ -7,7 +7,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="fixed left-5 top-10 w-64 h-screen bg-white border-r border-slate-300 pt-2 flex-shrink-0 z-30 overflow-y-auto">
                 <div className="flex flex-col gap-4 pt-20">
                     {/* Tracking Section */}
-                    <SidebarItem href={"/dashboard"} icon={<HomeIcon />} title="Home" />
+                    <SidebarItem href={"/dashboard"} icon={<DashboardIcon />} title="Dashboard" />
                     <SidebarItem href={"/incomes"} icon={<IncomesIcon />} title="Incomes" />
                     <SidebarItem href={"/expenses"} icon={<ExpensesIcon />} title="Expenses" />
                     <SidebarItem href={"/history"} icon={<HistoryIcon />} title="History" />
@@ -33,7 +33,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 }
 
 // Icons Fetched from https://heroicons.com/
-function HomeIcon() {
+function DashboardIcon() {
     return (
         <svg
             xmlns="http://www.w3.org/2000/svg"

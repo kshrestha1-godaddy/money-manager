@@ -16,6 +16,7 @@ import { getIncomes, createIncome, updateIncome, deleteIncome } from "../../acti
 import { getUserAccounts } from "../../actions/accounts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
+import { triggerBalanceRefresh } from "../../hooks/useTotalBalance";
 
 function IncomesContent() {
     const [incomes, setIncomes] = useState<Income[]>([]);
@@ -138,6 +139,8 @@ function IncomesContent() {
             const income = await createIncome(newIncome);
             setIncomes([income, ...incomes]);
             setIsAddModalOpen(false);
+            // Trigger balance refresh in NavBar
+            triggerBalanceRefresh();
         } catch (error) {
             console.error("Error adding income:", error);
             alert("Failed to add income. Please try again.");
@@ -150,6 +153,8 @@ function IncomesContent() {
             setIncomes(incomes.map(i => i.id === id ? income : i));
             setIsEditModalOpen(false);
             setIncomeToEdit(null);
+            // Trigger balance refresh in NavBar
+            triggerBalanceRefresh();
         } catch (error) {
             console.error("Error updating income:", error);
             alert("Failed to update income. Please try again.");
@@ -164,6 +169,8 @@ function IncomesContent() {
             setIncomes(incomes.filter(i => i.id !== incomeToDelete.id));
             setIsDeleteModalOpen(false);
             setIncomeToDelete(null);
+            // Trigger balance refresh in NavBar
+            triggerBalanceRefresh();
         } catch (error) {
             console.error("Error deleting income:", error);
             alert("Failed to delete income. Please try again.");

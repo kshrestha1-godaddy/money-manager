@@ -332,9 +332,9 @@ export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD" }:
                         <Tooltip formatter={formatTooltip} />
                         
                         {/* Reference lines for better visual separation */}
-                        <ReferenceLine y={totalIncome} stroke="#10b981" strokeDasharray="5 5" strokeWidth={2} label={{ value: "Total Income", position: "top" }} />
+                        <ReferenceLine y={totalIncome} stroke="#10b981" strokeDasharray="5 5" strokeWidth={2} label={{ value: "", position: "top" }} />
                         {totalSavings > 0 && (
-                            <ReferenceLine y={totalSavings} stroke="#3b82f6" strokeDasharray="5 5" strokeWidth={2} label={{ value: "Net Savings", position: "top" }} />
+                            <ReferenceLine y={totalSavings} stroke="#3b82f6" strokeDasharray="5 5" strokeWidth={2} label={{ value: "", position: "top" }} />
                         )}
                         
                         {/* Base bars (invisible) to create waterfall effect */}

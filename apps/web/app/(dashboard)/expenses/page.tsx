@@ -16,6 +16,7 @@ import { getUserAccounts } from "../../actions/accounts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { FinancialAreaChart } from "../../components/FinancialAreaChart";
+import { triggerBalanceRefresh } from "../../hooks/useTotalBalance";
 
 function ExpensesContent() {
     const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -138,6 +139,8 @@ function ExpensesContent() {
             const expense = await createExpense(newExpense);
             setExpenses([expense, ...expenses]);
             setIsAddModalOpen(false);
+            // Trigger balance refresh in NavBar
+            triggerBalanceRefresh();
         } catch (error) {
             console.error("Error adding expense:", error);
             alert("Failed to add expense. Please try again.");
@@ -150,6 +153,8 @@ function ExpensesContent() {
             setExpenses(expenses.map(e => e.id === id ? expense : e));
             setIsEditModalOpen(false);
             setExpenseToEdit(null);
+            // Trigger balance refresh in NavBar
+            triggerBalanceRefresh();
         } catch (error) {
             console.error("Error updating expense:", error);
             alert("Failed to update expense. Please try again.");
@@ -164,6 +169,8 @@ function ExpensesContent() {
             setExpenses(expenses.filter(e => e.id !== expenseToDelete.id));
             setIsDeleteModalOpen(false);
             setExpenseToDelete(null);
+            // Trigger balance refresh in NavBar
+            triggerBalanceRefresh();
         } catch (error) {
             console.error("Error deleting expense:", error);
             alert("Failed to delete expense. Please try again.");
