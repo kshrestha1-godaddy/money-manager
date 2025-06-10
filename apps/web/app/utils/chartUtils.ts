@@ -1,4 +1,5 @@
 import React from 'react';
+import { downloadCSV } from './csvUtils';
 
 export interface ChartUtilsConfig {
     chartRef: React.RefObject<HTMLDivElement | null>;
@@ -125,14 +126,8 @@ export const downloadData = (config: ChartUtilsConfig): void => {
         return;
     }
     
-    const csvContent = csvData.map(row => row.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const downloadLink = document.createElement('a');
-    downloadLink.download = `${csvFileName}.csv`;
-    downloadLink.href = url;
-    downloadLink.click();
-    window.URL.revokeObjectURL(url);
+    // Use centralized CSV utility
+    downloadCSV(csvData, csvFileName);
 };
 
 /**

@@ -394,3 +394,225 @@ export async function getIncomesByDateRange(startDate: Date, endDate: Date) {
         throw new Error("Failed to fetch incomes by date range");
     }
 } 
+
+// Bulk import functionality for incomes
+export async function bulkImportIncomes(file: File, defaultAccountId: string, transactionType?: string): Promise<any> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+        const text = await file.text();
+        const rows = await parseCSVForUI(text);
+
+        if (rows.length <= 1) {
+            throw new Error("CSV file must contain header row and at least one data row");
+        }
+
+        const headers = rows[0];
+        if (!headers) {
+            throw new Error("CSV file must have a valid header row");
+        }
+        
+        const dataRows = rows.slice(1);
+
+        let successCount = 0;
+        const errors: { row: number; message: string }[] = [];
+
+        // Get all categories and accounts for validation
+        const [categories, accounts] = await Promise.all([
+            prisma.category.findMany({ where: { type: "INCOME" } }),
+            prisma.account.findMany({ where: { userId } })
+        ]);
+
+        for (let i = 0; i < dataRows.length; i++) {
+            const rowData = dataRows[i];
+            if (!rowData) {
+                continue; // Skip empty rows
+            }
+            const rowNumber = i + 2; // +2 because of header row and 0-based index
+
+            try {
+                const income = await processIncomeRow(rowData, headers, categories, accounts, defaultAccountId, userId);
+                if (income) {
+                    successCount++;
+                }
+            } catch (error) {
+                errors.push({
+                    row: rowNumber,
+                    message: error instanceof Error ? error.message : 'Unknown error'
+                });
+            }
+        }
+
+        revalidatePath("/(dashboard)/incomes");
+        revalidatePath("/(dashboard)/accounts");
+
+        return {
+            success: successCount,
+            errors: errors.map(error => ({
+                row: error.row,
+                error: error.message
+            }))
+        };
+    } catch (error) {
+        console.error("Error in bulk import:", error);
+        throw new Error("Failed to process bulk import");
+    }
+}
+
+export async function parseCSVForUI(csvText: string): Promise<string[][]> {
+    const lines = csvText.split('\n').filter(line => line.trim() !== '');
+    return lines.map(line => {
+        const cells: string[] = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            
+            if (char === '"') {
+                if (inQuotes && line[i + 1] === '"') {
+                    current += '"';
+                    i++; // Skip the next quote
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (char === ',' && !inQuotes) {
+                cells.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        
+        cells.push(current.trim());
+        return cells;
+    });
+}
+
+export async function importCorrectedRow(rowData: string[], headers: string[], transactionType?: string): Promise<any> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Get all categories and accounts for validation
+        const [categories, accounts] = await Promise.all([
+            prisma.category.findMany({ where: { type: "INCOME" } }),
+            prisma.account.findMany({ where: { userId } })
+        ]);
+
+        const income = await processIncomeRow(rowData, headers, categories, accounts, '', userId);
+        
+        revalidatePath("/(dashboard)/incomes");
+        revalidatePath("/(dashboard)/accounts");
+        
+        return income;
+    } catch (error) {
+        console.error("Error importing corrected row:", error);
+        throw new Error("Failed to import corrected row");
+    }
+}
+
+async function processIncomeRow(
+    rowData: string[], 
+    headers: string[], 
+    categories: any[], 
+    accounts: any[], 
+    defaultAccountId: string, 
+    userId: number
+): Promise<any> {
+    // Create a mapping of headers to values
+    const rowObj: Record<string, string> = {};
+    headers.forEach((header, index) => {
+        rowObj[header.toLowerCase().trim()] = rowData[index]?.trim() || '';
+    });
+
+    // Validate required fields
+    if (!rowObj.title) {
+        throw new Error("Title is required");
+    }
+    if (!rowObj.amount || isNaN(parseFloat(rowObj.amount))) {
+        throw new Error("Valid amount is required");
+    }
+    if (!rowObj.date) {
+        throw new Error("Date is required");
+    }
+    if (!rowObj.category) {
+        throw new Error("Category is required");
+    }
+
+    // Parse and validate date
+    const date = new Date(rowObj.date);
+    if (isNaN(date.getTime())) {
+        throw new Error("Invalid date format. Use YYYY-MM-DD");
+    }
+
+    // Find category
+    const categoryName = rowObj.category;
+    if (!categoryName) {
+        throw new Error("Category is required");
+    }
+    const category = categories.find(c => 
+        c.name.toLowerCase() === categoryName.toLowerCase()
+    );
+    if (!category) {
+        throw new Error(`Category "${categoryName}" not found`);
+    }
+
+    // Find account
+    let accountId = defaultAccountId;
+    const accountName = rowObj.account;
+    if (accountName) {
+        const account = accounts.find(a => 
+            a.bankName.toLowerCase().includes(accountName.toLowerCase()) ||
+            a.holderName.toLowerCase().includes(accountName.toLowerCase())
+        );
+        if (account) {
+            accountId = account.id.toString();
+        } else {
+            throw new Error(`Account "${accountName}" not found`);
+        }
+    }
+
+    if (!accountId) {
+        throw new Error("Account is required");
+    }
+
+    // Parse tags - ensure we have an array
+    const tagsString = rowObj.tags || '';
+    const tags = tagsString ? tagsString.split(',').map(tag => tag.trim()).filter(Boolean) : [];
+
+    // Parse recurring
+    const recurringString = rowObj.recurring || '';
+    const isRecurring = recurringString.toLowerCase() === 'true' || recurringString.toLowerCase() === 'yes';
+
+    // Get the account and category objects for the income data
+    const selectedAccount = accounts.find(a => a.id === parseInt(accountId));
+    if (!selectedAccount) {
+        throw new Error("Selected account not found");
+    }
+
+    // Create a simple data object that matches what createIncome expects
+    const incomeData = {
+        title: rowObj.title,
+        description: rowObj.description || undefined,
+        amount: parseFloat(rowObj.amount),
+        date: date,
+        categoryId: category.id,
+        accountId: parseInt(accountId),
+        tags: tags,
+        notes: rowObj.notes || undefined,
+        isRecurring: isRecurring,
+        recurringFrequency: isRecurring ? (rowObj.frequency?.toUpperCase() as any || 'MONTHLY') : undefined
+    };
+
+    // The createIncome function will handle creating the full Income object with relationships
+    return await createIncome(incomeData as any);
+} 

@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { Button } from "@repo/ui/button";
+import { useState, useEffect } from "react";
 import { Expense, Category } from "../../types/financial";
 import { AccountInterface } from "../../types/accounts";
 import { ExpenseForm } from "./ExpenseForm";
@@ -10,24 +9,48 @@ import {
     initializeFormData,
     validateFormData,
     transformFormData,
-    showValidationErrors
+    extractFormData,
+    showValidationErrors,
+    buttonClasses,
+    modalOverlayClasses,
+    modalContentClasses
 } from "../../utils/formUtils";
 
-interface AddExpenseModalProps {
+interface ExpenseModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onAdd: (expense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => void;
+    onSubmit: (expense: any) => void;
     categories: Category[];
     accounts: AccountInterface[];
+    expense?: Expense | null;
+    mode: 'add' | 'edit';
 }
 
-export function AddExpenseModal({ isOpen, onClose, onAdd, categories, accounts }: AddExpenseModalProps) {
+export function ExpenseModal({ 
+    isOpen, 
+    onClose, 
+    onSubmit, 
+    categories, 
+    accounts, 
+    expense, 
+    mode 
+}: ExpenseModalProps) {
     const [formData, setFormData] = useState<BaseFormData>(initializeFormData());
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        if (mode === 'edit' && expense) {
+            setFormData(extractFormData(expense));
+        } else if (mode === 'add') {
+            setFormData(initializeFormData());
+        }
+    }, [expense, mode, isOpen]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
+        if (mode === 'edit' && !expense) return;
+
         const validation = validateFormData(formData, categories, accounts);
         if (!validation.isValid) {
             showValidationErrors(validation.errors);
@@ -36,32 +59,43 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, categories, accounts }
 
         setIsSubmitting(true);
         try {
-            const expense = transformFormData(formData, categories, accounts);
-            onAdd(expense as Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>);
+            const transformedData = transformFormData(formData, categories, accounts);
             
-            // Reset form after successful submission
-            setFormData(initializeFormData());
-            onClose();
+            if (mode === 'edit' && expense) {
+                onSubmit({ id: expense.id, data: transformedData });
+            } else {
+                onSubmit(transformedData);
+            }
+            
+            handleClose();
         } catch (error) {
-            console.error('Error creating expense:', error);
-            alert('Failed to create expense. Please try again.');
+            console.error(`Error ${mode === 'add' ? 'creating' : 'updating'} expense:`, error);
+            alert(`Failed to ${mode === 'add' ? 'create' : 'update'} expense. Please try again.`);
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const handleClose = () => {
-        setFormData(initializeFormData());
+        if (mode === 'edit' && expense) {
+            setFormData(extractFormData(expense));
+        } else {
+            setFormData(initializeFormData());
+        }
         onClose();
     };
 
     if (!isOpen) return null;
 
+    const title = mode === 'add' ? 'Add New Expense' : 'Edit Expense';
+    const submitText = mode === 'add' ? 'Add Expense' : 'Update Expense';
+    const submittingText = mode === 'add' ? 'Adding...' : 'Updating...';
+
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div className={modalOverlayClasses}>
+            <div className={modalContentClasses}>
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold text-gray-900">Add New Expense</h2>
+                    <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
                     <button
                         onClick={handleClose}
                         className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
@@ -85,16 +119,16 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, categories, accounts }
                             type="button"
                             onClick={handleClose}
                             disabled={isSubmitting}
-                            className="px-4 py-2 bg-gray-300 text-gray-700 hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-md transition-colors"
+                            className={buttonClasses.secondary}
                         >
                             Cancel
                         </button>
                         <button 
                             type="submit"
                             disabled={isSubmitting}
-                            className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-md transition-colors"
+                            className={buttonClasses.primary}
                         >
-                            {isSubmitting ? 'Adding...' : 'Add Expense'}
+                            {isSubmitting ? submittingText : submitText}
                         </button>
                     </div>
                 </form>

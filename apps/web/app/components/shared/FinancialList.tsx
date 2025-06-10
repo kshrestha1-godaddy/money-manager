@@ -1,38 +1,63 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Expense } from "../../types/financial";
 import { formatCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
+import { TransactionType } from "../../utils/formUtils";
 
-interface ExpenseListProps {
-    expenses: Expense[];
+interface FinancialTransaction {
+    id: number;
+    title: string;
+    description?: string;
+    amount: number;
+    date: Date;
+    category: {
+        id: number;
+        name: string;
+        color: string;
+    };
+    account?: {
+        id: number;
+        bankName: string;
+        holderName: string;
+        accountType: string;
+    } | null;
+    tags: string[];
+    notes?: string;
+    isRecurring: boolean;
+    recurringFrequency?: string;
+}
+
+interface FinancialListProps {
+    transactions: FinancialTransaction[];
+    transactionType: TransactionType;
     currency?: string;
-    onEdit?: (expense: Expense) => void;
-    onDelete?: (expense: Expense) => void;
-    selectedExpenses?: Set<number>;
-    onExpenseSelect?: (expenseId: number, selected: boolean) => void;
+    onEdit?: (transaction: FinancialTransaction) => void;
+    onDelete?: (transaction: FinancialTransaction) => void;
+    selectedTransactions?: Set<number>;
+    onTransactionSelect?: (transactionId: number, selected: boolean) => void;
     onSelectAll?: (selected: boolean) => void;
     showBulkActions?: boolean;
-    onBulkDelete?: () => void;
+    onBulkDelete?: (ids: number[]) => void;
     onClearSelection?: () => void;
 }
 
 type SortField = 'title' | 'category' | 'account' | 'date' | 'amount';
 type SortDirection = 'asc' | 'desc';
 
-export function ExpenseList({ 
-    expenses, 
+export function FinancialList({ 
+    transactions, 
+    transactionType,
     currency = "USD", 
     onEdit, 
     onDelete, 
-    selectedExpenses = new Set(),
-    onExpenseSelect,
+    selectedTransactions = new Set(),
+    onTransactionSelect,
     onSelectAll,
     showBulkActions = false,
     onBulkDelete,
     onClearSelection
-}: ExpenseListProps) {
+}: FinancialListProps) {
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
@@ -54,8 +79,8 @@ export function ExpenseList({
             <span className="text-blue-600" aria-label="Sorted descending">↓</span>;
     };
 
-    const sortedExpenses = useMemo(() => {
-        return [...expenses].sort((a, b) => {
+    const sortedTransactions = useMemo(() => {
+        return [...transactions].sort((a, b) => {
             let aValue: any;
             let bValue: any;
 
@@ -94,36 +119,56 @@ export function ExpenseList({
             }
             return 0;
         });
-    }, [expenses, sortField, sortDirection]);
+    }, [transactions, sortField, sortDirection]);
 
     const handleSelectAll = () => {
-        const allSelected = selectedExpenses.size === expenses.length;
+        const allSelected = selectedTransactions.size === transactions.length;
         if (onSelectAll) {
             onSelectAll(!allSelected);
         }
     };
 
-    const isAllSelected = selectedExpenses.size === expenses.length && expenses.length > 0;
-    const isPartiallySelected = selectedExpenses.size > 0 && selectedExpenses.size < expenses.length;
+    const handleBulkDelete = () => {
+        if (selectedTransactions.size > 0 && onBulkDelete) {
+            const confirmed = confirm(
+                `Are you sure you want to delete ${selectedTransactions.size} selected ${transactionType === 'EXPENSE' ? 'expenses' : 'incomes'}?`
+            );
+            if (confirmed) {
+                onBulkDelete(Array.from(selectedTransactions));
+            }
+        }
+    };
 
-    if (expenses.length === 0) {
+    const isAllSelected = selectedTransactions.size === transactions.length && transactions.length > 0;
+    const isPartiallySelected = selectedTransactions.size > 0 && selectedTransactions.size < transactions.length;
+
+    const transactionLabel = transactionType === 'EXPENSE' ? 'Expenses' : 'Income Sources';
+    const emptyIcon = transactionType === 'EXPENSE' ? '💸' : '💰';
+    const emptyMessage = transactionType === 'EXPENSE' ? 'No expenses found' : 'No income found';
+    const emptySubtext = transactionType === 'EXPENSE' 
+        ? 'Start tracking your expenses by adding your first transaction.' 
+        : 'Start tracking your income by adding your first source.';
+
+    if (transactions.length === 0) {
         return (
             <div className="bg-white rounded-lg shadow p-8 text-center">
-                <div className="text-gray-400 text-6xl mb-4">💸</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No expenses found</h3>
-                <p className="text-gray-500">Start tracking your expenses by adding your first transaction.</p>
+                <div className="text-gray-400 text-6xl mb-4">{emptyIcon}</div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">{emptyMessage}</h3>
+                <p className="text-gray-500">{emptySubtext}</p>
             </div>
         );
     }
+
+    const amountColorClass = transactionType === 'EXPENSE' ? 'text-red-600' : 'text-green-600';
 
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex justify-between items-center">
                     <h2 className="text-lg font-semibold text-gray-900">
-                        Expenses ({expenses.length})
+                        {transactionLabel} ({transactions.length})
                     </h2>
-                    {showBulkActions && selectedExpenses.size > 0 && (
+                    {showBulkActions && selectedTransactions.size > 0 && (
                         <div className="flex space-x-2">
                             <button
                                 onClick={onClearSelection}
@@ -132,10 +177,10 @@ export function ExpenseList({
                                 Clear Selection
                             </button>
                             <button
-                                onClick={onBulkDelete}
+                                onClick={handleBulkDelete}
                                 className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
                             >
-                                Delete Selected ({selectedExpenses.size})
+                                Delete Selected ({selectedTransactions.size})
                             </button>
                         </div>
                     )}
@@ -163,7 +208,7 @@ export function ExpenseList({
                                 onClick={() => handleSort('title')}
                             >
                                 <div className="flex items-center justify-between">
-                                    <span>Expense</span>
+                                    <span>{transactionType === 'EXPENSE' ? 'Expense' : 'Income'}</span>
                                     {getSortIcon('title')}
                                 </div>
                             </th>
@@ -215,16 +260,18 @@ export function ExpenseList({
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {sortedExpenses.map((expense) => (
-                            <ExpenseRow 
-                                key={expense.id} 
-                                expense={expense} 
+                        {sortedTransactions.map((transaction) => (
+                            <FinancialRow 
+                                key={transaction.id} 
+                                transaction={transaction} 
+                                transactionType={transactionType}
                                 currency={currency}
                                 onEdit={onEdit}
                                 onDelete={onDelete}
-                                isSelected={selectedExpenses.has(expense.id)}
-                                onSelect={onExpenseSelect}
+                                isSelected={selectedTransactions.has(transaction.id)}
+                                onSelect={onTransactionSelect}
                                 showCheckbox={showBulkActions}
+                                amountColorClass={amountColorClass}
                             />
                         ))}
                     </tbody>
@@ -234,38 +281,42 @@ export function ExpenseList({
     );
 }
 
-function ExpenseRow({ 
-    expense, 
+function FinancialRow({ 
+    transaction, 
+    transactionType,
     currency = "USD", 
     onEdit, 
     onDelete,
     isSelected = false,
     onSelect,
-    showCheckbox = false
+    showCheckbox = false,
+    amountColorClass
 }: { 
-    expense: Expense; 
+    transaction: FinancialTransaction; 
+    transactionType: TransactionType;
     currency?: string;
-    onEdit?: (expense: Expense) => void;
-    onDelete?: (expense: Expense) => void;
+    onEdit?: (transaction: FinancialTransaction) => void;
+    onDelete?: (transaction: FinancialTransaction) => void;
     isSelected?: boolean;
-    onSelect?: (expenseId: number, selected: boolean) => void;
+    onSelect?: (transactionId: number, selected: boolean) => void;
     showCheckbox?: boolean;
+    amountColorClass: string;
 }) {
     const handleEdit = () => {
         if (onEdit) {
-            onEdit(expense);
+            onEdit(transaction);
         }
     };
 
     const handleDelete = () => {
         if (onDelete) {
-            onDelete(expense);
+            onDelete(transaction);
         }
     };
 
     const handleSelect = () => {
         if (onSelect) {
-            onSelect(expense.id, !isSelected);
+            onSelect(transaction.id, !isSelected);
         }
     };
 
@@ -284,16 +335,18 @@ function ExpenseRow({
             <td className="px-6 py-4 whitespace-nowrap">
                 <div>
                     <div className="text-sm font-medium text-gray-900">
-                        {expense.title}
-                        {expense.isRecurring && (
-                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                        {transaction.title}
+                        {transaction.isRecurring && (
+                            <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                transactionType === 'EXPENSE' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                            }`}>
                                 Recurring
                             </span>
                         )}
                     </div>
-                    {expense.description && (
+                    {transaction.description && (
                         <div className="text-sm text-gray-500">
-                            {expense.description}
+                            {transaction.description}
                         </div>
                     )}
                 </div>
@@ -302,20 +355,29 @@ function ExpenseRow({
                 <div className="flex items-center">
                     <div 
                         className="w-3 h-3 rounded-full mr-2"
-                        style={{ backgroundColor: expense.category.color }}
+                        style={{ backgroundColor: transaction.category.color }}
                     ></div>
-                    <span className="text-sm text-gray-900">{expense.category.name}</span>
+                    <span className="text-sm text-gray-900">{transaction.category.name}</span>
                 </div>
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {expense.account ? `${expense.account.bankName} - ${expense.account.accountType}` : '-'}
+                {transaction.account ? (
+                    <div>
+                        <div className="font-medium">{transaction.account.bankName}</div>
+                        <div className="text-gray-500 text-xs">
+                            {transaction.account.holderName} ({transaction.account.accountType})
+                        </div>
+                    </div>
+                ) : (
+                    <span className="text-gray-400">No account</span>
+                )}
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {formatDate(expense.date)}
+                {formatDate(transaction.date)}
             </td>
             <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex flex-wrap gap-1">
-                    {expense.tags.map((tag, index) => (
+                    {transaction.tags.map((tag, index) => (
                         <span
                             key={index}
                             className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800"
@@ -326,16 +388,16 @@ function ExpenseRow({
                 </div>
             </td>
             <td className="px-6 py-4 whitespace-nowrap max-w-xs">
-                {expense.notes ? (
-                    <div className="text-sm text-gray-600 truncate" title={expense.notes}>
-                        {expense.notes}
+                {transaction.notes ? (
+                    <div className="text-sm text-gray-600 truncate" title={transaction.notes}>
+                        {transaction.notes}
                     </div>
                 ) : (
                     <span className="text-xs text-gray-400">No notes</span>
                 )}
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right text-red-600">
-                {formatCurrency(expense.amount, currency)}
+            <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-right ${amountColorClass}`}>
+                {formatCurrency(transaction.amount, currency)}
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <div className="flex justify-end space-x-2">

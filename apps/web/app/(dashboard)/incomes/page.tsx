@@ -7,12 +7,13 @@ import { AccountInterface } from "../../types/accounts";
 import { IncomeList } from "../../components/incomes/IncomeList";
 import { AddIncomeModal } from "../../components/incomes/AddIncomeModal";
 import { EditIncomeModal } from "../../components/incomes/EditIncomeModal";
+import { BulkImportModal } from "../../components/shared/BulkImportModal";
 import { DeleteConfirmationModal } from "../../components/DeleteConfirmationModal";
 import { AddCategoryModal } from "../../components/AddCategoryModal";
 import { FinancialAreaChart } from "../../components/FinancialAreaChart";
 import { useSearchParams } from "next/navigation";
 import { getCategories, createCategory } from "../../actions/categories";
-import { getIncomes, createIncome, updateIncome, deleteIncome } from "../../actions/incomes";
+import { getIncomes, createIncome, updateIncome, deleteIncome, bulkImportIncomes, parseCSVForUI, importCorrectedRow } from "../../actions/incomes";
 import { getUserAccounts } from "../../actions/accounts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
@@ -26,6 +27,8 @@ function IncomesContent() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
+    const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
+    const [selectedIncomes, setSelectedIncomes] = useState<Set<number>>(new Set());
     const [selectedCategory, setSelectedCategory] = useState<string>("");
     const [selectedBank, setSelectedBank] = useState<string>("");
     const [searchTerm, setSearchTerm] = useState("");
@@ -124,8 +127,9 @@ function IncomesContent() {
     // Filtered incomes for the list (no default date filter)
     const filteredIncomes = getBaseFilteredIncomes(false);
     
-    // Filtered incomes for the chart (with default 30-day filter when no filters are applied)
-    const chartFilteredIncomes = getBaseFilteredIncomes(true);
+    // For the chart, pass the same filtered data as the list (no default date filtering)
+    // Let the chart handle its own date filtering logic
+    const chartFilteredIncomes = getBaseFilteredIncomes(false);
 
     const totalIncomes = filteredIncomes.reduce((sum, income) => sum + income.amount, 0);
 
@@ -198,6 +202,62 @@ function IncomesContent() {
         setIsDeleteModalOpen(true);
     };
 
+    // Bulk operations handlers
+    const handleIncomeSelect = (incomeId: number, selected: boolean) => {
+        setSelectedIncomes(prev => {
+            const newSet = new Set(prev);
+            if (selected) {
+                newSet.add(incomeId);
+            } else {
+                newSet.delete(incomeId);
+            }
+            return newSet;
+        });
+    };
+
+    const handleSelectAll = (selected: boolean) => {
+        if (selected) {
+            setSelectedIncomes(new Set(filteredIncomes.map(income => income.id)));
+        } else {
+            setSelectedIncomes(new Set());
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedIncomes.size === 0) return;
+        
+        const confirmMessage = `Are you sure you want to delete ${selectedIncomes.size} income(s)?`;
+        if (!confirm(confirmMessage)) return;
+
+        try {
+            await Promise.all(Array.from(selectedIncomes).map(id => deleteIncome(id)));
+            setIncomes(incomes.filter(income => !selectedIncomes.has(income.id)));
+            setSelectedIncomes(new Set());
+            // Trigger balance refresh in NavBar
+            triggerBalanceRefresh();
+        } catch (error) {
+            console.error("Error bulk deleting incomes:", error);
+            alert("Failed to delete incomes. Please try again.");
+        }
+    };
+
+    const handleBulkImportSuccess = () => {
+        // Reload incomes after successful import
+        const loadData = async () => {
+            try {
+                const incomesList = await getIncomes();
+                setIncomes(incomesList);
+                // Trigger balance refresh in NavBar
+                triggerBalanceRefresh();
+            } catch (error) {
+                console.error("Error reloading incomes:", error);
+            }
+        };
+        loadData();
+    };
+
+
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -209,10 +269,12 @@ function IncomesContent() {
                     <Button onClick={() => setIsAddModalOpen(true)}>
                         Add Income
                     </Button>
+                    <Button onClick={() => setIsBulkImportModalOpen(true)}>
+                        Import CSV
+                    </Button>
                     <Button onClick={() => setIsAddCategoryModalOpen(true)}>
                         Add Category
                     </Button>
-
                 </div>
             </div>
 
@@ -249,6 +311,8 @@ function IncomesContent() {
                 currency={userCurrency} 
                 type="income" 
                 hasPageFilters={hasActiveFilters}
+                pageStartDate={startDate}
+                pageEndDate={endDate}
             />
 
             {/* Filters */}
@@ -356,6 +420,12 @@ function IncomesContent() {
                     currency={userCurrency}
                     onEdit={openEditModal}
                     onDelete={openDeleteModal}
+                    selectedIncomes={selectedIncomes}
+                    onIncomeSelect={handleIncomeSelect}
+                    onSelectAll={handleSelectAll}
+                    showBulkActions={true}
+                    onBulkDelete={handleBulkDelete}
+                    onClearSelection={() => setSelectedIncomes(new Set())}
                 />
             )}
 
@@ -398,6 +468,18 @@ function IncomesContent() {
                 onClose={() => setIsAddCategoryModalOpen(false)}
                 onAdd={handleAddCategory}
                 type="INCOME"
+            />
+
+            <BulkImportModal
+                isOpen={isBulkImportModalOpen}
+                onClose={() => setIsBulkImportModalOpen(false)}
+                onSuccess={handleBulkImportSuccess}
+                transactionType="INCOME"
+                bulkImportAction={(file: File, defaultAccountId: string) => 
+                    bulkImportIncomes(file, defaultAccountId)
+                }
+                parseCSVAction={parseCSVForUI}
+                importCorrectedRowAction={importCorrectedRow}
             />
         </div>
     );

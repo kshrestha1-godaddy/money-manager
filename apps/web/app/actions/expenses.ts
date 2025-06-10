@@ -5,6 +5,18 @@ import { Expense } from "../types/financial";
 import prisma from "@repo/db/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../lib/auth";
+import { 
+    parseCSV, 
+    parseDate, 
+    parseAmount, 
+    parseTags, 
+    mapRowToObject 
+} from "../utils/csvUtils";
+import { 
+    ImportResult, 
+    ImportExpenseRow, 
+    BulkOperationResult 
+} from "../types/bulkImport";
 
 // Helper function to get user ID from session
 function getUserIdFromSession(sessionUserId: string): number {
@@ -396,4 +408,407 @@ export async function getExpensesByDateRange(startDate: Date, endDate: Date) {
         console.error("Error fetching expenses by date range:", error);
         throw new Error("Failed to fetch expenses by date range");
     }
-} 
+}
+
+
+
+// Removed duplicate types and functions - now using centralized utilities
+
+// Helper function to validate and transform CSV row
+async function validateAndTransformRow(
+    row: string[], 
+    headers: string[], 
+    userId: number,
+    categories: any[],
+    accounts: any[],
+    defaultAccountId?: number
+): Promise<ImportExpenseRow> {
+    // Map CSV columns to object using utility
+    const rowData = mapRowToObject(row, headers);
+
+    // Validate required fields
+    if (!rowData.title) {
+        throw new Error('Title is required');
+    }
+    
+    if (!rowData.categoryname && !rowData.category) {
+        throw new Error('Category is required');
+    }
+
+    // Parse and validate using utilities
+    const amount = parseAmount(rowData.amount || '');
+    const parsedDate = parseDate(rowData.date || '');
+    const tags = parseTags(rowData.tags || '');
+
+    // Find or validate category
+    const categoryName = rowData.categoryname || rowData.category || '';
+    const category = categories.find(c => 
+        c.name.toLowerCase() === categoryName.toLowerCase()
+    );
+    
+    if (!category) {
+        throw new Error(`Category '${categoryName}' not found`);
+    }
+
+    // Find account if specified, otherwise use default
+    let accountId = null;
+    if (rowData.accountname || rowData.account) {
+        const accountName = (rowData.accountname || rowData.account || '');
+        const account = accounts.find(a => 
+            a.accountName.toLowerCase() === accountName.toLowerCase() ||
+            a.bankName.toLowerCase() === accountName.toLowerCase()
+        );
+        
+        if (!account) {
+            throw new Error(`Account '${accountName}' not found`);
+        }
+        accountId = account.id;
+    } else if (defaultAccountId) {
+        // Use default account if no account specified in CSV
+        accountId = defaultAccountId;
+    }
+
+    return {
+        title: rowData.title,
+        description: rowData.description || '',
+        amount,
+        date: parsedDate,
+        categoryName: category.name,
+        categoryId: category.id,
+        accountId,
+        tags,
+        notes: rowData.notes || '',
+        isRecurring: rowData.isrecurring?.toLowerCase() === 'true' || false,
+        recurringFrequency: rowData.recurringfrequency || null,
+        userId
+    };
+}
+
+export async function bulkImportExpenses(csvText: string, defaultAccountId?: number): Promise<ImportResult> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Parse CSV
+        const rows = parseCSV(csvText);
+        if (rows.length === 0) {
+            throw new Error("CSV file is empty");
+        }
+
+        const headers = rows[0]?.map(h => h.toLowerCase().replace(/\s+/g, '')) || [];
+        const dataRows = rows.slice(1);
+
+        // Get categories and accounts for validation
+        const [categories, accounts] = await Promise.all([
+            prisma.category.findMany({
+                where: { 
+                    type: 'EXPENSE'
+                }
+            }),
+            prisma.account.findMany({
+                where: { userId: userId }
+            })
+        ]);
+
+        const result: ImportResult = {
+            success: false,
+            importedCount: 0,
+            errors: [],
+            skippedCount: 0
+        };
+
+        // Process rows in batches to avoid overwhelming the database
+        const BATCH_SIZE = 50;
+        const batches: string[][][] = [];
+        
+        for (let i = 0; i < dataRows.length; i += BATCH_SIZE) {
+            batches.push(dataRows.slice(i, i + BATCH_SIZE));
+        }
+
+        for (const batch of batches) {
+            await prisma.$transaction(async (tx) => {
+                for (let i = 0; i < batch.length; i++) {
+                    const rowIndex = batches.indexOf(batch) * BATCH_SIZE + i + 2; // +2 for header and 1-based indexing
+                    const row = batch[i];
+
+                    if (!row) continue;
+
+                    try {
+                        // Skip empty rows
+                        if (row.every(cell => !cell?.trim())) {
+                            result.skippedCount++;
+                            continue;
+                        }
+
+                        // Validate and transform row
+                        const expenseData = await validateAndTransformRow(
+                            row, 
+                            headers, 
+                            userId, 
+                            categories, 
+                            accounts,
+                            defaultAccountId
+                        );
+
+                        // Create expense
+                        const createData: any = {
+                            title: expenseData.title,
+                            description: expenseData.description,
+                            amount: expenseData.amount,
+                            date: expenseData.date,
+                            categoryId: expenseData.categoryId,
+                            userId: userId,
+                            tags: expenseData.tags,
+                            notes: expenseData.notes,
+                            isRecurring: expenseData.isRecurring || false
+                        };
+
+                        if (expenseData.accountId) {
+                            createData.accountId = expenseData.accountId;
+                        }
+
+                        if (expenseData.recurringFrequency) {
+                            createData.recurringFrequency = expenseData.recurringFrequency;
+                        }
+
+                        await tx.expense.create({
+                            data: createData
+                        });
+
+                        // Update account balance if account is specified
+                        if (expenseData.accountId) {
+                            await tx.account.update({
+                                where: { id: expenseData.accountId },
+                                data: {
+                                    balance: {
+                                        decrement: expenseData.amount
+                                    }
+                                }
+                            });
+                        }
+
+                        result.importedCount++;
+
+                    } catch (error) {
+                        result.errors.push({
+                            row: rowIndex,
+                            error: error instanceof Error ? error.message : 'Unknown error',
+                            data: row
+                        });
+                    }
+                }
+            });
+        }
+
+        result.success = result.importedCount > 0;
+
+        revalidatePath("/(dashboard)/expenses");
+        revalidatePath("/(dashboard)/accounts");
+
+        return result;
+
+    } catch (error) {
+        console.error("Error in bulk import:", error);
+        throw new Error(error instanceof Error ? error.message : "Failed to import expenses");
+    }
+}
+
+export async function bulkDeleteExpenses(expenseIds: number[]) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Verify all expenses belong to the user and get expense details for account balance updates
+        const existingExpenses = await prisma.expense.findMany({
+            where: {
+                id: { in: expenseIds },
+                userId: userId,
+            },
+            include: {
+                account: true
+            }
+        });
+
+        if (existingExpenses.length !== expenseIds.length) {
+            throw new Error("Some expenses not found or unauthorized");
+        }
+
+        // Use a transaction to ensure both expense deletion and account balance updates
+        await prisma.$transaction(async (tx) => {
+            // Delete the expenses
+            await tx.expense.deleteMany({
+                where: { 
+                    id: { in: expenseIds },
+                    userId: userId
+                }
+            });
+
+            // Update account balances (increase by expense amounts since expenses are removed)
+            const accountUpdates = new Map<number, number>();
+            
+            existingExpenses.forEach(expense => {
+                if (expense.accountId) {
+                    const currentTotal = accountUpdates.get(expense.accountId) || 0;
+                    accountUpdates.set(expense.accountId, currentTotal + parseFloat(expense.amount.toString()));
+                }
+            });
+
+            // Apply account balance updates
+            for (const [accountId, totalAmount] of accountUpdates) {
+                await tx.account.update({
+                    where: { id: accountId },
+                    data: {
+                        balance: {
+                            increment: totalAmount
+                        }
+                    }
+                });
+            }
+        });
+
+        revalidatePath("/(dashboard)/expenses");
+        revalidatePath("/(dashboard)/accounts");
+        
+        return { 
+            success: true, 
+            deletedCount: existingExpenses.length 
+        };
+    } catch (error) {
+        console.error("Error bulk deleting expenses:", error);
+        throw new Error("Failed to delete expenses");
+    }
+}
+
+export async function importCorrectedRow(
+    row: string[], 
+    headers: string[], 
+    defaultAccountId?: number
+): Promise<{ success: boolean; error?: string; expense?: any }> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Get categories and accounts for validation
+        const [categories, accounts] = await Promise.all([
+            prisma.category.findMany({
+                where: { 
+                    type: 'EXPENSE'
+                }
+            }),
+            prisma.account.findMany({
+                where: { userId: userId }
+            })
+        ]);
+
+        // Use a transaction to create the expense and update account balance
+        const result = await prisma.$transaction(async (tx) => {
+            // Validate and transform row
+            const expenseData = await validateAndTransformRow(
+                row, 
+                headers, 
+                userId, 
+                categories, 
+                accounts,
+                defaultAccountId
+            );
+
+            // Create expense
+            const createData: any = {
+                title: expenseData.title,
+                description: expenseData.description,
+                amount: expenseData.amount,
+                date: expenseData.date,
+                categoryId: expenseData.categoryId,
+                userId: userId,
+                tags: expenseData.tags,
+                notes: expenseData.notes,
+                isRecurring: expenseData.isRecurring || false
+            };
+
+            if (expenseData.accountId) {
+                createData.accountId = expenseData.accountId;
+            }
+
+            if (expenseData.recurringFrequency) {
+                createData.recurringFrequency = expenseData.recurringFrequency;
+            }
+
+            const expense = await tx.expense.create({
+                data: createData,
+                include: {
+                    category: true,
+                    account: true,
+                    user: true
+                }
+            });
+
+            // Update account balance if account is specified
+            if (expenseData.accountId) {
+                await tx.account.update({
+                    where: { id: expenseData.accountId },
+                    data: {
+                        balance: {
+                            decrement: expenseData.amount
+                        }
+                    }
+                });
+            }
+
+            return expense;
+        });
+
+        revalidatePath("/(dashboard)/expenses");
+        revalidatePath("/(dashboard)/accounts");
+
+        return { 
+            success: true, 
+            expense: {
+                ...result,
+                amount: parseFloat(result.amount.toString()),
+                date: new Date(result.date),
+                createdAt: new Date(result.createdAt),
+                updatedAt: new Date(result.updatedAt),
+                account: result.account ? {
+                    ...result.account,
+                    balance: parseFloat(result.account.balance.toString()),
+                    accountOpeningDate: new Date(result.account.accountOpeningDate),
+                    createdAt: new Date(result.account.createdAt),
+                    updatedAt: new Date(result.account.updatedAt)
+                } : null
+            }
+        };
+
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+        };
+    }
+}
+
+// Export the parseCSV function for use in the UI
+export async function parseCSVForUI(csvText: string): Promise<string[][]> {
+    try {
+        if (!csvText || typeof csvText !== 'string') {
+            return [];
+        }
+        
+        const result = parseCSV(csvText);
+        return Array.isArray(result) ? result : [];
+    } catch (error) {
+        console.error('Error parsing CSV:', error);
+        return [];
+    }
+}

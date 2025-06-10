@@ -9,9 +9,10 @@ import { AddExpenseModal } from "../../components/expenses/AddExpenseModal";
 import { EditExpenseModal } from "../../components/expenses/EditExpenseModal";
 import { DeleteConfirmationModal } from "../../components/DeleteConfirmationModal";
 import { AddCategoryModal } from "../../components/AddCategoryModal";
+import { BulkImportModal } from "../../components/expenses/BulkImportModal";
 import { useSearchParams } from "next/navigation";
 import { getCategories, createCategory } from "../../actions/categories";
-import { getExpenses, createExpense, updateExpense, deleteExpense } from "../../actions/expenses";
+import { getExpenses, createExpense, updateExpense, deleteExpense, bulkDeleteExpenses } from "../../actions/expenses";
 import { getUserAccounts } from "../../actions/accounts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
@@ -26,6 +27,8 @@ function ExpensesContent() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
+    const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
+    const [selectedExpenses, setSelectedExpenses] = useState<Set<number>>(new Set());
     const [selectedCategory, setSelectedCategory] = useState<string>("");
     const [selectedBank, setSelectedBank] = useState<string>("");
     const [searchTerm, setSearchTerm] = useState("");
@@ -124,8 +127,9 @@ function ExpensesContent() {
     // Filtered expenses for the list (no default date filter)
     const filteredExpenses = getBaseFilteredExpenses(false);
     
-    // Filtered expenses for the chart (with default 30-day filter when no filters are applied)
-    const chartFilteredExpenses = getBaseFilteredExpenses(true);
+    // For the chart, pass the same filtered data as the list (no default date filtering)
+    // Let the chart handle its own date filtering logic
+    const chartFilteredExpenses = getBaseFilteredExpenses(false);
 
     const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
 
@@ -198,6 +202,46 @@ function ExpensesContent() {
         setIsDeleteModalOpen(true);
     };
 
+    const handleExpenseSelect = (expenseId: number, selected: boolean) => {
+        const newSelected = new Set(selectedExpenses);
+        if (selected) {
+            newSelected.add(expenseId);
+        } else {
+            newSelected.delete(expenseId);
+        }
+        setSelectedExpenses(newSelected);
+    };
+
+    const handleSelectAll = (selected: boolean) => {
+        if (selected) {
+            const allExpenseIds = new Set(filteredExpenses.map(e => e.id));
+            setSelectedExpenses(allExpenseIds);
+        } else {
+            setSelectedExpenses(new Set());
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedExpenses.size === 0) return;
+        
+        const confirmMessage = `Are you sure you want to delete ${selectedExpenses.size} expense(s)?`;
+        if (!confirm(confirmMessage)) return;
+
+        try {
+            await bulkDeleteExpenses(Array.from(selectedExpenses));
+            // Remove deleted expenses from the list
+            setExpenses(expenses.filter(e => !selectedExpenses.has(e.id)));
+            setSelectedExpenses(new Set());
+            // Trigger balance refresh in NavBar
+            triggerBalanceRefresh();
+        } catch (error) {
+            console.error("Error bulk deleting expenses:", error);
+            alert("Failed to delete expenses. Please try again.");
+        }
+    };
+
+
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -208,6 +252,9 @@ function ExpensesContent() {
                 <div className="flex space-x-3">
                     <Button onClick={() => setIsAddModalOpen(true)}>
                         Add Expense
+                    </Button>
+                    <Button onClick={() => setIsBulkImportModalOpen(true)}>
+                        Import CSV
                     </Button>
                     <Button onClick={() => setIsAddCategoryModalOpen(true)}>
                         Add Category
@@ -248,6 +295,8 @@ function ExpensesContent() {
                 currency={userCurrency} 
                 type="expense" 
                 hasPageFilters={hasActiveFilters}
+                pageStartDate={startDate}
+                pageEndDate={endDate}
             />
 
             {/* Filters */}
@@ -355,6 +404,12 @@ function ExpensesContent() {
                     currency={userCurrency}
                     onEdit={openEditModal}
                     onDelete={openDeleteModal}
+                    selectedExpenses={selectedExpenses}
+                    onExpenseSelect={handleExpenseSelect}
+                    onSelectAll={handleSelectAll}
+                    showBulkActions={true}
+                    onBulkDelete={handleBulkDelete}
+                    onClearSelection={() => setSelectedExpenses(new Set())}
                 />
             )}
 
@@ -389,6 +444,25 @@ function ExpensesContent() {
                 }}
                 onConfirm={handleDeleteExpense}
                 expense={expenseToDelete}
+            />
+
+            {/* Bulk Import Modal */}
+            <BulkImportModal
+                isOpen={isBulkImportModalOpen}
+                onClose={() => setIsBulkImportModalOpen(false)}
+                onSuccess={() => {
+                    // Refresh expenses list
+                    const loadData = async () => {
+                        try {
+                            const expensesList = await getExpenses();
+                            setExpenses(expensesList);
+                            triggerBalanceRefresh();
+                        } catch (error) {
+                            console.error("Error refreshing expenses:", error);
+                        }
+                    };
+                    loadData();
+                }}
             />
 
             {/* Add Category Modal */}

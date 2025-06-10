@@ -15,6 +15,8 @@ interface FinancialAreaChartProps {
     type: 'income' | 'expense';
     title?: string;
     hasPageFilters?: boolean; // New prop to indicate if page-level filters are applied
+    pageStartDate?: string; // Page-level start date filter
+    pageEndDate?: string; // Page-level end date filter
 }
 
 interface ChartDataPoint {
@@ -28,7 +30,9 @@ export function FinancialAreaChart({
     currency = "USD", 
     type, 
     title,
-    hasPageFilters = false
+    hasPageFilters = false,
+    pageStartDate,
+    pageEndDate
 }: FinancialAreaChartProps) {
     const [startDate, setStartDate] = useState<string>("");
     const [endDate, setEndDate] = useState<string>("");
@@ -51,29 +55,63 @@ export function FinancialAreaChart({
 
     // Filter data based on date range
     const filteredData = useMemo(() => {
-        if (!startDate && !endDate) return data;
+        // Use chart filters if they exist, otherwise use page filters
+        const effectiveStartDate = startDate || (hasPageFilters ? pageStartDate : '');
+        const effectiveEndDate = endDate || (hasPageFilters ? pageEndDate : '');
         
-        return data.filter(item => {
+        console.log(`${type} chart filtering data:`, {
+            totalData: data.length,
+            chartStartDate: startDate,
+            chartEndDate: endDate,
+            pageStartDate,
+            pageEndDate,
+            effectiveStartDate,
+            effectiveEndDate,
+            hasPageFilters,
+            sampleDates: data.slice(0, 3).map(item => ({
+                original: item.date,
+                formatted: item.date instanceof Date ? 
+                    `${item.date.getFullYear()}-${String(item.date.getMonth() + 1).padStart(2, '0')}-${String(item.date.getDate()).padStart(2, '0')}` :
+                    item.date
+            }))
+        });
+        
+        if (!effectiveStartDate && !effectiveEndDate) return data;
+        
+        const filtered = data.filter(item => {
             const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
             const itemDateStr = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}-${String(itemDate.getDate()).padStart(2, '0')}`;
             
-            if (startDate && endDate) {
-                return itemDateStr >= startDate && itemDateStr <= endDate;
-            } else if (startDate) {
-                return itemDateStr >= startDate;
-            } else if (endDate) {
-                return itemDateStr <= endDate;
+            if (effectiveStartDate && effectiveEndDate) {
+                const result = itemDateStr >= effectiveStartDate && itemDateStr <= effectiveEndDate;
+                if (data.indexOf(item) < 3) {
+                    console.log(`Date comparison for ${itemDateStr}:`, {
+                        effectiveStartDate,
+                        effectiveEndDate,
+                        result,
+                        item: item.title
+                    });
+                }
+                return result;
+            } else if (effectiveStartDate) {
+                return itemDateStr >= effectiveStartDate;
+            } else if (effectiveEndDate) {
+                return itemDateStr <= effectiveEndDate;
             }
             return true;
         });
-    }, [data, startDate, endDate]);
+        
+        console.log(`${type} chart filtered result:`, filtered.length, 'items');
+        return filtered;
+    }, [data, startDate, endDate, pageStartDate, pageEndDate, hasPageFilters, type]);
 
     const chartData = useMemo(() => {
-        // If no custom date filters are set, show last 30 days
-        // If custom date filters are set, use those instead
+        // Apply default 30-day filter when no chart filters and no page filters are active
         let recentData = filteredData;
+        const effectiveStartDate = startDate || (hasPageFilters ? pageStartDate : '');
+        const effectiveEndDate = endDate || (hasPageFilters ? pageEndDate : '');
         
-        if (!startDate && !endDate && !hasPageFilters) {
+        if (!effectiveStartDate && !effectiveEndDate && !hasPageFilters) {
             // Only apply 30-day filter if no page filters AND no chart filters are applied
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -83,6 +121,20 @@ export function FinancialAreaChart({
                 return itemDate >= thirtyDaysAgo;
             });
         }
+        
+        console.log(`${chartConfig.label} chart filtering:`, {
+            chartStartDate: startDate,
+            chartEndDate: endDate,
+            pageStartDate,
+            pageEndDate,
+            effectiveStartDate,
+            effectiveEndDate,
+            hasPageFilters,
+            originalDataLength: data.length,
+            filteredDataLength: filteredData.length,
+            finalDataLength: recentData.length,
+            appliedDefaultFilter: !effectiveStartDate && !effectiveEndDate && !hasPageFilters
+        });
 
         // Group data by date and sum amounts for each date
         const dateMap = new Map<string, number>();
@@ -161,8 +213,10 @@ export function FinancialAreaChart({
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         }
 
+        console.log(`${chartConfig.label} chart final data:`, chartDataPoints.length, 'points');
+        
         return chartDataPoints;
-    }, [filteredData, startDate, endDate, chartConfig.label]);
+    }, [filteredData, startDate, endDate, pageStartDate, pageEndDate, chartConfig.label, hasPageFilters]);
 
     const formatTooltip = (value: number) => {
         return [formatCurrency(value, currency), chartConfig.label];
@@ -197,6 +251,46 @@ export function FinancialAreaChart({
         setEndDate("");
     };
 
+    const getDateRange = (months: number) => {
+        const today = new Date();
+        const startDate = new Date(today);
+        
+        // Handle month rollover properly
+        const currentMonth = today.getMonth();
+        const currentYear = today.getFullYear();
+        const targetMonth = currentMonth - months;
+        
+        if (targetMonth >= 0) {
+            startDate.setMonth(targetMonth);
+        } else {
+            // Handle year rollover
+            const yearsBack = Math.ceil(Math.abs(targetMonth) / 12);
+            const newMonth = 12 + (targetMonth % 12);
+            startDate.setFullYear(currentYear - yearsBack);
+            startDate.setMonth(newMonth === 12 ? 0 : newMonth);
+        }
+        
+        const start = startDate.toISOString().split('T')[0] || '';
+        const end = today.toISOString().split('T')[0] || '';
+        
+        console.log(`Getting date range for ${months} months:`, { 
+            start, 
+            end, 
+            startDate: startDate.toLocaleDateString(),
+            endDate: today.toLocaleDateString()
+        });
+        
+        return { start, end };
+    };
+
+    const handleQuickFilter = (months: number) => {
+        console.log(`Quick filter clicked: ${months} months`);
+        const { start, end } = getDateRange(months);
+        console.log(`Setting date range: ${start} to ${end}`);
+        setStartDate(start);
+        setEndDate(end);
+    };
+
     // Prepare CSV data for chart controls
     const csvData = [
         ['Date', 'Amount'],
@@ -215,36 +309,72 @@ export function FinancialAreaChart({
                     csvFileName={`${type}-data`}
                     title={chartConfig.title}
                 />
-                <div className="flex justify-between items-center mb-4">
-                    <div className="flex items-center space-x-3">
-                        <div className="flex items-center space-x-2 text-xs">
-                            <label htmlFor={`${type}-chart-start-date`} className="text-gray-600 font-medium">From:</label>
+                <div className="mb-4">
+                    <div className="flex flex-wrap items-center gap-3 p-3 bg-gray-50 rounded-lg border">
+                        {/* Quick Filter Buttons */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <button
+                                onClick={() => handleQuickFilter(1)}
+                                className="px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                Last Month
+                            </button>
+                            <button
+                                onClick={() => handleQuickFilter(3)}
+                                className="px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                Last 3 Months
+                            </button>
+                            <button
+                                onClick={() => handleQuickFilter(6)}
+                                className="px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                Last 6 Months
+                            </button>
+                            <button
+                                onClick={() => handleQuickFilter(12)}
+                                className="px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                Last 12 Months
+                            </button>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="h-4 w-px bg-gray-300"></div>
+
+                        {/* Custom Date Range */}
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-gray-600">From:</span>
                             <input
                                 id={`${type}-chart-start-date`}
                                 type="date"
-                                value={startDate}
+                                value={startDate || (hasPageFilters ? pageStartDate : '') || ''}
                                 onChange={(e) => setStartDate(e.target.value)}
-                                className="px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                placeholder={hasPageFilters && pageStartDate ? `Page filter: ${pageStartDate}` : ''}
+                                className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
                             />
-                        </div>
-                        <div className="flex items-center space-x-2 text-xs">
-                            <label htmlFor={`${type}-chart-end-date`} className="text-gray-600 font-medium">To:</label>
+                            <span className="text-xs text-gray-500">to</span>
                             <input
                                 id={`${type}-chart-end-date`}
                                 type="date"
-                                value={endDate}
+                                value={endDate || (hasPageFilters ? pageEndDate : '') || ''}
                                 onChange={(e) => setEndDate(e.target.value)}
-                                className="px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                placeholder={hasPageFilters && pageEndDate ? `Page filter: ${pageEndDate}` : ''}
+                                className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
                             />
                         </div>
-                        {(startDate || endDate) && (
-                            <button
-                                onClick={clearFilters}
-                                className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                                title="Clear date filters"
-                            >
-                                Clear
-                            </button>
+
+                        {/* Clear Button */}
+                        {(startDate || endDate || (hasPageFilters && (pageStartDate || pageEndDate))) && (
+                            <>
+                                <div className="h-4 w-px bg-gray-300"></div>
+                                <button
+                                    onClick={clearFilters}
+                                    className="px-2 py-1 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                >
+                                    Clear Chart Filters
+                                </button>
+                            </>
                         )}
                     </div>
                 </div>
@@ -269,37 +399,73 @@ export function FinancialAreaChart({
                 csvFileName={`${type}-data`}
                 title={chartConfig.title}
             />
-            <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center space-x-3">
-                    <div className="flex items-center space-x-2 text-xs">
-                        <label htmlFor={`${type}-chart-start-date`} className="text-gray-600 font-medium">From:</label>
-                        <input
-                            id={`${type}-chart-start-date`}
-                            type="date"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                            className="px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                    </div>
-                    <div className="flex items-center space-x-2 text-xs">
-                        <label htmlFor={`${type}-chart-end-date`} className="text-gray-600 font-medium">To:</label>
-                        <input
-                            id={`${type}-chart-end-date`}
-                            type="date"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            className="px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                    </div>
-                    {(startDate || endDate) && (
+            <div className="mb-4">
+                <div className="flex flex-wrap items-center gap-3 p-3 bg-gray-50 rounded-lg border">
+                    {/* Quick Filter Buttons */}
+                    <div className="flex flex-wrap items-center gap-2">
                         <button
-                            onClick={clearFilters}
-                            className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                            title="Clear date filters"
+                            onClick={() => handleQuickFilter(1)}
+                            className="px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                            Clear
+                            Last Month
                         </button>
-                    )}
+                        <button
+                            onClick={() => handleQuickFilter(3)}
+                            className="px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            Last 3 Months
+                        </button>
+                        <button
+                            onClick={() => handleQuickFilter(6)}
+                            className="px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            Last 6 Months
+                        </button>
+                        <button
+                            onClick={() => handleQuickFilter(12)}
+                            className="px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            Last 12 Months
+                        </button>
+                    </div>
+
+                    {/* Divider */}
+                    <div className="h-4 w-px bg-gray-300"></div>
+
+                    {/* Custom Date Range */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-gray-600">From:</span>
+                                                    <input
+                                id={`${type}-chart-start-date`}
+                                type="date"
+                                value={startDate || (hasPageFilters ? pageStartDate : '') || ''}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                placeholder={hasPageFilters && pageStartDate ? `Page filter: ${pageStartDate}` : ''}
+                                className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            />
+                            <span className="text-xs text-gray-500">to</span>
+                            <input
+                                id={`${type}-chart-end-date`}
+                                type="date"
+                                value={endDate || (hasPageFilters ? pageEndDate : '') || ''}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                placeholder={hasPageFilters && pageEndDate ? `Page filter: ${pageEndDate}` : ''}
+                                className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            />
+                    </div>
+
+                                            {/* Clear Button */}
+                        {(startDate || endDate || (hasPageFilters && (pageStartDate || pageEndDate))) && (
+                            <>
+                                <div className="h-4 w-px bg-gray-300"></div>
+                                <button
+                                    onClick={clearFilters}
+                                    className="px-2 py-1 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                >
+                                    Clear Chart Filters
+                                </button>
+                            </>
+                        )}
                 </div>
             </div>
             <div ref={chartRef} className={`${isExpanded ? 'h-[70vh] w-full' : 'h-64 w-full'}`}>
