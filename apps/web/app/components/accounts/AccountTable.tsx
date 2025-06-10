@@ -216,6 +216,11 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails }: {
                 <div>
                     <div className="text-sm font-medium text-gray-900">
                         {account.holderName}
+                        {account.nickname && (
+                            <span className="text-xs text-blue-600 ml-2 px-1.5 py-0.5 bg-blue-50 rounded">
+                                {account.nickname}
+                            </span>
+                        )}
                     </div>
                     <div className="text-sm text-gray-500">
                         {account.accountType}

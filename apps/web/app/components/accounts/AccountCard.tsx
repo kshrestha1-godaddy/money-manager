@@ -19,8 +19,15 @@ export function AccountCard({ account, onEdit, onDelete, onViewDetails }: {
             {/* Header */}
             <div className="flex justify-between items-start mb-6">
                 <div>
-                    <h3 className="font-semibold text-2xl text-gray-900">{account.bankName}</h3>
-                    <p className="text-lg text-gray-600 mt-1">{account.branchName}</p>
+                    <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-2xl text-gray-900">{account.bankName}</h3>
+                        {account.nickname && (
+                            <span className="text-sm text-blue-600 px-2 py-1 bg-blue-50 rounded-full">
+                                {account.nickname}
+                            </span>
+                        )}
+                    </div>
+                    <p className="text-lg text-gray-600">{account.branchName}</p>
                 </div>
                 {account.balance !== undefined && (
                     <div className="text-right">

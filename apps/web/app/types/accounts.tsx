@@ -14,6 +14,13 @@ export interface AccountInterface {
     accountOpeningDate: Date;
     securityQuestion: string[];
     balance?: number; // Make optional since it might not be set initially
+    // Mobile App Details
+    appUsername?: string;
+    appPassword?: string;
+    appPin?: string;
+    // Notes and Nicknames
+    notes?: string;
+    nickname?: string;
     userId: number;
     createdAt: Date;
     updatedAt: Date;

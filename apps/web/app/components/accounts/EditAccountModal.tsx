@@ -26,6 +26,13 @@ export function EditAccountModal({ isOpen, onClose, onEdit, account }: EditAccou
         accountOpeningDate: new Date().toISOString().split('T')[0],
         securityQuestion: [""],
         balance: 0,
+        // Mobile App Details
+        appUsername: "",
+        appPassword: "",
+        appPin: "",
+        // Notes and Nicknames
+        notes: "",
+        nickname: "",
     });
 
     useEffect(() => {
@@ -42,9 +49,16 @@ export function EditAccountModal({ isOpen, onClose, onEdit, account }: EditAccou
                 branchContacts: account.branchContacts.length > 0 ? account.branchContacts : [""],
                 swift: account.swift,
                 bankEmail: account.bankEmail,
-                accountOpeningDate: account.accountOpeningDate.toISOString().split('T')[0],
+                accountOpeningDate: account.accountOpeningDate ? new Date(account.accountOpeningDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
                 securityQuestion: account.securityQuestion.length > 0 ? account.securityQuestion : [""],
                 balance: account.balance || 0,
+                // Mobile App Details
+                appUsername: account.appUsername || "",
+                appPassword: account.appPassword || "",
+                appPin: account.appPin || "",
+                // Notes and Nicknames
+                notes: account.notes || "",
+                nickname: account.nickname || "",
             });
         }
     }, [account]);
@@ -60,7 +74,7 @@ export function EditAccountModal({ isOpen, onClose, onEdit, account }: EditAccou
             mobileNumbers: formData.mobileNumbers.filter(num => num.trim() !== ""),
             branchContacts: formData.branchContacts.filter(contact => contact.trim() !== ""),
             securityQuestion: formData.securityQuestion.filter(q => q.trim() !== ""),
-            accountOpeningDate: new Date(formData.accountOpeningDate),
+            accountOpeningDate: new Date(formData.accountOpeningDate || new Date()),
         };
 
         onEdit(account.id, processedData);
@@ -352,6 +366,83 @@ export function EditAccountModal({ isOpen, onClose, onEdit, account }: EditAccou
                         >
                             Add Security Question
                         </button>
+                    </div>
+
+                    {/* Mobile App Details Section */}
+                    <div className="border-t pt-4">
+                        <h3 className="text-lg font-medium text-gray-900 mb-4">📱 Mobile App Details</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    App Username
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.appUsername}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, appUsername: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Mobile banking username"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    App Password
+                                </label>
+                                <input
+                                    type="password"
+                                    value={formData.appPassword}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, appPassword: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Mobile banking password"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    App PIN
+                                </label>
+                                <input
+                                    type="password"
+                                    value={formData.appPin}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, appPin: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Mobile banking PIN"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Notes and Nickname Section */}
+                    <div className="border-t pt-4">
+                        <h3 className="text-lg font-medium text-gray-900 mb-4">📝 Additional Information</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Nickname
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.nickname}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, nickname: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="e.g., Primary Savings, Salary Account"
+                                />
+                            </div>
+                        </div>
+                        
+                        <div className="mt-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Notes
+                            </label>
+                            <textarea
+                                value={formData.notes}
+                                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                rows={3}
+                                placeholder="Any additional notes about this account..."
+                            />
+                        </div>
                     </div>
 
                     <div className="flex justify-end space-x-3 pt-6">

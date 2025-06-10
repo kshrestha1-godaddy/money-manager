@@ -133,6 +133,27 @@ export function ViewAccountModal({ isOpen, onClose, account }: ViewAccountModalP
                         </Section>
                     )}
 
+                    {/* Mobile App Details */}
+                    {(account.appUsername || account.appPassword || account.appPin) && (
+                        <Section title="📱 Mobile App Details">
+                            <InfoItem label="App Username" value={account.appUsername || "Not provided"} />
+                            <InfoItem label="App Password" value={account.appPassword ? "•••••••••" : "Not provided"} />
+                            <InfoItem label="App PIN" value={account.appPin ? "••••" : "Not provided"} />
+                        </Section>
+                    )}
+
+                    {/* Additional Information */}
+                    {(account.nickname || account.notes) && (
+                        <Section title="📝 Additional Information">
+                            {account.nickname && (
+                                <InfoItem label="Nickname" value={account.nickname} />
+                            )}
+                            {account.notes && (
+                                <InfoItem label="Notes" value={account.notes} fullWidth={true} />
+                            )}
+                        </Section>
+                    )}
+
                     {/* Metadata */}
                     <Section title="Record Information">
                         <InfoItem label="Created" value={formatDate(account.createdAt)} />
