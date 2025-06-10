@@ -219,6 +219,26 @@ export function CategoryTrendChart({ data, type, currency = "USD" }: CategoryTre
         return null;
     };
 
+    // Custom tick component for rotated X-axis labels
+    const CustomXAxisTick = (props: any) => {
+        const { x, y, payload } = props;
+        return (
+            <g transform={`translate(${x},${y})`}>
+                <text 
+                    x={0} 
+                    y={0} 
+                    dy={16} 
+                    textAnchor="end" 
+                    fill="#666" 
+                    fontSize="12"
+                    transform="rotate(-45)"
+                >
+                    {payload.value}
+                </text>
+            </g>
+        );
+    };
+
     const ChartContent = () => (
         <div>
             {/* Category Selection */}
@@ -282,7 +302,7 @@ export function CategoryTrendChart({ data, type, currency = "USD" }: CategoryTre
                             top: 40,
                             right: 30,
                             left: 40,
-                            bottom: 40,
+                            bottom: 60,
                         }}
                     >
                         <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
@@ -301,9 +321,10 @@ export function CategoryTrendChart({ data, type, currency = "USD" }: CategoryTre
                         
                         <XAxis 
                             dataKey="formattedMonth" 
-                            tick={{ fontSize: 12 }}
+                            tick={<CustomXAxisTick />}
                             interval={0}
                             stroke="#666"
+                            height={60}
                         />
                         <YAxis 
                             tickFormatter={formatYAxisTick}

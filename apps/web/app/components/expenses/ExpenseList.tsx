@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { Expense } from "../../types/financial";
 import { formatCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
@@ -9,6 +9,7 @@ interface ExpenseListProps {
     expenses: Expense[];
     currency?: string;
     onEdit?: (expense: Expense) => void;
+    onView?: (expense: Expense) => void;
     onDelete?: (expense: Expense) => void;
     selectedExpenses?: Set<number>;
     onExpenseSelect?: (expenseId: number, selected: boolean) => void;
@@ -25,6 +26,7 @@ export function ExpenseList({
     expenses, 
     currency = "USD", 
     onEdit, 
+    onView,
     onDelete, 
     selectedExpenses = new Set(),
     onExpenseSelect,
@@ -36,6 +38,22 @@ export function ExpenseList({
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
+    // Column resizing state
+    const [columnWidths, setColumnWidths] = useState({
+        checkbox: 80,
+        title: 250,
+        category: 150,
+        account: 200,
+        date: 120,
+        tags: 150,
+        notes: 200,
+        amount: 120,
+        actions: 150
+    });
+    const [resizing, setResizing] = useState<string | null>(null);
+    const [startX, setStartX] = useState(0);
+    const [startWidth, setStartWidth] = useState(0);
+
     const handleSort = (field: SortField) => {
         if (sortField === field) {
             setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -44,6 +62,45 @@ export function ExpenseList({
             setSortDirection('asc');
         }
     };
+
+    const handleMouseDown = useCallback((e: React.MouseEvent, column: string) => {
+        e.preventDefault();
+        setResizing(column);
+        setStartX(e.pageX);
+        setStartWidth(columnWidths[column as keyof typeof columnWidths]);
+    }, [columnWidths]);
+
+    const handleMouseMove = useCallback((e: MouseEvent) => {
+        if (!resizing) return;
+        
+        const diff = e.pageX - startX;
+        const newWidth = Math.max(50, startWidth + diff); // Minimum width of 50px
+        
+        setColumnWidths(prev => ({
+            ...prev,
+            [resizing]: newWidth
+        }));
+    }, [resizing, startX, startWidth]);
+
+    const handleMouseUp = useCallback(() => {
+        setResizing(null);
+    }, []);
+
+    // Add global mouse events for resizing
+    useEffect(() => {
+        if (resizing) {
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        } else {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        }
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [resizing, handleMouseMove, handleMouseUp]);
 
     const getSortIcon = (field: SortField) => {
         if (sortField !== field) {
@@ -142,11 +199,14 @@ export function ExpenseList({
                 </div>
             </div>
             <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
+                <table className="min-w-full divide-y divide-gray-200 table-fixed">
                     <thead className="bg-gray-50">
                         <tr>
                             {showBulkActions && (
-                                <th className="px-6 py-3 text-left">
+                                <th 
+                                    className="px-6 py-3 text-left relative border-r border-gray-200"
+                                    style={{ width: `${columnWidths.checkbox}px` }}
+                                >
                                     <input
                                         type="checkbox"
                                         checked={isAllSelected}
@@ -156,60 +216,106 @@ export function ExpenseList({
                                         onChange={handleSelectAll}
                                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                     />
+                                    <div 
+                                        className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                        onMouseDown={(e) => handleMouseDown(e, 'checkbox')}
+                                    />
                                 </th>
                             )}
                             <th 
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
+                                style={{ width: `${columnWidths.title}px` }}
                                 onClick={() => handleSort('title')}
                             >
                                 <div className="flex items-center justify-between">
                                     <span>Expense</span>
                                     {getSortIcon('title')}
                                 </div>
+                                <div 
+                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                    onMouseDown={(e) => handleMouseDown(e, 'title')}
+                                />
                             </th>
                             <th 
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
+                                style={{ width: `${columnWidths.category}px` }}
                                 onClick={() => handleSort('category')}
                             >
                                 <div className="flex items-center justify-between">
                                     <span>Category</span>
                                     {getSortIcon('category')}
                                 </div>
+                                <div 
+                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                    onMouseDown={(e) => handleMouseDown(e, 'category')}
+                                />
                             </th>
                             <th 
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
+                                style={{ width: `${columnWidths.account}px` }}
                                 onClick={() => handleSort('account')}
                             >
                                 <div className="flex items-center justify-between">
                                     <span>Account</span>
                                     {getSortIcon('account')}
                                 </div>
+                                <div 
+                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                    onMouseDown={(e) => handleMouseDown(e, 'account')}
+                                />
                             </th>
                             <th 
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
+                                style={{ width: `${columnWidths.date}px` }}
                                 onClick={() => handleSort('date')}
                             >
                                 <div className="flex items-center justify-between">
                                     <span>Date</span>
                                     {getSortIcon('date')}
                                 </div>
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Tags
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Notes
+                                <div 
+                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                    onMouseDown={(e) => handleMouseDown(e, 'date')}
+                                />
                             </th>
                             <th 
-                                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200"
+                                style={{ width: `${columnWidths.tags}px` }}
+                            >
+                                Tags
+                                <div 
+                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                    onMouseDown={(e) => handleMouseDown(e, 'tags')}
+                                />
+                            </th>
+                            <th 
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200"
+                                style={{ width: `${columnWidths.notes}px` }}
+                            >
+                                Notes
+                                <div 
+                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                    onMouseDown={(e) => handleMouseDown(e, 'notes')}
+                                />
+                            </th>
+                            <th 
+                                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
+                                style={{ width: `${columnWidths.amount}px` }}
                                 onClick={() => handleSort('amount')}
                             >
                                 <div className="flex items-center justify-between">
                                     <span>Amount</span>
                                     {getSortIcon('amount')}
                                 </div>
+                                <div 
+                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                    onMouseDown={(e) => handleMouseDown(e, 'amount')}
+                                />
                             </th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th 
+                                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                style={{ width: `${columnWidths.actions}px` }}
+                            >
                                 Actions
                             </th>
                         </tr>
@@ -221,10 +327,12 @@ export function ExpenseList({
                                 expense={expense} 
                                 currency={currency}
                                 onEdit={onEdit}
+                                onView={onView}
                                 onDelete={onDelete}
                                 isSelected={selectedExpenses.has(expense.id)}
                                 onSelect={onExpenseSelect}
                                 showCheckbox={showBulkActions}
+                                columnWidths={columnWidths}
                             />
                         ))}
                     </tbody>
@@ -238,22 +346,42 @@ function ExpenseRow({
     expense, 
     currency = "USD", 
     onEdit, 
+    onView,
     onDelete,
     isSelected = false,
     onSelect,
-    showCheckbox = false
+    showCheckbox = false,
+    columnWidths
 }: { 
     expense: Expense; 
     currency?: string;
     onEdit?: (expense: Expense) => void;
+    onView?: (expense: Expense) => void;
     onDelete?: (expense: Expense) => void;
     isSelected?: boolean;
     onSelect?: (expenseId: number, selected: boolean) => void;
     showCheckbox?: boolean;
+    columnWidths: {
+        checkbox: number;
+        title: number;
+        category: number;
+        account: number;
+        date: number;
+        tags: number;
+        notes: number;
+        amount: number;
+        actions: number;
+    };
 }) {
     const handleEdit = () => {
         if (onEdit) {
             onEdit(expense);
+        }
+    };
+
+    const handleView = () => {
+        if (onView) {
+            onView(expense);
         }
     };
 
@@ -272,7 +400,7 @@ function ExpenseRow({
     return (
         <tr className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
             {showCheckbox && (
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4" style={{ width: `${columnWidths.checkbox}px` }}>
                     <input
                         type="checkbox"
                         checked={isSelected}
@@ -281,9 +409,9 @@ function ExpenseRow({
                     />
                 </td>
             )}
-            <td className="px-6 py-4 whitespace-nowrap">
+            <td className="px-6 py-4" style={{ width: `${columnWidths.title}px` }}>
                 <div>
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-gray-900 break-words">
                         {expense.title}
                         {expense.isRecurring && (
                             <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
@@ -292,28 +420,30 @@ function ExpenseRow({
                         )}
                     </div>
                     {expense.description && (
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-gray-500 break-words">
                             {expense.description}
                         </div>
                     )}
                 </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap">
+            <td className="px-6 py-4" style={{ width: `${columnWidths.category}px` }}>
                 <div className="flex items-center">
                     <div 
-                        className="w-3 h-3 rounded-full mr-2"
+                        className="w-3 h-3 rounded-full mr-2 flex-shrink-0"
                         style={{ backgroundColor: expense.category.color }}
                     ></div>
-                    <span className="text-sm text-gray-900">{expense.category.name}</span>
+                    <span className="text-sm text-gray-900 break-words">{expense.category.name}</span>
                 </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {expense.account ? `${expense.account.bankName} - ${expense.account.accountType}` : '-'}
+            <td className="px-6 py-4 text-sm text-gray-900" style={{ width: `${columnWidths.account}px` }}>
+                <div className="break-words">
+                    {expense.account ? `${expense.account.bankName} - ${expense.account.accountType}` : '-'}
+                </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+            <td className="px-6 py-4 text-sm text-gray-900" style={{ width: `${columnWidths.date}px` }}>
                 {formatDate(expense.date)}
             </td>
-            <td className="px-6 py-4 whitespace-nowrap">
+            <td className="px-6 py-4" style={{ width: `${columnWidths.tags}px` }}>
                 <div className="flex flex-wrap gap-1">
                     {expense.tags.map((tag, index) => (
                         <span
@@ -325,20 +455,28 @@ function ExpenseRow({
                     ))}
                 </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap max-w-xs">
+            <td className="px-6 py-4" style={{ width: `${columnWidths.notes}px` }}>
                 {expense.notes ? (
-                    <div className="text-sm text-gray-600 truncate" title={expense.notes}>
+                    <div className="text-sm text-gray-600 break-words">
                         {expense.notes}
                     </div>
                 ) : (
                     <span className="text-xs text-gray-400">No notes</span>
                 )}
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right text-red-600">
+            <td className="px-6 py-4 text-sm font-medium text-right text-red-600" style={{ width: `${columnWidths.amount}px` }}>
                 {formatCurrency(expense.amount, currency)}
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+            <td className="px-6 py-4 text-right text-sm font-medium" style={{ width: `${columnWidths.actions}px` }}>
                 <div className="flex justify-end space-x-2">
+                    {onView && (
+                        <button 
+                            onClick={handleView}
+                            className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-800 transition-colors"
+                        >
+                            View
+                        </button>
+                    )}
                     <button 
                         onClick={handleEdit}
                         className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-800 transition-colors"

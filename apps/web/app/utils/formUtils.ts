@@ -170,7 +170,7 @@ export const buttonClasses = {
 export const modalOverlayClasses = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50";
 
 // Modal content class
-export const modalContentClasses = "bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto";
+export const modalContentClasses = "bg-white rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto";
 
 // Generic transaction placeholders based on type
 export function getTransactionPlaceholders(type: TransactionType) {

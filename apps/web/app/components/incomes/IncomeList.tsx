@@ -7,6 +7,7 @@ interface IncomeListProps {
     incomes: Income[];
     currency?: string;
     onEdit?: (income: Income) => void;
+    onView?: (income: Income) => void;
     onDelete?: (income: Income) => void;
     selectedIncomes?: Set<number>;
     onIncomeSelect?: (incomeId: number, selected: boolean) => void;
@@ -20,6 +21,7 @@ export function IncomeList({
     incomes, 
     currency = "USD", 
     onEdit, 
+    onView,
     onDelete,
     selectedIncomes,
     onIncomeSelect,
@@ -30,6 +32,7 @@ export function IncomeList({
 }: IncomeListProps) {
     // Wrapper functions to handle type conversion between Income and FinancialTransaction
     const handleEdit = onEdit ? (transaction: any) => onEdit(transaction as Income) : undefined;
+    const handleView = onView ? (transaction: any) => onView(transaction as Income) : undefined;
     const handleDelete = onDelete ? (transaction: any) => onDelete(transaction as Income) : undefined;
 
     return (
@@ -38,6 +41,7 @@ export function IncomeList({
             transactionType="INCOME"
             currency={currency}
             onEdit={handleEdit}
+            onView={handleView}
             onDelete={handleDelete}
             selectedTransactions={selectedIncomes}
             onTransactionSelect={onIncomeSelect}

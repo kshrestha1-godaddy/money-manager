@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { formatCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
 import { TransactionType } from "../../utils/formUtils";
@@ -33,6 +33,7 @@ interface FinancialListProps {
     transactionType: TransactionType;
     currency?: string;
     onEdit?: (transaction: FinancialTransaction) => void;
+    onView?: (transaction: FinancialTransaction) => void;
     onDelete?: (transaction: FinancialTransaction) => void;
     selectedTransactions?: Set<number>;
     onTransactionSelect?: (transactionId: number, selected: boolean) => void;
@@ -50,6 +51,7 @@ export function FinancialList({
     transactionType,
     currency = "USD", 
     onEdit, 
+    onView,
     onDelete, 
     selectedTransactions = new Set(),
     onTransactionSelect,
@@ -60,6 +62,24 @@ export function FinancialList({
 }: FinancialListProps) {
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+    
+    // Column resizing state
+    const [columnWidths, setColumnWidths] = useState({
+        checkbox: 64,
+        title: 300,
+        category: 128,
+        account: 192,
+        date: 112,
+        tags: 128,
+        notes: 192,
+        amount: 128,
+        actions: 128
+    });
+    
+    const tableRef = useRef<HTMLTableElement>(null);
+    const [resizing, setResizing] = useState<string | null>(null);
+    const [startX, setStartX] = useState(0);
+    const [startWidth, setStartWidth] = useState(0);
 
     const handleSort = (field: SortField) => {
         if (sortField === field) {
@@ -69,6 +89,45 @@ export function FinancialList({
             setSortDirection('asc');
         }
     };
+
+    const handleMouseDown = useCallback((e: React.MouseEvent, column: string) => {
+        e.preventDefault();
+        setResizing(column);
+        setStartX(e.pageX);
+        setStartWidth(columnWidths[column as keyof typeof columnWidths]);
+    }, [columnWidths]);
+
+    const handleMouseMove = useCallback((e: MouseEvent) => {
+        if (!resizing) return;
+        
+        const diff = e.pageX - startX;
+        const newWidth = Math.max(50, startWidth + diff); // Minimum width of 50px
+        
+        setColumnWidths(prev => ({
+            ...prev,
+            [resizing]: newWidth
+        }));
+    }, [resizing, startX, startWidth]);
+
+    const handleMouseUp = useCallback(() => {
+        setResizing(null);
+    }, []);
+
+    // Add global mouse events for resizing
+    useEffect(() => {
+        if (resizing) {
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        } else {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        }
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [resizing, handleMouseMove, handleMouseUp]);
 
     const getSortIcon = (field: SortField) => {
         if (sortField !== field) {
@@ -187,11 +246,14 @@ export function FinancialList({
                 </div>
             </div>
             <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
+                <table className="min-w-full divide-y divide-gray-200 table-fixed">
                     <thead className="bg-gray-50">
                         <tr>
                             {showBulkActions && (
-                                <th className="px-6 py-3 text-left">
+                                <th 
+                                    className="px-6 py-3 text-left relative border-r border-gray-200"
+                                    style={{ width: `${columnWidths.checkbox}px` }}
+                                >
                                     <input
                                         type="checkbox"
                                         checked={isAllSelected}
@@ -201,60 +263,106 @@ export function FinancialList({
                                         onChange={handleSelectAll}
                                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                     />
+                                    <div 
+                                        className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                        onMouseDown={(e) => handleMouseDown(e, 'checkbox')}
+                                    />
                                 </th>
                             )}
                             <th 
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
+                                style={{ width: `${columnWidths.title}px` }}
                                 onClick={() => handleSort('title')}
                             >
                                 <div className="flex items-center justify-between">
                                     <span>{transactionType === 'EXPENSE' ? 'Expense' : 'Income'}</span>
                                     {getSortIcon('title')}
                                 </div>
+                                <div 
+                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                    onMouseDown={(e) => handleMouseDown(e, 'title')}
+                                />
                             </th>
                             <th 
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
+                                style={{ width: `${columnWidths.category}px` }}
                                 onClick={() => handleSort('category')}
                             >
                                 <div className="flex items-center justify-between">
                                     <span>Category</span>
                                     {getSortIcon('category')}
                                 </div>
+                                <div 
+                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                    onMouseDown={(e) => handleMouseDown(e, 'category')}
+                                />
                             </th>
                             <th 
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
+                                style={{ width: `${columnWidths.account}px` }}
                                 onClick={() => handleSort('account')}
                             >
                                 <div className="flex items-center justify-between">
                                     <span>Account</span>
                                     {getSortIcon('account')}
                                 </div>
+                                <div 
+                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                    onMouseDown={(e) => handleMouseDown(e, 'account')}
+                                />
                             </th>
                             <th 
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
+                                style={{ width: `${columnWidths.date}px` }}
                                 onClick={() => handleSort('date')}
                             >
                                 <div className="flex items-center justify-between">
                                     <span>Date</span>
                                     {getSortIcon('date')}
                                 </div>
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Tags
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Notes
+                                <div 
+                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                    onMouseDown={(e) => handleMouseDown(e, 'date')}
+                                />
                             </th>
                             <th 
-                                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200"
+                                style={{ width: `${columnWidths.tags}px` }}
+                            >
+                                Tags
+                                <div 
+                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                    onMouseDown={(e) => handleMouseDown(e, 'tags')}
+                                />
+                            </th>
+                            <th 
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200"
+                                style={{ width: `${columnWidths.notes}px` }}
+                            >
+                                Notes
+                                <div 
+                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                    onMouseDown={(e) => handleMouseDown(e, 'notes')}
+                                />
+                            </th>
+                            <th 
+                                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
+                                style={{ width: `${columnWidths.amount}px` }}
                                 onClick={() => handleSort('amount')}
                             >
                                 <div className="flex items-center justify-between">
                                     <span>Amount</span>
                                     {getSortIcon('amount')}
                                 </div>
+                                <div 
+                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                    onMouseDown={(e) => handleMouseDown(e, 'amount')}
+                                />
                             </th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th 
+                                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                style={{ width: `${columnWidths.actions}px` }}
+                            >
                                 Actions
                             </th>
                         </tr>
@@ -267,11 +375,13 @@ export function FinancialList({
                                 transactionType={transactionType}
                                 currency={currency}
                                 onEdit={onEdit}
+                                onView={onView}
                                 onDelete={onDelete}
                                 isSelected={selectedTransactions.has(transaction.id)}
                                 onSelect={onTransactionSelect}
                                 showCheckbox={showBulkActions}
                                 amountColorClass={amountColorClass}
+                                columnWidths={columnWidths}
                             />
                         ))}
                     </tbody>
@@ -286,25 +396,45 @@ function FinancialRow({
     transactionType,
     currency = "USD", 
     onEdit, 
+    onView,
     onDelete,
     isSelected = false,
     onSelect,
     showCheckbox = false,
-    amountColorClass
+    amountColorClass,
+    columnWidths
 }: { 
     transaction: FinancialTransaction; 
     transactionType: TransactionType;
     currency?: string;
     onEdit?: (transaction: FinancialTransaction) => void;
+    onView?: (transaction: FinancialTransaction) => void;
     onDelete?: (transaction: FinancialTransaction) => void;
     isSelected?: boolean;
     onSelect?: (transactionId: number, selected: boolean) => void;
     showCheckbox?: boolean;
     amountColorClass: string;
+    columnWidths: {
+        checkbox: number;
+        title: number;
+        category: number;
+        account: number;
+        date: number;
+        tags: number;
+        notes: number;
+        amount: number;
+        actions: number;
+    };
 }) {
     const handleEdit = () => {
         if (onEdit) {
             onEdit(transaction);
+        }
+    };
+
+    const handleView = () => {
+        if (onView) {
+            onView(transaction);
         }
     };
 
@@ -323,7 +453,7 @@ function FinancialRow({
     return (
         <tr className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
             {showCheckbox && (
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4" style={{ width: `${columnWidths.checkbox}px` }}>
                     <input
                         type="checkbox"
                         checked={isSelected}
@@ -332,9 +462,9 @@ function FinancialRow({
                     />
                 </td>
             )}
-            <td className="px-6 py-4 whitespace-nowrap">
+            <td className="px-6 py-4" style={{ width: `${columnWidths.title}px` }}>
                 <div>
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-gray-900 break-words">
                         {transaction.title}
                         {transaction.isRecurring && (
                             <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
@@ -345,26 +475,26 @@ function FinancialRow({
                         )}
                     </div>
                     {transaction.description && (
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-gray-500 break-words">
                             {transaction.description}
                         </div>
                     )}
                 </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap">
+            <td className="px-6 py-4" style={{ width: `${columnWidths.category}px` }}>
                 <div className="flex items-center">
                     <div 
-                        className="w-3 h-3 rounded-full mr-2"
+                        className="w-3 h-3 rounded-full mr-2 flex-shrink-0"
                         style={{ backgroundColor: transaction.category.color }}
                     ></div>
-                    <span className="text-sm text-gray-900">{transaction.category.name}</span>
+                    <span className="text-sm text-gray-900 break-words">{transaction.category.name}</span>
                 </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+            <td className="px-6 py-4 text-sm text-gray-900" style={{ width: `${columnWidths.account}px` }}>
                 {transaction.account ? (
                     <div>
-                        <div className="font-medium">{transaction.account.bankName}</div>
-                        <div className="text-gray-500 text-xs">
+                        <div className="font-medium break-words">{transaction.account.bankName}</div>
+                        <div className="text-gray-500 text-xs break-words">
                             {transaction.account.holderName} ({transaction.account.accountType})
                         </div>
                     </div>
@@ -372,10 +502,10 @@ function FinancialRow({
                     <span className="text-gray-400">No account</span>
                 )}
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+            <td className="px-6 py-4 text-sm text-gray-900" style={{ width: `${columnWidths.date}px` }}>
                 {formatDate(transaction.date)}
             </td>
-            <td className="px-6 py-4 whitespace-nowrap">
+            <td className="px-6 py-4" style={{ width: `${columnWidths.tags}px` }}>
                 <div className="flex flex-wrap gap-1">
                     {transaction.tags.map((tag, index) => (
                         <span
@@ -387,20 +517,28 @@ function FinancialRow({
                     ))}
                 </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap max-w-xs">
+            <td className="px-6 py-4" style={{ width: `${columnWidths.notes}px` }}>
                 {transaction.notes ? (
-                    <div className="text-sm text-gray-600 truncate" title={transaction.notes}>
+                    <div className="text-sm text-gray-600 break-words">
                         {transaction.notes}
                     </div>
                 ) : (
                     <span className="text-xs text-gray-400">No notes</span>
                 )}
             </td>
-            <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-right ${amountColorClass}`}>
+            <td className={`px-6 py-4 text-sm font-medium text-right ${amountColorClass}`} style={{ width: `${columnWidths.amount}px` }}>
                 {formatCurrency(transaction.amount, currency)}
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+            <td className="px-6 py-4 text-right text-sm font-medium" style={{ width: `${columnWidths.actions}px` }}>
                 <div className="flex justify-end space-x-2">
+                    {onView && (
+                        <button 
+                            onClick={handleView}
+                            className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-800 transition-colors"
+                        >
+                            View
+                        </button>
+                    )}
                     <button 
                         onClick={handleEdit}
                         className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-800 transition-colors"

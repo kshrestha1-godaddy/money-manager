@@ -7,6 +7,7 @@ import { AccountInterface } from "../../types/accounts";
 import { ExpenseList } from "../../components/expenses/ExpenseList";
 import { AddExpenseModal } from "../../components/expenses/AddExpenseModal";
 import { EditExpenseModal } from "../../components/expenses/EditExpenseModal";
+import { ViewExpenseModal } from "../../components/expenses/ViewExpenseModal";
 import { DeleteConfirmationModal } from "../../components/DeleteConfirmationModal";
 import { AddCategoryModal } from "../../components/AddCategoryModal";
 import { BulkImportModal } from "../../components/expenses/BulkImportModal";
@@ -25,6 +26,7 @@ function ExpensesContent() {
     const [accounts, setAccounts] = useState<AccountInterface[]>([]);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
     const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
@@ -36,6 +38,7 @@ function ExpensesContent() {
     const [endDate, setEndDate] = useState<string>("");
     const [loading, setLoading] = useState(true);
     const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
+    const [expenseToView, setExpenseToView] = useState<Expense | null>(null);
     const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
     const { currency: userCurrency } = useCurrency();
     
@@ -195,6 +198,11 @@ function ExpensesContent() {
     const openEditModal = (expense: Expense) => {
         setExpenseToEdit(expense);
         setIsEditModalOpen(true);
+    };
+
+    const openViewModal = (expense: Expense) => {
+        setExpenseToView(expense);
+        setIsViewModalOpen(true);
     };
 
     const openDeleteModal = (expense: Expense) => {
@@ -403,6 +411,7 @@ function ExpensesContent() {
                     expenses={filteredExpenses} 
                     currency={userCurrency}
                     onEdit={openEditModal}
+                    onView={openViewModal}
                     onDelete={openDeleteModal}
                     selectedExpenses={selectedExpenses}
                     onExpenseSelect={handleExpenseSelect}
@@ -433,6 +442,17 @@ function ExpensesContent() {
                 categories={categories}
                 accounts={accounts}
                 expense={expenseToEdit}
+            />
+
+            {/* View Expense Modal */}
+            <ViewExpenseModal
+                isOpen={isViewModalOpen}
+                onClose={() => {
+                    setIsViewModalOpen(false);
+                    setExpenseToView(null);
+                }}
+                onEdit={openEditModal}
+                expense={expenseToView}
             />
 
             {/* Delete Confirmation Modal */}

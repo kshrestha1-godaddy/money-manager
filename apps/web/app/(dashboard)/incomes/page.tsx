@@ -7,6 +7,7 @@ import { AccountInterface } from "../../types/accounts";
 import { IncomeList } from "../../components/incomes/IncomeList";
 import { AddIncomeModal } from "../../components/incomes/AddIncomeModal";
 import { EditIncomeModal } from "../../components/incomes/EditIncomeModal";
+import { ViewIncomeModal } from "../../components/incomes/ViewIncomeModal";
 import { BulkImportModal } from "../../components/shared/BulkImportModal";
 import { DeleteConfirmationModal } from "../../components/DeleteConfirmationModal";
 import { AddCategoryModal } from "../../components/AddCategoryModal";
@@ -25,6 +26,7 @@ function IncomesContent() {
     const [accounts, setAccounts] = useState<AccountInterface[]>([]);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
     const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
@@ -36,6 +38,7 @@ function IncomesContent() {
     const [endDate, setEndDate] = useState<string>("");
     const [loading, setLoading] = useState(true);
     const [incomeToEdit, setIncomeToEdit] = useState<Income | null>(null);
+    const [incomeToView, setIncomeToView] = useState<Income | null>(null);
     const [incomeToDelete, setIncomeToDelete] = useState<Income | null>(null);
     const { currency: userCurrency } = useCurrency();
     
@@ -195,6 +198,11 @@ function IncomesContent() {
     const openEditModal = (income: Income) => {
         setIncomeToEdit(income);
         setIsEditModalOpen(true);
+    };
+
+    const openViewModal = (income: Income) => {
+        setIncomeToView(income);
+        setIsViewModalOpen(true);
     };
 
     const openDeleteModal = (income: Income) => {
@@ -419,6 +427,7 @@ function IncomesContent() {
                     incomes={filteredIncomes} 
                     currency={userCurrency}
                     onEdit={openEditModal}
+                    onView={openViewModal}
                     onDelete={openDeleteModal}
                     selectedIncomes={selectedIncomes}
                     onIncomeSelect={handleIncomeSelect}
@@ -449,6 +458,17 @@ function IncomesContent() {
                 categories={categories}
                 accounts={accounts}
                 income={incomeToEdit}
+            />
+
+            {/* View Income Modal */}
+            <ViewIncomeModal
+                isOpen={isViewModalOpen}
+                onClose={() => {
+                    setIsViewModalOpen(false);
+                    setIncomeToView(null);
+                }}
+                onEdit={openEditModal}
+                income={incomeToView}
             />
 
             {/* Delete Confirmation Modal */}
