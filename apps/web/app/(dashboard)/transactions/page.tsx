@@ -6,6 +6,7 @@ import { formatDate } from "../../utils/date";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { getAllTransactions } from "../../actions/transactions";
+import { TransactionPDFReportGenerator } from "../../components/TransactionPDFReportGenerator";
 
 export default function TransactionsPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -98,9 +99,24 @@ export default function TransactionsPage() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900">All Transactions</h1>
-                <div className="text-sm text-gray-500">
-                    {filteredTransactions.length} of {transactions.length} transactions
+                <div className="flex items-center gap-4">
+                    <TransactionPDFReportGenerator
+                        transactions={filteredTransactions}
+                        totalIncome={totalIncome}
+                        totalExpenses={totalExpenses}
+                        netAmount={totalAmount}
+                        filteredTransactionCount={filteredTransactions.length}
+                        searchTerm={searchTerm}
+                        selectedType={selectedType}
+                        selectedCategory={selectedCategory}
+                        startDate={startDate}
+                        endDate={endDate}
+                    />
+
                 </div>
+            </div>
+            <div className="text-sm text-gray-500">
+                {filteredTransactions.length} of {transactions.length} transactions
             </div>
 
             {/* Summary Stats */}

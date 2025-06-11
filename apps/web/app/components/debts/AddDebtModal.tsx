@@ -1,17 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@repo/ui/button";
 import { DebtInterface } from "../../types/debts";
 import { AccountInterface } from "../../types/accounts";
 import { getUserAccounts } from "../../actions/accounts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
+import { validateDebtForm, sanitizeFormData, DebtFormData, ValidationError } from "../../utils/debtValidation";
 
 interface AddDebtModalProps {
     isOpen: boolean;
     onClose: () => void;
     onAdd: (debt: Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>) => void;
+}
+
+function getCurrentDateString(): string {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 export function AddDebtModal({ isOpen, onClose, onAdd }: AddDebtModalProps) {
@@ -24,7 +33,7 @@ export function AddDebtModal({ isOpen, onClose, onAdd }: AddDebtModalProps) {
         amount: 0,
         interestRate: 0,
         dueDate: "",
-        lentDate: new Date().toISOString().split('T')[0],
+        lentDate: getCurrentDateString(),
         status: "ACTIVE" as const,
         purpose: "",
         notes: "",
@@ -33,6 +42,8 @@ export function AddDebtModal({ isOpen, onClose, onAdd }: AddDebtModalProps) {
 
     const [accounts, setAccounts] = useState<AccountInterface[]>([]);
     const [loadingAccounts, setLoadingAccounts] = useState(false);
+    const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -58,12 +69,25 @@ export function AddDebtModal({ isOpen, onClose, onAdd }: AddDebtModalProps) {
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const getFieldError = (fieldName: string): string | undefined => {
+        return validationErrors.find(error => error.field === fieldName)?.message;
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setIsSubmitting(true);
+        setValidationErrors([]);
         
-        // Validate required fields
-        if (!formData.borrowerName || !formData.amount) {
-            alert("Please fill in all required fields");
+        // Basic validation
+        if (!formData.borrowerName.trim()) {
+            setValidationErrors([{ field: 'borrowerName', message: 'Borrower name is required' }]);
+            setIsSubmitting(false);
+            return;
+        }
+        
+        if (!formData.amount || formData.amount <= 0) {
+            setValidationErrors([{ field: 'amount', message: 'Amount must be greater than 0' }]);
+            setIsSubmitting(false);
             return;
         }
 
@@ -72,35 +96,51 @@ export function AddDebtModal({ isOpen, onClose, onAdd }: AddDebtModalProps) {
             const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
             if (selectedAccount && selectedAccount.balance !== undefined) {
                 if (formData.amount > selectedAccount.balance) {
-                    alert(`Cannot add debt of ${formatCurrency(formData.amount, userCurrency)}. Account balance is only ${formatCurrency(selectedAccount.balance, userCurrency)}.`);
+                    setValidationErrors([{
+                        field: 'amount',
+                        message: `Cannot add debt of ${formatCurrency(formData.amount, userCurrency)}. Account balance is only ${formatCurrency(selectedAccount.balance, userCurrency)}.`
+                    }]);
+                    setIsSubmitting(false);
                     return;
                 }
             }
         }
 
-        // Process dates properly
-        let dueDate: Date | undefined = undefined;
-        if (formData.dueDate && formData.dueDate.trim() !== "") {
-            dueDate = new Date(formData.dueDate);
+        try {
+            // Sanitize and process form data
+            const sanitizedData = sanitizeFormData(formData);
+            
+            // Process dates properly
+            let dueDate: Date | undefined = undefined;
+            if (sanitizedData.dueDate && sanitizedData.dueDate.trim() !== "") {
+                dueDate = new Date(sanitizedData.dueDate);
+            }
+
+            const processedData = {
+                borrowerName: sanitizedData.borrowerName,
+                borrowerContact: sanitizedData.borrowerContact || undefined,
+                borrowerEmail: sanitizedData.borrowerEmail || undefined,
+                amount: sanitizedData.amount,
+                interestRate: sanitizedData.interestRate,
+                lentDate: new Date(sanitizedData.lentDate),
+                dueDate: dueDate,
+                status: sanitizedData.status,
+                purpose: sanitizedData.purpose || undefined, 
+                notes: sanitizedData.notes || undefined,
+                accountId: sanitizedData.accountId ? parseInt(sanitizedData.accountId) : undefined,
+            };
+
+            await onAdd(processedData);
+            resetForm();
+        } catch (error) {
+            console.error("Error in form submission:", error);
+            setValidationErrors([{
+                field: 'general',
+                message: error instanceof Error ? error.message : 'An unexpected error occurred'
+            }]);
+        } finally {
+            setIsSubmitting(false);
         }
-
-        const processedData = {
-            borrowerName: formData.borrowerName,
-            borrowerContact: formData.borrowerContact || undefined,
-            borrowerEmail: formData.borrowerEmail || undefined,
-            amount: formData.amount,
-            interestRate: formData.interestRate,
-            // @ts-ignore - Date constructor handles string inputs properly
-            lentDate: new Date(formData.lentDate),
-            dueDate: dueDate,
-            status: formData.status,
-            purpose: formData.purpose || undefined, 
-            notes: formData.notes || undefined,
-            accountId: formData.accountId ? parseInt(formData.accountId) : undefined,
-        };
-
-        onAdd(processedData);
-        resetForm();
     };
 
     const resetForm = () => {
@@ -111,7 +151,7 @@ export function AddDebtModal({ isOpen, onClose, onAdd }: AddDebtModalProps) {
             amount: 0,
             interestRate: 0,
             dueDate: "",
-            lentDate: new Date().toISOString().split('T')[0],
+            lentDate: getCurrentDateString(),
             status: "ACTIVE" as const,
             purpose: "",
             notes: "",

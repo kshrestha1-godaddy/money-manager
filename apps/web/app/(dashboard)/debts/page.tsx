@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { signOut } from "next-auth/react";
+import { useState } from "react";
 import { DebtList } from "../../components/debts/DebtList";
 import { DebtTable } from "../../components/debts/DebtTable";
 import { DebtInterface } from "../../types/debts";
@@ -11,16 +10,14 @@ import { EditDebtModal } from "../../components/debts/EditDebtModal";
 import { DeleteDebtModal } from "../../components/debts/DeleteDebtModal";
 import { ViewDebtModal } from "../../components/debts/ViewDebtModal";
 import { AddRepaymentModal } from "../../components/debts/AddRepaymentModal";
-import { getUserDebts, createDebt, updateDebt, deleteDebt } from "../../actions/debts";
+import { DebtErrorBoundary } from "../../components/debts/ErrorBoundary";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { calculateRemainingWithInterest } from "../../utils/interestCalculation";
-import { triggerBalanceRefresh } from "../../hooks/useTotalBalance";
+import { useDebts } from "../../hooks/useDebts";
 
 export default function Debts() {
-    const [debts, setDebts] = useState<DebtInterface[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { debts, loading, error, addDebt, editDebt, removeDebt, clearError } = useDebts();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -36,95 +33,24 @@ export default function Debts() {
     const [viewMode, setViewMode] = useState<"cards" | "table">("table");
     const { currency: userCurrency } = useCurrency();
 
-    useEffect(() => {
-        loadDebts();
-    }, []);
-
-    const loadDebts = async () => {
-        try {
-            setLoading(true);
-            setError(null);
-            const userDebts = await getUserDebts();
-            
-            if (userDebts && !('error' in userDebts)) {
-                setDebts(userDebts.data || []);
-                // Trigger balance refresh when debts are loaded (useful for repayments)
-                triggerBalanceRefresh();
-            } else {
-                const errorMessage = userDebts?.error || "Unknown error";
-                console.error("Error loading debts:", errorMessage);
-                
-                // Handle authentication/session errors differently
-                if (errorMessage === "User not found" || errorMessage === "Unauthorized") {
-                    console.log("Authentication error detected, signing out user");
-                    setError("Your session has expired. Please sign in again.");
-                    // Sign out the user and redirect to login
-                    setTimeout(() => {
-                        signOut({ 
-                            callbackUrl: "/api/auth/signin",
-                            redirect: true 
-                        });
-                    }, 2000);
-                } else {
-                    setError(`Failed to load debts: ${errorMessage}`);
-                }
-                setDebts([]);
-            }
-        } catch (error) {
-            console.error("Error loading debts:", error);
-            setError(`An unexpected error occurred: ${error}`);
-            setDebts([]);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const handleAddDebt = async (newDebt: Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>) => {
         try {
-            const debt = await createDebt(newDebt);
-            setDebts(prevDebts => [debt, ...prevDebts]);
+            await addDebt(newDebt);
             setIsAddModalOpen(false);
-            setError(null); // Clear any previous errors
-            // Trigger balance refresh in NavBar
-            triggerBalanceRefresh();
         } catch (error) {
-            console.error("Error adding debt:", error);
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
-            
-            // Handle authentication errors
-            if (errorMessage.includes("Unauthorized") || errorMessage.includes("User not found")) {
-                setError("Your session has expired. Please sign in again.");
-                setTimeout(() => {
-                    signOut({ callbackUrl: "/api/auth/signin", redirect: true });
-                }, 2000);
-            } else {
-                setError(`Failed to add debt: ${errorMessage}`);
-            }
+            // Error is already handled by the useDebts hook
+            console.error("Error in handleAddDebt:", error);
         }
     };
 
     const handleEditDebt = async (id: number, updatedDebt: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>) => {
         try {
-            const debt = await updateDebt(id, updatedDebt);
-            setDebts(prevDebts => prevDebts.map(d => d.id === id ? debt : d));
+            await editDebt(id, updatedDebt);
             setIsEditModalOpen(false);
             setDebtToEdit(null);
-            setError(null); // Clear any previous errors
-            // Trigger balance refresh in NavBar
-            triggerBalanceRefresh();
         } catch (error) {
-            console.error("Error updating debt:", error);
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
-            
-            // Handle authentication errors
-            if (errorMessage.includes("Unauthorized") || errorMessage.includes("User not found")) {
-                setError("Your session has expired. Please sign in again.");
-                setTimeout(() => {
-                    signOut({ callbackUrl: "/api/auth/signin", redirect: true });
-                }, 2000);
-            } else {
-                setError(`Failed to update debt: ${errorMessage}`);
-            }
+            // Error is already handled by the useDebts hook
+            console.error("Error in handleEditDebt:", error);
         }
     };
 
@@ -132,26 +58,12 @@ export default function Debts() {
         if (!debtToDelete) return;
         
         try {
-            await deleteDebt(debtToDelete.id);
-            setDebts(prevDebts => prevDebts.filter(d => d.id !== debtToDelete.id));
+            await removeDebt(debtToDelete);
             setIsDeleteModalOpen(false);
             setDebtToDelete(null);
-            setError(null); // Clear any previous errors
-            // Trigger balance refresh in NavBar
-            triggerBalanceRefresh();
         } catch (error) {
-            console.error("Error deleting debt:", error);
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
-            
-            // Handle authentication errors
-            if (errorMessage.includes("Unauthorized") || errorMessage.includes("User not found")) {
-                setError("Your session has expired. Please sign in again.");
-                setTimeout(() => {
-                    signOut({ callbackUrl: "/api/auth/signin", redirect: true });
-                }, 2000);
-            } else {
-                setError(`Failed to delete debt: ${errorMessage}`);
-            }
+            // Error is already handled by the useDebts hook
+            console.error("Error in handleDeleteDebt:", error);
         }
     };
 
@@ -227,7 +139,8 @@ export default function Debts() {
     }
 
     return (
-        <div className="space-y-6">
+        <DebtErrorBoundary>
+            <div className="space-y-6">
             {/* Error Display */}
             {error && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -243,7 +156,7 @@ export default function Debts() {
                         <div className="ml-auto pl-3">
                             <div className="-mx-1.5 -my-1.5">
                                 <button
-                                    onClick={() => setError(null)}
+                                    onClick={clearError}
                                     className="inline-flex bg-red-50 rounded-md p-1.5 text-red-500 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-red-50 focus:ring-red-600"
                                 >
                                     <span className="sr-only">Dismiss</span>
@@ -470,14 +383,20 @@ export default function Debts() {
             />
 
             <AddRepaymentModal
-                debt={debtForRepayment}
-                isOpen={isAddRepaymentModalOpen}
-                onClose={() => {
-                    setIsAddRepaymentModalOpen(false);
-                    setDebtForRepayment(null);
-                }}
-                onSuccess={loadDebts}
-            />
-        </div>
+                    debt={debtForRepayment}
+                    isOpen={isAddRepaymentModalOpen}
+                    onClose={() => {
+                        setIsAddRepaymentModalOpen(false);
+                        setDebtForRepayment(null);
+                    }}
+                    onSuccess={() => {
+                        // Repayment success is handled by the AddRepaymentModal itself
+                        // The debts will be refreshed automatically
+                        setIsAddRepaymentModalOpen(false);
+                        setDebtForRepayment(null);
+                    }}
+                />
+            </div>
+        </DebtErrorBoundary>
     );
 } 

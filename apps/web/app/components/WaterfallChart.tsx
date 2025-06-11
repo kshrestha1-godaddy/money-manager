@@ -153,7 +153,8 @@ export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD" }:
                             left: 40,
                             bottom: 20,
                         }}
-                        barCategoryGap="20%"
+                        barCategoryGap="10%"
+                        barGap="1%"
                     >
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                         <XAxis 
