@@ -236,7 +236,7 @@ export function CategoryPieChart({ data, type, currency = "USD", title }: Catego
 
     if (chartData.length === 0) {
         return (
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-6" data-chart-type={type === 'expense' ? 'expense-pie' : 'income-pie'}>
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">{chartTitle}</h3>
                 </div>
@@ -249,7 +249,7 @@ export function CategoryPieChart({ data, type, currency = "USD", title }: Catego
 
     return (
         <>
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-6" data-chart-type={type === 'expense' ? 'expense-pie' : 'income-pie'}>
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">{chartTitle}</h3>
                     <div className="flex items-center gap-2">

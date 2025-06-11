@@ -458,7 +458,7 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
 
     if (chartData.length === 0) {
         return (
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-6" data-chart-type="monthly-trend">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">
                         Monthly Income, Expenses & Savings Trend {timePeriodText}
@@ -473,7 +473,7 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
 
     return (
         <>
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-6" data-chart-type="monthly-trend">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">
                         Monthly Income, Expenses & Savings Trend {timePeriodText}

@@ -97,6 +97,7 @@ export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD" }:
             className={`bg-white rounded-lg shadow p-6 ${isExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}
             role="region"
             aria-label="Financial Waterfall Chart"
+            data-chart-type="waterfall"
         >
             <ChartControls
                 chartRef={chartRef}

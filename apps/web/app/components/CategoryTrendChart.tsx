@@ -352,7 +352,7 @@ export function CategoryTrendChart({ data, type, currency = "USD" }: CategoryTre
 
     if (categories.length === 0) {
         return (
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-6" data-chart-type={type === 'expense' ? 'expense-trend' : 'income-trend'}>
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">
                         Category {type === 'income' ? 'Income' : 'Expense'} Trend (Last 12 Months)
@@ -367,7 +367,7 @@ export function CategoryTrendChart({ data, type, currency = "USD" }: CategoryTre
 
     return (
         <>
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-6" data-chart-type={type === 'expense' ? 'expense-trend' : 'income-trend'}>
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">
                         Category {type === 'income' ? 'Income' : 'Expense'} Trend: {currentCategory}

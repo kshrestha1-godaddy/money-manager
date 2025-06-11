@@ -12,6 +12,7 @@ import { CategoryPieChart } from "../../components/CategoryPieChart";
 import { MonthlyTrendChart } from "../../components/MonthlyTrendChart";
 import { CategoryTrendChart } from "../../components/CategoryTrendChart";
 import { RecentTransactions } from "../../components/RecentTransactions";
+import { SimplePDFReportGenerator } from "../../components/SimplePDFReportGenerator";
 
 export default function Dashboard() {
     const session = useSession();
@@ -86,11 +87,8 @@ export default function Dashboard() {
     if (loading) {
         return (
             <div className="space-y-6">
-                <div className="flex justify-between items-center">
+                <div className="flex flex-start items-center">
                     <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-                    <div className="text-sm text-gray-500">
-                        Welcome back, {session.data?.user?.name || 'User'}
-                    </div>
                 </div>
                 <div className="flex items-center justify-center h-64">
                     <div className="text-gray-500">Loading dashboard data...</div>
@@ -103,8 +101,13 @@ export default function Dashboard() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-                <div className="text-sm text-gray-500">
-                    Welcome back, {session.data?.user?.name || 'User'}
+                <div className="flex items-center gap-4">
+                    <SimplePDFReportGenerator 
+                        incomes={filteredIncomes}
+                        expenses={filteredExpenses}
+                        startDate={startDate}
+                        endDate={endDate}
+                    />
                 </div>
             </div>
 
