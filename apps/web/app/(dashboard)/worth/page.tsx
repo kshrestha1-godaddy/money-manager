@@ -268,7 +268,7 @@ export default function NetWorthPage() {
                                 }
                             ]}
                             margin={{
-                                top: 20,
+                                top: 60,
                                 right: 30,
                                 left: 20,
                                 bottom: 5,
@@ -308,6 +308,7 @@ export default function NetWorthPage() {
                                 tickLine={{ stroke: '#374151', strokeWidth: 1 }}
                                 tick={{ fontSize: 12, fill: '#6B7280' }}
                                 tickFormatter={(value) => formatCurrency(value, currency).replace(/\.[0-9]+/, '')}
+                                domain={[0, 'dataMax + 100000']}
                             />
                             <Tooltip 
                                 formatter={(value: number) => [formatCurrency(value, currency), 'Total']}

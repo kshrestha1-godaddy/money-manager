@@ -10,7 +10,7 @@ interface EditInvestmentModalProps {
     investment: InvestmentInterface | null;
     isOpen: boolean;
     onClose: () => void;
-    onEdit: (id: number, investment: Partial<Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>) => void;
+    onEdit: (id: number, investment: Partial<Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account'>>) => void;
 }
 
 interface Account {
@@ -34,6 +34,9 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
         purchaseDate: "",
         accountId: "",
         notes: "",
+        // Fixed Deposit specific fields
+        interestRate: "",
+        maturityDate: "",
     });
 
     const [accounts, setAccounts] = useState<Account[]>([]);
@@ -59,6 +62,10 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                 purchaseDate: investment.purchaseDate ? new Date(investment.purchaseDate).toISOString().split('T')[0] : "",
                 accountId: investment.accountId.toString(),
                 notes: investment.notes ?? "",
+                // Fixed Deposit specific fields
+                interestRate: investment.interestRate?.toString() || "",
+                //@ts-ignore
+                maturityDate: investment.maturityDate ? new Date(investment.maturityDate).toISOString().split('T')[0] : "",
             });
         }
     }, [investment, isOpen]);
@@ -89,18 +96,41 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                 setError("Investment name is required");
                 return;
             }
-            if (!formData.quantity || parseFloat(formData.quantity) <= 0) {
-                setError("Quantity must be greater than 0");
-                return;
+            
+            if (formData.type === 'FIXED_DEPOSIT') {
+                // Fixed Deposit specific validation
+                if (!formData.purchasePrice || parseFloat(formData.purchasePrice) <= 0) {
+                    setError("Principal amount must be greater than 0");
+                    return;
+                }
+                if (formData.interestRate === "" || parseFloat(formData.interestRate) < 0) {
+                    setError("Interest rate must be 0 or greater");
+                    return;
+                }
+                if (!formData.maturityDate) {
+                    setError("Maturity date is required for Fixed Deposits");
+                    return;
+                }
+                if (formData.maturityDate && new Date(formData.maturityDate) <= new Date(formData.purchaseDate)) {
+                    setError("Maturity date must be after the deposit date");
+                    return;
+                }
+            } else {
+                // Regular investment validation
+                if (!formData.quantity || parseFloat(formData.quantity) <= 0) {
+                    setError("Quantity must be greater than 0");
+                    return;
+                }
+                if (!formData.purchasePrice || parseFloat(formData.purchasePrice) <= 0) {
+                    setError("Purchase price must be greater than 0");
+                    return;
+                }
+                if (!formData.currentPrice || parseFloat(formData.currentPrice) < 0) {
+                    setError("Current price must be 0 or greater");
+                    return;
+                }
             }
-            if (!formData.purchasePrice || parseFloat(formData.purchasePrice) <= 0) {
-                setError("Purchase price must be greater than 0");
-                return;
-            }
-            if (!formData.currentPrice || parseFloat(formData.currentPrice) < 0) {
-                setError("Current price must be 0 or greater");
-                return;
-            }
+            
             if (!formData.accountId) {
                 setError("Please select an account");
                 return;
@@ -108,8 +138,16 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
 
             // Validate account balance for investment changes
             const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
-            const newTotalAmount = parseFloat(formData.quantity) * parseFloat(formData.purchasePrice);
-            const oldTotalAmount = investment.quantity * investment.purchasePrice;
+            let newTotalAmount: number;
+            let oldTotalAmount: number;
+            
+            if (formData.type === 'FIXED_DEPOSIT') {
+                newTotalAmount = parseFloat(formData.purchasePrice);
+                oldTotalAmount = investment.type === 'FIXED_DEPOSIT' ? investment.purchasePrice : investment.quantity * investment.purchasePrice;
+            } else {
+                newTotalAmount = parseFloat(formData.quantity) * parseFloat(formData.purchasePrice);
+                oldTotalAmount = investment.type === 'FIXED_DEPOSIT' ? investment.purchasePrice : investment.quantity * investment.purchasePrice;
+            }
             
             if (selectedAccount && selectedAccount.balance !== undefined) {
                 // If changing to a different account, check if the new account has sufficient balance
@@ -127,17 +165,23 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                 }
             }
 
-            const investmentData = {
+            const investmentData: any = {
                 name: formData.name.trim(),
-                type: formData.type as 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'OTHER',
+                type: formData.type as 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'OTHER',
                 symbol: formData.symbol.trim() || undefined,
-                quantity: parseFloat(formData.quantity),
+                quantity: formData.type === 'FIXED_DEPOSIT' ? 1 : parseFloat(formData.quantity),
                 purchasePrice: parseFloat(formData.purchasePrice),
-                currentPrice: parseFloat(formData.currentPrice),
+                currentPrice: formData.type === 'FIXED_DEPOSIT' ? parseFloat(formData.purchasePrice) : parseFloat(formData.currentPrice),
                 purchaseDate: new Date(formData.purchaseDate + 'T00:00:00'),
                 accountId: parseInt(formData.accountId),
                 notes: formData.notes.trim() || undefined,
             };
+
+            // Add Fixed Deposit specific fields
+            if (formData.type === 'FIXED_DEPOSIT') {
+                investmentData.interestRate = parseFloat(formData.interestRate || "0");
+                investmentData.maturityDate = formData.maturityDate ? new Date(formData.maturityDate + 'T00:00:00') : undefined;
+            }
 
             await onEdit(investment.id, investmentData);
         } catch (err) {
@@ -159,6 +203,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
         { value: 'BONDS', label: 'Bonds' },
         { value: 'REAL_ESTATE', label: 'Real Estate' },
         { value: 'GOLD', label: 'Gold' },
+        { value: 'FIXED_DEPOSIT', label: 'Fixed Deposit' },
         { value: 'OTHER', label: 'Other' },
     ];
 
@@ -218,76 +263,135 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                         </select>
                     </div>
 
-                    <div>
-                        <label htmlFor="symbol" className="block text-sm font-medium text-gray-700 mb-1">
-                            Symbol (Optional)
-                        </label>
-                        <input
-                            type="text"
-                            id="symbol"
-                            value={formData.symbol}
-                            onChange={(e) => handleInputChange("symbol", e.target.value.toUpperCase())}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="e.g., AAPL, BTC, SPY"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
+                    {formData.type !== 'FIXED_DEPOSIT' && (
                         <div>
-                            <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-1">
-                                Quantity *
+                            <label htmlFor="symbol" className="block text-sm font-medium text-gray-700 mb-1">
+                                Symbol (Optional)
                             </label>
                             <input
-                                type="number"
-                                id="quantity"
-                                step="0.00000001"
-                                min="0"
-                                value={formData.quantity}
-                                onChange={(e) => handleInputChange("quantity", e.target.value)}
+                                type="text"
+                                id="symbol"
+                                value={formData.symbol}
+                                onChange={(e) => handleInputChange("symbol", e.target.value.toUpperCase())}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="0.00"
-                                required
+                                placeholder="e.g., AAPL, BTC, SPY"
                             />
                         </div>
+                    )}
 
-                        <div>
-                            <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 mb-1">
-                                Purchase Price *
-                            </label>
-                            <input
-                                type="number"
-                                id="purchasePrice"
-                                step="0.01"
-                                min="0"
-                                value={formData.purchasePrice}
-                                onChange={(e) => handleInputChange("purchasePrice", e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="0.00"
-                                required
-                            />
-                        </div>
-                    </div>
+                    {formData.type === 'FIXED_DEPOSIT' ? (
+                        <>
+                            <div>
+                                <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 mb-1">
+                                    Principal Amount *
+                                </label>
+                                <input
+                                    type="number"
+                                    id="purchasePrice"
+                                    step="0.01"
+                                    min="0"
+                                    value={formData.purchasePrice}
+                                    onChange={(e) => handleInputChange("purchasePrice", e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="0.00"
+                                    required
+                                />
+                            </div>
 
-                    <div>
-                        <label htmlFor="currentPrice" className="block text-sm font-medium text-gray-700 mb-1">
-                            Current Price *
-                        </label>
-                        <input
-                            type="number"
-                            id="currentPrice"
-                            step="0.01"
-                            min="0"
-                            value={formData.currentPrice}
-                            onChange={(e) => handleInputChange("currentPrice", e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="0.00"
-                            required
-                        />
-                    </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label htmlFor="interestRate" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Interest Rate (% per annum) *
+                                    </label>
+                                    <input
+                                        type="number"
+                                        id="interestRate"
+                                        step="0.01"
+                                        min="0"
+                                        max="100"
+                                        value={formData.interestRate}
+                                        onChange={(e) => handleInputChange("interestRate", e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="5.50"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label htmlFor="maturityDate" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Maturity Date *
+                                    </label>
+                                    <input
+                                        type="date"
+                                        id="maturityDate"
+                                        value={formData.maturityDate}
+                                        onChange={(e) => handleInputChange("maturityDate", e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Quantity *
+                                    </label>
+                                    <input
+                                        type="number"
+                                        id="quantity"
+                                        step="0.00000001"
+                                        min="0"
+                                        value={formData.quantity}
+                                        onChange={(e) => handleInputChange("quantity", e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="0.00"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Purchase Price *
+                                    </label>
+                                    <input
+                                        type="number"
+                                        id="purchasePrice"
+                                        step="0.01"
+                                        min="0"
+                                        value={formData.purchasePrice}
+                                        onChange={(e) => handleInputChange("purchasePrice", e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="0.00"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label htmlFor="currentPrice" className="block text-sm font-medium text-gray-700 mb-1">
+                                    Current Price *
+                                </label>
+                                <input
+                                    type="number"
+                                    id="currentPrice"
+                                    step="0.01"
+                                    min="0"
+                                    value={formData.currentPrice}
+                                    onChange={(e) => handleInputChange("currentPrice", e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="0.00"
+                                    required
+                                />
+                            </div>
+                        </>
+                    )}
 
                     <div>
                         <label htmlFor="purchaseDate" className="block text-sm font-medium text-gray-700 mb-1">
-                            Purchase Date *
+                            {formData.type === 'FIXED_DEPOSIT' ? 'Deposit Date *' : 'Purchase Date *'}
                         </label>
                         <input
                             type="date"

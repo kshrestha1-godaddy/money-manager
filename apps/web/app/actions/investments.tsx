@@ -111,14 +111,23 @@ export async function getUserInvestments(): Promise<{ data?: InvestmentInterface
                 } : investment.account;
                 
                 return {
-                    ...investment,
+                    id: investment.id,
+                    name: investment.name,
+                    type: investment.type,
+                    symbol: investment.symbol,
                     quantity,
                     purchasePrice,
                     currentPrice,
                     purchaseDate: new Date(investment.purchaseDate),
+                    accountId: investment.accountId,
+                    userId: investment.userId,
+                    notes: investment.notes,
                     createdAt: new Date(investment.createdAt),
                     updatedAt: new Date(investment.updatedAt),
                     account: transformedAccount,
+                    // Handle fixed deposit specific fields
+                    interestRate: investment.interestRate ? parseFloat(investment.interestRate.toString()) : undefined,
+                    maturityDate: investment.maturityDate ? new Date(investment.maturityDate) : undefined,
                 };
             } catch (transformError) {
                 console.error("Error transforming investment data:", transformError);
@@ -133,7 +142,7 @@ export async function getUserInvestments(): Promise<{ data?: InvestmentInterface
     }
 }
 
-export async function createInvestment(investment: Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) {
+export async function createInvestment(investment: Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account'>) {
     const session = await getServerSession(authOptions);
     if (!session) {
         throw new Error("Unauthorized");
@@ -177,7 +186,7 @@ export async function createInvestment(investment: Omit<InvestmentInterface, 'id
             throw new Error("Selected account not found");
         }
 
-        const totalInvestmentAmount = investment.quantity * investment.purchasePrice;
+        const totalInvestmentAmount = investment.type === 'FIXED_DEPOSIT' ? investment.purchasePrice : investment.quantity * investment.purchasePrice;
         const currentBalance = parseFloat(account.balance.toString());
         
         if (currentBalance < totalInvestmentAmount) {
@@ -223,18 +232,27 @@ export async function createInvestment(investment: Omit<InvestmentInterface, 'id
     } : result.account;
     
     return {
-        ...result,
+        id: result.id,
+        name: result.name,
+        type: result.type,
+        symbol: result.symbol,
         quantity: parseFloat(result.quantity.toString()),
         purchasePrice: parseFloat(result.purchasePrice.toString()),
         currentPrice: parseFloat(result.currentPrice.toString()),
         purchaseDate: new Date(result.purchaseDate),
+        accountId: result.accountId,
+        userId: result.userId,
+        notes: result.notes,
         createdAt: new Date(result.createdAt),
         updatedAt: new Date(result.updatedAt),
         account: transformedAccount,
+        // Handle fixed deposit specific fields
+        interestRate: result.interestRate ? parseFloat(result.interestRate.toString()) : undefined,
+        maturityDate: result.maturityDate ? new Date(result.maturityDate) : undefined,
     } as InvestmentInterface;
 }
 
-export async function updateInvestment(id: number, investment: Partial<Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>) {
+export async function updateInvestment(id: number, investment: Partial<Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account'>>) {
     const session = await getServerSession(authOptions);
     if (!session) {
         throw new Error("Unauthorized");
@@ -259,11 +277,12 @@ export async function updateInvestment(id: number, investment: Partial<Omit<Inve
         // Calculate old and new investment amounts
         const oldQuantity = parseFloat(existingInvestment.quantity.toString());
         const oldPurchasePrice = parseFloat(existingInvestment.purchasePrice.toString());
-        const oldAmount = oldQuantity * oldPurchasePrice;
+        const oldAmount = existingInvestment.type === 'FIXED_DEPOSIT' ? oldPurchasePrice : oldQuantity * oldPurchasePrice;
         
         const newQuantity = investment.quantity !== undefined ? investment.quantity : oldQuantity;
         const newPurchasePrice = investment.purchasePrice !== undefined ? investment.purchasePrice : oldPurchasePrice;
-        const newAmount = newQuantity * newPurchasePrice;
+        const newType = investment.type !== undefined ? investment.type : existingInvestment.type;
+        const newAmount = newType === 'FIXED_DEPOSIT' ? newPurchasePrice : newQuantity * newPurchasePrice;
         
         const oldAccountId = existingInvestment.accountId;
         const newAccountId = investment.accountId !== undefined ? investment.accountId : oldAccountId;
@@ -363,14 +382,23 @@ export async function updateInvestment(id: number, investment: Partial<Omit<Inve
     } : result.account;
     
     return {
-        ...result,
+        id: result.id,
+        name: result.name,
+        type: result.type,
+        symbol: result.symbol,
         quantity: parseFloat(result.quantity.toString()),
         purchasePrice: parseFloat(result.purchasePrice.toString()),
         currentPrice: parseFloat(result.currentPrice.toString()),
         purchaseDate: new Date(result.purchaseDate),
+        accountId: result.accountId,
+        userId: result.userId,
+        notes: result.notes,
         createdAt: new Date(result.createdAt),
         updatedAt: new Date(result.updatedAt),
         account: transformedAccount,
+        // Handle fixed deposit specific fields
+        interestRate: result.interestRate ? parseFloat(result.interestRate.toString()) : undefined,
+        maturityDate: result.maturityDate ? new Date(result.maturityDate) : undefined,
     } as InvestmentInterface;
 }
 
@@ -399,7 +427,7 @@ export async function deleteInvestment(id: number) {
         // Calculate investment amount to return to account
         const quantity = parseFloat(existingInvestment.quantity.toString());
         const purchasePrice = parseFloat(existingInvestment.purchasePrice.toString());
-        const investmentAmount = quantity * purchasePrice;
+        const investmentAmount = existingInvestment.type === 'FIXED_DEPOSIT' ? purchasePrice : quantity * purchasePrice;
 
         // Delete the investment
         await tx.investment.delete({

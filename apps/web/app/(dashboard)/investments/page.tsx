@@ -73,7 +73,7 @@ export default function Investments() {
         }
     };
 
-    const handleAddInvestment = async (newInvestment: Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => {
+    const handleAddInvestment = async (newInvestment: Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account'>) => {
         try {
             const investment = await createInvestment(newInvestment);
             setInvestments(prevInvestments => [investment, ...prevInvestments]);
@@ -97,7 +97,7 @@ export default function Investments() {
         }
     };
 
-    const handleEditInvestment = async (id: number, updatedInvestment: Partial<Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>) => {
+    const handleEditInvestment = async (id: number, updatedInvestment: Partial<Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account'>>) => {
         try {
             const investment = await updateInvestment(id, updatedInvestment);
             setInvestments(prevInvestments => prevInvestments.map(i => i.id === id ? investment : i));

@@ -118,19 +118,19 @@ export function InvestmentTable({ investments, onEdit, onDelete, onViewDetails }
                                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                                 onClick={() => handleSort('quantity')}
                             >
-                                Quantity {getSortIcon('quantity')}
+                                Quantity/Interest {getSortIcon('quantity')}
                             </th>
                             <th 
                                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                                 onClick={() => handleSort('purchasePrice')}
                             >
-                                Purchase Price {getSortIcon('purchasePrice')}
+                                Purchase/Principal {getSortIcon('purchasePrice')}
                             </th>
                             <th 
                                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                                 onClick={() => handleSort('currentPrice')}
                             >
-                                Current Price {getSortIcon('currentPrice')}
+                                Current Value {getSortIcon('currentPrice')}
                             </th>
                             <th 
                                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -182,13 +182,34 @@ export function InvestmentTable({ investments, onEdit, onDelete, onViewDetails }
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {investment.quantity}
+                                        {investment.type === 'FIXED_DEPOSIT' ? (
+                                            <div>
+                                                <div>{investment.interestRate}% p.a.</div>
+                                                {investment.maturityDate && (
+                                                    <div className="text-xs text-gray-500">
+                                                        Matures: {new Date(investment.maturityDate).toLocaleDateString()}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            investment.quantity
+                                        )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {formatCurrency(investment.purchasePrice, userCurrency)}
+                                        {investment.type === 'FIXED_DEPOSIT' ? 
+                                            `${formatCurrency(investment.purchasePrice, userCurrency)} (Principal)` : 
+                                            formatCurrency(investment.purchasePrice, userCurrency)
+                                        }
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {formatCurrency(investment.currentPrice, userCurrency)}
+                                        {investment.type === 'FIXED_DEPOSIT' ? (
+                                            <div>
+                                                <div>{formatCurrency(investment.currentPrice, userCurrency)}</div>
+                                                <div className="text-xs text-gray-500">Current Value</div>
+                                            </div>
+                                        ) : (
+                                            formatCurrency(investment.currentPrice, userCurrency)
+                                        )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                         {formatCurrency(totalValue, userCurrency)}
@@ -202,7 +223,12 @@ export function InvestmentTable({ investments, onEdit, onDelete, onViewDetails }
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {new Date(investment.purchaseDate).toLocaleDateString()}
+                                        <div>
+                                            <div>{new Date(investment.purchaseDate).toLocaleDateString()}</div>
+                                            {investment.type === 'FIXED_DEPOSIT' && (
+                                                <div className="text-xs text-gray-500">Deposit Date</div>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div className="flex justify-end space-x-2">
