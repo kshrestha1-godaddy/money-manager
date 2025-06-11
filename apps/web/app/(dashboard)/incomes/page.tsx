@@ -8,17 +8,18 @@ import { IncomeList } from "../../components/incomes/IncomeList";
 import { AddIncomeModal } from "../../components/incomes/AddIncomeModal";
 import { EditIncomeModal } from "../../components/incomes/EditIncomeModal";
 import { ViewIncomeModal } from "../../components/incomes/ViewIncomeModal";
-import { BulkImportModal } from "../../components/shared/BulkImportModal";
+import { BulkImportModal } from "../../components/incomes/BulkImportModal";
 import { DeleteConfirmationModal } from "../../components/DeleteConfirmationModal";
 import { AddCategoryModal } from "../../components/AddCategoryModal";
 import { FinancialAreaChart } from "../../components/FinancialAreaChart";
 import { useSearchParams } from "next/navigation";
 import { getCategories, createCategory } from "../../actions/categories";
-import { getIncomes, createIncome, updateIncome, deleteIncome, bulkImportIncomes, parseCSVForUI, importCorrectedRow } from "../../actions/incomes";
+import { getIncomes, createIncome, updateIncome, deleteIncome } from "../../actions/incomes";
 import { getUserAccounts } from "../../actions/accounts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { triggerBalanceRefresh } from "../../hooks/useTotalBalance";
+import { exportIncomesToCSV } from "../../utils/csvExportIncomes";
 
 function IncomesContent() {
     const [incomes, setIncomes] = useState<Income[]>([]);
@@ -264,7 +265,13 @@ function IncomesContent() {
         loadData();
     };
 
-
+    const handleExportToCSV = () => {
+        if (filteredIncomes.length === 0) {
+            alert("No incomes to export");
+            return;
+        }
+        exportIncomesToCSV(filteredIncomes);
+    };
 
     return (
         <div className="space-y-6">
@@ -278,8 +285,14 @@ function IncomesContent() {
                         Add Income
                     </Button>
                     <Button onClick={() => setIsBulkImportModalOpen(true)}>
-                        Import CSV
+                        📥 Import CSV
                     </Button>
+                    {/* Export Button - only show if there are incomes */}
+                    {filteredIncomes.length > 0 && (
+                        <Button onClick={handleExportToCSV}>
+                            📤 Export CSV
+                        </Button>
+                    )}
                     <Button onClick={() => setIsAddCategoryModalOpen(true)}>
                         Add Category
                     </Button>
@@ -494,12 +507,6 @@ function IncomesContent() {
                 isOpen={isBulkImportModalOpen}
                 onClose={() => setIsBulkImportModalOpen(false)}
                 onSuccess={handleBulkImportSuccess}
-                transactionType="INCOME"
-                bulkImportAction={(file: File, defaultAccountId: string) => 
-                    bulkImportIncomes(file, defaultAccountId)
-                }
-                parseCSVAction={parseCSVForUI}
-                importCorrectedRowAction={importCorrectedRow}
             />
         </div>
     );

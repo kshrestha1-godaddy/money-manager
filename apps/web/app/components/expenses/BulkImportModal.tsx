@@ -16,7 +16,6 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImportModalP
     const [importing, setImporting] = useState(false);
     const [result, setResult] = useState<ImportResult | null>(null);
     const [dragActive, setDragActive] = useState(false);
-    const [defaultAccountId, setDefaultAccountId] = useState<string>("");
     const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
     const [editableErrors, setEditableErrors] = useState<EditableError[]>([]);
     const [csvText, setCsvText] = useState<string>("");
@@ -67,7 +66,8 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImportModalP
                 setCsvHeaders(rows[0] || []);
             }
             
-            const importResult = await bulkImportExpenses(fileText, defaultAccountId ? parseInt(defaultAccountId) : undefined);
+            // Import without requiring default account - let CSV account names be matched automatically
+            const importResult = await bulkImportExpenses(fileText);
             setResult(importResult);
             
             // If there are errors, prepare them for editing
@@ -121,11 +121,8 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImportModalP
         if (!error) return;
 
         try {
-            const result = await importCorrectedRow(
-                error.editedData, 
-                csvHeaders, 
-                defaultAccountId ? parseInt(defaultAccountId) : undefined
-            );
+            // Import corrected row without requiring default account
+            const result = await importCorrectedRow(error.editedData, csvHeaders);
             
             if (result.success) {
                 // Remove the error from the list
@@ -163,7 +160,6 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImportModalP
         setFile(null);
         setResult(null);
         setImporting(false);
-        setDefaultAccountId("");
         setCsvHeaders([]);
         setEditableErrors([]);
         setCsvText("");
@@ -173,7 +169,7 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImportModalP
     // Show loading state or error if data is not ready
     if (dataError) {
         console.error("Error loading expense form data:", dataError);
-                }
+    }
 
     if (!isOpen) return null;
 
@@ -197,34 +193,14 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImportModalP
                         <p className="text-sm text-blue-700 mb-2">
                             Your CSV should include these columns: <strong>Title, Amount, Date, Category</strong>
                         </p>
-                        <p className="text-sm text-blue-700">
+                        <p className="text-sm text-blue-700 mb-2">
                             Optional columns: Description, Account, Tags, Notes, IsRecurring, RecurringFrequency
                         </p>
-                        <p className="text-xs text-blue-600 mt-2">
-                            Date format: YYYY-MM-DD or MM/DD/YYYY
-                        </p>
-                    </div>
-
-                    {/* Default Account Selection */}
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Default Account (for expenses without account specified)
-                        </label>
-                        <select
-                            value={defaultAccountId}
-                            onChange={(e) => setDefaultAccountId(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="">No default account - skip account balance updates</option>
-                            {accounts.map(account => (
-                                <option key={account.id} value={account.id}>
-                                    {account.accountNumber} - {account.bankName}
-                                </option>
-                            ))}
-                        </select>
-                        <p className="text-xs text-gray-600 mt-1">
-                            If an expense in your CSV doesn't specify an account, this account will be used for balance updates.
-                        </p>
+                        <div className="text-xs text-blue-600 space-y-1">
+                            <p>• Date format: YYYY-MM-DD or MM/DD/YYYY</p>
+                            <p>• Account names from CSV will be automatically matched with existing accounts</p>
+                            <p>• If no account is specified or found, expenses will be imported without account association</p>
+                        </div>
                     </div>
 
                     {/* File Upload Area */}
@@ -373,7 +349,7 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImportModalP
                                                                             onChange={(e) => handleFieldChange(index, headerIndex, e.target.value)}
                                                                             className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                                                                         >
-                                                                            <option value="">Select account</option>
+                                                                            <option value="">No account</option>
                                                                             {accounts.map(acc => (
                                                                                 <option key={acc.id} value={acc.bankName}>
                                                                                     {acc.accountNumber} - {acc.bankName}
@@ -420,7 +396,7 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImportModalP
                                     </h4>
                                     <p className="text-sm text-gray-600">
                                         Only the first 10 errors are shown for editing. Please fix these errors and re-import the file.
-                                                </p>
+                                    </p>
                                 </div>
                             )}
                         </div>

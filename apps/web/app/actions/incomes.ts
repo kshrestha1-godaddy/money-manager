@@ -570,20 +570,34 @@ async function processIncomeRow(
     let accountId = defaultAccountId;
     const accountName = rowObj.account;
     if (accountName) {
-        const account = accounts.find(a => 
-            a.bankName.toLowerCase().includes(accountName.toLowerCase()) ||
-            a.holderName.toLowerCase().includes(accountName.toLowerCase())
-        );
+        const account = accounts.find(a => {
+            if (!accountName) return false;
+            
+            // First try to match against the exported format: "holderName - bankName"
+            const exportedFormat = `${a.holderName} - ${a.bankName}`;
+            if (exportedFormat.toLowerCase() === accountName.toLowerCase()) {
+                return true;
+            }
+            
+            // Fallback: Match against individual components
+            const holderNameMatch = a.holderName && a.holderName.toLowerCase().includes(accountName.toLowerCase());
+            const bankNameMatch = a.bankName && a.bankName.toLowerCase().includes(accountName.toLowerCase());
+            const accountNumberMatch = a.accountNumber && a.accountNumber.toLowerCase() === accountName.toLowerCase();
+            
+            return holderNameMatch || bankNameMatch || accountNumberMatch;
+        });
+        
         if (account) {
             accountId = account.id.toString();
-        } else {
-            throw new Error(`Account "${accountName}" not found`);
         }
+        // If account is not found, we'll continue without an account (no error thrown)
+        // This allows incomes to be imported even if account names don't match exactly
     }
 
-    if (!accountId) {
-        throw new Error("Account is required");
-    }
+    // Account is now optional - income can be imported without an account
+    // if (!accountId) {
+    //     throw new Error("Account is required");
+    // }
 
     // Parse tags - ensure we have an array
     const tagsString = rowObj.tags || '';
@@ -593,25 +607,26 @@ async function processIncomeRow(
     const recurringString = rowObj.recurring || '';
     const isRecurring = recurringString.toLowerCase() === 'true' || recurringString.toLowerCase() === 'yes';
 
-    // Get the account and category objects for the income data
-    const selectedAccount = accounts.find(a => a.id === parseInt(accountId));
-    if (!selectedAccount) {
-        throw new Error("Selected account not found");
-    }
-
     // Create a simple data object that matches what createIncome expects
-    const incomeData = {
+    const incomeData: any = {
         title: rowObj.title,
         description: rowObj.description || undefined,
         amount: parseFloat(rowObj.amount),
         date: date,
         categoryId: category.id,
-        accountId: parseInt(accountId),
         tags: tags,
         notes: rowObj.notes || undefined,
         isRecurring: isRecurring,
         recurringFrequency: isRecurring ? (rowObj.frequency?.toUpperCase() as any || 'MONTHLY') : undefined
     };
+
+    // Only add accountId if we have a valid account
+    if (accountId && accountId !== '') {
+        const selectedAccount = accounts.find(a => a.id === parseInt(accountId));
+        if (selectedAccount) {
+            incomeData.accountId = parseInt(accountId);
+        }
+    }
 
     // The createIncome function will handle creating the full Income object with relationships
     return await createIncome(incomeData as any);

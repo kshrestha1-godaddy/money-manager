@@ -6,16 +6,44 @@ import { AccountInterface } from "../../types/accounts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 
-export function AccountCard({ account, onEdit, onDelete, onViewDetails }: { 
+export function AccountCard({ 
+    account, 
+    onEdit, 
+    onDelete, 
+    onViewDetails,
+    isSelected = false,
+    onSelect,
+    showCheckbox = false 
+}: { 
     account: AccountInterface;
     onEdit?: (account: AccountInterface) => void;
     onDelete?: (account: AccountInterface) => void;
     onViewDetails?: (account: AccountInterface) => void;
+    isSelected?: boolean;
+    onSelect?: (accountId: number, selected: boolean) => void;
+    showCheckbox?: boolean;
 }) {
     const { currency: userCurrency } = useCurrency();
 
+    const handleSelect = () => {
+        if (onSelect) {
+            onSelect(account.id, !isSelected);
+        }
+    };
+
     return (
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-8 hover:shadow-lg transition-shadow">
+        <div className={`bg-white rounded-lg shadow-md border border-gray-200 p-8 hover:shadow-lg transition-shadow ${isSelected ? 'bg-blue-50 border-blue-200' : ''}`}>
+            {/* Checkbox for bulk selection */}
+            {showCheckbox && (
+                <div className="flex justify-end mb-2">
+                    <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={handleSelect}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                </div>
+            )}
             {/* Header */}
             <div className="flex justify-between items-start mb-6">
                 <div>
@@ -93,11 +121,22 @@ export function AccountCard({ account, onEdit, onDelete, onViewDetails }: {
     );
 }
 
-export function AccountGrid({ accounts, onEdit, onDelete, onViewDetails }: { 
+export function AccountGrid({ 
+    accounts, 
+    onEdit, 
+    onDelete, 
+    onViewDetails,
+    selectedAccounts = new Set(),
+    onAccountSelect,
+    showBulkActions = false 
+}: { 
     accounts: AccountInterface[];
     onEdit?: (account: AccountInterface) => void;
     onDelete?: (account: AccountInterface) => void;
     onViewDetails?: (account: AccountInterface) => void;
+    selectedAccounts?: Set<number>;
+    onAccountSelect?: (accountId: number, selected: boolean) => void;
+    showBulkActions?: boolean;
 }) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-full w-full">
@@ -108,6 +147,9 @@ export function AccountGrid({ accounts, onEdit, onDelete, onViewDetails }: {
                     onEdit={onEdit} 
                     onDelete={onDelete} 
                     onViewDetails={onViewDetails}
+                    isSelected={selectedAccounts.has(acc.id)}
+                    onSelect={onAccountSelect}
+                    showCheckbox={showBulkActions}
                 />
             ))}
         </div>

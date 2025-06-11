@@ -443,7 +443,7 @@ async function validateAndTransformRow(
     // Find or validate category
     const categoryName = rowData.categoryname || rowData.category || '';
     const category = categories.find(c => 
-        c.name.toLowerCase() === categoryName.toLowerCase()
+        c.name && categoryName && c.name.toLowerCase() === categoryName.toLowerCase()
     );
     
     if (!category) {
@@ -454,15 +454,28 @@ async function validateAndTransformRow(
     let accountId = null;
     if (rowData.accountname || rowData.account) {
         const accountName = (rowData.accountname || rowData.account || '');
-        const account = accounts.find(a => 
-            a.accountName.toLowerCase() === accountName.toLowerCase() ||
-            a.bankName.toLowerCase() === accountName.toLowerCase()
-        );
+        const account = accounts.find(a => {
+            if (!accountName) return false;
+            
+            // First try to match against the exported format: "holderName - bankName"
+            const exportedFormat = `${a.holderName} - ${a.bankName}`;
+            if (exportedFormat.toLowerCase() === accountName.toLowerCase()) {
+                return true;
+            }
+            
+            // Fallback: Match against individual components
+            const holderNameMatch = a.holderName && a.holderName.toLowerCase() === accountName.toLowerCase();
+            const bankNameMatch = a.bankName && a.bankName.toLowerCase() === accountName.toLowerCase();
+            const accountNumberMatch = a.accountNumber && a.accountNumber.toLowerCase() === accountName.toLowerCase();
+            
+            return holderNameMatch || bankNameMatch || accountNumberMatch;
+        });
         
-        if (!account) {
-            throw new Error(`Account '${accountName}' not found`);
+        if (account) {
+            accountId = account.id;
         }
-        accountId = account.id;
+        // If account is not found, we'll continue without an account (no error thrown)
+        // This allows expenses to be imported even if account names don't match exactly
     } else if (defaultAccountId) {
         // Use default account if no account specified in CSV
         accountId = defaultAccountId;
@@ -499,7 +512,7 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
             throw new Error("CSV file is empty");
         }
 
-        const headers = rows[0]?.map(h => h.toLowerCase().replace(/\s+/g, '')) || [];
+        const headers = rows[0]?.map(h => h?.toLowerCase().replace(/\s+/g, '') || '') || [];
         const dataRows = rows.slice(1);
 
         // Get categories and accounts for validation
@@ -538,8 +551,8 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
                     if (!row) continue;
 
                     try {
-                        // Skip empty rows
-                        if (row.every(cell => !cell?.trim())) {
+                        // Skip empty rows - safely handle undefined cells
+                        if (row.every(cell => !cell || (typeof cell === 'string' && !cell.trim()))) {
                             result.skippedCount++;
                             continue;
                         }

@@ -53,8 +53,8 @@ export function validateFormData(
 
     if (!formData.amount || isNaN(parseFloat(formData.amount))) {
         errors.push('Valid amount is required');
-    } else if (parseFloat(formData.amount) <= 0) {
-        errors.push('Amount must be greater than 0');
+    } else if (parseFloat(formData.amount) < 0) {
+        errors.push('Amount must be 0 or greater');
     }
 
     if (!formData.date) {

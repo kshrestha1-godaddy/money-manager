@@ -254,3 +254,54 @@ export async function deleteAccount(id: number) {
     return { success: true };
 }
 
+export async function bulkDeleteAccounts(accountIds: number[]) {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+        throw new Error("Unauthorized");
+    }
+
+    const userId = getUserIdFromSession(session.user.id);
+
+    // Verify all accounts belong to the user
+    const existingAccounts = await prisma.account.findMany({
+        where: {
+            id: { in: accountIds },
+            userId: userId,
+        },
+    });
+
+    if (existingAccounts.length !== accountIds.length) {
+        throw new Error("Some accounts not found or unauthorized");
+    }
+
+    // Check if any of these accounts are referenced by transactions
+    const [expenseCount, incomeCount, investmentCount] = await Promise.all([
+        prisma.expense.count({
+            where: { accountId: { in: accountIds } }
+        }),
+        prisma.income.count({
+            where: { accountId: { in: accountIds } }
+        }),
+        prisma.investment.count({
+            where: { accountId: { in: accountIds } }
+        })
+    ]);
+
+    if (expenseCount > 0 || incomeCount > 0 || investmentCount > 0) {
+        throw new Error("Cannot delete accounts that are referenced by transactions. Please delete associated transactions first.");
+    }
+
+    // Delete the accounts
+    await prisma.account.deleteMany({
+        where: { 
+            id: { in: accountIds },
+            userId: userId
+        }
+    });
+    
+    return { 
+        success: true, 
+        deletedCount: existingAccounts.length 
+    };
+}
+

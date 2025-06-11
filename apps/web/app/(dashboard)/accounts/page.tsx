@@ -9,11 +9,14 @@ import { AddAccountModal } from "../../components/accounts/AddAccountModal";
 import { EditAccountModal } from "../../components/accounts/EditAccountModal";
 import { DeleteAccountModal } from "../../components/accounts/DeleteAccountModal";
 import { ViewAccountModal } from "../../components/accounts/ViewAccountModal";
-import { getUserAccounts, createAccount, updateAccount, deleteAccount } from "../../actions/accounts";
+import { getUserAccounts, createAccount, updateAccount, deleteAccount, bulkDeleteAccounts } from "../../actions/accounts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { BankBalanceChart } from "../../components/BankBalanceChart";
 import { triggerBalanceRefresh } from "../../hooks/useTotalBalance";
+import { exportAccountsToCSV } from "../../utils/csvExport";
+import { ImportAccountModal } from "../../components/accounts/ImportAccountModal";
+import { ParsedAccountData } from "../../utils/csvImport";
 
 export default function Accounts() {
     const [accounts, setAccounts] = useState<AccountInterface[]>([]);
@@ -22,6 +25,8 @@ export default function Accounts() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [selectedAccounts, setSelectedAccounts] = useState<Set<number>>(new Set());
     const [accountToEdit, setAccountToEdit] = useState<AccountInterface | null>(null);
     const [accountToDelete, setAccountToDelete] = useState<AccountInterface | null>(null);
     const [accountToView, setAccountToView] = useState<AccountInterface | null>(null);
@@ -115,6 +120,93 @@ export default function Accounts() {
         setIsViewModalOpen(true);
     };
 
+    const handleExportToCSV = () => {
+        if (accounts.length === 0) {
+            alert("No accounts to export");
+            return;
+        }
+        exportAccountsToCSV(accounts);
+    };
+
+    const handleImportAccounts = async (importedAccounts: ParsedAccountData[]) => {
+        try {
+            let successCount = 0;
+            let errorCount = 0;
+            const errors: string[] = [];
+
+            for (const accountData of importedAccounts) {
+                try {
+                    const newAccount = await createAccount(accountData);
+                    successCount++;
+                } catch (error: any) {
+                    errorCount++;
+                    const errorMessage = error?.message || "Unknown error";
+                    errors.push(`${accountData.holderName} (${accountData.accountNumber}): ${errorMessage}`);
+                }
+            }
+
+            // Reload accounts to reflect changes
+            await loadAccounts();
+            
+            // Trigger balance refresh in NavBar
+            triggerBalanceRefresh();
+
+            // Show summary
+            if (successCount > 0 && errorCount === 0) {
+                alert(`Successfully imported ${successCount} accounts!`);
+            } else if (successCount > 0 && errorCount > 0) {
+                alert(`Import completed with mixed results:\n✅ ${successCount} accounts imported successfully\n❌ ${errorCount} accounts failed\n\nErrors:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? '\n... and more' : ''}`);
+            } else {
+                alert(`Import failed for all accounts:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? '\n... and more' : ''}`);
+            }
+
+            setIsImportModalOpen(false);
+        } catch (error) {
+            console.error("Error during import:", error);
+            alert("An unexpected error occurred during import. Please try again.");
+            setIsImportModalOpen(false);
+        }
+    };
+
+    const handleAccountSelect = (accountId: number, selected: boolean) => {
+        const newSelected = new Set(selectedAccounts);
+        if (selected) {
+            newSelected.add(accountId);
+        } else {
+            newSelected.delete(accountId);
+        }
+        setSelectedAccounts(newSelected);
+    };
+
+    const handleSelectAll = (selected: boolean) => {
+        if (selected) {
+            const allAccountIds = new Set(accounts.map(a => a.id));
+            setSelectedAccounts(allAccountIds);
+        } else {
+            setSelectedAccounts(new Set());
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedAccounts.size === 0) return;
+        
+        const confirmMessage = `Are you sure you want to delete ${selectedAccounts.size} account(s)? This action cannot be undone.`;
+        if (!confirm(confirmMessage)) return;
+
+        try {
+            await bulkDeleteAccounts(Array.from(selectedAccounts));
+            // Remove deleted accounts from the list
+            setAccounts(accounts.filter(a => !selectedAccounts.has(a.id)));
+            setSelectedAccounts(new Set());
+            // Trigger balance refresh in NavBar
+            triggerBalanceRefresh();
+        } catch (error: any) {
+            console.error("Error bulk deleting accounts:", error);
+            const errorMessage = error?.message || "Failed to delete accounts. Please try again.";
+            alert(`Bulk delete failed: ${errorMessage}`);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -146,6 +238,16 @@ export default function Accounts() {
                             🗃️ Cards
                         </button>
                     </div>
+                    {/* Import/Export Buttons */}
+                    <Button onClick={() => setIsImportModalOpen(true)}>
+                        Import CSV
+                    </Button>
+                    {/* Export Button - only show if there are accounts */}
+                    {accounts.length > 0 && (
+                        <Button onClick={handleExportToCSV}>
+                            Export CSV
+                        </Button>
+                    )}
                     <Button onClick={() => setIsAddModalOpen(true)}>
                         Add Account
                     </Button>
@@ -209,15 +311,27 @@ export default function Accounts() {
                             onEdit={openEditModal}
                             onDelete={openDeleteModal}
                             onViewDetails={openViewModal}
+                            selectedAccounts={selectedAccounts}
+                            onAccountSelect={handleAccountSelect}
+                            onSelectAll={handleSelectAll}
+                            showBulkActions={true}
+                            onBulkDelete={handleBulkDelete}
+                            onClearSelection={() => setSelectedAccounts(new Set())}
                         />
                     ) : (
                         <div className="bg-white rounded-lg shadow p-6">
-                            <AccountList 
-                                accounts={accounts} 
-                                onEdit={openEditModal}
-                                onDelete={openDeleteModal}
-                                onViewDetails={openViewModal}
-                            />
+                                                    <AccountList 
+                            accounts={accounts} 
+                            onEdit={openEditModal}
+                            onDelete={openDeleteModal}
+                            onViewDetails={openViewModal}
+                            selectedAccounts={selectedAccounts}
+                            onAccountSelect={handleAccountSelect}
+                            onSelectAll={handleSelectAll}
+                            showBulkActions={true}
+                            onBulkDelete={handleBulkDelete}
+                            onClearSelection={() => setSelectedAccounts(new Set())}
+                        />
                         </div>
                     )}
                 </div>
@@ -260,6 +374,13 @@ export default function Accounts() {
                     setAccountToView(null);
                 }}
                 account={accountToView}
+            />
+
+            {/* Import Account Modal */}
+            <ImportAccountModal
+                isOpen={isImportModalOpen}
+                onClose={() => setIsImportModalOpen(false)}
+                onImport={handleImportAccounts}
             />
         </div>
     );

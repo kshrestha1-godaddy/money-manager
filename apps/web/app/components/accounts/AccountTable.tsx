@@ -11,12 +11,29 @@ interface AccountTableProps {
     onEdit?: (account: AccountInterface) => void;
     onDelete?: (account: AccountInterface) => void;
     onViewDetails?: (account: AccountInterface) => void;
+    selectedAccounts?: Set<number>;
+    onAccountSelect?: (accountId: number, selected: boolean) => void;
+    onSelectAll?: (selected: boolean) => void;
+    showBulkActions?: boolean;
+    onBulkDelete?: () => void;
+    onClearSelection?: () => void;
 }
 
 type SortField = 'holderName' | 'bankName' | 'accountNumber' | 'accountOpeningDate' | 'balance';
 type SortDirection = 'asc' | 'desc';
 
-export function AccountTable({ accounts, onEdit, onDelete, onViewDetails }: AccountTableProps) {
+export function AccountTable({ 
+    accounts, 
+    onEdit, 
+    onDelete, 
+    onViewDetails,
+    selectedAccounts = new Set(),
+    onAccountSelect,
+    onSelectAll,
+    showBulkActions = false,
+    onBulkDelete,
+    onClearSelection 
+}: AccountTableProps) {
     const { currency: userCurrency } = useCurrency();
     const [sortField, setSortField] = useState<SortField>('bankName');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -72,6 +89,16 @@ export function AccountTable({ accounts, onEdit, onDelete, onViewDetails }: Acco
         }
     };
 
+    const handleSelectAll = () => {
+        const allSelected = selectedAccounts.size === accounts.length;
+        if (onSelectAll) {
+            onSelectAll(!allSelected);
+        }
+    };
+
+    const isAllSelected = selectedAccounts.size === accounts.length && accounts.length > 0;
+    const isPartiallySelected = selectedAccounts.size > 0 && selectedAccounts.size < accounts.length;
+
     const getSortIcon = (field: SortField) => {
         if (sortField !== field) {
             return (
@@ -109,14 +136,45 @@ export function AccountTable({ accounts, onEdit, onDelete, onViewDetails }: Acco
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">
-                    Bank Accounts ({accounts.length})
-                </h2>
+                <div className="flex justify-between items-center">
+                    <h2 className="text-lg font-semibold text-gray-900">
+                        Bank Accounts ({accounts.length})
+                    </h2>
+                    {showBulkActions && selectedAccounts.size > 0 && (
+                        <div className="flex space-x-2">
+                            <button
+                                onClick={onClearSelection}
+                                className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors"
+                            >
+                                Clear Selection
+                            </button>
+                            <button
+                                onClick={onBulkDelete}
+                                className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                            >
+                                Delete Selected ({selectedAccounts.size})
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
+                            {showBulkActions && (
+                                <th className="px-6 py-3 text-left">
+                                    <input
+                                        type="checkbox"
+                                        checked={isAllSelected}
+                                        ref={(el) => {
+                                            if (el) el.indeterminate = isPartiallySelected;
+                                        }}
+                                        onChange={handleSelectAll}
+                                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    />
+                                </th>
+                            )}
                             <th 
                                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
                                 onClick={() => handleSort('holderName')}
@@ -176,6 +234,9 @@ export function AccountTable({ accounts, onEdit, onDelete, onViewDetails }: Acco
                                 onEdit={onEdit}
                                 onDelete={onDelete}
                                 onViewDetails={onViewDetails}
+                                isSelected={selectedAccounts.has(account.id)}
+                                onSelect={onAccountSelect}
+                                showCheckbox={showBulkActions}
                             />
                         ))}
                     </tbody>
@@ -185,12 +246,15 @@ export function AccountTable({ accounts, onEdit, onDelete, onViewDetails }: Acco
     );
 }
 
-function AccountRow({ account, currency, onEdit, onDelete, onViewDetails }: { 
+function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, isSelected = false, onSelect, showCheckbox = false }: { 
     account: AccountInterface;
     currency: string;
     onEdit?: (account: AccountInterface) => void;
     onDelete?: (account: AccountInterface) => void;
     onViewDetails?: (account: AccountInterface) => void;
+    isSelected?: boolean;
+    onSelect?: (accountId: number, selected: boolean) => void;
+    showCheckbox?: boolean;
 }) {
     const handleEdit = () => {
         if (onEdit) {
@@ -210,8 +274,24 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails }: {
         }
     };
 
+    const handleSelect = () => {
+        if (onSelect) {
+            onSelect(account.id, !isSelected);
+        }
+    };
+
     return (
-        <tr className="hover:bg-gray-50">
+        <tr className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
+            {showCheckbox && (
+                <td className="px-6 py-4 whitespace-nowrap">
+                    <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={handleSelect}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                </td>
+            )}
             <td className="px-6 py-4 whitespace-nowrap">
                 <div>
                     <div className="text-sm font-medium text-gray-900">

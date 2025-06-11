@@ -19,6 +19,7 @@ import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { FinancialAreaChart } from "../../components/FinancialAreaChart";
 import { triggerBalanceRefresh } from "../../hooks/useTotalBalance";
+import { exportExpensesToCSV } from "../../utils/csvExportExpenses";
 
 function ExpensesContent() {
     const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -248,7 +249,13 @@ function ExpensesContent() {
         }
     };
 
-
+    const handleExportToCSV = () => {
+        if (filteredExpenses.length === 0) {
+            alert("No expenses to export");
+            return;
+        }
+        exportExpensesToCSV(filteredExpenses);
+    };
 
     return (
         <div className="space-y-6">
@@ -262,8 +269,14 @@ function ExpensesContent() {
                         Add Expense
                     </Button>
                     <Button onClick={() => setIsBulkImportModalOpen(true)}>
-                        Import CSV
+                        📥 Import CSV
                     </Button>
+                    {/* Export Button - only show if there are expenses */}
+                    {filteredExpenses.length > 0 && (
+                        <Button onClick={handleExportToCSV}>
+                            📤 Export CSV
+                        </Button>
+                    )}
                     <Button onClick={() => setIsAddCategoryModalOpen(true)}>
                         Add Category
                     </Button>

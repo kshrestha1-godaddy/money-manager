@@ -78,13 +78,13 @@ export function validateCSVHeaders(
     requiredHeaders: string[], 
     optionalHeaders: string[] = []
 ): { isValid: boolean; missing: string[]; extra: string[] } {
-    const normalizedHeaders = headers.map(h => h.toLowerCase().replace(/\s+/g, ''));
-    const normalizedRequired = requiredHeaders.map(h => h.toLowerCase().replace(/\s+/g, ''));
-    const normalizedOptional = optionalHeaders.map(h => h.toLowerCase().replace(/\s+/g, ''));
+    const normalizedHeaders = headers.map(h => h?.toLowerCase().replace(/\s+/g, '') || '');
+    const normalizedRequired = requiredHeaders.map(h => h?.toLowerCase().replace(/\s+/g, '') || '');
+    const normalizedOptional = optionalHeaders.map(h => h?.toLowerCase().replace(/\s+/g, '') || '');
     
-    const missing = normalizedRequired.filter(req => !normalizedHeaders.includes(req));
+    const missing = normalizedRequired.filter(req => req && !normalizedHeaders.includes(req));
     const allowedHeaders = [...normalizedRequired, ...normalizedOptional];
-    const extra = normalizedHeaders.filter(header => !allowedHeaders.includes(header));
+    const extra = normalizedHeaders.filter(header => header && !allowedHeaders.includes(header));
     
     return {
         isValid: missing.length === 0,
@@ -95,7 +95,7 @@ export function validateCSVHeaders(
 
 // Parse date from various formats
 export function parseDate(dateString: string): Date {
-    if (!dateString) {
+    if (!dateString || typeof dateString !== 'string') {
         throw new Error('Date is required');
     }
     
@@ -125,7 +125,7 @@ export function parseDate(dateString: string): Date {
 
 // Parse and validate amount
 export function parseAmount(amountString: string): number {
-    if (!amountString) {
+    if (!amountString || typeof amountString !== 'string') {
         throw new Error('Amount is required');
     }
     
@@ -135,7 +135,7 @@ export function parseAmount(amountString: string): number {
     }
     
     if (amount < 0) {
-        throw new Error('Amount must be positive');
+        throw new Error('Amount must be 0 or greater');
     }
     
     return amount;
@@ -143,11 +143,11 @@ export function parseAmount(amountString: string): number {
 
 // Parse tags from comma-separated string
 export function parseTags(tagsString: string): string[] {
-    if (!tagsString) return [];
+    if (!tagsString || typeof tagsString !== 'string') return [];
     
     return tagsString
         .split(',')
-        .map(tag => tag.trim())
+        .map(tag => tag?.trim() || '')
         .filter(Boolean);
 }
 
@@ -157,8 +157,12 @@ export function mapRowToObject(row: string[], headers: string[]): Record<string,
     
     headers.forEach((header, index) => {
         const cellValue = row[index];
-        const normalizedHeader = header.toLowerCase().replace(/\s+/g, '');
-        rowData[normalizedHeader] = cellValue ? cellValue.trim() : '';
+        const normalizedHeader = header?.toLowerCase().replace(/\s+/g, '') || '';
+        
+        // Safely handle undefined/null cell values
+        if (normalizedHeader) {
+            rowData[normalizedHeader] = (cellValue && typeof cellValue === 'string') ? cellValue.trim() : '';
+        }
     });
     
     return rowData;
