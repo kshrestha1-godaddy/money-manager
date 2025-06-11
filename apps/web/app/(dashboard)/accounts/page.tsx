@@ -62,9 +62,10 @@ export default function Accounts() {
             setIsAddModalOpen(false);
             // Trigger balance refresh in NavBar
             triggerBalanceRefresh();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error adding account:", error);
-            alert("Failed to add account. Please try again.");
+            const errorMessage = error?.message || "Failed to add account. Please try again.";
+            alert(`Add failed: ${errorMessage}`);
         }
     };
 
@@ -76,9 +77,10 @@ export default function Accounts() {
             setAccountToEdit(null);
             // Trigger balance refresh in NavBar
             triggerBalanceRefresh();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error updating account:", error);
-            alert("Failed to update account. Please try again.");
+            const errorMessage = error?.message || "Failed to update account. Please try again.";
+            alert(`Update failed: ${errorMessage}`);
         }
     };
 

@@ -25,7 +25,13 @@ export async function getAllAccounts(): Promise<AccountInterface[]> {
         balance: account.balance ? parseFloat(account.balance.toString()) : undefined,
         accountOpeningDate: new Date(account.accountOpeningDate),
         createdAt: new Date(account.createdAt),
-        updatedAt: new Date(account.updatedAt)
+        updatedAt: new Date(account.updatedAt),
+        // Convert null values to undefined for compatibility with AccountInterface
+        appUsername: account.appUsername || undefined,
+        appPassword: account.appPassword || undefined,
+        appPin: account.appPin || undefined,
+        notes: account.notes || undefined,
+        nickname: account.nickname || undefined,
     }));
 }
 
@@ -83,7 +89,13 @@ export async function getUserAccounts() {
         balance: account.balance ? parseFloat(account.balance.toString()) : undefined,
         accountOpeningDate: new Date(account.accountOpeningDate),
         createdAt: new Date(account.createdAt),
-        updatedAt: new Date(account.updatedAt)
+        updatedAt: new Date(account.updatedAt),
+        // Convert null values to undefined for compatibility with AccountInterface
+        appUsername: account.appUsername || undefined,
+        appPassword: account.appPassword || undefined,
+        appPin: account.appPin || undefined,
+        notes: account.notes || undefined,
+        nickname: account.nickname || undefined,
     })) as AccountInterface[];
 }
 
@@ -106,22 +118,50 @@ export async function createAccount(account: Omit<AccountInterface, 'id' | 'user
         throw new Error("User not found");
     }
 
-    const newAccount = await prisma.account.create({
-        data: {
-            ...account,
-            userId: user.id,
-            balance: account.balance || 0,
-        },
-    });
-    
-    // Convert Decimal balance to number to prevent serialization issues
-    return {
-        ...newAccount,
-        balance: newAccount.balance ? parseFloat(newAccount.balance.toString()) : undefined,
-        accountOpeningDate: new Date(newAccount.accountOpeningDate),
-        createdAt: new Date(newAccount.createdAt),
-        updatedAt: new Date(newAccount.updatedAt)
-    } as AccountInterface;
+    // Check for account number uniqueness
+    if (account.accountNumber) {
+        const existingAccount = await prisma.account.findUnique({
+            where: {
+                accountNumber: account.accountNumber,
+            },
+        });
+
+        if (existingAccount) {
+            throw new Error(`Account number ${account.accountNumber} is already in use. Please use a different account number.`);
+        }
+    }
+
+    try {
+        const newAccount = await prisma.account.create({
+            data: {
+                ...account,
+                userId: user.id,
+                balance: account.balance || 0,
+            },
+        });
+        
+        // Convert Decimal balance to number to prevent serialization issues
+        return {
+            ...newAccount,
+            balance: newAccount.balance ? parseFloat(newAccount.balance.toString()) : undefined,
+            accountOpeningDate: new Date(newAccount.accountOpeningDate),
+            createdAt: new Date(newAccount.createdAt),
+            updatedAt: new Date(newAccount.updatedAt),
+            // Convert null values to undefined for compatibility with AccountInterface
+            appUsername: newAccount.appUsername || undefined,
+            appPassword: newAccount.appPassword || undefined,
+            appPin: newAccount.appPin || undefined,
+            notes: newAccount.notes || undefined,
+            nickname: newAccount.nickname || undefined,
+        } as AccountInterface;
+    } catch (error: any) {
+        // Handle Prisma unique constraint errors
+        if (error.code === 'P2002' && error.meta?.target?.includes('accountNumber')) {
+            throw new Error(`Account number ${account.accountNumber} is already in use. Please use a different account number.`);
+        }
+        // Re-throw other errors
+        throw error;
+    }
 }
 
 export async function updateAccount(id: number, account: Partial<Omit<AccountInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>) {
@@ -144,19 +184,47 @@ export async function updateAccount(id: number, account: Partial<Omit<AccountInt
         throw new Error("Account not found or unauthorized");
     }
 
-    const updatedAccount = await prisma.account.update({
-        where: { id },
-        data: account,
-    });
-    
-    // Convert Decimal balance to number to prevent serialization issues
-    return {
-        ...updatedAccount,
-        balance: updatedAccount.balance ? parseFloat(updatedAccount.balance.toString()) : undefined,
-        accountOpeningDate: new Date(updatedAccount.accountOpeningDate),
-        createdAt: new Date(updatedAccount.createdAt),
-        updatedAt: new Date(updatedAccount.updatedAt)
-    } as AccountInterface;
+    // Check for account number uniqueness if it's being updated
+    if (account.accountNumber && account.accountNumber !== existingAccount.accountNumber) {
+        const duplicateAccount = await prisma.account.findUnique({
+            where: {
+                accountNumber: account.accountNumber,
+            },
+        });
+
+        if (duplicateAccount && duplicateAccount.id !== id) {
+            throw new Error(`Account number ${account.accountNumber} is already in use. Please use a different account number.`);
+        }
+    }
+
+    try {
+        const updatedAccount = await prisma.account.update({
+            where: { id },
+            data: account,
+        });
+        
+        // Convert Decimal balance to number to prevent serialization issues
+        return {
+            ...updatedAccount,
+            balance: updatedAccount.balance ? parseFloat(updatedAccount.balance.toString()) : undefined,
+            accountOpeningDate: new Date(updatedAccount.accountOpeningDate),
+            createdAt: new Date(updatedAccount.createdAt),
+            updatedAt: new Date(updatedAccount.updatedAt),
+            // Convert null values to undefined for compatibility with AccountInterface
+            appUsername: updatedAccount.appUsername || undefined,
+            appPassword: updatedAccount.appPassword || undefined,
+            appPin: updatedAccount.appPin || undefined,
+            notes: updatedAccount.notes || undefined,
+            nickname: updatedAccount.nickname || undefined,
+        } as AccountInterface;
+    } catch (error: any) {
+        // Handle Prisma unique constraint errors
+        if (error.code === 'P2002' && error.meta?.target?.includes('accountNumber')) {
+            throw new Error(`Account number ${account.accountNumber} is already in use. Please use a different account number.`);
+        }
+        // Re-throw other errors
+        throw error;
+    }
 }
 
 export async function deleteAccount(id: number) {

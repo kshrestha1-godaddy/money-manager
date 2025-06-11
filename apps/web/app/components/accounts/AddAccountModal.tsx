@@ -10,6 +10,58 @@ interface AddAccountModalProps {
     onAdd: (account: Omit<AccountInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => void;
 }
 
+// Move InputField component outside to prevent recreation on every render
+const InputField = ({ 
+    label, 
+    value, 
+    onChange, 
+    type = "text", 
+    required = false, 
+    error, 
+    placeholder,
+    rows
+}: {
+    label: string;
+    value: string | number;
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+    type?: string;
+    required?: boolean;
+    error?: string;
+    placeholder?: string;
+    rows?: number;
+}) => {
+    const baseClassName = `w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+        error ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-gray-400'
+    }`;
+
+    return (
+        <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+                {label}
+                {required && <span className="text-red-500 ml-1">*</span>}
+            </label>
+            {rows ? (
+                <textarea
+                    value={String(value)}
+                    onChange={onChange}
+                    rows={rows}
+                    className={baseClassName}
+                    placeholder={placeholder}
+                />
+            ) : (
+                <input
+                    type={type}
+                    value={String(value)}
+                    onChange={onChange}
+                    className={baseClassName}
+                    placeholder={placeholder}
+                />
+            )}
+            {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+        </div>
+    );
+};
+
 export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps) {
     const [formData, setFormData] = useState({
         holderName: "",
@@ -141,57 +193,6 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
             ...prev,
             [field]: prev[field].map((item, i) => i === index ? value : item)
         }));
-    };
-
-    const InputField = ({ 
-        label, 
-        value, 
-        onChange, 
-        type = "text", 
-        required = false, 
-        error, 
-        placeholder,
-        rows
-    }: {
-        label: string;
-        value: string | number;
-        onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-        type?: string;
-        required?: boolean;
-        error?: string;
-        placeholder?: string;
-        rows?: number;
-    }) => {
-        const baseClassName = `w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-            error ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-gray-400'
-        }`;
-
-        return (
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {label}
-                    {required && <span className="text-red-500 ml-1">*</span>}
-                </label>
-                {rows ? (
-                    <textarea
-                        value={String(value)}
-                        onChange={onChange}
-                        rows={rows}
-                        className={baseClassName}
-                        placeholder={placeholder}
-                    />
-                ) : (
-                    <input
-                        type={type}
-                        value={String(value)}
-                        onChange={onChange}
-                        className={baseClassName}
-                        placeholder={placeholder}
-                    />
-                )}
-                {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-            </div>
-        );
     };
 
     if (!isOpen) return null;
@@ -342,7 +343,7 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
                             </div>
                             <div className="space-y-3">
                                 {formData.mobileNumbers.map((mobile, index) => (
-                                    <div key={index} className="flex gap-3">
+                                    <div key={`mobile-${index}-${mobile}`} className="flex gap-3">
                                         <input
                                             type="tel"
                                             value={mobile}
@@ -380,7 +381,7 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
                             </div>
                             <div className="space-y-3">
                                 {formData.branchContacts.map((contact, index) => (
-                                    <div key={index} className="flex gap-3">
+                                    <div key={`contact-${index}-${contact}`} className="flex gap-3">
                                         <input
                                             type="tel"
                                             value={contact}
@@ -422,7 +423,7 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
                             </div>
                             <div className="space-y-3">
                                 {formData.securityQuestion.map((question, index) => (
-                                    <div key={index} className="flex gap-3">
+                                    <div key={`question-${index}-${question}`} className="flex gap-3">
                                         <input
                                             type="text"
                                             value={question}
