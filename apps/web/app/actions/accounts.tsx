@@ -44,8 +44,8 @@ export async function getUserAccounts() {
     }
 
     const userId = getUserIdFromSession(session.user.id);
-    console.log("Original session ID:", session.user.id);
-    console.log("Converted userId:", userId);
+    // console.log("Original session ID:", session.user.id);
+    // console.log("Converted userId:", userId);
     
     const user = await prisma.user.findUnique({
         where: {

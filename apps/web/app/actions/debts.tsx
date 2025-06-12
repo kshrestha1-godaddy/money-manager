@@ -25,8 +25,8 @@ export async function getUserDebts(): Promise<{ data?: DebtInterface[], error?: 
         }
 
         const userId = getUserIdFromSession(session.user.id);
-        console.log("Original session ID:", session.user.id);
-        console.log("Converted userId:", userId);
+        // console.log("Original session ID:", session.user.id);
+        // console.log("Converted userId:", userId);
         
         // Validate that userId is a valid number
         if (isNaN(userId)) {

@@ -4,6 +4,8 @@ import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { formatCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
 import { TransactionType } from "../../utils/formUtils";
+import { Pagination } from "./Pagination";
+import { CompactPagination } from "./CompactPagination";
 
 interface FinancialTransaction {
     id: number;
@@ -62,6 +64,8 @@ export function FinancialList({
 }: FinancialListProps) {
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 25;
     
     // Column resizing state
     const [columnWidths, setColumnWidths] = useState({
@@ -180,6 +184,18 @@ export function FinancialList({
         });
     }, [transactions, sortField, sortDirection]);
 
+    // Paginated transactions
+    const paginatedTransactions = useMemo(() => {
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        const endIndex = startIndex + ITEMS_PER_PAGE;
+        return sortedTransactions.slice(startIndex, endIndex);
+    }, [sortedTransactions, currentPage, ITEMS_PER_PAGE]);
+
+    // Reset to first page when sorting changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [sortField, sortDirection, transactions]);
+
     const handleSelectAll = () => {
         const allSelected = selectedTransactions.size === transactions.length;
         if (onSelectAll) {
@@ -224,9 +240,17 @@ export function FinancialList({
         <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-semibold text-gray-900">
-                        {transactionLabel} ({transactions.length})
-                    </h2>
+                    <div className="flex justify-between w-full space-x-4">
+                        <h2 className="text-lg font-semibold text-gray-900">
+                            {transactionLabel} ({transactions.length})
+                        </h2>
+                        <CompactPagination
+                            currentPage={currentPage}
+                            totalItems={transactions.length}
+                            itemsPerPage={ITEMS_PER_PAGE}
+                            onPageChange={setCurrentPage}
+                        />
+                    </div>
                     {showBulkActions && selectedTransactions.size > 0 && (
                         <div className="flex space-x-2">
                             <button
@@ -368,7 +392,7 @@ export function FinancialList({
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {sortedTransactions.map((transaction) => (
+                        {paginatedTransactions.map((transaction) => (
                             <FinancialRow 
                                 key={transaction.id} 
                                 transaction={transaction} 
@@ -387,6 +411,14 @@ export function FinancialList({
                     </tbody>
                 </table>
             </div>
+            
+            {/* Pagination */}
+            <Pagination
+                currentPage={currentPage}
+                totalItems={transactions.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={setCurrentPage}
+            />
         </div>
     );
 }

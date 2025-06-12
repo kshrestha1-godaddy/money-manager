@@ -4,6 +4,8 @@ import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { Expense } from "../../types/financial";
 import { formatCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
+import { Pagination } from "../shared/Pagination";
+import { CompactPagination } from "../shared/CompactPagination";
 
 interface ExpenseListProps {
     expenses: Expense[];
@@ -37,6 +39,8 @@ export function ExpenseList({
 }: ExpenseListProps) {
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 25;
 
     // Column resizing state
     const [columnWidths, setColumnWidths] = useState({
@@ -153,6 +157,18 @@ export function ExpenseList({
         });
     }, [expenses, sortField, sortDirection]);
 
+    // Paginated expenses
+    const paginatedExpenses = useMemo(() => {
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        const endIndex = startIndex + ITEMS_PER_PAGE;
+        return sortedExpenses.slice(startIndex, endIndex);
+    }, [sortedExpenses, currentPage, ITEMS_PER_PAGE]);
+
+    // Reset to first page when sorting changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [sortField, sortDirection, expenses]);
+
     const handleSelectAll = () => {
         const allSelected = selectedExpenses.size === expenses.length;
         if (onSelectAll) {
@@ -177,9 +193,17 @@ export function ExpenseList({
         <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-semibold text-gray-900">
-                        Expenses ({expenses.length})
-                    </h2>
+                    <div className="flex justify-between w-full space-x-4">
+                        <h2 className="text-lg font-semibold text-gray-900">
+                            Expenses ({expenses.length})
+                        </h2>
+                        <CompactPagination
+                            currentPage={currentPage}
+                            totalItems={expenses.length}
+                            itemsPerPage={ITEMS_PER_PAGE}
+                            onPageChange={setCurrentPage}
+                        />
+                    </div>
                     {showBulkActions && selectedExpenses.size > 0 && (
                         <div className="flex space-x-2">
                             <button
@@ -321,7 +345,7 @@ export function ExpenseList({
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {sortedExpenses.map((expense) => (
+                        {paginatedExpenses.map((expense) => (
                             <ExpenseRow 
                                 key={expense.id} 
                                 expense={expense} 
@@ -338,6 +362,14 @@ export function ExpenseList({
                     </tbody>
                 </table>
             </div>
+            
+            {/* Pagination */}
+            <Pagination
+                currentPage={currentPage}
+                totalItems={expenses.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={setCurrentPage}
+            />
         </div>
     );
 }

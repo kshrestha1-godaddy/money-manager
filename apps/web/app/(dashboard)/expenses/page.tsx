@@ -17,14 +17,14 @@ import { useSearchParams } from "next/navigation";
 import { getExpenses, createExpense, updateExpense, deleteExpense, bulkDeleteExpenses } from "../../actions/expenses";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { exportExpensesToCSV } from "../../utils/csvExportExpenses";
-import { useFinancialData } from "../../hooks/useFinancialData";
+import { useOptimizedFinancialData } from "../../hooks/useOptimizedFinancialData";
 
 function ExpensesContent() {
     const { currency: userCurrency } = useCurrency();
     const searchParams = useSearchParams();
     
-    // Use the shared financial data hook
-    const financialData = useFinancialData<Expense>("EXPENSE", {
+    // Use the optimized financial data hook with caching
+    const financialData = useOptimizedFinancialData<Expense>("EXPENSE", {
         getItems: getExpenses,
         createItem: createExpense,
         updateItem: updateExpense,

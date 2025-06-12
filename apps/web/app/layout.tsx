@@ -20,24 +20,17 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <Providers>
-        <body className={inter.className + " flex flex-col min-h-screen"}>
-
-
+      <body className={inter.className + " flex flex-col min-h-screen"}>
+        <Providers>
           <NavBar />
-
 
           <div className="mt-20 m-3 flex-grow p-10">
             {children}
           </div>
 
-
           <Footer />
-
-
-          
-        </body>
-      </Providers>
+        </Providers>
+      </body>
     </html>
   );
 }

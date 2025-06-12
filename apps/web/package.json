@@ -30,7 +30,8 @@
     "typescript": "5.8.2",
     "prisma": "^6.6.0",
     "has-flag": "^4.0.0",
-    "supports-color": "^7.1.0"
+    "supports-color": "^7.1.0",
+    "@tanstack/react-query": "^5.17.9"
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "^15.3.0",
