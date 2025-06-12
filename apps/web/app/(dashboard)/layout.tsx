@@ -11,7 +11,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <SidebarItem href={"/incomes"} icon={<IncomesIcon />} title="Incomes" />
                     <SidebarItem href={"/expenses"} icon={<ExpensesIcon />} title="Expenses" />
                     <SidebarItem href={"/history"} icon={<HistoryIcon />} title="History" />
-                    <SidebarItem href={"/targets"} icon={<TargetsIcon />} title="Budget Targets" />
+                    {/* <SidebarItem href={"/targets"} icon={<TargetsIcon />} title="Budget Targets" /> */}
                     
                     {/* Finance Section - with separator */}
                     <SidebarItem href={"/accounts"} icon={<AccountsIcon />} title="Accounts" showSeparator={true} />
@@ -20,7 +20,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <SidebarItem href={"/worth"} icon={<NetWorthIcon />} title="Net Worth" />
                     
                     {/* Additional items */}
-                    <SidebarItem href={"/learnings"} icon={<LearningsIcon />} title="Learnings" />
+                    {/* <SidebarItem href={"/learnings"} icon={<LearningsIcon />} title="Learnings" /> */}
                 </div>
             </div>
             
