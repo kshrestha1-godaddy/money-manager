@@ -87,7 +87,6 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImportModalP
                     const dataRows = allRows.slice(1);
                     
                     const editableErrorList: EditableError[] = transformedResult.errors
-                        .slice(0, 10) // Limit to first 10 errors for better UX
                         .map(error => {
                         const originalRowIndex = error.row - 2; // Adjust for header and 0-based indexing
                         const rowData = dataRows[originalRowIndex] || [];

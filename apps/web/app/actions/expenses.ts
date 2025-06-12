@@ -534,58 +534,84 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
             skippedCount: 0
         };
 
-        // Process rows in batches to avoid overwhelming the database
-        const BATCH_SIZE = 50;
-        const batches: string[][][] = [];
-        
-        for (let i = 0; i < dataRows.length; i += BATCH_SIZE) {
-            batches.push(dataRows.slice(i, i + BATCH_SIZE));
+        // Process rows individually to avoid long-running transactions
+        // Pre-validate all rows first to avoid partial imports
+        const validatedRows: Array<{
+            data: ImportExpenseRow;
+            rowIndex: number;
+            originalRow: string[];
+        }> = [];
+
+        for (let i = 0; i < dataRows.length; i++) {
+            const rowIndex = i + 2; // +2 for header and 1-based indexing
+            const row = dataRows[i];
+
+            if (!row) continue;
+
+            try {
+                // Skip empty rows - safely handle undefined cells
+                if (row.every(cell => !cell || (typeof cell === 'string' && !cell.trim()))) {
+                    result.skippedCount++;
+                    continue;
+                }
+
+                // Validate and transform row
+                const expenseData = await validateAndTransformRow(
+                    row, 
+                    headers, 
+                    userId, 
+                    categories, 
+                    accounts,
+                    defaultAccountId
+                );
+
+                validatedRows.push({
+                    data: expenseData,
+                    rowIndex,
+                    originalRow: row
+                });
+
+            } catch (error) {
+                result.errors.push({
+                    row: rowIndex,
+                    error: error instanceof Error ? error.message : 'Unknown error',
+                    data: row
+                });
+            }
         }
 
+        // Process validated rows in smaller batches with shorter transactions
+        const BATCH_SIZE = 10; // Reduced batch size
+        const batches: typeof validatedRows[] = [];
+        
+        for (let i = 0; i < validatedRows.length; i += BATCH_SIZE) {
+            batches.push(validatedRows.slice(i, i + BATCH_SIZE));
+        }
+
+        // Process each batch in a separate transaction to avoid timeouts
         for (const batch of batches) {
-            await prisma.$transaction(async (tx) => {
-                for (let i = 0; i < batch.length; i++) {
-                    const rowIndex = batches.indexOf(batch) * BATCH_SIZE + i + 2; // +2 for header and 1-based indexing
-                    const row = batch[i];
-
-                    if (!row) continue;
-
-                    try {
-                        // Skip empty rows - safely handle undefined cells
-                        if (row.every(cell => !cell || (typeof cell === 'string' && !cell.trim()))) {
-                            result.skippedCount++;
-                            continue;
-                        }
-
-                        // Validate and transform row
-                        const expenseData = await validateAndTransformRow(
-                            row, 
-                            headers, 
-                            userId, 
-                            categories, 
-                            accounts,
-                            defaultAccountId
-                        );
-
+            try {
+                await prisma.$transaction(async (tx) => {
+                    for (const validatedRow of batch) {
                         // Create expense
                         const createData: any = {
-                            title: expenseData.title,
-                            description: expenseData.description,
-                            amount: expenseData.amount,
-                            date: expenseData.date,
-                            categoryId: expenseData.categoryId,
+                            title: validatedRow.data.title,
+                            description: validatedRow.data.description,
+                            amount: validatedRow.data.amount,
+                            date: validatedRow.data.date,
+                            categoryId: validatedRow.data.categoryId,
                             userId: userId,
-                            tags: expenseData.tags,
-                            notes: expenseData.notes,
-                            isRecurring: expenseData.isRecurring || false
+                            tags: validatedRow.data.tags,
+                            notes: validatedRow.data.notes,
+                            isRecurring: validatedRow.data.isRecurring || false
                         };
 
-                        if (expenseData.accountId) {
-                            createData.accountId = expenseData.accountId;
+                        if (validatedRow.data.accountId) {
+                            createData.accountId = validatedRow.data.accountId;
                         }
 
-                        if (expenseData.recurringFrequency) {
-                            createData.recurringFrequency = expenseData.recurringFrequency;
+                        if (validatedRow.data.recurringFrequency) {
+                            createData.recurringFrequency = validatedRow.data.recurringFrequency;
                         }
 
                         await tx.expense.create({
@@ -593,28 +619,32 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
                         });
 
                         // Update account balance if account is specified
-                        if (expenseData.accountId) {
+                        if (validatedRow.data.accountId) {
                             await tx.account.update({
-                                where: { id: expenseData.accountId },
+                                where: { id: validatedRow.data.accountId },
                                 data: {
                                     balance: {
-                                        decrement: expenseData.amount
+                                        decrement: validatedRow.data.amount
                                     }
                                 }
                             });
                         }
 
                         result.importedCount++;
-
-                    } catch (error) {
-                        result.errors.push({
-                            row: rowIndex,
-                            error: error instanceof Error ? error.message : 'Unknown error',
-                            data: row
-                        });
                     }
-                }
-            });
+                }, {
+                    timeout: 30000, // 30 second timeout per batch
+                });
+            } catch (error) {
+                // If a batch fails, add errors for all rows in that batch
+                batch.forEach(validatedRow => {
+                    result.errors.push({
+                        row: validatedRow.rowIndex,
+                        error: error instanceof Error ? error.message : 'Unknown error during batch import',
+                        data: validatedRow.originalRow
+                    });
+                });
+            }
         }
 
         result.success = result.importedCount > 0;

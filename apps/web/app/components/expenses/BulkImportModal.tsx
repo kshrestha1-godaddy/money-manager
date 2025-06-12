@@ -77,7 +77,6 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImportModalP
                     const dataRows = allRows.slice(1);
                     
                     const editableErrorList: EditableError[] = importResult.errors
-                        .slice(0, 10) // Limit to first 10 errors for better UX
                         .map(error => {
                         const originalRowIndex = error.row - 2; // Adjust for header and 0-based indexing
                         const rowData = dataRows[originalRowIndex] || [];
@@ -385,18 +384,6 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImportModalP
                                             </div>
                                         ))}
                                     </div>
-                                </div>
-                            )}
-
-                            {/* Show remaining non-editable errors if any */}
-                            {result.errors.length > editableErrors.length && (
-                                <div className="bg-gray-50 p-4 rounded-lg">
-                                    <h4 className="font-medium text-gray-700 mb-2">
-                                        Additional Errors ({result.errors.length - editableErrors.length} more):
-                                    </h4>
-                                    <p className="text-sm text-gray-600">
-                                        Only the first 10 errors are shown for editing. Please fix these errors and re-import the file.
-                                    </p>
                                 </div>
                             )}
                         </div>
