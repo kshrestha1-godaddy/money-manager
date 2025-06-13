@@ -8,13 +8,13 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="relative z-10 pb-8 sm:pb-16 md:pb-20 lg:pb-28 xl:pb-32">
             <div className="mt-10 mx-auto max-w-7xl px-4 sm:mt-12 sm:px-6 md:mt-16 lg:mt-20 lg:px-8 xl:mt-28">
-              <div className="text-center lg:text-left lg:grid lg:grid-cols-12 lg:gap-8 lg:items-center">
+              <div className="text-center lg:text-left lg:grid lg:grid-cols-12 lg:gap-12 lg:items-start">
                 {/* Left side - Text content */}
-                <div className="lg:col-span-6">
-                  <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl lg:text-5xl xl:text-6xl">
+                <div className="lg:col-span-4">
+                  <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl lg:text-4xl xl:text-5xl">
                     <span className="block">The only app that</span>
-                    <span className="block text-blue-600">gets your money</span>
-                    <span className="block text-blue-600">into shape</span>
+                    <span className="block text-gray-800">gets your money</span>
+                    <span className="block text-gray-800">into shape</span>
                   </h1>
                   <p className="mt-3 text-base text-gray-500 sm:mt-5 sm:text-lg sm:max-w-xl sm:mx-auto md:mt-5 md:text-xl lg:mx-0">
                     Manage your money on the go. Track your income, expenses, and budgets with beautiful charts and simple tools. All your finances, in one place.
@@ -22,8 +22,8 @@ export default function Landing() {
                   <div className="mt-5 sm:mt-8 sm:flex sm:justify-center lg:justify-start">
                     <div className="rounded-md shadow">
                       <Link
-                        href="/api/auth/signin"
-                        className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 md:py-4 md:text-lg md:px-10 transition-all duration-200"
+                        href="/signin"
+                        className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-gray-800 hover:bg-gray-900 md:py-4 md:text-lg md:px-10 transition-all duration-200"
                       >
                         Get Started
                       </Link>
@@ -31,35 +31,65 @@ export default function Landing() {
                   </div>
                 </div>
 
-                {/* Right side - App screenshots */}
-                <div className="mt-12 relative lg:mt-0 lg:col-span-6">
-                  <div className="relative mx-auto w-full max-w-2xl lg:max-w-none">
+                {/* Right side - Extra large screenshots */}
+                <div className="mt-12 relative lg:mt-0 lg:col-span-8">
+                  <div className="relative mx-auto w-full">
                     {/* Background decoration */}
-                    <div className="absolute top-0 right-0 -mt-20 -mr-20 w-96 h-96 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full opacity-20 blur-3xl"></div>
-                    <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-80 h-80 bg-gradient-to-tr from-green-100 to-green-200 rounded-full opacity-20 blur-3xl"></div>
+                    <div className="absolute top-0 right-0 -mt-32 -mr-32 w-96 h-96 bg-gradient-to-br from-green-100 to-green-200 rounded-full opacity-20 blur-3xl"></div>
+                    <div className="absolute bottom-0 left-0 -mb-32 -ml-32 w-80 h-80 bg-gradient-to-tr from-gray-100 to-gray-200 rounded-full opacity-15 blur-3xl"></div>
                     
-                    {/* App screenshots with modern layering */}
-                    <div className="relative">
-                      {/* Main large screenshot - Monthly Trend */}
+                    {/* Main dashboard screenshot - Extra large */}
+                    <div className="relative z-20 mb-12">
                       <img
                         src="/monthlyTrend.jpg"
-                        alt="Monthly trend analytics dashboard"
-                        className="relative z-20 w-full max-w-lg mx-auto rounded-2xl shadow-2xl border border-gray-200"
+                        alt="MoneyManager Dashboard - Monthly Trends and Analytics"
+                        className="w-full max-w-6xl mx-auto rounded-3xl shadow-2xl border border-gray-200 hover:shadow-3xl transition-shadow duration-300"
                       />
-                      
-                      {/* Secondary screenshot - Income */}
-                      <img
-                        src="/income.jpg"
-                        alt="Income tracking interface"
-                        className="absolute -top-12 -left-12 z-10 w-80 rounded-xl shadow-xl border border-gray-200 transform rotate-[-8deg] hover:rotate-[-4deg] transition-transform duration-300"
-                      />
-                      
-                      {/* Third screenshot - Category Trend */}
-                      <img
-                        src="/categoryTrend.jpg"
-                        alt="Category trend analysis"
-                        className="absolute -bottom-8 -right-8 z-30 w-72 rounded-xl shadow-xl border border-gray-200 transform rotate-[6deg] hover:rotate-[3deg] transition-transform duration-300"
-                      />
+                      <div className="absolute -bottom-6 -right-6 bg-green-500 text-white px-6 py-3 rounded-full text-base font-semibold shadow-lg">
+                        Dashboard
+                      </div>
+                    </div>
+
+                    {/* Secondary screenshots in a larger grid */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-12">
+                      {/* Income tracking - Much larger */}
+                      <div className="relative group">
+                        <img
+                          src="/income.jpg"
+                          alt="Income Tracking Interface"
+                          className="w-full max-w-3xl mx-auto rounded-2xl shadow-xl border border-gray-200 group-hover:shadow-2xl transition-shadow duration-300 transform group-hover:scale-105 transition-transform"
+                        />
+                        <div className="absolute -top-4 -left-4 bg-blue-500 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
+                          Income Tracking
+                        </div>
+                      </div>
+
+                      {/* Category trends - Much larger */}
+                      <div className="relative group">
+                        <img
+                          src="/categoryTrend.jpg"
+                          alt="Category Trends and Spending Analysis"
+                          className="w-full max-w-3xl mx-auto rounded-2xl shadow-xl border border-gray-200 group-hover:shadow-2xl transition-shadow duration-300 transform group-hover:scale-105 transition-transform"
+                        />
+                        <div className="absolute -top-4 -right-4 bg-purple-500 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
+                          Analytics & Trends
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Feature highlights overlay */}
+                    <div className="absolute top-1/4 -left-12 bg-white rounded-xl shadow-lg p-6 border border-gray-200 hidden xl:block">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                        <span className="text-base font-medium text-gray-700">Real-time tracking</span>
+                      </div>
+                    </div>
+
+                    <div className="absolute bottom-1/3 -right-12 bg-white rounded-xl shadow-lg p-6 border border-gray-200 hidden xl:block">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
+                        <span className="text-base font-medium text-gray-700">Beautiful charts</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -309,18 +339,18 @@ export default function Landing() {
       </section>
 
       {/* CTA Section */}
-      <section className="bg-blue-600">
+      <section className="bg-gray-800">
         <div className="max-w-2xl mx-auto text-center py-16 px-4 sm:py-20 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-extrabold text-white sm:text-4xl">
             <span className="block">Ready to take control?</span>
             <span className="block">Start managing your money today.</span>
           </h2>
-          <p className="mt-4 text-lg leading-6 text-blue-200">
+          <p className="mt-4 text-lg leading-6 text-gray-300">
             Join thousands of users who have already transformed their financial lives.
           </p>
           <Link
-            href="/api/auth/signin"
-            className="mt-8 w-full inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-blue-600 bg-white hover:bg-blue-50 sm:w-auto transition-all duration-200"
+            href="/signin"
+            className="mt-8 w-full inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-gray-800 bg-white hover:bg-gray-50 sm:w-auto transition-all duration-200"
           >
             Get Started for Free
           </Link>

@@ -161,18 +161,18 @@ export default function NavBar() {
         {/* Auth buttons */}
         {status === "authenticated" ? (
           <button
-            onClick={() => signOut({ callbackUrl: "/api/auth/signin" })}
+            onClick={() => signOut({ callbackUrl: "/signin" })}
             className="px-4 py-2.5 bg-gray-800 text-white hover:bg-gray-900 rounded-lg text-sm font-medium h-10 flex items-center transition-colors"
           >
             Logout
           </button>
         ) : status === "unauthenticated" ? (
-          <button
+          <Link
+            href="/signin"
             className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 h-10 flex items-center font-medium transition-colors shadow-sm"
-            onClick={() => signIn()}
           >
             Sign In
-          </button>
+          </Link>
         ) : null}
       </div>
     </nav>
