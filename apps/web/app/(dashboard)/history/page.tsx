@@ -4,8 +4,8 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList, ReferenceLine, Legend } from 'recharts';
 import { Income, Expense, Category } from "../../types/financial";
-import { getIncomes, getIncomesByDateRange } from "../../actions/incomes";
-import { getExpenses, getExpensesByDateRange } from "../../actions/expenses";
+import { getIncomes } from "../../actions/incomes";
+import { getExpenses } from "../../actions/expenses";
 import { getCategories } from "../../actions/categories";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency } from "../../utils/currency";
@@ -575,7 +575,6 @@ export default function History() {
     useEffect(() => {
         const loadAllData = async () => {
             if (!session) return;
-            
             try {
                 setLoading(true);
                 const [incomesData, expensesData, categoriesData] = await Promise.all([
@@ -593,13 +592,27 @@ export default function History() {
             }
         };
         loadAllData();
-    }, [session]); // Only depends on session, not on selectedPeriod
+    }, [session]);
 
     // Filter data locally based on date range - same as dashboard pattern
     const getFilteredData = (data: (Income | Expense)[], startDate: Date, endDate: Date) => {
         return data.filter(item => {
             const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
-            return itemDate >= startDate && itemDate <= endDate;
+            let matchesDateRange = true;
+            if (startDate && endDate) {
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                matchesDateRange = itemDate >= start && itemDate <= end;
+            } else if (startDate) {
+                const start = new Date(startDate);
+                matchesDateRange = itemDate >= start;
+            } else if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                matchesDateRange = itemDate <= end;
+            }
+            return matchesDateRange;
         });
     };
 
@@ -1163,8 +1176,6 @@ export default function History() {
                     </div>
                 </div>
             </div>
-
-
 
             {/* Detailed Breakdown Tables */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
