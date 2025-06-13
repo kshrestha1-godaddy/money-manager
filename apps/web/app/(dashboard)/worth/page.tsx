@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList, ReferenceLine } from 'recharts';
+import { useQuery } from '@tanstack/react-query';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 import { Income, Expense } from "../../types/financial";
 import { AccountInterface } from "../../types/accounts";
 import { DebtInterface } from "../../types/debts";
@@ -13,20 +14,14 @@ import { getUserAccounts } from "../../actions/accounts";
 import { getUserDebts } from "../../actions/debts";
 import { getUserInvestments } from "../../actions/investments";
 import { useCurrency } from "../../providers/CurrencyProvider";
-import { formatCurrency } from "../../utils/currency";
+import { formatCurrency, getCurrencySymbol } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
-import { useChartExpansion } from "../../utils/chartUtils";
 import { ChartControls } from "../../components/ChartControls";
+import { useChartExpansion } from "../../utils/chartUtils";
 
 export default function NetWorthPage() {
     const session = useSession();
     const { currency } = useCurrency();
-    const [loading, setLoading] = useState(true);
-    const [incomes, setIncomes] = useState<Income[]>([]);
-    const [expenses, setExpenses] = useState<Expense[]>([]);
-    const [accounts, setAccounts] = useState<AccountInterface[]>([]);
-    const [debts, setDebts] = useState<DebtInterface[]>([]);
-    const [investments, setInvestments] = useState<InvestmentInterface[]>([]);
     const [expandedSections, setExpandedSections] = useState({
         accounts: false,
         investments: false,
@@ -35,119 +30,210 @@ export default function NetWorthPage() {
     const { isExpanded: isChartExpanded, toggleExpanded: toggleChartExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
 
-    const toggleSection = (section: 'accounts' | 'investments' | 'moneyLent') => {
+    // Query keys for caching
+    const QUERY_KEYS = {
+        incomes: ['incomes'] as const,
+        expenses: ['expenses'] as const,
+        accounts: ['accounts'] as const,
+        debts: ['debts'] as const,
+        investments: ['investments'] as const,
+    };
+
+    // Cached data queries with optimized stale times
+    const { data: incomes = [], isLoading: incomesLoading } = useQuery({
+        queryKey: QUERY_KEYS.incomes,
+        queryFn: getIncomes,
+        staleTime: 3 * 60 * 1000, // 3 minutes
+        gcTime: 10 * 60 * 1000, // 10 minutes
+    });
+
+    const { data: expenses = [], isLoading: expensesLoading } = useQuery({
+        queryKey: QUERY_KEYS.expenses,
+        queryFn: getExpenses,
+        staleTime: 3 * 60 * 1000, // 3 minutes
+        gcTime: 10 * 60 * 1000, // 10 minutes
+    });
+
+    const { data: accounts = [], isLoading: accountsLoading } = useQuery({
+        queryKey: QUERY_KEYS.accounts,
+        queryFn: async () => {
+            const result = await getUserAccounts();
+            return ('error' in result) ? [] : result;
+        },
+        staleTime: 5 * 60 * 1000, // 5 minutes (accounts change less frequently)
+        gcTime: 15 * 60 * 1000, // 15 minutes
+    });
+
+    const { data: debts = [], isLoading: debtsLoading } = useQuery({
+        queryKey: QUERY_KEYS.debts,
+        queryFn: async () => {
+            const result = await getUserDebts();
+            return ('error' in result) ? result.data || [] : [];
+        },
+        staleTime: 5 * 60 * 1000, // 5 minutes
+        gcTime: 15 * 60 * 1000, // 15 minutes
+    });
+
+    const { data: investments = [], isLoading: investmentsLoading } = useQuery({
+        queryKey: QUERY_KEYS.investments,
+        queryFn: async () => {
+            const result = await getUserInvestments();
+            return ('error' in result) ? result.data || [] : [];
+        },
+        staleTime: 5 * 60 * 1000, // 5 minutes
+        gcTime: 15 * 60 * 1000, // 15 minutes
+    });
+
+    const loading = incomesLoading || expensesLoading || accountsLoading || debtsLoading || investmentsLoading;
+
+    // Memoized section toggle handler
+    const toggleSection = useCallback((section: 'accounts' | 'investments' | 'moneyLent') => {
         setExpandedSections(prev => ({
             ...prev,
             [section]: !prev[section]
         }));
-    };
-
-    useEffect(() => {
-        const loadData = async () => {
-            try {
-                setLoading(true);
-                const [incomesData, expensesData, accountsData, debtsData, investmentsData] = await Promise.all([
-                    getIncomes(),
-                    getExpenses(),
-                    getUserAccounts(),
-                    getUserDebts(),
-                    getUserInvestments()
-                ]);
-                
-                setIncomes(incomesData);
-                setExpenses(expensesData);
-                
-                // Handle accounts response
-                if (accountsData && !('error' in accountsData)) {
-                    setAccounts(accountsData);
-                } else {
-                    console.error("Error loading accounts:", accountsData?.error);
-                    setAccounts([]);
-                }
-
-                // Handle debts response
-                if (debtsData && !('error' in debtsData)) {
-                    setDebts(debtsData.data || []);
-                } else {
-                    console.error("Error loading debts:", debtsData?.error);
-                    setDebts([]);
-                }
-
-                // Handle investments response
-                if (investmentsData && !('error' in investmentsData)) {
-                    setInvestments(investmentsData.data || []);
-                } else {
-                    console.error("Error loading investments:", investmentsData?.error);
-                    setInvestments([]);
-                }
-            } catch (error) {
-                console.error("Error loading net worth data:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        loadData();
     }, []);
 
-    // Calculate total assets based on your rules:
-    // 1. Sum of balances in bank accounts
-    const totalAccountBalance = accounts.reduce((sum, account) => sum + (account.balance || 0), 0);
-    
-    // 2. Total investments money invested (current value)
-    const totalInvestmentValue = investments.reduce((sum, investment) => 
-        sum + (investment.quantity * investment.currentPrice), 0
-    );
-    
-    // 3. Total money lent from debts tab (outstanding amounts owed to you)
-    const totalMoneyLent = debts.reduce((sum, debt) => {
-        const totalRepayments = debt.repayments?.reduce((repSum, rep) => repSum + rep.amount, 0) || 0;
-        const remainingAmount = debt.amount - totalRepayments;
-        return sum + Math.max(0, remainingAmount); // Only count positive remaining amounts
-    }, 0);
-    
-    const totalAssets = totalAccountBalance + totalInvestmentValue + totalMoneyLent;
+    // Memoized calculations for better performance
+    const financialCalculations = useMemo(() => {
+        // Calculate total assets based on your rules:
+        // 1. Sum of balances in bank accounts
+        const totalAccountBalance = accounts.reduce((sum, account) => sum + (account.balance || 0), 0);
+        
+        // 2. Total investments money invested (current value)
+        const totalInvestmentValue = investments.reduce((sum, investment) => 
+            sum + (investment.quantity * investment.currentPrice), 0
+        );
+        
+        // 3. Total money lent from debts tab (outstanding amounts owed to you)
+        const totalMoneyLent = debts.reduce((sum, debt) => {
+            const totalRepayments = debt.repayments?.reduce((repSum, rep) => repSum + rep.amount, 0) || 0;
+            const remainingAmount = debt.amount - totalRepayments;
+            return sum + Math.max(0, remainingAmount); // Only count positive remaining amounts
+        }, 0);
+        
+        const totalAssets = totalAccountBalance + totalInvestmentValue + totalMoneyLent;
 
-    // No liabilities in this calculation model
-    const totalLiabilities = 0;
+        // No liabilities in this calculation model
+        const totalLiabilities = 0;
 
-    // Calculate net worth
-    const netWorth = totalAssets - totalLiabilities;
+        // Calculate net worth
+        const netWorth = totalAssets - totalLiabilities;
 
-    // Calculate this month's data
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-    
-    const thisMonthIncome = incomes
-        .filter(income => {
-            const incomeDate = income.date instanceof Date ? income.date : new Date(income.date);
-            return incomeDate.getMonth() === currentMonth && incomeDate.getFullYear() === currentYear;
-        })
-        .reduce((sum, income) => sum + income.amount, 0);
+        // Calculate investment gains/losses
+        const totalInvested = investments.reduce((sum, investment) => 
+            sum + (investment.quantity * investment.purchasePrice), 0
+        );
+        const totalInvestmentGain = totalInvestmentValue - totalInvested;
 
-    const thisMonthExpenses = expenses
-        .filter(expense => {
-            const expenseDate = expense.date instanceof Date ? expense.date : new Date(expense.date);
-            return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
-        })
-        .reduce((sum, expense) => sum + expense.amount, 0);
+        return {
+            totalAccountBalance,
+            totalInvestmentValue,
+            totalMoneyLent,
+            totalAssets,
+            totalLiabilities,
+            netWorth,
+            totalInvested,
+            totalInvestmentGain
+        };
+    }, [accounts, investments, debts]);
 
-    const thisMonthNetIncome = thisMonthIncome - thisMonthExpenses;
+    // Memoized monthly calculations
+    const monthlyCalculations = useMemo(() => {
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        
+        const thisMonthIncome = incomes
+            .filter(income => {
+                const incomeDate = income.date instanceof Date ? income.date : new Date(income.date);
+                return incomeDate.getMonth() === currentMonth && incomeDate.getFullYear() === currentYear;
+            })
+            .reduce((sum, income) => sum + income.amount, 0);
 
-    // Calculate investment gains/losses
-    const totalInvested = investments.reduce((sum, investment) => 
-        sum + (investment.quantity * investment.purchasePrice), 0
-    );
-    const totalInvestmentGain = totalInvestmentValue - totalInvested;
+        const thisMonthExpenses = expenses
+            .filter(expense => {
+                const expenseDate = expense.date instanceof Date ? expense.date : new Date(expense.date);
+                return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
+            })
+            .reduce((sum, expense) => sum + expense.amount, 0);
 
-    // Prepare CSV data for chart controls
-    const csvData = [
-        ['Category', 'Amount', 'Percentage of Net Worth'],
-        ['Bank Balance', totalAccountBalance.toString(), totalAssets > 0 ? ((totalAccountBalance / totalAssets) * 100).toFixed(2) + '%' : '0%'],
-        ['Investments', totalInvestmentValue.toString(), totalAssets > 0 ? ((totalInvestmentValue / totalAssets) * 100).toFixed(2) + '%' : '0%'],
-        ['Money Lent', totalMoneyLent.toString(), totalAssets > 0 ? ((totalMoneyLent / totalAssets) * 100).toFixed(2) + '%' : '0%'],
-        ['Total Assets', totalAssets.toString(), '100%'],
-        ['Net Worth', netWorth.toString(), '']
-    ];
+        const thisMonthNetIncome = thisMonthIncome - thisMonthExpenses;
+
+        return {
+            thisMonthIncome,
+            thisMonthExpenses,
+            thisMonthNetIncome
+        };
+    }, [incomes, expenses]);
+
+    // Memoized CSV data for chart controls
+    const csvData = useMemo(() => {
+        const { totalAccountBalance, totalInvestmentValue, totalMoneyLent, totalAssets, netWorth } = financialCalculations;
+        
+        return [
+            ['Category', 'Amount', 'Percentage of Net Worth'],
+            ['Bank Balance', totalAccountBalance.toString(), totalAssets > 0 ? ((totalAccountBalance / totalAssets) * 100).toFixed(2) + '%' : '0%'],
+            ['Investments', totalInvestmentValue.toString(), totalAssets > 0 ? ((totalInvestmentValue / totalAssets) * 100).toFixed(2) + '%' : '0%'],
+            ['Money Lent', totalMoneyLent.toString(), totalAssets > 0 ? ((totalMoneyLent / totalAssets) * 100).toFixed(2) + '%' : '0%'],
+            ['Total Assets', totalAssets.toString(), '100%'],
+            ['Net Worth', netWorth.toString(), '']
+        ];
+    }, [financialCalculations]);
+
+    // Memoized chart data
+    const chartData = useMemo(() => {
+        const { totalAccountBalance, totalInvestmentValue, totalMoneyLent } = financialCalculations;
+        
+        return [
+            {
+                name: 'Bank Balance',
+                value: totalAccountBalance,
+                color: '#10b981'
+            },
+            {
+                name: 'Investments',
+                value: totalInvestmentValue,
+                color: '#3b82f6'
+            },
+            {
+                name: 'Money Lent',
+                value: totalMoneyLent,
+                color: '#ef4444'
+            }
+        ];
+    }, [financialCalculations]);
+
+    // Memoized filtered debts for money lent section
+    const outstandingDebts = useMemo(() => {
+        return debts.filter(debt => {
+            const totalRepayments = debt.repayments?.reduce((sum, rep) => sum + rep.amount, 0) || 0;
+            return debt.amount - totalRepayments > 0;
+        });
+    }, [debts]);
+
+    // Memoized status color function
+    const getStatusColor = useCallback((status: string) => {
+        switch (status) {
+            case 'ACTIVE':
+                return 'bg-green-100 text-green-800';
+            case 'OVERDUE':
+                return 'bg-red-100 text-red-800';
+            case 'PAID':
+                return 'bg-gray-100 text-gray-800';
+            default:
+                return 'bg-gray-100 text-gray-800';
+        }
+    }, []);
+
+    // Helper function for abbreviated currency formatting
+    const formatCurrencyAbbreviated = useCallback((amount: number) => {
+        if (amount >= 1000000) {
+            return `${getCurrencySymbol(currency)}${(amount / 1000000).toFixed(1)}M`;
+        } else if (amount >= 1000) {
+            return `${getCurrencySymbol(currency)}${(amount / 1000).toFixed(1)}K`;
+        }
+        return formatCurrency(amount, currency);
+    }, [currency]);
 
     if (loading) {
         return (
@@ -164,6 +250,17 @@ export default function NetWorthPage() {
             </div>
         );
     }
+
+    const { 
+        totalAccountBalance, 
+        totalInvestmentValue, 
+        totalMoneyLent, 
+        totalAssets, 
+        totalLiabilities, 
+        netWorth 
+    } = financialCalculations;
+    
+    const { thisMonthIncome, thisMonthExpenses, thisMonthNetIncome } = monthlyCalculations;
 
     return (
         <div className="space-y-6">
@@ -236,6 +333,7 @@ export default function NetWorthPage() {
                     </div>
                 </div>
             </div>
+            
             {/* Asset Breakdown Chart */}
             <div className={`bg-white rounded-lg shadow p-6 ${isChartExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}>
                 <ChartControls
@@ -247,117 +345,46 @@ export default function NetWorthPage() {
                     csvFileName="net-worth-data"
                     title="Total vs. Category"
                 />
-                <div ref={chartRef} className={`${isChartExpanded ? 'h-[70vh] w-full' : ''}`} style={{ height: isChartExpanded ? undefined : '450px' }}>
+                <div ref={chartRef} className={`${isChartExpanded ? 'h-[calc(100vh-200px)]' : 'h-96'} transition-all duration-300`}>
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                            data={[
-                                {
-                                    name: 'Bank Balance',
-                                    value: totalAccountBalance,
-                                    color: '#10B981'
-                                },
-                                {
-                                    name: 'Investments',
-                                    value: totalInvestmentValue,
-                                    color: '#3B82F6'
-                                },
-                                {
-                                    name: 'Money Lent',
-                                    value: totalMoneyLent,
-                                    color: '#EF4444'
-                                }
-                            ]}
-                            margin={{
-                                top: 60,
-                                right: 30,
-                                left: 20,
-                                bottom: 5,
-                            }}
-                        >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                            {/* Reference lines for each bar top */}
-                            <ReferenceLine 
-                                y={totalAccountBalance} 
-                                stroke="#10B981" 
-                                strokeDasharray="2 2" 
-                                strokeWidth={1}
-                                opacity={0.6}
-                            />
-                            <ReferenceLine 
-                                y={totalInvestmentValue} 
-                                stroke="#3B82F6" 
-                                strokeDasharray="2 2" 
-                                strokeWidth={1}
-                                opacity={0.6}
-                            />
-                            <ReferenceLine 
-                                y={totalMoneyLent} 
-                                stroke="#EF4444" 
-                                strokeDasharray="2 2" 
-                                strokeWidth={1}
-                                opacity={0.6}
-                            />
-                            <XAxis 
-                                dataKey="name" 
-                                axisLine={{ stroke: '#374151', strokeWidth: 1 }}
-                                tickLine={{ stroke: '#374151', strokeWidth: 1 }}
-                                tick={{ fontSize: 12, fill: '#6B7280' }}
-                            />
-                            <YAxis 
-                                axisLine={{ stroke: '#374151', strokeWidth: 1 }}
-                                tickLine={{ stroke: '#374151', strokeWidth: 1 }}
-                                tick={{ fontSize: 12, fill: '#6B7280' }}
-                                tickFormatter={(value) => formatCurrency(value, currency).replace(/\.[0-9]+/, '')}
-                                domain={[0, 'dataMax + 100000']}
-                            />
+                        <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis tickFormatter={(value) => formatCurrencyAbbreviated(value)} />
                             <Tooltip 
-                                formatter={(value: number) => [formatCurrency(value, currency), 'Total']}
+                                formatter={(value: number) => [formatCurrency(value, currency), 'Amount']}
                                 labelStyle={{ color: '#374151' }}
                                 contentStyle={{ 
-                                    backgroundColor: 'white', 
-                                    border: '1px solid #E5E7EB',
-                                    borderRadius: '8px',
-                                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                    backgroundColor: '#f9fafb', 
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: '8px'
                                 }}
                             />
                             <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                {[
-                                    { name: 'Bank Balance', value: totalAccountBalance, color: '#10B981' },
-                                    { name: 'Investments', value: totalInvestmentValue, color: '#3B82F6' },
-                                    { name: 'Money Lent', value: totalMoneyLent, color: '#EF4444' }
-                                ].map((entry, index) => (
+                                {chartData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={entry.color} />
                                 ))}
                                 <LabelList 
                                     dataKey="value" 
                                     position="top" 
+                                    formatter={(value: number) => formatCurrencyAbbreviated(value)}
+                                    style={{ fontSize: '12px', fontWeight: 'bold' }}
                                     content={(props: any) => {
                                         const { x, y, width, value } = props;
-                                        const percentage = totalAssets > 0 ? ((value / totalAssets) * 100).toFixed(1) : '0.0';
-                                        const formattedValue = formatCurrency(value, currency);
+                                        if (value === 0) return null;
+                                        
                                         return (
                                             <g>
                                                 <text 
                                                     x={x + width / 2} 
-                                                    y={y - 25} 
+                                                    y={y - 5} 
                                                     fill="#374151" 
                                                     textAnchor="middle" 
-                                                    dominantBaseline="middle"
+                                                    dy={-6}
                                                     fontSize="12"
-                                                    fontWeight="600"
+                                                    fontWeight="bold"
                                                 >
-                                                    {percentage}%
-                                                </text>
-                                                <text 
-                                                    x={x + width / 2} 
-                                                    y={y - 10} 
-                                                    fill="#1E40AF" 
-                                                    textAnchor="middle" 
-                                                    dominantBaseline="middle"
-                                                    fontSize="11"
-                                                    fontWeight="500"
-                                                >
-                                                    {formattedValue}
+                                                    {formatCurrencyAbbreviated(value)}
                                                 </text>
                                             </g>
                                         );
@@ -382,8 +409,6 @@ export default function NetWorthPage() {
                     </div>
                 </div>
             </div>
-
-
 
             {/* Account Breakdown Table */}
             <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -624,10 +649,7 @@ export default function NetWorthPage() {
                 >
                     <div className="flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-gray-900">
-                            Money Lent ({debts.filter(debt => {
-                                const totalRepayments = debt.repayments?.reduce((sum, rep) => sum + rep.amount, 0) || 0;
-                                return debt.amount - totalRepayments > 0;
-                            }).length})
+                            Money Lent ({outstandingDebts.length})
                         </h3>
                         <div className="flex items-center space-x-4">
                             <span className="text-lg font-bold text-red-600">
@@ -646,10 +668,7 @@ export default function NetWorthPage() {
                 </div>
                 {expandedSections.moneyLent && (
                     <>
-                        {debts.filter(debt => {
-                    const totalRepayments = debt.repayments?.reduce((sum, rep) => sum + rep.amount, 0) || 0;
-                    return debt.amount - totalRepayments > 0;
-                }).length === 0 ? (
+                        {outstandingDebts.length === 0 ? (
                     <div className="text-center py-8">
                         <div className="text-gray-400 text-4xl mb-4">💰</div>
                         <h4 className="text-lg font-medium text-gray-600 mb-2">No Money Lent</h4>
@@ -684,26 +703,10 @@ export default function NetWorthPage() {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {debts.filter(debt => {
-                                    const totalRepayments = debt.repayments?.reduce((sum, rep) => sum + rep.amount, 0) || 0;
-                                    return debt.amount - totalRepayments > 0;
-                                }).map((debt) => {
+                                {outstandingDebts.map((debt) => {
                                     const totalRepayments = debt.repayments?.reduce((sum, rep) => sum + rep.amount, 0) || 0;
                                     const remainingAmount = debt.amount - totalRepayments;
-                                    const isOverdue = debt.dueDate && new Date() > debt.dueDate && remainingAmount > 0;
-                                    
-                                    const getStatusColor = (status: string) => {
-                                        switch (status) {
-                                            case 'ACTIVE':
-                                                return 'text-blue-600 bg-blue-50';
-                                            case 'PARTIALLY_PAID':
-                                                return 'text-yellow-600 bg-yellow-50';
-                                            case 'OVERDUE':
-                                                return 'text-red-600 bg-red-50';
-                                            default:
-                                                return 'text-gray-600 bg-gray-50';
-                                        }
-                                    };
+                                    const isOverdue = debt.dueDate && new Date(debt.dueDate) < new Date();
                                     
                                     return (
                                         <tr key={debt.id} className="hover:bg-gray-50">
