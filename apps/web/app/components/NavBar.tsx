@@ -82,18 +82,6 @@ export default function NavBar() {
           </div>
           <span className="text-xl font-bold text-gray-900">MoneyManager</span>
         </Link>
-        
-        {/* User image if authenticated */}
-        {status === "authenticated" && session?.user?.image && (
-          <div className="ml-4">
-            <img
-              src={session.user.image}
-              alt={session.user.name || "User"}
-              className="w-10 h-10 rounded-full object-cover border-2 border-gray-200 hover:border-blue-300 transition-colors"
-              referrerPolicy="no-referrer"
-            />
-          </div>
-        )}
       </div>
 
       {/* Center: User name and Balance */}
@@ -160,12 +148,26 @@ export default function NavBar() {
 
         {/* Auth buttons */}
         {status === "authenticated" ? (
-          <button
-            onClick={() => signOut({ callbackUrl: "/signin" })}
-            className="px-4 py-2.5 bg-gray-800 text-white hover:bg-gray-900 rounded-lg text-sm font-medium h-10 flex items-center transition-colors"
-          >
-            Logout
-          </button>
+          <>
+            <button
+              onClick={() => signOut({ callbackUrl: "/signin" })}
+              className="px-4 py-2.5 bg-gray-800 text-white hover:bg-gray-900 rounded-lg text-sm font-medium h-10 flex items-center transition-colors"
+            >
+              Logout
+            </button>
+            
+            {/* User image if authenticated */}
+            {session?.user?.image && (
+              <div className="ml-2">
+                <img
+                  src={session.user.image}
+                  alt={session.user.name || "User"}
+                  className="w-10 h-10 rounded-full object-cover border-2 border-gray-200 hover:border-blue-300 transition-colors"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            )}
+          </>
         ) : status === "unauthenticated" ? (
           <Link
             href="/signin"

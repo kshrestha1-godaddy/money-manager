@@ -163,8 +163,122 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* About Section */}
+      <section id="about" className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="lg:grid lg:grid-cols-12 lg:gap-16 lg:items-center">
+            {/* Left side - Content */}
+            <div className="lg:col-span-7">
+              <div className="max-w-3xl">
+                <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+                  About
+                </h2>
+                <p className="mt-6 text-lg text-gray-500 leading-relaxed">
+                  MoneyManager was born from a simple frustration: existing financial apps were either too complex for everyday use or too simple to provide meaningful insights. We believed there had to be a better way.
+                </p>
+                <p className="mt-4 text-lg text-gray-500 leading-relaxed">
+                  Our mission is to democratize financial literacy and empower everyone to take control of their money, regardless of their financial background or expertise. We've built an app that's powerful enough for financial enthusiasts yet simple enough for anyone to use.
+                </p>
+                
+                {/* Key principles */}
+                <div className="mt-10">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-6">What drives us</h3>
+                  <div className="space-y-6">
+                    <div className="flex items-start space-x-4">
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                          <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-medium text-gray-900">Simplicity First</h4>
+                        <p className="text-gray-600">Financial management shouldn't require a finance degree. We make complex data digestible through beautiful, intuitive design.</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-4">
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-medium text-gray-900">Privacy & Security</h4>
+                        <p className="text-gray-600">Your financial data is yours. We use bank-level encryption and never sell your information to third parties.</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-4">
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                          <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-medium text-gray-900">Actionable Insights</h4>
+                        <p className="text-gray-600">We don't just show you data—we help you understand what it means and what actions you can take to improve your financial health.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right side - Stats and highlights */}
+            <div className="mt-12 lg:mt-0 lg:col-span-5">
+              <div className="bg-gray-50 rounded-2xl p-8">
+                <h3 className="text-2xl font-bold text-gray-900 mb-8 text-center">Impact by Numbers</h3>
+                
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-green-600">50K+</div>
+                    <div className="text-sm text-gray-600 mt-1">Active Users</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-blue-600">$2M+</div>
+                    <div className="text-sm text-gray-600 mt-1">Money Tracked</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-purple-600">25+</div>
+                    <div className="text-sm text-gray-600 mt-1">Countries</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-yellow-600">4.8★</div>
+                    <div className="text-sm text-gray-600 mt-1">User Rating</div>
+                  </div>
+                </div>
+
+                <div className="mt-8 p-6 bg-white rounded-xl border border-gray-200">
+                  <blockquote className="text-gray-700 italic text-center">
+                    "We built MoneyManager because we believe everyone deserves financial peace of mind."
+                  </blockquote>
+                  <div className="mt-4 text-center">
+                    <div className="font-semibold text-gray-900">Development Team</div>
+                    <div className="text-sm text-gray-600">MoneyManager Founders</div>
+                  </div>
+                </div>
+
+                {/* Vision statement */}
+                <div className="mt-6 p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl">
+                  <h4 className="font-semibold text-gray-900 mb-3">Our Vision</h4>
+                  <p className="text-sm text-gray-700">
+                    To create a world where financial literacy and smart money management are accessible to everyone, empowering individuals to build wealth and achieve their dreams.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Enhanced Features Section */}
-      <section className="py-20 bg-white">
+      <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
