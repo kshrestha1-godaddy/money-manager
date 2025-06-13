@@ -68,7 +68,10 @@ export default function NetWorthPage() {
         queryKey: QUERY_KEYS.debts,
         queryFn: async () => {
             const result = await getUserDebts();
-            return ('error' in result) ? result.data || [] : [];
+            if ('error' in result) {
+                return [];
+            }
+            return Array.isArray(result) ? result : (result.data || []);
         },
         staleTime: 5 * 60 * 1000, // 5 minutes
         gcTime: 15 * 60 * 1000, // 15 minutes
@@ -78,7 +81,10 @@ export default function NetWorthPage() {
         queryKey: QUERY_KEYS.investments,
         queryFn: async () => {
             const result = await getUserInvestments();
-            return ('error' in result) ? result.data || [] : [];
+            if ('error' in result) {
+                return [];
+            }
+            return Array.isArray(result) ? result : (result.data || []);
         },
         staleTime: 5 * 60 * 1000, // 5 minutes
         gcTime: 15 * 60 * 1000, // 15 minutes
@@ -106,8 +112,8 @@ export default function NetWorthPage() {
         );
         
         // 3. Total money lent from debts tab (outstanding amounts owed to you)
-        const totalMoneyLent = debts.reduce((sum, debt) => {
-            const totalRepayments = debt.repayments?.reduce((repSum, rep) => repSum + rep.amount, 0) || 0;
+        const totalMoneyLent = debts.reduce((sum: number, debt: DebtInterface) => {
+            const totalRepayments = debt.repayments?.reduce((repSum: number, rep: any) => repSum + rep.amount, 0) || 0;
             const remainingAmount = debt.amount - totalRepayments;
             return sum + Math.max(0, remainingAmount); // Only count positive remaining amounts
         }, 0);
@@ -121,7 +127,7 @@ export default function NetWorthPage() {
         const netWorth = totalAssets - totalLiabilities;
 
         // Calculate investment gains/losses
-        const totalInvested = investments.reduce((sum, investment) => 
+        const totalInvested = investments.reduce((sum: number, investment: InvestmentInterface) => 
             sum + (investment.quantity * investment.purchasePrice), 0
         );
         const totalInvestmentGain = totalInvestmentValue - totalInvested;
@@ -206,7 +212,7 @@ export default function NetWorthPage() {
     // Memoized filtered debts for money lent section
     const outstandingDebts = useMemo(() => {
         return debts.filter(debt => {
-            const totalRepayments = debt.repayments?.reduce((sum, rep) => sum + rep.amount, 0) || 0;
+            const totalRepayments = debt.repayments?.reduce((sum: number, rep: any) => sum + rep.amount, 0) || 0;
             return debt.amount - totalRepayments > 0;
         });
     }, [debts]);
@@ -597,7 +603,7 @@ export default function NetWorthPage() {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                    {investment.type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                                                    {investment.type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
@@ -704,7 +710,7 @@ export default function NetWorthPage() {
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {outstandingDebts.map((debt) => {
-                                    const totalRepayments = debt.repayments?.reduce((sum, rep) => sum + rep.amount, 0) || 0;
+                                    const totalRepayments = debt.repayments?.reduce((sum: number, rep: any) => sum + rep.amount, 0) || 0;
                                     const remainingAmount = debt.amount - totalRepayments;
                                     const isOverdue = debt.dueDate && new Date(debt.dueDate) < new Date();
                                     
@@ -745,7 +751,7 @@ export default function NetWorthPage() {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(debt.status)}`}>
-                                                    {debt.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                                                    {debt.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())}
                                                 </span>
                                             </td>
                                         </tr>
