@@ -9,7 +9,7 @@ import Footer from "./components/Footer";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Financial Tracker",
+  title: "My money manager",
   description: "Simple financial tracker - track your income and expenses",
 };
 

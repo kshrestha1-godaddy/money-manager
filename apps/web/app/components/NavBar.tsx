@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo, memo } from "react";
 import { CURRENCIES, getCurrencySymbol, formatCurrency } from "../utils/currency";
 import { useCurrency } from "../providers/CurrencyProvider";
 import { useTotalBalance } from "../hooks/useTotalBalance";
+import Link from "next/link";
 
 // Memoized balance display component
 const BalanceDisplay = memo(({ totalBalance, selectedCurrency }: { totalBalance: number; selectedCurrency: string }) => (
@@ -68,24 +69,30 @@ export default function NavBar() {
   if (status === "loading") {
     return null; // or a loading skeleton
   }
-  console.log(session)
-  
-  
   
   return (
-    <nav className="fixed top-0 left-0 right-0 w-full flex items-center justify-between px-6 py-4 bg-white shadow-md z-50">
-      {/* Left side: User image if authenticated */}
-    
-      <div className="w-32 flex items-center">
+    <nav className="fixed top-0 left-0 right-0 w-full flex items-center justify-between px-6 py-4 bg-white/95 backdrop-blur-sm shadow-sm border-b border-gray-100 z-50">
+      {/* Left side: Logo/Brand */}
+      <div className="flex items-center space-x-4">
+        <Link href={status === "authenticated" ? "/dashboard" : "/"} className="flex items-center space-x-2">
+          <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+            </svg>
+          </div>
+          <span className="text-xl font-bold text-gray-900">MoneyManager</span>
+        </Link>
+        
+        {/* User image if authenticated */}
         {status === "authenticated" && session?.user?.image && (
-          <a href="/dashboard">
+          <div className="ml-4">
             <img
               src={session.user.image}
               alt={session.user.name || "User"}
-              className="w-10 h-10 rounded-full object-cover border border-gray-300"
+              className="w-10 h-10 rounded-full object-cover border-2 border-gray-200 hover:border-blue-300 transition-colors"
               referrerPolicy="no-referrer"
             />
-          </a>
+          </div>
         )}
       </div>
 
@@ -96,13 +103,29 @@ export default function NavBar() {
         </div>
       </div>
 
-      {/* Currency Selector and Logout button */}
+      {/* Right side: Navigation items */}
       <div className="flex items-center space-x-4">
+        {/* Navigation links for unauthenticated users */}
+        {status === "unauthenticated" && (
+          <div className="hidden md:flex items-center space-x-6 mr-6">
+            <Link href="/" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+              Home
+            </Link>
+            <Link href="#features" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+              Features
+            </Link>
+            <Link href="#about" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+              About
+            </Link>
+          </div>
+        )}
+
+        {/* Currency Selector */}
         {status === "authenticated" && (
           <div className="relative currency-dropdown">
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center space-x-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium text-gray-700 transition-colors h-10"
+              className="flex items-center space-x-2 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-lg text-sm font-medium text-gray-700 transition-colors h-10 border border-gray-200"
             >
               <span>{getCurrencySymbol(selectedCurrency)}</span>
               <span>{selectedCurrency}</span>
@@ -112,13 +135,13 @@ export default function NavBar() {
             </button>
 
             {isDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg border border-gray-200 z-50 max-h-60 overflow-y-auto">
+              <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-60 overflow-y-auto">
                 <div className="py-1">
                   {CURRENCIES.map((currency) => (
                     <button
                       key={currency.code}
                       onClick={() => handleCurrencyChange(currency.code)}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center justify-between ${
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between transition-colors ${
                         selectedCurrency === currency.code ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
                       }`}
                     >
@@ -135,16 +158,17 @@ export default function NavBar() {
           </div>
         )}
 
+        {/* Auth buttons */}
         {status === "authenticated" ? (
           <button
             onClick={() => signOut({ callbackUrl: "/api/auth/signin" })}
-            className="px-4 py-2.5 bg-gray-800 text-white hover:bg-gray-900 rounded-md text-sm font-medium h-10 flex items-center transition-colors"
+            className="px-4 py-2.5 bg-gray-800 text-white hover:bg-gray-900 rounded-lg text-sm font-medium h-10 flex items-center transition-colors"
           >
             Logout
           </button>
         ) : status === "unauthenticated" ? (
           <button
-            className="px-4 py-2.5 bg-blue-600 text-white rounded hover:bg-blue-700 h-10 flex items-center"
+            className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 h-10 flex items-center font-medium transition-colors shadow-sm"
             onClick={() => signIn()}
           >
             Sign In
