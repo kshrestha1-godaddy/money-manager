@@ -1,55 +1,67 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { Suspense, useEffect } from "react";
 import { Income, Expense } from "../../types/financial";
-import { getIncomes } from "../../actions/incomes";
-import { getExpenses } from "../../actions/expenses";
+import { getIncomes, createIncome, updateIncome, deleteIncome } from "../../actions/incomes";
+import { getExpenses, createExpense, updateExpense, deleteExpense } from "../../actions/expenses";
 import { useCurrency } from "../../providers/CurrencyProvider";
-import { DateFilterButtons } from "../../components/DateFilterButtons";
 import { WaterfallChart } from "../../components/WaterfallChart";
 import { CategoryPieChart } from "../../components/CategoryPieChart";
 import { MonthlyTrendChart } from "../../components/MonthlyTrendChart";
 import { CategoryTrendChart } from "../../components/CategoryTrendChart";
 import { RecentTransactions } from "../../components/RecentTransactions";
 import { SimplePDFReportGenerator } from "../../components/SimplePDFReportGenerator";
+import { FinancialSummary } from "../../components/shared/FinancialSummary";
+import { FinancialFilters } from "../../components/shared/FinancialFilters";
+import { useOptimizedFinancialData } from "../../hooks/useOptimizedFinancialData";
+import { DateFilterButtons } from "../../components/DateFilterButtons";
+import { useState } from "react";
 
-export default function Dashboard() {
-    const session = useSession();
+function DashboardContent() {
     const { currency } = useCurrency();
-    const [loading, setLoading] = useState(true);
-    const [incomes, setIncomes] = useState<Income[]>([]);
-    const [expenses, setExpenses] = useState<Expense[]>([]);
+
+    // Use the optimized financial data hook for incomes
+    const incomesData = useOptimizedFinancialData<Income>("INCOME", {
+        getItems: getIncomes,
+        createItem: createIncome,
+        updateItem: updateIncome,
+        deleteItem: deleteIncome,
+        exportToCSV: () => {}, // Not used here
+    });
+
+    // Use the optimized financial data hook for expenses
+    const expensesData = useOptimizedFinancialData<Expense>("EXPENSE", {
+        getItems: getExpenses,
+        createItem: createExpense,
+        updateItem: updateExpense,
+        deleteItem: deleteExpense,
+        exportToCSV: () => {}, // Not used here
+    });
+
+    // Local date filter state (dashboard only)
     const [startDate, setStartDate] = useState<string>("");
     const [endDate, setEndDate] = useState<string>("");
 
-    useEffect(() => {
-        const loadData = async () => {
-            try {
-                setLoading(true);
-                const [incomesData, expensesData] = await Promise.all([
-                    getIncomes(),
-                    getExpenses()
-                ]);
-                setIncomes(incomesData);
-                setExpenses(expensesData);
-            } catch (error) {
-                console.error("Error loading dashboard data:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        loadData();
-    }, []);
+    // Loading state
+    if (incomesData.loading || expensesData.loading) {
+        return (
+            <div className="space-y-6">
+                <div className="flex flex-start items-center">
+                    <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+                </div>
+                <div className="flex items-center justify-center h-64">
+                    <div className="text-gray-500">Loading dashboard data...</div>
+                </div>
+            </div>
+        );
+    }
 
-    // Filter data based on date range
+    // Date filter logic (as in the original dashboard)
     const getFilteredData = (data: (Income | Expense)[]) => {
         if (!startDate && !endDate) return data;
-        
         return data.filter(item => {
             const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
             let matchesDateRange = true;
-            
             if (startDate && endDate) {
                 const start = new Date(startDate);
                 const end = new Date(endDate);
@@ -63,44 +75,33 @@ export default function Dashboard() {
                 end.setHours(23, 59, 59, 999);
                 matchesDateRange = itemDate <= end;
             }
-            
             return matchesDateRange;
         });
     };
 
-    const filteredIncomes = getFilteredData(incomes) as Income[];
-    const filteredExpenses = getFilteredData(expenses) as Expense[];
+    const filteredIncomes = getFilteredData(incomesData.items) as Income[];
+    const filteredExpenses = getFilteredData(expensesData.items) as Expense[];
+    const totalIncome = filteredIncomes.reduce((sum: number, income: Income) => sum + income.amount, 0);
+    const totalExpenses = filteredExpenses.reduce((sum: number, expense: Expense) => sum + expense.amount, 0);
 
-    const totalIncome = filteredIncomes.reduce((sum, income) => sum + income.amount, 0);
-    const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-
+    // Date filter handlers
     const handleDateChange = (start: string, end: string) => {
         setStartDate(start);
         setEndDate(end);
     };
-
     const clearFilters = () => {
         setStartDate("");
         setEndDate("");
     };
 
-    if (loading) {
-        return (
-            <div className="space-y-6">
-                <div className="flex flex-start items-center">
-                    <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-                </div>
-                <div className="flex items-center justify-center h-64">
-                    <div className="text-gray-500">Loading dashboard data...</div>
-                </div>
-            </div>
-        );
-    }
-    
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+                    <p className="text-gray-600 mt-1">Overview of your financial health</p>
+                </div>
                 <div className="flex items-center gap-4">
                     <SimplePDFReportGenerator 
                         incomes={filteredIncomes}
@@ -119,10 +120,26 @@ export default function Dashboard() {
                 onClearFilters={clearFilters}
             />
 
+            {/* Summary Cards */}
+            {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FinancialSummary
+                    totalAmount={totalIncome}
+                    currency={currency}
+                    items={filteredIncomes}
+                    itemType="income"
+                />
+                <FinancialSummary
+                    totalAmount={totalExpenses}
+                    currency={currency}
+                    items={filteredExpenses}
+                    itemType="expense"
+                />
+            </div> */}
+
             {/* Divider */}
-            <div className="flex justify-center">
+            {/* <div className="flex justify-center">
                 <div className="w-1/2 border-t border-gray-200"></div>
-            </div>
+            </div> */}
 
             {/* Financial Overview - Waterfall Chart */}
             <WaterfallChart 
@@ -191,5 +208,13 @@ export default function Dashboard() {
             {/* Recent Transactions */}
             <RecentTransactions />
         </div>
+    );
+}
+
+export default function Dashboard() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <DashboardContent />
+        </Suspense>
     );
 }
