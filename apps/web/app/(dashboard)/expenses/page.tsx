@@ -110,7 +110,7 @@ function ExpensesContent() {
                     onSelectAll={financialData.handleSelectAll}
                     showBulkActions={true}
                     onBulkDelete={financialData.handleBulkDelete}
-                    onClearSelection={() => financialData.selectedItems.clear()}
+                    onClearSelection={() => financialData.handleSelectAll(false)}
                 />
             )}
 

@@ -423,7 +423,7 @@ export async function bulkImportIncomes(file: File, defaultAccountId: string, tr
 
         // Get all categories and accounts for validation
         const [categories, accounts] = await Promise.all([
-            prisma.category.findMany({ where: { type: "INCOME" } }),
+            prisma.category.findMany({ where: { type: "INCOME", userId: userId } }),
             prisma.account.findMany({ where: { userId } })
         ]);
 
@@ -504,7 +504,7 @@ export async function importCorrectedRow(rowData: string[], headers: string[], t
 
         // Get all categories and accounts for validation
         const [categories, accounts] = await Promise.all([
-            prisma.category.findMany({ where: { type: "INCOME" } }),
+            prisma.category.findMany({ where: { type: "INCOME", userId: userId } }),
             prisma.account.findMany({ where: { userId } })
         ]);
 
@@ -517,6 +517,76 @@ export async function importCorrectedRow(rowData: string[], headers: string[], t
     } catch (error) {
         console.error("Error importing corrected row:", error);
         throw new Error("Failed to import corrected row");
+    }
+}
+
+export async function bulkDeleteIncomes(incomeIds: number[]) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Verify all incomes belong to the user and get income details for account balance updates
+        const existingIncomes = await prisma.income.findMany({
+            where: {
+                id: { in: incomeIds },
+                userId: userId,
+            },
+            include: {
+                account: true
+            }
+        });
+
+        if (existingIncomes.length !== incomeIds.length) {
+            throw new Error("Some incomes not found or unauthorized");
+        }
+
+        // Use a transaction to ensure both income deletion and account balance updates
+        await prisma.$transaction(async (tx) => {
+            // Delete the incomes
+            await tx.income.deleteMany({
+                where: { 
+                    id: { in: incomeIds },
+                    userId: userId
+                }
+            });
+
+            // Update account balances (decrease by income amounts since incomes are removed)
+            const accountUpdates = new Map<number, number>();
+            
+            existingIncomes.forEach(income => {
+                if (income.accountId) {
+                    const currentTotal = accountUpdates.get(income.accountId) || 0;
+                    accountUpdates.set(income.accountId, currentTotal + parseFloat(income.amount.toString()));
+                }
+            });
+
+            // Apply account balance updates
+            for (const [accountId, totalAmount] of accountUpdates) {
+                await tx.account.update({
+                    where: { id: accountId },
+                    data: {
+                        balance: {
+                            decrement: totalAmount
+                        }
+                    }
+                });
+            }
+        });
+
+        revalidatePath("/(dashboard)/incomes");
+        revalidatePath("/(dashboard)/accounts");
+        
+        return { 
+            success: true, 
+            deletedCount: existingIncomes.length 
+        };
+    } catch (error) {
+        console.error("Error bulk deleting incomes:", error);
+        throw new Error("Failed to delete incomes");
     }
 }
 

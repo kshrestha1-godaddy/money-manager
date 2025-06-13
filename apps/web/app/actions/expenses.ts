@@ -519,7 +519,8 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
         const [categories, accounts] = await Promise.all([
             prisma.category.findMany({
                 where: { 
-                    type: 'EXPENSE'
+                    type: 'EXPENSE',
+                    userId: userId
                 }
             }),
             prisma.account.findMany({
@@ -747,7 +748,8 @@ export async function importCorrectedRow(
         const [categories, accounts] = await Promise.all([
             prisma.category.findMany({
                 where: { 
-                    type: 'EXPENSE'
+                    type: 'EXPENSE',
+                    userId: userId
                 }
             }),
             prisma.account.findMany({

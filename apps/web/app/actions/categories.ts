@@ -2,11 +2,29 @@
 
 import { revalidatePath } from "next/cache";
 import prisma from "@repo/db/client";
+import { getServerSession } from "next-auth";
+import { authOptions } from "../lib/auth";
 import { Category } from "../types/financial";
+
+// Helper function to get user ID from session
+function getUserIdFromSession(sessionUserId: string): number {
+    // If it's a very large number (OAuth provider), take last 5 digits
+    if (sessionUserId.length > 5) {
+        return parseInt(sessionUserId.slice(-5));
+    }
+    // Otherwise parse normally
+    return parseInt(sessionUserId);
+}
 
 export async function getCategories(type?: "EXPENSE" | "INCOME") {
     try {
-        const where = type ? { type } : {};
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+        const where = type ? { type, userId } : { userId };
         
         const categories = await prisma.category.findMany({
             where,
@@ -34,12 +52,20 @@ export async function createCategory(data: {
     icon?: string;
 }) {
     try {
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+
         const category = await prisma.category.create({
             data: {
                 name: data.name,
                 type: data.type,
                 color: data.color,
-                icon: data.icon
+                icon: data.icon,
+                userId: userId
             }
         });
 
@@ -63,6 +89,25 @@ export async function updateCategory(id: number, data: {
     icon?: string;
 }) {
     try {
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Verify the category belongs to the user
+        const existingCategory = await prisma.category.findFirst({
+            where: {
+                id,
+                userId: userId,
+            },
+        });
+
+        if (!existingCategory) {
+            throw new Error("Category not found or unauthorized");
+        }
+
         const category = await prisma.category.update({
             where: { id },
             data: data
@@ -84,6 +129,25 @@ export async function updateCategory(id: number, data: {
 
 export async function deleteCategory(id: number) {
     try {
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Verify the category belongs to the user
+        const existingCategory = await prisma.category.findFirst({
+            where: {
+                id,
+                userId: userId,
+            },
+        });
+
+        if (!existingCategory) {
+            throw new Error("Category not found or unauthorized");
+        }
+
         await prisma.category.delete({
             where: { id }
         });

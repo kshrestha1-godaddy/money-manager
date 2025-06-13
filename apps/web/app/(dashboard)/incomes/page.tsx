@@ -14,7 +14,7 @@ import { FinancialHeader } from "../../components/shared/FinancialHeader";
 import { FinancialSummary } from "../../components/shared/FinancialSummary";
 import { FinancialFilters } from "../../components/shared/FinancialFilters";
 import { useSearchParams } from "next/navigation";
-import { getIncomes, createIncome, updateIncome, deleteIncome } from "../../actions/incomes";
+import { getIncomes, createIncome, updateIncome, deleteIncome, bulkDeleteIncomes } from "../../actions/incomes";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { exportIncomesToCSV } from "../../utils/csvExportIncomes";
 import { useOptimizedFinancialData } from "../../hooks/useOptimizedFinancialData";
@@ -29,6 +29,7 @@ function IncomesContent() {
         createItem: createIncome,
         updateItem: updateIncome,
         deleteItem: deleteIncome,
+        bulkDeleteItems: bulkDeleteIncomes,
         exportToCSV: exportIncomesToCSV,
     });
 
@@ -109,7 +110,7 @@ function IncomesContent() {
                     onSelectAll={financialData.handleSelectAll}
                     showBulkActions={true}
                     onBulkDelete={financialData.handleBulkDelete}
-                    onClearSelection={() => financialData.selectedItems.clear()}
+                    onClearSelection={() => financialData.handleSelectAll(false)}
                 />
             )}
 

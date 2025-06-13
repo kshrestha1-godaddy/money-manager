@@ -6,6 +6,7 @@ export interface Category {
   type: 'EXPENSE' | 'INCOME';
   color: string;
   icon?: string;
+  userId: number;
   createdAt: Date;
   updatedAt: Date;
 }
