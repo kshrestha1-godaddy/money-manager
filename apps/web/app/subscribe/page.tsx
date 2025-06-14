@@ -1,9 +1,9 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 
-export default function Subscribe() {
+function SubscribeContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const reason = searchParams.get("reason");
@@ -172,5 +172,17 @@ export default function Subscribe() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function Subscribe() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    }>
+      <SubscribeContent />
+    </Suspense>
   );
 } 
