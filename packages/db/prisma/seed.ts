@@ -1,8 +1,34 @@
-import prisma from "../src/index";
+import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
 
+const prisma = new PrismaClient();
+
 async function main() {
-    console.log('Seeding database...');
+    console.log('🌱 Starting database seeding...');
+
+    // Add initial whitelisted emails
+    const whitelistedEmails = [
+        {
+            email: "kamalandshrestha@gmail.com",
+            addedBy: "system",
+            reason: "Admin user",
+        },
+        {
+            email: "admin@example.com",
+            addedBy: "system",
+            reason: "Default admin",
+        },
+    ];
+
+    console.log("📧 Creating whitelisted emails...");
+    for (const emailData of whitelistedEmails) {
+        await prisma.whitelistedEmail.upsert({
+            where: { email: emailData.email },
+            update: {},
+            create: emailData,
+        });
+        console.log(`✅ Whitelisted email: ${emailData.email}`);
+    }
 
     // Create 5 test users with different numbers
     const users = [
@@ -574,7 +600,7 @@ async function main() {
         console.log(`Created ${numIncomes} incomes for ${user.name}`);
     }
 
-    console.log('Seeding completed!');
+    console.log('✅ Database seeding completed!');
     console.log(`Created ${createdUsers.length} users`);
     console.log(`Created ${createdAccounts.length} accounts`);
     console.log('Created sample expenses and incomes for all users');
@@ -582,7 +608,7 @@ async function main() {
 
 main()
     .catch((e) => {
-        console.error(e);
+        console.error("❌ Error during seeding:", e);
         process.exit(1);
     })
     .finally(async () => {

@@ -152,4 +152,95 @@ export async function sendWelcomeEmail(email: string, name?: string) {
     text,
     html
   });
+}
+
+export async function sendAccessRequestConfirmation(email: string, message?: string) {
+  const subject = "Access Request Received - MoneyManager";
+  
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9fafb; padding: 20px;">
+      <div style="background-color: white; border-radius: 16px; padding: 40px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+        <!-- Header -->
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #1f2937; margin: 0; font-size: 28px; font-weight: bold;">
+            Access Request Received ✅
+          </h1>
+          <p style="color: #6b7280; margin: 10px 0 0 0; font-size: 16px;">
+            Thank you for your interest in MoneyManager
+          </p>
+        </div>
+
+        <!-- Main Content -->
+        <div style="margin-bottom: 30px;">
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+            Hi there! 👋
+          </p>
+          
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+            We've received your access request for <strong>${email}</strong> and will review it shortly.
+          </p>
+
+          ${message ? `
+          <div style="background-color: #f3f4f6; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+            <h3 style="color: #1f2937; margin: 0 0 8px 0; font-size: 16px;">Your Message:</h3>
+            <p style="color: #4b5563; margin: 0; font-style: italic;">"${message}"</p>
+          </div>
+          ` : ''}
+
+          <!-- What happens next -->
+          <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; margin-bottom: 25px;">
+            <h3 style="color: #1e40af; margin: 0 0 12px 0; font-size: 18px;">
+              What happens next?
+            </h3>
+            <ul style="color: #1e40af; margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.6;">
+              <li style="margin-bottom: 8px;">Our team will review your request</li>
+              <li style="margin-bottom: 8px;">If approved, you'll receive access within 24-48 hours</li>
+              <li>You'll get an email notification once access is granted</li>
+            </ul>
+          </div>
+
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+            Thank you for your patience! We're excited to help you take control of your finances.
+          </p>
+        </div>
+
+        <!-- Footer -->
+        <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; text-align: center;">
+          <p style="color: #9ca3af; font-size: 14px; margin-bottom: 10px;">
+            This email was sent to ${email} regarding your MoneyManager access request.
+          </p>
+          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+            If you didn't request access, please ignore this email.
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const text = `
+    Access Request Received
+
+    Hi there!
+
+    We've received your access request for ${email} and will review it shortly.
+
+    ${message ? `Your Message: "${message}"` : ''}
+
+    What happens next?
+    • Our team will review your request
+    • If approved, you'll receive access within 24-48 hours  
+    • You'll get an email notification once access is granted
+
+    Thank you for your patience! We're excited to help you take control of your finances.
+
+    This email was sent to ${email} regarding your MoneyManager access request.
+    If you didn't request access, please ignore this email.
+  `;
+
+  return await sendEmail({
+    to: email,
+    subject,
+    text,
+    html
+  });
 } 

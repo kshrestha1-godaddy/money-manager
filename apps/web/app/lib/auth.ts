@@ -3,6 +3,7 @@ import GoogleProvider from "next-auth/providers/google";
 
 import prisma from "@repo/db/client";
 import bcrypt from "bcrypt";
+import { isEmailWhitelisted } from "./whitelist";
 
 export const authOptions = {
   providers: [
@@ -28,6 +29,11 @@ export const authOptions = {
         });
 
         if (existingUser) {
+          // Check if user's email is whitelisted (if they have an email)
+          if (existingUser.email && !(await isEmailWhitelisted(existingUser.email))) {
+            return null; // Return null instead of throwing error
+          }
+
           const passwordValidation = await bcrypt.compare(
             credentials.password,
             existingUser.password,
@@ -40,6 +46,7 @@ export const authOptions = {
             number: credentials.number,
             password: credentials.password,
             name: existingUser.name,
+            email: existingUser.email,
             image: existingUser.profilePictureUrl || credentials.image, 
           };
         } else {
@@ -58,6 +65,7 @@ export const authOptions = {
   
   pages: {
     signIn: "/signin",
+    error: "/auth/error", // Custom error page
     // signUp: "/signup",
   },
 
@@ -69,7 +77,47 @@ export const authOptions = {
       return session;
     },
 
+    async signIn({ user, account, profile }: any) {
+      // Check for Google OAuth
+      if (account?.provider === "google") {
+        if (!user.email || !(await isEmailWhitelisted(user.email))) {
+          console.log("Unauthorized email attempted to sign in:", user.email);
+          return "/subscribe?reason=unauthorized"; // Redirect to subscribe page
+        }
+      }
+      
+      // Check for credentials provider (if user has email)
+      if (account?.provider === "credentials" && user.email) {
+        if (!(await isEmailWhitelisted(user.email))) {
+          console.log("Unauthorized email attempted to sign in:", user.email);
+          return "/subscribe?reason=unauthorized"; // Redirect to subscribe page
+        }
+      }
+      
+      return true;
+    },
+
     async redirect({ url, baseUrl }: { url: string; baseUrl: string }) {
+      // If redirecting to subscribe page, allow it
+      if (url.startsWith("/subscribe")) {
+        return `${baseUrl}${url}`;
+      }
+      
+      // Check if there's an error parameter indicating unauthorized access
+      if (url.includes("error=AccessDenied") || url.includes("error=OAuthAccountNotLinked")) {
+        return `${baseUrl}/subscribe?reason=unauthorized`;
+      }
+      
+      // If the url is the error page, redirect to subscribe
+      if (url.includes("/auth/error")) {
+        return `${baseUrl}/subscribe?reason=unauthorized`;
+      }
+      
+      // Default redirect after successful sign in
+      if (url === baseUrl || url === `${baseUrl}/`) {
+        return `${baseUrl}/dashboard`;
+      }
+      
       return baseUrl;
     },
   },

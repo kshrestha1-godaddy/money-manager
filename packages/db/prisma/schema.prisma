@@ -213,6 +213,16 @@ model Subscriber {
   updatedAt DateTime @updatedAt
 }
 
+model WhitelistedEmail {
+  id Int @id @default(autoincrement())
+  email String @unique
+  addedBy String? // Who added this email (admin email or system)
+  reason String? // Reason for whitelisting
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 enum CategoryType {
   EXPENSE
   INCOME
