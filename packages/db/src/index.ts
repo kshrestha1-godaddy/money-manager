@@ -2,13 +2,12 @@ import { PrismaClient } from "@prisma/client";
 
 // Get database URL based on environment
 const getDatabaseUrl = () => {
-    if (process.env.NODE_ENV === 'development') {
-        return process.env.DATABASE_URL_DEV || process.env.DATABASE_URL;
+    // If DATABASE_URL is explicitly set, use it regardless of environment
+    if (process.env.DATABASE_URL) {
+        return process.env.DATABASE_URL;
     }
-    if (process.env.NODE_ENV === 'test') {
-        return process.env.DATABASE_URL_TEST || process.env.DATABASE_URL;
-    }
-    return process.env.DATABASE_URL; // production
+    return process.env.DATABASE_URL_DEV;
+
 };
 
 const prismaClientSingleton = () => {

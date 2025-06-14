@@ -45,6 +45,8 @@ export async function addSubscriber(data: {
             where: { email: data.email }
         });
 
+        console.log("Existing subscriber:", existingSubscriber);
+
         if (existingSubscriber) {
             // If they exist but are unsubscribed, reactivate them
             if (existingSubscriber.status === 'UNSUBSCRIBED' || existingSubscriber.status === 'INACTIVE') {
