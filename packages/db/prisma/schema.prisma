@@ -11,7 +11,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = env("DATABASE_URL_DEV")
 }
 
 model User {
@@ -192,6 +192,27 @@ model DebtRepayment {
   updatedAt DateTime @updatedAt
 }
 
+model Subscriber {
+  id Int @id @default(autoincrement())
+  email String @unique
+  name String?
+  phone String?
+  status SubscriptionStatus @default(ACTIVE)
+  subscribedAt DateTime @default(now())
+  unsubscribedAt DateTime?
+  // Subscription preferences
+  newsletterEnabled Boolean @default(true)
+  marketingEnabled Boolean @default(false)
+  productUpdatesEnabled Boolean @default(true)
+  weeklyDigestEnabled Boolean @default(true)
+  // Additional fields
+  source String? // How they subscribed (website, app, referral, etc.)
+  tags String[] // Custom tags for segmentation
+  lastEngagementAt DateTime? // Last time they opened an email or engaged
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 enum CategoryType {
   EXPENSE
   INCOME
@@ -228,4 +249,11 @@ enum DebtStatus {
   FULLY_PAID
   OVERDUE
   DEFAULTED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  UNSUBSCRIBED
+  BOUNCED
 }

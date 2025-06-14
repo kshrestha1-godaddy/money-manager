@@ -1,4 +1,5 @@
 import Link from "next/link";
+import NewsletterForm from "./components/NewsletterForm";
 
 export default function Landing() {
   return (
@@ -434,21 +435,7 @@ export default function Landing() {
             stay on top of your finance
           </h3>
           
-          <div className="max-w-md mx-auto">
-            <div className="flex gap-4">
-              <input
-                type="email"
-                placeholder="Your email"
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
-              <button className="px-8 py-3 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition-colors">
-                Subscribe
-              </button>
-            </div>
-            <p className="mt-4 text-sm text-gray-500">
-              I have read and agree with the <a href="#" className="text-green-600 hover:underline">Terms & Conditions</a>
-            </p>
-          </div>
+          <NewsletterForm />
         </div>
       </section>
 

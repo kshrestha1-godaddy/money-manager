@@ -80,6 +80,25 @@ export interface BudgetTarget {
   updatedAt: Date;
 }
 
+export interface Subscriber {
+  id: number;
+  email: string;
+  name?: string;
+  phone?: string;
+  status: 'ACTIVE' | 'INACTIVE' | 'UNSUBSCRIBED' | 'BOUNCED';
+  subscribedAt: Date;
+  unsubscribedAt?: Date;
+  newsletterEnabled: boolean;
+  marketingEnabled: boolean;
+  productUpdatesEnabled: boolean;
+  weeklyDigestEnabled: boolean;
+  source?: string;
+  tags: string[];
+  lastEngagementAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Transaction {
   id: string | number;
   type: 'EXPENSE' | 'INCOME';
