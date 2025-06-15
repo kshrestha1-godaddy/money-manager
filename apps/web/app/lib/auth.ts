@@ -3,7 +3,7 @@ import GoogleProvider from "next-auth/providers/google";
 
 import prisma from "@repo/db/client";
 import bcrypt from "bcrypt";
-import { isEmailWhitelisted } from "./whitelist";
+import { isEmailWhitelisted } from "../actions/whitelist";
 
 export const authOptions = {
   providers: [
@@ -65,7 +65,6 @@ export const authOptions = {
   
   pages: {
     signIn: "/signin",
-    error: "/auth/error", // Custom error page
     // signUp: "/signup",
   },
 
@@ -81,19 +80,12 @@ export const authOptions = {
       // Check for Google OAuth
       if (account?.provider === "google") {
         if (!user.email || !(await isEmailWhitelisted(user.email))) {
-          console.log("Unauthorized email attempted to sign in:", user.email);
-          return "/subscribe?reason=unauthorized"; // Redirect to subscribe page
+          // console.log("Unauthorized email attempted to sign in:", user.email);
+          // Pass the email in the redirect URL so it can be pre-populated in the form
+          const encodedEmail = encodeURIComponent(user.email || "");
+          return `/subscribe?reason=unauthorized&email=${encodedEmail}`;
         }
       }
-      
-      // Check for credentials provider (if user has email)
-      if (account?.provider === "credentials" && user.email) {
-        if (!(await isEmailWhitelisted(user.email))) {
-          console.log("Unauthorized email attempted to sign in:", user.email);
-          return "/subscribe?reason=unauthorized"; // Redirect to subscribe page
-        }
-      }
-      
       return true;
     },
 
@@ -101,16 +93,6 @@ export const authOptions = {
       // If redirecting to subscribe page, allow it
       if (url.startsWith("/subscribe")) {
         return `${baseUrl}${url}`;
-      }
-      
-      // Check if there's an error parameter indicating unauthorized access
-      if (url.includes("error=AccessDenied") || url.includes("error=OAuthAccountNotLinked")) {
-        return `${baseUrl}/subscribe?reason=unauthorized`;
-      }
-      
-      // If the url is the error page, redirect to subscribe
-      if (url.includes("/auth/error")) {
-        return `${baseUrl}/subscribe?reason=unauthorized`;
       }
       
       // Default redirect after successful sign in

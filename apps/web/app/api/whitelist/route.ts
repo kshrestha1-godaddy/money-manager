@@ -4,7 +4,7 @@ import {
   addEmailToWhitelist, 
   removeEmailFromWhitelist, 
   getAllWhitelistedEmails 
-} from "../../lib/whitelist";
+} from "../../actions/whitelist";
 
 // GET - Get all whitelisted emails
 export async function GET() {

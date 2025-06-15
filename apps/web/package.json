@@ -5,10 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --port 3000 --turbopack",
-    "build": "npm install && cd ../../packages/db && npx prisma generate && cd ../../apps/web && next build",
-    "start": "next start",
-    "lint": "next lint --max-warnings 0",
-    "check-types": "tsc --noEmit"
+    "build": "npm install && cd ../../packages/db && npx prisma generate && cd ../../apps/web && next build"
   },
   "dependencies": {
     "@repo/db": "*",
@@ -19,6 +16,7 @@
     "@types/nodemailer": "^6.4.17",
     "autoprefixer": "^10.4.20",
     "bcrypt": "^5.1.1",
+    "dotenv": "^16.5.0",
     "has-flag": "^4.0.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.2",

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import prisma from "@repo/db/client";
 import { Subscriber } from "../types/financial";
-import { sendWelcomeEmail } from "../lib/email";
+import { sendWelcomeEmail } from "../services/email";
 
 export async function getSubscribers() {
     try {
