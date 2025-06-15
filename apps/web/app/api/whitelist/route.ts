@@ -5,6 +5,7 @@ import {
   removeEmailFromWhitelist, 
   getAllWhitelistedEmails 
 } from "../../actions/whitelist";
+import { sendAccessApprovalEmail } from "../../services/email";
 
 // GET - Get all whitelisted emails
 export async function GET() {
@@ -47,6 +48,15 @@ export async function POST(req: NextRequest) {
     const success = await addEmailToWhitelist(email, addedBy, reason);
     
     if (success) {
+      // Send approval email to the newly whitelisted user
+      try {
+        await sendAccessApprovalEmail(email);
+        console.log(`Approval email sent to ${email}`);
+      } catch (emailError) {
+        console.error(`Failed to send approval email to ${email}:`, emailError);
+        // Don't fail the whole request if email fails - just log it
+      }
+
       return NextResponse.json({
         success: true,
         message: `Email ${email} has been added to whitelist`

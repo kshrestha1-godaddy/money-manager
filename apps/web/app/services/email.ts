@@ -243,4 +243,117 @@ export async function sendAccessRequestConfirmation(email: string, message?: str
     text,
     html
   });
+}
+
+export async function sendAccessApprovalEmail(email: string) {
+  const subject = "🎉 Access Approved - Welcome to MoneyManager!";
+  
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9fafb; padding: 20px;">
+      <div style="background-color: white; border-radius: 16px; padding: 40px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+        <!-- Header -->
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #10b981; margin: 0; font-size: 32px; font-weight: bold;">
+            🎉 Access Approved! 🎉
+          </h1>
+          <p style="color: #6b7280; margin: 10px 0 0 0; font-size: 18px;">
+            Welcome to MoneyManager
+          </p>
+        </div>
+
+        <!-- Main Content -->
+        <div style="margin-bottom: 30px;">
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+            Great news! 🎊
+          </p>
+          
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+            Your access request for <strong>${email}</strong> has been <span style="color: #10b981; font-weight: bold;">approved</span>! 
+            You can now sign in and start managing your finances with MoneyManager.
+          </p>
+
+          <!-- Success Banner -->
+          <div style="background-color: #ecfdf5; border: 2px solid #10b981; border-radius: 12px; padding: 20px; margin-bottom: 25px; text-align: center;">
+            <div style="color: #10b981; font-size: 48px; margin-bottom: 8px;">✅</div>
+            <h3 style="color: #059669; margin: 0 0 8px 0; font-size: 20px; font-weight: bold;">
+              You're All Set!
+            </h3>
+            <p style="color: #047857; margin: 0; font-size: 16px;">
+              Your MoneyManager account is ready to use
+            </p>
+          </div>
+
+          <!-- CTA Button -->
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="https://mymoneylog.vercel.app/signin" 
+               style="background-color: #10b981; color: white; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 18px; display: inline-block; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); transition: all 0.2s;">
+              🚀 Sign In Now
+            </a>
+          </div>
+
+          <!-- What you can do now -->
+          <div style="background-color: #f8fafc; border-radius: 12px; padding: 24px; margin-bottom: 25px;">
+            <h3 style="color: #1f2937; margin: 0 0 16px 0; font-size: 18px; font-weight: bold;">
+              What you can do now:
+            </h3>
+            <ul style="color: #4b5563; margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.8;">
+              <li style="margin-bottom: 8px;">📊 Track your income and expenses</li>
+              <li style="margin-bottom: 8px;">📈 View detailed financial analytics</li>
+              <li style="margin-bottom: 8px;">🎯 Set and monitor financial goals</li>
+              <li style="margin-bottom: 8px;">📱 Access from any device</li>
+              <li>💡 Get personalized financial insights</li>
+            </ul>
+          </div>
+
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+            We're excited to help you take control of your financial future. 
+            If you have any questions or need help getting started, don't hesitate to reach out!
+          </p>
+        </div>
+
+        <!-- Footer -->
+        <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; text-align: center;">
+          <p style="color: #9ca3af; font-size: 14px; margin-bottom: 10px;">
+            This email was sent to ${email} because your MoneyManager access has been approved.
+          </p>
+          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+            Start your financial journey today at <a href="https://mymoneylog.vercel.app" style="color: #10b981;">mymoneylog.vercel.app</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const text = `
+    🎉 Access Approved - Welcome to MoneyManager!
+
+    Great news!
+
+    Your access request for ${email} has been APPROVED! You can now sign in and start managing your finances with MoneyManager.
+
+    ✅ You're All Set!
+    Your MoneyManager account is ready to use.
+
+    Sign in now: https://mymoneylog.vercel.app/signin
+
+    What you can do now:
+    📊 Track your income and expenses
+    📈 View detailed financial analytics  
+    🎯 Set and monitor financial goals
+    📱 Access from any device
+    💡 Get personalized financial insights
+
+    We're excited to help you take control of your financial future. 
+    If you have any questions or need help getting started, don't hesitate to reach out!
+
+    This email was sent to ${email} because your MoneyManager access has been approved.
+    Start your financial journey today at mymoneylog.vercel.app
+  `;
+
+  return await sendEmail({
+    to: email,
+    subject,
+    text,
+    html
+  });
 } 
