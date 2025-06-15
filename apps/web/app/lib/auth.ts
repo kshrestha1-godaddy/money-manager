@@ -20,7 +20,7 @@ export const authOptions = {
           return null;
         }
 
-        const hashedPassword = await bcrypt.hash(credentials.password, 10);
+        // console.log("credentials", credentials);
 
         const existingUser = await prisma.user.findFirst({
           where: {
@@ -28,17 +28,16 @@ export const authOptions = {
           },
         });
 
+        // console.log("existingUser", existingUser);
+
         if (existingUser) {
           // Check if user's email is whitelisted (if they have an email)
           if (existingUser.email && !(await isEmailWhitelisted(existingUser.email))) {
             return null; // Return null instead of throwing error
           }
 
-          const passwordValidation = await bcrypt.compare(
-            credentials.password,
-            existingUser.password,
-          );
-          if (!passwordValidation) {
+          // Compare raw passwords since they're stored as plain text in the database
+          if (credentials.password !== existingUser.password) {
             return null;
           }
           return {
