@@ -73,20 +73,31 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
         // Use a transaction to ensure both income and account balance are updated atomically
         const result = await prisma.$transaction(async (tx) => {
             // Create the income
-            const income = await tx.income.create({
-                data: {
-                    title: data.title,
-                    description: data.description,
-                    amount: data.amount,
-                    date: data.date,
-                    categoryId: data.categoryId,
-                    accountId: data.accountId,
-                    userId: userId,
-                    tags: data.tags,
-                    notes: data.notes,
-                    isRecurring: data.isRecurring,
-                    recurringFrequency: data.recurringFrequency
+            const createData: any = {
+                title: data.title,
+                description: data.description,
+                amount: data.amount,
+                date: data.date,
+                category: {
+                    connect: { id: data.categoryId }
                 },
+                user: {
+                    connect: { id: userId }
+                },
+                tags: data.tags,
+                notes: data.notes,
+                isRecurring: data.isRecurring,
+                recurringFrequency: data.recurringFrequency
+            };
+
+            if (data.accountId) {
+                createData.account = {
+                    connect: { id: data.accountId }
+                };
+            }
+
+            const income = await tx.income.create({
+                data: createData,
                 include: {
                     category: true,
                     account: true,
@@ -161,8 +172,22 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
         if (data.description !== undefined) updateData.description = data.description;
         if (data.amount !== undefined) updateData.amount = data.amount;
         if (data.date !== undefined) updateData.date = data.date;
-        if (data.categoryId !== undefined) updateData.categoryId = data.categoryId;
-        if (data.accountId !== undefined) updateData.accountId = data.accountId;
+        if (data.categoryId !== undefined) {
+            updateData.category = {
+                connect: { id: data.categoryId }
+            };
+        }
+        if (data.accountId !== undefined) {
+            if (data.accountId === null) {
+                updateData.account = {
+                    disconnect: true
+                };
+            } else {
+                updateData.account = {
+                    connect: { id: data.accountId }
+                };
+            }
+        }
         if (data.tags !== undefined) updateData.tags = data.tags;
         if (data.notes !== undefined) updateData.notes = data.notes;
         if (data.isRecurring !== undefined) updateData.isRecurring = data.isRecurring;
@@ -427,6 +452,19 @@ export async function bulkImportIncomes(file: File, defaultAccountId: string, tr
             prisma.account.findMany({ where: { userId } })
         ]);
 
+        // Debug: Log what we found
+        console.log("BulkImportIncomes - User data loaded:", {
+            userId,
+            categoriesCount: categories.length,
+            accountsCount: accounts.length,
+            categories: categories.map(c => ({ id: c.id, name: c.name, userId: c.userId }))
+        });
+
+        // Check if we have categories
+        if (categories.length === 0) {
+            throw new Error("No income categories found for this user. Please create at least one income category before importing.");
+        }
+
         for (let i = 0; i < dataRows.length; i++) {
             const rowData = dataRows[i];
             if (!rowData) {
@@ -629,11 +667,21 @@ async function processIncomeRow(
     if (!categoryName) {
         throw new Error("Category is required");
     }
+    
+    // Debug: Log category matching attempt
+    console.log("ProcessIncomeRow - Category matching:", {
+        requestedCategory: categoryName,
+        availableCategories: categories.map(c => ({ id: c.id, name: c.name })),
+        exactMatch: categories.find(c => c.name === categoryName),
+        caseInsensitiveMatch: categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase())
+    });
+    
     const category = categories.find(c => 
         c.name.toLowerCase() === categoryName.toLowerCase()
     );
     if (!category) {
-        throw new Error(`Category "${categoryName}" not found`);
+        const availableCategoryNames = categories.map(c => c.name).join(', ');
+        throw new Error(`Category "${categoryName}" not found. Available categories: ${availableCategoryNames}`);
     }
 
     // Find account

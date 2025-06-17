@@ -85,21 +85,32 @@ export async function createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'up
         // Use a transaction to ensure both expense and account balance are updated atomically
         const result = await prisma.$transaction(async (tx) => {
             // Create the expense
-            const expense = await tx.expense.create({
-                data: {
-                    title: data.title,
-                    description: data.description,
-                    amount: data.amount,
-                    date: data.date,
-                    categoryId: data.categoryId,
-                    accountId: data.accountId,
-                    userId: userId,
-                    tags: data.tags,
-                    receipt: data.receipt,
-                    notes: data.notes,
-                    isRecurring: data.isRecurring,
-                    recurringFrequency: data.recurringFrequency
+            const createData: any = {
+                title: data.title,
+                description: data.description,
+                amount: data.amount,
+                date: data.date,
+                category: {
+                    connect: { id: data.categoryId }
                 },
+                user: {
+                    connect: { id: userId }
+                },
+                tags: data.tags,
+                receipt: data.receipt,
+                notes: data.notes,
+                isRecurring: data.isRecurring,
+                recurringFrequency: data.recurringFrequency
+            };
+
+            if (data.accountId) {
+                createData.account = {
+                    connect: { id: data.accountId }
+                };
+            }
+
+            const expense = await tx.expense.create({
+                data: createData,
                 include: {
                     category: true,
                     account: true,
@@ -594,28 +605,34 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
             try {
                 await prisma.$transaction(async (tx) => {
                     for (const validatedRow of batch) {
-                        // Create expense
+                        // Create expense using relational approach to match the include statement
                         const createData: any = {
                             title: validatedRow.data.title,
                             description: validatedRow.data.description,
                             amount: validatedRow.data.amount,
                             date: validatedRow.data.date,
-                            categoryId: validatedRow.data.categoryId,
-                            userId: userId,
+                            category: {
+                                connect: { id: validatedRow.data.categoryId }
+                            },
+                            user: {
+                                connect: { id: userId }
+                            },
                             tags: validatedRow.data.tags,
                             notes: validatedRow.data.notes,
                             isRecurring: validatedRow.data.isRecurring || false
                         };
 
                         if (validatedRow.data.accountId) {
-                            createData.accountId = validatedRow.data.accountId;
+                            createData.account = {
+                                connect: { id: validatedRow.data.accountId }
+                            };
                         }
 
                         if (validatedRow.data.recurringFrequency) {
                             createData.recurringFrequency = validatedRow.data.recurringFrequency;
                         }
 
-                        await tx.expense.create({
+                        const expense = await tx.expense.create({
                             data: createData
                         });
 
@@ -769,21 +786,27 @@ export async function importCorrectedRow(
                 defaultAccountId
             );
 
-            // Create expense
+            // Create expense using relational approach to match the include statement
             const createData: any = {
                 title: expenseData.title,
                 description: expenseData.description,
                 amount: expenseData.amount,
                 date: expenseData.date,
-                categoryId: expenseData.categoryId,
-                userId: userId,
+                category: {
+                    connect: { id: expenseData.categoryId }
+                },
+                user: {
+                    connect: { id: userId }
+                },
                 tags: expenseData.tags,
                 notes: expenseData.notes,
                 isRecurring: expenseData.isRecurring || false
             };
 
             if (expenseData.accountId) {
-                createData.accountId = expenseData.accountId;
+                createData.account = {
+                    connect: { id: expenseData.accountId }
+                };
             }
 
             if (expenseData.recurringFrequency) {

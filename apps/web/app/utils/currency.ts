@@ -34,7 +34,8 @@ export const CURRENCIES: Currency[] = [
   { code: "COP", name: "Colombian Peso", symbol: "CO$" },
   { code: "PEN", name: "Peruvian Sol", symbol: "S/" },
   { code: "UYU", name: "Uruguayan Peso", symbol: "UY$" },
-  { code: "VES", name: "Venezuelan Bolívar", symbol: "Bs." }
+  { code: "VES", name: "Venezuelan Bolívar", symbol: "Bs." },
+  {code : "NPR", name: "Nepalese Rupee", symbol: "₨ "}
 ];
 
 export function getCurrencySymbol(currencyCode: string): string {
