@@ -1,5 +1,28 @@
 import { AccountInterface } from './accounts';
 
+
+export type FinancialItem = {
+  id: number;
+  title: string;
+  description?: string | null;
+  notes?: string | null;
+  tags?: string[] | null;
+  amount: number;
+  date: Date;
+  category: Category;
+  account?: AccountInterface | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type FinancialDataActions<T extends FinancialItem> = {
+  getItems: () => Promise<T[]>;
+  createItem: (item: Omit<T, 'id' | 'createdAt' | 'updatedAt'>) => Promise<T>;
+  updateItem: (id: number, item: Partial<Omit<T, 'id' | 'createdAt' | 'updatedAt'>>) => Promise<T>;
+  deleteItem: (id: number) => Promise<any>;
+  bulkDeleteItems?: (ids: number[]) => Promise<any>;
+  exportToCSV: (items: T[]) => void;
+};
 export interface Category {
   id: number;
   name: string;
@@ -19,8 +42,8 @@ export interface Expense {
   date: Date;
   category: Category;
   categoryId: number;
-  account: AccountInterface;
-  accountId: number;
+  account?: AccountInterface | null;
+  accountId?: number | null;
   userId: number;
   tags: string[];
   receipt?: string;
@@ -39,8 +62,8 @@ export interface Income {
   date: Date;
   category: Category;
   categoryId: number;
-  account: AccountInterface;
-  accountId: number;
+  account?: AccountInterface | null;
+  accountId?: number | null;
   userId: number;
   tags: string[];
   notes?: string;

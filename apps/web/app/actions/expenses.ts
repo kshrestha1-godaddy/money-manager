@@ -17,16 +17,7 @@ import {
     ImportExpenseRow, 
     BulkOperationResult 
 } from "../types/bulkImport";
-
-// Helper function to get user ID from session
-function getUserIdFromSession(sessionUserId: string): number {
-    // If it's a very large number (OAuth provider), take last 5 digits
-    if (sessionUserId.length > 5) {
-        return parseInt(sessionUserId.slice(-5));
-    }
-    // Otherwise parse normally
-    return parseInt(sessionUserId);
-}
+import { getUserIdFromSession } from "../utils/auth";
 
 export async function getExpenses() {
     try {
@@ -148,7 +139,7 @@ export async function createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'up
             // Convert account balance from Decimal to number
             account: result.account ? {
                 ...result.account,
-                balance: parseFloat((result.account.balance.toNumber() - data.amount).toString()),
+                balance: parseFloat(result.account.balance.toString()),
                 accountOpeningDate: new Date(result.account.accountOpeningDate),
                 createdAt: new Date(result.account.createdAt),
                 updatedAt: new Date(result.account.updatedAt)
@@ -188,8 +179,10 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
         if (data.description !== undefined) updateData.description = data.description;
         if (data.amount !== undefined) updateData.amount = data.amount;
         if (data.date !== undefined) updateData.date = data.date;
-        if (data.categoryId !== undefined) updateData.categoryId = data.categoryId;
-        if (data.accountId !== undefined) updateData.accountId = data.accountId;
+        if (data.categoryId !== undefined) updateData.category = { connect: { id: data.categoryId } };
+        if (data.accountId !== undefined) {
+            updateData.account = data.accountId === null ? { disconnect: true } : { connect: { id: data.accountId } };
+        }
         if (data.tags !== undefined) updateData.tags = data.tags;
         if (data.receipt !== undefined) updateData.receipt = data.receipt;
         if (data.notes !== undefined) updateData.notes = data.notes;

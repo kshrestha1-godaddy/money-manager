@@ -1,33 +1,11 @@
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Category } from "../types/financial";
+import { Category, FinancialItem, FinancialDataActions } from "../types/financial";
 import { AccountInterface } from "../types/accounts";
 import { getCategories, createCategory } from "../actions/categories";
 import { getUserAccounts } from "../actions/accounts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
 
-export type FinancialItem = {
-  id: number;
-  title: string;
-  description?: string | null;
-  notes?: string | null;
-  tags?: string[] | null;
-  amount: number;
-  date: Date;
-  category: Category;
-  account?: AccountInterface | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export type FinancialDataActions<T extends FinancialItem> = {
-  getItems: () => Promise<T[]>;
-  createItem: (item: Omit<T, 'id' | 'createdAt' | 'updatedAt'>) => Promise<T>;
-  updateItem: (id: number, item: Partial<Omit<T, 'id' | 'createdAt' | 'updatedAt'>>) => Promise<T>;
-  deleteItem: (id: number) => Promise<any>;
-  bulkDeleteItems?: (ids: number[]) => Promise<any>;
-  exportToCSV: (items: T[]) => void;
-};
 
 export function useOptimizedFinancialData<T extends FinancialItem>(
   categoryType: "INCOME" | "EXPENSE",
@@ -191,7 +169,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
       const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             item.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             item.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            item.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+                            (item.tags && item.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())));
                             
       const matchesCategory = selectedCategory === "" || item.category.name === selectedCategory;
       const matchesBank = selectedBank === "" || (item.account && item.account.bankName === selectedBank);

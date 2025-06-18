@@ -8,7 +8,7 @@ import { authOptions } from "../lib/auth";
 import { getUserIdFromSession } from "../utils/auth";
 
 // Helper function to transform Prisma income to Income type
-const transformPrismaIncome = (prismaIncome: any): Income => ({
+const getDisplayIncome = (prismaIncome: any): Income => ({
     ...prismaIncome,
     amount: parseFloat(prismaIncome.amount.toString()),
     date: new Date(prismaIncome.date),
@@ -22,13 +22,6 @@ const transformPrismaIncome = (prismaIncome: any): Income => ({
         updatedAt: new Date(prismaIncome.account.updatedAt)
     } : null
 });
-
-// Standardized include clause
-const includeClause = {
-    category: true,
-    account: true,
-    user: true
-};
 
 // Helper function to revalidate all income-related paths
 const revalidateIncomePaths = () => {
@@ -45,11 +38,15 @@ export async function getIncomes() {
 
         const incomes = await prisma.income.findMany({
             where: { userId },
-            include: includeClause,
+            include: {
+                category: true,
+                account: true,
+                user: true
+            },
             orderBy: { date: 'desc' }
         });
+        return incomes.map(getDisplayIncome);
 
-        return incomes.map(transformPrismaIncome);
     } catch (error) {
         console.error("Failed to fetch incomes:", error);
         throw new Error("Failed to fetch incomes");
@@ -83,7 +80,11 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
 
             const income = await tx.income.create({
                 data: createData,
-                include: includeClause
+                include: {
+                    category: true,
+                    account: true,
+                    user: true
+                }
             });
 
             if (data.accountId) {
@@ -98,7 +99,7 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
 
         revalidateIncomePaths();
         console.info(`Income created successfully: ${data.title} - $${data.amount} for user ${userId}`);
-        return transformPrismaIncome(result);
+        return getDisplayIncome(result);
     } catch (error) {
         console.error(`Failed to create income: ${data.title}`, error);
         throw new Error("Failed to create income");
@@ -139,7 +140,11 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
             const income = await tx.income.update({
                 where: { id },
                 data: updateData,
-                include: includeClause
+                include: {
+                    category: true,
+                    account: true,
+                    user: true
+                }
             });
 
             const oldAmount = parseFloat(existingIncome.amount.toString());
@@ -173,7 +178,7 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
 
         revalidateIncomePaths();
         console.info(`Income updated successfully: ${id} for user ${userId}`);
-        return transformPrismaIncome(result);
+        return getDisplayIncome(result);
     } catch (error) {
         console.error(`Failed to update income ${id}:`, error);
         throw new Error("Failed to update income");
@@ -225,11 +230,15 @@ export async function getIncomesByCategory(categoryId: number) {
 
         const incomes = await prisma.income.findMany({
             where: { categoryId, userId },
-            include: includeClause,
+            include: {
+                category: true,
+                account: true,
+                user: true
+            },
             orderBy: { date: 'desc' }
         });
 
-        return incomes.map(transformPrismaIncome);
+        return incomes.map(getDisplayIncome);
     } catch (error) {
         console.error(`Failed to fetch incomes by category ${categoryId}:`, error);
         throw new Error("Failed to fetch incomes by category");
@@ -248,11 +257,15 @@ export async function getIncomesByDateRange(startDate: Date, endDate: Date) {
                 date: { gte: startDate, lte: endDate },
                 userId
             },
-            include: includeClause,
+            include: {
+                category: true,
+                account: true,
+                user: true
+            },
             orderBy: { date: 'desc' }
         });
 
-        return incomes.map(transformPrismaIncome);
+        return incomes.map(getDisplayIncome);
     } catch (error) {
         console.error(`Failed to fetch incomes by date range:`, error);
         throw new Error("Failed to fetch incomes by date range");

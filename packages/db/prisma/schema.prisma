@@ -29,6 +29,7 @@ model User {
   investments Investment[]
   budgetTargets BudgetTarget[]
   debts Debt[]
+  bookmarks Bookmark[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -188,6 +189,20 @@ model DebtRepayment {
   debtId Int
   account Account? @relation(fields: [accountId], references: [id])
   accountId Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Bookmark {
+  id Int @id @default(autoincrement())
+  title String
+  url String
+  description String?
+  category String?
+  favicon String?
+  tags String[]
+  user User @relation(fields: [userId], references: [id])
+  userId Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

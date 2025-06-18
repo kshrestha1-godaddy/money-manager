@@ -5,16 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../lib/auth";
 import { InvestmentInterface } from "../types/investments";
 import { revalidatePath } from "next/cache";
-
-// Helper function to get user ID from session
-function getUserIdFromSession(sessionUserId: string): number {
-    // If it's a very large number (OAuth provider), take last 5 digits
-    if (sessionUserId.length > 5) {
-        return parseInt(sessionUserId.slice(-5));
-    }
-    // Otherwise parse normally
-    return parseInt(sessionUserId);
-}
+import { getUserIdFromSession } from "../utils/auth";
 
 export async function getUserInvestments(): Promise<{ data?: InvestmentInterface[], error?: string }> {
     try {
