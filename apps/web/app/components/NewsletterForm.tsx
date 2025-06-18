@@ -38,7 +38,10 @@ export default function NewsletterForm() {
                 tags: ['newsletter']
             });
 
-            setMessage(result.message);
+            const displayMessage = result.success 
+                ? (result as { success: true; message: string }).message 
+                : (result as { success: false; error: string }).error;
+            setMessage(displayMessage);
             setIsSuccess(result.success);
 
             if (result.success) {
