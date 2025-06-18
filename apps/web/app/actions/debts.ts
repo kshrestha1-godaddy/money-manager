@@ -10,6 +10,8 @@ import {
     decimalToNumber,
     validateNumber 
 } from "../utils/auth";
+import { parseDebtsCSV, ParsedDebtData } from "../utils/csvImportDebts";
+import { ImportResult } from "../types/bulkImport";
 
 export async function getUserDebts(): Promise<{ data?: DebtInterface[], error?: string }> {
     try {
@@ -440,5 +442,133 @@ export async function addRepayment(debtId: number, amount: number, notes?: strin
     } catch (error) {
         console.error(`Failed to add repayment for debt ${debtId}:`, error);
         throw error;
+    }
+}
+
+/**
+ * Bulk import debts from CSV
+ */
+export async function bulkImportDebts(csvContent: string): Promise<ImportResult> {
+    try {
+        const session = await getAuthenticatedSession();
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Get user accounts for validation
+        const accounts = await prisma.account.findMany({
+            where: { userId: userId }
+        });
+
+        // Parse CSV
+        const parseResult = parseDebtsCSV(csvContent, accounts) as ImportResult & { data?: ParsedDebtData[] };
+        
+        if (!parseResult.success || !parseResult.data) {
+            return {
+                success: parseResult.success,
+                importedCount: 0,
+                errors: parseResult.errors,
+                skippedCount: parseResult.skippedCount
+            };
+        }
+
+        const validDebts = parseResult.data;
+        const result: ImportResult = {
+            success: false,
+            importedCount: 0,
+            errors: [...parseResult.errors],
+            skippedCount: parseResult.skippedCount
+        };
+
+        // Process debts in batches to avoid timeout
+        const BATCH_SIZE = 10;
+        const batches = [];
+        for (let i = 0; i < validDebts.length; i += BATCH_SIZE) {
+            batches.push(validDebts.slice(i, i + BATCH_SIZE));
+        }
+
+        for (const batch of batches) {
+            try {
+                await prisma.$transaction(async (tx) => {
+                    for (const debtData of batch) {
+                        try {
+                            // Validate account balance if accountId is provided
+                            if (debtData.accountId) {
+                                const account = await tx.account.findUnique({
+                                    where: { id: debtData.accountId },
+                                    select: { balance: true, bankName: true }
+                                });
+
+                                if (!account) {
+                                    result.errors.push({
+                                        row: 0,
+                                        error: `Account not found for debt: ${debtData.borrowerName}`,
+                                        data: debtData
+                                    });
+                                    continue;
+                                }
+
+                                const currentBalance = parseFloat(account.balance.toString());
+                                if (currentBalance < debtData.amount) {
+                                    result.errors.push({
+                                        row: 0,
+                                        error: `Insufficient balance in ${account.bankName} for debt to ${debtData.borrowerName}. Available: ${currentBalance}, Required: ${debtData.amount}`,
+                                        data: debtData
+                                    });
+                                    continue;
+                                }
+                            }
+
+                            // Create the debt
+                            await tx.debt.create({
+                                data: {
+                                    ...debtData,
+                                    userId: userId,
+                                },
+                            });
+
+                            // Update account balance if accountId is provided
+                            if (debtData.accountId) {
+                                await tx.account.update({
+                                    where: { id: debtData.accountId },
+                                    data: {
+                                        balance: {
+                                            decrement: debtData.amount
+                                        }
+                                    }
+                                });
+                            }
+
+                            result.importedCount++;
+                        } catch (error) {
+                            result.errors.push({
+                                row: 0,
+                                error: `Failed to import debt for ${debtData.borrowerName}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                                data: debtData
+                            });
+                        }
+                    }
+                }, {
+                    timeout: 30000, // 30 second timeout per batch
+                });
+            } catch (error) {
+                // If a batch fails, add errors for all items in that batch
+                batch.forEach(debtData => {
+                    result.errors.push({
+                        row: 0,
+                        error: `Batch import failed for debt to ${debtData.borrowerName}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                        data: debtData
+                    });
+                });
+            }
+        }
+
+        result.success = result.importedCount > 0;
+
+        revalidatePath("/(dashboard)/debts");
+        revalidatePath("/(dashboard)/accounts");
+
+        return result;
+
+    } catch (error) {
+        throw new Error(error instanceof Error ? error.message : "Failed to import debts");
     }
 } 

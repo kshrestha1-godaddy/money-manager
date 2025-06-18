@@ -15,14 +15,17 @@ import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { calculateRemainingWithInterest } from "../../utils/interestCalculation";
 import { useDebts } from "../../hooks/useDebts";
+import { exportDebtsToCSV } from "../../utils/csvExportDebts";
+import { BulkImportModal } from "../../components/debts/BulkImportModal";
 
 export default function Debts() {
-    const { debts, loading, error, addDebt, editDebt, removeDebt, clearError } = useDebts();
+    const { debts, loading, error, loadDebts, addDebt, editDebt, removeDebt, clearError } = useDebts();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isAddRepaymentModalOpen, setIsAddRepaymentModalOpen] = useState(false);
+    const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
     const [debtToEdit, setDebtToEdit] = useState<DebtInterface | null>(null);
     const [debtToDelete, setDebtToDelete] = useState<DebtInterface | null>(null);
     const [debtToView, setDebtToView] = useState<DebtInterface | null>(null);
@@ -85,6 +88,14 @@ export default function Debts() {
     const openAddRepaymentModal = (debt: DebtInterface) => {
         setDebtForRepayment(debt);
         setIsAddRepaymentModalOpen(true);
+    };
+
+    const handleExportToCSV = () => {
+        if (debts.length === 0) {
+            alert("No debts to export");
+            return;
+        }
+        exportDebtsToCSV(debts);
     };
 
     // Get unique statuses for filter
@@ -199,6 +210,14 @@ export default function Debts() {
                             🗃️ Cards
                         </button>
                     </div>
+                    <Button onClick={() => setIsBulkImportModalOpen(true)}>
+                        Import CSV
+                    </Button>
+                    {debts.length > 0 && (
+                        <Button onClick={handleExportToCSV}>
+                            Export CSV
+                        </Button>
+                    )}
                     <Button onClick={() => setIsAddModalOpen(true)}>
                         Add Debt
                     </Button>
@@ -396,6 +415,15 @@ export default function Debts() {
                         setDebtForRepayment(null);
                     }}
                 />
+
+            <BulkImportModal
+                isOpen={isBulkImportModalOpen}
+                onClose={() => setIsBulkImportModalOpen(false)}
+                onSuccess={() => {
+                    setIsBulkImportModalOpen(false);
+                    loadDebts();
+                }}
+            />
             </div>
         </DebtErrorBoundary>
     );

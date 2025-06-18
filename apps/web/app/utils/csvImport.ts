@@ -35,10 +35,16 @@ export interface ImportResult {
  * Parse CSV string to array of objects
  */
 function parseCSV(csvContent: string): string[][] {
-    const lines = csvContent.split('\n').filter(line => line.trim() !== '');
+    // Handle different line endings (Windows \r\n, Unix \n, Mac \r)
+    const lines = csvContent.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
     const result: string[][] = [];
 
     for (const line of lines) {
+        // Skip completely empty lines or lines with only whitespace
+        if (line.trim() === '') {
+            continue;
+        }
+
         const row: string[] = [];
         let current = '';
         let inQuotes = false;
@@ -66,7 +72,12 @@ function parseCSV(csvContent: string): string[][] {
             i++;
         }
         row.push(current.trim());
-        result.push(row);
+        
+        // Only add rows that have some actual content (not just empty strings or commas)
+        const hasContent = row.some(cell => cell !== '');
+        if (hasContent) {
+            result.push(row);
+        }
     }
 
     return result;
@@ -169,6 +180,9 @@ export function parseAccountsCSV(csvContent: string): ImportResult {
     try {
         const rows = parseCSV(csvContent);
         
+        // Debug logging
+        console.log('Total parsed rows (including headers):', rows.length);
+        
         if (rows.length === 0) {
             return {
                 success: false,
@@ -181,6 +195,10 @@ export function parseAccountsCSV(csvContent: string): ImportResult {
 
         const headers = rows[0];
         const dataRows = rows.slice(1);
+        
+        console.log('Headers:', headers);
+        console.log('Data rows count:', dataRows.length);
+        console.log('First few data rows:', dataRows.slice(0, 3));
         
         if (!headers || headers.length === 0) {
             return {
@@ -230,14 +248,27 @@ export function parseAccountsCSV(csvContent: string): ImportResult {
 
         const validAccounts: ParsedAccountData[] = [];
         const allErrors: string[] = [];
+        let processedRows = 0;
 
-        // Process each data row
+        // Process each data row, filtering out empty rows
         dataRows.forEach((row, index) => {
-            const result = validateAndConvertRow(row, headers, index + 1); // +1 because headers are row 0
+            // Skip rows that are completely empty or contain only empty strings/commas
+            const hasData = row.some(cell => cell && cell.trim() !== '');
+            if (!hasData) {
+                console.log(`Skipping empty row ${index + 1}:`, row);
+                return; // Skip this row entirely
+            }
+            
+            processedRows++; // Count only rows with actual data
+            console.log(`Processing row ${processedRows}:`, row);
+            
+            const result = validateAndConvertRow(row, headers, processedRows); // Use processedRows for row numbering
             
             if (result.isValid && result.data) {
                 validAccounts.push(result.data);
+                console.log(`Row ${processedRows} is valid`);
             } else {
+                console.log(`Row ${processedRows} has errors:`, result.errors);
                 allErrors.push(...result.errors);
             }
         });
@@ -246,7 +277,7 @@ export function parseAccountsCSV(csvContent: string): ImportResult {
             success: validAccounts.length > 0,
             data: validAccounts,
             errors: allErrors,
-            totalRows: dataRows.length,
+            totalRows: processedRows, // Only count rows with data
             validRows: validAccounts.length
         };
 

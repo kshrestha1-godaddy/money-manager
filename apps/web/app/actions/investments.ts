@@ -6,6 +6,8 @@ import { authOptions } from "../lib/auth";
 import { InvestmentInterface } from "../types/investments";
 import { revalidatePath } from "next/cache";
 import { getUserIdFromSession } from "../utils/auth";
+import { parseInvestmentsCSV, ParsedInvestmentData } from "../utils/csvImportInvestments";
+import { ImportResult } from "../types/bulkImport";
 
 export async function getUserInvestments(): Promise<{ data?: InvestmentInterface[], error?: string }> {
     try {
@@ -408,5 +410,137 @@ export async function getUserAccounts(): Promise<{ data?: any[], error?: string 
     } catch (error) {
         console.error("Failed to fetch user accounts for investments:", error);
         return { error: "Failed to fetch accounts" };
+    }
+}
+
+/**
+ * Bulk import investments from CSV
+ */
+export async function bulkImportInvestments(csvContent: string): Promise<ImportResult> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Get user accounts for validation
+        const accounts = await prisma.account.findMany({
+            where: { userId: userId }
+        });
+
+        // Parse CSV
+        const parseResult = parseInvestmentsCSV(csvContent, accounts) as ImportResult & { data?: ParsedInvestmentData[] };
+        
+        if (!parseResult.success || !parseResult.data) {
+            return {
+                success: parseResult.success,
+                importedCount: 0,
+                errors: parseResult.errors,
+                skippedCount: parseResult.skippedCount
+            };
+        }
+
+        const validInvestments = parseResult.data;
+        const result: ImportResult = {
+            success: false,
+            importedCount: 0,
+            errors: [...parseResult.errors],
+            skippedCount: parseResult.skippedCount
+        };
+
+        // Process investments in batches to avoid timeout
+        const BATCH_SIZE = 10;
+        const batches = [];
+        for (let i = 0; i < validInvestments.length; i += BATCH_SIZE) {
+            batches.push(validInvestments.slice(i, i + BATCH_SIZE));
+        }
+
+        for (const batch of batches) {
+            try {
+                await prisma.$transaction(async (tx) => {
+                    for (const investmentData of batch) {
+                        try {
+                            // Validate account balance
+                            const account = await tx.account.findUnique({
+                                where: { id: investmentData.accountId },
+                                select: { balance: true, bankName: true }
+                            });
+
+                            if (!account) {
+                                result.errors.push({
+                                    row: 0, // We don't have row tracking in batch processing
+                                    error: `Account not found for investment: ${investmentData.name}`,
+                                    data: investmentData
+                                });
+                                continue;
+                            }
+
+                            const totalInvestmentAmount = investmentData.type === 'FIXED_DEPOSIT' ? 
+                                investmentData.purchasePrice : 
+                                investmentData.quantity * investmentData.purchasePrice;
+                            const currentBalance = parseFloat(account.balance.toString());
+                            
+                            if (currentBalance < totalInvestmentAmount) {
+                                result.errors.push({
+                                    row: 0,
+                                    error: `Insufficient balance in ${account.bankName} for ${investmentData.name}. Available: ${currentBalance}, Required: ${totalInvestmentAmount}`,
+                                    data: investmentData
+                                });
+                                continue;
+                            }
+
+                            // Create the investment
+                            await tx.investment.create({
+                                data: {
+                                    ...investmentData,
+                                    userId: userId,
+                                },
+                            });
+
+                            // Update account balance
+                            await tx.account.update({
+                                where: { id: investmentData.accountId },
+                                data: {
+                                    balance: {
+                                        decrement: totalInvestmentAmount
+                                    }
+                                }
+                            });
+
+                            result.importedCount++;
+                        } catch (error) {
+                            result.errors.push({
+                                row: 0,
+                                error: `Failed to import investment ${investmentData.name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                                data: investmentData
+                            });
+                        }
+                    }
+                }, {
+                    timeout: 30000, // 30 second timeout per batch
+                });
+            } catch (error) {
+                // If a batch fails, add errors for all items in that batch
+                batch.forEach(investmentData => {
+                    result.errors.push({
+                        row: 0,
+                        error: `Batch import failed for ${investmentData.name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                        data: investmentData
+                    });
+                });
+            }
+        }
+
+        result.success = result.importedCount > 0;
+
+        revalidatePath("/(dashboard)/investments");
+        revalidatePath("/(dashboard)/accounts");
+
+        return result;
+
+    } catch (error) {
+        throw new Error(error instanceof Error ? error.message : "Failed to import investments");
     }
 } 

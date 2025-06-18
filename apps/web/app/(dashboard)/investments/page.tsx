@@ -14,6 +14,8 @@ import { getUserInvestments, createInvestment, updateInvestment, deleteInvestmen
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { triggerBalanceRefresh } from "../../hooks/useTotalBalance";
+import { exportInvestmentsToCSV } from "../../utils/csvExportInvestments";
+import { BulkImportModal } from "../../components/investments/BulkImportModal";
 
 export default function Investments() {
     const [investments, setInvestments] = useState<InvestmentInterface[]>([]);
@@ -23,6 +25,7 @@ export default function Investments() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
     const [investmentToEdit, setInvestmentToEdit] = useState<InvestmentInterface | null>(null);
     const [investmentToDelete, setInvestmentToDelete] = useState<InvestmentInterface | null>(null);
     const [investmentToView, setInvestmentToView] = useState<InvestmentInterface | null>(null);
@@ -164,6 +167,14 @@ export default function Investments() {
         setIsViewModalOpen(true);
     };
 
+    const handleExportToCSV = () => {
+        if (investments.length === 0) {
+            alert("No investments to export");
+            return;
+        }
+        exportInvestmentsToCSV(investments);
+    };
+
     // Get unique types for filter
     const uniqueTypes = Array.from(new Set(investments.map(investment => investment.type))).sort();
 
@@ -260,6 +271,14 @@ export default function Investments() {
                             🗃️ Cards
                         </button>
                     </div>
+                    <Button onClick={() => setIsBulkImportModalOpen(true)}>
+                        Import CSV
+                    </Button>
+                    {investments.length > 0 && (
+                        <Button onClick={handleExportToCSV}>
+                            Export CSV
+                        </Button>
+                    )}
                     <Button onClick={() => setIsAddModalOpen(true)}>
                         Add Investment
                     </Button>
@@ -434,6 +453,15 @@ export default function Investments() {
                     setInvestmentToView(null);
                 }}
                 onEdit={openEditModal}
+            />
+
+            <BulkImportModal
+                isOpen={isBulkImportModalOpen}
+                onClose={() => setIsBulkImportModalOpen(false)}
+                onSuccess={() => {
+                    setIsBulkImportModalOpen(false);
+                    loadInvestments();
+                }}
             />
         </div>
     );
