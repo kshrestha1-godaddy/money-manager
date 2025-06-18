@@ -421,9 +421,9 @@ function ComparisonChart({
                         tickFormatter={formatYAxisTick}
                     />
                     <Tooltip 
-                        formatter={(value: number, name: string) => [
+                        formatter={(value: number, name: string, props: any) => [
                             formatCurrency(value, currency),
-                            name === 'period1' ? period1Label : period2Label
+                            props.dataKey === 'period1' ? period1Label : period2Label
                         ]}
                         labelFormatter={(label) => `${label} Comparison`}
                         contentStyle={{
