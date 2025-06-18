@@ -9,6 +9,7 @@ interface UseDebtsReturn {
   loading: boolean;
   error: string | null;
   loadDebts: () => Promise<void>;
+  refreshDebts: () => Promise<DebtInterface[] | null>;
   addDebt: (debt: Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>) => Promise<void>;
   editDebt: (id: number, debt: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>) => Promise<void>;
   removeDebt: (debt: DebtInterface) => Promise<void>;
@@ -132,6 +133,34 @@ export function useDebts(): UseDebtsReturn {
     }
   }, [handleAuthError]);
 
+  const refreshDebts = useCallback(async (): Promise<DebtInterface[] | null> => {
+    try {
+      setError(null);
+      const userDebts = await getUserDebts();
+      
+      if (userDebts && !('error' in userDebts)) {
+        const freshDebts = userDebts.data || [];
+        setDebts(freshDebts);
+        triggerBalanceRefresh();
+        return freshDebts;
+      } else {
+        const errorMessage = userDebts?.error || "Unknown error";
+        console.error("Error refreshing debts:", errorMessage);
+        
+        if (errorMessage === "User not found" || errorMessage === "Unauthorized") {
+          handleAuthError(errorMessage);
+        } else {
+          setError(`Failed to refresh debts: ${errorMessage}`);
+        }
+        return null;
+      }
+    } catch (error) {
+      console.error("Error refreshing debts:", error);
+      setError(`An unexpected error occurred: ${error}`);
+      return null;
+    }
+  }, [handleAuthError]);
+
   const clearError = useCallback(() => {
     setError(null);
   }, []);
@@ -145,6 +174,7 @@ export function useDebts(): UseDebtsReturn {
     loading,
     error,
     loadDebts,
+    refreshDebts,
     addDebt,
     editDebt,
     removeDebt,

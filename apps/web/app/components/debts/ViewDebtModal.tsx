@@ -4,6 +4,7 @@ import { useState } from "react";
 import { DebtInterface } from "../../types/debts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
+import { deleteRepayment } from "../../actions/debts";
 
 interface ViewDebtModalProps {
     debt: DebtInterface | null;
@@ -11,10 +12,12 @@ interface ViewDebtModalProps {
     onClose: () => void;
     onEdit?: (debt: DebtInterface) => void;
     onAddRepayment?: (debt: DebtInterface) => void;
+    onRepaymentDeleted?: () => void;
 }
 
-export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment }: ViewDebtModalProps) {
+export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment, onRepaymentDeleted }: ViewDebtModalProps) {
     const { currency: userCurrency } = useCurrency();
+    const [deletingRepayments, setDeletingRepayments] = useState<Set<number>>(new Set());
 
     if (!isOpen || !debt) return null;
 
@@ -43,6 +46,25 @@ export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment }:
 
     // Check if debt is overdue
     const isOverdue = debt.dueDate && new Date() > debt.dueDate && remainingAmount > 0;
+
+    const handleDeleteRepayment = async (repaymentId: number) => {
+        if (deletingRepayments.has(repaymentId)) return;
+
+        try {
+            setDeletingRepayments(prev => new Set([...prev, repaymentId]));
+            await deleteRepayment(repaymentId, debt.id);
+            onRepaymentDeleted?.();
+        } catch (error) {
+            console.error("Error deleting repayment:", error);
+            // You could add a toast notification here if you have one
+        } finally {
+            setDeletingRepayments(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(repaymentId);
+                return newSet;
+            });
+        }
+    };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -202,6 +224,9 @@ export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment }:
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                     Notes
                                                 </th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Actions
+                                                </th>
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-200">
@@ -219,6 +244,20 @@ export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment }:
                                                     </td>
                                                     <td className="px-6 py-4 text-sm text-gray-500">
                                                         {repayment.notes || '-'}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-gray-500">
+                                                        {deletingRepayments.has(repayment.id) ? (
+                                                            <span className="text-gray-500">Deleting...</span>
+                                                        ) : (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => handleDeleteRepayment(repayment.id)}
+                                                                    className="text-red-500 hover:text-red-700 mr-2"
+                                                                >
+                                                                    Delete
+                                                                </button>
+                                                            </>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             ))}

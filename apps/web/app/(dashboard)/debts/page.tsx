@@ -17,9 +17,10 @@ import { calculateRemainingWithInterest } from "../../utils/interestCalculation"
 import { useDebts } from "../../hooks/useDebts";
 import { exportDebtsToCSV } from "../../utils/csvExportDebts";
 import { BulkImportModal } from "../../components/debts/BulkImportModal";
+import { getUserDebts } from "../../actions/debts";
 
 export default function Debts() {
-    const { debts, loading, error, loadDebts, addDebt, editDebt, removeDebt, clearError } = useDebts();
+    const { debts, loading, error, loadDebts, refreshDebts, addDebt, editDebt, removeDebt, clearError } = useDebts();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -88,6 +89,19 @@ export default function Debts() {
     const openAddRepaymentModal = (debt: DebtInterface) => {
         setDebtForRepayment(debt);
         setIsAddRepaymentModalOpen(true);
+    };
+
+    const handleRepaymentChanged = async () => {
+        // Use the efficient refreshDebts function that makes only one API call
+        const freshDebts = await refreshDebts();
+        
+        // If there's a debt being viewed and we got fresh data, update it
+        if (debtToView && freshDebts) {
+            const updatedDebt = freshDebts.find((debt: DebtInterface) => debt.id === debtToView.id);
+            if (updatedDebt) {
+                setDebtToView(updatedDebt);
+            }
+        }
     };
 
     const handleExportToCSV = () => {
@@ -399,6 +413,7 @@ export default function Debts() {
                 }}
                 onEdit={openEditModal}
                 onAddRepayment={openAddRepaymentModal}
+                onRepaymentDeleted={handleRepaymentChanged}
             />
 
             <AddRepaymentModal
@@ -408,9 +423,9 @@ export default function Debts() {
                         setIsAddRepaymentModalOpen(false);
                         setDebtForRepayment(null);
                     }}
-                    onSuccess={() => {
-                        // Repayment success is handled by the AddRepaymentModal itself
-                        // The debts will be refreshed automatically
+                    onSuccess={async () => {
+                        // Refresh the debts data when a repayment is added
+                        await handleRepaymentChanged();
                         setIsAddRepaymentModalOpen(false);
                         setDebtForRepayment(null);
                     }}

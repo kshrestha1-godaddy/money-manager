@@ -382,20 +382,15 @@ export async function addRepayment(debtId: number, amount: number, notes?: strin
                 throw new Error(`Repayment amount ($${amount}) exceeds remaining debt ($${remainingDebt.toFixed(2)})`);
             }
 
-            // Validate account balance if accountId is provided
+            // Validate account exists if accountId is provided
             if (accountId) {
                 const account = await tx.account.findUnique({
                     where: { id: accountId },
-                    select: { balance: true, bankName: true }
+                    select: { id: true, bankName: true }
                 });
 
                 if (!account) {
                     throw new Error("Selected account not found");
-                }
-
-                const currentBalance = decimalToNumber(account.balance, 'account balance');
-                if (currentBalance < amount) {
-                    throw new Error(`Insufficient balance in ${account.bankName}. Available: ${currentBalance}, Required: ${amount}`);
                 }
             }
 
@@ -441,6 +436,69 @@ export async function addRepayment(debtId: number, amount: number, notes?: strin
         };
     } catch (error) {
         console.error(`Failed to add repayment for debt ${debtId}:`, error);
+        throw error;
+    }
+}
+
+export async function deleteRepayment(repaymentId: number, debtId: number) {
+    try {
+        const session = await getAuthenticatedSession();
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Use a transaction to ensure repayment deletion and account balance update are atomic
+        const result = await prisma.$transaction(async (tx) => {
+            // Verify the debt belongs to the user and get the repayment details
+            const existingDebt = await tx.debt.findFirst({
+                where: {
+                    id: debtId,
+                    userId: userId,
+                },
+                include: {
+                    repayments: {
+                        where: {
+                            id: repaymentId
+                        }
+                    }
+                },
+            });
+
+            if (!existingDebt) {
+                throw new Error("Debt not found or unauthorized");
+            }
+
+            const repaymentToDelete = existingDebt.repayments[0];
+            if (!repaymentToDelete) {
+                throw new Error("Repayment not found or unauthorized");
+            }
+
+            // Delete the repayment
+            await tx.debtRepayment.delete({
+                where: { id: repaymentId },
+            });
+
+            // Restore the account balance (subtract repayment amount) if accountId is provided
+            if (repaymentToDelete.accountId) {
+                await tx.account.update({
+                    where: { id: repaymentToDelete.accountId },
+                    data: {
+                        balance: {
+                            decrement: decimalToNumber(repaymentToDelete.amount, 'repayment amount')
+                        }
+                    }
+                });
+            }
+
+            return repaymentToDelete;
+        });
+
+        // Revalidate related pages
+        revalidatePath("/(dashboard)/debts");
+        revalidatePath("/(dashboard)/accounts");
+
+        console.info(`Repayment deleted successfully: ${repaymentId} for debt ${debtId} by user ${userId}`);
+        return { success: true };
+    } catch (error) {
+        console.error(`Failed to delete repayment ${repaymentId}:`, error);
         throw error;
     }
 }
