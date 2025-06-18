@@ -16,12 +16,40 @@ interface DebtTableProps {
     onDelete?: (debt: DebtInterface) => void;
     onViewDetails?: (debt: DebtInterface) => void;
     onAddRepayment?: (debt: DebtInterface) => void;
+    selectedDebts?: Set<number>;
+    onDebtSelect?: (debtId: number, selected: boolean) => void;
+    onSelectAll?: (selected: boolean) => void;
+    showBulkActions?: boolean;
+    onBulkDelete?: () => void;
+    onClearSelection?: () => void;
 }
 
-export function DebtTable({ debts, onEdit, onDelete, onViewDetails, onAddRepayment }: DebtTableProps) {
+export function DebtTable({ 
+    debts, 
+    onEdit, 
+    onDelete, 
+    onViewDetails, 
+    onAddRepayment,
+    selectedDebts = new Set(),
+    onDebtSelect,
+    onSelectAll,
+    showBulkActions = false,
+    onBulkDelete,
+    onClearSelection 
+}: DebtTableProps) {
     const { currency: userCurrency } = useCurrency();
     const [sortField, setSortField] = useState<SortField>('dueDate');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+    const handleSelectAll = () => {
+        const allSelected = selectedDebts.size === debts.length;
+        if (onSelectAll) {
+            onSelectAll(!allSelected);
+        }
+    };
+
+    const isAllSelected = selectedDebts.size === debts.length && debts.length > 0;
+    const isPartiallySelected = selectedDebts.size > 0 && selectedDebts.size < debts.length;
 
     const sortedDebts = useMemo(() => {
         const sorted = [...debts].sort((a, b) => {
@@ -114,14 +142,45 @@ export function DebtTable({ debts, onEdit, onDelete, onViewDetails, onAddRepayme
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">
-                    Debts ({sortedDebts.length})
-                </h2>
+                <div className="flex justify-between items-center">
+                    <h2 className="text-lg font-semibold text-gray-900">
+                        Debts ({sortedDebts.length})
+                    </h2>
+                    {showBulkActions && selectedDebts.size > 0 && (
+                        <div className="flex space-x-2">
+                            <button
+                                onClick={onClearSelection}
+                                className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors"
+                            >
+                                Clear Selection
+                            </button>
+                            <button
+                                onClick={onBulkDelete}
+                                className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                            >
+                                Delete Selected ({selectedDebts.size})
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
+                            {showBulkActions && (
+                                <th className="px-6 py-3 text-left">
+                                    <input
+                                        type="checkbox"
+                                        checked={isAllSelected}
+                                        ref={(el) => {
+                                            if (el) el.indeterminate = isPartiallySelected;
+                                        }}
+                                        onChange={handleSelectAll}
+                                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    />
+                                </th>
+                            )}
                             <th 
                                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
                                 onClick={() => handleSort('borrowerName')}
@@ -176,6 +235,9 @@ export function DebtTable({ debts, onEdit, onDelete, onViewDetails, onAddRepayme
                                 onDelete={onDelete}
                                 onViewDetails={onViewDetails}
                                 onAddRepayment={onAddRepayment}
+                                isSelected={selectedDebts.has(debt.id)}
+                                onSelect={onDebtSelect}
+                                showCheckbox={showBulkActions}
                             />
                         ))}
                     </tbody>
@@ -185,13 +247,26 @@ export function DebtTable({ debts, onEdit, onDelete, onViewDetails, onAddRepayme
     );
 }
 
-function DebtRow({ debt, currency, onEdit, onDelete, onViewDetails, onAddRepayment }: { 
+function DebtRow({ 
+    debt, 
+    currency, 
+    onEdit, 
+    onDelete, 
+    onViewDetails, 
+    onAddRepayment,
+    isSelected = false,
+    onSelect,
+    showCheckbox = false 
+}: { 
     debt: DebtInterface;
     currency: string;
     onEdit?: (debt: DebtInterface) => void;
     onDelete?: (debt: DebtInterface) => void;
     onViewDetails?: (debt: DebtInterface) => void;
     onAddRepayment?: (debt: DebtInterface) => void;
+    isSelected?: boolean;
+    onSelect?: (debtId: number, selected: boolean) => void;
+    showCheckbox?: boolean;
 }) {
     // Calculate interest and remaining amounts
     const interestCalc = calculateInterest(debt.amount, debt.interestRate, debt.lentDate, debt.dueDate);
@@ -251,8 +326,24 @@ function DebtRow({ debt, currency, onEdit, onDelete, onViewDetails, onAddRepayme
         }
     };
 
+    const handleSelect = () => {
+        if (onSelect) {
+            onSelect(debt.id, !isSelected);
+        }
+    };
+
     return (
-        <tr className={`hover:bg-gray-50 ${isOverdue ? 'bg-red-25' : ''}`}>
+        <tr className={`hover:bg-gray-50 ${isOverdue ? 'bg-red-25' : ''} ${isSelected ? 'bg-blue-50' : ''}`}>
+            {showCheckbox && (
+                <td className="px-6 py-4 whitespace-nowrap">
+                    <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={handleSelect}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                </td>
+            )}
             <td className="px-6 py-4 whitespace-nowrap">
                 <div>
                     <div className="text-sm font-medium text-gray-900">

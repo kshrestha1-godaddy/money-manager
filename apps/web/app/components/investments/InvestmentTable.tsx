@@ -10,12 +10,29 @@ interface InvestmentTableProps {
     onEdit: (investment: InvestmentInterface) => void;
     onDelete: (investment: InvestmentInterface) => void;
     onViewDetails: (investment: InvestmentInterface) => void;
+    selectedInvestments?: Set<number>;
+    onInvestmentSelect?: (investmentId: number, selected: boolean) => void;
+    onSelectAll?: (selected: boolean) => void;
+    showBulkActions?: boolean;
+    onBulkDelete?: () => void;
+    onClearSelection?: () => void;
 }
 
 type SortField = 'name' | 'type' | 'quantity' | 'purchasePrice' | 'currentPrice' | 'totalValue' | 'gain' | 'purchaseDate';
 type SortOrder = 'asc' | 'desc';
 
-export function InvestmentTable({ investments, onEdit, onDelete, onViewDetails }: InvestmentTableProps) {
+export function InvestmentTable({ 
+    investments, 
+    onEdit, 
+    onDelete, 
+    onViewDetails,
+    selectedInvestments = new Set(),
+    onInvestmentSelect,
+    onSelectAll,
+    showBulkActions = false,
+    onBulkDelete,
+    onClearSelection 
+}: InvestmentTableProps) {
     const [sortField, setSortField] = useState<SortField>('purchaseDate');
     const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
     const { currency: userCurrency } = useCurrency();
@@ -28,6 +45,16 @@ export function InvestmentTable({ investments, onEdit, onDelete, onViewDetails }
             setSortOrder('asc');
         }
     };
+
+    const handleSelectAll = () => {
+        const allSelected = selectedInvestments.size === investments.length;
+        if (onSelectAll) {
+            onSelectAll(!allSelected);
+        }
+    };
+
+    const isAllSelected = selectedInvestments.size === investments.length && investments.length > 0;
+    const isPartiallySelected = selectedInvestments.size > 0 && selectedInvestments.size < investments.length;
 
     const sortedInvestments = [...investments].sort((a, b) => {
         let aValue: any;
@@ -98,10 +125,46 @@ export function InvestmentTable({ investments, onEdit, onDelete, onViewDetails }
 
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200">
+                <div className="flex justify-between items-center">
+                    <h2 className="text-lg font-semibold text-gray-900">
+                        Investments ({investments.length})
+                    </h2>
+                    {showBulkActions && selectedInvestments.size > 0 && (
+                        <div className="flex space-x-2">
+                            <button
+                                onClick={onClearSelection}
+                                className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors"
+                            >
+                                Clear Selection
+                            </button>
+                            <button
+                                onClick={onBulkDelete}
+                                className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                            >
+                                Delete Selected ({selectedInvestments.size})
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
             <div className="overflow-x-auto">
                 <table className="w-full">
                     <thead className="bg-gray-50">
                         <tr>
+                            {showBulkActions && (
+                                <th className="px-6 py-3 text-left">
+                                    <input
+                                        type="checkbox"
+                                        checked={isAllSelected}
+                                        ref={(el) => {
+                                            if (el) el.indeterminate = isPartiallySelected;
+                                        }}
+                                        onChange={handleSelectAll}
+                                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    />
+                                </th>
+                            )}
                             <th 
                                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                                 onClick={() => handleSort('name')}
@@ -163,101 +226,166 @@ export function InvestmentTable({ investments, onEdit, onDelete, onViewDetails }
                             const gainPercentage = getGainPercentage(investment);
 
                             return (
-                                <tr key={investment.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div>
-                                            <div className="text-sm font-medium text-gray-900">
-                                                {investment.name}
-                                            </div>
-                                            {investment.symbol && (
-                                                <div className="text-sm text-gray-500">
-                                                    {investment.symbol}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                            {formatType(investment.type)}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {investment.type === 'FIXED_DEPOSIT' ? (
-                                            <div>
-                                                <div>{investment.interestRate}% p.a.</div>
-                                                {investment.maturityDate && (
-                                                    <div className="text-xs text-gray-500">
-                                                        Matures: {new Date(investment.maturityDate).toLocaleDateString()}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            investment.quantity
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {investment.type === 'FIXED_DEPOSIT' ? 
-                                            `${formatCurrency(investment.purchasePrice, userCurrency)} (Principal)` : 
-                                            formatCurrency(investment.purchasePrice, userCurrency)
-                                        }
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {investment.type === 'FIXED_DEPOSIT' ? (
-                                            <div>
-                                                <div>{formatCurrency(investment.currentPrice, userCurrency)}</div>
-                                                <div className="text-xs text-gray-500">Current Value</div>
-                                            </div>
-                                        ) : (
-                                            formatCurrency(investment.currentPrice, userCurrency)
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                        {formatCurrency(totalValue, userCurrency)}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        <div className={`font-medium ${getGainColor(gain)}`}>
-                                            {formatCurrency(gain, userCurrency)}
-                                        </div>
-                                        <div className={`text-xs ${getGainColor(gain)}`}>
-                                            ({gainPercentage}%)
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <div>
-                                            <div>{new Date(investment.purchaseDate).toLocaleDateString()}</div>
-                                            {investment.type === 'FIXED_DEPOSIT' && (
-                                                <div className="text-xs text-gray-500">Deposit Date</div>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <div className="flex justify-end space-x-2">
-                                            <button 
-                                                onClick={() => onViewDetails(investment)}
-                                                className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-800 transition-colors"
-                                            >
-                                                View
-                                            </button>
-                                            <button 
-                                                onClick={() => onEdit(investment)}
-                                                className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-800 transition-colors"
-                                            >
-                                                Edit
-                                            </button>
-                                            <button 
-                                                onClick={() => onDelete(investment)}
-                                                className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-800 transition-colors"
-                                            >
-                                                Delete
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
+                                <InvestmentRow
+                                    key={investment.id}
+                                    investment={investment}
+                                    currency={userCurrency}
+                                    onEdit={onEdit}
+                                    onDelete={onDelete}
+                                    onViewDetails={onViewDetails}
+                                    isSelected={selectedInvestments.has(investment.id)}
+                                    onSelect={onInvestmentSelect}
+                                    showCheckbox={showBulkActions}
+                                    totalValue={totalValue}
+                                    gain={gain}
+                                    gainPercentage={gainPercentage}
+                                    formatType={formatType}
+                                    getGainColor={getGainColor}
+                                />
                             );
                         })}
                     </tbody>
                 </table>
             </div>
         </div>
+    );
+}
+
+function InvestmentRow({ 
+    investment, 
+    currency, 
+    onEdit, 
+    onDelete, 
+    onViewDetails, 
+    isSelected = false, 
+    onSelect, 
+    showCheckbox = false,
+    totalValue,
+    gain,
+    gainPercentage,
+    formatType,
+    getGainColor
+}: { 
+    investment: InvestmentInterface;
+    currency: string;
+    onEdit: (investment: InvestmentInterface) => void;
+    onDelete: (investment: InvestmentInterface) => void;
+    onViewDetails: (investment: InvestmentInterface) => void;
+    isSelected?: boolean;
+    onSelect?: (investmentId: number, selected: boolean) => void;
+    showCheckbox?: boolean;
+    totalValue: number;
+    gain: number;
+    gainPercentage: string;
+    formatType: (type: string) => string;
+    getGainColor: (gain: number) => string;
+}) {
+    const handleSelect = () => {
+        if (onSelect) {
+            onSelect(investment.id, !isSelected);
+        }
+    };
+
+    return (
+        <tr className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
+            {showCheckbox && (
+                <td className="px-6 py-4 whitespace-nowrap">
+                    <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={handleSelect}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                </td>
+            )}
+            <td className="px-6 py-4 whitespace-nowrap">
+                <div>
+                    <div className="text-sm font-medium text-gray-900">
+                        {investment.name}
+                    </div>
+                    {investment.symbol && (
+                        <div className="text-sm text-gray-500">
+                            {investment.symbol}
+                        </div>
+                    )}
+                </div>
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    {formatType(investment.type)}
+                </span>
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                {investment.type === 'FIXED_DEPOSIT' ? (
+                    <div>
+                        <div>{investment.interestRate}% p.a.</div>
+                        {investment.maturityDate && (
+                            <div className="text-xs text-gray-500">
+                                Matures: {new Date(investment.maturityDate).toLocaleDateString()}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    investment.quantity
+                )}
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                {investment.type === 'FIXED_DEPOSIT' ? 
+                    `${formatCurrency(investment.purchasePrice, currency)} (Principal)` : 
+                    formatCurrency(investment.purchasePrice, currency)
+                }
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                {investment.type === 'FIXED_DEPOSIT' ? (
+                    <div>
+                        <div>{formatCurrency(investment.currentPrice, currency)}</div>
+                        <div className="text-xs text-gray-500">Current Value</div>
+                    </div>
+                ) : (
+                    formatCurrency(investment.currentPrice, currency)
+                )}
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                {formatCurrency(totalValue, currency)}
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                <div className={`font-medium ${getGainColor(gain)}`}>
+                    {formatCurrency(gain, currency)}
+                </div>
+                <div className={`text-xs ${getGainColor(gain)}`}>
+                    ({gainPercentage}%)
+                </div>
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <div>
+                    <div>{new Date(investment.purchaseDate).toLocaleDateString()}</div>
+                    {investment.type === 'FIXED_DEPOSIT' && (
+                        <div className="text-xs text-gray-500">Deposit Date</div>
+                    )}
+                </div>
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <div className="flex justify-end space-x-2">
+                    <button 
+                        onClick={() => onViewDetails(investment)}
+                        className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-800 transition-colors"
+                    >
+                        View
+                    </button>
+                    <button 
+                        onClick={() => onEdit(investment)}
+                        className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-800 transition-colors"
+                    >
+                        Edit
+                    </button>
+                    <button 
+                        onClick={() => onDelete(investment)}
+                        className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-800 transition-colors"
+                    >
+                        Delete
+                    </button>
+                </div>
+            </td>
+        </tr>
     );
 } 

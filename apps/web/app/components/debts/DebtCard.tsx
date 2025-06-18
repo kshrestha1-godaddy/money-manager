@@ -6,14 +6,32 @@ import { DebtInterface } from "../../types/debts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 
-export function DebtCard({ debt, onEdit, onDelete, onViewDetails, onAddRepayment }: { 
+export function DebtCard({ 
+    debt, 
+    onEdit, 
+    onDelete, 
+    onViewDetails, 
+    onAddRepayment,
+    isSelected = false,
+    onSelect,
+    showCheckbox = false 
+}: { 
     debt: DebtInterface;
     onEdit?: (debt: DebtInterface) => void;
     onDelete?: (debt: DebtInterface) => void;
     onViewDetails?: (debt: DebtInterface) => void;
     onAddRepayment?: (debt: DebtInterface) => void;
+    isSelected?: boolean;
+    onSelect?: (debtId: number, selected: boolean) => void;
+    showCheckbox?: boolean;
 }) {
     const { currency: userCurrency } = useCurrency();
+
+    const handleSelect = () => {
+        if (onSelect) {
+            onSelect(debt.id, !isSelected);
+        }
+    };
 
     // Calculate remaining amount
     const totalRepayments = debt.repayments?.reduce((sum, repayment) => sum + repayment.amount, 0) || 0;
@@ -41,7 +59,19 @@ export function DebtCard({ debt, onEdit, onDelete, onViewDetails, onAddRepayment
     const isOverdue = debt.dueDate && new Date() > debt.dueDate && remainingAmount > 0;
 
     return (
-        <div className={`bg-white rounded-lg shadow-md border border-gray-200 p-8 hover:shadow-lg transition-shadow ${isOverdue ? 'border-red-300' : ''}`}>
+        <div className={`bg-white rounded-lg shadow-md border border-gray-200 p-8 hover:shadow-lg transition-shadow ${isOverdue ? 'border-red-300' : ''} ${isSelected ? 'bg-blue-50 border-blue-200' : ''}`}>
+            {/* Checkbox for bulk selection */}
+            {showCheckbox && (
+                <div className="flex justify-end mb-2">
+                    <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={handleSelect}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                </div>
+            )}
+            
             {/* Header */}
             <div className="flex justify-between items-start mb-6">
                 <div>
@@ -154,12 +184,24 @@ export function DebtCard({ debt, onEdit, onDelete, onViewDetails, onAddRepayment
     );
 }
 
-export function DebtGrid({ debts, onEdit, onDelete, onViewDetails, onAddRepayment }: { 
+export function DebtGrid({ 
+    debts, 
+    onEdit, 
+    onDelete, 
+    onViewDetails, 
+    onAddRepayment,
+    selectedDebts = new Set(),
+    onDebtSelect,
+    showBulkActions = false 
+}: { 
     debts: DebtInterface[];
     onEdit?: (debt: DebtInterface) => void;
     onDelete?: (debt: DebtInterface) => void;
     onViewDetails?: (debt: DebtInterface) => void;
     onAddRepayment?: (debt: DebtInterface) => void;
+    selectedDebts?: Set<number>;
+    onDebtSelect?: (debtId: number, selected: boolean) => void;
+    showBulkActions?: boolean;
 }) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-full w-full">
@@ -171,6 +213,9 @@ export function DebtGrid({ debts, onEdit, onDelete, onViewDetails, onAddRepaymen
                     onDelete={onDelete} 
                     onViewDetails={onViewDetails}
                     onAddRepayment={onAddRepayment}
+                    isSelected={selectedDebts.has(debt.id)}
+                    onSelect={onDebtSelect}
+                    showCheckbox={showBulkActions}
                 />
             ))}
         </div>

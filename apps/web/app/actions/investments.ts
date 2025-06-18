@@ -543,4 +543,83 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
     } catch (error) {
         throw new Error(error instanceof Error ? error.message : "Failed to import investments");
     }
+}
+
+/**
+ * Bulk delete investments
+ */
+export async function bulkDeleteInvestments(investmentIds: number[]) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Verify all investments belong to the user and get investment details for account balance restoration
+        const existingInvestments = await prisma.investment.findMany({
+            where: {
+                id: { in: investmentIds },
+                userId: userId,
+            },
+            include: {
+                account: true
+            }
+        });
+
+        if (existingInvestments.length !== investmentIds.length) {
+            throw new Error("Some investments not found or unauthorized");
+        }
+
+        // Use a transaction to handle investment deletion and account balance restoration
+        await prisma.$transaction(async (tx) => {
+            // Delete the investments
+            await tx.investment.deleteMany({
+                where: { 
+                    id: { in: investmentIds },
+                    userId: userId
+                }
+            });
+
+            // Restore account balances (increase by investment amounts since investments are removed)
+            const accountUpdates = new Map<number, number>();
+            
+            existingInvestments.forEach(investment => {
+                if (investment.accountId) {
+                    const totalInvestmentAmount = investment.type === 'FIXED_DEPOSIT' ? 
+                        parseFloat(investment.purchasePrice.toString()) : 
+                        parseFloat(investment.quantity.toString()) * parseFloat(investment.purchasePrice.toString());
+                    
+                    const currentTotal = accountUpdates.get(investment.accountId) || 0;
+                    accountUpdates.set(investment.accountId, currentTotal + totalInvestmentAmount);
+                }
+            });
+
+            // Apply account balance updates
+            for (const [accountId, totalAmount] of accountUpdates) {
+                await tx.account.update({
+                    where: { id: accountId },
+                    data: {
+                        balance: {
+                            increment: totalAmount
+                        }
+                    }
+                });
+            }
+        });
+
+        // Revalidate related pages
+        revalidatePath("/(dashboard)/investments");
+        revalidatePath("/(dashboard)/accounts");
+        
+        console.info(`Bulk investment deletion successful: ${investmentIds.length} investments for user ${userId}`);
+        return { 
+            success: true, 
+            deletedCount: existingInvestments.length 
+        };
+    } catch (error) {
+        console.error(`Failed to bulk delete investments:`, error);
+        throw error;
+    }
 } 

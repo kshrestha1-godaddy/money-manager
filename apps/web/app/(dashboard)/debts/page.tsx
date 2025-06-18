@@ -17,7 +17,7 @@ import { calculateRemainingWithInterest } from "../../utils/interestCalculation"
 import { useDebts } from "../../hooks/useDebts";
 import { exportDebtsToCSV } from "../../utils/csvExportDebts";
 import { BulkImportModal } from "../../components/debts/BulkImportModal";
-import { getUserDebts } from "../../actions/debts";
+import { getUserDebts, bulkDeleteDebts } from "../../actions/debts";
 
 export default function Debts() {
     const { debts, loading, error, loadDebts, refreshDebts, addDebt, editDebt, removeDebt, clearError } = useDebts();
@@ -33,6 +33,8 @@ export default function Debts() {
     const [debtForRepayment, setDebtForRepayment] = useState<DebtInterface | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedStatus, setSelectedStatus] = useState("");
+    const [selectedDebts, setSelectedDebts] = useState<Set<number>>(new Set());
+    const showBulkActions = true;
 
     const [viewMode, setViewMode] = useState<"cards" | "table">("table");
     const { currency: userCurrency } = useCurrency();
@@ -110,6 +112,49 @@ export default function Debts() {
             return;
         }
         exportDebtsToCSV(debts);
+    };
+
+    // Bulk selection handlers
+    const handleDebtSelect = (debtId: number, selected: boolean) => {
+        setSelectedDebts(prev => {
+            const newSet = new Set(prev);
+            if (selected) {
+                newSet.add(debtId);
+            } else {
+                newSet.delete(debtId);
+            }
+            return newSet;
+        });
+    };
+
+    const handleSelectAll = (selected: boolean) => {
+        if (selected) {
+            setSelectedDebts(new Set(filteredAndSortedDebts.map(debt => debt.id)));
+        } else {
+            setSelectedDebts(new Set());
+        }
+    };
+
+    const handleClearSelection = () => {
+        setSelectedDebts(new Set());
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedDebts.size === 0) return;
+
+        const confirmMessage = `Are you sure you want to delete ${selectedDebts.size} debt${selectedDebts.size === 1 ? '' : 's'}? This action cannot be undone.`;
+        
+        if (confirm(confirmMessage)) {
+            try {
+                await bulkDeleteDebts(Array.from(selectedDebts));
+                // Remove deleted debts from state
+                setSelectedDebts(new Set());
+                loadDebts(); // Refresh the list
+            } catch (error) {
+                console.error("Error deleting debts:", error);
+                alert("Failed to delete debts. Please try again.");
+            }
+        }
     };
 
     // Get unique statuses for filter
@@ -364,6 +409,12 @@ export default function Debts() {
                             onDelete={openDeleteModal}
                             onViewDetails={openViewModal}
                             onAddRepayment={openAddRepaymentModal}
+                            selectedDebts={selectedDebts}
+                            onDebtSelect={handleDebtSelect}
+                            onSelectAll={handleSelectAll}
+                            showBulkActions={showBulkActions}
+                            onBulkDelete={handleBulkDelete}
+                            onClearSelection={handleClearSelection}
                         />
                     ) : (
                         <DebtList
@@ -372,6 +423,12 @@ export default function Debts() {
                             onDelete={openDeleteModal}
                             onViewDetails={openViewModal}
                             onAddRepayment={openAddRepaymentModal}
+                            selectedDebts={selectedDebts}
+                            onDebtSelect={handleDebtSelect}
+                            onSelectAll={handleSelectAll}
+                            showBulkActions={showBulkActions}
+                            onBulkDelete={handleBulkDelete}
+                            onClearSelection={handleClearSelection}
                         />
                     )}
                 </>

@@ -10,7 +10,7 @@ import { AddInvestmentModal } from "../../components/investments/AddInvestmentMo
 import { EditInvestmentModal } from "../../components/investments/EditInvestmentModal";
 import { DeleteInvestmentModal } from "../../components/investments/DeleteInvestmentModal";
 import { ViewInvestmentModal } from "../../components/investments/ViewInvestmentModal";
-import { getUserInvestments, createInvestment, updateInvestment, deleteInvestment } from "../../actions/investments";
+import { getUserInvestments, createInvestment, updateInvestment, deleteInvestment, bulkDeleteInvestments } from "../../actions/investments";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { triggerBalanceRefresh } from "../../hooks/useTotalBalance";
@@ -31,6 +31,9 @@ export default function Investments() {
     const [investmentToView, setInvestmentToView] = useState<InvestmentInterface | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedType, setSelectedType] = useState("");
+
+    // Bulk selection state
+    const [selectedInvestments, setSelectedInvestments] = useState<Set<number>>(new Set());
 
     const [viewMode, setViewMode] = useState<"cards" | "table">("table");
     const { currency: userCurrency } = useCurrency();
@@ -173,6 +176,47 @@ export default function Investments() {
             return;
         }
         exportInvestmentsToCSV(investments);
+    };
+
+    // Bulk selection handlers
+    const handleInvestmentSelect = (investmentId: number, selected: boolean) => {
+        setSelectedInvestments(prev => {
+            const newSet = new Set(prev);
+            if (selected) {
+                newSet.add(investmentId);
+            } else {
+                newSet.delete(investmentId);
+            }
+            return newSet;
+        });
+    };
+
+    const handleSelectAll = (selected: boolean) => {
+        if (selected) {
+            setSelectedInvestments(new Set(filteredAndSortedInvestments.map(i => i.id)));
+        } else {
+            setSelectedInvestments(new Set());
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedInvestments.size === 0) return;
+        
+        const confirmMessage = `Are you sure you want to delete ${selectedInvestments.size} investment(s)? This action cannot be undone.`;
+        if (!confirm(confirmMessage)) return;
+
+        try {
+            await bulkDeleteInvestments(Array.from(selectedInvestments));
+            // Remove deleted investments from the list
+            setInvestments(investments.filter(i => !selectedInvestments.has(i.id)));
+            setSelectedInvestments(new Set());
+            // Trigger balance refresh in NavBar
+            triggerBalanceRefresh();
+        } catch (error: any) {
+            console.error("Error bulk deleting investments:", error);
+            const errorMessage = error?.message || "Failed to delete investments. Please try again.";
+            alert(`Bulk delete failed: ${errorMessage}`);
+        }
     };
 
     // Get unique types for filter
@@ -406,6 +450,12 @@ export default function Investments() {
                             onEdit={openEditModal}
                             onDelete={openDeleteModal}
                             onViewDetails={openViewModal}
+                            selectedInvestments={selectedInvestments}
+                            onInvestmentSelect={handleInvestmentSelect}
+                            onSelectAll={handleSelectAll}
+                            showBulkActions={true}
+                            onBulkDelete={handleBulkDelete}
+                            onClearSelection={() => setSelectedInvestments(new Set())}
                         />
                     ) : (
                         <InvestmentList
@@ -413,6 +463,12 @@ export default function Investments() {
                             onEdit={openEditModal}
                             onDelete={openDeleteModal}
                             onViewDetails={openViewModal}
+                            selectedInvestments={selectedInvestments}
+                            onInvestmentSelect={handleInvestmentSelect}
+                            onSelectAll={handleSelectAll}
+                            showBulkActions={true}
+                            onBulkDelete={handleBulkDelete}
+                            onClearSelection={() => setSelectedInvestments(new Set())}
                         />
                     )}
                 </>

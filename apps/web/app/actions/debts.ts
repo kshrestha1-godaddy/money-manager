@@ -629,4 +629,76 @@ export async function bulkImportDebts(csvContent: string): Promise<ImportResult>
     } catch (error) {
         throw new Error(error instanceof Error ? error.message : "Failed to import debts");
     }
+}
+
+/**
+ * Bulk delete debts
+ */
+export async function bulkDeleteDebts(debtIds: number[]) {
+    try {
+        const session = await getAuthenticatedSession();
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Verify all debts belong to the user and get debt details for account balance restoration
+        const existingDebts = await prisma.debt.findMany({
+            where: {
+                id: { in: debtIds },
+                userId: userId,
+            },
+            include: {
+                repayments: true,
+            }
+        });
+
+        if (existingDebts.length !== debtIds.length) {
+            throw new Error("Some debts not found or unauthorized");
+        }
+
+        // Use a transaction to handle debt deletion and account balance restoration
+        await prisma.$transaction(async (tx) => {
+            // Delete the debts (this will cascade delete repayments)
+            await tx.debt.deleteMany({
+                where: { 
+                    id: { in: debtIds },
+                    userId: userId
+                }
+            });
+
+            // Restore account balances (increase by debt amounts since debts are removed)
+            const accountUpdates = new Map<number, number>();
+            
+            existingDebts.forEach(debt => {
+                if (debt.accountId) {
+                    const debtAmount = decimalToNumber(debt.amount, 'debt amount');
+                    const currentTotal = accountUpdates.get(debt.accountId) || 0;
+                    accountUpdates.set(debt.accountId, currentTotal + debtAmount);
+                }
+            });
+
+            // Apply account balance updates
+            for (const [accountId, totalAmount] of accountUpdates) {
+                await tx.account.update({
+                    where: { id: accountId },
+                    data: {
+                        balance: {
+                            increment: totalAmount
+                        }
+                    }
+                });
+            }
+        });
+
+        // Revalidate related pages
+        revalidatePath("/(dashboard)/debts");
+        revalidatePath("/(dashboard)/accounts");
+        
+        console.info(`Bulk debt deletion successful: ${debtIds.length} debts for user ${userId}`);
+        return { 
+            success: true, 
+            deletedCount: existingDebts.length 
+        };
+    } catch (error) {
+        console.error(`Failed to bulk delete debts:`, error);
+        throw error;
+    }
 } 
