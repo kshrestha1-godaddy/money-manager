@@ -2,26 +2,15 @@
 
 import prisma from "@repo/db/client";
 import { Transaction } from "../types/financial";
-import { getServerSession } from "next-auth";
-import { authOptions } from "../lib/auth";
-
-// Helper function to get user ID from session
-function getUserIdFromSession(sessionUserId: string): number {
-    // If it's a very large number (OAuth provider), take last 5 digits
-    if (sessionUserId.length > 5) {
-        return parseInt(sessionUserId.slice(-5));
-    }
-    // Otherwise parse normally
-    return parseInt(sessionUserId);
-}
+import { 
+    getUserIdFromSession, 
+    getAuthenticatedSession,
+    decimalToNumber 
+} from "../utils/auth";
 
 export async function getRecentTransactions(limit: number = 10): Promise<Transaction[]> {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session) {
-            throw new Error("Unauthorized");
-        }
-
+        const session = await getAuthenticatedSession();
         const userId = getUserIdFromSession(session.user.id);
 
         // Fetch recent expenses for the current user only
@@ -61,7 +50,7 @@ export async function getRecentTransactions(limit: number = 10): Promise<Transac
             id: `expense-${expense.id}`,
             type: 'EXPENSE' as const,
             title: expense.title,
-            amount: parseFloat(expense.amount.toString()),
+            amount: decimalToNumber(expense.amount, 'expense amount'),
             date: new Date(expense.date),
             category: expense.category.name,
             account: expense.account?.bankName || 'Unknown Account'
@@ -72,7 +61,7 @@ export async function getRecentTransactions(limit: number = 10): Promise<Transac
             id: `income-${income.id}`,
             type: 'INCOME' as const,
             title: income.title,
-            amount: parseFloat(income.amount.toString()),
+            amount: decimalToNumber(income.amount, 'income amount'),
             date: new Date(income.date),
             category: income.category.name,
             account: income.account?.bankName || 'Unknown Account'
@@ -85,18 +74,14 @@ export async function getRecentTransactions(limit: number = 10): Promise<Transac
 
         return allTransactions;
     } catch (error) {
-        console.error("Error fetching recent transactions:", error);
+        console.error(`Failed to fetch recent transactions (limit: ${limit}):`, error);
         throw new Error("Failed to fetch recent transactions");
     }
 }
 
 export async function getAllTransactions(): Promise<Transaction[]> {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session) {
-            throw new Error("Unauthorized");
-        }
-
+        const session = await getAuthenticatedSession();
         const userId = getUserIdFromSession(session.user.id);
 
         // Fetch all expenses for the current user
@@ -134,7 +119,7 @@ export async function getAllTransactions(): Promise<Transaction[]> {
             id: `expense-${expense.id}`,
             type: 'EXPENSE' as const,
             title: expense.title,
-            amount: parseFloat(expense.amount.toString()),
+            amount: decimalToNumber(expense.amount, 'expense amount'),
             date: new Date(expense.date),
             category: expense.category.name,
             account: expense.account?.bankName || 'Unknown Account'
@@ -145,7 +130,7 @@ export async function getAllTransactions(): Promise<Transaction[]> {
             id: `income-${income.id}`,
             type: 'INCOME' as const,
             title: income.title,
-            amount: parseFloat(income.amount.toString()),
+            amount: decimalToNumber(income.amount, 'income amount'),
             date: new Date(income.date),
             category: income.category.name,
             account: income.account?.bankName || 'Unknown Account'
@@ -157,7 +142,7 @@ export async function getAllTransactions(): Promise<Transaction[]> {
 
         return allTransactions;
     } catch (error) {
-        console.error("Error fetching all transactions:", error);
+        console.error("Failed to fetch all transactions:", error);
         throw new Error("Failed to fetch all transactions");
     }
 } 

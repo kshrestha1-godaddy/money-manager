@@ -9,9 +9,16 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "jotai": "^2.12.3"
+    "jotai": "^2.12.3",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12"
   },
   "exports": {
-    "./balance": "./src/hooks/useBalance.ts"
+    ".": "./src/index.ts",
+    "./balance": "./src/hooks/useBalance.ts",
+    "./currency": "./src/hooks/useCurrency.ts",
+    "./atoms": "./src/atoms/currencyAtom.ts"
   }
 }

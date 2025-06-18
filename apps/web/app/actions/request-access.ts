@@ -1,7 +1,7 @@
 "use server";
 
 import { sendEmail, sendAccessRequestConfirmation } from "../services/email";
-
+import { validateEmail, requireEnvVar } from "../utils/auth";
 
 export async function requestAccess(email: string, message?: string) {
   try {
@@ -9,6 +9,26 @@ export async function requestAccess(email: string, message?: string) {
       return {
         success: false,
         error: "Email is required"
+      };
+    }
+
+    // Validate email format
+    if (!validateEmail(email)) {
+      return {
+        success: false,
+        error: "Please enter a valid email address"
+      };
+    }
+
+    // Check if admin email is configured
+    let adminEmail: string;
+    try {
+      adminEmail = requireEnvVar('ADMIN_EMAIL');
+    } catch (error) {
+      console.error("Admin email not configured:", error);
+      return {
+        success: false,
+        error: "Service not configured properly. Please contact the administrator."
       };
     }
 
@@ -113,7 +133,7 @@ export async function requestAccess(email: string, message?: string) {
 
     // Send notification email to admin
     const adminEmailResult = await sendEmail({
-      to: process.env.ADMIN_EMAIL as string,
+      to: adminEmail,
       subject,
       text,
       html
@@ -128,6 +148,7 @@ export async function requestAccess(email: string, message?: string) {
         console.warn("Failed to send confirmation email to user:", userEmailResult.error);
       }
       
+      console.info(`Access request submitted successfully for: ${email}`);
       return {
         success: true,
         message: "Access request submitted successfully"

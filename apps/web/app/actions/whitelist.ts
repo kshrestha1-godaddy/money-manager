@@ -1,14 +1,16 @@
 "use server";
 
 import prisma from "@repo/db/client";
+import { validateEmail } from "../utils/auth";
 
-/**
- * Check if an email is whitelisted in the database
- * @param email - The email to check
- * @returns Promise<boolean> - True if email is whitelisted and active
- */
+
 export async function isEmailWhitelisted(email: string): Promise<boolean> {
   if (!email) return false;
+
+  // Validate email format before checking database
+  if (!validateEmail(email)) {
+    return false;
+  }
 
   try {
     const whitelistedEmail = await prisma.whitelistedEmail.findUnique({
@@ -19,24 +21,24 @@ export async function isEmailWhitelisted(email: string): Promise<boolean> {
 
     return whitelistedEmail !== null && whitelistedEmail.isActive;
   } catch (error) {
-    console.error("Error checking whitelisted email:", error);
+    console.error(`Failed to check whitelisted email ${email}:`, error);
     return false;
   }
 }
 
-/**
- * Add an email to the whitelist
- * @param email - The email to add
- * @param addedBy - Who added this email
- * @param reason - Reason for whitelisting
- * @returns Promise<boolean> - True if successfully added
- */
+
 export async function addEmailToWhitelist(
   email: string,
   addedBy?: string,
   reason?: string
 ): Promise<boolean> {
   if (!email) return false;
+
+  // Validate email format before adding to database
+  if (!validateEmail(email)) {
+    console.error(`Invalid email format for whitelist addition: ${email}`);
+    return false;
+  }
 
   try {
     await prisma.whitelistedEmail.upsert({
@@ -57,20 +59,23 @@ export async function addEmailToWhitelist(
       },
     });
 
+    console.info(`Email added to whitelist: ${email} by ${addedBy || 'system'}`);
     return true;
   } catch (error) {
-    console.error("Error adding email to whitelist:", error);
+    console.error(`Failed to add email to whitelist ${email}:`, error);
     return false;
   }
 }
 
-/**
- * Remove an email from the whitelist (deactivate)
- * @param email - The email to remove
- * @returns Promise<boolean> - True if successfully removed
- */
+
 export async function removeEmailFromWhitelist(email: string): Promise<boolean> {
   if (!email) return false;
+
+  // Validate email format before processing
+  if (!validateEmail(email)) {
+    console.error(`Invalid email format for whitelist removal: ${email}`);
+    return false;
+  }
 
   try {
     await prisma.whitelistedEmail.update({
@@ -83,18 +88,15 @@ export async function removeEmailFromWhitelist(email: string): Promise<boolean> 
       },
     });
 
+    console.info(`Email removed from whitelist: ${email}`);
     return true;
   } catch (error) {
-    console.error("Error removing email from whitelist:", error);
+    console.error(`Failed to remove email from whitelist ${email}:`, error);
     return false;
   }
 }
 
-/**
- * Get all whitelisted emails
- * @param activeOnly - Whether to return only active emails
- * @returns Promise<Array> - Array of whitelisted email objects
- */
+
 export async function getAllWhitelistedEmails(activeOnly: boolean = true) {
   try {
     return await prisma.whitelistedEmail.findMany({
@@ -104,7 +106,7 @@ export async function getAllWhitelistedEmails(activeOnly: boolean = true) {
       },
     });
   } catch (error) {
-    console.error("Error fetching whitelisted emails:", error);
+    console.error("Failed to fetch whitelisted emails:", error);
     return [];
   }
 } 

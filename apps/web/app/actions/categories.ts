@@ -2,27 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import prisma from "@repo/db/client";
-import { getServerSession } from "next-auth";
-import { authOptions } from "../lib/auth";
 import { Category } from "../types/financial";
-
-// Helper function to get user ID from session
-function getUserIdFromSession(sessionUserId: string): number {
-    // If it's a very large number (OAuth provider), take last 5 digits
-    if (sessionUserId.length > 5) {
-        return parseInt(sessionUserId.slice(-5));
-    }
-    // Otherwise parse normally
-    return parseInt(sessionUserId);
-}
+import { 
+    getUserIdFromSession, 
+    getAuthenticatedSession 
+} from "../utils/auth";
 
 export async function getCategories(type?: "EXPENSE" | "INCOME") {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session) {
-            throw new Error("Unauthorized");
-        }
-
+        const session = await getAuthenticatedSession();
         const userId = getUserIdFromSession(session.user.id);
         const where = type ? { type, userId } : { userId };
         
@@ -40,7 +28,7 @@ export async function getCategories(type?: "EXPENSE" | "INCOME") {
             updatedAt: new Date(category.updatedAt)
         })) as Category[];
     } catch (error) {
-        console.error("Error fetching categories:", error);
+        console.error("Failed to fetch categories:", error);
         throw new Error("Failed to fetch categories");
     }
 }
@@ -52,11 +40,7 @@ export async function createCategory(data: {
     icon?: string;
 }) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session) {
-            throw new Error("Unauthorized");
-        }
-
+        const session = await getAuthenticatedSession();
         const userId = getUserIdFromSession(session.user.id);
 
         const category = await prisma.category.create({
@@ -72,13 +56,15 @@ export async function createCategory(data: {
         revalidatePath("/(dashboard)/expenses");
         revalidatePath("/(dashboard)/incomes");
 
+        console.info(`Category created successfully: ${data.name} (${data.type}) for user ${userId}`);
+
         return {
             ...category,
             createdAt: new Date(category.createdAt),
             updatedAt: new Date(category.updatedAt)
         } as Category;
     } catch (error) {
-        console.error("Error creating category:", error);
+        console.error(`Failed to create category: ${data.name}`, error);
         throw new Error("Failed to create category");
     }
 }
@@ -89,11 +75,7 @@ export async function updateCategory(id: number, data: {
     icon?: string;
 }) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session) {
-            throw new Error("Unauthorized");
-        }
-
+        const session = await getAuthenticatedSession();
         const userId = getUserIdFromSession(session.user.id);
 
         // Verify the category belongs to the user
@@ -105,6 +87,7 @@ export async function updateCategory(id: number, data: {
         });
 
         if (!existingCategory) {
+            console.error(`Category update failed - not found or unauthorized: ${id} for user ${userId}`);
             throw new Error("Category not found or unauthorized");
         }
 
@@ -116,24 +99,22 @@ export async function updateCategory(id: number, data: {
         revalidatePath("/(dashboard)/expenses");
         revalidatePath("/(dashboard)/incomes");
 
+        console.info(`Category updated successfully: ${id} for user ${userId}`);
+
         return {
             ...category,
             createdAt: new Date(category.createdAt),
             updatedAt: new Date(category.updatedAt)
         } as Category;
     } catch (error) {
-        console.error("Error updating category:", error);
+        console.error(`Failed to update category ${id}:`, error);
         throw new Error("Failed to update category");
     }
 }
 
 export async function deleteCategory(id: number) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session) {
-            throw new Error("Unauthorized");
-        }
-
+        const session = await getAuthenticatedSession();
         const userId = getUserIdFromSession(session.user.id);
 
         // Verify the category belongs to the user
@@ -145,6 +126,7 @@ export async function deleteCategory(id: number) {
         });
 
         if (!existingCategory) {
+            console.error(`Category deletion failed - not found or unauthorized: ${id} for user ${userId}`);
             throw new Error("Category not found or unauthorized");
         }
 
@@ -155,9 +137,10 @@ export async function deleteCategory(id: number) {
         revalidatePath("/(dashboard)/expenses");
         revalidatePath("/(dashboard)/incomes");
         
+        console.info(`Category deleted successfully: ${id} for user ${userId}`);
         return { success: true };
     } catch (error) {
-        console.error("Error deleting category:", error);
+        console.error(`Failed to delete category ${id}:`, error);
         throw new Error("Failed to delete category");
     }
 } 

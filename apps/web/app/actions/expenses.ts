@@ -68,7 +68,7 @@ export async function getExpenses() {
             } : null
         })) as Expense[];
     } catch (error) {
-        console.error("Error fetching expenses:", error);
+        console.error("Failed to fetch expenses:", error);
         throw new Error("Failed to fetch expenses");
     }
 }
@@ -136,6 +136,8 @@ export async function createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'up
         revalidatePath("/(dashboard)/expenses");
         revalidatePath("/(dashboard)/accounts");
 
+        console.info(`Expense created successfully: ${data.title} - $${data.amount} for user ${userId}`);
+
         // Transform Prisma result to match our Expense type
         return {
             ...result,
@@ -153,7 +155,7 @@ export async function createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'up
             } : null
         } as Expense;
     } catch (error) {
-        console.error("Error creating expense:", error);
+        console.error(`Failed to create expense: ${data.title}`, error);
         throw new Error("Failed to create expense");
     }
 }
@@ -176,6 +178,7 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
         });
 
         if (!existingExpense) {
+            console.error(`Expense update failed - not found or unauthorized: ${id} for user ${userId}`);
             throw new Error("Expense not found or unauthorized");
         }
 
@@ -257,6 +260,9 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
         revalidatePath("/(dashboard)/expenses");
         revalidatePath("/(dashboard)/accounts");
 
+        console.info(`Expense updated successfully: ${id} for user ${userId}`);
+
+        // Transform Prisma result to match our Expense type
         return {
             ...result,
             amount: parseFloat(result.amount.toString()),
@@ -273,7 +279,7 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
             } : null
         } as Expense;
     } catch (error) {
-        console.error("Error updating expense:", error);
+        console.error(`Failed to update expense ${id}:`, error);
         throw new Error("Failed to update expense");
     }
 }
@@ -287,26 +293,26 @@ export async function deleteExpense(id: number) {
 
         const userId = getUserIdFromSession(session.user.id);
 
-        // Verify the expense belongs to the user
-        const existingExpense = await prisma.expense.findFirst({
-            where: {
-                id,
-                userId: userId,
-            },
-        });
-
-        if (!existingExpense) {
-            throw new Error("Expense not found or unauthorized");
-        }
-
-        // Use a transaction to ensure both expense deletion and account balance update
+        // Use a transaction to handle expense deletion and account balance restoration
         await prisma.$transaction(async (tx) => {
-            // Delete the expense
-            await tx.expense.delete({
-                where: { id }
+            // Verify the expense belongs to the user and get its details
+            const existingExpense = await tx.expense.findFirst({
+                where: {
+                    id,
+                    userId: userId,
+                },
             });
 
-            // Update the account balance (increase by expense amount since expense is removed)
+            if (!existingExpense) {
+                throw new Error("Expense not found or unauthorized");
+            }
+
+            // Delete the expense
+            await tx.expense.delete({
+                where: { id },
+            });
+
+            // Restore the account balance if there was an account associated
             if (existingExpense.accountId) {
                 await tx.account.update({
                     where: { id: existingExpense.accountId },
@@ -321,9 +327,11 @@ export async function deleteExpense(id: number) {
 
         revalidatePath("/(dashboard)/expenses");
         revalidatePath("/(dashboard)/accounts");
+
+        console.info(`Expense deleted successfully: ${id} for user ${userId}`);
         return { success: true };
     } catch (error) {
-        console.error("Error deleting expense:", error);
+        console.error(`Failed to delete expense ${id}:`, error);
         throw new Error("Failed to delete expense");
     }
 }
@@ -338,7 +346,7 @@ export async function getExpensesByCategory(categoryId: number) {
         const userId = getUserIdFromSession(session.user.id);
 
         const expenses = await prisma.expense.findMany({
-            where: { 
+            where: {
                 categoryId,
                 userId: userId
             },
@@ -352,6 +360,7 @@ export async function getExpensesByCategory(categoryId: number) {
             }
         });
 
+        // Transform Prisma result to match our Expense type
         return expenses.map(expense => ({
             ...expense,
             amount: parseFloat(expense.amount.toString()),
@@ -368,7 +377,7 @@ export async function getExpensesByCategory(categoryId: number) {
             } : null
         })) as Expense[];
     } catch (error) {
-        console.error("Error fetching expenses by category:", error);
+        console.error(`Failed to fetch expenses by category ${categoryId}:`, error);
         throw new Error("Failed to fetch expenses by category");
     }
 }
@@ -400,6 +409,7 @@ export async function getExpensesByDateRange(startDate: Date, endDate: Date) {
             }
         });
 
+        // Transform Prisma result to match our Expense type
         return expenses.map(expense => ({
             ...expense,
             amount: parseFloat(expense.amount.toString()),
@@ -416,12 +426,10 @@ export async function getExpensesByDateRange(startDate: Date, endDate: Date) {
             } : null
         })) as Expense[];
     } catch (error) {
-        console.error("Error fetching expenses by date range:", error);
+        console.error(`Failed to fetch expenses by date range:`, error);
         throw new Error("Failed to fetch expenses by date range");
     }
 }
-
-
 
 // Removed duplicate types and functions - now using centralized utilities
 
@@ -673,7 +681,6 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
         return result;
 
     } catch (error) {
-        console.error("Error in bulk import:", error);
         throw new Error(error instanceof Error ? error.message : "Failed to import expenses");
     }
 }
@@ -743,7 +750,6 @@ export async function bulkDeleteExpenses(expenseIds: number[]) {
             deletedCount: existingExpenses.length 
         };
     } catch (error) {
-        console.error("Error bulk deleting expenses:", error);
         throw new Error("Failed to delete expenses");
     }
 }
@@ -876,7 +882,6 @@ export async function parseCSVForUI(csvText: string): Promise<string[][]> {
         const result = parseCSV(csvText);
         return Array.isArray(result) ? result : [];
     } catch (error) {
-        console.error('Error parsing CSV:', error);
         return [];
     }
 }

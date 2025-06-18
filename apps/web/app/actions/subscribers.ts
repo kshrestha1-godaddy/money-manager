@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import prisma from "@repo/db/client";
 import { Subscriber } from "../types/financial";
 import { sendWelcomeEmail } from "../services/email";
+import { validateEmail } from "../utils/auth";
 
 export async function getSubscribers() {
     try {
@@ -23,7 +24,7 @@ export async function getSubscribers() {
             updatedAt: new Date(subscriber.updatedAt)
         })) as Subscriber[];
     } catch (error) {
-        console.error("Error fetching subscribers:", error);
+        console.error("Failed to fetch subscribers:", error);
         throw new Error("Failed to fetch subscribers");
     }
 }
@@ -40,18 +41,24 @@ export async function addSubscriber(data: {
     tags?: string[];
 }) {
     try {
+        // Validate email format
+        if (!validateEmail(data.email)) {
+            return {
+                success: false,
+                error: "Please enter a valid email address"
+            };
+        }
+
         // Check if subscriber already exists
         const existingSubscriber = await prisma.subscriber.findUnique({
-            where: { email: data.email }
+            where: { email: data.email.toLowerCase().trim() }
         });
-
-        console.log("Existing subscriber:", existingSubscriber);
 
         if (existingSubscriber) {
             // If they exist but are unsubscribed, reactivate them
             if (existingSubscriber.status === 'UNSUBSCRIBED' || existingSubscriber.status === 'INACTIVE') {
                 const reactivatedSubscriber = await prisma.subscriber.update({
-                    where: { email: data.email },
+                    where: { email: data.email.toLowerCase().trim() },
                     data: {
                         status: 'ACTIVE',
                         unsubscribedAt: null,
@@ -69,18 +76,17 @@ export async function addSubscriber(data: {
                 // Send welcome back email to reactivated subscriber
                 try {
                     const emailResult = await sendWelcomeEmail(data.email, data.name || reactivatedSubscriber.name || undefined);
-                    if (emailResult.success) {
-                        console.log("Welcome back email sent successfully to:", data.email);
-                    } else {
-                        console.error("Failed to send welcome back email:", emailResult.error);
+                    if (!emailResult.success) {
+                        console.warn(`Failed to send welcome back email to ${data.email}:`, emailResult.error);
                     }
                 } catch (error) {
-                    console.error("Error sending welcome back email:", error);
+                    console.warn(`Error sending welcome back email to ${data.email}:`, error);
                     // Don't fail the reactivation if email fails
                 }
 
                 revalidatePath("/subscribers");
 
+                console.info(`Subscriber reactivated: ${data.email}`);
                 return {
                     success: true,
                     message: "Welcome back! Your subscription has been reactivated.",
@@ -96,14 +102,14 @@ export async function addSubscriber(data: {
             } else {
                 return {
                     success: false,
-                    message: "This email is already subscribed."
+                    error: "This email is already subscribed."
                 };
             }
         }
 
         const subscriber = await prisma.subscriber.create({
             data: {
-                email: data.email,
+                email: data.email.toLowerCase().trim(),
                 name: data.name,
                 phone: data.phone,
                 status: 'ACTIVE',
@@ -119,18 +125,17 @@ export async function addSubscriber(data: {
         // Send welcome email to new subscriber
         try {
             const emailResult = await sendWelcomeEmail(data.email, data.name);
-            if (emailResult.success) {
-                console.log("Welcome email sent successfully to:", data.email);
-            } else {
-                console.error("Failed to send welcome email:", emailResult.error);
+            if (!emailResult.success) {
+                console.warn(`Failed to send welcome email to ${data.email}:`, emailResult.error);
             }
         } catch (error) {
-            console.error("Error sending welcome email:", error);
+            console.warn(`Error sending welcome email to ${data.email}:`, error);
             // Don't fail the subscription if email fails
         }
 
         revalidatePath("/subscribers");
 
+        console.info(`New subscriber added: ${data.email}`);
         return {
             success: true,
             message: "Thank you for subscribing! You'll receive updates according to your preferences. Check your email for a welcome message!",
@@ -144,10 +149,10 @@ export async function addSubscriber(data: {
             }
         };
     } catch (error) {
-        console.error("Error adding subscriber:", error);
+        console.error(`Failed to add subscriber ${data.email}:`, error);
         return {
             success: false,
-            message: "Failed to subscribe. Please try again later."
+            error: "Failed to subscribe. Please try again later."
         };
     }
 }
@@ -170,6 +175,7 @@ export async function updateSubscriber(id: number, data: {
         });
 
         if (!existingSubscriber) {
+            console.error(`Subscriber update failed - not found: ${id}`);
             throw new Error("Subscriber not found");
         }
 
@@ -188,6 +194,7 @@ export async function updateSubscriber(id: number, data: {
 
         revalidatePath("/subscribers");
 
+        console.info(`Subscriber updated: ${existingSubscriber.email} (ID: ${id})`);
         return {
             ...subscriber,
             subscribedAt: new Date(subscriber.subscribedAt),
@@ -197,10 +204,7 @@ export async function updateSubscriber(id: number, data: {
             updatedAt: new Date(subscriber.updatedAt)
         } as Subscriber;
     } catch (error) {
-        console.error("Error updating subscriber:", error);
-        if (error instanceof Error) {
-            throw error;
-        }
+        console.error(`Failed to update subscriber ${id}:`, error);
         throw new Error("Failed to update subscriber");
     }
 }
@@ -212,6 +216,7 @@ export async function deleteSubscriber(id: number) {
         });
 
         if (!existingSubscriber) {
+            console.error(`Subscriber deletion failed - not found: ${id}`);
             throw new Error("Subscriber not found");
         }
 
@@ -221,12 +226,10 @@ export async function deleteSubscriber(id: number) {
 
         revalidatePath("/subscribers");
         
+        console.info(`Subscriber deleted: ${existingSubscriber.email} (ID: ${id})`);
         return { success: true };
     } catch (error) {
-        console.error("Error deleting subscriber:", error);
-        if (error instanceof Error) {
-            throw error;
-        }
+        console.error(`Failed to delete subscriber ${id}:`, error);
         throw new Error("Failed to delete subscriber");
     }
 }
@@ -234,10 +237,11 @@ export async function deleteSubscriber(id: number) {
 export async function getSubscriberById(id: number) {
     try {
         const subscriber = await prisma.subscriber.findUnique({
-            where: { id },
+            where: { id }
         });
 
         if (!subscriber) {
+            console.error(`Subscriber not found: ${id}`);
             throw new Error("Subscriber not found");
         }
 
@@ -250,10 +254,7 @@ export async function getSubscriberById(id: number) {
             updatedAt: new Date(subscriber.updatedAt)
         } as Subscriber;
     } catch (error) {
-        console.error("Error fetching subscriber:", error);
-        if (error instanceof Error) {
-            throw error;
-        }
+        console.error(`Failed to fetch subscriber by ID ${id}:`, error);
         throw new Error("Failed to fetch subscriber");
     }
 }
@@ -261,7 +262,7 @@ export async function getSubscriberById(id: number) {
 export async function getSubscriberByEmail(email: string) {
     try {
         const subscriber = await prisma.subscriber.findUnique({
-            where: { email },
+            where: { email: email.toLowerCase().trim() }
         });
 
         if (!subscriber) {
@@ -277,67 +278,50 @@ export async function getSubscriberByEmail(email: string) {
             updatedAt: new Date(subscriber.updatedAt)
         } as Subscriber;
     } catch (error) {
-        console.error("Error fetching subscriber by email:", error);
-        if (error instanceof Error) {
-            throw error;
-        }
+        console.error(`Failed to fetch subscriber by email ${email}:`, error);
         throw new Error("Failed to fetch subscriber");
     }
 }
 
 export async function bulkUnsubscribe(subscriberIds: number[]) {
     try {
-        // Verify all subscribers exist
-        const subscribers = await prisma.subscriber.findMany({
+        const result = await prisma.subscriber.updateMany({
             where: {
-                id: { in: subscriberIds },
-            },
-        });
-
-        if (subscribers.length !== subscriberIds.length) {
-            throw new Error("Some subscribers not found");
-        }
-
-        await prisma.subscriber.updateMany({
-            where: {
-                id: { in: subscriberIds },
+                id: { in: subscriberIds }
             },
             data: {
                 status: 'UNSUBSCRIBED',
-                unsubscribedAt: new Date(),
+                unsubscribedAt: new Date()
             }
         });
 
         revalidatePath("/subscribers");
         
-        return { success: true, count: subscribers.length };
+        console.info(`Bulk unsubscribed ${result.count} subscribers`);
+        return { success: true, count: result.count };
     } catch (error) {
-        console.error("Error bulk unsubscribing:", error);
-        if (error instanceof Error) {
-            throw error;
-        }
+        console.error("Failed to bulk unsubscribe subscribers:", error);
         throw new Error("Failed to bulk unsubscribe");
     }
 }
 
 export async function getSubscriberStats() {
     try {
-        const [total, active, unsubscribed, bounced] = await Promise.all([
+        const [total, active, unsubscribed, inactive] = await Promise.all([
             prisma.subscriber.count(),
             prisma.subscriber.count({ where: { status: 'ACTIVE' } }),
             prisma.subscriber.count({ where: { status: 'UNSUBSCRIBED' } }),
-            prisma.subscriber.count({ where: { status: 'BOUNCED' } }),
+            prisma.subscriber.count({ where: { status: 'INACTIVE' } })
         ]);
 
         return {
             total,
             active,
             unsubscribed,
-            bounced,
-            inactive: total - active - unsubscribed - bounced
+            inactive
         };
     } catch (error) {
-        console.error("Error fetching subscriber stats:", error);
+        console.error("Failed to fetch subscriber stats:", error);
         throw new Error("Failed to fetch subscriber stats");
     }
 } 
