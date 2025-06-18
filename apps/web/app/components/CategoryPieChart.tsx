@@ -38,7 +38,7 @@ export function CategoryPieChart({ data, type, currency = "USD", title }: Catego
     });
 
     // Convert to array and add colors
-    const chartData: CategoryData[] = Array.from(categoryMap.entries())
+    const rawChartData: CategoryData[] = Array.from(categoryMap.entries())
         .map(([name, value], index) => ({
             name,
             value,
@@ -46,10 +46,42 @@ export function CategoryPieChart({ data, type, currency = "USD", title }: Catego
         }))
         .sort((a, b) => b.value - a.value); // Sort by value descending
 
-    const total = chartData.reduce((sum, item) => sum + item.value, 0);
+    const total = rawChartData.reduce((sum, item) => sum + item.value, 0);
+
+    // Filter categories >= 2.5% and group smaller ones as "Others"
+    const significantCategories = rawChartData.filter(item => {
+        const percentage = total > 0 ? (item.value / total) * 100 : 0;
+        return percentage >= 2.5;
+    });
+
+    const smallCategories = rawChartData.filter(item => {
+        const percentage = total > 0 ? (item.value / total) * 100 : 0;
+        return percentage < 2.5;
+    });
+
+    // Create "Others" category if there are small categories
+    const chartData: CategoryData[] = [...significantCategories];
+    if (smallCategories.length > 0) {
+        const othersValue = smallCategories.reduce((sum, item) => sum + item.value, 0);
+        chartData.push({
+            name: 'Others',
+            value: othersValue,
+            color: '#9CA3AF' // Gray color for Others category
+        });
+    }
 
     const formatTooltip = (value: number, name: string): [string, string] => {
         const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+        
+        // For "Others" category, show additional details
+        if (name === 'Others' && smallCategories.length > 0) {
+            const categoryNames = smallCategories.map(cat => cat.name).join(', ');
+            return [
+                `${formatCurrency(value, currency)} (${percentage}%) - Includes: ${categoryNames}`,
+                name
+            ];
+        }
+        
         return [
             `${formatCurrency(value, currency)} (${percentage}%)`,
             name
@@ -148,6 +180,17 @@ export function CategoryPieChart({ data, type, currency = "USD", title }: Catego
                 total > 0 ? ((item.value / total) * 100).toFixed(1) + '%' : '0.0%'
             ])
         ];
+
+        // Add detailed breakdown if "Others" category exists
+        if (smallCategories.length > 0) {
+            csvData.push(['', '', '']); // Empty row for separation
+            csvData.push(['--- Detailed Breakdown ---', '', '']);
+            csvData.push(['All Categories (including < 2.5%)', '', '']);
+            rawChartData.forEach(item => {
+                const percentage = total > 0 ? ((item.value / total) * 100).toFixed(1) + '%' : '0.0%';
+                csvData.push([item.name, item.value.toString(), percentage]);
+            });
+        }
         
         const csvString = csvData.map(row => row.join(',')).join('\n');
         const blob = new Blob([csvString], { type: 'text/csv' });
@@ -177,7 +220,7 @@ export function CategoryPieChart({ data, type, currency = "USD", title }: Catego
                 {/* Pie Chart */}
                 <div 
                     ref={chartRef} 
-                    className={`${isExpanded ? "h-[35rem]" : "h-[28rem]"} lg:col-span-2`}
+                    className={`${isExpanded ? "h-[45rem]" : "h-[30rem]"} lg:col-span-2`}
                     role="img"
                     aria-label={`${type === 'income' ? 'Income' : 'Expense'} categories pie chart showing distribution of ${formatCurrency(total, currency)} across different categories`}
                 >
@@ -208,23 +251,49 @@ export function CategoryPieChart({ data, type, currency = "USD", title }: Catego
                     <div className="space-y-2 max-h-80 overflow-y-auto">
                         {chartData.map((entry, index) => {
                             const percentage = total > 0 ? ((entry.value / total) * 100).toFixed(1) : '0.0';
+                            const isOthers = entry.name === 'Others';
+                            
                             return (
-                                <div key={entry.name} className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center space-x-2 flex-1 min-w-0">
-                                        <div
-                                            className="w-3 h-3 rounded-full flex-shrink-0"
-                                            style={{ backgroundColor: entry.color }}
-                                        />
-                                        <span className="text-sm text-gray-700 truncate">{entry.name}</span>
-                                    </div>
-                                    <div className="text-right flex-shrink-0">
-                                        <div className="text-sm font-medium text-gray-900">
-                                            {formatCurrency(entry.value, currency)}
+                                <div key={entry.name}>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center space-x-2 flex-1 min-w-0">
+                                            <div
+                                                className="w-3 h-3 rounded-full flex-shrink-0"
+                                                style={{ backgroundColor: entry.color }}
+                                            />
+                                            <span className="text-sm text-gray-700 truncate">{entry.name}</span>
+                                            {isOthers && smallCategories.length > 0 && (
+                                                <span className="text-xs text-gray-500">
+                                                    ({smallCategories.length} categories)
+                                                </span>
+                                            )}
                                         </div>
-                                        <div className="text-xs text-gray-500">
-                                            {percentage}%
+                                        <div className="text-right flex-shrink-0">
+                                            <div className="text-sm font-medium text-gray-900">
+                                                {formatCurrency(entry.value, currency)}
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                                {percentage}%
+                                            </div>
                                         </div>
                                     </div>
+                                    
+                                    {/* Show breakdown for Others category */}
+                                    {isOthers && smallCategories.length > 0 && (
+                                        <div className="ml-5 mt-1 space-y-1">
+                                            {smallCategories.map((smallCat) => {
+                                                const smallPercentage = total > 0 ? ((smallCat.value / total) * 100).toFixed(1) : '0.0';
+                                                return (
+                                                    <div key={smallCat.name} className="flex items-center justify-between text-xs text-gray-500">
+                                                        <span className="truncate">• {smallCat.name}</span>
+                                                        <span className="flex-shrink-0 ml-2">
+                                                            {formatCurrency(smallCat.value, currency)} ({smallPercentage}%)
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
