@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useQuery } from '@tanstack/react-query';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList, Treemap } from 'recharts';
 import { Income, Expense } from "../../types/financial";
 import { AccountInterface } from "../../types/accounts";
 import { DebtInterface } from "../../types/debts";
@@ -188,25 +188,59 @@ export default function NetWorthPage() {
 
     // Memoized chart data
     const chartData = useMemo(() => {
-        const { totalAccountBalance, totalInvestmentValue, totalMoneyLent } = financialCalculations;
+        const { totalAccountBalance, totalInvestmentValue, totalMoneyLent, totalAssets } = financialCalculations;
         
         return [
             {
                 name: 'Bank Balance',
                 value: totalAccountBalance,
-                color: '#10b981'
+                color: '#10b981',
+                percentage: totalAssets > 0 ? ((totalAccountBalance / totalAssets) * 100).toFixed(1) : '0'
             },
             {
                 name: 'Investments',
                 value: totalInvestmentValue,
-                color: '#3b82f6'
+                color: '#3b82f6',
+                percentage: totalAssets > 0 ? ((totalInvestmentValue / totalAssets) * 100).toFixed(1) : '0'
             },
             {
                 name: 'Money Lent',
                 value: totalMoneyLent,
-                color: '#ef4444'
+                color: '#ef4444',
+                percentage: totalAssets > 0 ? ((totalMoneyLent / totalAssets) * 100).toFixed(1) : '0'
             }
         ];
+    }, [financialCalculations]);
+
+    // Treemap data with enhanced colors and labels
+    const treemapData = useMemo(() => {
+        const { totalAccountBalance, totalInvestmentValue, totalMoneyLent, totalAssets } = financialCalculations;
+        
+        const data = [
+            {
+                name: 'Bank Balance',
+                value: totalAccountBalance,
+                color: '#059669',
+                size: totalAccountBalance,
+                percentage: totalAssets > 0 ? ((totalAccountBalance / totalAssets) * 100).toFixed(1) : '0'
+            },
+            {
+                name: 'Investments',
+                value: totalInvestmentValue,
+                color: '#2563eb',
+                size: totalInvestmentValue,
+                percentage: totalAssets > 0 ? ((totalInvestmentValue / totalAssets) * 100).toFixed(1) : '0'
+            },
+            {
+                name: 'Money Lent',
+                value: totalMoneyLent,
+                color: '#dc2626',
+                size: totalMoneyLent,
+                percentage: totalAssets > 0 ? ((totalMoneyLent / totalAssets) * 100).toFixed(1) : '0'
+            }
+        ].filter(item => item.value > 0);
+        
+        return data;
     }, [financialCalculations]);
 
     // Memoized filtered debts for money lent section
@@ -240,6 +274,8 @@ export default function NetWorthPage() {
         }
         return formatCurrency(amount, currency);
     }, [currency]);
+
+
 
     if (loading) {
         return (
@@ -339,7 +375,7 @@ export default function NetWorthPage() {
                     </div>
                 </div>
             </div>
-            
+{/*             
             {/* Asset Breakdown Chart */}
             <div className={`bg-white rounded-lg shadow p-6 ${isChartExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}>
                 <ChartControls
@@ -373,24 +409,36 @@ export default function NetWorthPage() {
                                 <LabelList 
                                     dataKey="value" 
                                     position="top" 
-                                    formatter={(value: number) => formatCurrencyAbbreviated(value)}
-                                    style={{ fontSize: '12px', fontWeight: 'bold' }}
                                     content={(props: any) => {
-                                        const { x, y, width, value } = props;
+                                        const { x, y, width, value, index } = props;
                                         if (value === 0) return null;
+                                        
+                                        const dataItem = chartData[index];
+                                        if (!dataItem) return null;
                                         
                                         return (
                                             <g>
+                                                {/* Currency value */}
                                                 <text 
                                                     x={x + width / 2} 
-                                                    y={y - 5} 
+                                                    y={y - 25} 
                                                     fill="#374151" 
                                                     textAnchor="middle" 
-                                                    dy={-6}
                                                     fontSize="12"
                                                     fontWeight="bold"
                                                 >
                                                     {formatCurrencyAbbreviated(value)}
+                                                </text>
+                                                {/* Percentage value */}
+                                                <text 
+                                                    x={x + width / 2} 
+                                                    y={y - 8} 
+                                                    fill="#6b7280" 
+                                                    textAnchor="middle" 
+                                                    fontSize="11"
+                                                    fontWeight="600"
+                                                >
+                                                    ({dataItem.percentage}%)
                                                 </text>
                                             </g>
                                         );
@@ -415,6 +463,154 @@ export default function NetWorthPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Asset Breakdown Treemap */}
+            {/* <div className="bg-white shadow overflow-hidden -mx-6">
+                <div className="flex items-center justify-between p-6 pb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Asset Distribution</h3>
+                    <div className="text-sm text-gray-500">
+                        Interactive view of your asset allocation
+                    </div>
+                </div>
+                <div className="h-80 w-full">
+                    <svg width="100%" height="100%" viewBox="0 0 1200 320" className="rounded-none" preserveAspectRatio="none">
+                        {treemapData.map((item, index) => {
+                            const totalValue = treemapData.reduce((sum, d) => sum + d.value, 0);
+                            const widthRatio = item.value / totalValue;
+                            const x = treemapData.slice(0, index).reduce((sum, d) => sum + (d.value / totalValue) * 1200, 0);
+                            const width = widthRatio * 1200;
+                            const height = 320;
+                            
+                            return (
+                                <g key={item.name}>
+                                    <defs>
+                                        <linearGradient id={`treemap-gradient-${index}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stopColor={item.color} stopOpacity="0.9" />
+                                            <stop offset="100%" stopColor={item.color} stopOpacity="0.6" />
+                                        </linearGradient>
+                                    </defs>
+                                    
+                                    <rect
+                                        x={x + 2}
+                                        y={2}
+                                        width={width - 4}
+                                        height={height - 4}
+                                        fill={`url(#treemap-gradient-${index})`}
+                                        stroke="#ffffff"
+                                        strokeWidth="4"
+                                        rx="8"
+                                        ry="8"
+                                        className="hover:stroke-gray-300 transition-all duration-300 cursor-pointer"
+                                        style={{
+                                            filter: 'drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15))',
+                                        }}
+                                    />
+                                    
+                                    {width > 180 && (
+                                        <g>
+                                            <text
+                                                x={x + width / 2}
+                                                y={height / 2 - 30}
+                                                textAnchor="middle"
+                                                fill="#ffffff"
+                                                fontSize="18"
+                                                fontWeight="bold"
+                                                style={{
+                                                    textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                                                    fontFamily: 'Inter, system-ui, sans-serif'
+                                                }}
+                                            >
+                                                {item.name}
+                                            </text>
+                                            
+                                            <text
+                                                x={x + width / 2}
+                                                y={height / 2}
+                                                textAnchor="middle"
+                                                fill="#ffffff"
+                                                fontSize="16"
+                                                fontWeight="600"
+                                                style={{
+                                                    textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                                                    fontFamily: 'Inter, system-ui, sans-serif'
+                                                }}
+                                            >
+                                                {formatCurrency(item.value, currency)}
+                                            </text>
+                                            
+                                            <text
+                                                x={x + width / 2}
+                                                y={height / 2 + 25}
+                                                textAnchor="middle"
+                                                fill="#ffffff"
+                                                fontSize="14"
+                                                fontWeight="500"
+                                                style={{
+                                                    textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                                                    fontFamily: 'Inter, system-ui, sans-serif'
+                                                }}
+                                            >
+                                                {item.percentage}% of total
+                                            </text>
+                                            
+                                            <text
+                                                x={x + width / 2}
+                                                y={height / 2 + 50}
+                                                textAnchor="middle"
+                                                fill="#ffffff"
+                                                fontSize="20"
+                                                style={{
+                                                    textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                                                }}
+                                            >
+                                                {item.name === 'Bank Balance' ? '🏦' : 
+                                                 item.name === 'Investments' ? '📈' : '💰'}
+                                            </text>
+                                        </g>
+                                    )}
+                                    
+                                    {width <= 180 && width > 90 && (
+                                        <g>
+                                            <text
+                                                x={x + width / 2}
+                                                y={height / 2 - 10}
+                                                textAnchor="middle"
+                                                fill="#ffffff"
+                                                fontSize="12"
+                                                fontWeight="bold"
+                                                style={{
+                                                    textShadow: '1px 1px 3px rgba(0,0,0,0.9)',
+                                                    fontFamily: 'Inter, system-ui, sans-serif'
+                                                }}
+                                            >
+                                                {item.name.split(' ')[0]}
+                                            </text>
+                                            <text
+                                                x={x + width / 2}
+                                                y={height / 2 + 10}
+                                                textAnchor="middle"
+                                                fill="#ffffff"
+                                                fontSize="10"
+                                                fontWeight="500"
+                                                style={{
+                                                    textShadow: '1px 1px 3px rgba(0,0,0,0.9)',
+                                                    fontFamily: 'Inter, system-ui, sans-serif'
+                                                }}
+                                            >
+                                                {item.percentage}%
+                                            </text>
+                                        </g>
+                                    )}
+                                </g>
+                            );
+                        })}
+                    </svg>
+                </div>
+                <div className="px-6 pb-4 pt-2 text-xs text-gray-500 text-center">
+                    * Rectangle sizes represent the proportion of each asset category in your total portfolio
+                </div>
+            </div> */}
+
 
             {/* Account Breakdown Table */}
             <div className="bg-white rounded-lg shadow overflow-hidden">
