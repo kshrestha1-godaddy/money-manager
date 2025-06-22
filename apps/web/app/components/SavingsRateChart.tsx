@@ -9,6 +9,8 @@ interface SavingsRateChartProps {
     incomes: Income[];
     expenses: Expense[];
     currency: string;
+    startDate?: string;
+    endDate?: string;
 }
 
 interface MonthlyData {
@@ -19,9 +21,31 @@ interface MonthlyData {
     savings: number;
 }
 
-export function SavingsRateChart({ incomes, expenses, currency }: SavingsRateChartProps) {
+export function SavingsRateChart({ incomes, expenses, currency, startDate, endDate }: SavingsRateChartProps) {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
+
+    // Generate dynamic time period text
+    const getTimePeriodText = (): string => {
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            return `(${startMonth} - ${endMonth})`;
+        } else if (startDate) {
+            const start = new Date(startDate);
+            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            return `(From ${startMonth})`;
+        } else if (endDate) {
+            const end = new Date(endDate);
+            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            return `(Until ${endMonth})`;
+        }
+        return "";
+    };
+
+    const timePeriodText = getTimePeriodText();
 
     const data = useMemo(() => {
         // Create a map to store monthly totals
@@ -137,7 +161,7 @@ export function SavingsRateChart({ incomes, expenses, currency }: SavingsRateCha
                 fileName="savings-rate-chart"
                 csvData={csvData}
                 csvFileName="savings-rate-data"
-                title="Monthly Savings Rate Trend"
+                title={`Monthly Savings Rate Trend ${timePeriodText}`}
             />
 
             <div 

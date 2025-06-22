@@ -10,6 +10,8 @@ interface WaterfallChartProps {
     totalIncome: number;
     totalExpenses: number;
     currency?: string;
+    startDate?: string;
+    endDate?: string;
 }
 
 interface WaterfallData {
@@ -20,11 +22,33 @@ interface WaterfallData {
     type: "income" | "expenses" | "savings" | "loss";
 }
 
-export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD" }: WaterfallChartProps) {
+export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD", startDate, endDate }: WaterfallChartProps) {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const totalSavings = totalIncome - totalExpenses;
     const savingsRate = totalIncome > 0 ? ((totalSavings / totalIncome) * 100) : 0;
+
+    // Generate dynamic time period text
+    const getTimePeriodText = (): string => {
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            return `(${startMonth} - ${endMonth})`;
+        } else if (startDate) {
+            const start = new Date(startDate);
+            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            return `(From ${startMonth})`;
+        } else if (endDate) {
+            const end = new Date(endDate);
+            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            return `(Until ${endMonth})`;
+        }
+        return "";
+    };
+
+    const timePeriodText = getTimePeriodText();
 
     // Create waterfall data - each bar shows cumulative values with base and value parts
     const data: WaterfallData[] = [
@@ -106,7 +130,7 @@ export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD" }:
                 fileName="waterfall-chart"
                 csvData={csvData}
                 csvFileName="waterfall-data"
-                title="Financial Waterfall: Income → Expenses → Savings"
+                title={`Financial Waterfall: Income → Expenses → Savings ${timePeriodText}`}
             />
 
             {/* Summary Stats */}

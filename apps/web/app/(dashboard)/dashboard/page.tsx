@@ -147,6 +147,8 @@ function DashboardContent() {
                 totalIncome={totalIncome}
                 totalExpenses={totalExpenses}
                 currency={currency}
+                startDate={startDate}
+                endDate={endDate}
             />
 
             {/* Divider */}
@@ -159,6 +161,8 @@ function DashboardContent() {
                 incomes={filteredIncomes}
                 expenses={filteredExpenses}
                 currency={currency}
+                startDate={startDate}
+                endDate={endDate}
             />
 
             {/* Divider */}
