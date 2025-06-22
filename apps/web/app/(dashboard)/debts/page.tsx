@@ -127,28 +127,49 @@ export default function Debts() {
         });
     };
 
-    const handleSelectAll = (selected: boolean) => {
+    const handleSelectAll = (selected: boolean, debts: DebtInterface[]) => {
         if (selected) {
-            setSelectedDebts(new Set(filteredAndSortedDebts.map(debt => debt.id)));
+            setSelectedDebts(prev => {
+                const newSet = new Set(prev);
+                debts.forEach(debt => newSet.add(debt.id));
+                return newSet;
+            });
         } else {
-            setSelectedDebts(new Set());
+            setSelectedDebts(prev => {
+                const newSet = new Set(prev);
+                debts.forEach(debt => newSet.delete(debt.id));
+                return newSet;
+            });
         }
     };
 
-    const handleClearSelection = () => {
-        setSelectedDebts(new Set());
+    const handleClearSelection = (debts: DebtInterface[]) => {
+        setSelectedDebts(prev => {
+            const newSet = new Set(prev);
+            debts.forEach(debt => newSet.delete(debt.id));
+            return newSet;
+        });
     };
 
-    const handleBulkDelete = async () => {
-        if (selectedDebts.size === 0) return;
+    const handleBulkDelete = async (debts: DebtInterface[]) => {
+        // Get the IDs of selected debts that are in this section
+        const sectionSelectedIds = Array.from(selectedDebts).filter(id => 
+            debts.some(debt => debt.id === id)
+        );
 
-        const confirmMessage = `Are you sure you want to delete ${selectedDebts.size} debt${selectedDebts.size === 1 ? '' : 's'}? This action cannot be undone.`;
+        if (sectionSelectedIds.length === 0) return;
+
+        const confirmMessage = `Are you sure you want to delete ${sectionSelectedIds.length} debt${sectionSelectedIds.length === 1 ? '' : 's'}? This action cannot be undone.`;
         
         if (confirm(confirmMessage)) {
             try {
-                await bulkDeleteDebts(Array.from(selectedDebts));
+                await bulkDeleteDebts(sectionSelectedIds);
                 // Remove deleted debts from state
-                setSelectedDebts(new Set());
+                setSelectedDebts(prev => {
+                    const newSet = new Set(prev);
+                    sectionSelectedIds.forEach(id => newSet.delete(id));
+                    return newSet;
+                });
                 loadDebts(); // Refresh the list
             } catch (error) {
                 console.error("Error deleting debts:", error);
@@ -419,10 +440,10 @@ export default function Debts() {
                                 onAddRepayment={openAddRepaymentModal}
                                 selectedDebts={selectedDebts}
                                 onDebtSelect={handleDebtSelect}
-                                onSelectAll={handleSelectAll}
+                                onSelectAll={(selected) => handleSelectAll(selected, activeDebtsList)}
                                 showBulkActions={showBulkActions}
-                                onBulkDelete={handleBulkDelete}
-                                onClearSelection={handleClearSelection}
+                                onBulkDelete={() => handleBulkDelete(activeDebtsList)}
+                                onClearSelection={() => handleClearSelection(activeDebtsList)}
                             />
                         ) : (
                             <DebtList
@@ -433,10 +454,10 @@ export default function Debts() {
                                 onAddRepayment={openAddRepaymentModal}
                                 selectedDebts={selectedDebts}
                                 onDebtSelect={handleDebtSelect}
-                                onSelectAll={handleSelectAll}
+                                onSelectAll={(selected) => handleSelectAll(selected, activeDebtsList)}
                                 showBulkActions={showBulkActions}
-                                onBulkDelete={handleBulkDelete}
-                                onClearSelection={handleClearSelection}
+                                onBulkDelete={() => handleBulkDelete(activeDebtsList)}
+                                onClearSelection={() => handleClearSelection(activeDebtsList)}
                             />
                         )}
                     </div>
@@ -452,10 +473,10 @@ export default function Debts() {
                                 onAddRepayment={openAddRepaymentModal}
                                 selectedDebts={selectedDebts}
                                 onDebtSelect={handleDebtSelect}
-                                onSelectAll={handleSelectAll}
+                                onSelectAll={(selected) => handleSelectAll(selected, partiallyPaidDebts)}
                                 showBulkActions={showBulkActions}
-                                onBulkDelete={handleBulkDelete}
-                                onClearSelection={handleClearSelection}
+                                onBulkDelete={() => handleBulkDelete(partiallyPaidDebts)}
+                                onClearSelection={() => handleClearSelection(partiallyPaidDebts)}
                             />
                         ) : (
                             <DebtList
@@ -466,10 +487,10 @@ export default function Debts() {
                                 onAddRepayment={openAddRepaymentModal}
                                 selectedDebts={selectedDebts}
                                 onDebtSelect={handleDebtSelect}
-                                onSelectAll={handleSelectAll}
+                                onSelectAll={(selected) => handleSelectAll(selected, partiallyPaidDebts)}
                                 showBulkActions={showBulkActions}
-                                onBulkDelete={handleBulkDelete}
-                                onClearSelection={handleClearSelection}
+                                onBulkDelete={() => handleBulkDelete(partiallyPaidDebts)}
+                                onClearSelection={() => handleClearSelection(partiallyPaidDebts)}
                             />
                         )}
                     </div>
@@ -485,10 +506,10 @@ export default function Debts() {
                                 onAddRepayment={openAddRepaymentModal}
                                 selectedDebts={selectedDebts}
                                 onDebtSelect={handleDebtSelect}
-                                onSelectAll={handleSelectAll}
+                                onSelectAll={(selected) => handleSelectAll(selected, fullyPaidDebts)}
                                 showBulkActions={showBulkActions}
-                                onBulkDelete={handleBulkDelete}
-                                onClearSelection={handleClearSelection}
+                                onBulkDelete={() => handleBulkDelete(fullyPaidDebts)}
+                                onClearSelection={() => handleClearSelection(fullyPaidDebts)}
                             />
                         ) : (
                             <DebtList
@@ -499,10 +520,10 @@ export default function Debts() {
                                 onAddRepayment={openAddRepaymentModal}
                                 selectedDebts={selectedDebts}
                                 onDebtSelect={handleDebtSelect}
-                                onSelectAll={handleSelectAll}
+                                onSelectAll={(selected) => handleSelectAll(selected, fullyPaidDebts)}
                                 showBulkActions={showBulkActions}
-                                onBulkDelete={handleBulkDelete}
-                                onClearSelection={handleClearSelection}
+                                onBulkDelete={() => handleBulkDelete(fullyPaidDebts)}
+                                onClearSelection={() => handleClearSelection(fullyPaidDebts)}
                             />
                         )}
                     </div>

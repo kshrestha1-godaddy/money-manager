@@ -42,14 +42,15 @@ export function DebtTable({
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
     const handleSelectAll = () => {
-        const allSelected = selectedDebts.size === debts.length;
+        const allSelected = debts.every(debt => selectedDebts.has(debt.id));
         if (onSelectAll) {
             onSelectAll(!allSelected);
         }
     };
 
-    const isAllSelected = selectedDebts.size === debts.length && debts.length > 0;
-    const isPartiallySelected = selectedDebts.size > 0 && selectedDebts.size < debts.length;
+    const isAllSelected = debts.length > 0 && debts.every(debt => selectedDebts.has(debt.id));
+    const isPartiallySelected = debts.some(debt => selectedDebts.has(debt.id)) && !isAllSelected;
+    const hasSelectionInSection = debts.some(debt => selectedDebts.has(debt.id));
 
     const sortedDebts = useMemo(() => {
         const sorted = [...debts].sort((a, b) => {
@@ -66,13 +67,23 @@ export function DebtTable({
                     bValue = b.amount;
                     break;
                 case 'dueDate':
-                    // Handle null due dates by putting them at the end
-                    aValue = a.dueDate ? a.dueDate.getTime() : (sortDirection === 'asc' ? Number.MAX_SAFE_INTEGER : 0);
-                    bValue = b.dueDate ? b.dueDate.getTime() : (sortDirection === 'asc' ? Number.MAX_SAFE_INTEGER : 0);
+                    // Handle null/undefined due dates by putting them at the end
+                    if (!a.dueDate && !b.dueDate) return 0;
+                    if (!a.dueDate) return sortDirection === 'asc' ? 1 : -1;
+                    if (!b.dueDate) return sortDirection === 'asc' ? -1 : 1;
+                    
+                    // Ensure we're working with Date objects
+                    const aDate = a.dueDate instanceof Date ? a.dueDate : new Date(a.dueDate);
+                    const bDate = b.dueDate instanceof Date ? b.dueDate : new Date(b.dueDate);
+                    aValue = aDate.getTime();
+                    bValue = bDate.getTime();
                     break;
                 case 'lentDate':
-                    aValue = a.lentDate.getTime();
-                    bValue = b.lentDate.getTime();
+                    // Ensure we're working with Date objects
+                    const aLentDate = a.lentDate instanceof Date ? a.lentDate : new Date(a.lentDate);
+                    const bLentDate = b.lentDate instanceof Date ? b.lentDate : new Date(b.lentDate);
+                    aValue = aLentDate.getTime();
+                    bValue = bLentDate.getTime();
                     break;
                 case 'remaining':
                     const aRemainingCalc = calculateRemainingWithInterest(a.amount, a.interestRate, a.lentDate, a.dueDate, a.repayments || []);
@@ -144,21 +155,21 @@ export function DebtTable({
             <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex justify-between items-center">
                     <h2 className="text-lg font-semibold text-gray-900">
-                        Debts ({sortedDebts.length})
+                        Debts ({debts.length})
                     </h2>
-                    {showBulkActions && selectedDebts.size > 0 && (
+                    {showBulkActions && hasSelectionInSection && (
                         <div className="flex space-x-2">
                             <button
                                 onClick={onClearSelection}
                                 className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors"
                             >
-                                Clear Selection
+                                Clear Selection ({debts.filter(debt => selectedDebts.has(debt.id)).length})
                             </button>
                             <button
                                 onClick={onBulkDelete}
                                 className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
                             >
-                                Delete Selected ({selectedDebts.size})
+                                Delete Selected ({debts.filter(debt => selectedDebts.has(debt.id)).length})
                             </button>
                         </div>
                     )}
