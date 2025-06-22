@@ -146,32 +146,27 @@ function DashboardContent() {
                 />
             </div> */}
 
-            {/* Financial Overview - Waterfall Chart */}
-            <Suspense fallback={<ChartSkeleton title="Financial Overview" />}>
-                <WaterfallChart 
-                    totalIncome={totals.totalIncome}
-                    totalExpenses={totals.totalExpenses}
-                    currency={currency}
-                    startDate={startDate}
-                    endDate={endDate}
-                />
-            </Suspense>
-
-            {/* Divider */}
-            <div className="flex justify-center">
-                <div className="w-1/2 border-t border-gray-200"></div>
+            {/* Financial Overview - Waterfall Chart & Savings Rate Chart Side by Side */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <Suspense fallback={<ChartSkeleton title="Financial Overview" />}>
+                    <WaterfallChart 
+                        totalIncome={totals.totalIncome}
+                        totalExpenses={totals.totalExpenses}
+                        currency={currency}
+                        startDate={startDate}
+                        endDate={endDate}
+                    />
+                </Suspense>
+                <Suspense fallback={<ChartSkeleton title="Savings Rate Trend" />}>
+                    <SavingsRateChart 
+                        incomes={filteredData.filteredIncomes}
+                        expenses={filteredData.filteredExpenses}
+                        currency={currency}
+                        startDate={startDate}
+                        endDate={endDate}
+                    />
+                </Suspense>
             </div>
-
-            {/* Savings Rate Chart */}
-            <Suspense fallback={<ChartSkeleton title="Savings Rate Trend" />}>
-                <SavingsRateChart 
-                    incomes={filteredData.filteredIncomes}
-                    expenses={filteredData.filteredExpenses}
-                    currency={currency}
-                    startDate={startDate}
-                    endDate={endDate}
-                />
-            </Suspense>
 
             {/* Divider */}
             <div className="flex justify-center">

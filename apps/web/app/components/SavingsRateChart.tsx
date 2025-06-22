@@ -166,7 +166,7 @@ export function SavingsRateChart({ incomes, expenses, currency, startDate, endDa
 
             <div 
                 ref={chartRef}
-                className={`${isExpanded ? 'h-[60vh] w-full' : 'h-[32rem] w-5/6'} mx-auto`}
+                className={`${isExpanded ? 'h-[60vh] w-full' : 'h-[32rem] w-full'} mx-auto`}
             >
                 <ResponsiveContainer width="100%" height="100%">
                     <LineChart
@@ -213,8 +213,8 @@ export function SavingsRateChart({ incomes, expenses, currency, startDate, endDa
                                 value={`Avg: ${averageSavingsRate.toFixed(1)}%`} 
                                 position="insideLeft"
                                 fill="#6b7280"
-                                fontSize={12}
-                                dy={15}
+                                fontSize={8}
+                                dy={10}
                             />
                         </ReferenceLine>
 
@@ -222,17 +222,18 @@ export function SavingsRateChart({ incomes, expenses, currency, startDate, endDa
                             type="monotone"
                             dataKey="savingsRate"
                             stroke="#3b82f6"
-                            strokeWidth={2}
+                            strokeWidth={1.5}
                             dot={{ fill: "#3b82f6", r: 4 }}
-                            activeDot={{ r: 6 }}
+                            activeDot={{ r: 4 }}
                             name="Savings Rate"
                             label={{
                                 position: 'top',
                                 formatter: formatDataLabel,
-                                fontSize: 11,
+                                fontSize: 10,
                                 fill: '#6b7280',
-                                dy: -8
-                            }}
+                                dy: -8,
+                                dx: 1
+                                }}
                         />
                     </LineChart>
                 </ResponsiveContainer>
