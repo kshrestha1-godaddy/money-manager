@@ -153,6 +153,7 @@ export function SavingsRateChart({ incomes, expenses, currency, startDate, endDa
             className={`bg-white rounded-lg shadow p-6 ${isExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}
             role="region"
             aria-label="Savings Rate Trend Chart"
+            data-chart-type="savings-rate"
         >
             <ChartControls
                 chartRef={chartRef}

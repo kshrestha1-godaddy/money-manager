@@ -86,6 +86,7 @@ export function SimplePDFReportGenerator({
             console.log('Capturing charts...');
             const chartCaptures = await Promise.all([
                 captureChartElement('[data-chart-type="waterfall"]'),
+                captureChartElement('[data-chart-type="savings-rate"]'),
                 captureChartElement('[data-chart-type="monthly-trend"]'),
                 captureChartElement('[data-chart-type="expense-pie"]'),
                 captureChartElement('[data-chart-type="income-pie"]'),
@@ -93,7 +94,7 @@ export function SimplePDFReportGenerator({
                 captureChartElement('[data-chart-type="income-trend"]')
             ]);
 
-            const [waterfallChart, monthlyTrendChart, expensePieChart, incomePieChart, expenseTrendChart, incomeTrendChart] = chartCaptures;
+            const [waterfallChart, savingsRateChart, monthlyTrendChart, expensePieChart, incomePieChart, expenseTrendChart, incomeTrendChart] = chartCaptures;
             
             // Calculate expense categories
             const expenseCategories = expenses.reduce((acc, expense) => {
@@ -130,11 +131,14 @@ export function SimplePDFReportGenerator({
                             margin: 40px; 
                             color: #1f2937;
                             line-height: 1.6;
+                            background-color: #f9fafb;
                         }
                         .header { 
-                            border-bottom: 3px solid #3b82f6; 
-                            padding-bottom: 20px; 
-                            margin-bottom: 30px; 
+                            background: white;
+                            border-radius: 12px;
+                            padding: 30px;
+                            margin-bottom: 30px;
+                            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
                         }
                         .title { 
                             font-size: 32px; 
@@ -147,21 +151,29 @@ export function SimplePDFReportGenerator({
                             margin: 10px 0; 
                         }
                         .summary-box { 
-                            background: #f9fafb; 
-                            border: 1px solid #e5e7eb; 
-                            border-radius: 8px; 
+                            background: white; 
+                            border-radius: 12px;
                             padding: 25px; 
                             margin: 25px 0; 
+                            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
                         }
                         .summary-title { 
                             font-size: 24px; 
                             font-weight: bold; 
                             margin-bottom: 20px;
                             color: #1f2937;
+                            border-bottom: 2px solid #e5e7eb;
+                            padding-bottom: 10px;
                         }
                         .metric { 
                             margin: 12px 0; 
-                            font-size: 18px; 
+                            font-size: 18px;
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            padding: 10px;
+                            background: #f8fafc;
+                            border-radius: 8px;
                         }
                         .metric-label { 
                             font-weight: 600; 
@@ -180,66 +192,86 @@ export function SimplePDFReportGenerator({
                         }
                         .category-list { 
                             margin: 15px 0; 
+                            display: grid;
+                            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                            gap: 15px;
                         }
                         .category-item { 
-                            display: flex; 
-                            justify-content: space-between; 
-                            margin: 8px 0; 
-                            padding: 10px;
-                            background: #ffffff;
-                            border: 1px solid #e5e7eb;
-                            border-radius: 6px;
+                            background: white;
+                            padding: 15px;
+                            border-radius: 8px;
+                            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
                         }
                         .category-name { 
                             font-weight: 500; 
+                            color: #374151;
                         }
-                                                 .category-amount { 
-                             font-weight: 600; 
-                         }
-                         .chart-section { 
-                             margin: 40px 0; 
-                             page-break-inside: avoid;
-                         }
-                         .chart-title { 
-                             font-size: 18px; 
-                             font-weight: bold; 
-                             margin-bottom: 15px;
-                             color: #1f2937;
-                         }
-                         .chart-image { 
-                             max-width: 100%; 
-                             height: auto; 
-                             border: 1px solid #e5e7eb;
-                             border-radius: 8px;
-                             margin: 10px 0;
-                         }
-                         .chart-placeholder {
-                             background: #f3f4f6;
-                             border: 2px dashed #d1d5db;
-                             border-radius: 8px;
-                             padding: 40px;
-                             text-align: center;
-                             color: #6b7280;
-                             margin: 10px 0;
-                         }
-                         .footer { 
-                             margin-top: 50px; 
-                             padding-top: 20px; 
-                             border-top: 1px solid #e5e7eb; 
-                             text-align: center; 
-                             color: #6b7280; 
-                             font-size: 12px;
-                         }
-                         @media print {
-                             body { margin: 20px; }
-                             .summary-box, .chart-section { page-break-inside: avoid; }
-                         }
+                        .category-amount { 
+                            font-weight: 600;
+                            margin-top: 5px;
+                        }
+                        .chart-section { 
+                            background: white;
+                            border-radius: 12px;
+                            padding: 25px;
+                            margin: 40px 0;
+                            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+                            page-break-inside: avoid;
+                        }
+                        .chart-title { 
+                            font-size: 20px; 
+                            font-weight: bold; 
+                            margin-bottom: 20px;
+                            color: #1f2937;
+                            border-bottom: 2px solid #e5e7eb;
+                            padding-bottom: 10px;
+                        }
+                        .chart-image { 
+                            max-width: 100%; 
+                            height: auto; 
+                            border-radius: 8px;
+                            margin: 10px 0;
+                        }
+                        .chart-placeholder {
+                            background: #f3f4f6;
+                            border: 2px dashed #d1d5db;
+                            border-radius: 8px;
+                            padding: 40px;
+                            text-align: center;
+                            color: #6b7280;
+                            margin: 10px 0;
+                        }
+                        .footer { 
+                            margin-top: 50px; 
+                            padding: 20px;
+                            background: white;
+                            border-radius: 12px;
+                            text-align: center; 
+                            color: #6b7280; 
+                            font-size: 12px;
+                            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+                        }
+                        @media print {
+                            body { 
+                                margin: 20px;
+                                background: white;
+                            }
+                            .summary-box, .chart-section { 
+                                page-break-inside: avoid;
+                                box-shadow: none;
+                                border: 1px solid #e5e7eb;
+                            }
+                            .category-item {
+                                box-shadow: none;
+                                border: 1px solid #e5e7eb;
+                            }
+                        }
                     </style>
                 </head>
                 <body>
                     <div class="header">
                         <h1 class="title">Financial Report</h1>
-                        <div class="subtitle">Prepared for: ${session?.user?.name || 'User'}</div>
+                        <div class="subtitle">Prepared for: ${session?.user?.name || 'Anonymous User'}</div>
                         <div class="subtitle">Report Period: ${getDateRangeText()}</div>
                         <div class="subtitle">Generated on: ${new Date().toLocaleDateString()}</div>
                     </div>
@@ -264,93 +296,102 @@ export function SimplePDFReportGenerator({
                         </div>
                     </div>
 
-                    <div class="section-title">Top Expense Categories</div>
-                    <div class="category-list">
-                        ${sortedExpenseCategories.map(([category, amount]) => `
-                            <div class="category-item">
-                                <span class="category-name">${category}</span>
-                                <div>
-                                    <span class="category-amount expense">${formatCurrency(amount)}</span>
-                                    <span style="color: #6b7280; margin-left: 10px;">
-                                        (${totalExpenses > 0 ? ((amount / totalExpenses) * 100).toFixed(1) : '0.0'}%)
-                                    </span>
-                                </div>
-                            </div>
-                        `).join('')}
+                    <!-- Financial Overview Chart -->
+                    <div class="chart-section">
+                        <div class="chart-title">Financial Overview</div>
+                        ${waterfallChart ? 
+                            `<img src="${waterfallChart}" alt="Financial Waterfall Chart" class="chart-image" />` :
+                            `<div class="chart-placeholder">Financial Overview chart could not be captured</div>`
+                        }
                     </div>
 
-                                         <div class="section-title">Top Income Categories</div>
-                     <div class="category-list">
-                         ${sortedIncomeCategories.map(([category, amount]) => `
-                             <div class="category-item">
-                                 <span class="category-name">${category}</span>
-                                 <div>
-                                     <span class="category-amount income">${formatCurrency(amount)}</span>
-                                     <span style="color: #6b7280; margin-left: 10px;">
-                                         (${totalIncome > 0 ? ((amount / totalIncome) * 100).toFixed(1) : '0.0'}%)
-                                     </span>
-                                 </div>
-                             </div>
-                         `).join('')}
-                     </div>
+                    <!-- Savings Rate Chart -->
+                    <div class="chart-section">
+                        <div class="chart-title">Savings Rate Trend</div>
+                        ${savingsRateChart ? 
+                            `<img src="${savingsRateChart}" alt="Savings Rate Chart" class="chart-image" />` :
+                            `<div class="chart-placeholder">Savings rate chart could not be captured</div>`
+                        }
+                    </div>
 
-                     <!-- Financial Overview Chart -->
-                     <div class="chart-section">
-                         <div class="chart-title">Financial Overview</div>
-                         ${waterfallChart ? 
-                             `<img src="${waterfallChart}" alt="Financial Waterfall Chart" class="chart-image" />` :
-                             `<div class="chart-placeholder">Financial Overview chart could not be captured</div>`
-                         }
-                     </div>
+                    <!-- Monthly Trend Chart -->
+                    <div class="chart-section">
+                        <div class="chart-title">Monthly Trends</div>
+                        ${monthlyTrendChart ? 
+                            `<img src="${monthlyTrendChart}" alt="Monthly Trend Chart" class="chart-image" />` :
+                            `<div class="chart-placeholder">Monthly trend chart could not be captured</div>`
+                        }
+                    </div>
 
-                     <!-- Monthly Trend Chart -->
-                     <div class="chart-section">
-                         <div class="chart-title">Monthly Trends</div>
-                         ${monthlyTrendChart ? 
-                             `<img src="${monthlyTrendChart}" alt="Monthly Trend Chart" class="chart-image" />` :
-                             `<div class="chart-placeholder">Monthly trend chart could not be captured</div>`
-                         }
-                     </div>
+                    <!-- Category Analysis -->
+                    <div class="summary-box">
+                        <div class="summary-title">Category Analysis</div>
+                        
+                        <div class="section-title">Top Expense Categories</div>
+                        <div class="category-list">
+                            ${sortedExpenseCategories.map(([category, amount]) => `
+                                <div class="category-item">
+                                    <div class="category-name">${category}</div>
+                                    <div class="category-amount expense">${formatCurrency(amount)}</div>
+                                    <div class="text-sm text-gray-500">
+                                        ${totalExpenses > 0 ? ((amount / totalExpenses) * 100).toFixed(1) : '0.0'}% of total expenses
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
 
-                     <!-- Expense Distribution Chart -->
-                     <div class="chart-section">
-                         <div class="chart-title">Expense Distribution</div>
-                         ${expensePieChart ? 
-                             `<img src="${expensePieChart}" alt="Expense Distribution Chart" class="chart-image" />` :
-                             `<div class="chart-placeholder">Expense distribution chart could not be captured</div>`
-                         }
-                     </div>
+                        <div class="section-title">Top Income Categories</div>
+                        <div class="category-list">
+                            ${sortedIncomeCategories.map(([category, amount]) => `
+                                <div class="category-item">
+                                    <div class="category-name">${category}</div>
+                                    <div class="category-amount income">${formatCurrency(amount)}</div>
+                                    <div class="text-sm text-gray-500">
+                                        ${totalIncome > 0 ? ((amount / totalIncome) * 100).toFixed(1) : '0.0'}% of total income
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
 
-                     <!-- Income Distribution Chart -->
-                     <div class="chart-section">
-                         <div class="chart-title">Income Distribution</div>
-                         ${incomePieChart ? 
-                             `<img src="${incomePieChart}" alt="Income Distribution Chart" class="chart-image" />` :
-                             `<div class="chart-placeholder">Income distribution chart could not be captured</div>`
-                         }
-                     </div>
+                    <!-- Category Distribution Charts -->
+                    <div class="chart-section">
+                        <div class="chart-title">Expense Distribution</div>
+                        ${expensePieChart ? 
+                            `<img src="${expensePieChart}" alt="Expense Distribution Chart" class="chart-image" />` :
+                            `<div class="chart-placeholder">Expense distribution chart could not be captured</div>`
+                        }
+                    </div>
 
-                     <!-- Expense Trend Chart -->
-                     <div class="chart-section">
-                         <div class="chart-title">Expense Category Trends</div>
-                         ${expenseTrendChart ? 
-                             `<img src="${expenseTrendChart}" alt="Expense Trend Chart" class="chart-image" />` :
-                             `<div class="chart-placeholder">Expense trend chart could not be captured</div>`
-                         }
-                     </div>
+                    <div class="chart-section">
+                        <div class="chart-title">Income Distribution</div>
+                        ${incomePieChart ? 
+                            `<img src="${incomePieChart}" alt="Income Distribution Chart" class="chart-image" />` :
+                            `<div class="chart-placeholder">Income distribution chart could not be captured</div>`
+                        }
+                    </div>
 
-                     <!-- Income Trend Chart -->
-                     <div class="chart-section">
-                         <div class="chart-title">Income Category Trends</div>
-                         ${incomeTrendChart ? 
-                             `<img src="${incomeTrendChart}" alt="Income Trend Chart" class="chart-image" />` :
-                             `<div class="chart-placeholder">Income trend chart could not be captured</div>`
-                         }
-                     </div>
+                    <!-- Category Trend Charts -->
+                    <div class="chart-section">
+                        <div class="chart-title">Expense Category Trends</div>
+                        ${expenseTrendChart ? 
+                            `<img src="${expenseTrendChart}" alt="Expense Trend Chart" class="chart-image" />` :
+                            `<div class="chart-placeholder">Expense trend chart could not be captured</div>`
+                        }
+                    </div>
+
+                    <div class="chart-section">
+                        <div class="chart-title">Income Category Trends</div>
+                        ${incomeTrendChart ? 
+                            `<img src="${incomeTrendChart}" alt="Income Trend Chart" class="chart-image" />` :
+                            `<div class="chart-placeholder">Income trend chart could not be captured</div>`
+                        }
+                    </div>
 
                     <div class="footer">
                         <div>Generated by Financial Dashboard</div>
                         <div>Report contains data for ${incomes.length + expenses.length} transactions</div>
+                        <div>Generated on ${new Date().toLocaleString()}</div>
                     </div>
                 </body>
                 </html>
