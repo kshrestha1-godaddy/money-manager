@@ -174,6 +174,11 @@ export default function Debts() {
             return matchesSearch && matchesStatus;
         });
 
+    // Separate debts by status for sections
+    const fullyPaidDebts = filteredAndSortedDebts.filter(debt => debt.status === 'FULLY_PAID');
+    const activeDebtsList = filteredAndSortedDebts.filter(debt => debt.status === 'ACTIVE');
+    const partiallyPaidDebts = filteredAndSortedDebts.filter(debt => debt.status === 'PARTIALLY_PAID');
+
     // Calculate summary statistics
     const totalLentAmount = debts.reduce((sum, debt) => sum + debt.amount, 0);
     const totalRepaidAmount = debts.reduce((sum, debt) => {
@@ -401,37 +406,107 @@ export default function Debts() {
                     <p className="text-gray-600">Try adjusting your search or filter criteria.</p>
                 </div>
             ) : (
-                <>
-                    {viewMode === "table" ? (
-                        <DebtTable
-                            debts={filteredAndSortedDebts}
-                            onEdit={openEditModal}
-                            onDelete={openDeleteModal}
-                            onViewDetails={openViewModal}
-                            onAddRepayment={openAddRepaymentModal}
-                            selectedDebts={selectedDebts}
-                            onDebtSelect={handleDebtSelect}
-                            onSelectAll={handleSelectAll}
-                            showBulkActions={showBulkActions}
-                            onBulkDelete={handleBulkDelete}
-                            onClearSelection={handleClearSelection}
-                        />
-                    ) : (
-                        <DebtList
-                            debts={filteredAndSortedDebts}
-                            onEdit={openEditModal}
-                            onDelete={openDeleteModal}
-                            onViewDetails={openViewModal}
-                            onAddRepayment={openAddRepaymentModal}
-                            selectedDebts={selectedDebts}
-                            onDebtSelect={handleDebtSelect}
-                            onSelectAll={handleSelectAll}
-                            showBulkActions={showBulkActions}
-                            onBulkDelete={handleBulkDelete}
-                            onClearSelection={handleClearSelection}
-                        />
-                    )}
-                </>
+                <div className="space-y-10">
+                    {/* Active Debts Section */}
+                    <div>
+                        <h2 className="text-xl font-semibold text-gray-800 mb-4">Active Debts</h2>
+                        {viewMode === "table" ? (
+                            <DebtTable
+                                debts={activeDebtsList}
+                                onEdit={openEditModal}
+                                onDelete={openDeleteModal}
+                                onViewDetails={openViewModal}
+                                onAddRepayment={openAddRepaymentModal}
+                                selectedDebts={selectedDebts}
+                                onDebtSelect={handleDebtSelect}
+                                onSelectAll={handleSelectAll}
+                                showBulkActions={showBulkActions}
+                                onBulkDelete={handleBulkDelete}
+                                onClearSelection={handleClearSelection}
+                            />
+                        ) : (
+                            <DebtList
+                                debts={activeDebtsList}
+                                onEdit={openEditModal}
+                                onDelete={openDeleteModal}
+                                onViewDetails={openViewModal}
+                                onAddRepayment={openAddRepaymentModal}
+                                selectedDebts={selectedDebts}
+                                onDebtSelect={handleDebtSelect}
+                                onSelectAll={handleSelectAll}
+                                showBulkActions={showBulkActions}
+                                onBulkDelete={handleBulkDelete}
+                                onClearSelection={handleClearSelection}
+                            />
+                        )}
+                    </div>
+                    {/* Partially Paid Debts Section */}
+                    <div>
+                        <h2 className="text-xl font-semibold text-gray-800 mb-4">Partially Paid Debts</h2>
+                        {viewMode === "table" ? (
+                            <DebtTable
+                                debts={partiallyPaidDebts}
+                                onEdit={openEditModal}
+                                onDelete={openDeleteModal}
+                                onViewDetails={openViewModal}
+                                onAddRepayment={openAddRepaymentModal}
+                                selectedDebts={selectedDebts}
+                                onDebtSelect={handleDebtSelect}
+                                onSelectAll={handleSelectAll}
+                                showBulkActions={showBulkActions}
+                                onBulkDelete={handleBulkDelete}
+                                onClearSelection={handleClearSelection}
+                            />
+                        ) : (
+                            <DebtList
+                                debts={partiallyPaidDebts}
+                                onEdit={openEditModal}
+                                onDelete={openDeleteModal}
+                                onViewDetails={openViewModal}
+                                onAddRepayment={openAddRepaymentModal}
+                                selectedDebts={selectedDebts}
+                                onDebtSelect={handleDebtSelect}
+                                onSelectAll={handleSelectAll}
+                                showBulkActions={showBulkActions}
+                                onBulkDelete={handleBulkDelete}
+                                onClearSelection={handleClearSelection}
+                            />
+                        )}
+                    </div>
+                    {/* Fully Paid Debts Section */}
+                    <div>
+                        <h2 className="text-xl font-semibold text-gray-800 mb-4">Fully Paid Debts</h2>
+                        {viewMode === "table" ? (
+                            <DebtTable
+                                debts={fullyPaidDebts}
+                                onEdit={openEditModal}
+                                onDelete={openDeleteModal}
+                                onViewDetails={openViewModal}
+                                onAddRepayment={openAddRepaymentModal}
+                                selectedDebts={selectedDebts}
+                                onDebtSelect={handleDebtSelect}
+                                onSelectAll={handleSelectAll}
+                                showBulkActions={showBulkActions}
+                                onBulkDelete={handleBulkDelete}
+                                onClearSelection={handleClearSelection}
+                            />
+                        ) : (
+                            <DebtList
+                                debts={fullyPaidDebts}
+                                onEdit={openEditModal}
+                                onDelete={openDeleteModal}
+                                onViewDetails={openViewModal}
+                                onAddRepayment={openAddRepaymentModal}
+                                selectedDebts={selectedDebts}
+                                onDebtSelect={handleDebtSelect}
+                                onSelectAll={handleSelectAll}
+                                showBulkActions={showBulkActions}
+                                onBulkDelete={handleBulkDelete}
+                                onClearSelection={handleClearSelection}
+                            />
+                        )}
+                    </div>
+                </div>
             )}
 
             {/* Modals */}

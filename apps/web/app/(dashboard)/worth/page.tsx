@@ -375,9 +375,9 @@ export default function NetWorthPage() {
                     </div>
                 </div>
             </div>
-{/*             
+
             {/* Asset Breakdown Chart */}
-            <div className={`bg-white rounded-lg shadow p-6 ${isChartExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}>
+            <div className={`bg-white rounded-lg shadow p-10 my-8 ${isChartExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}>
                 <ChartControls
                     chartRef={chartRef}
                     isExpanded={isChartExpanded}
@@ -387,9 +387,9 @@ export default function NetWorthPage() {
                     csvFileName="net-worth-data"
                     title="Total vs. Category"
                 />
-                <div ref={chartRef} className={`${isChartExpanded ? 'h-[calc(100vh-200px)]' : 'h-96'} transition-all duration-300`}>
+                <div ref={chartRef} className={`${isChartExpanded ? 'h-[calc(100vh-120px)]' : 'h-[44rem]'} transition-all duration-300`}>
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                        <BarChart data={chartData} margin={{ top: 50, right: 40, left: 40, bottom: 60 }}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="name" />
                             <YAxis tickFormatter={(value) => formatCurrencyAbbreviated(value)} />
@@ -421,10 +421,10 @@ export default function NetWorthPage() {
                                                 {/* Currency value */}
                                                 <text 
                                                     x={x + width / 2} 
-                                                    y={y - 25} 
+                                                    y={y - 40} 
                                                     fill="#374151" 
                                                     textAnchor="middle" 
-                                                    fontSize="12"
+                                                    fontSize="16"
                                                     fontWeight="bold"
                                                 >
                                                     {formatCurrencyAbbreviated(value)}
@@ -432,10 +432,10 @@ export default function NetWorthPage() {
                                                 {/* Percentage value */}
                                                 <text 
                                                     x={x + width / 2} 
-                                                    y={y - 8} 
+                                                    y={y - 18} 
                                                     fill="#6b7280" 
                                                     textAnchor="middle" 
-                                                    fontSize="11"
+                                                    fontSize="14"
                                                     fontWeight="600"
                                                 >
                                                     ({dataItem.percentage}%)
