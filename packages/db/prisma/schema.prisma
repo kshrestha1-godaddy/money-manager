@@ -29,6 +29,7 @@ model User {
   investments Investment[]
   budgetTargets BudgetTarget[]
   debts Debt[]
+  loans Loan[]
   bookmarks Bookmark[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -63,7 +64,9 @@ model Account {
   incomes Income[]
   investments Investment[]
   debts Debt[]
+  loans Loan[]
   debtRepayments DebtRepayment[]
+  loanRepayments LoanRepayment[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -238,6 +241,40 @@ model WhitelistedEmail {
   updatedAt DateTime @updatedAt
 }
 
+model Loan {
+  id             Int       @id @default(autoincrement())
+  lenderName     String
+  lenderContact  String?
+  lenderEmail    String?
+  amount         Decimal
+  interestRate   Decimal   @default(0) // Percentage interest rate
+  dueDate        DateTime?
+  takenDate      DateTime  @default(now())
+  status         LoanStatus @default(ACTIVE)
+  purpose        String?
+  notes          String?
+  repayments     LoanRepayment[]
+  account        Account?  @relation(fields: [accountId], references: [id])
+  accountId      Int?
+  user           User      @relation(fields: [userId], references: [id])
+  userId         Int
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model LoanRepayment {
+  id             Int       @id @default(autoincrement())
+  amount         Decimal
+  repaymentDate  DateTime  @default(now())
+  notes          String?
+  loan           Loan      @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  loanId         Int
+  account        Account?  @relation(fields: [accountId], references: [id])
+  accountId      Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
 enum CategoryType {
   EXPENSE
   INCOME
@@ -281,4 +318,12 @@ enum SubscriptionStatus {
   INACTIVE
   UNSUBSCRIBED
   BOUNCED
+}
+
+enum LoanStatus {
+  ACTIVE
+  PARTIALLY_PAID
+  FULLY_PAID
+  OVERDUE
+  DEFAULTED
 }
