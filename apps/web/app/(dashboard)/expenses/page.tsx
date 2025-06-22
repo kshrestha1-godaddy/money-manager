@@ -169,7 +169,9 @@ function ExpensesContent() {
             <AddCategoryModal
                 isOpen={financialData.isAddCategoryModalOpen}
                 onClose={() => financialData.setIsAddCategoryModalOpen(false)}
-                onAdd={financialData.handleAddCategory}
+                onAdd={async (category) => {
+                    await financialData.handleAddCategory(category);
+                }}
                 type="EXPENSE"
             />
         </div>

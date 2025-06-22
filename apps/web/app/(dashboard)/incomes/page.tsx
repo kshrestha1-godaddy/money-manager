@@ -162,7 +162,11 @@ function IncomesContent() {
             <AddCategoryModal
                 isOpen={financialData.isAddCategoryModalOpen}
                 onClose={() => financialData.setIsAddCategoryModalOpen(false)}
-                onAdd={financialData.handleAddCategory}
+                onAdd={async (category) => {
+                    // If the modal is used for multiple categories, handleAddCategory may be called multiple times in quick succession.
+                    // We close the modal only after all are processed (handled in modal logic), so just call the handler.
+                    await financialData.handleAddCategory(category);
+                }}
                 type="INCOME"
             />
 

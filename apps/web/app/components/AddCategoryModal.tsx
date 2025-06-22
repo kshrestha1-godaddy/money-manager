@@ -22,18 +22,49 @@ export function AddCategoryModal({ isOpen, onClose, onAdd, type }: AddCategoryMo
         e.preventDefault();
         
         if (!formData.name.trim()) {
-            alert('Please enter a category name');
+            alert('Please enter at least one category name');
             return;
         }
 
-        const category: Omit<Category, 'id' | 'createdAt' | 'updatedAt'> = {
-            name: formData.name.trim(),
-            type: type,
-            color: formData.color,
-            icon: formData.icon || undefined
-        };
+        // Split by comma, trim, and filter out empty names
+        const names = formData.name.split(',').map(n => n.trim()).filter(Boolean);
+        if (names.length === 0) {
+            alert('Please enter at least one valid category name');
+            return;
+        }
 
-        onAdd(category);
+        // Color options for random selection
+        const colorOptions = [
+            '#ef4444', // red
+            '#f97316', // orange
+            '#f59e0b', // amber
+            '#eab308', // yellow
+            '#84cc16', // lime
+            '#22c55e', // green
+            '#10b981', // emerald
+            '#14b8a6', // teal
+            '#06b6d4', // cyan
+            '#0ea5e9', // sky
+            '#3b82f6', // blue
+            '#6366f1', // indigo
+            '#8b5cf6', // violet
+            '#a855f7', // purple
+            '#d946ef', // fuchsia
+            '#ec4899', // pink
+            '#f43f5e', // rose
+            '#6b7280'  // gray
+        ];
+
+        names.forEach((name, idx) => {
+            const color = names.length === 1 ? formData.color : colorOptions[Math.floor(Math.random() * colorOptions.length)];
+            const category = {
+                name,
+                type: type,
+                color,
+                icon: formData.icon || undefined
+            };
+            onAdd(category as any);
+        });
         
         // Reset form
         setFormData({
@@ -84,14 +115,14 @@ export function AddCategoryModal({ isOpen, onClose, onAdd, type }: AddCategoryMo
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Category Name *
+                            Category Name(s) *
                         </label>
                         <input
                             type="text"
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="e.g., Food & Dining"
+                            placeholder="e.g., Food & Dining, Salary, Bonus"
                             required
                         />
                     </div>
