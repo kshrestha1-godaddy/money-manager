@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useMemo } from "react";
 import { Income, Expense } from "../../types/financial";
 import { getIncomes, createIncome, updateIncome, deleteIncome } from "../../actions/incomes";
 import { getExpenses, createExpense, updateExpense, deleteExpense } from "../../actions/expenses";
@@ -17,9 +17,13 @@ import { useOptimizedFinancialData } from "../../hooks/useOptimizedFinancialData
 import { DateFilterButtons } from "../../components/DateFilterButtons";
 import { useState } from "react";
 import { SavingsRateChart } from "../../components/SavingsRateChart";
+import { ChartSkeleton } from "../../components/shared/ChartSkeleton";
 
 function DashboardContent() {
+    // All hooks must be called before any conditional logic
     const { currency } = useCurrency();
+    const [startDate, setStartDate] = useState<string>("");
+    const [endDate, setEndDate] = useState<string>("");
 
     // Use the optimized financial data hook for incomes
     const incomesData = useOptimizedFinancialData<Income>("INCOME", {
@@ -39,11 +43,53 @@ function DashboardContent() {
         exportToCSV: () => {}, // Not used here
     });
 
-    // Local date filter state (dashboard only)
-    const [startDate, setStartDate] = useState<string>("");
-    const [endDate, setEndDate] = useState<string>("");
+    // Memoize the filtered data calculation
+    const filteredData = useMemo(() => {
+        const getFilteredData = (data: (Income | Expense)[]) => {
+            if (!startDate && !endDate) return data;
+            return data.filter(item => {
+                const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
+                let matchesDateRange = true;
+                if (startDate && endDate) {
+                    const start = new Date(startDate);
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    matchesDateRange = itemDate >= start && itemDate <= end;
+                } else if (startDate) {
+                    const start = new Date(startDate);
+                    matchesDateRange = itemDate >= start;
+                } else if (endDate) {
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    matchesDateRange = itemDate <= end;
+                }
+                return matchesDateRange;
+            });
+        };
 
-    // Loading state
+        return {
+            filteredIncomes: getFilteredData(incomesData.items) as Income[],
+            filteredExpenses: getFilteredData(expensesData.items) as Expense[],
+        };
+    }, [incomesData.items, expensesData.items, startDate, endDate]);
+
+    // Memoize total calculations
+    const totals = useMemo(() => ({
+        totalIncome: filteredData.filteredIncomes.reduce((sum, income) => sum + income.amount, 0),
+        totalExpenses: filteredData.filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0),
+    }), [filteredData]);
+
+    // Date filter handlers
+    const handleDateChange = (start: string, end: string) => {
+        setStartDate(start);
+        setEndDate(end);
+    };
+    const clearFilters = () => {
+        setStartDate("");
+        setEndDate("");
+    };
+
+    // Loading state UI
     if (incomesData.loading || expensesData.loading) {
         return (
             <div className="space-y-6">
@@ -57,44 +103,7 @@ function DashboardContent() {
         );
     }
 
-    // Date filter logic (as in the original dashboard)
-    const getFilteredData = (data: (Income | Expense)[]) => {
-        if (!startDate && !endDate) return data;
-        return data.filter(item => {
-            const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
-            let matchesDateRange = true;
-            if (startDate && endDate) {
-                const start = new Date(startDate);
-                const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999);
-                matchesDateRange = itemDate >= start && itemDate <= end;
-            } else if (startDate) {
-                const start = new Date(startDate);
-                matchesDateRange = itemDate >= start;
-            } else if (endDate) {
-                const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999);
-                matchesDateRange = itemDate <= end;
-            }
-            return matchesDateRange;
-        });
-    };
-
-    const filteredIncomes = getFilteredData(incomesData.items) as Income[];
-    const filteredExpenses = getFilteredData(expensesData.items) as Expense[];
-    const totalIncome = filteredIncomes.reduce((sum: number, income: Income) => sum + income.amount, 0);
-    const totalExpenses = filteredExpenses.reduce((sum: number, expense: Expense) => sum + expense.amount, 0);
-
-    // Date filter handlers
-    const handleDateChange = (start: string, end: string) => {
-        setStartDate(start);
-        setEndDate(end);
-    };
-    const clearFilters = () => {
-        setStartDate("");
-        setEndDate("");
-    };
-
+    // Main UI render
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -105,8 +114,8 @@ function DashboardContent() {
                 </div>
                 <div className="flex items-center gap-4">
                     <SimplePDFReportGenerator 
-                        incomes={filteredIncomes}
-                        expenses={filteredExpenses}
+                        incomes={filteredData.filteredIncomes}
+                        expenses={filteredData.filteredExpenses}
                         startDate={startDate}
                         endDate={endDate}
                     />
@@ -124,32 +133,29 @@ function DashboardContent() {
             {/* Summary Cards */}
             {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FinancialSummary
-                    totalAmount={totalIncome}
+                    totalAmount={totals.totalIncome}
                     currency={currency}
-                    items={filteredIncomes}
+                    items={filteredData.filteredIncomes}
                     itemType="income"
                 />
                 <FinancialSummary
-                    totalAmount={totalExpenses}
+                    totalAmount={totals.totalExpenses}
                     currency={currency}
-                    items={filteredExpenses}
+                    items={filteredData.filteredExpenses}
                     itemType="expense"
                 />
             </div> */}
 
-            {/* Divider */}
-            {/* <div className="flex justify-center">
-                <div className="w-1/2 border-t border-gray-200"></div>
-            </div> */}
-
             {/* Financial Overview - Waterfall Chart */}
-            <WaterfallChart 
-                totalIncome={totalIncome}
-                totalExpenses={totalExpenses}
-                currency={currency}
-                startDate={startDate}
-                endDate={endDate}
-            />
+            <Suspense fallback={<ChartSkeleton title="Financial Overview" />}>
+                <WaterfallChart 
+                    totalIncome={totals.totalIncome}
+                    totalExpenses={totals.totalExpenses}
+                    currency={currency}
+                    startDate={startDate}
+                    endDate={endDate}
+                />
+            </Suspense>
 
             {/* Divider */}
             <div className="flex justify-center">
@@ -157,13 +163,15 @@ function DashboardContent() {
             </div>
 
             {/* Savings Rate Chart */}
-            <SavingsRateChart 
-                incomes={filteredIncomes}
-                expenses={filteredExpenses}
-                currency={currency}
-                startDate={startDate}
-                endDate={endDate}
-            />
+            <Suspense fallback={<ChartSkeleton title="Savings Rate Trend" />}>
+                <SavingsRateChart 
+                    incomes={filteredData.filteredIncomes}
+                    expenses={filteredData.filteredExpenses}
+                    currency={currency}
+                    startDate={startDate}
+                    endDate={endDate}
+                />
+            </Suspense>
 
             {/* Divider */}
             <div className="flex justify-center">
@@ -171,13 +179,15 @@ function DashboardContent() {
             </div>
 
             {/* Monthly Trend Chart */}
-            <MonthlyTrendChart 
-                incomes={filteredIncomes}
-                expenses={filteredExpenses}
-                currency={currency}
-                startDate={startDate}
-                endDate={endDate}
-            />
+            <Suspense fallback={<ChartSkeleton title="Monthly Trends" />}>
+                <MonthlyTrendChart 
+                    incomes={filteredData.filteredIncomes}
+                    expenses={filteredData.filteredExpenses}
+                    currency={currency}
+                    startDate={startDate}
+                    endDate={endDate}
+                />
+            </Suspense>
 
             {/* Divider */}
             <div className="flex justify-center">
@@ -186,16 +196,20 @@ function DashboardContent() {
 
             {/* Category Charts - Side by Side */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                <CategoryPieChart 
-                    data={filteredExpenses}
-                    type="expense"
-                    currency={currency}
-                />
-                <CategoryPieChart 
-                    data={filteredIncomes}
-                    type="income"
-                    currency={currency}
-                />
+                <Suspense fallback={<ChartSkeleton title="Expense Distribution" height="h-[24rem]" />}>
+                    <CategoryPieChart 
+                        data={filteredData.filteredExpenses}
+                        type="expense"
+                        currency={currency}
+                    />
+                </Suspense>
+                <Suspense fallback={<ChartSkeleton title="Income Distribution" height="h-[24rem]" />}>
+                    <CategoryPieChart 
+                        data={filteredData.filteredIncomes}
+                        type="income"
+                        currency={currency}
+                    />
+                </Suspense>
             </div>
 
             {/* Divider */}
@@ -205,16 +219,20 @@ function DashboardContent() {
 
             {/* Category Trend Charts - Side by Side */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                <CategoryTrendChart 
-                    data={filteredExpenses}
-                    type="expense"
-                    currency={currency}
-                />
-                <CategoryTrendChart 
-                    data={filteredIncomes}
-                    type="income"
-                    currency={currency}
-                />
+                <Suspense fallback={<ChartSkeleton title="Expense Trends" />}>
+                    <CategoryTrendChart 
+                        data={filteredData.filteredExpenses}
+                        type="expense"
+                        currency={currency}
+                    />
+                </Suspense>
+                <Suspense fallback={<ChartSkeleton title="Income Trends" />}>
+                    <CategoryTrendChart 
+                        data={filteredData.filteredIncomes}
+                        type="income"
+                        currency={currency}
+                    />
+                </Suspense>
             </div>
 
             {/* Divider */}
@@ -223,7 +241,9 @@ function DashboardContent() {
             </div>
 
             {/* Recent Transactions */}
-            <RecentTransactions />
+            <Suspense fallback={<ChartSkeleton title="Recent Transactions" showControls={false} />}>
+                <RecentTransactions />
+            </Suspense>
         </div>
     );
 }
