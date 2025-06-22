@@ -16,6 +16,7 @@ import { FinancialFilters } from "../../components/shared/FinancialFilters";
 import { useOptimizedFinancialData } from "../../hooks/useOptimizedFinancialData";
 import { DateFilterButtons } from "../../components/DateFilterButtons";
 import { useState } from "react";
+import { SavingsRateChart } from "../../components/SavingsRateChart";
 
 function DashboardContent() {
     const { currency } = useCurrency();
@@ -145,6 +146,18 @@ function DashboardContent() {
             <WaterfallChart 
                 totalIncome={totalIncome}
                 totalExpenses={totalExpenses}
+                currency={currency}
+            />
+
+            {/* Divider */}
+            <div className="flex justify-center">
+                <div className="w-1/2 border-t border-gray-200"></div>
+            </div>
+
+            {/* Savings Rate Chart */}
+            <SavingsRateChart 
+                incomes={filteredIncomes}
+                expenses={filteredExpenses}
                 currency={currency}
             />
 
