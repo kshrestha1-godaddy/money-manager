@@ -405,6 +405,25 @@ export async function addRepayment(debtId: number, amount: number, notes?: strin
                 },
             });
 
+            // Calculate new total repayments including the new repayment
+            const newTotalRepayments = totalRepayments + amount;
+            
+            // Update debt status based on total repayments
+            let newStatus = existingDebt.status;
+            if (newTotalRepayments >= debtAmount) {
+                newStatus = 'FULLY_PAID';
+            } else if (newTotalRepayments > 0) {
+                newStatus = 'PARTIALLY_PAID';
+            }
+
+            // Update debt status if it changed
+            if (newStatus !== existingDebt.status) {
+                await tx.debt.update({
+                    where: { id: debtId },
+                    data: { status: newStatus }
+                });
+            }
+
             // Update the account balance (increase by repayment amount) if accountId is provided
             if (accountId) {
                 await tx.account.update({
@@ -475,6 +494,35 @@ export async function deleteRepayment(repaymentId: number, debtId: number) {
             await tx.debtRepayment.delete({
                 where: { id: repaymentId },
             });
+
+            // Get all remaining repayments for this debt
+            const remainingRepayments = await tx.debtRepayment.findMany({
+                where: { debtId: debtId }
+            });
+
+            // Calculate total remaining repayments
+            const totalRemainingRepayments = remainingRepayments.reduce((sum, repayment) => {
+                return sum + decimalToNumber(repayment.amount, 'repayment amount');
+            }, 0);
+
+            // Update debt status based on remaining repayments
+            const debtAmount = decimalToNumber(existingDebt.amount, 'debt amount');
+            let newStatus = existingDebt.status;
+            if (totalRemainingRepayments >= debtAmount) {
+                newStatus = 'FULLY_PAID';
+            } else if (totalRemainingRepayments > 0) {
+                newStatus = 'PARTIALLY_PAID';
+            } else {
+                newStatus = 'ACTIVE'; // Only change to ACTIVE if no repayments remain
+            }
+
+            // Update debt status if it changed
+            if (newStatus !== existingDebt.status) {
+                await tx.debt.update({
+                    where: { id: debtId },
+                    data: { status: newStatus }
+                });
+            }
 
             // Restore the account balance (subtract repayment amount) if accountId is provided
             if (repaymentToDelete.accountId) {
