@@ -18,6 +18,7 @@ import { DateFilterButtons } from "../../components/DateFilterButtons";
 import { useState } from "react";
 import { SavingsRateChart } from "../../components/SavingsRateChart";
 import { ChartSkeleton } from "../../components/shared/ChartSkeleton";
+import { ExportAllButton } from "../../components/ExportAllButton";
 
 function DashboardContent() {
     // All hooks must be called before any conditional logic
@@ -113,6 +114,7 @@ function DashboardContent() {
                     <p className="text-gray-600 mt-1">Overview of your financial health</p>
                 </div>
                 <div className="flex items-center gap-4">
+                    <ExportAllButton />
                     <SimplePDFReportGenerator 
                         incomes={filteredData.filteredIncomes}
                         expenses={filteredData.filteredExpenses}
