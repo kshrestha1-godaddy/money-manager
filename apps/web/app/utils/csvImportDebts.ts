@@ -16,6 +16,19 @@ export interface ParsedDebtData {
     purpose?: string;
     notes?: string;
     accountId?: number;
+    originalId?: number; // Used for matching repayments during import
+}
+
+/**
+ * Parse CSV content for repayment import
+ */
+export interface ParsedRepaymentData {
+    debtId: number;
+    amount: number;
+    repaymentDate: Date;
+    notes?: string;
+    accountId?: number;
+    originalId?: number;
 }
 
 /**
@@ -256,9 +269,99 @@ function validateAndConvertRow(
         purpose: rowData.purpose || undefined,
         notes: rowData.notes || undefined,
         accountId: accountId,
+        originalId: rowData.id ? parseInt(rowData.id, 10) : undefined
     };
 
     return { isValid: true, data: debtData, errors: [] };
+}
+
+/**
+ * Validate and convert CSV row to repayment data
+ */
+function validateAndConvertRepaymentRow(
+    row: string[], 
+    headers: string[], 
+    rowIndex: number,
+    accounts: any[]
+): {
+    isValid: boolean;
+    data: ParsedRepaymentData | null;
+    errors: string[];
+} {
+    const errors: string[] = [];
+    
+    // Create object from row data
+    const rowData = mapRowToObject(row, headers);
+
+    // Validate required fields
+    const requiredFields = ['debtid', 'amount', 'repaymentdate'];
+    for (const field of requiredFields) {
+        if (!rowData[field] || rowData[field].trim() === '') {
+            errors.push(`Row ${rowIndex + 1}: Missing required field '${field}'`);
+        }
+    }
+
+    // Parse and validate numeric fields
+    let amount: number;
+    let debtId: number;
+
+    try {
+        amount = parseFloat(rowData.amount);
+        if (isNaN(amount) || amount <= 0) {
+            errors.push(`Row ${rowIndex + 1}: Invalid amount value (${rowData.amount}). Must be a positive number.`);
+        }
+    } catch {
+        errors.push(`Row ${rowIndex + 1}: Invalid amount format (${rowData.amount})`);
+    }
+
+    try {
+        debtId = parseInt(rowData.debtid, 10);
+        if (isNaN(debtId) || debtId <= 0) {
+            errors.push(`Row ${rowIndex + 1}: Invalid debt ID value (${rowData.debtid}). Must be a positive number.`);
+        }
+    } catch {
+        errors.push(`Row ${rowIndex + 1}: Invalid debt ID format (${rowData.debtid})`);
+    }
+
+    // Parse and validate dates
+    let repaymentDate: Date;
+
+    try {
+        repaymentDate = parseDate(rowData.repaymentdate);
+    } catch (error) {
+        errors.push(`Row ${rowIndex + 1}: ${error instanceof Error ? error.message : 'Invalid repayment date'}`);
+    }
+
+    // Find account (optional for repayments)
+    let accountId: number | undefined;
+    if (rowData.accountid && rowData.accountid.trim() !== '') {
+        try {
+            accountId = parseInt(rowData.accountid, 10);
+            const accountExists = accounts.some(a => a.id === accountId);
+            if (!accountExists) {
+                // We don't make this a hard error, just a warning
+                console.warn(`Row ${rowIndex + 1}: Account ID ${accountId} not found in user accounts`);
+            }
+        } catch {
+            errors.push(`Row ${rowIndex + 1}: Invalid account ID format (${rowData.accountid})`);
+        }
+    }
+
+    if (errors.length > 0) {
+        return { isValid: false, data: null, errors };
+    }
+
+    // Convert to ParsedRepaymentData
+    const repaymentData: ParsedRepaymentData = {
+        debtId: debtId!,
+        amount: amount!,
+        repaymentDate: repaymentDate!,
+        notes: rowData.notes || undefined,
+        accountId: accountId,
+        originalId: rowData.id ? parseInt(rowData.id, 10) : undefined
+    };
+
+    return { isValid: true, data: repaymentData, errors: [] };
 }
 
 /**
@@ -334,6 +437,93 @@ export function parseDebtsCSV(csvContent: string, accounts: any[]): ImportResult
             skippedCount: dataRows.length - validDebts.length,
             data: validDebts
         } as ImportResult & { data: ParsedDebtData[] };
+
+    } catch (error) {
+        return {
+            success: false,
+            importedCount: 0,
+            errors: [{ 
+                row: 0, 
+                error: `Failed to parse CSV: ${error instanceof Error ? error.message : 'Unknown error'}` 
+            }],
+            skippedCount: 0
+        };
+    }
+}
+
+/**
+ * Parse and validate CSV content for repayment import
+ */
+export function parseRepaymentsCSV(csvContent: string, accounts: any[]): ImportResult {
+    try {
+        const rows = parseCSV(csvContent);
+        
+        if (rows.length === 0) {
+            return {
+                success: false,
+                importedCount: 0,
+                errors: [{ row: 0, error: 'CSV file is empty' }],
+                skippedCount: 0
+            };
+        }
+
+        const headers = rows[0];
+        const dataRows = rows.slice(1);
+        
+        if (!headers || headers.length === 0) {
+            return {
+                success: false,
+                importedCount: 0,
+                errors: [{ row: 0, error: 'CSV file has no headers' }],
+                skippedCount: 0
+            };
+        }
+
+        // Define required headers
+        const requiredHeaders = ['Debt ID', 'Amount', 'Repayment Date'];
+        const missingRequiredHeaders = requiredHeaders.filter(header => 
+            !headers.some(h => h.toLowerCase().replace(/[\s\-_()%]/g, '') === header.toLowerCase().replace(/[\s\-_()%]/g, ''))
+        );
+        
+        if (missingRequiredHeaders.length > 0) {
+            return {
+                success: false,
+                importedCount: 0,
+                errors: [{ 
+                    row: 0, 
+                    error: `Missing required headers: ${missingRequiredHeaders.join(', ')}. Required headers: ${requiredHeaders.join(', ')}`
+                }],
+                skippedCount: 0
+            };
+        }
+
+        const validRepayments: ParsedRepaymentData[] = [];
+        const allErrors: Array<{ row: number; error: string; data?: any }> = [];
+
+        // Process each data row
+        dataRows.forEach((row, index) => {
+            const result = validateAndConvertRepaymentRow(row, headers, index + 1, accounts);
+            
+            if (result.isValid && result.data) {
+                validRepayments.push(result.data);
+            } else {
+                result.errors.forEach(error => {
+                    allErrors.push({
+                        row: index + 2, // +2 because headers are row 1 and we're 0-indexed
+                        error,
+                        data: row
+                    });
+                });
+            }
+        });
+
+        return {
+            success: validRepayments.length > 0,
+            importedCount: 0, // Will be set after actual import
+            errors: allErrors,
+            skippedCount: dataRows.length - validRepayments.length,
+            data: validRepayments
+        } as ImportResult & { data: ParsedRepaymentData[] };
 
     } catch (error) {
         return {

@@ -1,4 +1,4 @@
-import { DebtInterface } from '../types/debts';
+import { DebtInterface, DebtRepaymentInterface } from '../types/debts';
 
 /**
  * Convert debts data to CSV format
@@ -74,6 +74,50 @@ export function convertDebtsToCSV(debts: DebtInterface[]): string {
 }
 
 /**
+ * Convert repayments data to CSV format
+ */
+export function convertRepaymentsToCSV(repayments: DebtRepaymentInterface[], debtIdMap: Record<number, string>): string {
+    if (repayments.length === 0) {
+        return '';
+    }
+
+    // Define CSV headers
+    const headers = [
+        'ID',
+        'Debt ID',
+        'Debt Borrower',
+        'Amount',
+        'Repayment Date',
+        'Notes',
+        'Account ID',
+        'Created At',
+        'Updated At'
+    ];
+
+    // Convert data to CSV rows
+    const rows = repayments.map(repayment => {
+        return [
+            repayment.id.toString(),
+            repayment.debtId.toString(),
+            debtIdMap[repayment.debtId] || '',
+            repayment.amount.toString(),
+            repayment.repaymentDate.toISOString().split('T')[0], // YYYY-MM-DD format
+            repayment.notes || '',
+            repayment.accountId?.toString() || '',
+            repayment.createdAt.toISOString(),
+            repayment.updatedAt.toISOString()
+        ];
+    });
+
+    // Combine headers and rows
+    const csvContent = [headers, ...rows]
+        .map(row => row.map(cell => `"${(cell || '').toString().replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+
+    return csvContent;
+}
+
+/**
  * Download debts data as CSV file
  */
 export function exportDebtsToCSV(debts: DebtInterface[], filename?: string): void {
@@ -101,6 +145,41 @@ export function exportDebtsToCSV(debts: DebtInterface[], filename?: string): voi
         // Fallback for older browsers
         const csvData = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent);
         window.open(csvData);
+    }
+    
+    // Export repayments if they exist
+    const allRepayments: DebtRepaymentInterface[] = [];
+    const debtIdToBorrowerMap: Record<number, string> = {};
+    
+    debts.forEach(debt => {
+        debtIdToBorrowerMap[debt.id] = debt.borrowerName;
+        if (debt.repayments && debt.repayments.length > 0) {
+            allRepayments.push(...debt.repayments);
+        }
+    });
+    
+    if (allRepayments.length > 0) {
+        const repaymentsCsvContent = convertRepaymentsToCSV(allRepayments, debtIdToBorrowerMap);
+        const repaymentsBlob = new Blob([repaymentsCsvContent], { type: 'text/csv;charset=utf-8;' });
+        
+        // Create a small delay to prevent browser from blocking multiple downloads
+        setTimeout(() => {
+            const repaymentLink = document.createElement('a');
+            if (repaymentLink.download !== undefined) {
+                const repaymentUrl = URL.createObjectURL(repaymentsBlob);
+                repaymentLink.setAttribute('href', repaymentUrl);
+                repaymentLink.setAttribute('download', filename ? filename.replace('.csv', '_repayments.csv') : `debts_repayments_${new Date().toISOString().split('T')[0]}.csv`);
+                repaymentLink.style.visibility = 'hidden';
+                document.body.appendChild(repaymentLink);
+                repaymentLink.click();
+                document.body.removeChild(repaymentLink);
+                URL.revokeObjectURL(repaymentUrl);
+            } else {
+                // Fallback for older browsers
+                const repaymentsCsvData = 'data:text/csv;charset=utf-8,' + encodeURIComponent(repaymentsCsvContent);
+                window.open(repaymentsCsvData);
+            }
+        }, 500);
     }
 }
 

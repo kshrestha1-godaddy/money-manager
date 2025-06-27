@@ -398,10 +398,10 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImportModalP
                             <button 
                                 onClick={handleImport} 
                                 disabled={importing}
-                                className={`px-4 py-2 rounded-md ${
+                                className={`px-5 py-2.5 rounded-lg text-sm font-medium ${
                                     importing 
                                         ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
-                                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                                        : 'bg-gray-800 text-white hover:bg-gray-900'
                                 }`}
                             >
                                 {importing ? 'Importing...' : 'Import Expenses'}

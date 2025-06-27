@@ -209,14 +209,19 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImportModalP
                                 <div className="text-center">
                                     <Upload className="mx-auto h-12 w-12 text-gray-400" />
                                     <div className="mt-4">
-                                        <label htmlFor="file-upload" className="cursor-pointer">
-                                            <span className="mt-2 block text-sm font-medium text-gray-900">
-                                                {file ? file.name : 'Choose CSV file or drag and drop'}
-                                            </span>
-                                            <span className="text-xs text-gray-500 block mt-1">
-                                                CSV files only
-                                            </span>
-                                        </label>
+                                        <p className="mt-2 block text-sm font-medium text-gray-900">
+                                            {file ? file.name : 'Drop your CSV file here'}
+                                        </p>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            or click to browse
+                                        </p>
+                                        <button
+                                            onClick={() => document.getElementById('file-upload')?.click()}
+                                            className="mt-3 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                                            type="button"
+                                        >
+                                            Browse Files
+                                        </button>
                                         <input
                                             id="file-upload"
                                             name="file-upload"
@@ -251,7 +256,11 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImportModalP
                                 <button
                                     onClick={handleImport}
                                     disabled={!file || importing || dataLoading}
-                                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    className={`px-5 py-2.5 rounded-lg text-sm font-medium ${
+                                        !file || importing || dataLoading
+                                            ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                                            : 'bg-gray-800 text-white hover:bg-gray-900'
+                                    }`}
                                 >
                                     {importing ? 'Importing Incomes...' : 'Import Incomes'}
                                 </button>

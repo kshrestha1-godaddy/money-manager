@@ -10,7 +10,7 @@ import {
     decimalToNumber,
     validateNumber 
 } from "../utils/auth";
-import { parseDebtsCSV, ParsedDebtData } from "../utils/csvImportDebts";
+import { parseDebtsCSV, ParsedDebtData, parseRepaymentsCSV, ParsedRepaymentData } from "../utils/csvImportDebts";
 import { ImportResult } from "../types/bulkImport";
 
 export async function getUserDebts(): Promise<{ data?: DebtInterface[], error?: string }> {
@@ -591,6 +591,9 @@ export async function bulkImportDebts(csvContent: string): Promise<ImportResult>
             batches.push(validDebts.slice(i, i + BATCH_SIZE));
         }
 
+        // Store mapping of original debt IDs to new debt IDs for repayment import
+        const debtIdMapping: Record<number, number> = {};
+
         for (const batch of batches) {
             try {
                 await prisma.$transaction(async (tx) => {
@@ -623,13 +626,19 @@ export async function bulkImportDebts(csvContent: string): Promise<ImportResult>
                                 }
                             }
 
-                            // Create the debt
-                            await tx.debt.create({
+                            // Create the debt (remove originalId as it's not in the schema)
+                            const { originalId, ...debtDataWithoutOriginalId } = debtData;
+                            const newDebt = await tx.debt.create({
                                 data: {
-                                    ...debtData,
+                                    ...debtDataWithoutOriginalId,
                                     userId: userId,
                                 },
                             });
+
+                            // Store the mapping of original ID to new ID if original ID exists
+                            if (debtData.originalId) {
+                                debtIdMapping[debtData.originalId] = newDebt.id;
+                            }
 
                             // Update account balance if accountId is provided
                             if (debtData.accountId) {
@@ -668,6 +677,10 @@ export async function bulkImportDebts(csvContent: string): Promise<ImportResult>
         }
 
         result.success = result.importedCount > 0;
+        
+        // Store the debt ID mapping in a global variable or return it with the result
+        // This can be used later when importing repayments
+        (result as any).debtIdMapping = debtIdMapping;
 
         revalidatePath("/(dashboard)/debts");
         revalidatePath("/(dashboard)/accounts");
@@ -676,6 +689,203 @@ export async function bulkImportDebts(csvContent: string): Promise<ImportResult>
 
     } catch (error) {
         throw new Error(error instanceof Error ? error.message : "Failed to import debts");
+    }
+}
+
+/**
+ * Bulk import repayments from CSV
+ */
+export async function bulkImportRepayments(csvContent: string, debtIdMapping?: Record<number, number>): Promise<ImportResult> {
+    try {
+        const session = await getAuthenticatedSession();
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Get user accounts for validation
+        const accounts = await prisma.account.findMany({
+            where: { userId: userId }
+        });
+
+        // Get user debts for validation
+        const userDebts = await prisma.debt.findMany({
+            where: { userId: userId },
+            select: { id: true }
+        });
+        
+        const userDebtIds = new Set(userDebts.map(debt => debt.id));
+
+        // Parse CSV
+        const parseResult = parseRepaymentsCSV(csvContent, accounts) as ImportResult & { data?: ParsedRepaymentData[] };
+        
+        if (!parseResult.success || !parseResult.data) {
+            return {
+                success: parseResult.success,
+                importedCount: 0,
+                errors: parseResult.errors,
+                skippedCount: parseResult.skippedCount
+            };
+        }
+
+        const validRepayments = parseResult.data;
+        const result: ImportResult = {
+            success: false,
+            importedCount: 0,
+            errors: [...parseResult.errors],
+            skippedCount: parseResult.skippedCount
+        };
+
+        // Process repayments in batches to avoid timeout
+        const BATCH_SIZE = 20;
+        const batches = [];
+        for (let i = 0; i < validRepayments.length; i += BATCH_SIZE) {
+            batches.push(validRepayments.slice(i, i + BATCH_SIZE));
+        }
+
+        for (const batch of batches) {
+            try {
+                await prisma.$transaction(async (tx) => {
+                    for (const repaymentData of batch) {
+                        try {
+                            // Map the debt ID if a mapping exists
+                            const actualDebtId = debtIdMapping && debtIdMapping[repaymentData.debtId] 
+                                ? debtIdMapping[repaymentData.debtId] 
+                                : repaymentData.debtId;
+                                
+                            // Skip if debt ID is undefined
+                            if (typeof actualDebtId !== 'number') {
+                                result.errors.push({
+                                    row: 0,
+                                    error: `Invalid debt ID for repayment`,
+                                    data: repaymentData
+                                });
+                                continue;
+                            }
+
+                            // Verify the debt exists and belongs to the user
+                            if (!userDebtIds.has(actualDebtId)) {
+                                result.errors.push({
+                                    row: 0,
+                                    error: `Debt ID ${actualDebtId} not found or does not belong to current user`,
+                                    data: repaymentData
+                                });
+                                continue;
+                            }
+
+                            // Get debt details to update status after repayment
+                            const debt = await tx.debt.findUnique({
+                                where: { id: actualDebtId },
+                                include: { repayments: true }
+                            });
+
+                            if (!debt) {
+                                result.errors.push({
+                                    row: 0,
+                                    error: `Debt ID ${actualDebtId} not found`,
+                                    data: repaymentData
+                                });
+                                continue;
+                            }
+
+                            // Validate account balance if accountId is provided (account will receive the repayment)
+                            if (repaymentData.accountId) {
+                                const account = await tx.account.findUnique({
+                                    where: { id: repaymentData.accountId },
+                                    select: { id: true }
+                                });
+
+                                if (!account) {
+                                    result.errors.push({
+                                        row: 0,
+                                        error: `Account ID ${repaymentData.accountId} not found`,
+                                        data: repaymentData
+                                    });
+                                    continue;
+                                }
+                            }
+
+                            // Create the repayment (remove originalId as it's not in the schema)
+                            const { originalId: repaymentOriginalId, ...repaymentDataWithoutOriginalId } = repaymentData;
+                            await tx.debtRepayment.create({
+                                data: {
+                                    amount: repaymentDataWithoutOriginalId.amount,
+                                    repaymentDate: repaymentDataWithoutOriginalId.repaymentDate,
+                                    notes: repaymentDataWithoutOriginalId.notes || undefined,
+                                    accountId: repaymentDataWithoutOriginalId.accountId || undefined,
+                                    debtId: actualDebtId
+                                },
+                            });
+
+                            // Update account balance if accountId is provided (increase the account balance)
+                            if (repaymentData.accountId) {
+                                await tx.account.update({
+                                    where: { id: repaymentData.accountId },
+                                    data: {
+                                        balance: {
+                                            increment: repaymentData.amount
+                                        }
+                                    }
+                                });
+                            }
+
+                            // Calculate total repaid amount including this new repayment
+                            const totalRepaid = debt.repayments.reduce(
+                                (sum, r) => sum + parseFloat(r.amount.toString()), 0
+                            ) + repaymentData.amount;
+
+                            // Calculate total due amount
+                            const debtAmount = parseFloat(debt.amount.toString());
+                            const interestRate = parseFloat(debt.interestRate.toString());
+                            const interestAmount = (debtAmount * interestRate) / 100;
+                            const totalDue = debtAmount + interestAmount;
+
+                            // Update debt status based on repayment
+                            let newStatus = debt.status;
+                            if (totalRepaid >= totalDue) {
+                                newStatus = 'FULLY_PAID';
+                            } else if (totalRepaid > 0) {
+                                newStatus = 'PARTIALLY_PAID';
+                            }
+
+                            // Update debt status if changed
+                            if (newStatus !== debt.status) {
+                                await tx.debt.update({
+                                    where: { id: actualDebtId },
+                                    data: { status: newStatus }
+                                });
+                            }
+
+                            result.importedCount++;
+                        } catch (error) {
+                            result.errors.push({
+                                row: 0,
+                                error: `Failed to import repayment: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                                data: repaymentData
+                            });
+                        }
+                    }
+                }, {
+                    timeout: 30000, // 30 second timeout per batch
+                });
+            } catch (error) {
+                // If a batch fails, add errors for all items in that batch
+                batch.forEach(repaymentData => {
+                    result.errors.push({
+                        row: 0,
+                        error: `Batch import failed for repayment: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                        data: repaymentData
+                    });
+                });
+            }
+        }
+
+        result.success = result.importedCount > 0;
+
+        revalidatePath("/(dashboard)/debts");
+        revalidatePath("/(dashboard)/accounts");
+
+        return result;
+
+    } catch (error) {
+        throw new Error(error instanceof Error ? error.message : "Failed to import repayments");
     }
 }
 
