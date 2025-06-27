@@ -109,7 +109,6 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImportModalP
                             <p>• Date format: YYYY-MM-DD, MM/DD/YYYY, or DD-MM-YYYY</p>
                             <p>• Investment types: STOCKS, CRYPTO, MUTUAL_FUNDS, BONDS, REAL_ESTATE, GOLD, FIXED_DEPOSIT, OTHER</p>
                             <p>• Account names from CSV will be automatically matched with existing accounts</p>
-                            <p>• Sufficient account balance is required for investment purchase amount</p>
                         </div>
                     </div>
 

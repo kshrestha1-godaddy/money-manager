@@ -462,10 +462,10 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
                 await prisma.$transaction(async (tx) => {
                     for (const investmentData of batch) {
                         try {
-                            // Validate account balance
+                            // Validate account exists
                             const account = await tx.account.findUnique({
                                 where: { id: investmentData.accountId },
-                                select: { balance: true, bankName: true }
+                                select: { id: true, bankName: true }
                             });
 
                             if (!account) {
@@ -480,16 +480,6 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
                             const totalInvestmentAmount = investmentData.type === 'FIXED_DEPOSIT' ? 
                                 investmentData.purchasePrice : 
                                 investmentData.quantity * investmentData.purchasePrice;
-                            const currentBalance = parseFloat(account.balance.toString());
-                            
-                            if (currentBalance < totalInvestmentAmount) {
-                                result.errors.push({
-                                    row: 0,
-                                    error: `Insufficient balance in ${account.bankName} for ${investmentData.name}. Available: ${currentBalance}, Required: ${totalInvestmentAmount}`,
-                                    data: investmentData
-                                });
-                                continue;
-                            }
 
                             // Create the investment
                             await tx.investment.create({
@@ -499,7 +489,7 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
                                 },
                             });
 
-                            // Update account balance
+                            // Update account balance - no balance check for bulk import
                             await tx.account.update({
                                 where: { id: investmentData.accountId },
                                 data: {
