@@ -31,6 +31,7 @@ model User {
   debts Debt[]
   loans Loan[]
   bookmarks Bookmark[]
+  passwords Password[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -271,6 +272,22 @@ model LoanRepayment {
   loanId         Int
   account        Account?  @relation(fields: [accountId], references: [id])
   accountId      Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Password {
+  id             Int       @id @default(autoincrement())
+  websiteName    String
+  websiteUrl     String
+  username       String
+  passwordHash   String    // Encrypted password
+  notes          String?
+  favicon        String?
+  category       String?
+  tags           String[]
+  user           User      @relation(fields: [userId], references: [id])
+  userId         Int
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 }
