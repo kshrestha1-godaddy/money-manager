@@ -15,9 +15,13 @@ interface ViewPasswordModalProps {
 function ViewPasswordModal({ isOpen, onClose, password }: ViewPasswordModalProps) {
     const [secretKey, setSecretKey] = useState("");
     const [decryptedPassword, setDecryptedPassword] = useState("");
+    const [decryptedPin, setDecryptedPin] = useState("");
     const [isDecrypting, setIsDecrypting] = useState(false);
+    const [isPinDecrypting, setIsPinDecrypting] = useState(false);
     const [decryptError, setDecryptError] = useState("");
+    const [pinDecryptError, setPinDecryptError] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+    const [showPin, setShowPin] = useState(false);
     const [copySuccess, setCopySuccess] = useState<string | null>(null);
 
     const handleDecrypt = async () => {
@@ -45,10 +49,45 @@ function ViewPasswordModal({ isOpen, onClose, password }: ViewPasswordModalProps
         }
     };
 
+    const handleDecryptPin = async () => {
+        if (!secretKey.trim()) {
+            setPinDecryptError("Secret key is required");
+            return;
+        }
+
+        if (!password.transactionPin) {
+            setPinDecryptError("No transaction PIN available");
+            return;
+        }
+
+        setIsPinDecrypting(true);
+        setPinDecryptError("");
+
+        try {
+            const decrypted = await decryptPasswordValue({
+                passwordHash: password.transactionPin,
+                secretKey
+            });
+            setDecryptedPin(decrypted);
+            setShowPin(true);
+            setPinDecryptError("");
+        } catch (error) {
+            setPinDecryptError("Failed to decrypt PIN. Check your secret key.");
+            console.error("PIN decryption error:", error);
+        } finally {
+            setIsPinDecrypting(false);
+        }
+    };
+
     const copyToClipboard = (text: string, type: string) => {
         navigator.clipboard.writeText(text);
         setCopySuccess(`${type} copied!`);
         setTimeout(() => setCopySuccess(null), 2000);
+    };
+
+    const formatValidity = (date: Date | null | undefined) => {
+        if (!date) return "Not set";
+        return new Date(date).toLocaleDateString();
     };
 
     if (!isOpen) return null;
@@ -128,6 +167,12 @@ function ViewPasswordModal({ isOpen, onClose, password }: ViewPasswordModalProps
                                     </div>
                                 </div>
                                 <div>
+                                    <label className="block text-sm font-medium text-gray-500 mb-1">Validity</label>
+                                    <div className="text-gray-900">
+                                        {formatValidity(password.validity)}
+                                    </div>
+                                </div>
+                                <div>
                                     <label className="block text-sm font-medium text-gray-500 mb-1">Category</label>
                                     <div className="text-gray-900">
                                         {password.category ? (
@@ -193,7 +238,6 @@ function ViewPasswordModal({ isOpen, onClose, password }: ViewPasswordModalProps
                                                 onClick={() => {
                                                     setShowPassword(false);
                                                     setDecryptedPassword("");
-                                                    setSecretKey("");
                                                 }}
                                                 className="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
                                             >
@@ -232,6 +276,53 @@ function ViewPasswordModal({ isOpen, onClose, password }: ViewPasswordModalProps
                                         </div>
                                     )}
                                 </div>
+
+                                {password.transactionPin && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-500 mb-1">Transaction PIN</label>
+                                        {showPin && decryptedPin ? (
+                                            <div className="flex items-center">
+                                                <span className="font-mono text-gray-900 mr-2 bg-gray-100 px-2 py-1 rounded">{decryptedPin}</span>
+                                                <button 
+                                                    onClick={() => copyToClipboard(decryptedPin, "Transaction PIN")}
+                                                    className="text-gray-400 hover:text-gray-600 mr-2"
+                                                    title="Copy PIN"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setShowPin(false);
+                                                        setDecryptedPin("");
+                                                    }}
+                                                    className="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                                                >
+                                                    Hide
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                <div className="flex items-center">
+                                                    <span className="text-gray-600 mr-2">••••••</span>
+                                                </div>
+                                                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                                    <button
+                                                        onClick={handleDecryptPin}
+                                                        disabled={isPinDecrypting || !secretKey}
+                                                        className="px-3 py-1 bg-gray-700 text-white text-sm rounded hover:bg-gray-800 disabled:bg-gray-400"
+                                                    >
+                                                        {isPinDecrypting ? "Decrypting..." : "Decrypt PIN"}
+                                                    </button>
+                                                </div>
+                                                {pinDecryptError && (
+                                                    <p className="text-xs text-red-500">{pinDecryptError}</p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

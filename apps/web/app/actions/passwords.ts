@@ -72,6 +72,11 @@ export async function createPassword(data: PasswordFormData): Promise<PasswordIn
     const userId = getUserIdFromSession(session.user.id);
     
     const passwordHash = encryptPassword(data.password, data.secretKey);
+    // Encrypt transaction PIN if provided
+    const transactionPin = data.transactionPin 
+      ? encryptPassword(data.transactionPin, data.secretKey) 
+      : null;
+    
     const favicon = `https://www.google.com/s2/favicons?domain=${new URL(data.websiteUrl).hostname}`;
     
     const password = await prisma.password.create({
@@ -80,6 +85,8 @@ export async function createPassword(data: PasswordFormData): Promise<PasswordIn
         websiteUrl: data.websiteUrl,
         username: data.username,
         passwordHash: passwordHash,
+        transactionPin: transactionPin,
+        validity: data.validity ? new Date(data.validity) : null,
         notes: data.notes || null,
         category: data.category || null,
         tags: data.tags || [],
@@ -93,7 +100,9 @@ export async function createPassword(data: PasswordFormData): Promise<PasswordIn
       userId: password.userId.toString(),
       notes: password.notes || undefined,
       category: password.category || undefined,
-      favicon: password.favicon || undefined
+      favicon: password.favicon || undefined,
+      transactionPin: password.transactionPin || undefined,
+      validity: password.validity || undefined
     };
   } catch (error) {
     console.error("Error creating password:", error);
@@ -131,6 +140,14 @@ export async function updatePassword(data: PasswordUpdateData): Promise<Password
     if (data.password !== undefined && data.secretKey) {
       updateData.passwordHash = encryptPassword(data.password, data.secretKey);
     }
+    if (data.transactionPin !== undefined && data.secretKey) {
+      updateData.transactionPin = data.transactionPin 
+        ? encryptPassword(data.transactionPin, data.secretKey) 
+        : null;
+    }
+    if (data.validity !== undefined) {
+      updateData.validity = data.validity ? new Date(data.validity) : null;
+    }
     if (data.notes !== undefined) updateData.notes = data.notes;
     if (data.category !== undefined) updateData.category = data.category;
     if (data.tags !== undefined) updateData.tags = data.tags;
@@ -147,7 +164,9 @@ export async function updatePassword(data: PasswordUpdateData): Promise<Password
       userId: updatedPassword.userId.toString(),
       notes: updatedPassword.notes || undefined,
       category: updatedPassword.category || undefined,
-      favicon: updatedPassword.favicon || undefined
+      favicon: updatedPassword.favicon || undefined,
+      transactionPin: updatedPassword.transactionPin || undefined,
+      validity: updatedPassword.validity || undefined
     };
   } catch (error) {
     console.error("Error updating password:", error);
@@ -282,5 +301,14 @@ export async function searchPasswords(query: string): Promise<PasswordInterface[
   } catch (error) {
     console.error("Error searching passwords:", error);
     throw new Error("Failed to search passwords");
+  }
+}
+
+export async function decryptTransactionPin(data: DecryptPasswordData): Promise<string> {
+  try {
+    return decryptPassword(data.passwordHash, data.secretKey);
+  } catch (error) {
+    console.error("Error decrypting transaction PIN:", error);
+    throw new Error("Failed to decrypt transaction PIN. Please check your secret key.");
   }
 } 

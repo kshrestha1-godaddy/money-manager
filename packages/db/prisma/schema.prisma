@@ -282,6 +282,8 @@ model Password {
   websiteUrl     String
   username       String
   passwordHash   String    // Encrypted password
+  transactionPin String?   // Encrypted transaction PIN
+  validity       DateTime? // Password validity/expiration date
   notes          String?
   favicon        String?
   category       String?
