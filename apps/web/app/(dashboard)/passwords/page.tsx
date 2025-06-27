@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { PasswordInterface } from "../../types/passwords";
-import { getPasswords, createPassword, updatePassword, deletePassword, searchPasswords } from "../../actions/passwords";
+import { getPasswords, createPassword, updatePassword, deletePassword } from "../../actions/passwords";
 import { PasswordGrid } from "../../components/passwords/PasswordCard";
 import { PasswordTable } from "../../components/passwords/PasswordTable";
 import { AddPasswordModal } from "../../components/passwords/AddPasswordModal";
@@ -13,8 +13,6 @@ export default function PasswordsPage() {
     const [passwords, setPasswords] = useState<PasswordInterface[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedPasswords, setSelectedPasswords] = useState<Set<number>>(new Set());
-    const [searchQuery, setSearchQuery] = useState("");
-    const [filteredPasswords, setFilteredPasswords] = useState<PasswordInterface[]>([]);
     const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
     
     // Modal states
@@ -27,23 +25,6 @@ export default function PasswordsPage() {
     useEffect(() => {
         loadPasswords();
     }, []);
-
-    // Filter passwords based on search query
-    useEffect(() => {
-        if (searchQuery.trim() === "") {
-            setFilteredPasswords(passwords);
-        } else {
-            const filtered = passwords.filter(password =>
-                password.websiteName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                password.websiteUrl.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                password.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                password.notes?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                password.category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                password.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-            );
-            setFilteredPasswords(filtered);
-        }
-    }, [passwords, searchQuery]);
 
     const loadPasswords = async () => {
         try {
@@ -121,7 +102,7 @@ export default function PasswordsPage() {
 
     const selectAllPasswords = (selected: boolean) => {
         if (selected) {
-            setSelectedPasswords(new Set(filteredPasswords.map(p => p.id)));
+            setSelectedPasswords(new Set(passwords.map(p => p.id)));
         } else {
             setSelectedPasswords(new Set());
         }
@@ -197,35 +178,23 @@ export default function PasswordsPage() {
                 </div>
             </div>
 
-            {/* Search */}
+            {/* Password Count */}
             <div className="bg-white rounded-lg shadow p-4">
-                <div className="flex flex-col md:flex-row gap-4">
-                    <div className="flex-1">
-                        <input
-                            type="text"
-                            placeholder="Search passwords..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
-                        />
-                    </div>
-                    
-                    <div className="flex items-center gap-4">
-                        <span className="text-sm text-gray-600">
-                            {filteredPasswords.length} password{filteredPasswords.length !== 1 ? 's' : ''}
-                        </span>
-                    </div>
+                <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">
+                        {passwords.length} password{passwords.length !== 1 ? 's' : ''} stored
+                    </span>
                 </div>
             </div>
 
             {/* Bulk actions - Only show in grid view */}
-            {viewMode === 'grid' && filteredPasswords.length > 0 && (
+            {viewMode === 'grid' && passwords.length > 0 && (
                 <div className="bg-white rounded-lg shadow p-4">
                     <div className="flex justify-between items-center">
                         <div className="flex items-center space-x-4">
                             <input
                                 type="checkbox"
-                                checked={selectedPasswords.size === filteredPasswords.length && filteredPasswords.length > 0}
+                                checked={selectedPasswords.size === passwords.length && passwords.length > 0}
                                 onChange={(e) => selectAllPasswords(e.target.checked)}
                                 className="h-4 w-4 text-gray-600 focus:ring-gray-500 border-gray-300 rounded"
                             />
@@ -254,7 +223,7 @@ export default function PasswordsPage() {
             )}
 
             {/* Passwords View (Grid or Table) */}
-            {filteredPasswords.length === 0 ? (
+            {passwords.length === 0 ? (
                 <div className="text-center py-12">
                     <div className="text-gray-400 mb-4">
                         <svg xmlns="http://www.w3.org/2000/svg" className="w-16 h-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -263,22 +232,20 @@ export default function PasswordsPage() {
                     </div>
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No passwords found</h3>
                     <p className="text-gray-600 mb-6">
-                        {searchQuery ? "Try adjusting your search criteria" : "Start by adding your first password"}
+                        Start by adding your first password
                     </p>
-                    {!searchQuery && (
-                        <Button onClick={() => { 
-                            setEditingPassword(null); 
-                            setShowAddModal(true); 
-                        }}>
-                            Add Your First Password
-                        </Button>
-                    )}
+                    <Button onClick={() => { 
+                        setEditingPassword(null); 
+                        setShowAddModal(true); 
+                    }}>
+                        Add Your First Password
+                    </Button>
                 </div>
             ) : (
                 <>
                     {viewMode === 'grid' ? (
                         <PasswordGrid
-                            passwords={filteredPasswords}
+                            passwords={passwords}
                             onEdit={handleEditPassword}
                             onDelete={handleDeletePassword}
                             selectedPasswords={selectedPasswords}
@@ -287,7 +254,7 @@ export default function PasswordsPage() {
                         />
                     ) : (
                         <PasswordTable
-                            passwords={filteredPasswords}
+                            passwords={passwords}
                             onEdit={handleEditPassword}
                             onDelete={handleDeletePassword}
                             selectedPasswords={selectedPasswords}
