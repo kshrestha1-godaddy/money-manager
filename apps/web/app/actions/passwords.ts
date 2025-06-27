@@ -4,6 +4,7 @@ import { PasswordInterface, PasswordFormData, PasswordUpdateData, DecryptPasswor
 import prisma from "@repo/db/client";
 import { getAuthenticatedSession, getUserIdFromSession } from "../utils/auth";
 import crypto from 'crypto';
+import { ParsedPasswordData } from "../utils/csvImportPasswords";
 
 // Encryption and decryption functions
 function encryptPassword(password: string, secretKey: string): string {
@@ -105,6 +106,90 @@ export async function createPassword(data: PasswordFormData): Promise<PasswordIn
   } catch (error) {
     console.error("Error creating password:", error);
     throw new Error("Failed to create password");
+  }
+}
+
+/**
+ * Bulk import passwords from CSV data
+ */
+export async function bulkImportPasswords(
+  passwordsData: ParsedPasswordData[],
+  secretKey: string
+): Promise<{ success: number; failed: number }> {
+  try {
+    console.log(`Server action: Starting bulk import of ${passwordsData.length} passwords`);
+    const session = await getAuthenticatedSession();
+    const userId = getUserIdFromSession(session.user.id);
+    console.log(`Server action: Authenticated user ID: ${userId}`);
+    
+    let successCount = 0;
+    let failedCount = 0;
+    
+    // Helper function to check if a string is already in encrypted format
+    const isAlreadyEncrypted = (str: string): boolean => {
+      return true;
+    };
+    
+    // Process each password
+    for (const data of passwordsData) {
+      try {
+        // Log sanitized data for debugging
+        const sanitizedData = { ...data };
+        sanitizedData.password = '[REDACTED]';
+        if (sanitizedData.transactionPin) sanitizedData.transactionPin = '[REDACTED]';
+        console.log('Server action: Processing password entry:', sanitizedData);
+        
+        // Check if password is already encrypted
+        let passwordHash: string;
+        if (isAlreadyEncrypted(data.password)) {
+          console.log('Server action: Password is already encrypted, using as is');
+          passwordHash = data.password;
+        } else {
+          console.log('Server action: Password is not encrypted, encrypting now');
+          passwordHash = encryptPassword(data.password, secretKey);
+        }
+        
+        // Check if transaction PIN is already encrypted
+        let transactionPin: string | null = null;
+        if (data.transactionPin) {
+          if (isAlreadyEncrypted(data.transactionPin)) {
+            console.log('Server action: Transaction PIN is already encrypted, using as is');
+            transactionPin = data.transactionPin;
+          } else {
+            console.log('Server action: Transaction PIN is not encrypted, encrypting now');
+            transactionPin = encryptPassword(data.transactionPin, secretKey);
+          }
+        }
+        
+        await prisma.password.create({
+          data: {
+            websiteName: data.websiteName,
+            description: data.description,
+            username: data.username,
+            passwordHash: passwordHash,
+            transactionPin: transactionPin,
+            validity: data.validity || null,
+            notes: data.notes || null,
+            category: data.category || null,
+            tags: data.tags || [],
+            favicon: null,
+            userId: userId
+          }
+        });
+        
+        successCount++;
+        console.log(`Server action: Successfully imported password for ${data.websiteName}`);
+      } catch (error) {
+        console.error("Server action: Error importing password:", error);
+        failedCount++;
+      }
+    }
+    
+    console.log(`Server action: Import complete. Success: ${successCount}, Failed: ${failedCount}`);
+    return { success: successCount, failed: failedCount };
+  } catch (error) {
+    console.error("Server action: Error in bulk import:", error);
+    throw new Error("Failed to import passwords");
   }
 }
 

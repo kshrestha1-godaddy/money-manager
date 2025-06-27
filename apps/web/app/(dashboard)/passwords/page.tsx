@@ -8,6 +8,8 @@ import { PasswordTable } from "../../components/passwords/PasswordTable";
 import { AddPasswordModal } from "../../components/passwords/AddPasswordModal";
 import { Button } from "@repo/ui/button";
 import { DeleteConfirmationModal } from "../../components/DeleteConfirmationModal";
+import { exportPasswordsToCSV } from "../../utils/csvExportPasswords";
+import { BulkImportModal } from "../../components/passwords/BulkImportModal";
 
 export default function PasswordsPage() {
     const [passwords, setPasswords] = useState<PasswordInterface[]>([]);
@@ -17,6 +19,7 @@ export default function PasswordsPage() {
     
     // Modal states
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showImportModal, setShowImportModal] = useState(false);
     const [editingPassword, setEditingPassword] = useState<PasswordInterface | null>(null);
     const [deletingPassword, setDeletingPassword] = useState<PasswordInterface | null>(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -124,6 +127,22 @@ export default function PasswordsPage() {
         }
     };
 
+    // Handle CSV export
+    const handleExportToCSV = () => {
+        if (passwords.length === 0) {
+            alert("No passwords to export");
+            return;
+        }
+        
+        exportPasswordsToCSV(passwords);
+    };
+
+    // Handle bulk import success
+    const handleBulkImportSuccess = () => {
+        loadPasswords();
+        setShowImportModal(false);
+    };
+
     if (loading) {
         return (
             <div className="space-y-6">
@@ -166,6 +185,19 @@ export default function PasswordsPage() {
                             Cards
                         </button>
                     </div>
+                    <button
+                        onClick={() => setShowImportModal(true)}
+                        className="h-10 px-4 text-sm font-medium text-white bg-gray-800 hover:bg-indigo-700 rounded-md mr-2"
+                    >
+                        Import CSV
+                    </button>
+                    <button
+                        onClick={handleExportToCSV}
+                        className="h-10 px-4 text-sm font-medium text-white bg-gray-800 hover:bg-green-700 rounded-md mr-2"
+                        disabled={passwords.length === 0}
+                    >
+                        Export CSV
+                    </button>
                     <button
                         onClick={() => { 
                             setEditingPassword(null); 
@@ -234,12 +266,20 @@ export default function PasswordsPage() {
                     <p className="text-gray-600 mb-6">
                         Start by adding your first password
                     </p>
-                    <Button onClick={() => { 
-                        setEditingPassword(null); 
-                        setShowAddModal(true); 
-                    }}>
-                        Add Your First Password
-                    </Button>
+                    <div className="flex justify-center space-x-4">
+                        <Button onClick={() => { 
+                            setEditingPassword(null); 
+                            setShowAddModal(true); 
+                        }}>
+                            Add Your First Password
+                        </Button>
+                        <button 
+                            onClick={() => setShowImportModal(true)}
+                            className="text-gray-800 bg-white border border-gray-300 hover:bg-gray-100 font-medium rounded-lg text-sm px-5 py-2.5"
+                        >
+                            Import from CSV
+                        </button>
+                    </div>
                 </div>
             ) : (
                 <>
@@ -298,6 +338,13 @@ export default function PasswordsPage() {
                 onConfirm={confirmDelete}
                 title="Delete Password"
                 message={`Are you sure you want to delete the password for "${deletingPassword?.websiteName}"? This action cannot be undone.`}
+            />
+
+            {/* Bulk Import Modal */}
+            <BulkImportModal
+                isOpen={showImportModal}
+                onClose={() => setShowImportModal(false)}
+                onSuccess={handleBulkImportSuccess}
             />
         </div>
     );

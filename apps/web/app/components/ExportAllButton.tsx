@@ -6,11 +6,13 @@ import { exportDebtsToCSV } from '../utils/csvExportDebts';
 import { exportExpensesToCSV } from '../utils/csvExportExpenses';
 import { exportIncomesToCSV } from '../utils/csvExportIncomes';
 import { exportInvestmentsToCSV } from '../utils/csvExportInvestments';
+import { exportPasswordsToCSV } from '../utils/csvExportPasswords';
 import { getUserAccounts } from '../actions/accounts';
 import { getUserDebts } from '../actions/debts';
 import { getExpenses } from '../actions/expenses';
 import { getIncomes } from '../actions/incomes';
 import { getUserInvestments } from '../actions/investments';
+import { getPasswords } from '../actions/passwords';
 
 export function ExportAllButton() {
     const [isExporting, setIsExporting] = useState(false);
@@ -26,6 +28,7 @@ export function ExportAllButton() {
             const expenses = await getExpenses();
             const incomes = await getIncomes();
             const investmentsResponse = await getUserInvestments();
+            const passwords = await getPasswords();
 
             // Extract data from responses
             const debts = debtsResponse.data || [];
@@ -49,6 +52,9 @@ export function ExportAllButton() {
             }
             if (investments.length > 0) {
                 exportInvestmentsToCSV(investments, `investments_${dateStr}.csv`);
+            }
+            if (passwords.length > 0) {
+                exportPasswordsToCSV(passwords, `passwords_${dateStr}.csv`);
             }
         } catch (error) {
             console.error('Error exporting data:', error);
