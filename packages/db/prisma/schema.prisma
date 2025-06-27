@@ -279,7 +279,7 @@ model LoanRepayment {
 model Password {
   id             Int       @id @default(autoincrement())
   websiteName    String
-  websiteUrl     String
+  description    String
   username       String
   passwordHash   String    // Encrypted password
   transactionPin String?   // Encrypted transaction PIN

@@ -110,7 +110,7 @@ export function PasswordCard({
                     <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-lg text-gray-900 truncate">{password.websiteName}</h3>
                         <p className="text-sm text-gray-600 truncate">
-                            {password.websiteUrl}
+                            {password.description}
                         </p>
                     </div>
                 </div>

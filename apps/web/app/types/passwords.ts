@@ -1,7 +1,7 @@
 export interface PasswordInterface {
   id: number;
   websiteName: string;
-  websiteUrl: string;
+  description: string;
   username: string;
   passwordHash: string;
   transactionPin?: string | null;
@@ -17,7 +17,7 @@ export interface PasswordInterface {
 
 export type PasswordFormData = {
   websiteName: string;
-  websiteUrl: string;
+  description: string;
   username: string;
   password: string; // Plain text password to be encrypted
   secretKey: string; // Key used for encryption

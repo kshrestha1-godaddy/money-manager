@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { PasswordInterface } from "../../types/passwords";
 import { formatDate } from "../../utils/date";
-import { decryptPasswordValue } from "../../actions/passwords";
+import { decryptPasswordValue, decryptTransactionPin } from "../../actions/passwords";
 
 // Add ViewPasswordModal component
 interface ViewPasswordModalProps {
@@ -64,7 +64,7 @@ function ViewPasswordModal({ isOpen, onClose, password }: ViewPasswordModalProps
         setPinDecryptError("");
 
         try {
-            const decrypted = await decryptPasswordValue({
+            const decrypted = await decryptTransactionPin({
                 passwordHash: password.transactionPin,
                 secretKey
             });
@@ -106,7 +106,7 @@ function ViewPasswordModal({ isOpen, onClose, password }: ViewPasswordModalProps
                             </div>
                             <div>
                                 <h3 className="text-xl font-semibold text-gray-900">{password.websiteName}</h3>
-                                <p className="text-sm text-gray-500">{password.websiteUrl}</p>
+                                <p className="text-sm text-gray-500">{password.description}</p>
                             </div>
                         </div>
                         <button 
@@ -137,28 +137,21 @@ function ViewPasswordModal({ isOpen, onClose, password }: ViewPasswordModalProps
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
                                 </svg>
-                                Website Details
+                                Details
                             </h4>
                             <div className="bg-gray-50 rounded-lg p-4 space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-500 mb-1">Website Name</label>
+                                    <label className="block text-sm font-medium text-gray-500 mb-1">Name</label>
                                     <div className="text-gray-900 font-medium">{password.websiteName}</div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-500 mb-1">URL</label>
+                                    <label className="block text-sm font-medium text-gray-500 mb-1">Description</label>
                                     <div className="flex items-center">
-                                        <a 
-                                            href={password.websiteUrl.startsWith('http') ? password.websiteUrl : `https://${password.websiteUrl}`} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
-                                            className="text-blue-600 hover:underline break-all mr-2"
-                                        >
-                                            {password.websiteUrl}
-                                        </a>
+                                        <span className="text-gray-900 break-all mr-2">{password.description}</span>
                                         <button 
-                                            onClick={() => copyToClipboard(password.websiteUrl, "URL")}
+                                            onClick={() => copyToClipboard(password.description, "Description")}
                                             className="text-gray-400 hover:text-gray-600"
-                                            title="Copy URL"
+                                            title="Copy description"
                                         >
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -374,7 +367,7 @@ interface PasswordTableProps {
     onClearSelection?: () => void;
 }
 
-type SortField = 'websiteName' | 'websiteUrl' | 'username' | 'createdAt' | 'category' | 'notes';
+type SortField = 'websiteName' | 'description' | 'username' | 'createdAt' | 'category' | 'notes';
 type SortDirection = 'asc' | 'desc';
 
 export function PasswordTable({ 
@@ -458,9 +451,9 @@ export function PasswordTable({
                     aValue = a.websiteName.toLowerCase();
                     bValue = b.websiteName.toLowerCase();
                     break;
-                case 'websiteUrl':
-                    aValue = a.websiteUrl.toLowerCase();
-                    bValue = b.websiteUrl.toLowerCase();
+                case 'description':
+                    aValue = a.description.toLowerCase();
+                    bValue = b.description.toLowerCase();
                     break;
                 case 'username':
                     aValue = a.username.toLowerCase();
@@ -768,7 +761,7 @@ function PasswordRow({
                         {password.websiteName}
                     </div>
                     <div className="text-xs text-gray-500 truncate max-w-[200px]">
-                        {password.websiteUrl}
+                        {password.description}
                     </div>
                 </div>
             </td>

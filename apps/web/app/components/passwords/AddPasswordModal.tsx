@@ -10,7 +10,7 @@ export function AddPasswordModal({
     onSubmit,
     initialData = {
         websiteName: "",
-        websiteUrl: "",
+        description: "",
         username: "",
         password: "",
         secretKey: "",
@@ -28,7 +28,7 @@ export function AddPasswordModal({
 }) {
     const [formData, setFormData] = useState<PasswordFormData>({
         websiteName: initialData.websiteName || "",
-        websiteUrl: initialData.websiteUrl || "",
+        description: initialData.description || "",
         username: initialData.username || "",
         password: initialData.password || "",
         secretKey: initialData.secretKey || "",
@@ -79,26 +79,31 @@ export function AddPasswordModal({
 
         try {
             if (!formData.websiteName.trim()) {
-                throw new Error("Website name is required");
+                throw new Error("Name is required");
             }
-            if (!formData.websiteUrl.trim()) {
-                throw new Error("Website URL is required");
+            if (!formData.description.trim()) {
+                throw new Error("Description is required");
             }
             if (!formData.username.trim()) {
                 throw new Error("Username is required");
             }
-            if (!formData.password.trim()) {
+            
+            // Check if this is a new password or an edit of existing password
+            const isNewPassword = !initialData.websiteName;
+            
+            // Only require password for new entries, not for edits
+            if (isNewPassword && !formData.password.trim()) {
                 throw new Error("Password is required");
             }
-            if (!formData.secretKey.trim()) {
+            
+            // If password is provided (even in edit mode), require secret key
+            if (formData.password.trim() && !formData.secretKey.trim()) {
                 throw new Error("Secret key is required for encryption");
             }
-
-            // Try to validate URL format
-            try {
-                new URL(formData.websiteUrl);
-            } catch (e) {
-                throw new Error("Please enter a valid URL (e.g., https://example.com)");
+            
+            // If transaction PIN is provided, require secret key
+            if (formData.transactionPin?.trim() && !formData.secretKey.trim()) {
+                throw new Error("Secret key is required for transaction PIN encryption");
             }
 
             await onSubmit(formData);
@@ -106,7 +111,7 @@ export function AddPasswordModal({
             // Reset form data after successful submission
             setFormData({
                 websiteName: "",
-                websiteUrl: "",
+                description: "",
                 username: "",
                 password: "",
                 secretKey: "",
@@ -155,7 +160,7 @@ export function AddPasswordModal({
 
                     <form onSubmit={handleSubmit}>
                         <div className="space-y-4">
-                            {/* Website Name */}
+                            {/* Name */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Website Name*
@@ -171,17 +176,17 @@ export function AddPasswordModal({
                                 />
                             </div>
 
-                            {/* Website URL */}
+                            {/* Description */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Website URL*
+                                    Description*
                                 </label>
                                 <input
-                                    type="url"
-                                    name="websiteUrl"
-                                    value={formData.websiteUrl}
+                                    type="text"
+                                    name="description"
+                                    value={formData.description}
                                     onChange={handleChange}
-                                    placeholder="https://example.com"
+                                    placeholder="e.g., Work email, Personal account"
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
                                     required
                                 />

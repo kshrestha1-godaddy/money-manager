@@ -77,12 +77,10 @@ export async function createPassword(data: PasswordFormData): Promise<PasswordIn
       ? encryptPassword(data.transactionPin, data.secretKey) 
       : null;
     
-    const favicon = `https://www.google.com/s2/favicons?domain=${new URL(data.websiteUrl).hostname}`;
-    
     const password = await prisma.password.create({
       data: {
         websiteName: data.websiteName,
-        websiteUrl: data.websiteUrl,
+        description: data.description,
         username: data.username,
         passwordHash: passwordHash,
         transactionPin: transactionPin,
@@ -90,7 +88,7 @@ export async function createPassword(data: PasswordFormData): Promise<PasswordIn
         notes: data.notes || null,
         category: data.category || null,
         tags: data.tags || [],
-        favicon: favicon,
+        favicon: null,
         userId: userId
       }
     });
@@ -132,19 +130,27 @@ export async function updatePassword(data: PasswordUpdateData): Promise<Password
     };
 
     if (data.websiteName !== undefined) updateData.websiteName = data.websiteName;
-    if (data.websiteUrl !== undefined) {
-      updateData.websiteUrl = data.websiteUrl;
-      updateData.favicon = `https://www.google.com/s2/favicons?domain=${new URL(data.websiteUrl).hostname}`;
-    }
+    if (data.description !== undefined) updateData.description = data.description;
     if (data.username !== undefined) updateData.username = data.username;
-    if (data.password !== undefined && data.secretKey) {
+    
+    // Validate that secret key is provided when password is being updated
+    if (data.password !== undefined) {
+      if (!data.secretKey) {
+        throw new Error("Secret key is required to update password");
+      }
       updateData.passwordHash = encryptPassword(data.password, data.secretKey);
     }
-    if (data.transactionPin !== undefined && data.secretKey) {
+    
+    // Validate that secret key is provided when transaction PIN is being updated
+    if (data.transactionPin !== undefined) {
+      if (!data.secretKey) {
+        throw new Error("Secret key is required to update transaction PIN");
+      }
       updateData.transactionPin = data.transactionPin 
         ? encryptPassword(data.transactionPin, data.secretKey) 
         : null;
     }
+    
     if (data.validity !== undefined) {
       updateData.validity = data.validity ? new Date(data.validity) : null;
     }
@@ -256,7 +262,7 @@ export async function searchPasswords(query: string): Promise<PasswordInterface[
             }
           },
           {
-            websiteUrl: {
+            description: {
               contains: searchTerm,
               mode: 'insensitive'
             }

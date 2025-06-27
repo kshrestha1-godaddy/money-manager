@@ -269,27 +269,27 @@ export default function PasswordsPage() {
             )}
 
             {/* Add/Edit Password Modal */}
-            {showAddModal && (
-                <AddPasswordModal
-                    key={editingPassword ? `edit-${editingPassword.id}` : 'add-new'}
-                    isOpen={showAddModal}
-                    onClose={() => { 
-                        setShowAddModal(false); 
-                        setEditingPassword(null); 
-                    }}
-                    onSubmit={editingPassword ? handleUpdatePassword : handleAddPassword}
-                    initialData={editingPassword ? {
-                        websiteName: editingPassword.websiteName,
-                        websiteUrl: editingPassword.websiteUrl,
-                        username: editingPassword.username,
-                        password: "",
-                        secretKey: "",
-                        notes: editingPassword.notes || undefined,
-                        category: editingPassword.category || undefined,
-                        tags: editingPassword.tags
-                    } : undefined}
-                />
-            )}
+            <AddPasswordModal
+                key={editingPassword ? `edit-${editingPassword.id}` : 'add-new'}
+                isOpen={showAddModal}
+                onClose={() => {
+                    setShowAddModal(false);
+                    setEditingPassword(null);
+                }}
+                onSubmit={editingPassword ? handleUpdatePassword : handleAddPassword}
+                initialData={editingPassword ? {
+                    websiteName: editingPassword.websiteName,
+                    description: editingPassword.description,
+                    username: editingPassword.username,
+                    password: "", // Don't pass the encrypted password
+                    secretKey: "", // Don't pass the secret key
+                    transactionPin: "", // Don't pass the encrypted PIN
+                    validity: editingPassword.validity ? editingPassword.validity : undefined,
+                    notes: editingPassword.notes || "",
+                    category: editingPassword.category || "",
+                    tags: editingPassword.tags || []
+                } : undefined}
+            />
 
             {/* Delete Confirmation Modal */}
             <DeleteConfirmationModal
