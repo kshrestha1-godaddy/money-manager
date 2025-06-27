@@ -59,22 +59,22 @@ export function FinancialAreaChart({
         const effectiveStartDate = startDate || (hasPageFilters ? pageStartDate : '');
         const effectiveEndDate = endDate || (hasPageFilters ? pageEndDate : '');
         
-        console.log(`${type} chart filtering data:`, {
-            totalData: data?.length || 0,
-            chartStartDate: startDate,
-            chartEndDate: endDate,
-            pageStartDate,
-            pageEndDate,
-            effectiveStartDate,
-            effectiveEndDate,
-            hasPageFilters,
-            sampleDates: data?.slice(0, 3).map(item => ({
-                original: item.date,
-                formatted: item.date instanceof Date ? 
-                    `${item.date.getFullYear()}-${String(item.date.getMonth() + 1).padStart(2, '0')}-${String(item.date.getDate()).padStart(2, '0')}` :
-                    item.date
-            })) || []
-        });
+        // console.log(`${type} chart filtering data:`, {
+        //     totalData: data?.length || 0,
+        //     chartStartDate: startDate,
+        //     chartEndDate: endDate,
+        //     pageStartDate,
+        //     pageEndDate,
+        //     effectiveStartDate,
+        //     effectiveEndDate,
+        //     hasPageFilters,
+        //     sampleDates: data?.slice(0, 3).map(item => ({
+        //         original: item.date,
+        //         formatted: item.date instanceof Date ? 
+        //             `${item.date.getFullYear()}-${String(item.date.getMonth() + 1).padStart(2, '0')}-${String(item.date.getDate()).padStart(2, '0')}` :
+        //             item.date
+        //     })) || []
+        // });
         
         if (!effectiveStartDate && !effectiveEndDate) return data || [];
         
@@ -103,7 +103,7 @@ export function FinancialAreaChart({
             return true;
         });
         
-        console.log(`${type} chart filtered result:`, filtered.length, 'items');
+        // console.log(`${type} chart filtered result:`, filtered.length, 'items');
         return filtered;
     }, [data, startDate, endDate, pageStartDate, pageEndDate, hasPageFilters, type]);
 
@@ -126,19 +126,19 @@ export function FinancialAreaChart({
             });
         }
         
-        console.log(`${chartConfig.label} chart filtering:`, {
-            chartStartDate: startDate,
-            chartEndDate: endDate,
-            pageStartDate,
-            pageEndDate,
-            effectiveStartDate,
-            effectiveEndDate,
-            hasPageFilters,
-            originalDataLength: data?.length || 0,
-            filteredDataLength: filteredData?.length || 0,
-            finalDataLength: recentData?.length || 0,
-            appliedDefaultFilter: !effectiveStartDate && !effectiveEndDate && !hasPageFilters
-        });
+        // console.log(`${chartConfig.label} chart filtering:`, {
+        //     chartStartDate: startDate,
+        //     chartEndDate: endDate,
+        //     pageStartDate,
+        //     pageEndDate,
+        //     effectiveStartDate,
+        //     effectiveEndDate,
+        //     hasPageFilters,
+        //     originalDataLength: data?.length || 0,
+        //     filteredDataLength: filteredData?.length || 0,
+        //     finalDataLength: recentData?.length || 0,
+        //     appliedDefaultFilter: !effectiveStartDate && !effectiveEndDate && !hasPageFilters
+        // });
 
         // Group data by date and sum amounts for each date
         const dateMap = new Map<string, number>();
@@ -158,19 +158,19 @@ export function FinancialAreaChart({
             });
         }
 
-        console.log(`${chartConfig.label} chart data processing:`, {
-            totalItems: recentData?.length || 0,
-            dateMapEntries: Array.from(dateMap.entries()),
-            firstFewItems: recentData?.slice(0, 5).map(item => {
-                const dateObj = item.date instanceof Date ? item.date : new Date(item.date);
-                return {
-                    title: item.title,
-                    originalDate: item.date,
-                    processedDate: `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`,
-                    amount: item.amount
-                };
-            }) || []
-        });
+        // console.log(`${chartConfig.label} chart data processing:`, {
+        //     totalItems: recentData?.length || 0,
+        //     dateMapEntries: Array.from(dateMap.entries()),
+        //     firstFewItems: recentData?.slice(0, 5).map(item => {
+        //         const dateObj = item.date instanceof Date ? item.date : new Date(item.date);
+        //         return {
+        //             title: item.title,
+        //             originalDate: item.date,
+        //             processedDate: `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`,
+        //             amount: item.amount
+        //         };
+        //     }) || []
+        // });
 
         // Convert to array and sort by date
         const chartDataPoints: ChartDataPoint[] = Array.from(dateMap.entries())
@@ -219,7 +219,7 @@ export function FinancialAreaChart({
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         }
 
-        console.log(`${chartConfig.label} chart final data:`, chartDataPoints.length, 'points');
+        // console.log(`${chartConfig.label} chart final data:`, chartDataPoints.length, 'points');
         
         return chartDataPoints;
     }, [filteredData, startDate, endDate, pageStartDate, pageEndDate, chartConfig.label, hasPageFilters, data]);
@@ -279,12 +279,12 @@ export function FinancialAreaChart({
         const start = startDate.toISOString().split('T')[0] || '';
         const end = today.toISOString().split('T')[0] || '';
         
-        console.log(`Getting date range for ${months} months:`, { 
-            start, 
-            end, 
-            startDate: startDate.toLocaleDateString(),
-            endDate: today.toLocaleDateString()
-        });
+        // console.log(`Getting date range for ${months} months:`, { 
+        //     start, 
+        //     end, 
+        //     startDate: startDate.toLocaleDateString(),
+        //     endDate: today.toLocaleDateString()
+        // });
         
         return { start, end };
     };
