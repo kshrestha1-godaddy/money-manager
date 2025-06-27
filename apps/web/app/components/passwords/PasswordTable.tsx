@@ -1,9 +1,106 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { PasswordInterface } from "../../types/passwords";
 import { formatDate } from "../../utils/date";
 import { decryptPasswordValue } from "../../actions/passwords";
+
+// Add DecryptPasswordModal component
+interface DecryptPasswordModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    passwordHash: string;
+    onDecrypted: (decryptedValue: string) => void;
+    websiteName: string;
+}
+
+function DecryptPasswordModal({ isOpen, onClose, passwordHash, onDecrypted, websiteName }: DecryptPasswordModalProps) {
+    const [secretKey, setSecretKey] = useState("");
+    const [isDecrypting, setIsDecrypting] = useState(false);
+    const [decryptError, setDecryptError] = useState("");
+
+    const handleDecrypt = async () => {
+        if (!secretKey.trim()) {
+            setDecryptError("Secret key is required");
+            return;
+        }
+
+        setIsDecrypting(true);
+        setDecryptError("");
+
+        try {
+            const decrypted = await decryptPasswordValue({
+                passwordHash,
+                secretKey
+            });
+            onDecrypted(decrypted);
+            onClose();
+        } catch (error) {
+            setDecryptError("Failed to decrypt. Check your secret key.");
+            console.error("Decryption error:", error);
+        } finally {
+            setIsDecrypting(false);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Decrypt Password</h3>
+                    <button 
+                        onClick={onClose}
+                        className="text-gray-400 hover:text-gray-500"
+                    >
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <div className="mb-4">
+                    <p className="text-sm text-gray-600 mb-3">
+                        Enter your secret key to decrypt the password for <strong>{websiteName}</strong>
+                    </p>
+                    <input
+                        type="password"
+                        value={secretKey}
+                        onChange={(e) => setSecretKey(e.target.value)}
+                        placeholder="Enter secret key"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-500"
+                        autoFocus
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                handleDecrypt();
+                            }
+                        }}
+                    />
+                    {decryptError && (
+                        <p className="text-xs text-red-500 mt-1">{decryptError}</p>
+                    )}
+                </div>
+                
+                <div className="flex justify-end space-x-2">
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleDecrypt}
+                        disabled={isDecrypting}
+                        className="px-4 py-2 text-sm font-medium text-white bg-gray-800 rounded-md hover:bg-gray-700 disabled:bg-gray-400"
+                    >
+                        {isDecrypting ? "Decrypting..." : "Decrypt"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 interface PasswordTableProps {
     passwords: PasswordInterface[];
@@ -17,7 +114,7 @@ interface PasswordTableProps {
     onClearSelection?: () => void;
 }
 
-type SortField = 'websiteName' | 'websiteUrl' | 'username' | 'createdAt' | 'category';
+type SortField = 'websiteName' | 'websiteUrl' | 'username' | 'createdAt' | 'category' | 'notes';
 type SortDirection = 'asc' | 'desc';
 
 export function PasswordTable({ 
@@ -33,6 +130,16 @@ export function PasswordTable({
 }: PasswordTableProps) {
     const [sortField, setSortField] = useState<SortField>('websiteName');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+    const [decryptingPassword, setDecryptingPassword] = useState<PasswordInterface | null>(null);
+    const [showDecryptModal, setShowDecryptModal] = useState(false);
+    const [decryptedPasswords, setDecryptedPasswords] = useState<Record<number, string>>({});
+
+    const handleDecryptedPassword = (passwordId: number, decrypted: string) => {
+        setDecryptedPasswords(prev => ({
+            ...prev,
+            [passwordId]: decrypted
+        }));
+    };
 
     const sortedPasswords = useMemo(() => {
         const sorted = [...passwords].sort((a, b) => {
@@ -59,6 +166,10 @@ export function PasswordTable({
                 case 'category':
                     aValue = (a.category || '').toLowerCase();
                     bValue = (b.category || '').toLowerCase();
+                    break;
+                case 'notes':
+                    aValue = (a.notes || '').toLowerCase();
+                    bValue = (b.notes || '').toLowerCase();
                     break;
                 default:
                     return 0;
@@ -207,6 +318,15 @@ export function PasswordTable({
                             </th>
                             <th 
                                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                onClick={() => handleSort('notes')}
+                            >
+                                <div className="flex items-center space-x-1">
+                                    <span>Notes</span>
+                                    {getSortIcon('notes')}
+                                </div>
+                            </th>
+                            <th 
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
                                 onClick={() => handleSort('createdAt')}
                             >
                                 <div className="flex items-center space-x-1">
@@ -229,28 +349,57 @@ export function PasswordTable({
                                 isSelected={selectedPasswords.has(password.id)}
                                 onSelect={onPasswordSelect}
                                 showCheckbox={showBulkActions}
+                                decryptedPassword={decryptedPasswords[password.id] || ""}
+                                onRequestDecrypt={() => {
+                                    setDecryptingPassword(password);
+                                    setShowDecryptModal(true);
+                                }}
                             />
                         ))}
                     </tbody>
                 </table>
             </div>
+            
+            {showDecryptModal && decryptingPassword && (
+                <DecryptPasswordModal
+                    isOpen={showDecryptModal}
+                    onClose={() => {
+                        setShowDecryptModal(false);
+                        setDecryptingPassword(null);
+                    }}
+                    passwordHash={decryptingPassword.passwordHash}
+                    onDecrypted={(decrypted) => {
+                        handleDecryptedPassword(decryptingPassword.id, decrypted);
+                        setShowDecryptModal(false);
+                        setDecryptingPassword(null);
+                    }}
+                    websiteName={decryptingPassword.websiteName}
+                />
+            )}
         </div>
     );
 }
 
-function PasswordRow({ password, onEdit, onDelete, isSelected = false, onSelect, showCheckbox = false }: { 
+function PasswordRow({ 
+    password, 
+    onEdit, 
+    onDelete, 
+    isSelected = false, 
+    onSelect, 
+    showCheckbox = false,
+    decryptedPassword = "",
+    onRequestDecrypt
+}: { 
     password: PasswordInterface;
     onEdit?: (password: PasswordInterface) => void;
     onDelete?: (password: PasswordInterface) => void;
     isSelected?: boolean;
     onSelect?: (passwordId: number, selected: boolean) => void;
     showCheckbox?: boolean;
+    decryptedPassword?: string;
+    onRequestDecrypt: () => void;
 }) {
     const [showPassword, setShowPassword] = useState(false);
-    const [secretKey, setSecretKey] = useState("");
-    const [decryptedPassword, setDecryptedPassword] = useState("");
-    const [isDecrypting, setIsDecrypting] = useState(false);
-    const [decryptError, setDecryptError] = useState("");
 
     const handleEdit = () => {
         if (onEdit) {
@@ -270,33 +419,15 @@ function PasswordRow({ password, onEdit, onDelete, isSelected = false, onSelect,
         }
     };
 
-    const handleDecrypt = async () => {
-        if (!secretKey.trim()) {
-            setDecryptError("Secret key is required");
-            return;
-        }
-
-        setIsDecrypting(true);
-        setDecryptError("");
-
-        try {
-            const decrypted = await decryptPasswordValue({
-                passwordHash: password.passwordHash,
-                secretKey
-            });
-            setDecryptedPassword(decrypted);
-            setDecryptError("");
-        } catch (error) {
-            setDecryptError("Failed to decrypt. Check your secret key.");
-            console.error("Decryption error:", error);
-        } finally {
-            setIsDecrypting(false);
-        }
-    };
-
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
     };
+
+    useEffect(() => {
+        if (decryptedPassword) {
+            setShowPassword(true);
+        }
+    }, [decryptedPassword]);
 
     return (
         <tr className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
@@ -335,58 +466,32 @@ function PasswordRow({ password, onEdit, onDelete, isSelected = false, onSelect,
                 </div>
             </td>
             <td className="px-6 py-4 whitespace-nowrap">
-                {showPassword ? (
-                    <div className="max-w-[200px]">
-                        {decryptedPassword ? (
-                            <div className="flex items-center">
-                                <span className="font-mono text-sm text-gray-900 mr-2">{decryptedPassword}</span>
-                                <button 
-                                    onClick={() => copyToClipboard(decryptedPassword)}
-                                    className="text-gray-400 hover:text-gray-600 mr-2"
-                                    title="Copy password"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                    </svg>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setShowPassword(false);
-                                        setDecryptedPassword("");
-                                        setSecretKey("");
-                                    }}
-                                    className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
-                                >
-                                    Hide
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="password"
-                                    value={secretKey}
-                                    onChange={(e) => setSecretKey(e.target.value)}
-                                    placeholder="Enter secret key"
-                                    className="w-24 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-500"
-                                />
-                                <button
-                                    onClick={handleDecrypt}
-                                    disabled={isDecrypting}
-                                    className="px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700 disabled:bg-gray-400"
-                                >
-                                    {isDecrypting ? "..." : "Decrypt"}
-                                </button>
-                                {decryptError && (
-                                    <span className="text-xs text-red-500">{decryptError}</span>
-                                )}
-                            </div>
-                        )}
+                {showPassword && decryptedPassword ? (
+                    <div className="flex items-center">
+                        <span className="font-mono text-sm text-gray-900 mr-2">{decryptedPassword}</span>
+                        <button 
+                            onClick={() => copyToClipboard(decryptedPassword)}
+                            className="text-gray-400 hover:text-gray-600 mr-2"
+                            title="Copy password"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                        </button>
+                        <button
+                            onClick={() => {
+                                setShowPassword(false);
+                            }}
+                            className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                        >
+                            Hide
+                        </button>
                     </div>
                 ) : (
                     <div className="flex items-center">
                         <span className="text-sm text-gray-600 mr-2">••••••••••••</span>
                         <button 
-                            onClick={() => setShowPassword(true)}
+                            onClick={onRequestDecrypt}
                             className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
                         >
                             Show
@@ -394,11 +499,23 @@ function PasswordRow({ password, onEdit, onDelete, isSelected = false, onSelect,
                     </div>
                 )}
             </td>
+            
             <td className="px-6 py-4 whitespace-nowrap">
                 {password.category ? (
                     <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700">
                         {password.category}
                     </span>
+                ) : (
+                    <span className="text-gray-400">-</span>
+                )}
+            </td>
+            <td className="px-6 py-4">
+                {password.notes ? (
+                    <div className="max-w-[200px] text-sm text-gray-600">
+                        <div className="truncate" title={password.notes}>
+                            {password.notes}
+                        </div>
+                    </div>
                 ) : (
                     <span className="text-gray-400">-</span>
                 )}
