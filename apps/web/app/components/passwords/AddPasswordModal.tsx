@@ -55,6 +55,7 @@ export function AddPasswordModal({
         }));
     };
 
+    
     const handleAddTag = () => {
         if (tagInput.trim() && !formData.tags?.includes(tagInput.trim())) {
             setFormData(prev => ({
