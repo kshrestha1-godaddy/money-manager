@@ -58,14 +58,14 @@ export function ExpenseList({
     const [startX, setStartX] = useState(0);
     const [startWidth, setStartWidth] = useState(0);
 
-    const handleSort = (field: SortField) => {
+    const handleSort = useCallback((field: SortField) => {
         if (sortField === field) {
             setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
         } else {
             setSortField(field);
             setSortDirection('asc');
         }
-    };
+    }, [sortField, sortDirection]);
 
     const handleMouseDown = useCallback((e: React.MouseEvent, column: string) => {
         e.preventDefault();
@@ -106,14 +106,14 @@ export function ExpenseList({
         };
     }, [resizing, handleMouseMove, handleMouseUp]);
 
-    const getSortIcon = (field: SortField) => {
+    const getSortIcon = useCallback((field: SortField) => {
         if (sortField !== field) {
             return <span className="text-gray-400" aria-label="Sort">↕</span>;
         }
         return sortDirection === 'asc' ? 
             <span className="text-blue-600" aria-label="Sorted ascending">↑</span> : 
             <span className="text-blue-600" aria-label="Sorted descending">↓</span>;
-    };
+    }, [sortField, sortDirection]);
 
     const sortedExpenses = useMemo(() => {
         return [...expenses].sort((a, b) => {
@@ -164,20 +164,27 @@ export function ExpenseList({
         return sortedExpenses.slice(startIndex, endIndex);
     }, [sortedExpenses, currentPage, ITEMS_PER_PAGE]);
 
-    // Reset to first page when sorting changes
+    // Reset to first page when sorting changes or expenses list changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [sortField, sortDirection, expenses]);
+    }, [sortField, sortDirection, expenses.length]);
 
-    const handleSelectAll = () => {
+    const handleSelectAllClick = useCallback(() => {
         const allSelected = selectedExpenses.size === expenses.length;
         if (onSelectAll) {
             onSelectAll(!allSelected);
         }
-    };
+    }, [selectedExpenses, expenses.length, onSelectAll]);
 
-    const isAllSelected = selectedExpenses.size === expenses.length && expenses.length > 0;
-    const isPartiallySelected = selectedExpenses.size > 0 && selectedExpenses.size < expenses.length;
+    const isAllSelected = useMemo(() => 
+        selectedExpenses.size === expenses.length && expenses.length > 0,
+        [selectedExpenses.size, expenses.length]
+    );
+    
+    const isPartiallySelected = useMemo(() => 
+        selectedExpenses.size > 0 && selectedExpenses.size < expenses.length,
+        [selectedExpenses.size, expenses.length]
+    );
 
     if (expenses.length === 0) {
         return (
@@ -237,7 +244,7 @@ export function ExpenseList({
                                         ref={(el) => {
                                             if (el) el.indeterminate = isPartiallySelected;
                                         }}
-                                        onChange={handleSelectAll}
+                                        onChange={handleSelectAllClick}
                                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                     />
                                     <div 

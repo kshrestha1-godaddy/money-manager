@@ -155,7 +155,6 @@ function IncomesContent() {
                     financialData.setItemToDelete(null);
                 }}
                 onConfirm={financialData.handleDeleteItem}
-                income={financialData.itemToDelete}
             />
 
             {/* Add Category Modal */}

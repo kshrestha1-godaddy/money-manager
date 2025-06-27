@@ -85,14 +85,14 @@ export function FinancialList({
     const [startX, setStartX] = useState(0);
     const [startWidth, setStartWidth] = useState(0);
 
-    const handleSort = (field: SortField) => {
+    const handleSort = useCallback((field: SortField) => {
         if (sortField === field) {
             setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
         } else {
             setSortField(field);
             setSortDirection('asc');
         }
-    };
+    }, [sortField, sortDirection]);
 
     const handleMouseDown = useCallback((e: React.MouseEvent, column: string) => {
         e.preventDefault();
@@ -133,14 +133,14 @@ export function FinancialList({
         };
     }, [resizing, handleMouseMove, handleMouseUp]);
 
-    const getSortIcon = (field: SortField) => {
+    const getSortIcon = useCallback((field: SortField) => {
         if (sortField !== field) {
             return <span className="text-gray-400" aria-label="Sort">↕</span>;
         }
         return sortDirection === 'asc' ? 
             <span className="text-blue-600" aria-label="Sorted ascending">↑</span> : 
             <span className="text-blue-600" aria-label="Sorted descending">↓</span>;
-    };
+    }, [sortField, sortDirection]);
 
     const sortedTransactions = useMemo(() => {
         return [...transactions].sort((a, b) => {
@@ -191,31 +191,43 @@ export function FinancialList({
         return sortedTransactions.slice(startIndex, endIndex);
     }, [sortedTransactions, currentPage, ITEMS_PER_PAGE]);
 
-    // Reset to first page when sorting changes
+    // Reset to first page when sorting changes or transaction list changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [sortField, sortDirection, transactions]);
+    }, [sortField, sortDirection, transactions.length]);
 
-    const handleSelectAll = () => {
+    const handleSelectAll = useCallback(() => {
         const allSelected = selectedTransactions.size === transactions.length;
         if (onSelectAll) {
             onSelectAll(!allSelected);
         }
-    };
+    }, [selectedTransactions, transactions.length, onSelectAll]);
 
-    const handleBulkDelete = () => {
-        if (selectedTransactions.size > 0 && onBulkDelete) {
-            const confirmed = confirm(
-                `Are you sure you want to delete ${selectedTransactions.size} selected ${transactionType === 'EXPENSE' ? 'expenses' : 'incomes'}?`
-            );
-            if (confirmed) {
-                onBulkDelete(Array.from(selectedTransactions));
-            }
+    const handleBulkDelete = useCallback(() => {
+        if (!onBulkDelete || selectedTransactions.size === 0) return;
+        
+        const selectedIds = Array.from(selectedTransactions);
+        const confirmMessage = `Are you sure you want to delete ${selectedIds.length} ${transactionType.toLowerCase()}(s)?`;
+        
+        if (confirm(confirmMessage)) {
+            onBulkDelete(selectedIds);
         }
-    };
+    }, [selectedTransactions, transactionType, onBulkDelete]);
 
-    const isAllSelected = selectedTransactions.size === transactions.length && transactions.length > 0;
-    const isPartiallySelected = selectedTransactions.size > 0 && selectedTransactions.size < transactions.length;
+    const isAllSelected = useMemo(() => 
+        selectedTransactions.size === transactions.length && transactions.length > 0,
+        [selectedTransactions.size, transactions.length]
+    );
+    
+    const isPartiallySelected = useMemo(() => 
+        selectedTransactions.size > 0 && selectedTransactions.size < transactions.length,
+        [selectedTransactions.size, transactions.length]
+    );
+
+    const amountColorClass = useMemo(() => 
+        transactionType === 'EXPENSE' ? 'text-red-600' : 'text-green-600',
+        [transactionType]
+    );
 
     const transactionLabel = transactionType === 'EXPENSE' ? 'Expenses' : 'Income Sources';
     const emptyIcon = transactionType === 'EXPENSE' ? '💸' : '💰';
@@ -233,8 +245,6 @@ export function FinancialList({
             </div>
         );
     }
-
-    const amountColorClass = transactionType === 'EXPENSE' ? 'text-red-600' : 'text-green-600';
 
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden">

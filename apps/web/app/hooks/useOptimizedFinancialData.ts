@@ -13,12 +13,12 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
 ) {
   const queryClient = useQueryClient();
   
-  // Query keys for caching
-  const QUERY_KEYS = {
+  // Query keys for caching - memoize to prevent unnecessary re-renders
+  const QUERY_KEYS = useMemo(() => ({
     items: [`${categoryType.toLowerCase()}s`] as const,
     categories: ['categories', categoryType] as const,
     accounts: ['accounts'] as const,
-  };
+  }), [categoryType]);
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -162,17 +162,24 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   });
 
   // Filter logic (memoized for performance)
-  const hasActiveFilters = !!(searchTerm || selectedCategory || selectedBank || startDate || endDate);
+  const hasActiveFilters = useMemo(() => {
+    return !!(searchTerm || selectedCategory || selectedBank || startDate || endDate);
+  }, [searchTerm, selectedCategory, selectedBank, startDate, endDate]);
   
   const filteredItems = useMemo(() => {
     return items.filter(item => {
-      const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            item.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            item.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            (item.tags && item.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())));
-                            
-      const matchesCategory = selectedCategory === "" || item.category.name === selectedCategory;
-      const matchesBank = selectedBank === "" || (item.account && item.account.bankName === selectedBank);
+      // Search term filtering
+      const matchesSearch = !searchTerm || 
+        item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.tags && item.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())));
+                          
+      // Category filtering
+      const matchesCategory = !selectedCategory || item.category.name === selectedCategory;
+      
+      // Bank filtering
+      const matchesBank = !selectedBank || (item.account && item.account.bankName === selectedBank);
       
       // Date filtering
       let matchesDateRange = true;
@@ -263,15 +270,14 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     }
   }, [filteredItems]);
 
-  const handleBulkDelete = useCallback(async () => {
+  const handleBulkDelete = useCallback(() => {
     if (selectedItems.size === 0) return;
     
-    const itemType = categoryType.toLowerCase();
-    const confirmMessage = `Are you sure you want to delete ${selectedItems.size} ${itemType}(s)?`;
-    if (!confirm(confirmMessage)) return;
-
-    bulkDeleteMutation.mutate(Array.from(selectedItems));
-  }, [selectedItems, categoryType, bulkDeleteMutation]);
+    const itemIds = Array.from(selectedItems);
+    if (confirm(`Are you sure you want to delete ${itemIds.length} items?`)) {
+      bulkDeleteMutation.mutate(itemIds);
+    }
+  }, [selectedItems, bulkDeleteMutation]);
 
   const handleBulkImportSuccess = useCallback(async () => {
     // Invalidate and refetch items data
@@ -299,7 +305,8 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   return {
     // Data
     items: filteredItems,
-    chartItems: filteredItems, // For chart data
+    allItems: items,
+    chartItems: items,
     categories,
     accounts,
     loading,
@@ -356,11 +363,18 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     handleBulkImportSuccess,
     handleExportToCSV,
     clearFilters,
-
-    // Mutation states for loading indicators
-    isCreating: createItemMutation.isPending,
-    isUpdating: updateItemMutation.isPending,
-    isDeleting: deleteItemMutation.isPending,
-    isBulkDeleting: bulkDeleteMutation.isPending,
+    
+    // Mutations
+    createItemMutation,
+    updateItemMutation,
+    deleteItemMutation,
+    bulkDeleteMutation,
+    createCategoryMutation,
+    
+    // Query invalidation helper
+    invalidateQueries: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.items });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
+    }
   };
 } 

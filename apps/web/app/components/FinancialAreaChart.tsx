@@ -60,7 +60,7 @@ export function FinancialAreaChart({
         const effectiveEndDate = endDate || (hasPageFilters ? pageEndDate : '');
         
         console.log(`${type} chart filtering data:`, {
-            totalData: data.length,
+            totalData: data?.length || 0,
             chartStartDate: startDate,
             chartEndDate: endDate,
             pageStartDate,
@@ -68,15 +68,17 @@ export function FinancialAreaChart({
             effectiveStartDate,
             effectiveEndDate,
             hasPageFilters,
-            sampleDates: data.slice(0, 3).map(item => ({
+            sampleDates: data?.slice(0, 3).map(item => ({
                 original: item.date,
                 formatted: item.date instanceof Date ? 
                     `${item.date.getFullYear()}-${String(item.date.getMonth() + 1).padStart(2, '0')}-${String(item.date.getDate()).padStart(2, '0')}` :
                     item.date
-            }))
+            })) || []
         });
         
-        if (!effectiveStartDate && !effectiveEndDate) return data;
+        if (!effectiveStartDate && !effectiveEndDate) return data || [];
+        
+        if (!data) return [];
         
         const filtered = data.filter(item => {
             const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
@@ -107,6 +109,8 @@ export function FinancialAreaChart({
 
     const chartData = useMemo(() => {
         // Apply default 30-day filter when no chart filters and no page filters are active
+        if (!filteredData) return [];
+        
         let recentData = filteredData;
         const effectiveStartDate = startDate || (hasPageFilters ? pageStartDate : '');
         const effectiveEndDate = endDate || (hasPageFilters ? pageEndDate : '');
@@ -130,32 +134,34 @@ export function FinancialAreaChart({
             effectiveStartDate,
             effectiveEndDate,
             hasPageFilters,
-            originalDataLength: data.length,
-            filteredDataLength: filteredData.length,
-            finalDataLength: recentData.length,
+            originalDataLength: data?.length || 0,
+            filteredDataLength: filteredData?.length || 0,
+            finalDataLength: recentData?.length || 0,
             appliedDefaultFilter: !effectiveStartDate && !effectiveEndDate && !hasPageFilters
         });
 
         // Group data by date and sum amounts for each date
         const dateMap = new Map<string, number>();
         
-        recentData.forEach(item => {
-            // Use local date to avoid timezone issues
-            const dateObj = item.date instanceof Date ? item.date : new Date(item.date);
-            const year = dateObj.getFullYear();
-            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const day = String(dateObj.getDate()).padStart(2, '0');
-            const dateStr = `${year}-${month}-${day}`;
-            
-            if (!dateStr) return;
-            const current = dateMap.get(dateStr) || 0;
-            dateMap.set(dateStr, current + item.amount);
-        });
+        if (recentData) {
+            recentData.forEach(item => {
+                // Use local date to avoid timezone issues
+                const dateObj = item.date instanceof Date ? item.date : new Date(item.date);
+                const year = dateObj.getFullYear();
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const dateStr = `${year}-${month}-${day}`;
+                
+                if (!dateStr) return;
+                const current = dateMap.get(dateStr) || 0;
+                dateMap.set(dateStr, current + item.amount);
+            });
+        }
 
         console.log(`${chartConfig.label} chart data processing:`, {
-            totalItems: recentData.length,
+            totalItems: recentData?.length || 0,
             dateMapEntries: Array.from(dateMap.entries()),
-            firstFewItems: recentData.slice(0, 5).map(item => {
+            firstFewItems: recentData?.slice(0, 5).map(item => {
                 const dateObj = item.date instanceof Date ? item.date : new Date(item.date);
                 return {
                     title: item.title,
@@ -163,7 +169,7 @@ export function FinancialAreaChart({
                     processedDate: `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`,
                     amount: item.amount
                 };
-            })
+            }) || []
         });
 
         // Convert to array and sort by date
@@ -216,7 +222,7 @@ export function FinancialAreaChart({
         console.log(`${chartConfig.label} chart final data:`, chartDataPoints.length, 'points');
         
         return chartDataPoints;
-    }, [filteredData, startDate, endDate, pageStartDate, pageEndDate, chartConfig.label, hasPageFilters]);
+    }, [filteredData, startDate, endDate, pageStartDate, pageEndDate, chartConfig.label, hasPageFilters, data]);
 
     const formatTooltip = (value: number) => {
         return [formatCurrency(value, currency), chartConfig.label];
@@ -435,37 +441,37 @@ export function FinancialAreaChart({
                     {/* Custom Date Range */}
                     <div className="flex items-center gap-2">
                         <span className="text-xs font-medium text-gray-600">From:</span>
-                                                    <input
-                                id={`${type}-chart-start-date`}
-                                type="date"
-                                value={startDate || (hasPageFilters ? pageStartDate : '') || ''}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                placeholder={hasPageFilters && pageStartDate ? `Page filter: ${pageStartDate}` : ''}
-                                className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                            />
-                            <span className="text-xs text-gray-500">to</span>
-                            <input
-                                id={`${type}-chart-end-date`}
-                                type="date"
-                                value={endDate || (hasPageFilters ? pageEndDate : '') || ''}
-                                onChange={(e) => setEndDate(e.target.value)}
-                                placeholder={hasPageFilters && pageEndDate ? `Page filter: ${pageEndDate}` : ''}
-                                className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                            />
+                        <input
+                            id={`${type}-chart-start-date`}
+                            type="date"
+                            value={startDate || (hasPageFilters ? pageStartDate : '') || ''}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            placeholder={hasPageFilters && pageStartDate ? `Page filter: ${pageStartDate}` : ''}
+                            className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                        />
+                        <span className="text-xs text-gray-500">to</span>
+                        <input
+                            id={`${type}-chart-end-date`}
+                            type="date"
+                            value={endDate || (hasPageFilters ? pageEndDate : '') || ''}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            placeholder={hasPageFilters && pageEndDate ? `Page filter: ${pageEndDate}` : ''}
+                            className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                        />
                     </div>
 
-                                            {/* Clear Button */}
-                        {(startDate || endDate || (hasPageFilters && (pageStartDate || pageEndDate))) && (
-                            <>
-                                <div className="h-4 w-px bg-gray-300"></div>
-                                <button
-                                    onClick={clearFilters}
-                                    className="px-2 py-1 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
-                                >
-                                    Clear Chart Filters
-                                </button>
-                            </>
-                        )}
+                    {/* Clear Button */}
+                    {(startDate || endDate || (hasPageFilters && (pageStartDate || pageEndDate))) && (
+                        <>
+                            <div className="h-4 w-px bg-gray-300"></div>
+                            <button
+                                onClick={clearFilters}
+                                className="px-2 py-1 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                            >
+                                Clear Chart Filters
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
             <div ref={chartRef} className={`${isExpanded ? 'h-[70vh] w-full' : 'h-64 w-full'}`}>
@@ -536,4 +542,4 @@ export function FinancialAreaChart({
             </div>
         </div>
     );
-} 
+}

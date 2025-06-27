@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Category } from "../types/financial";
 import { AccountInterface } from "../types/accounts";
 import { getCategories, createCategory } from "../actions/categories";
@@ -60,39 +60,42 @@ export function useFinancialData<T extends FinancialItem>(
   const [itemToDelete, setItemToDelete] = useState<T | null>(null);
 
   // Load data on mount
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        const [categoriesData, itemsData, userAccounts] = await Promise.all([
-          getCategories(categoryType),
-          actions.getItems(),
-          getUserAccounts()
-        ]);
-        
-        setCategories(categoriesData);
-        setItems(itemsData);
-        
-        if (userAccounts && !('error' in userAccounts)) {
-          setAccounts(userAccounts);
-        } else {
-          console.error("Error loading accounts:", userAccounts?.error);
-          setAccounts([]);
-        }
-      } catch (error) {
-        console.error("Error loading data:", error);
-        alert("Failed to load data. Please refresh the page.");
-      } finally {
-        setLoading(false);
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [categoriesData, itemsData, userAccounts] = await Promise.all([
+        getCategories(categoryType),
+        actions.getItems(),
+        getUserAccounts()
+      ]);
+      
+      setCategories(categoriesData);
+      setItems(itemsData);
+      
+      if (userAccounts && !('error' in userAccounts)) {
+        setAccounts(userAccounts);
+      } else {
+        console.error("Error loading accounts:", userAccounts?.error);
+        setAccounts([]);
       }
-    };
+    } catch (error) {
+      console.error("Error loading data:", error);
+      alert("Failed to load data. Please refresh the page.");
+    } finally {
+      setLoading(false);
+    }
+  }, [categoryType, actions]);
+
+  useEffect(() => {
     loadData();
-  }, [categoryType]); // Remove actions dependency to prevent constant re-fetching
+  }, [loadData]);
 
   // Filter logic
-  const hasActiveFilters = !!(searchTerm || selectedCategory || selectedBank || startDate || endDate);
+  const hasActiveFilters = useMemo(() => {
+    return !!(searchTerm || selectedCategory || selectedBank || startDate || endDate);
+  }, [searchTerm, selectedCategory, selectedBank, startDate, endDate]);
   
-  const getBaseFilteredItems = (applyDefaultDateFilter: boolean) => {
+  const getBaseFilteredItems = useCallback((applyDefaultDateFilter: boolean) => {
     return items.filter(item => {
       const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             item.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -128,30 +131,38 @@ export function useFinancialData<T extends FinancialItem>(
       
       return matchesSearch && matchesCategory && matchesBank && matchesDateRange;
     });
-  };
+  }, [items, searchTerm, selectedCategory, selectedBank, startDate, endDate, hasActiveFilters]);
 
-  const filteredItems = getBaseFilteredItems(false);
-  const chartFilteredItems = getBaseFilteredItems(false);
-  const totalAmount = filteredItems.reduce((sum, item) => sum + item.amount, 0);
-  const uniqueBankNames = Array.from(new Set(accounts.map(account => account.bankName))).sort();
+  const filteredItems = useMemo(() => getBaseFilteredItems(false), [getBaseFilteredItems]);
+  const chartFilteredItems = useMemo(() => getBaseFilteredItems(false), [getBaseFilteredItems]);
+  
+  const totalAmount = useMemo(() => 
+    filteredItems.reduce((sum, item) => sum + item.amount, 0),
+    [filteredItems]
+  );
+  
+  const uniqueBankNames = useMemo(() => 
+    Array.from(new Set(accounts.map(account => account.bankName))).sort(),
+    [accounts]
+  );
 
   // CRUD Handlers
-  const handleAddItem = async (newItem: Omit<T, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleAddItem = useCallback(async (newItem: Omit<T, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
       const item = await actions.createItem(newItem);
-      setItems([item, ...items]);
+      setItems(prevItems => [item, ...prevItems]);
       setIsAddModalOpen(false);
       triggerBalanceRefresh();
     } catch (error) {
       console.error("Error adding item:", error);
       alert("Failed to add item. Please try again.");
     }
-  };
+  }, [actions]);
 
-  const handleEditItem = async (id: number, updatedItem: Partial<Omit<T, 'id' | 'createdAt' | 'updatedAt'>>) => {
+  const handleEditItem = useCallback(async (id: number, updatedItem: Partial<Omit<T, 'id' | 'createdAt' | 'updatedAt'>>) => {
     try {
       const item = await actions.updateItem(id, updatedItem);
-      setItems(items.map(i => i.id === id ? item : i));
+      setItems(prevItems => prevItems.map(i => i.id === id ? item : i));
       setIsEditModalOpen(false);
       setItemToEdit(null);
       triggerBalanceRefresh();
@@ -159,14 +170,14 @@ export function useFinancialData<T extends FinancialItem>(
       console.error("Error updating item:", error);
       alert("Failed to update item. Please try again.");
     }
-  };
+  }, [actions]);
 
-  const handleDeleteItem = async () => {
+  const handleDeleteItem = useCallback(async () => {
     if (!itemToDelete) return;
     
     try {
       await actions.deleteItem(itemToDelete.id);
-      setItems(items.filter(i => i.id !== itemToDelete.id));
+      setItems(prevItems => prevItems.filter(i => i.id !== itemToDelete.id));
       setIsDeleteModalOpen(false);
       setItemToDelete(null);
       triggerBalanceRefresh();
@@ -174,37 +185,37 @@ export function useFinancialData<T extends FinancialItem>(
       console.error("Error deleting item:", error);
       alert("Failed to delete item. Please try again.");
     }
-  };
+  }, [itemToDelete, actions]);
 
-  const handleAddCategory = async (newCategory: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleAddCategory = useCallback(async (newCategory: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
       const category = await createCategory(newCategory);
-      setCategories([...categories, category]);
+      setCategories(prevCategories => [...prevCategories, category]);
       setIsAddCategoryModalOpen(false);
     } catch (error) {
       console.error("Error adding category:", error);
       alert("Failed to add category. Please try again.");
     }
-  };
+  }, []);
 
   // Modal handlers
-  const openEditModal = (item: T) => {
+  const openEditModal = useCallback((item: T) => {
     setItemToEdit(item);
     setIsEditModalOpen(true);
-  };
+  }, []);
 
-  const openViewModal = (item: T) => {
+  const openViewModal = useCallback((item: T) => {
     setItemToView(item);
     setIsViewModalOpen(true);
-  };
+  }, []);
 
-  const openDeleteModal = (item: T) => {
+  const openDeleteModal = useCallback((item: T) => {
     setItemToDelete(item);
     setIsDeleteModalOpen(true);
-  };
+  }, []);
 
   // Selection handlers
-  const handleItemSelect = (itemId: number, selected: boolean) => {
+  const handleItemSelect = useCallback((itemId: number, selected: boolean) => {
     setSelectedItems(prev => {
       const newSet = new Set(prev);
       if (selected) {
@@ -214,17 +225,17 @@ export function useFinancialData<T extends FinancialItem>(
       }
       return newSet;
     });
-  };
+  }, []);
 
-  const handleSelectAll = (selected: boolean) => {
+  const handleSelectAll = useCallback((selected: boolean) => {
     if (selected) {
       setSelectedItems(new Set(filteredItems.map(item => item.id)));
     } else {
       setSelectedItems(new Set());
     }
-  };
+  }, [filteredItems]);
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = useCallback(async () => {
     if (selectedItems.size === 0) return;
     
     const itemType = categoryType.toLowerCase();
@@ -237,16 +248,16 @@ export function useFinancialData<T extends FinancialItem>(
       } else {
         await Promise.all(Array.from(selectedItems).map(id => actions.deleteItem(id)));
       }
-      setItems(items.filter(item => !selectedItems.has(item.id)));
+      setItems(prevItems => prevItems.filter(item => !selectedItems.has(item.id)));
       setSelectedItems(new Set());
       triggerBalanceRefresh();
     } catch (error) {
       console.error("Error bulk deleting items:", error);
       alert("Failed to delete items. Please try again.");
     }
-  };
+  }, [selectedItems, categoryType, actions]);
 
-  const handleBulkImportSuccess = async () => {
+  const handleBulkImportSuccess = useCallback(async () => {
     try {
       const itemsList = await actions.getItems();
       setItems(itemsList);
@@ -254,23 +265,23 @@ export function useFinancialData<T extends FinancialItem>(
     } catch (error) {
       console.error("Error reloading items:", error);
     }
-  };
+  }, [actions]);
 
-  const handleExportToCSV = () => {
+  const handleExportToCSV = useCallback(() => {
     if (filteredItems.length === 0) {
       alert(`No ${categoryType.toLowerCase()}s to export`);
       return;
     }
     actions.exportToCSV(filteredItems);
-  };
+  }, [filteredItems, categoryType, actions]);
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setSearchTerm("");
     setSelectedCategory("");
     setSelectedBank("");
     setStartDate("");
     setEndDate("");
-  };
+  }, []);
 
   return {
     // Data

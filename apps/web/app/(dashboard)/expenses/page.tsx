@@ -155,7 +155,6 @@ function ExpensesContent() {
                     financialData.setItemToDelete(null);
                 }}
                 onConfirm={financialData.handleDeleteItem}
-                expense={financialData.itemToDelete}
             />
 
             {/* Bulk Import Modal */}
