@@ -6,7 +6,7 @@ import { exportDebtsToCSV } from '../utils/csvExportDebts';
 import { exportExpensesToCSV } from '../utils/csvExportExpenses';
 import { exportIncomesToCSV } from '../utils/csvExportIncomes';
 import { exportInvestmentsToCSV } from '../utils/csvExportInvestments';
-import { getAllAccounts } from '../actions/accounts';
+import { getUserAccounts } from '../actions/accounts';
 import { getUserDebts } from '../actions/debts';
 import { getExpenses } from '../actions/expenses';
 import { getIncomes } from '../actions/incomes';
@@ -19,8 +19,9 @@ export function ExportAllButton() {
         try {
             setIsExporting(true);
 
-            // Fetch all data
-            const accounts = await getAllAccounts();
+            // Fetch logged-in user's data
+            const accountsResponse = await getUserAccounts();
+            const accounts = Array.isArray(accountsResponse) ? accountsResponse : [];
             const debtsResponse = await getUserDebts();
             const expenses = await getExpenses();
             const incomes = await getIncomes();

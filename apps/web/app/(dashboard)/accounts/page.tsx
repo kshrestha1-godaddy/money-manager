@@ -125,6 +125,7 @@ export default function Accounts() {
             alert("No accounts to export");
             return;
         }
+        // Only export the logged-in user's accounts (which is what's in the accounts state)
         exportAccountsToCSV(accounts);
     };
 
