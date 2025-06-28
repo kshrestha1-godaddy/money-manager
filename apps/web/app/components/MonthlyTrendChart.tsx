@@ -45,13 +45,26 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
             const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
             return `(Until ${endMonth})`;
         } else {
-            return "(Last 3 Months)";
+            // Calculate the last 4 full calendar months
+            const today = new Date();
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+            
+            // Calculate the month 4 months ago
+            const fourMonthsAgoYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+            const fourMonthsAgoMonth = currentMonth >= 3 ? currentMonth - 3 : currentMonth + 9;
+            
+            const startDate = new Date(fourMonthsAgoYear, fourMonthsAgoMonth, 1);
+            const startMonth = startDate.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            const endMonth = today.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            
+            return `(${startMonth} - ${endMonth})`;
         }
     };
 
     const timePeriodText = getTimePeriodText();
     
-    // Filter data based on provided date range or last 3 months
+    // Filter data based on provided date range or last 4 months
     const filterData = (data: (Income | Expense)[]) => {
         if (startDate || endDate) {
             return data.filter(item => {
@@ -75,13 +88,25 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
                 return matchesDateRange;
             });
         } else {
-            // Default to last 3 months if no date filters provided
-            const threeMonthsAgo = new Date();
-            threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+            // Default to last 4 full calendar months if no date filters provided
+            const today = new Date();
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+            
+            // Calculate the first day of 4 months ago
+            // For example, if current month is June (5), we want to include February (1), March (2), April (3), May (4)
+            const fourMonthsAgoYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+            const fourMonthsAgoMonth = currentMonth >= 3 ? currentMonth - 3 : currentMonth + 9; // +9 wraps around to previous year
+            
+            // Create date for first day of 4 months ago (e.g., February 1st if current month is June)
+            const startDate = new Date(fourMonthsAgoYear, fourMonthsAgoMonth, 1);
+            
+            // Create date for last day of current month
+            const endDate = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59, 999);
             
             return data.filter(item => {
                 const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
-                return itemDate >= threeMonthsAgo;
+                return itemDate >= startDate && itemDate <= endDate;
             });
         }
     };
