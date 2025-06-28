@@ -9,6 +9,8 @@ interface CategoryTrendChartProps {
     data: Income[] | Expense[];
     type: 'income' | 'expense';
     currency?: string;
+    startDate?: string;
+    endDate?: string;
 }
 
 interface MonthlyData {
@@ -17,7 +19,7 @@ interface MonthlyData {
     formattedMonth: string;
 }
 
-export function CategoryTrendChart({ data, type, currency = "USD" }: CategoryTrendChartProps) {
+export function CategoryTrendChart({ data, type, currency = "USD", startDate, endDate }: CategoryTrendChartProps) {
     const [isExpanded, setIsExpanded] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string>("");
     const chartRef = useRef<HTMLDivElement>(null);
@@ -30,17 +32,88 @@ export function CategoryTrendChart({ data, type, currency = "USD" }: CategoryTre
     // Set default category if none selected
     const currentCategory = selectedCategory || categories[0] || "";
 
-    // Filter data by selected category and last 12 months
+    // Generate dynamic time period text
+    const getTimePeriodText = (): string => {
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            return `(${startMonth} - ${endMonth})`;
+        } else if (startDate) {
+            const start = new Date(startDate);
+            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            return `(From ${startMonth})`;
+        } else if (endDate) {
+            const end = new Date(endDate);
+            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            return `(Until ${endMonth})`;
+        } else {
+            // Default to past year
+            const today = new Date();
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+            
+            const yearAgoYear = currentYear - 1;
+            const yearAgoMonth = currentMonth;
+            
+            const startDate = new Date(yearAgoYear, yearAgoMonth, 1);
+            const startMonth = startDate.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            const endMonth = today.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            
+            return `(${startMonth} - ${endMonth})`;
+        }
+    };
+
+    const timePeriodText = getTimePeriodText();
+
+    // Filter data by selected category and date range
     const filterByCategory = (dataArray: (Income | Expense)[], categoryName: string) => {
-        const twelveMonthsAgo = new Date();
-        twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
-        
-        return dataArray.filter((item: Income | Expense) => {
-            const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
-            const matchesCategory = item.category?.name === categoryName;
-            const withinTimeRange = itemDate >= twelveMonthsAgo;
-            return matchesCategory && withinTimeRange;
-        });
+        if (startDate || endDate) {
+            return dataArray.filter((item: Income | Expense) => {
+                const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
+                const matchesCategory = item.category?.name === categoryName;
+                let matchesDateRange = true;
+                
+                if (startDate && endDate) {
+                    const start = new Date(startDate);
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    matchesDateRange = itemDate >= start && itemDate <= end;
+                } else if (startDate) {
+                    const start = new Date(startDate);
+                    matchesDateRange = itemDate >= start;
+                } else if (endDate) {
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    matchesDateRange = itemDate <= end;
+                }
+                
+                return matchesCategory && matchesDateRange;
+            });
+        } else {
+            // Default to last full year if no date filters provided
+            const today = new Date();
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+            
+            // Calculate the month 12 months ago
+            const yearAgoYear = currentYear - 1;
+            const yearAgoMonth = currentMonth;
+            
+            // Create date for first day of 12 months ago
+            const filterStartDate = new Date(yearAgoYear, yearAgoMonth, 1);
+            
+            // Create date for last day of current month
+            const filterEndDate = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59, 999);
+            
+            return dataArray.filter((item: Income | Expense) => {
+                const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
+                const matchesCategory = item.category?.name === categoryName;
+                const withinTimeRange = itemDate >= filterStartDate && itemDate <= filterEndDate;
+                return matchesCategory && withinTimeRange;
+            });
+        }
     };
 
     const filteredData = filterByCategory(data, currentCategory);
@@ -232,6 +305,7 @@ export function CategoryTrendChart({ data, type, currency = "USD" }: CategoryTre
                     fill="#666" 
                     fontSize="12"
                     transform="rotate(-45)"
+                    style={{ fontWeight: isExpanded ? "normal" : "normal" }}
                 >
                     {payload.value}
                 </text>
@@ -291,9 +365,9 @@ export function CategoryTrendChart({ data, type, currency = "USD" }: CategoryTre
             {/* Chart */}
             <div 
                 ref={chartRef} 
-                className={isExpanded ? "h-[72vh] w-5/6 mx-auto" : "h-[32rem] w-5/6 mx-auto"}
+                className={isExpanded ? "h-[50vh] w-full mx-auto" : "h-[32rem] w-5/6 mx-auto"}
                 role="img"
-                aria-label={`Category trend chart showing monthly ${type} for ${currentCategory} over the last 12 months`}
+                aria-label={`Category trend chart showing monthly ${type} for ${currentCategory} ${timePeriodText}`}
             >
                 <ResponsiveContainer width="100%" height="100%">
                     <LineChart
@@ -302,7 +376,7 @@ export function CategoryTrendChart({ data, type, currency = "USD" }: CategoryTre
                             top: 40,
                             right: 30,
                             left: 40,
-                            bottom: 60,
+                            bottom: 80,
                         }}
                     >
                         <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
@@ -322,9 +396,9 @@ export function CategoryTrendChart({ data, type, currency = "USD" }: CategoryTre
                         <XAxis 
                             dataKey="formattedMonth" 
                             tick={<CustomXAxisTick />}
-                            interval={0}
+                            interval={isExpanded ? 0 : "preserveStartEnd"}
                             stroke="#666"
-                            height={60}
+                            height={80}
                         />
                         <YAxis 
                             tickFormatter={formatYAxisTick}
@@ -355,7 +429,7 @@ export function CategoryTrendChart({ data, type, currency = "USD" }: CategoryTre
             <div className="bg-white rounded-lg shadow p-6" data-chart-type={type === 'expense' ? 'expense-trend' : 'income-trend'}>
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">
-                        Category {type === 'income' ? 'Income' : 'Expense'} Trend (Last 12 Months)
+                        Category {type === 'income' ? 'Income' : 'Expense'} Trend {timePeriodText}
                     </h3>
                 </div>
                 <div className="flex items-center justify-center h-64 text-gray-500">
@@ -434,9 +508,9 @@ export function CategoryTrendChart({ data, type, currency = "USD" }: CategoryTre
             {/* Full screen modal */}
             {isExpanded && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg p-6 max-w-7xl w-full max-h-full overflow-auto">
+                    <div className="bg-white rounded-lg p-6 max-w-[95%] w-full max-h-[95%] overflow-auto">
                         <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-2xl font-semibold">Category Expense Trend: {currentCategory} (Last 12 Months)</h2>
+                            <h2 className="text-2xl font-semibold">Category {type === 'income' ? 'Income' : 'Expense'} Trend: {currentCategory} {timePeriodText}</h2>
                             <button
                                 onClick={toggleExpanded}
                                 className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
@@ -444,7 +518,11 @@ export function CategoryTrendChart({ data, type, currency = "USD" }: CategoryTre
                                 Close
                             </button>
                         </div>
-                        <ChartContent />
+                        <div className="flex flex-col items-center">
+                            <div className="w-full">
+                                <ChartContent />
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

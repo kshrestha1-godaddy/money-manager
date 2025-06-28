@@ -347,6 +347,36 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
         return formatCurrency(value, currency).replace(/\$/, '');
     };
 
+    // Calculate optimal interval for x-axis ticks based on data length
+    const calculateOptimalInterval = () => {
+        // Show all months if there are 6 or fewer months
+        if (chartData.length <= 6) {
+            return 0; // Show all ticks
+        }
+        // Otherwise use a gap of 1 month (show every other month)
+        return 1;
+    };
+
+    // Custom tick component for rotated X-axis labels
+    const CustomXAxisTick = (props: any) => {
+        const { x, y, payload } = props;
+        return (
+            <g transform={`translate(${x},${y})`}>
+                <text 
+                    x={0} 
+                    y={0} 
+                    dy={16} 
+                    textAnchor="end" 
+                    fill="#666" 
+                    fontSize="12"
+                    transform="rotate(-45)"
+                >
+                    {payload.value}
+                </text>
+            </g>
+        );
+    };
+
     const ChartContent = () => (
         <div>
             {/* Summary Stats */}
@@ -374,7 +404,7 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
             {/* Chart */}
             <div 
                 ref={chartRef} 
-                className={isExpanded ? "h-[72vh] w-5/6 mx-auto" : "h-[38rem] w-5/6 mx-auto"}
+                className={isExpanded ? "h-[50vh] w-full mx-auto" : "h-[50rem] w-5/6 mx-auto"}
                 role="img"
                 aria-label={`Monthly trend chart showing income, expenses, and savings ${timePeriodText.toLowerCase()}`}
             >
@@ -385,7 +415,7 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
                             top: 40,
                             right: 30,
                             left: 40,
-                            bottom: 40,
+                            bottom: 100,
                         }}
                         barCategoryGap="25%"
                     >
@@ -409,9 +439,10 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
                         
                         <XAxis 
                             dataKey="formattedMonth" 
-                            tick={{ fontSize: 12 }}
-                            interval={0}
+                            tick={<CustomXAxisTick />}
+                            interval={calculateOptimalInterval()}
                             stroke="#666"
+                            height={80}
                         />
                         <YAxis 
                             tickFormatter={formatYAxisTick}
@@ -421,7 +452,7 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
                             tickCount={8}
                         />
                         <Tooltip content={<CustomTooltip />} />
-                        <Legend />
+                        <Legend verticalAlign="top" wrapperStyle={{ paddingBottom: '30px' }} />
                         <Bar 
                             dataKey="income" 
                             fill="#10b981" 
@@ -565,7 +596,7 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
             {/* Full screen modal */}
             {isExpanded && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg p-6 max-w-7xl w-full max-h-full overflow-auto">
+                    <div className="bg-white rounded-lg p-6 max-w-[95%] w-full max-h-[95%] overflow-auto">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-2xl font-semibold">Monthly Income, Expenses & Savings Trend {timePeriodText}</h2>
                             <button
@@ -575,7 +606,11 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
                                 Close
                             </button>
                         </div>
-                        <ChartContent />
+                        <div className="flex flex-col items-center">
+                            <div className="w-full">
+                                <ChartContent />
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

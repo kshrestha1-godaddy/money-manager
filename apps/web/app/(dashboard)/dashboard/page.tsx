@@ -198,6 +198,8 @@ function DashboardContent() {
                         data={filteredData.filteredExpenses}
                         type="expense"
                         currency={currency}
+                        startDate={startDate}
+                        endDate={endDate}
                     />
                 </Suspense>
                 <Suspense fallback={<ChartSkeleton title="Income Distribution" height="h-[24rem]" />}>
@@ -205,6 +207,8 @@ function DashboardContent() {
                         data={filteredData.filteredIncomes}
                         type="income"
                         currency={currency}
+                        startDate={startDate}
+                        endDate={endDate}
                     />
                 </Suspense>
             </div>
@@ -221,6 +225,8 @@ function DashboardContent() {
                         data={filteredData.filteredExpenses}
                         type="expense"
                         currency={currency}
+                        startDate={startDate}
+                        endDate={endDate}
                     />
                 </Suspense>
                 <Suspense fallback={<ChartSkeleton title="Income Trends" />}>
@@ -228,6 +234,8 @@ function DashboardContent() {
                         data={filteredData.filteredIncomes}
                         type="income"
                         currency={currency}
+                        startDate={startDate}
+                        endDate={endDate}
                     />
                 </Suspense>
             </div>

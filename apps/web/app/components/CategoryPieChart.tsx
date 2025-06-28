@@ -10,6 +10,8 @@ interface CategoryPieChartProps {
     type: 'income' | 'expense';
     currency?: string;
     title?: string;
+    startDate?: string;
+    endDate?: string;
 }
 
 interface CategoryData {
@@ -24,9 +26,31 @@ const COLORS = [
     '#87D068', '#F7A35C', '#434348', '#90ED7D', '#F15C80'
 ];
 
-export function CategoryPieChart({ data, type, currency = "USD", title }: CategoryPieChartProps) {
+export function CategoryPieChart({ data, type, currency = "USD", title, startDate, endDate }: CategoryPieChartProps) {
     const [isExpanded, setIsExpanded] = useState(false);
     const chartRef = useRef<HTMLDivElement>(null);
+    
+    // Generate time period text
+    const getTimePeriodText = (): string => {
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            return `(${startMonth} - ${endMonth})`;
+        } else if (startDate) {
+            const start = new Date(startDate);
+            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            return `(From ${startMonth})`;
+        } else if (endDate) {
+            const end = new Date(endDate);
+            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            return `(Until ${endMonth})`;
+        }
+        return '';
+    };
+
+    const timePeriodText = getTimePeriodText();
     
     // Group data by category and sum amounts
     const categoryMap = new Map<string, number>();
@@ -98,7 +122,7 @@ export function CategoryPieChart({ data, type, currency = "USD", title }: Catego
     };
 
     const defaultTitle = type === 'income' ? 'Income by Category' : 'Expenses by Category';
-    const chartTitle = title || defaultTitle;
+    const chartTitle = `${title || defaultTitle} ${timePeriodText}`;
     const totalLabel = type === 'income' ? 'Total Income' : 'Total Expenses';
 
     // Download functions
