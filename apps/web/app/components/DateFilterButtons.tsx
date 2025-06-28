@@ -15,12 +15,37 @@ export function DateFilterButtons({
 }: DateFilterButtonsProps) {
     const getDateRange = (months: number) => {
         const today = new Date();
-        const startDate = new Date(today);
-        startDate.setMonth(today.getMonth() - months);
+        
+        // Calculate the first day of the month X months ago
+        const currentMonth = today.getMonth();
+        const currentYear = today.getFullYear();
+        
+        // Calculate year and month for X months ago
+        let targetMonth = currentMonth - months + 1; // +1 to include current month
+        let targetYear = currentYear;
+        
+        // Adjust for year boundary crossing
+        while (targetMonth <= 0) {
+            targetMonth += 12;
+            targetYear -= 1;
+        }
+        
+        // Create date for first day of the target month with time set to beginning of day
+        const startDate = new Date(targetYear, targetMonth - 1, 1); // -1 because months are 0-indexed
+        startDate.setHours(0, 0, 0, 0);
+        
+        // End date is the last day of the current month to ensure complete months
+        // Set time to end of day to include all data for the month
+        const endDate = new Date(currentYear, currentMonth + 1, 0);
+        endDate.setHours(23, 59, 59, 999);
+        
+        // Format dates as YYYY-MM-DD, ensuring we always have a string
+        const startFormatted = startDate.toISOString().split('T')[0] || '';
+        const endFormatted = endDate.toISOString().split('T')[0] || '';
         
         return {
-            start: startDate.toISOString().split('T')[0] || '',
-            end: today.toISOString().split('T')[0] || ''
+            start: startFormatted,
+            end: endFormatted
         };
     };
 

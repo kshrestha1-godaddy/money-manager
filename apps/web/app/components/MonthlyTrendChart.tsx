@@ -51,8 +51,14 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
             const currentYear = today.getFullYear();
             
             // Calculate the month 4 months ago
-            const fourMonthsAgoYear = currentMonth >= 3 ? currentYear : currentYear - 1;
-            const fourMonthsAgoMonth = currentMonth >= 3 ? currentMonth - 3 : currentMonth + 9;
+            let fourMonthsAgoMonth = currentMonth - 3;
+            let fourMonthsAgoYear = currentYear;
+            
+            // Adjust for year boundary crossing
+            if (fourMonthsAgoMonth < 0) {
+                fourMonthsAgoMonth += 12;
+                fourMonthsAgoYear -= 1;
+            }
             
             const startDate = new Date(fourMonthsAgoYear, fourMonthsAgoMonth, 1);
             const startMonth = startDate.toLocaleDateString('en', { month: 'short', year: 'numeric' });
@@ -67,17 +73,24 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
     // Filter data based on provided date range or last 4 months
     const filterData = (data: (Income | Expense)[]) => {
         if (startDate || endDate) {
+            // If we have explicit date filters, use them directly
             return data.filter(item => {
                 const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
                 let matchesDateRange = true;
                 
                 if (startDate && endDate) {
                     const start = new Date(startDate);
+                    // Ensure start is set to beginning of the day
+                    start.setHours(0, 0, 0, 0);
+                    
                     const end = new Date(endDate);
+                    // Ensure end is set to end of the day
                     end.setHours(23, 59, 59, 999);
+                    
                     matchesDateRange = itemDate >= start && itemDate <= end;
                 } else if (startDate) {
                     const start = new Date(startDate);
+                    start.setHours(0, 0, 0, 0);
                     matchesDateRange = itemDate >= start;
                 } else if (endDate) {
                     const end = new Date(endDate);
@@ -93,20 +106,27 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
             const currentMonth = today.getMonth();
             const currentYear = today.getFullYear();
             
-            // Calculate the first day of 4 months ago
-            // For example, if current month is June (5), we want to include February (1), March (2), April (3), May (4)
-            const fourMonthsAgoYear = currentMonth >= 3 ? currentYear : currentYear - 1;
-            const fourMonthsAgoMonth = currentMonth >= 3 ? currentMonth - 3 : currentMonth + 9; // +9 wraps around to previous year
+            // Calculate the month 4 months ago (including current month)
+            let targetMonth = currentMonth - 3; // Go back 3 months from current month (showing 4 months total)
+            let targetYear = currentYear;
             
-            // Create date for first day of 4 months ago (e.g., February 1st if current month is June)
-            const startDate = new Date(fourMonthsAgoYear, fourMonthsAgoMonth, 1);
+            // Adjust for year boundary crossing
+            while (targetMonth < 0) {
+                targetMonth += 12;
+                targetYear -= 1;
+            }
+            
+            // Create date for first day of the target month
+            const filterStartDate = new Date(targetYear, targetMonth, 1);
+            filterStartDate.setHours(0, 0, 0, 0);
             
             // Create date for last day of current month
-            const endDate = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59, 999);
+            const filterEndDate = new Date(currentYear, currentMonth + 1, 0);
+            filterEndDate.setHours(23, 59, 59, 999);
             
             return data.filter(item => {
                 const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
-                return itemDate >= startDate && itemDate <= endDate;
+                return itemDate >= filterStartDate && itemDate <= filterEndDate;
             });
         }
     };
@@ -404,7 +424,7 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
             {/* Chart */}
             <div 
                 ref={chartRef} 
-                className={isExpanded ? "h-[50vh] w-full mx-auto" : "h-[50rem] w-5/6 mx-auto"}
+                className={isExpanded ? "h-[60vh] w-full mx-auto" : "h-[50rem] w-5/6 mx-auto"}
                 role="img"
                 aria-label={`Monthly trend chart showing income, expenses, and savings ${timePeriodText.toLowerCase()}`}
             >
