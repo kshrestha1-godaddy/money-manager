@@ -472,7 +472,7 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
                             tickCount={8}
                         />
                         <Tooltip content={<CustomTooltip />} />
-                        <Legend verticalAlign="top" wrapperStyle={{ paddingBottom: '30px' }} />
+                        <Legend verticalAlign="bottom" wrapperStyle={{ paddingBottom: '30px' }} />
                         <Bar 
                             dataKey="income" 
                             fill="#10b981" 
