@@ -127,20 +127,20 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
     }
 
     return (
-        <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Bank Balances</h3>
-                <div className="text-sm text-gray-500">
+        <div className="bg-white rounded-lg shadow p-3 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 gap-1 sm:gap-0">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Bank Balances</h3>
+                <div className="text-xs sm:text-sm text-gray-500">
                     {chartData.length} bank{chartData.length !== 1 ? 's' : ''}
                 </div>
             </div>
-            <div className="h-64 w-full">
+            <div className="h-48 sm:h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                         data={chartData}
                         margin={{
                             top: 10,
-                            right: 30,
+                            right: 15,
                             left: 0,
                             bottom: 0,
                         }}
@@ -148,14 +148,18 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                         <XAxis 
                             dataKey="bank" 
-                            tick={{ fontSize: 10 }}
+                            tick={{ fontSize: 9 }}
                             stroke="#666"
                             height={60}
+                            interval={0}
+                            angle={-45}
+                            textAnchor="end"
                         />
                         <YAxis 
-                            tick={{ fontSize: 12 }}
+                            tick={{ fontSize: 10 }}
                             stroke="#666"
                             tickFormatter={formatYAxisTick}
+                            width={40}
                         />
                         <Tooltip 
                             formatter={formatTooltip}
@@ -163,12 +167,12 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                                 if (active && payload && payload.length > 0 && payload[0]) {
                                     const data = payload[0].payload as ChartDataPoint;
                                     return (
-                                        <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3">
-                                            <p className="text-sm font-medium text-gray-900 mb-1">{label}</p>
-                                            <p className="text-sm text-blue-600">
+                                        <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-2 sm:p-3 max-w-xs">
+                                            <p className="text-xs sm:text-sm font-medium text-gray-900 mb-1">{label}</p>
+                                            <p className="text-xs sm:text-sm text-blue-600">
                                                 Balance: {formatCurrency(data.balance, currency)}
                                             </p>
-                                            <p className="text-sm text-gray-600">
+                                            <p className="text-xs sm:text-sm text-gray-600">
                                                 Accounts: {data.accountCount}
                                             </p>
                                         </div>
@@ -186,7 +190,7 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                                 dataKey="percentage" 
                                 position="center" 
                                 fill="white"
-                                fontSize={11}
+                                fontSize={9}
                                 fontWeight="bold"
                                 formatter={(value: number) => `${value.toFixed(1)}%`}
                             />

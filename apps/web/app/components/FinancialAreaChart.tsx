@@ -395,7 +395,7 @@ export function FinancialAreaChart({
     }
 
     return (
-        <div className={`bg-white rounded-lg shadow p-6 ${isExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}>
+        <div className={`bg-white rounded-lg shadow p-3 sm:p-6 ${isExpanded ? 'fixed inset-2 sm:inset-4 z-50 overflow-auto' : ''}`}>
             <ChartControls
                 chartRef={chartRef}
                 isExpanded={isExpanded}
@@ -405,82 +405,83 @@ export function FinancialAreaChart({
                 csvFileName={`${type}-data`}
                 title={chartConfig.title}
             />
-            <div className="mb-4">
-                <div className="flex flex-wrap items-center gap-3 p-3 bg-gray-50 rounded-lg border">
+            <div className="mb-3 sm:mb-4">
+                <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-gray-50 rounded-lg border">
                     {/* Quick Filter Buttons */}
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1 sm:gap-2">
                         <button
                             onClick={() => handleQuickFilter(1)}
-                            className="px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="px-2 sm:px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap"
                         >
-                            Last Month
+                            1M
                         </button>
                         <button
                             onClick={() => handleQuickFilter(3)}
-                            className="px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="px-2 sm:px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap"
                         >
-                            Last 3 Months
+                            3M
                         </button>
                         <button
                             onClick={() => handleQuickFilter(6)}
-                            className="px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="px-2 sm:px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap"
                         >
-                            Last 6 Months
+                            6M
                         </button>
                         <button
                             onClick={() => handleQuickFilter(12)}
-                            className="px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="px-2 sm:px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap"
                         >
-                            Last 12 Months
+                            1Y
                         </button>
                     </div>
 
-                    {/* Divider */}
-                    <div className="h-4 w-px bg-gray-300"></div>
+                    {/* Divider - Hidden on mobile */}
+                    <div className="hidden sm:block h-4 w-px bg-gray-300"></div>
 
                     {/* Custom Date Range */}
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-gray-600">From:</span>
-                        <input
-                            id={`${type}-chart-start-date`}
-                            type="date"
-                            value={startDate || (hasPageFilters ? pageStartDate : '') || ''}
-                            onChange={(e) => setStartDate(e.target.value)}
-                            placeholder={hasPageFilters && pageStartDate ? `Page filter: ${pageStartDate}` : ''}
-                            className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                        />
-                        <span className="text-xs text-gray-500">to</span>
-                        <input
-                            id={`${type}-chart-end-date`}
-                            type="date"
-                            value={endDate || (hasPageFilters ? pageEndDate : '') || ''}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            placeholder={hasPageFilters && pageEndDate ? `Page filter: ${pageEndDate}` : ''}
-                            className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                        />
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-gray-600">From:</span>
+                            <input
+                                id={`${type}-chart-start-date`}
+                                type="date"
+                                value={startDate || (hasPageFilters ? pageStartDate : '') || ''}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                placeholder={hasPageFilters && pageStartDate ? `Page filter: ${pageStartDate}` : ''}
+                                className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white flex-1 sm:flex-none"
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">to</span>
+                            <input
+                                id={`${type}-chart-end-date`}
+                                type="date"
+                                value={endDate || (hasPageFilters ? pageEndDate : '') || ''}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                placeholder={hasPageFilters && pageEndDate ? `Page filter: ${pageEndDate}` : ''}
+                                className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white flex-1 sm:flex-none"
+                            />
+                        </div>
                     </div>
 
                     {/* Clear Button */}
                     {(startDate || endDate || (hasPageFilters && (pageStartDate || pageEndDate))) && (
-                        <>
-                            <div className="h-4 w-px bg-gray-300"></div>
-                            <button
-                                onClick={clearFilters}
-                                className="px-2 py-1 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
-                            >
-                                Clear Chart Filters
-                            </button>
-                        </>
+                        <button
+                            onClick={clearFilters}
+                            className="px-2 py-1 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors w-full sm:w-auto text-center"
+                        >
+                            Clear Filters
+                        </button>
                     )}
                 </div>
             </div>
-            <div ref={chartRef} className={`${isExpanded ? 'h-[70vh] w-full' : 'h-64 w-full'}`}>
+            <div ref={chartRef} className={`${isExpanded ? 'h-[70vh] w-full' : 'h-48 sm:h-64 w-full'}`}>
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
                         data={chartData}
                         margin={{
                             top: 10,
-                            right: 30,
+                            right: isExpanded ? 30 : 10,
                             left: 0,
                             bottom: 0,
                         }}
@@ -488,13 +489,18 @@ export function FinancialAreaChart({
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                         <XAxis 
                             dataKey="formattedDate" 
-                            tick={{ fontSize: 12 }}
+                            tick={{ fontSize: isExpanded ? 12 : 10 }}
                             stroke="#666"
+                            interval={isExpanded ? 'preserveStartEnd' : 'preserveStart'}
+                            angle={isExpanded ? 0 : -45}
+                            textAnchor={isExpanded ? 'middle' : 'end'}
+                            height={isExpanded ? 50 : 60}
                         />
                         <YAxis 
-                            tick={{ fontSize: 12 }}
+                            tick={{ fontSize: isExpanded ? 12 : 10 }}
                             stroke="#666"
                             tickFormatter={formatYAxisTick}
+                            width={isExpanded ? 60 : 45}
                         />
                         <Tooltip 
                             formatter={formatTooltip}
@@ -511,9 +517,9 @@ export function FinancialAreaChart({
                                         const formattedDate = `${weekday}, ${month} ${day}, ${year}`;
                                         
                                         return (
-                                            <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3">
-                                                <p className="text-sm text-gray-600 mb-1">{formattedDate}</p>
-                                                <p className={`text-sm font-medium ${type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                                            <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-2 sm:p-3 max-w-xs">
+                                                <p className="text-xs sm:text-sm text-gray-600 mb-1">{formattedDate}</p>
+                                                <p className={`text-xs sm:text-sm font-medium ${type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
                                                    {formatCurrency(dataPoint.amount, currency)}
                                                 </p>
                                             </div>

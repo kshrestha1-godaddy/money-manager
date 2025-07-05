@@ -67,24 +67,24 @@ export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment, o
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
                 {/* Header */}
-                <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h2 className="text-2xl font-bold text-gray-900">{debt.borrowerName}</h2>
-                            <p className="text-gray-600">{debt.purpose || 'Personal Loan'}</p>
+                <div className="bg-gray-50 px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0">
+                        <div className="flex-1 min-w-0">
+                            <h2 className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{debt.borrowerName}</h2>
+                            <p className="text-sm sm:text-base text-gray-600 truncate">{debt.purpose || 'Personal Loan'}</p>
                         </div>
-                        <div className="flex items-center space-x-3">
-                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(debt.status)}`}>
+                        <div className="flex items-center justify-between sm:justify-end space-x-3">
+                            <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${getStatusColor(debt.status)}`}>
                                 {debt.status.replace('_', ' ')}
                             </span>
                             <button
                                 onClick={onClose}
-                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                                className="text-gray-400 hover:text-gray-600 transition-colors p-1"
                             >
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                             </button>
@@ -93,44 +93,44 @@ export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment, o
                 </div>
 
                 {/* Content */}
-                <div className="p-6 overflow-y-auto max-h-[calc(90vh-8rem)]">
+                <div className="p-3 sm:p-6 overflow-y-auto max-h-[calc(95vh-6rem)] sm:max-h-[calc(90vh-8rem)]">
                     {/* Summary Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div className="bg-blue-50 p-4 rounded-lg">
-                            <h3 className="text-sm font-medium text-blue-700 mb-1">Original Amount</h3>
-                            <p className="text-2xl font-bold text-blue-900">{formatCurrency(debt.amount, userCurrency)}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 mb-6 sm:mb-8">
+                        <div className="bg-blue-50 p-3 sm:p-4 rounded-lg">
+                            <h3 className="text-xs sm:text-sm font-medium text-blue-700 mb-1">Original Amount</h3>
+                            <p className="text-lg sm:text-2xl font-bold text-blue-900">{formatCurrency(debt.amount, userCurrency)}</p>
                         </div>
-                        <div className="bg-green-50 p-4 rounded-lg">
-                            <h3 className="text-sm font-medium text-green-700 mb-1">Repaid Amount</h3>
-                            <p className="text-2xl font-bold text-green-900">{formatCurrency(totalRepayments, userCurrency)}</p>
-                            <p className="text-sm text-green-600">{repaymentPercentage.toFixed(1)}% repaid</p>
+                        <div className="bg-green-50 p-3 sm:p-4 rounded-lg">
+                            <h3 className="text-xs sm:text-sm font-medium text-green-700 mb-1">Repaid Amount</h3>
+                            <p className="text-lg sm:text-2xl font-bold text-green-900">{formatCurrency(totalRepayments, userCurrency)}</p>
+                            <p className="text-xs sm:text-sm text-green-600">{repaymentPercentage.toFixed(1)}% repaid</p>
                         </div>
-                        <div className={`p-4 rounded-lg ${remainingAmount > 0 ? 'bg-red-50' : 'bg-gray-50'}`}>
-                            <h3 className={`text-sm font-medium mb-1 ${remainingAmount > 0 ? 'text-red-700' : 'text-gray-700'}`}>
+                        <div className={`p-3 sm:p-4 rounded-lg ${remainingAmount > 0 ? 'bg-red-50' : 'bg-gray-50'}`}>
+                            <h3 className={`text-xs sm:text-sm font-medium mb-1 ${remainingAmount > 0 ? 'text-red-700' : 'text-gray-700'}`}>
                                 Remaining Amount
                             </h3>
-                            <p className={`text-2xl font-bold ${remainingAmount > 0 ? 'text-red-900' : 'text-gray-900'}`}>
+                            <p className={`text-lg sm:text-2xl font-bold ${remainingAmount > 0 ? 'text-red-900' : 'text-gray-900'}`}>
                                 {formatCurrency(remainingAmount, userCurrency)}
                             </p>
                         </div>
                     </div>
 
                     {/* Progress Bar */}
-                    <div className="mb-8">
+                    <div className="mb-6 sm:mb-8">
                         <div className="flex justify-between items-center mb-2">
-                            <h3 className="text-lg font-semibold text-gray-900">Repayment Progress</h3>
+                            <h3 className="text-base sm:text-lg font-semibold text-gray-900">Repayment Progress</h3>
                             <span className="text-sm text-gray-600">{repaymentPercentage.toFixed(1)}%</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div className="w-full bg-gray-200 rounded-full h-2 sm:h-3">
                             <div 
-                                className="bg-green-600 h-3 rounded-full transition-all duration-300" 
+                                className="bg-green-600 h-2 sm:h-3 rounded-full transition-all duration-300" 
                                 style={{ width: `${Math.min(repaymentPercentage, 100)}%` }}
                             ></div>
                         </div>
                     </div>
 
                     {/* Debt Details */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8 mb-6 sm:mb-8">
                         {/* Borrower Information */}
                         <div>
                             <h3 className="text-lg font-semibold text-gray-900 mb-4">Borrower Information</h3>

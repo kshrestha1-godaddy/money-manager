@@ -316,7 +316,7 @@ export function CategoryTrendChart({ data, type, currency = "USD", startDate, en
     const ChartContent = () => (
         <div>
             {/* Category Selection */}
-            <div className="mb-6">
+            <div className="mb-4">
                 <label htmlFor="category-select" className="block text-sm font-medium text-gray-700 mb-2">
                     Select Category
                 </label>
@@ -324,7 +324,7 @@ export function CategoryTrendChart({ data, type, currency = "USD", startDate, en
                     id="category-select"
                     value={currentCategory}
                     onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="block w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full max-w-xs px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                     {categories.map((category) => (
                         <option key={category} value={category}>
@@ -335,28 +335,28 @@ export function CategoryTrendChart({ data, type, currency = "USD", startDate, en
             </div>
 
             {/* Summary Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="text-center">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                <div className="text-center sm:text-left">
                     <p className="text-sm text-gray-600">Total {type === 'income' ? 'Earned' : 'Spent'}</p>
-                    <p className={`text-lg font-bold ${type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                    <p className={`text-base sm:text-lg font-bold ${type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
                         {formatCurrency(totalAmount, currency)}
                     </p>
                 </div>
-                <div className="text-center">
+                <div className="text-center sm:text-left">
                     <p className="text-sm text-gray-600">Monthly Average</p>
-                    <p className="text-lg font-bold text-gray-700">
+                    <p className="text-base sm:text-lg font-bold text-gray-700">
                         {formatCurrency(averageAmount, currency)}
                     </p>
                 </div>
-                <div className="text-center">
+                <div className="text-center sm:text-left">
                     <p className="text-sm text-gray-600">Highest Month</p>
-                    <p className="text-lg font-bold text-orange-600">
+                    <p className="text-base sm:text-lg font-bold text-orange-600">
                         {formatCurrency(maxAmount, currency)}
                     </p>
                 </div>
-                <div className="text-center">
+                <div className="text-center sm:text-left">
                     <p className="text-sm text-gray-600">Lowest Month</p>
-                    <p className={`text-lg font-bold ${type === 'income' ? 'text-blue-600' : 'text-green-600'}`}>
+                    <p className={`text-base sm:text-lg font-bold ${type === 'income' ? 'text-blue-600' : 'text-green-600'}`}>
                         {formatCurrency(minAmount, currency)}
                     </p>
                 </div>
@@ -365,7 +365,7 @@ export function CategoryTrendChart({ data, type, currency = "USD", startDate, en
             {/* Chart */}
             <div 
                 ref={chartRef} 
-                className={isExpanded ? "h-[50vh] w-full mx-auto" : "h-[32rem] w-5/6 mx-auto"}
+                className={isExpanded ? "h-[50vh] w-full" : "h-[28rem] w-full"}
                 role="img"
                 aria-label={`Category trend chart showing monthly ${type} for ${currentCategory} ${timePeriodText}`}
             >
@@ -373,10 +373,10 @@ export function CategoryTrendChart({ data, type, currency = "USD", startDate, en
                     <LineChart
                         data={chartData}
                         margin={{
-                            top: 40,
-                            right: 30,
-                            left: 40,
-                            bottom: 80,
+                            top: 30,
+                            right: 20,
+                            left: 20,
+                            bottom: 50,
                         }}
                     >
                         <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
@@ -398,7 +398,7 @@ export function CategoryTrendChart({ data, type, currency = "USD", startDate, en
                             tick={<CustomXAxisTick />}
                             interval={isExpanded ? 0 : "preserveStartEnd"}
                             stroke="#666"
-                            height={80}
+                            height={40}
                         />
                         <YAxis 
                             tickFormatter={formatYAxisTick}

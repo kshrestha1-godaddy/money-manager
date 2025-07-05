@@ -96,24 +96,24 @@ function ViewPasswordModal({ isOpen, onClose, password }: ViewPasswordModalProps
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
                 {/* Header */}
-                <div className="px-6 py-4 border-b border-gray-200 sticky top-0 bg-white z-10">
+                <div className="px-4 sm:px-6 py-4 border-b border-gray-200 sticky top-0 bg-white z-10">
                     <div className="flex justify-between items-center">
-                        <div className="flex items-center">
-                            <div className="h-10 w-10 bg-gray-100 rounded-full flex items-center justify-center mr-3">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div className="flex items-center min-w-0 flex-1">
+                            <div className="h-8 w-8 sm:h-10 sm:w-10 bg-gray-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                 </svg>
                             </div>
-                            <div>
-                                <h3 className="text-xl font-semibold text-gray-900">{password.websiteName}</h3>
-                                <p className="text-sm text-gray-500">{password.description}</p>
+                            <div className="min-w-0 flex-1">
+                                <h3 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">{password.websiteName}</h3>
+                                <p className="text-xs sm:text-sm text-gray-500 truncate">{password.description}</p>
                             </div>
                         </div>
                         <button 
                             onClick={onClose}
-                            className="text-gray-400 hover:text-gray-500 focus:outline-none"
+                            className="text-gray-400 hover:text-gray-500 focus:outline-none ml-2 flex-shrink-0"
                         >
-                            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </button>
@@ -121,20 +121,20 @@ function ViewPasswordModal({ isOpen, onClose, password }: ViewPasswordModalProps
                 </div>
                 
                 {/* Content */}
-                <div className="p-6">
+                <div className="p-4 sm:p-6">
                     {copySuccess && (
-                        <div className="mb-4 bg-green-50 text-green-700 px-4 py-2 rounded-md flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div className="mb-4 bg-green-50 text-green-700 px-3 sm:px-4 py-2 rounded-md flex items-center text-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                             </svg>
                             {copySuccess}
                         </div>
                     )}
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
                         <div>
-                            <h4 className="text-lg font-medium text-gray-800 mb-4 flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <h4 className="text-base sm:text-lg font-medium text-gray-800 mb-3 sm:mb-4 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-gray-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
                                 </svg>
                                 Details
@@ -146,11 +146,11 @@ function ViewPasswordModal({ isOpen, onClose, password }: ViewPasswordModalProps
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-500 mb-1">Description</label>
-                                    <div className="flex items-center">
-                                        <span className="text-gray-900 break-all mr-2">{password.description}</span>
+                                    <div className="flex items-start gap-2">
+                                        <span className="text-gray-900 break-all flex-1">{password.description}</span>
                                         <button 
                                             onClick={() => copyToClipboard(password.description, "Description")}
-                                            className="text-gray-400 hover:text-gray-600"
+                                            className="text-gray-400 hover:text-gray-600 p-1 flex-shrink-0"
                                             title="Copy description"
                                         >
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -191,8 +191,8 @@ function ViewPasswordModal({ isOpen, onClose, password }: ViewPasswordModalProps
                         </div>
                         
                         <div>
-                            <h4 className="text-lg font-medium text-gray-800 mb-4 flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <h4 className="text-base sm:text-lg font-medium text-gray-800 mb-3 sm:mb-4 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-gray-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                 </svg>
                                 Login Details
@@ -200,11 +200,11 @@ function ViewPasswordModal({ isOpen, onClose, password }: ViewPasswordModalProps
                             <div className="bg-gray-50 rounded-lg p-4 space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-500 mb-1">Username</label>
-                                    <div className="flex items-center">
-                                        <span className="text-gray-900 font-medium mr-2">{password.username}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-gray-900 font-medium flex-1 break-all">{password.username}</span>
                                         <button 
                                             onClick={() => copyToClipboard(password.username, "Username")}
-                                            className="text-gray-400 hover:text-gray-600"
+                                            className="text-gray-400 hover:text-gray-600 p-1 flex-shrink-0"
                                             title="Copy username"
                                         >
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -216,39 +216,41 @@ function ViewPasswordModal({ isOpen, onClose, password }: ViewPasswordModalProps
                                 <div>
                                     <label className="block text-sm font-medium text-gray-500 mb-1">Password</label>
                                     {showPassword && decryptedPassword ? (
-                                        <div className="flex items-center">
-                                            <span className="font-mono text-gray-900 mr-2 bg-gray-100 px-2 py-1 rounded">{decryptedPassword}</span>
-                                            <button 
-                                                onClick={() => copyToClipboard(decryptedPassword, "Password")}
-                                                className="text-gray-400 hover:text-gray-600 mr-2"
-                                                title="Copy password"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                                </svg>
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    setShowPassword(false);
-                                                    setDecryptedPassword("");
-                                                }}
-                                                className="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                                            >
-                                                Hide
-                                            </button>
+                                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                            <span className="font-mono text-gray-900 bg-gray-100 px-2 py-1 rounded break-all flex-1 text-sm">{decryptedPassword}</span>
+                                            <div className="flex gap-2">
+                                                <button 
+                                                    onClick={() => copyToClipboard(decryptedPassword, "Password")}
+                                                    className="text-gray-400 hover:text-gray-600 p-1 flex-shrink-0"
+                                                    title="Copy password"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setShowPassword(false);
+                                                        setDecryptedPassword("");
+                                                    }}
+                                                    className="text-xs px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                                                >
+                                                    Hide
+                                                </button>
+                                            </div>
                                         </div>
                                     ) : (
                                         <div className="space-y-2">
                                             <div className="flex items-center">
                                                 <span className="text-gray-600 mr-2">••••••••••••</span>
                                             </div>
-                                            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                            <div className="flex flex-col gap-2">
                                                 <input
                                                     type="password"
                                                     value={secretKey}
                                                     onChange={(e) => setSecretKey(e.target.value)}
                                                     placeholder="Enter secret key"
-                                                    className="px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-500 w-full sm:w-auto"
+                                                    className="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent w-full"
                                                     onKeyDown={(e) => {
                                                         if (e.key === 'Enter') {
                                                             handleDecrypt();
@@ -258,7 +260,7 @@ function ViewPasswordModal({ isOpen, onClose, password }: ViewPasswordModalProps
                                                 <button
                                                     onClick={handleDecrypt}
                                                     disabled={isDecrypting}
-                                                    className="px-3 py-1 bg-gray-700 text-white text-sm rounded hover:bg-gray-800 disabled:bg-gray-400"
+                                                    className="px-4 py-2 bg-gray-700 text-white text-sm rounded hover:bg-gray-800 disabled:bg-gray-400 w-full sm:w-auto"
                                                 >
                                                     {isDecrypting ? "Decrypting..." : "Decrypt"}
                                                 </button>
@@ -274,37 +276,39 @@ function ViewPasswordModal({ isOpen, onClose, password }: ViewPasswordModalProps
                                     <div>
                                         <label className="block text-sm font-medium text-gray-500 mb-1">Transaction PIN</label>
                                         {showPin && decryptedPin ? (
-                                            <div className="flex items-center">
-                                                <span className="font-mono text-gray-900 mr-2 bg-gray-100 px-2 py-1 rounded">{decryptedPin}</span>
-                                                <button 
-                                                    onClick={() => copyToClipboard(decryptedPin, "Transaction PIN")}
-                                                    className="text-gray-400 hover:text-gray-600 mr-2"
-                                                    title="Copy PIN"
-                                                >
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                                    </svg>
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        setShowPin(false);
-                                                        setDecryptedPin("");
-                                                    }}
-                                                    className="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                                                >
-                                                    Hide
-                                                </button>
+                                            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                                <span className="font-mono text-gray-900 bg-gray-100 px-2 py-1 rounded break-all flex-1 text-sm">{decryptedPin}</span>
+                                                <div className="flex gap-2">
+                                                    <button 
+                                                        onClick={() => copyToClipboard(decryptedPin, "Transaction PIN")}
+                                                        className="text-gray-400 hover:text-gray-600 p-1 flex-shrink-0"
+                                                        title="Copy PIN"
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                        </svg>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setShowPin(false);
+                                                            setDecryptedPin("");
+                                                        }}
+                                                        className="text-xs px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                                                    >
+                                                        Hide
+                                                    </button>
+                                                </div>
                                             </div>
                                         ) : (
                                             <div className="space-y-2">
                                                 <div className="flex items-center">
                                                     <span className="text-gray-600 mr-2">••••••</span>
                                                 </div>
-                                                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                                <div className="flex flex-col gap-2">
                                                     <button
                                                         onClick={handleDecryptPin}
                                                         disabled={isPinDecrypting || !secretKey}
-                                                        className="px-3 py-1 bg-gray-700 text-white text-sm rounded hover:bg-gray-800 disabled:bg-gray-400"
+                                                        className="px-4 py-2 bg-gray-700 text-white text-sm rounded hover:bg-gray-800 disabled:bg-gray-400 w-full sm:w-auto"
                                                     >
                                                         {isPinDecrypting ? "Decrypting..." : "Decrypt PIN"}
                                                     </button>
@@ -321,14 +325,14 @@ function ViewPasswordModal({ isOpen, onClose, password }: ViewPasswordModalProps
                     </div>
                     
                     {password.notes && (
-                        <div className="mt-8">
-                            <h4 className="text-lg font-medium text-gray-800 mb-4 flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div className="mt-6 sm:mt-8">
+                            <h4 className="text-base sm:text-lg font-medium text-gray-800 mb-3 sm:mb-4 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-gray-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
                                 Notes
                             </h4>
-                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 text-gray-800 whitespace-pre-wrap">
+                            <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-200 text-gray-800 whitespace-pre-wrap text-sm sm:text-base">
                                 {password.notes}
                             </div>
                         </div>
@@ -336,15 +340,15 @@ function ViewPasswordModal({ isOpen, onClose, password }: ViewPasswordModalProps
                 </div>
                 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                    <div className="flex justify-between items-center">
-                        <div className="text-sm text-gray-500">
+                <div className="px-4 sm:px-6 py-4 border-t border-gray-200 bg-gray-50">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
+                        <div className="text-xs sm:text-sm text-gray-500">
                             <div>Created: {formatDate(password.createdAt)}</div>
                             <div>Updated: {formatDate(password.updatedAt)}</div>
                         </div>
                         <button
                             onClick={onClose}
-                            className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 font-medium"
+                            className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 font-medium text-sm sm:text-base w-full sm:w-auto"
                         >
                             Close
                         </button>
@@ -388,7 +392,20 @@ export function PasswordTable({
     const [sortField, setSortField] = useState<SortField>('websiteName');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
     const [viewingPassword, setViewingPassword] = useState<PasswordInterface | null>(null);
+    const [isMobile, setIsMobile] = useState(false);
     
+    // Check if we're on mobile
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
     // Add column resizing state
     const [columnWidths, setColumnWidths] = useState({
         checkbox: 64,
@@ -570,8 +587,139 @@ export function PasswordTable({
         );
     }
 
+    // Mobile Card View
+    if (isMobile) {
+        return (
+            <div className="space-y-4">
+                {showBulkActions && (
+                    <div className="bg-white rounded-lg shadow p-4 mb-4">
+                        <div className="flex items-center justify-between">
+                            <label className="flex items-center">
+                                <input
+                                    type="checkbox"
+                                    checked={isAllSelected}
+                                    ref={(el) => {
+                                        if (el) el.indeterminate = isPartiallySelected;
+                                    }}
+                                    onChange={handleSelectAll}
+                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-2"
+                                />
+                                <span className="text-sm font-medium text-gray-700">
+                                    Select All ({passwords.length})
+                                </span>
+                            </label>
+                            {selectedPasswords.size > 0 && (
+                                <div className="flex items-center space-x-2">
+                                    <span className="text-sm text-gray-500">
+                                        {selectedPasswords.size} selected
+                                    </span>
+                                    <button
+                                        onClick={onBulkDelete}
+                                        className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
+                                    >
+                                        Delete
+                                    </button>
+                                    <button
+                                        onClick={onClearSelection}
+                                        className="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-400 transition-colors"
+                                    >
+                                        Clear
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+                
+                {sortedPasswords.map((password) => (
+                    <div key={password.id} className="bg-white rounded-lg shadow p-4 border border-gray-200">
+                        <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-start space-x-3 flex-1">
+                                {showBulkActions && (
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedPasswords.has(password.id)}
+                                        onChange={(e) => onPasswordSelect?.(password.id, e.target.checked)}
+                                        className="h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-1"
+                                    />
+                                )}
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="font-semibold text-gray-900 text-lg">{password.websiteName}</h3>
+                                    <p className="text-gray-600 text-sm">{password.username}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center space-x-2 ml-4">
+                                <button
+                                    onClick={() => setViewingPassword(password)}
+                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                                    title="View details"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </button>
+                                <button
+                                    onClick={() => onEdit?.(password)}
+                                    className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors"
+                                    title="Edit"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                </button>
+                                <button
+                                    onClick={() => onDelete?.(password)}
+                                    className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                                    title="Delete"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Password:</span>
+                                <span className="font-mono text-gray-900">••••••••</span>
+                            </div>
+                            {!hideCategoryColumn && (
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Category:</span>
+                                    <span className="text-gray-900">{password.category || 'Uncategorized'}</span>
+                                </div>
+                            )}
+                            {password.notes && (
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Notes:</span>
+                                    <span className="text-gray-900 truncate max-w-32">{password.notes}</span>
+                                </div>
+                            )}
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Added:</span>
+                                <span className="text-gray-900">{password.createdAt.toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+                
+                {/* ViewPasswordModal for Mobile - use same as desktop */}
+                {viewingPassword && (
+                    <ViewPasswordModal
+                        isOpen={!!viewingPassword}
+                        onClose={() => setViewingPassword(null)}
+                        password={viewingPassword}
+                    />
+                )}
+            </div>
+        );
+    }
+
+    // Desktop Table View
     return (
-        <div className={hideHeader ? "" : "bg-white rounded-lg shadow overflow-hidden"}>
+        <div className="bg-white rounded-lg shadow overflow-hidden">
             {!hideHeader && (
                 <div className="px-6 py-4 border-b border-gray-200">
                     <div className="flex justify-between items-center">

@@ -78,28 +78,28 @@ export function BehavioralInsightsCard({ transactions, currency, timeframe }: Be
     return (
         <div className="space-y-6">
             {/* Key Metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white p-4 rounded-lg shadow">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-white p-3 sm:p-4 rounded-lg shadow text-center sm:text-left">
                     <div className="text-sm text-gray-600">Total Spent</div>
-                    <div className="text-xl font-semibold text-gray-900">
+                    <div className="text-lg sm:text-xl font-semibold text-gray-900">
                         {formatCurrency(insights.totalSpent, currency)}
                     </div>
                 </div>
-                <div className="bg-white p-4 rounded-lg shadow">
+                <div className="bg-white p-3 sm:p-4 rounded-lg shadow text-center sm:text-left">
                     <div className="text-sm text-gray-600">Avg Transaction</div>
-                    <div className="text-xl font-semibold text-gray-900">
+                    <div className="text-lg sm:text-xl font-semibold text-gray-900">
                         {formatCurrency(insights.averageTransaction, currency)}
                     </div>
                 </div>
-                <div className="bg-white p-4 rounded-lg shadow">
+                <div className="bg-white p-3 sm:p-4 rounded-lg shadow text-center sm:text-left">
                     <div className="text-sm text-gray-600">Large Transactions</div>
-                    <div className="text-xl font-semibold text-gray-900">
+                    <div className="text-lg sm:text-xl font-semibold text-gray-900">
                         {insights.largeTransactions}
                     </div>
                 </div>
-                <div className="bg-white p-4 rounded-lg shadow">
+                <div className="bg-white p-3 sm:p-4 rounded-lg shadow text-center sm:text-left">
                     <div className="text-sm text-gray-600">Recent Spending</div>
-                    <div className="text-xl font-semibold text-gray-900">
+                    <div className="text-lg sm:text-xl font-semibold text-gray-900">
                         {formatCurrency(insights.recentSpending, currency)}
                     </div>
                 </div>

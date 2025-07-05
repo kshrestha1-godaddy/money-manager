@@ -134,28 +134,28 @@ export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD", s
             />
 
             {/* Summary Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
                 <div className="text-center">
-                    <p className="text-sm text-gray-600">Total Income</p>
-                    <p className="text-xl font-bold text-green-600">
+                    <p className="text-xs sm:text-sm text-gray-600">Total Income</p>
+                    <p className="text-base sm:text-xl font-bold text-green-600">
                         {formatCurrency(totalIncome, currency)}
                     </p>
                 </div>
                 <div className="text-center">
-                    <p className="text-sm text-gray-600">Total Expenses</p>
-                    <p className="text-xl font-bold text-red-600">
+                    <p className="text-xs sm:text-sm text-gray-600">Total Expenses</p>
+                    <p className="text-base sm:text-xl font-bold text-red-600">
                         -{formatCurrency(totalExpenses, currency)}
                     </p>
                 </div>
                 <div className="text-center">
-                    <p className="text-sm text-gray-600">Net Savings</p>
-                    <p className={`text-xl font-bold ${totalSavings >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                    <p className="text-xs sm:text-sm text-gray-600">Net Savings</p>
+                    <p className={`text-base sm:text-xl font-bold ${totalSavings >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
                         {totalSavings >= 0 ? '+' : ''}{formatCurrency(totalSavings, currency)}
                     </p>
                 </div>
                 <div className="text-center">
-                    <p className="text-sm text-gray-600">Savings Rate</p>
-                    <p className={`text-xl font-bold ${savingsRate >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                    <p className="text-xs sm:text-sm text-gray-600">Savings Rate</p>
+                    <p className={`text-base sm:text-xl font-bold ${savingsRate >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
                         {savingsRate.toFixed(1)}%
                     </p>
                 </div>
@@ -164,7 +164,7 @@ export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD", s
             {/* Chart */}
             <div 
                 ref={chartRef}
-                className={`${isExpanded ? 'h-[60vh] w-full' : 'h-[32rem] w-5/6'} mx-auto`}
+                className={`${isExpanded ? 'h-[60vh] w-full' : 'h-[32rem] w-full'}`}
                 role="img"
                 aria-label={`Waterfall chart showing income of ${formatCurrency(totalIncome, currency)}, expenses of ${formatCurrency(totalExpenses, currency)}, and net savings of ${formatCurrency(totalSavings, currency)}`}
             >
@@ -173,8 +173,8 @@ export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD", s
                         data={data}
                         margin={{
                             top: 30,
-                            right: 30,
-                            left: 40,
+                            right: 20,
+                            left: 20,
                             bottom: 20,
                         }}
                         barCategoryGap="10%"

@@ -165,17 +165,39 @@ export function SavingsRateChart({ incomes, expenses, currency, startDate, endDa
                 title={`Monthly Savings Rate Trend ${timePeriodText}`}
             />
 
+            {/* Summary Stats */}
+            <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-4">
+                <div className="text-center">
+                    <p className="text-xs sm:text-sm text-gray-600">Average Savings Rate</p>
+                    <p className="text-lg sm:text-xl font-bold text-blue-600">
+                        {(data.reduce((sum, item) => sum + item.savingsRate, 0) / data.length).toFixed(1)}%
+                    </p>
+                </div>
+                <div className="text-center">
+                    <p className="text-xs sm:text-sm text-gray-600">Highest Savings Rate</p>
+                    <p className="text-lg sm:text-xl font-bold text-green-600">
+                        {Math.max(...data.map(item => item.savingsRate)).toFixed(1)}%
+                    </p>
+                </div>
+                <div className="text-center">
+                    <p className="text-xs sm:text-sm text-gray-600">Lowest Savings Rate</p>
+                    <p className="text-lg sm:text-xl font-bold text-red-600">
+                        {Math.min(...data.map(item => item.savingsRate)).toFixed(1)}%
+                    </p>
+                </div>
+            </div>
+
             <div 
                 ref={chartRef}
-                className={`${isExpanded ? 'h-[60vh] w-full' : 'h-[32rem] w-full'} mx-auto`}
+                className={`${isExpanded ? 'h-[60vh] w-full' : 'h-[32rem] w-full'}`}
             >
                 <ResponsiveContainer width="100%" height="100%">
                     <LineChart
                         data={data}
                         margin={{
                             top: 40,
-                            right: 50,
-                            left: 50,
+                            right: 20,
+                            left: 20,
                             bottom: 30,
                         }}
                     >
@@ -240,27 +262,7 @@ export function SavingsRateChart({ incomes, expenses, currency, startDate, endDa
                 </ResponsiveContainer>
             </div>
 
-            {/* Summary Stats */}
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center">
-                    <p className="text-sm text-gray-600">Average Savings Rate</p>
-                    <p className="text-xl font-bold text-blue-600">
-                        {(data.reduce((sum, item) => sum + item.savingsRate, 0) / data.length).toFixed(1)}%
-                    </p>
-                </div>
-                <div className="text-center">
-                    <p className="text-sm text-gray-600">Highest Savings Rate</p>
-                    <p className="text-xl font-bold text-green-600">
-                        {Math.max(...data.map(item => item.savingsRate)).toFixed(1)}%
-                    </p>
-                </div>
-                <div className="text-center">
-                    <p className="text-sm text-gray-600">Lowest Savings Rate</p>
-                    <p className="text-xl font-bold text-red-600">
-                        {Math.min(...data.map(item => item.savingsRate)).toFixed(1)}%
-                    </p>
-                </div>
-            </div>
+
         </div>
     );
 } 

@@ -106,14 +106,14 @@ function DashboardContent() {
 
     // Main UI render
     return (
-        <div className="space-y-6">
+        <div className="space-y-3 sm:space-y-4">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-                    <p className="text-gray-600 mt-1">Overview of your financial health</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
+                    <p className="text-gray-600 mt-1 text-sm sm:text-base">Overview of your financial health</p>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
                     <ExportAllButton />
                     <SimplePDFReportGenerator 
                         incomes={filteredData.filteredIncomes}
@@ -132,24 +132,8 @@ function DashboardContent() {
                 onClearFilters={clearFilters}
             />
 
-            {/* Summary Cards */}
-            {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FinancialSummary
-                    totalAmount={totals.totalIncome}
-                    currency={currency}
-                    items={filteredData.filteredIncomes}
-                    itemType="income"
-                />
-                <FinancialSummary
-                    totalAmount={totals.totalExpenses}
-                    currency={currency}
-                    items={filteredData.filteredExpenses}
-                    itemType="expense"
-                />
-            </div> */}
-
-            {/* Financial Overview - Waterfall Chart & Savings Rate Chart Side by Side */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            {/* Financial Overview - Waterfall Chart & Savings Rate Chart Side by Side on desktop, stacked on mobile */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4">
                 <Suspense fallback={<ChartSkeleton title="Financial Overview" />}>
                     <WaterfallChart 
                         totalIncome={totals.totalIncome}
@@ -191,9 +175,9 @@ function DashboardContent() {
                 <div className="w-1/2 border-t border-gray-200"></div>
             </div>
 
-            {/* Category Charts - Side by Side */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                <Suspense fallback={<ChartSkeleton title="Expense Distribution" height="h-[24rem]" />}>
+            {/* Category Charts - Side by Side on desktop, stacked on mobile */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4">
+                <Suspense fallback={<ChartSkeleton title="Expense Distribution" height="h-[20rem] sm:h-[24rem]" />}>
                     <CategoryPieChart 
                         data={filteredData.filteredExpenses}
                         type="expense"
@@ -202,7 +186,7 @@ function DashboardContent() {
                         endDate={endDate}
                     />
                 </Suspense>
-                <Suspense fallback={<ChartSkeleton title="Income Distribution" height="h-[24rem]" />}>
+                <Suspense fallback={<ChartSkeleton title="Income Distribution" height="h-[20rem] sm:h-[24rem]" />}>
                     <CategoryPieChart 
                         data={filteredData.filteredIncomes}
                         type="income"
@@ -218,9 +202,9 @@ function DashboardContent() {
                 <div className="w-1/2 border-t border-gray-200"></div>
             </div>
 
-            {/* Category Trend Charts - Side by Side */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                <Suspense fallback={<ChartSkeleton title="Expense Trends" />}>
+            {/* Category Trend Charts - Side by Side on desktop, stacked on mobile */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4">
+                <Suspense fallback={<ChartSkeleton title="Expense Category Trends" height="h-[20rem] sm:h-[32rem]" />}>
                     <CategoryTrendChart 
                         data={filteredData.filteredExpenses}
                         type="expense"
@@ -229,7 +213,7 @@ function DashboardContent() {
                         endDate={endDate}
                     />
                 </Suspense>
-                <Suspense fallback={<ChartSkeleton title="Income Trends" />}>
+                <Suspense fallback={<ChartSkeleton title="Income Category Trends" height="h-[20rem] sm:h-[32rem]" />}>
                     <CategoryTrendChart 
                         data={filteredData.filteredIncomes}
                         type="income"
@@ -246,7 +230,7 @@ function DashboardContent() {
             </div>
 
             {/* Recent Transactions */}
-            <Suspense fallback={<ChartSkeleton title="Recent Transactions" showControls={false} />}>
+            <Suspense fallback={<div className="h-64 bg-gray-100 animate-pulse rounded-lg"></div>}>
                 <RecentTransactions />
             </Suspense>
         </div>

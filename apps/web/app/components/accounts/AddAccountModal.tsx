@@ -198,31 +198,31 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[98vh] sm:max-h-[95vh] overflow-y-auto">
                 {/* Header */}
-                <div className="sticky top-0 bg-white border-b border-gray-200 px-8 py-6 rounded-t-xl">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h2 className="text-2xl font-semibold text-gray-900">Add New Account</h2>
-                            <p className="text-gray-600 mt-1">Enter your bank account details</p>
+                <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-8 py-4 sm:py-6 rounded-t-xl">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0">
+                        <div className="flex-1 min-w-0">
+                            <h2 className="text-lg sm:text-2xl font-semibold text-gray-900 truncate">Add New Account</h2>
+                            <p className="text-sm sm:text-base text-gray-600 mt-1">Enter your bank account details</p>
                         </div>
                         <button
                             onClick={handleClose}
-                            className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-lg"
+                            className="text-gray-400 hover:text-gray-600 transition-colors p-1 sm:p-2 hover:bg-gray-100 rounded-lg self-end sm:self-auto"
                         >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </button>
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="px-8 py-6">
+                <form onSubmit={handleSubmit} className="px-4 sm:px-8 py-4 sm:py-6">
                     {/* Basic Account Information */}
-                    <div className="mb-8">
-                        <h3 className="text-lg font-medium text-gray-900 mb-6">Basic Information</h3>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="mb-6 sm:mb-8">
+                        <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-4 sm:mb-6">Basic Information</h3>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                             <InputField
                                 label="Account Holder Name"
                                 value={formData.holderName}
@@ -324,38 +324,38 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
                     </div>
 
                     {/* Contact Information */}
-                    <div className="mb-8">
-                        <h3 className="text-lg font-medium text-gray-900 mb-6">Contact Information</h3>
+                    <div className="mb-6 sm:mb-8">
+                        <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-4 sm:mb-6">Contact Information</h3>
                         
                         {/* Mobile Numbers */}
-                        <div className="mb-6">
-                            <div className="flex items-center justify-between mb-3">
+                        <div className="mb-4 sm:mb-6">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 gap-2 sm:gap-0">
                                 <label className="block text-sm font-medium text-gray-700">
                                     Mobile Numbers
                                 </label>
                                 <button
                                     type="button"
                                     onClick={() => addArrayField('mobileNumbers')}
-                                    className="px-4 py-2 border border-dashed border-gray-400 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-lg transition-all text-sm"
+                                    className="px-3 sm:px-4 py-2 border border-dashed border-gray-400 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-lg transition-all text-sm w-full sm:w-auto"
                                 >
                                     Add Mobile Number
                                 </button>
                             </div>
                             <div className="space-y-3">
                                 {formData.mobileNumbers.map((mobile, index) => (
-                                    <div key={`mobile-${index}-${mobile}`} className="flex gap-3">
+                                    <div key={`mobile-${index}-${mobile}`} className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                                         <input
                                             type="tel"
                                             value={mobile}
                                             onChange={(e) => updateArrayField('mobileNumbers', index, e.target.value)}
-                                            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-gray-400 transition-all"
+                                            className="flex-1 px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-gray-400 transition-all"
                                             placeholder="Enter mobile number"
                                         />
                                         {formData.mobileNumbers.length > 1 && (
                                             <button
                                                 type="button"
                                                 onClick={() => removeArrayField('mobileNumbers', index)}
-                                                className="px-4 py-3 border border-gray-300 bg-white text-gray-700 hover:bg-red-50 hover:border-red-300 hover:text-red-700 rounded-lg transition-all"
+                                                className="px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 bg-white text-gray-700 hover:bg-red-50 hover:border-red-300 hover:text-red-700 rounded-lg transition-all text-sm"
                                             >
                                                 Remove
                                             </button>
@@ -366,34 +366,34 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
                         </div>
 
                         {/* Branch Contacts */}
-                        <div className="mb-6">
-                            <div className="flex items-center justify-between mb-3">
+                        <div className="mb-4 sm:mb-6">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 gap-2 sm:gap-0">
                                 <label className="block text-sm font-medium text-gray-700">
                                     Branch Contact Numbers
                                 </label>
                                 <button
                                     type="button"
                                     onClick={() => addArrayField('branchContacts')}
-                                    className="px-4 py-2 border border-dashed border-gray-400 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-lg transition-all text-sm"
+                                    className="px-3 sm:px-4 py-2 border border-dashed border-gray-400 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-lg transition-all text-sm w-full sm:w-auto"
                                 >
                                     Add Branch Contact
                                 </button>
                             </div>
                             <div className="space-y-3">
                                 {formData.branchContacts.map((contact, index) => (
-                                    <div key={`contact-${index}-${contact}`} className="flex gap-3">
+                                    <div key={`contact-${index}-${contact}`} className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                                         <input
                                             type="tel"
                                             value={contact}
                                             onChange={(e) => updateArrayField('branchContacts', index, e.target.value)}
-                                            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-gray-400 transition-all"
+                                            className="flex-1 px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-gray-400 transition-all"
                                             placeholder="Enter branch contact number"
                                         />
                                         {formData.branchContacts.length > 1 && (
                                             <button
                                                 type="button"
                                                 onClick={() => removeArrayField('branchContacts', index)}
-                                                className="px-4 py-3 border border-gray-300 bg-white text-gray-700 hover:bg-red-50 hover:border-red-300 hover:text-red-700 rounded-lg transition-all"
+                                                className="px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 bg-white text-gray-700 hover:bg-red-50 hover:border-red-300 hover:text-red-700 rounded-lg transition-all text-sm"
                                             >
                                                 Remove
                                             </button>
@@ -405,37 +405,37 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
                     </div>
 
                     {/* Security Information */}
-                    <div className="mb-8">
-                        <h3 className="text-lg font-medium text-gray-900 mb-6">Security Information</h3>
+                    <div className="mb-6 sm:mb-8">
+                        <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-4 sm:mb-6">Security Information</h3>
                         
                         <div>
-                            <div className="flex items-center justify-between mb-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 gap-2 sm:gap-0">
                                 <label className="block text-sm font-medium text-gray-700">
                                     Security Questions
                                 </label>
                                 <button
                                     type="button"
                                     onClick={() => addArrayField('securityQuestion')}
-                                    className="px-4 py-2 border border-dashed border-gray-400 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-lg transition-all text-sm"
+                                    className="px-3 sm:px-4 py-2 border border-dashed border-gray-400 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-lg transition-all text-sm w-full sm:w-auto"
                                 >
                                     Add Security Question
                                 </button>
                             </div>
                             <div className="space-y-3">
                                 {formData.securityQuestion.map((question, index) => (
-                                    <div key={`question-${index}-${question}`} className="flex gap-3">
+                                    <div key={`question-${index}-${question}`} className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                                         <input
                                             type="text"
                                             value={question}
                                             onChange={(e) => updateArrayField('securityQuestion', index, e.target.value)}
-                                            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-gray-400 transition-all"
+                                            className="flex-1 px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-gray-400 transition-all"
                                             placeholder="Enter security question"
                                         />
                                         {formData.securityQuestion.length > 1 && (
                                             <button
                                                 type="button"
                                                 onClick={() => removeArrayField('securityQuestion', index)}
-                                                className="px-4 py-3 border border-gray-300 bg-white text-gray-700 hover:bg-red-50 hover:border-red-300 hover:text-red-700 rounded-lg transition-all"
+                                                className="px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 bg-white text-gray-700 hover:bg-red-50 hover:border-red-300 hover:text-red-700 rounded-lg transition-all text-sm"
                                             >
                                                 Remove
                                             </button>
@@ -447,9 +447,9 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
                     </div>
 
                     {/* Mobile App Details */}
-                    <div className="mb-8">
-                        <h3 className="text-lg font-medium text-gray-900 mb-6">Mobile Banking Details</h3>
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="mb-6 sm:mb-8">
+                        <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-4 sm:mb-6">Mobile Banking Details</h3>
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
                             <InputField
                                 label="App Username"
                                 value={formData.appUsername}
@@ -476,9 +476,9 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
                     </div>
 
                     {/* Additional Information */}
-                    <div className="mb-8">
-                        <h3 className="text-lg font-medium text-gray-900 mb-6">Additional Information</h3>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="mb-6 sm:mb-8">
+                        <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-4 sm:mb-6">Additional Information</h3>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                             <InputField
                                 label="Account Nickname"
                                 value={formData.nickname}
@@ -487,7 +487,7 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
                             />
                         </div>
                         
-                        <div className="mt-6">
+                        <div className="mt-4 sm:mt-6">
                             <InputField
                                 label="Notes"
                                 value={formData.notes}
@@ -499,17 +499,17 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
                     </div>
 
                     {/* Footer */}
-                    <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+                    <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-gray-200">
                         <button
                             type="button"
                             onClick={handleClose}
-                            className="px-6 py-3 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-lg font-medium transition-all"
+                            className="px-4 sm:px-6 py-2 sm:py-3 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-lg font-medium transition-all order-2 sm:order-1"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-all shadow-sm"
+                            className="px-6 sm:px-8 py-2 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-all shadow-sm order-1 sm:order-2"
                         >
                             Add Account
                         </button>

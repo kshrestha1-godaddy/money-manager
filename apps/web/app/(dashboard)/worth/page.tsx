@@ -343,33 +343,33 @@ export default function NetWorthPage() {
             </div>
 
             {/* Financial Health Indicators */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-4 sm:p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Financial Health</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-700 mb-2">Savings Rate (This Month)</h4>
-                        <p className="text-2xl font-bold text-blue-600">
+                        <h4 className="font-medium text-gray-700 mb-2 text-sm sm:text-base">Savings Rate (This Month)</h4>
+                        <p className="text-xl sm:text-2xl font-bold text-blue-600">
                             {thisMonthIncome > 0 ? `${((thisMonthNetIncome / thisMonthIncome) * 100).toFixed(1)}%` : '0%'}
                         </p>
-                        <p className="text-sm text-gray-500 mt-1">
+                        <p className="text-xs sm:text-sm text-gray-500 mt-1">
                             {thisMonthNetIncome >= 0 ? 'You are saving money this month! 🎉' : 'You are spending more than earning this month 📉'}
                         </p>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-700 mb-2">Asset Allocation</h4>
-                        <p className="text-2xl font-bold text-purple-600">
+                        <h4 className="font-medium text-gray-700 mb-2 text-sm sm:text-base">Asset Allocation</h4>
+                        <p className="text-xl sm:text-2xl font-bold text-purple-600">
                             {totalAssets > 0 ? `${((totalInvestmentValue / totalAssets) * 100).toFixed(1)}%` : '0%'}
                         </p>
-                        <p className="text-sm text-gray-500 mt-1">
+                        <p className="text-xs sm:text-sm text-gray-500 mt-1">
                             Percentage in investments
                         </p>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-700 mb-2">Debt to Asset Ratio</h4>
-                        <p className="text-2xl font-bold text-orange-600">
+                    <div className="bg-gray-50 rounded-lg p-4 sm:col-span-2 lg:col-span-1">
+                        <h4 className="font-medium text-gray-700 mb-2 text-sm sm:text-base">Debt to Asset Ratio</h4>
+                        <p className="text-xl sm:text-2xl font-bold text-orange-600">
                             {totalAssets > 0 ? `${((totalLiabilities / totalAssets) * 100).toFixed(1)}%` : '0%'}
                         </p>
-                        <p className="text-sm text-gray-500 mt-1">
+                        <p className="text-xs sm:text-sm text-gray-500 mt-1">
                             {totalLiabilities === 0 ? 'Debt-free! 🎉' : 'Lower is better'}
                         </p>
                     </div>
@@ -646,70 +646,112 @@ export default function NetWorthPage() {
                         <p className="text-gray-500">Add your bank accounts to track your net worth accurately.</p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Account Details
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Bank & Branch
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Account Type
-                                    </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Balance
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {accounts.map((account) => (
-                                    <tr key={account.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div>
-                                                <div className="text-sm font-medium text-gray-900">
-                                                    {account.holderName}
-                                                </div>
-                                                <div className="text-sm text-gray-500 font-mono">
-                                                    {account.accountNumber}
-                                                </div>
+                    <>
+                        {/* Mobile Card View */}
+                        <div className="md:hidden divide-y-2 divide-gray-100">
+                            {accounts.map((account) => (
+                                <div key={account.id} className="p-4 bg-white shadow-sm rounded-lg mb-4 mx-4">
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center space-x-3 flex-1">
+                                            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                                <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/>
+                                                    <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd"/>
+                                                </svg>
                                             </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div>
-                                                <div className="text-sm font-medium text-gray-900">{account.bankName}</div>
-                                                <div className="text-sm text-gray-500">{account.branchName}</div>
+                                            <div className="flex-1">
+                                                <h3 className="text-sm font-semibold text-gray-900">{account.bankName}</h3>
+                                                <p className="text-xs text-gray-500">{account.holderName}</p>
                                             </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {account.accountType}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
+                                        </div>
+                                        <div className="text-right">
                                             {account.balance !== undefined ? (
-                                                <span className="text-green-600">
+                                                <span className="text-lg font-bold text-green-600">
                                                     {formatCurrency(account.balance, currency)}
                                                 </span>
                                             ) : (
                                                 <span className="text-gray-400">-</span>
                                             )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                            <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-4 mx-4 mt-4 mb-6 border-2 border-green-200">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-base font-bold text-green-800">Total Balance:</span>
+                                    <span className="text-lg font-black text-green-700">
+                                        {formatCurrency(totalAccountBalance, currency)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Desktop Table View */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Account Details
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Bank & Branch
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Account Type
+                                        </th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Balance
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {accounts.map((account) => (
+                                        <tr key={account.id} className="hover:bg-gray-50 py-6 border-b">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div>
+                                                    <div className="text-sm font-medium text-gray-900">
+                                                        {account.holderName}
+                                                    </div>
+                                                    <div className="text-sm text-gray-500 font-mono">
+                                                        {account.accountNumber}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div>
+                                                    <div className="text-sm font-medium text-gray-900">{account.bankName}</div>
+                                                    <div className="text-sm text-gray-500">{account.branchName}</div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                {account.accountType}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
+                                                {account.balance !== undefined ? (
+                                                    <span className="text-green-600">
+                                                        {formatCurrency(account.balance, currency)}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-400">-</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot className="bg-gradient-to-r from-green-50 to-green-100 border-t-2 border-green-200">
+                                    <tr>
+                                        <td colSpan={3} className="px-6 py-5 text-base font-bold text-green-800">
+                     
+                                        </td>
+                                        <td className="px-6 py-5 text-lg font-black text-right text-green-700">
+                                            {formatCurrency(totalAccountBalance, currency)}
                                         </td>
                                     </tr>
-                                ))}
-                            </tbody>
-                            <tfoot className="bg-gradient-to-r from-green-50 to-green-100 border-t-2 border-green-200">
-                                <tr>
-                                    <td colSpan={3} className="px-6 py-5 text-base font-bold text-green-800">
-                 
-                                    </td>
-                                    <td className="px-6 py-5 text-lg font-black text-right text-green-700">
-                                        {formatCurrency(totalAccountBalance, currency)}
-                                    </td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </>
                 )}
                     </>
                 )}
@@ -742,102 +784,152 @@ export default function NetWorthPage() {
                 </div>
                 {expandedSections.investments && (
                     <>
-                        {investments.length === 0 ? (
+                                        {investments.length === 0 ? (
                     <div className="text-center py-8">
                         <div className="text-gray-400 text-4xl mb-4">📈</div>
                         <h4 className="text-lg font-medium text-gray-600 mb-2">No Investments Found</h4>
                         <p className="text-gray-500">Add your investments to track your portfolio value.</p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Investment
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Type
-                                    </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Quantity
-                                    </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Purchase Price
-                                    </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Current Price
-                                    </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Current Value
-                                    </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Gain/Loss
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {investments.map((investment) => {
-                                    const currentValue = investment.quantity * investment.currentPrice;
-                                    const investedValue = investment.quantity * investment.purchasePrice;
-                                    const gainLoss = currentValue - investedValue;
-                                    const gainLossPercent = investedValue > 0 ? (gainLoss / investedValue) * 100 : 0;
-                                    
-                                    return (
-                                        <tr key={investment.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div>
-                                                    <div className="text-sm font-medium text-gray-900">
-                                                        {investment.name}
-                                                    </div>
-                                                    {investment.symbol && (
-                                                        <div className="text-sm text-gray-500">
-                                                            {investment.symbol}
-                                                        </div>
-                                                    )}
+                    <>
+                        {/* Mobile Card View */}
+                        <div className="md:hidden divide-y-2 divide-gray-100">
+                            {investments.map((investment) => {
+                                const currentValue = investment.quantity * investment.currentPrice;
+                                const investedValue = investment.quantity * investment.purchasePrice;
+                                const gainLoss = currentValue - investedValue;
+                                const gainLossPercent = investedValue > 0 ? (gainLoss / investedValue) * 100 : 0;
+                                
+                                return (
+                                    <div key={investment.id} className="p-4 bg-white shadow-sm rounded-lg mb-4 mx-4">
+                                        <div className="flex justify-between items-center">
+                                            <div className="flex items-center space-x-3 flex-1">
+                                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                                    <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
+                                                    </svg>
                                                 </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                    {investment.type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                                                <div className="flex-1">
+                                                    <h3 className="text-sm font-semibold text-gray-900">{investment.name}</h3>
+                                                    <p className="text-xs text-gray-500">
+                                                        {investment.type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                                                        {investment.symbol && ` - ${investment.symbol}`}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="text-lg font-bold text-blue-600">
+                                                    {formatCurrency(currentValue, currency)}
                                                 </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                                                {investment.quantity}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                                                {formatCurrency(investment.purchasePrice, currency)}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                                                {formatCurrency(investment.currentPrice, currency)}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right text-blue-600">
-                                                {formatCurrency(currentValue, currency)}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
-                                                <div className={gainLoss >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                                    {formatCurrency(gainLoss, currency)}
-                                                    <div className="text-xs">
-                                                        ({gainLossPercent >= 0 ? '+' : ''}{gainLossPercent.toFixed(2)}%)
-                                                    </div>
+                                                <div className={`text-xs ${gainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                    {formatCurrency(gainLoss, currency)} ({gainLossPercent >= 0 ? '+' : ''}{gainLossPercent.toFixed(1)}%)
                                                 </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                            <tfoot className="bg-gradient-to-r from-blue-50 to-blue-100 border-t-2 border-blue-200">
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-5 text-base font-bold text-blue-800">
-                                 
-                                    </td>
-                                    <td className="px-6 py-5 text-lg font-black text-right text-blue-700">
-                                        <div>{formatCurrency(totalInvestmentValue, currency)}</div>
-                                    </td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 mx-4 mt-4 mb-6 border-2 border-blue-200">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-base font-bold text-blue-800">Total Value:</span>
+                                    <span className="text-lg font-black text-blue-700">
+                                        {formatCurrency(totalInvestmentValue, currency)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Desktop Table View */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Investment
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Type
+                                        </th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Quantity
+                                        </th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Purchase Price
+                                        </th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Current Price
+                                        </th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Current Value
+                                        </th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Gain/Loss
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {investments.map((investment) => {
+                                        const currentValue = investment.quantity * investment.currentPrice;
+                                        const investedValue = investment.quantity * investment.purchasePrice;
+                                        const gainLoss = currentValue - investedValue;
+                                        const gainLossPercent = investedValue > 0 ? (gainLoss / investedValue) * 100 : 0;
+                                        
+                                        return (
+                                            <tr key={investment.id} className="hover:bg-gray-50 py-6 border-b">
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div>
+                                                        <div className="text-sm font-medium text-gray-900">
+                                                            {investment.name}
+                                                        </div>
+                                                        {investment.symbol && (
+                                                            <div className="text-sm text-gray-500">
+                                                                {investment.symbol}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                        {investment.type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                                                    {investment.quantity}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                                                    {formatCurrency(investment.purchasePrice, currency)}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                                                    {formatCurrency(investment.currentPrice, currency)}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right text-blue-600">
+                                                    {formatCurrency(currentValue, currency)}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
+                                                    <div className={gainLoss >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                                        {formatCurrency(gainLoss, currency)}
+                                                        <div className="text-xs">
+                                                            ({gainLossPercent >= 0 ? '+' : ''}{gainLossPercent.toFixed(2)}%)
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                                <tfoot className="bg-gradient-to-r from-blue-50 to-blue-100 border-t-2 border-blue-200">
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-5 text-base font-bold text-blue-800">
+                     
+                                        </td>
+                                        <td className="px-6 py-5 text-lg font-black text-right text-blue-700">
+                                            <div>{formatCurrency(totalInvestmentValue, currency)}</div>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </>
                 )}
                     </>
                 )}
@@ -877,95 +969,163 @@ export default function NetWorthPage() {
                         <p className="text-gray-500">You haven't lent any money that is still outstanding.</p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Borrower
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Purpose
-                                    </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Original Amount
-                                    </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Repaid
-                                    </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Outstanding
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Due Date
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Status
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {outstandingDebts.map((debt) => {
-                                    const totalRepayments = debt.repayments?.reduce((sum: number, rep: any) => sum + rep.amount, 0) || 0;
-                                    const remainingAmount = debt.amount - totalRepayments;
-                                    const isOverdue = debt.dueDate && new Date(debt.dueDate) < new Date();
-                                    
-                                    return (
-                                        <tr key={debt.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div>
-                                                    <div className="text-sm font-medium text-gray-900">
-                                                        {debt.borrowerName}
-                                                    </div>
-                                                    {debt.borrowerContact && (
-                                                        <div className="text-sm text-gray-500">
-                                                            {debt.borrowerContact}
-                                                        </div>
+                    <>
+                        {/* Mobile Card View */}
+                        <div className="md:hidden divide-y-2 divide-gray-100">
+                            {outstandingDebts.map((debt) => {
+                                const totalRepayments = debt.repayments?.reduce((sum: number, rep: any) => sum + rep.amount, 0) || 0;
+                                const remainingAmount = debt.amount - totalRepayments;
+                                const isOverdue = debt.dueDate && new Date(debt.dueDate) < new Date();
+                                
+                                return (
+                                    <div key={debt.id} className="p-4 bg-white shadow-sm rounded-lg mb-4 mx-4">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <div className="flex items-center space-x-3 flex-1">
+                                                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                                                    <svg className="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd"/>
+                                                    </svg>
+                                                </div>
+                                                <div className="flex-1">
+                                                    <h3 className="text-sm font-semibold text-gray-900">{debt.borrowerName}</h3>
+                                                    {debt.purpose && (
+                                                        <p className="text-xs text-gray-500">{debt.purpose}</p>
                                                     )}
                                                 </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                {debt.purpose || '-'}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                                                {formatCurrency(debt.amount, currency)}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                                                {formatCurrency(totalRepayments, currency)}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right text-red-600">
-                                                {formatCurrency(remainingAmount, currency)}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                {debt.dueDate ? (
-                                                    <span className={isOverdue ? 'text-red-600' : ''}>
-                                                        {formatDate(debt.dueDate)}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-gray-400">No due date</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(debt.status)}`}>
-                                                    {debt.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="text-lg font-bold text-red-600">
+                                                    {formatCurrency(remainingAmount, currency)}
                                                 </span>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                            <tfoot className="bg-gradient-to-r from-red-50 to-red-100 border-t-2 border-red-200">
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-5 text-base font-bold text-red-700">
-
-                                    </td>
-                                    <td className="px-6 py-5 text-lg font-black text-right text-red-600">
+                                                <div className={`text-xs ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                                                    {debt.dueDate ? formatDate(debt.dueDate) : 'No due date'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Progress Bar */}
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs text-gray-500">Repayment Progress</span>
+                                                <span className="text-xs text-gray-700 font-medium">
+                                                    {((totalRepayments / debt.amount) * 100).toFixed(1)}%
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                                <div 
+                                                    className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                                                    style={{ width: `${Math.min((totalRepayments / debt.amount) * 100, 100)}%` }}
+                                                ></div>
+                                            </div>
+                                            <div className="flex justify-between text-xs text-gray-500">
+                                                <span>Repaid: {formatCurrency(totalRepayments, currency)}</span>
+                                                <span>Total: {formatCurrency(debt.amount, currency)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            <div className="bg-gradient-to-r from-red-50 to-red-100 rounded-lg p-4 mx-4 mt-4 mb-6 border-2 border-red-200">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-base font-bold text-red-700">Total Outstanding:</span>
+                                    <span className="text-lg font-black text-red-600">
                                         {formatCurrency(totalMoneyLent, currency)}
-                                    </td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Desktop Table View */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Borrower
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Purpose
+                                        </th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Original Amount
+                                        </th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Repaid
+                                        </th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Outstanding
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Due Date
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Status
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {outstandingDebts.map((debt) => {
+                                        const totalRepayments = debt.repayments?.reduce((sum: number, rep: any) => sum + rep.amount, 0) || 0;
+                                        const remainingAmount = debt.amount - totalRepayments;
+                                        const isOverdue = debt.dueDate && new Date(debt.dueDate) < new Date();
+                                        
+                                        return (
+                                            <tr key={debt.id} className="hover:bg-gray-50 py-6 border-b">
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div>
+                                                        <div className="text-sm font-medium text-gray-900">
+                                                            {debt.borrowerName}
+                                                        </div>
+                                                        {debt.borrowerContact && (
+                                                            <div className="text-sm text-gray-500">
+                                                                {debt.borrowerContact}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {debt.purpose || '-'}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                                                    {formatCurrency(debt.amount, currency)}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                                                    {formatCurrency(totalRepayments, currency)}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right text-red-600">
+                                                    {formatCurrency(remainingAmount, currency)}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {debt.dueDate ? (
+                                                        <span className={isOverdue ? 'text-red-600' : ''}>
+                                                            {formatDate(debt.dueDate)}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-gray-400">No due date</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(debt.status)}`}>
+                                                        {debt.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                                <tfoot className="bg-gradient-to-r from-red-50 to-red-100 border-t-2 border-red-200">
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-5 text-base font-bold text-red-700">
+
+                                        </td>
+                                        <td className="px-6 py-5 text-lg font-black text-right text-red-600">
+                                            {formatCurrency(totalMoneyLent, currency)}
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </>
                 )}
                     </>
                 )}

@@ -1,36 +1,172 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import { SidebarItem } from "../components/SidebarItem";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-    return (
-        <div className="flex min-h-screen">
-            {/* Fixed Sidebar */}
-            <div className="fixed left-5 top-10 w-64 h-screen bg-white border-r border-slate-300 pt-2 flex-shrink-0 z-30 overflow-y-auto">
-                <div className="flex flex-col gap-4 pt-20">
-                    {/* Tracking Section */}
-                    <SidebarItem href={"/dashboard"} icon={<DashboardIcon />} title="Dashboard" />
-                    <SidebarItem href={"/incomes"} icon={<IncomesIcon />} title="Incomes" />
-                    <SidebarItem href={"/expenses"} icon={<ExpensesIcon />} title="Expenses" />
-                    <SidebarItem href={"/history"} icon={<HistoryIcon />} title="History" />
-                    {/* <SidebarItem href={"/targets"} icon={<TargetsIcon />} title="Budget Targets" /> */}
-                    
-                    {/* Finance Section - with separator */}
-                    <SidebarItem href={"/accounts"} icon={<AccountsIcon />} title="Accounts" showSeparator={true} />
-                    <SidebarItem href={"/passwords"} icon={<PasswordsIcon />} title="Passwords" />
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
 
-                    <SidebarItem href={"/debts"} icon={<DebtsIcon />} title="Debts" />
-                    <SidebarItem href={"/investments"} icon={<InvestmentsIcon />} title="Investments" />
-                    <SidebarItem href={"/worth"} icon={<NetWorthIcon />} title="Net Worth" />
-                    {/* <SidebarItem href={"/analytics"} icon={<ChartIcon />} title="Analytics" /> */}
-                    
-                    {/* Additional items */}
-                    <SidebarItem href={"/bookmarks"} icon={<BookmarksIcon />} title="Bookmarks" showSeparator={true} />
-                    {/* <SidebarItem href={"/learnings"} icon={<LearningsIcon />} title="Learnings" /> */}
+    // Check if we're on mobile
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    // Close sidebar when clicking outside on mobile
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (isMobile && sidebarOpen) {
+                const sidebar = document.getElementById('sidebar');
+                const hamburger = document.getElementById('hamburger-button');
+                
+                if (sidebar && hamburger && 
+                    !sidebar.contains(event.target as Node) && 
+                    !hamburger.contains(event.target as Node)) {
+                    setSidebarOpen(false);
+                }
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isMobile, sidebarOpen]);
+
+    return (
+        <div className="flex min-h-screen bg-gray-50">
+            {/* Mobile Hamburger Button - now in navbar */}
+            <button
+                id="hamburger-button"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="md:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-md shadow-md border border-gray-200 hover:bg-gray-50 transition-colors"
+                aria-label="Toggle sidebar"
+            >
+                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+
+            {/* Mobile Overlay */}
+            {isMobile && sidebarOpen && (
+                <div 
+                    className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+                    onClick={() => setSidebarOpen(false)}
+                />
+            )}
+
+            {/* Sidebar */}
+            <div 
+                id="sidebar"
+                className={`
+                    fixed md:sticky 
+                    left-0 top-0 md:top-0
+                    w-64 h-screen md:h-screen
+                    bg-white border-r border-gray-200 
+                    pt-2 flex-shrink-0 
+                    z-40 md:z-30 
+                    overflow-y-auto
+                    transition-transform duration-300 ease-in-out
+                    ${isMobile ? (sidebarOpen ? 'translate-x-0' : '-translate-x-full') : 'translate-x-0'}
+                    md:translate-x-0
+                `}
+            >
+                <div className="flex flex-col gap-3 md:gap-2 pt-20 md:pt-2 px-2">
+                    {/* Close button for mobile */}
+                    {isMobile && (
+                        <button
+                            onClick={() => setSidebarOpen(false)}
+                            className="md:hidden absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                            aria-label="Close sidebar"
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    )}
+
+                    {/* Navigation Items */}
+                    <div className="space-y-8 md:space-y-3 mt-6 md:mt-0">
+                        <SidebarItem 
+                            href="/dashboard" 
+                            icon={<DashboardIcon />} 
+                            title="Dashboard" 
+                            onItemClick={() => isMobile && setSidebarOpen(false)}
+                        />
+                        <SidebarItem 
+                            href="/incomes" 
+                            icon={<IncomesIcon />} 
+                            title="Incomes" 
+                            onItemClick={() => isMobile && setSidebarOpen(false)}
+                        />
+                        <SidebarItem 
+                            href="/expenses" 
+                            icon={<ExpensesIcon />} 
+                            title="Expenses" 
+                            onItemClick={() => isMobile && setSidebarOpen(false)}
+                        />
+                        <SidebarItem 
+                            href="/history" 
+                            icon={<HistoryIcon />} 
+                            title="History" 
+                            onItemClick={() => isMobile && setSidebarOpen(false)}
+                        />
+                        
+                        {/* Finance Section - with separator */}
+                        <SidebarItem 
+                            href="/accounts" 
+                            icon={<AccountsIcon />} 
+                            title="Accounts" 
+                            showSeparator={true} 
+                            onItemClick={() => isMobile && setSidebarOpen(false)}
+                        />
+                        <SidebarItem 
+                            href="/passwords" 
+                            icon={<PasswordsIcon />} 
+                            title="Passwords" 
+                            onItemClick={() => isMobile && setSidebarOpen(false)}
+                        />
+                        <SidebarItem 
+                            href="/debts" 
+                            icon={<DebtsIcon />} 
+                            title="Debts" 
+                            onItemClick={() => isMobile && setSidebarOpen(false)}
+                        />
+                        <SidebarItem 
+                            href="/investments" 
+                            icon={<InvestmentsIcon />} 
+                            title="Investments" 
+                            onItemClick={() => isMobile && setSidebarOpen(false)}
+                        />
+                        <SidebarItem 
+                            href="/worth" 
+                            icon={<NetWorthIcon />} 
+                            title="Net Worth" 
+                            onItemClick={() => isMobile && setSidebarOpen(false)}
+                        />
+                        
+                        {/* Additional items */}
+                        <SidebarItem 
+                            href="/bookmarks" 
+                            icon={<BookmarksIcon />} 
+                            title="Bookmarks" 
+                            showSeparator={true} 
+                            onItemClick={() => isMobile && setSidebarOpen(false)}
+                        />
+                    </div>
                 </div>
             </div>
             
-            {/* Main Content Area - with left margin to account for fixed sidebar */}
-            <div className="flex-1 ml-64 pt-2 px-4">
-                {children}
+            {/* Main Content Area */}
+            <div className="flex-1 md:ml-0 min-w-0">
+                <div className="p-4 md:p-6 pt-4 md:pt-6">
+                    {children}
+                </div>
             </div>
         </div>
     );

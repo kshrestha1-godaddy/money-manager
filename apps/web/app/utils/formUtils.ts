@@ -167,10 +167,10 @@ export const buttonClasses = {
 };
 
 // Modal overlay class
-export const modalOverlayClasses = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50";
+export const modalOverlayClasses = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4";
 
 // Modal content class
-export const modalContentClasses = "bg-white rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto";
+export const modalContentClasses = "bg-white rounded-lg p-4 sm:p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto";
 
 // Generic transaction placeholders based on type
 export function getTransactionPlaceholders(type: TransactionType) {

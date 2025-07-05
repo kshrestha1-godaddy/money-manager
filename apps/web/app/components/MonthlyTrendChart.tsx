@@ -400,22 +400,22 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
     const ChartContent = () => (
         <div>
             {/* Summary Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="text-center">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                <div className="text-center sm:text-left">
                     <p className="text-sm text-gray-600">Monthly Average Income</p>
-                    <p className="text-lg font-bold text-green-600">
+                    <p className="text-base sm:text-lg font-bold text-green-600">
                         {formatCurrency(averageIncome, currency)}
                     </p>
                 </div>
-                <div className="text-center">
+                <div className="text-center sm:text-left">
                     <p className="text-sm text-gray-600">Monthly Average Expenses</p>
-                    <p className="text-lg font-bold text-red-600">
+                    <p className="text-base sm:text-lg font-bold text-red-600">
                         {formatCurrency(averageExpenses, currency)}
                     </p>
                 </div>
-                <div className="text-center">
+                <div className="text-center sm:text-left">
                     <p className="text-sm text-gray-600">Monthly Average Savings</p>
-                    <p className={`text-lg font-bold ${averageSavings >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                    <p className={`text-base sm:text-lg font-bold ${averageSavings >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
                         {formatCurrency(averageSavings, currency)}
                     </p>
                 </div>
@@ -424,7 +424,7 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
             {/* Chart */}
             <div 
                 ref={chartRef} 
-                className={isExpanded ? "h-[60vh] w-full mx-auto" : "h-[50rem] w-5/6 mx-auto"}
+                className={isExpanded ? "h-[60vh] w-full" : "h-[40rem] w-full"}
                 role="img"
                 aria-label={`Monthly trend chart showing income, expenses, and savings ${timePeriodText.toLowerCase()}`}
             >
@@ -433,11 +433,11 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
                         data={chartData}
                         margin={{
                             top: 40,
-                            right: 30,
-                            left: 40,
-                            bottom: 100,
+                            right: 20,
+                            left: 20,
+                            bottom: 30,
                         }}
-                        barCategoryGap="25%"
+                        barCategoryGap="15%"
                     >
                         <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
                         
@@ -462,7 +462,7 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
                             tick={<CustomXAxisTick />}
                             interval={calculateOptimalInterval()}
                             stroke="#666"
-                            height={80}
+                            height={50}
                         />
                         <YAxis 
                             tickFormatter={formatYAxisTick}
@@ -472,7 +472,7 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
                             tickCount={8}
                         />
                         <Tooltip content={<CustomTooltip />} />
-                        <Legend verticalAlign="bottom" wrapperStyle={{ paddingBottom: '30px' }} />
+ 
                         <Bar 
                             dataKey="income" 
                             fill="#10b981" 
@@ -528,6 +528,22 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
                         />
                     </ComposedChart>
                 </ResponsiveContainer>
+            </div>
+            
+            {/* Custom Legend */}
+            <div className="flex justify-center items-center gap-6 mt-4">
+                <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-green-500 rounded"></div>
+                    <span className="text-sm text-gray-700">Income</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-red-500 rounded"></div>
+                    <span className="text-sm text-gray-700">Expenses</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-blue-500 rounded"></div>
+                    <span className="text-sm text-gray-700">Savings</span>
+                </div>
             </div>
         </div>
     );

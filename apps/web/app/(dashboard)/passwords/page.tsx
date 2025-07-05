@@ -190,7 +190,7 @@ export default function PasswordsPage() {
                     <p className="text-gray-600 mt-1">Securely manage your website passwords</p>
                 </div>
                 <div className="flex items-center">
-                    <div className="inline-flex rounded-md shadow-sm mr-3">
+                    <div className="hidden md:inline-flex rounded-md shadow-sm mr-3">
                         <button 
                             onClick={() => setViewMode('table')}
                             className={`relative inline-flex items-center h-10 px-4 text-sm font-medium border border-gray-300 rounded-l-md ${viewMode === 'table' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`}

@@ -20,23 +20,23 @@ export function FinancialSummary({ totalAmount, currency, items, itemType }: Fin
   const titleText = itemType === "income" ? "Total Income" : "Total Expenses";
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div>
+    <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+        <div className="text-center sm:text-left">
           <p className="text-sm font-medium text-gray-600">{titleText}</p>
-          <p className={`text-2xl font-bold ${colorClass}`}>
+          <p className={`text-xl sm:text-2xl font-bold ${colorClass}`}>
             {formatCurrency(totalAmount, currency)}
           </p>
         </div>
-        <div>
+        <div className="text-center sm:text-left">
           <p className="text-sm font-medium text-gray-600">This Month</p>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-xl sm:text-2xl font-bold text-gray-900">
             {formatCurrency(thisMonthAmount, currency)}
           </p>
         </div>
-        <div>
+        <div className="text-center sm:text-left">
           <p className="text-sm font-medium text-gray-600">Average per Transaction</p>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-xl sm:text-2xl font-bold text-gray-900">
             {formatCurrency(averageAmount, currency)}
           </p>
         </div>

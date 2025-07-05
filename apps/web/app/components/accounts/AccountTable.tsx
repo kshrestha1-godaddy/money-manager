@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { AccountInterface } from "../../types/accounts";
 import { formatDate } from "../../utils/date";
 import { formatCurrency } from "../../utils/currency";
@@ -39,6 +39,18 @@ export function AccountTable({
     const { currency: userCurrency } = useCurrency();
     const [sortField, setSortField] = useState<SortField>('bankName');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+    const [isMobile, setIsMobile] = useState(false);
+
+    // Mobile detection
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     const sortedAccounts = useMemo(() => {
         const sorted = [...accounts].sort((a, b) => {
@@ -98,6 +110,12 @@ export function AccountTable({
         }
     };
 
+    const handleBulkDelete = () => {
+        if (onBulkDelete && selectedAccounts.size > 0) {
+            onBulkDelete();
+        }
+    };
+
     const isAllSelected = selectedAccounts.size === accounts.length && accounts.length > 0;
     const isPartiallySelected = selectedAccounts.size > 0 && selectedAccounts.size < accounts.length;
 
@@ -135,6 +153,159 @@ export function AccountTable({
         );
     }
 
+    // Mobile Card View
+    if (isMobile) {
+        return (
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-200">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-lg font-semibold text-gray-900">
+                            Bank Accounts ({accounts.length})
+                        </h2>
+                    </div>
+                </div>
+
+                {/* Bulk Actions */}
+                {showBulkActions && selectedAccounts.size > 0 && (
+                    <div className="bg-blue-50 border-b border-blue-200 px-4 py-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-blue-900">
+                                {selectedAccounts.size} selected
+                            </span>
+                            <div className="flex space-x-2">
+                                <button
+                                    onClick={handleBulkDelete}
+                                    className="px-3 py-1 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors"
+                                >
+                                    Delete Selected
+                                </button>
+                                <button
+                                    onClick={onClearSelection}
+                                    className="px-3 py-1 bg-gray-600 text-white rounded-md text-sm font-medium hover:bg-gray-700 transition-colors"
+                                >
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Mobile Cards */}
+                <div className="divide-y divide-gray-200">
+                    {sortedAccounts.map((account) => (
+                        <div key={account.id} className="p-4 hover:bg-gray-50">
+                            <div className="flex items-start space-x-3">
+                                {/* Checkbox */}
+                                {showBulkActions && (
+                                    <div className="flex-shrink-0 pt-1">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedAccounts.has(account.id)}
+                                            onChange={() => {
+                                                if (onAccountSelect) {
+                                                    onAccountSelect(account.id, !selectedAccounts.has(account.id));
+                                                }
+                                            }}
+                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                        />
+                                    </div>
+                                )}
+                                
+                                {/* Main Content */}
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex-1 min-w-0">
+                                            {/* Bank Name and Nickname */}
+                                            <div className="flex items-center space-x-2 mb-1">
+                                                <h3 className="text-sm font-semibold text-gray-900 truncate">
+                                                    {account.bankName}
+                                                </h3>
+                                                {account.nickname && (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                        {account.nickname}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            
+                                            {/* Account Holder */}
+                                            <p className="text-sm text-gray-600 mb-2">
+                                                {account.holderName} • {account.accountType}
+                                            </p>
+                                            
+                                            {/* Account Number and Balance Row */}
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-sm text-gray-500 font-mono">
+                                                    {account.accountNumber}
+                                                </span>
+                                                <div className="text-lg font-bold text-green-600">
+                                                    {account.balance !== undefined ? (
+                                                        formatCurrency(account.balance, userCurrency)
+                                                    ) : (
+                                                        <span className="text-gray-400 text-sm">No balance</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Branch Info */}
+                                            <div className="mb-2">
+                                                <p className="text-sm text-gray-600">
+                                                    {account.branchName}
+                                                    {account.branchCode && (
+                                                        <span className="text-gray-500"> • IFSC: {account.branchCode}</span>
+                                                    )}
+                                                </p>
+                                            </div>
+                                            
+                                            {/* Opening Date */}
+                                            <div className="mb-3">
+                                                <p className="text-xs text-gray-500">
+                                                    Opened: {formatDate(account.accountOpeningDate)}
+                                                </p>
+                                            </div>
+                                            
+                                            {/* Action Buttons */}
+                                            <div className="flex space-x-2">
+                                                {onShare && (
+                                                    <button 
+                                                        onClick={() => onShare(account)}
+                                                        className="flex-1 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-md transition-colors text-center"
+                                                    >
+                                                        Share
+                                                    </button>
+                                                )}
+                                                {onViewDetails && (
+                                                    <button 
+                                                        onClick={() => onViewDetails(account)}
+                                                        className="flex-1 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md transition-colors text-center"
+                                                    >
+                                                        View
+                                                    </button>
+                                                )}
+                                                <button 
+                                                    onClick={() => onEdit && onEdit(account)}
+                                                    className="flex-1 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors text-center"
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button 
+                                                    onClick={() => onDelete && onDelete(account)}
+                                                    className="flex-1 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-md transition-colors text-center"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    // Desktop Table View
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">

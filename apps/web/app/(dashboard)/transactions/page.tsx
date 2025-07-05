@@ -120,29 +120,29 @@ export default function TransactionsPage() {
             </div>
 
             {/* Summary Stats */}
-            <div className="bg-white rounded-lg shadow p-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div>
+            <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
+                    <div className="text-center sm:text-left">
                         <p className="text-sm font-medium text-gray-600">Net Amount</p>
-                        <p className={`text-2xl font-bold ${totalAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <p className={`text-lg sm:text-2xl font-bold ${totalAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {totalAmount >= 0 ? '+' : ''}{formatCurrency(totalAmount, userCurrency)}
                         </p>
                     </div>
-                    <div>
+                    <div className="text-center sm:text-left">
                         <p className="text-sm font-medium text-gray-600">Total Income</p>
-                        <p className="text-2xl font-bold text-green-600">
+                        <p className="text-lg sm:text-2xl font-bold text-green-600">
                             +{formatCurrency(totalIncome, userCurrency)}
                         </p>
                     </div>
-                    <div>
+                    <div className="text-center sm:text-left">
                         <p className="text-sm font-medium text-gray-600">Total Expenses</p>
-                        <p className="text-2xl font-bold text-red-600">
+                        <p className="text-lg sm:text-2xl font-bold text-red-600">
                             -{formatCurrency(totalExpenses, userCurrency)}
                         </p>
                     </div>
-                    <div>
+                    <div className="text-center sm:text-left">
                         <p className="text-sm font-medium text-gray-600">Transaction Count</p>
-                        <p className="text-2xl font-bold text-gray-900">{filteredTransactions.length}</p>
+                        <p className="text-lg sm:text-2xl font-bold text-gray-900">{filteredTransactions.length}</p>
                     </div>
                 </div>
             </div>
