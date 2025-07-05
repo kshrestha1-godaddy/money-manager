@@ -11,6 +11,7 @@ export function AccountCard({
     onEdit, 
     onDelete, 
     onViewDetails,
+    onShare,
     isSelected = false,
     onSelect,
     showCheckbox = false 
@@ -19,6 +20,7 @@ export function AccountCard({
     onEdit?: (account: AccountInterface) => void;
     onDelete?: (account: AccountInterface) => void;
     onViewDetails?: (account: AccountInterface) => void;
+    onShare?: (account: AccountInterface) => void;
     isSelected?: boolean;
     onSelect?: (accountId: number, selected: boolean) => void;
     showCheckbox?: boolean;
@@ -87,14 +89,24 @@ export function AccountCard({
 
             {/* Action Buttons */}
             <div className="flex justify-between items-center pt-4 border-t">
-                {onViewDetails && (
-                    <button
-                        onClick={() => onViewDetails(account)}
-                        className="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
-                    >
-                        View Details
-                    </button>
-                )}
+                <div className="flex space-x-2">
+                    {onShare && (
+                        <button
+                            onClick={() => onShare(account)}
+                            className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
+                        >
+                            Share
+                        </button>
+                    )}
+                    {onViewDetails && (
+                        <button
+                            onClick={() => onViewDetails(account)}
+                            className="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                        >
+                            View Details
+                        </button>
+                    )}
+                </div>
                 
                 {(onEdit || onDelete) && (
                     <div className="flex space-x-2">
@@ -126,6 +138,7 @@ export function AccountGrid({
     onEdit, 
     onDelete, 
     onViewDetails,
+    onShare,
     selectedAccounts = new Set(),
     onAccountSelect,
     showBulkActions = false 
@@ -134,6 +147,7 @@ export function AccountGrid({
     onEdit?: (account: AccountInterface) => void;
     onDelete?: (account: AccountInterface) => void;
     onViewDetails?: (account: AccountInterface) => void;
+    onShare?: (account: AccountInterface) => void;
     selectedAccounts?: Set<number>;
     onAccountSelect?: (accountId: number, selected: boolean) => void;
     showBulkActions?: boolean;
@@ -147,6 +161,7 @@ export function AccountGrid({
                     onEdit={onEdit} 
                     onDelete={onDelete} 
                     onViewDetails={onViewDetails}
+                    onShare={onShare}
                     isSelected={selectedAccounts.has(acc.id)}
                     onSelect={onAccountSelect}
                     showCheckbox={showBulkActions}

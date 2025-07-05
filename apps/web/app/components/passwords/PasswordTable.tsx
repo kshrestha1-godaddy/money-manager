@@ -365,6 +365,8 @@ interface PasswordTableProps {
     showBulkActions?: boolean;
     onBulkDelete?: () => void;
     onClearSelection?: () => void;
+    hideHeader?: boolean;
+    hideCategoryColumn?: boolean;
 }
 
 type SortField = 'websiteName' | 'description' | 'username' | 'createdAt' | 'category' | 'notes';
@@ -379,7 +381,9 @@ export function PasswordTable({
     onSelectAll,
     showBulkActions = false,
     onBulkDelete,
-    onClearSelection 
+    onClearSelection,
+    hideHeader = false,
+    hideCategoryColumn = false
 }: PasswordTableProps) {
     const [sortField, setSortField] = useState<SortField>('websiteName');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -497,14 +501,32 @@ export function PasswordTable({
     };
 
     const handleSelectAll = () => {
-        const allSelected = selectedPasswords.size === passwords.length;
-        if (onSelectAll) {
-            onSelectAll(!allSelected);
+        // Get current category passwords IDs
+        const currentPasswordIds = passwords.map(p => p.id);
+        
+        // Check if all passwords in this category are selected
+        const allCurrentSelected = currentPasswordIds.every(id => selectedPasswords.has(id));
+        
+        if (onPasswordSelect) {
+            if (allCurrentSelected) {
+                // Deselect all passwords in this category
+                currentPasswordIds.forEach(id => {
+                    onPasswordSelect(id, false);
+                });
+            } else {
+                // Select all passwords in this category
+                currentPasswordIds.forEach(id => {
+                    onPasswordSelect(id, true);
+                });
+            }
         }
     };
 
-    const isAllSelected = selectedPasswords.size === passwords.length && passwords.length > 0;
-    const isPartiallySelected = selectedPasswords.size > 0 && selectedPasswords.size < passwords.length;
+    // Calculate selection state based on current table's passwords only
+    const currentPasswordIds = passwords.map(p => p.id);
+    const selectedInCurrentTable = currentPasswordIds.filter(id => selectedPasswords.has(id));
+    const isAllSelected = selectedInCurrentTable.length === passwords.length && passwords.length > 0;
+    const isPartiallySelected = selectedInCurrentTable.length > 0 && selectedInCurrentTable.length < passwords.length;
 
     const getSortIcon = (field: SortField) => {
         if (sortField !== field) {
@@ -549,30 +571,32 @@ export function PasswordTable({
     }
 
     return (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
-                <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-semibold text-gray-900">
-                        Saved Passwords ({passwords.length})
-                    </h2>
-                    {showBulkActions && selectedPasswords.size > 0 && (
-                        <div className="flex space-x-2">
-                            <button
-                                onClick={onClearSelection}
-                                className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors"
-                            >
-                                Clear Selection
-                            </button>
-                            <button
-                                onClick={onBulkDelete}
-                                className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
-                            >
-                                Delete Selected ({selectedPasswords.size})
-                            </button>
-                        </div>
-                    )}
+        <div className={hideHeader ? "" : "bg-white rounded-lg shadow overflow-hidden"}>
+            {!hideHeader && (
+                <div className="px-6 py-4 border-b border-gray-200">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-lg font-semibold text-gray-900">
+                            Saved Passwords ({passwords.length})
+                        </h2>
+                        {showBulkActions && selectedPasswords.size > 0 && (
+                            <div className="flex space-x-2">
+                                <button
+                                    onClick={onClearSelection}
+                                    className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors"
+                                >
+                                    Clear Selection
+                                </button>
+                                <button
+                                    onClick={onBulkDelete}
+                                    className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                                >
+                                    Delete Selected ({selectedPasswords.size})
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
             <div className="overflow-x-auto">
                 <table ref={tableRef} className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -622,17 +646,19 @@ export function PasswordTable({
                                 </div>
                                 <Resizer column="password" />
                             </th>
-                            <th 
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative"
-                                onClick={() => handleSort('category')}
-                                style={{ width: `${columnWidths.category}px` }}
-                            >
-                                <div className="flex items-center space-x-1">
-                                    <span>Category</span>
-                                    {getSortIcon('category')}
-                                </div>
-                                <Resizer column="category" />
-                            </th>
+                            {!hideCategoryColumn && (
+                                <th 
+                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative"
+                                    onClick={() => handleSort('category')}
+                                    style={{ width: `${columnWidths.category}px` }}
+                                >
+                                    <div className="flex items-center space-x-1">
+                                        <span>Category</span>
+                                        {getSortIcon('category')}
+                                    </div>
+                                    <Resizer column="category" />
+                                </th>
+                            )}
                             <th 
                                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative"
                                 onClick={() => handleSort('notes')}
@@ -675,6 +701,7 @@ export function PasswordTable({
                                 showCheckbox={showBulkActions}
                                 onView={() => setViewingPassword(password)}
                                 columnWidths={columnWidths}
+                                hideCategoryColumn={hideCategoryColumn}
                             />
                         ))}
                     </tbody>
@@ -701,7 +728,8 @@ function PasswordRow({
     onSelect, 
     showCheckbox = false,
     onView,
-    columnWidths
+    columnWidths,
+    hideCategoryColumn = false
 }: { 
     password: PasswordInterface;
     onEdit?: (password: PasswordInterface) => void;
@@ -720,6 +748,7 @@ function PasswordRow({
         date: number;
         actions: number;
     };
+    hideCategoryColumn?: boolean;
 }) {
     const handleEdit = () => {
         if (onEdit) {
@@ -785,15 +814,17 @@ function PasswordRow({
                 </div>
             </td>
             
-            <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.category}px` }}>
-                {password.category ? (
-                    <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700">
-                        {password.category}
-                    </span>
-                ) : (
-                    <span className="text-gray-400">-</span>
-                )}
-            </td>
+            {!hideCategoryColumn && (
+                <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.category}px` }}>
+                    {password.category ? (
+                        <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700">
+                            {password.category}
+                        </span>
+                    ) : (
+                        <span className="text-gray-400">-</span>
+                    )}
+                </td>
+            )}
             <td className="px-6 py-4" style={{ width: `${columnWidths.notes}px` }}>
                 {password.notes ? (
                     <div className="max-w-[200px] text-sm text-gray-600">

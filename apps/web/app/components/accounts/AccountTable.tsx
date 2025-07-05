@@ -11,6 +11,7 @@ interface AccountTableProps {
     onEdit?: (account: AccountInterface) => void;
     onDelete?: (account: AccountInterface) => void;
     onViewDetails?: (account: AccountInterface) => void;
+    onShare?: (account: AccountInterface) => void;
     selectedAccounts?: Set<number>;
     onAccountSelect?: (accountId: number, selected: boolean) => void;
     onSelectAll?: (selected: boolean) => void;
@@ -27,6 +28,7 @@ export function AccountTable({
     onEdit, 
     onDelete, 
     onViewDetails,
+    onShare,
     selectedAccounts = new Set(),
     onAccountSelect,
     onSelectAll,
@@ -234,6 +236,7 @@ export function AccountTable({
                                 onEdit={onEdit}
                                 onDelete={onDelete}
                                 onViewDetails={onViewDetails}
+                                onShare={onShare}
                                 isSelected={selectedAccounts.has(account.id)}
                                 onSelect={onAccountSelect}
                                 showCheckbox={showBulkActions}
@@ -246,12 +249,13 @@ export function AccountTable({
     );
 }
 
-function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, isSelected = false, onSelect, showCheckbox = false }: { 
+function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShare, isSelected = false, onSelect, showCheckbox = false }: { 
     account: AccountInterface;
     currency: string;
     onEdit?: (account: AccountInterface) => void;
     onDelete?: (account: AccountInterface) => void;
     onViewDetails?: (account: AccountInterface) => void;
+    onShare?: (account: AccountInterface) => void;
     isSelected?: boolean;
     onSelect?: (accountId: number, selected: boolean) => void;
     showCheckbox?: boolean;
@@ -271,6 +275,12 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, isSele
     const handleViewDetails = () => {
         if (onViewDetails) {
             onViewDetails(account);
+        }
+    };
+
+    const handleShare = () => {
+        if (onShare) {
+            onShare(account);
         }
     };
 
@@ -335,6 +345,14 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, isSele
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <div className="flex justify-end space-x-2">
+                    {onShare && (
+                        <button 
+                            onClick={handleShare}
+                            className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-green-600 bg-green-50 hover:bg-green-100 hover:text-green-800 transition-colors"
+                        >
+                            Share
+                        </button>
+                    )}
                     {onViewDetails && (
                         <button 
                             onClick={handleViewDetails}

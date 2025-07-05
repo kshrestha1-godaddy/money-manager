@@ -9,6 +9,7 @@ import { AddAccountModal } from "../../components/accounts/AddAccountModal";
 import { EditAccountModal } from "../../components/accounts/EditAccountModal";
 import { DeleteAccountModal } from "../../components/accounts/DeleteAccountModal";
 import { ViewAccountModal } from "../../components/accounts/ViewAccountModal";
+import { ShareAccountModal } from "../../components/accounts/ShareAccountModal";
 import { getUserAccounts, createAccount, updateAccount, deleteAccount, bulkDeleteAccounts } from "../../actions/accounts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
@@ -25,11 +26,13 @@ export default function Accounts() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [selectedAccounts, setSelectedAccounts] = useState<Set<number>>(new Set());
     const [accountToEdit, setAccountToEdit] = useState<AccountInterface | null>(null);
     const [accountToDelete, setAccountToDelete] = useState<AccountInterface | null>(null);
     const [accountToView, setAccountToView] = useState<AccountInterface | null>(null);
+    const [accountToShare, setAccountToShare] = useState<AccountInterface | null>(null);
     const [viewMode, setViewMode] = useState<"cards" | "table">("table");
     const { currency: userCurrency } = useCurrency();
 
@@ -118,6 +121,11 @@ export default function Accounts() {
     const openViewModal = (account: AccountInterface) => {
         setAccountToView(account);
         setIsViewModalOpen(true);
+    };
+
+    const openShareModal = (account: AccountInterface) => {
+        setAccountToShare(account);
+        setIsShareModalOpen(true);
     };
 
     const handleExportToCSV = () => {
@@ -312,6 +320,7 @@ export default function Accounts() {
                             onEdit={openEditModal}
                             onDelete={openDeleteModal}
                             onViewDetails={openViewModal}
+                            onShare={openShareModal}
                             selectedAccounts={selectedAccounts}
                             onAccountSelect={handleAccountSelect}
                             onSelectAll={handleSelectAll}
@@ -326,6 +335,7 @@ export default function Accounts() {
                             onEdit={openEditModal}
                             onDelete={openDeleteModal}
                             onViewDetails={openViewModal}
+                            onShare={openShareModal}
                             selectedAccounts={selectedAccounts}
                             onAccountSelect={handleAccountSelect}
                             onSelectAll={handleSelectAll}
@@ -375,6 +385,16 @@ export default function Accounts() {
                     setAccountToView(null);
                 }}
                 account={accountToView}
+            />
+
+            {/* Share Account Modal */}
+            <ShareAccountModal
+                isOpen={isShareModalOpen}
+                onClose={() => {
+                    setIsShareModalOpen(false);
+                    setAccountToShare(null);
+                }}
+                account={accountToShare}
             />
 
             {/* Import Account Modal */}

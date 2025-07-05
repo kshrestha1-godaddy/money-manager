@@ -9,6 +9,7 @@ export function AccountList({
   onEdit, 
   onDelete, 
   onViewDetails,
+  onShare,
   selectedAccounts = new Set(),
   onAccountSelect,
   onSelectAll,
@@ -20,6 +21,7 @@ export function AccountList({
   onEdit?: (account: AccountInterface) => void;
   onDelete?: (account: AccountInterface) => void;
   onViewDetails?: (account: AccountInterface) => void;
+  onShare?: (account: AccountInterface) => void;
   selectedAccounts?: Set<number>;
   onAccountSelect?: (accountId: number, selected: boolean) => void;
   onSelectAll?: (selected: boolean) => void;
@@ -80,6 +82,7 @@ export function AccountList({
         onEdit={onEdit} 
         onDelete={onDelete} 
         onViewDetails={onViewDetails}
+        onShare={onShare}
         selectedAccounts={selectedAccounts}
         onAccountSelect={onAccountSelect}
         showBulkActions={showBulkActions}

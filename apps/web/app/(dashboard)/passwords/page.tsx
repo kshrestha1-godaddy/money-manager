@@ -41,6 +41,31 @@ export default function PasswordsPage() {
         }
     };
 
+    // Group passwords by category
+    const groupedPasswords = React.useMemo(() => {
+        const groups: { [key: string]: PasswordInterface[] } = {};
+        
+        passwords.forEach(password => {
+            const category = password.category || 'Uncategorized';
+            if (!groups[category]) {
+                groups[category] = [];
+            }
+            groups[category].push(password);
+        });
+        
+        // Sort categories alphabetically, but put 'Uncategorized' at the end
+        const sortedCategories = Object.keys(groups).sort((a, b) => {
+            if (a === 'Uncategorized') return 1;
+            if (b === 'Uncategorized') return -1;
+            return a.localeCompare(b);
+        });
+        
+        return sortedCategories.map(category => ({
+            category,
+            passwords: groups[category]
+        }));
+    }, [passwords]);
+
     const handleAddPassword = async (data: any) => {
         try {
             const newPassword = await createPassword(data);
@@ -219,37 +244,29 @@ export default function PasswordsPage() {
                 </div>
             </div>
 
-            {/* Bulk actions - Only show in grid view */}
-            {viewMode === 'grid' && passwords.length > 0 && (
+            {/* Global bulk actions - Only show in grid view */}
+            {viewMode === 'grid' && passwords.length > 0 && selectedPasswords.size > 0 && (
                 <div className="bg-white rounded-lg shadow p-4">
                     <div className="flex justify-between items-center">
                         <div className="flex items-center space-x-4">
-                            <input
-                                type="checkbox"
-                                checked={selectedPasswords.size === passwords.length && passwords.length > 0}
-                                onChange={(e) => selectAllPasswords(e.target.checked)}
-                                className="h-4 w-4 text-gray-600 focus:ring-gray-500 border-gray-300 rounded"
-                            />
                             <span className="text-sm text-gray-700">
-                                {selectedPasswords.size > 0 ? `${selectedPasswords.size} selected` : 'Select all'}
+                                {selectedPasswords.size} password{selectedPasswords.size !== 1 ? 's' : ''} selected across all categories
                             </span>
                         </div>
-                        {selectedPasswords.size > 0 && (
-                            <div className="flex space-x-2">
-                                <button
-                                    onClick={clearSelection}
-                                    className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors"
-                                >
-                                    Clear Selection
-                                </button>
-                                <button
-                                    onClick={deleteBulkPasswords}
-                                    className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
-                                >
-                                    Delete Selected ({selectedPasswords.size})
-                                </button>
-                            </div>
-                        )}
+                        <div className="flex space-x-2">
+                            <button
+                                onClick={clearSelection}
+                                className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors"
+                            >
+                                Clear All Selections
+                            </button>
+                            <button
+                                onClick={deleteBulkPasswords}
+                                className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                            >
+                                Delete Selected ({selectedPasswords.size})
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -293,17 +310,90 @@ export default function PasswordsPage() {
                             showBulkActions={true}
                         />
                     ) : (
-                        <PasswordTable
-                            passwords={passwords}
-                            onEdit={handleEditPassword}
-                            onDelete={handleDeletePassword}
-                            selectedPasswords={selectedPasswords}
-                            onPasswordSelect={handlePasswordSelect}
-                            onSelectAll={selectAllPasswords}
-                            showBulkActions={true}
-                            onBulkDelete={deleteBulkPasswords}
-                            onClearSelection={clearSelection}
-                        />
+                        <div className="space-y-6">
+                            {groupedPasswords.map(({ category, passwords: categoryPasswords }) => {
+                                if (!categoryPasswords || categoryPasswords.length === 0) return null;
+                                
+                                return (
+                                    <div key={category} className="bg-white rounded-lg shadow overflow-hidden">
+                                        {/* Category Header */}
+                                        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center space-x-3">
+                                                    <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                                        </svg>
+                                                    </div>
+                                                    <h3 className="text-lg font-semibold text-gray-900 capitalize">
+                                                        {category.replace(/_/g, ' ')}
+                                                    </h3>
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                        {categoryPasswords.length} password{categoryPasswords.length !== 1 ? 's' : ''}
+                                                    </span>
+                                                </div>
+                                                
+                                                {/* Category-specific bulk actions */}
+                                                {(() => {
+                                                    const categoryPasswordIds = categoryPasswords.map(p => p.id);
+                                                    const selectedInCategory = categoryPasswordIds.filter(id => selectedPasswords.has(id));
+                                                    
+                                                    return selectedInCategory.length > 0 ? (
+                                                        <div className="flex space-x-2">
+                                                            <button
+                                                                onClick={() => {
+                                                                    // Clear selection for this category only
+                                                                    categoryPasswordIds.forEach(id => {
+                                                                        if (selectedPasswords.has(id)) {
+                                                                            handlePasswordSelect(id, false);
+                                                                        }
+                                                                    });
+                                                                }}
+                                                                className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors"
+                                                            >
+                                                                Clear Selection
+                                                            </button>
+                                                            <button
+                                                                onClick={async () => {
+                                                                    // Delete selected passwords in this category
+                                                                    try {
+                                                                        await Promise.all(selectedInCategory.map(id => deletePassword(id)));
+                                                                        setPasswords(prev => prev.filter(p => !selectedInCategory.includes(p.id)));
+                                                                        // Clear selection for deleted passwords
+                                                                        setSelectedPasswords(prev => {
+                                                                            const newSet = new Set(prev);
+                                                                            selectedInCategory.forEach(id => newSet.delete(id));
+                                                                            return newSet;
+                                                                        });
+                                                                    } catch (error) {
+                                                                        console.error("Error deleting passwords:", error);
+                                                                    }
+                                                                }}
+                                                                className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                                                            >
+                                                                Delete Selected ({selectedInCategory.length})
+                                                            </button>
+                                                        </div>
+                                                    ) : null;
+                                                })()}
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Category Table */}
+                                        <PasswordTable
+                                            passwords={categoryPasswords}
+                                            onEdit={handleEditPassword}
+                                            onDelete={handleDeletePassword}
+                                            selectedPasswords={selectedPasswords}
+                                            onPasswordSelect={handlePasswordSelect}
+                                            showBulkActions={true}
+                                            hideHeader={true}
+                                            hideCategoryColumn={true}
+                                        />
+                                    </div>
+                                );
+                            })}
+                        </div>
                     )}
                 </>
             )}
