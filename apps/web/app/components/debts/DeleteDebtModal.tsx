@@ -3,6 +3,7 @@
 import { DebtInterface } from "../../types/debts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
+import { calculateRemainingWithInterest } from "../../utils/interestCalculation";
 
 interface DeleteDebtModalProps {
     isOpen: boolean;
@@ -17,7 +18,15 @@ export function DeleteDebtModal({ isOpen, onClose, onConfirm, debt }: DeleteDebt
     if (!isOpen || !debt) return null;
 
     const totalRepayments = debt.repayments?.reduce((sum, repayment) => sum + repayment.amount, 0) || 0;
-    const remainingAmount = debt.amount - totalRepayments;
+    const remainingWithInterest = calculateRemainingWithInterest(
+        debt.amount,
+        debt.interestRate,
+        debt.lentDate,
+        debt.dueDate,
+        debt.repayments || [],
+        new Date()
+    );
+    const remainingAmount = remainingWithInterest.remainingAmount;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

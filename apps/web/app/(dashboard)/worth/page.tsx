@@ -18,6 +18,7 @@ import { formatCurrency, getCurrencySymbol } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
 import { ChartControls } from "../../components/ChartControls";
 import { useChartExpansion } from "../../utils/chartUtils";
+import { calculateRemainingWithInterest } from "../../utils/interestCalculation";
 
 export default function NetWorthPage() {
     const session = useSession();
@@ -111,11 +112,17 @@ export default function NetWorthPage() {
             sum + (investment.quantity * investment.currentPrice), 0
         );
         
-        // 3. Total money lent from debts tab (outstanding amounts owed to you)
+        // 3. Total money lent from debts tab (outstanding amounts owed to you including interest)
         const totalMoneyLent = debts.reduce((sum: number, debt: DebtInterface) => {
-            const totalRepayments = debt.repayments?.reduce((repSum: number, rep: any) => repSum + rep.amount, 0) || 0;
-            const remainingAmount = debt.amount - totalRepayments;
-            return sum + Math.max(0, remainingAmount); // Only count positive remaining amounts
+            const remainingWithInterest = calculateRemainingWithInterest(
+                debt.amount,
+                debt.interestRate,
+                debt.lentDate,
+                debt.dueDate,
+                debt.repayments || [],
+                new Date()
+            );
+            return sum + Math.max(0, remainingWithInterest.remainingAmount); // Only count positive remaining amounts
         }, 0);
         
         const totalAssets = totalAccountBalance + totalInvestmentValue + totalMoneyLent;
@@ -246,8 +253,15 @@ export default function NetWorthPage() {
     // Memoized filtered debts for money lent section
     const outstandingDebts = useMemo(() => {
         return debts.filter(debt => {
-            const totalRepayments = debt.repayments?.reduce((sum: number, rep: any) => sum + rep.amount, 0) || 0;
-            return debt.amount - totalRepayments > 0;
+            const remainingWithInterest = calculateRemainingWithInterest(
+                debt.amount,
+                debt.interestRate,
+                debt.lentDate,
+                debt.dueDate,
+                debt.repayments || [],
+                new Date()
+            );
+            return remainingWithInterest.remainingAmount > 0;
         });
     }, [debts]);
 
@@ -974,7 +988,15 @@ export default function NetWorthPage() {
                         <div className="md:hidden divide-y-2 divide-gray-100">
                             {outstandingDebts.map((debt) => {
                                 const totalRepayments = debt.repayments?.reduce((sum: number, rep: any) => sum + rep.amount, 0) || 0;
-                                const remainingAmount = debt.amount - totalRepayments;
+                                const remainingWithInterest = calculateRemainingWithInterest(
+                                    debt.amount,
+                                    debt.interestRate,
+                                    debt.lentDate,
+                                    debt.dueDate,
+                                    debt.repayments || [],
+                                    new Date()
+                                );
+                                const remainingAmount = remainingWithInterest.remainingAmount;
                                 const isOverdue = debt.dueDate && new Date(debt.dueDate) < new Date();
                                 
                                 return (
@@ -1008,18 +1030,18 @@ export default function NetWorthPage() {
                                             <div className="flex justify-between items-center">
                                                 <span className="text-xs text-gray-500">Repayment Progress</span>
                                                 <span className="text-xs text-gray-700 font-medium">
-                                                    {((totalRepayments / debt.amount) * 100).toFixed(1)}%
+                                                    {remainingWithInterest.totalWithInterest > 0 ? ((totalRepayments / remainingWithInterest.totalWithInterest) * 100).toFixed(1) : '0.0'}%
                                                 </span>
                                             </div>
                                             <div className="w-full bg-gray-200 rounded-full h-2">
                                                 <div 
                                                     className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                                                    style={{ width: `${Math.min((totalRepayments / debt.amount) * 100, 100)}%` }}
+                                                    style={{ width: `${remainingWithInterest.totalWithInterest > 0 ? Math.min((totalRepayments / remainingWithInterest.totalWithInterest) * 100, 100) : 0}%` }}
                                                 ></div>
                                             </div>
                                             <div className="flex justify-between text-xs text-gray-500">
                                                 <span>Repaid: {formatCurrency(totalRepayments, currency)}</span>
-                                                <span>Total: {formatCurrency(debt.amount, currency)}</span>
+                                                <span>Total: {formatCurrency(remainingWithInterest.totalWithInterest, currency)}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -1047,7 +1069,7 @@ export default function NetWorthPage() {
                                             Purpose
                                         </th>
                                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Original Amount
+                                            Total Amount
                                         </th>
                                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Repaid
@@ -1066,7 +1088,15 @@ export default function NetWorthPage() {
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {outstandingDebts.map((debt) => {
                                         const totalRepayments = debt.repayments?.reduce((sum: number, rep: any) => sum + rep.amount, 0) || 0;
-                                        const remainingAmount = debt.amount - totalRepayments;
+                                        const remainingWithInterest = calculateRemainingWithInterest(
+                                            debt.amount,
+                                            debt.interestRate,
+                                            debt.lentDate,
+                                            debt.dueDate,
+                                            debt.repayments || [],
+                                            new Date()
+                                        );
+                                        const remainingAmount = remainingWithInterest.remainingAmount;
                                         const isOverdue = debt.dueDate && new Date(debt.dueDate) < new Date();
                                         
                                         return (
@@ -1087,7 +1117,7 @@ export default function NetWorthPage() {
                                                     {debt.purpose || '-'}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                                                    {formatCurrency(debt.amount, currency)}
+                                                    {formatCurrency(remainingWithInterest.totalWithInterest, currency)}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                                                     {formatCurrency(totalRepayments, currency)}

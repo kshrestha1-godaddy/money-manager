@@ -5,6 +5,7 @@ import React, { useState } from "react";
 import { DebtInterface } from "../../types/debts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
+import { calculateRemainingWithInterest } from "../../utils/interestCalculation";
 
 export function DebtCard({ 
     debt, 
@@ -33,9 +34,17 @@ export function DebtCard({
         }
     };
 
-    // Calculate remaining amount
+    // Calculate remaining amount including interest
     const totalRepayments = debt.repayments?.reduce((sum, repayment) => sum + repayment.amount, 0) || 0;
-    const remainingAmount = debt.amount - totalRepayments;
+    const remainingWithInterest = calculateRemainingWithInterest(
+        debt.amount,
+        debt.interestRate,
+        debt.lentDate,
+        debt.dueDate,
+        debt.repayments || [],
+        new Date()
+    );
+    const remainingAmount = remainingWithInterest.remainingAmount;
 
     // Get status color
     const getStatusColor = (status: string) => {
@@ -91,13 +100,13 @@ export function DebtCard({
                         {debt.status.replace('_', ' ')}
                     </span>
                     <span className="text-sm text-gray-600">
-                        {((totalRepayments / debt.amount) * 100).toFixed(1)}% repaid
+                        {remainingWithInterest.totalWithInterest > 0 ? ((totalRepayments / remainingWithInterest.totalWithInterest) * 100).toFixed(1) : '0.0'}% repaid
                     </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                     <div 
                         className="bg-green-600 h-2 rounded-full transition-all duration-300" 
-                        style={{ width: `${Math.min((totalRepayments / debt.amount) * 100, 100)}%` }}
+                        style={{ width: `${remainingWithInterest.totalWithInterest > 0 ? Math.min((totalRepayments / remainingWithInterest.totalWithInterest) * 100, 100) : 0}%` }}
                     ></div>
                 </div>
             </div>
@@ -111,6 +120,16 @@ export function DebtCard({
                 <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Interest Rate:</span>
                     <span className="text-sm font-medium text-gray-900">{debt.interestRate}%</span>
+                </div>
+                {remainingWithInterest.interestAmount > 0 && (
+                    <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Interest Amount:</span>
+                        <span className="text-sm font-medium text-orange-600">{formatCurrency(remainingWithInterest.interestAmount, userCurrency)}</span>
+                    </div>
+                )}
+                <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Total Amount:</span>
+                    <span className="text-sm font-medium text-gray-900">{formatCurrency(remainingWithInterest.totalWithInterest, userCurrency)}</span>
                 </div>
                 <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Lent Date:</span>

@@ -12,6 +12,7 @@ import {
 } from "../utils/auth";
 import { parseDebtsCSV, ParsedDebtData, parseRepaymentsCSV, ParsedRepaymentData } from "../utils/csvImportDebts";
 import { ImportResult } from "../types/bulkImport";
+import { calculateRemainingWithInterest } from "../utils/interestCalculation";
 
 export async function getUserDebts(): Promise<{ data?: DebtInterface[], error?: string }> {
     try {
@@ -369,17 +370,25 @@ export async function addRepayment(debtId: number, amount: number, notes?: strin
                 throw new Error("Debt not found or unauthorized");
             }
 
-            // Calculate total repayments so far
-            const totalRepayments = existingDebt.repayments.reduce((sum, repayment) => {
-                return sum + decimalToNumber(repayment.amount, 'repayment amount');
-            }, 0);
-
+            // Calculate remaining debt including interest
             const debtAmount = decimalToNumber(existingDebt.amount, 'debt amount');
-            const remainingDebt = debtAmount - totalRepayments;
+            const interestRate = decimalToNumber(existingDebt.interestRate, 'interest rate');
+            
+            const remainingWithInterest = calculateRemainingWithInterest(
+                debtAmount,
+                interestRate,
+                existingDebt.lentDate,
+                existingDebt.dueDate || undefined,
+                existingDebt.repayments.map(r => ({ amount: decimalToNumber(r.amount, 'repayment amount') })),
+                new Date()
+            );
 
-            // Check if repayment amount is valid
-            if (amount > remainingDebt) {
-                throw new Error(`Repayment amount ($${amount}) exceeds remaining debt ($${remainingDebt.toFixed(2)})`);
+            // Round both amounts to 2 decimal places for proper comparison
+            const roundedAmount = Math.round(amount * 100) / 100;
+            const roundedRemaining = Math.round(remainingWithInterest.remainingAmount * 100) / 100;
+            
+            if (roundedAmount > roundedRemaining) {
+                throw new Error(`Repayment amount ($${roundedAmount}) exceeds remaining debt ($${roundedRemaining.toFixed(2)})`);
             }
 
             // Validate account exists if accountId is provided
@@ -406,13 +415,20 @@ export async function addRepayment(debtId: number, amount: number, notes?: strin
             });
 
             // Calculate new total repayments including the new repayment
-            const newTotalRepayments = totalRepayments + amount;
+            const currentTotalRepayments = existingDebt.repayments.reduce((sum, repayment) => {
+                return sum + decimalToNumber(repayment.amount, 'repayment amount');
+            }, 0);
+            const newTotalRepayments = currentTotalRepayments + amount;
             
-            // Update debt status based on total repayments
+            // Update debt status based on total repayments compared to total amount with interest
+            // Round both amounts to 2 decimal places for proper comparison
+            const roundedTotalRepayments = Math.round(newTotalRepayments * 100) / 100;
+            const roundedTotalWithInterest = Math.round(remainingWithInterest.totalWithInterest * 100) / 100;
+            
             let newStatus = existingDebt.status;
-            if (newTotalRepayments >= debtAmount) {
+            if (roundedTotalRepayments >= roundedTotalWithInterest) {
                 newStatus = 'FULLY_PAID';
-            } else if (newTotalRepayments > 0) {
+            } else if (roundedTotalRepayments > 0) {
                 newStatus = 'PARTIALLY_PAID';
             }
 
@@ -505,12 +521,27 @@ export async function deleteRepayment(repaymentId: number, debtId: number) {
                 return sum + decimalToNumber(repayment.amount, 'repayment amount');
             }, 0);
 
-            // Update debt status based on remaining repayments
+            // Update debt status based on remaining repayments (including interest)
             const debtAmount = decimalToNumber(existingDebt.amount, 'debt amount');
+            const interestRate = decimalToNumber(existingDebt.interestRate, 'interest rate');
+            
+            const remainingWithInterest = calculateRemainingWithInterest(
+                debtAmount,
+                interestRate,
+                existingDebt.lentDate,
+                existingDebt.dueDate || undefined,
+                remainingRepayments.map(r => ({ amount: decimalToNumber(r.amount, 'repayment amount') })),
+                new Date()
+            );
+            
+            // Round both amounts to 2 decimal places for proper comparison
+            const roundedTotalRepayments = Math.round(totalRemainingRepayments * 100) / 100;
+            const roundedTotalWithInterest = Math.round(remainingWithInterest.totalWithInterest * 100) / 100;
+            
             let newStatus = existingDebt.status;
-            if (totalRemainingRepayments >= debtAmount) {
+            if (roundedTotalRepayments >= roundedTotalWithInterest) {
                 newStatus = 'FULLY_PAID';
-            } else if (totalRemainingRepayments > 0) {
+            } else if (roundedTotalRepayments > 0) {
                 newStatus = 'PARTIALLY_PAID';
             } else {
                 newStatus = 'ACTIVE'; // Only change to ACTIVE if no repayments remain
@@ -735,17 +766,28 @@ export async function bulkImportRepayments(csvContent: string, debtIdMapping?: R
                         (sum, r) => sum + parseFloat(r.amount.toString()), 0
                     ) + repaymentData.amount;
 
-                    // Calculate total due amount
+                    // Calculate total due amount including interest
                     const debtAmount = parseFloat(debt.amount.toString());
                     const interestRate = parseFloat(debt.interestRate.toString());
-                    const interestAmount = (debtAmount * interestRate) / 100;
-                    const totalDue = debtAmount + interestAmount;
+                    
+                    const remainingWithInterest = calculateRemainingWithInterest(
+                        debtAmount,
+                        interestRate,
+                        debt.lentDate,
+                        debt.dueDate || undefined,
+                        debt.repayments.map(r => ({ amount: parseFloat(r.amount.toString()) })),
+                        new Date()
+                    );
 
                     // Update debt status based on repayment
+                    // Round both amounts to 2 decimal places for proper comparison
+                    const roundedTotalRepaid = Math.round(totalRepaid * 100) / 100;
+                    const roundedTotalWithInterest = Math.round(remainingWithInterest.totalWithInterest * 100) / 100;
+                    
                     let newStatus = debt.status;
-                    if (totalRepaid >= totalDue) {
+                    if (roundedTotalRepaid >= roundedTotalWithInterest) {
                         newStatus = 'FULLY_PAID';
-                    } else if (totalRepaid > 0) {
+                    } else if (roundedTotalRepaid > 0) {
                         newStatus = 'PARTIALLY_PAID';
                     }
 

@@ -7,6 +7,7 @@ import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { addRepayment } from "../../actions/debts";
 import { getUserAccounts } from "../../actions/accounts";
+import { calculateRemainingWithInterest } from "../../utils/interestCalculation";
 
 interface AddRepaymentModalProps {
     debt: DebtInterface | null;
@@ -33,6 +34,15 @@ export function AddRepaymentModal({ debt, isOpen, onClose, onSuccess }: AddRepay
     useEffect(() => {
         if (isOpen) {
             loadAccounts();
+        } else {
+            // Reset form when modal closes
+            setFormData({
+                amount: "",
+                repaymentDate: new Date().toISOString().split('T')[0],
+                notes: "",
+                accountId: "",
+            });
+            setError(null);
         }
     }, [isOpen]);
 
@@ -42,6 +52,13 @@ export function AddRepaymentModal({ debt, isOpen, onClose, onSuccess }: AddRepay
             const userAccounts = await getUserAccounts();
             if (userAccounts && !('error' in userAccounts)) {
                 setAccounts(userAccounts);
+                // Set the original account as default if it exists
+                if (debt?.accountId) {
+                    const originalAccount = userAccounts.find(account => account.id === debt.accountId);
+                    if (originalAccount) {
+                        setFormData(prev => ({ ...prev, accountId: debt.accountId!.toString() }));
+                    }
+                }
             } else {
                 console.error("Error loading accounts:", userAccounts?.error);
                 setAccounts([]);
@@ -56,9 +73,17 @@ export function AddRepaymentModal({ debt, isOpen, onClose, onSuccess }: AddRepay
 
     if (!isOpen || !debt) return null;
 
-    // Calculate remaining amount
+    // Calculate remaining amount including interest
     const totalRepayments = debt.repayments?.reduce((sum, repayment) => sum + repayment.amount, 0) || 0;
-    const remainingAmount = debt.amount - totalRepayments;
+    const remainingWithInterest = calculateRemainingWithInterest(
+        debt.amount,
+        debt.interestRate,
+        debt.lentDate,
+        debt.dueDate,
+        debt.repayments || [],
+        new Date()
+    );
+    const remainingAmount = remainingWithInterest.remainingAmount;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -91,8 +116,12 @@ export function AddRepaymentModal({ debt, isOpen, onClose, onSuccess }: AddRepay
                 throw new Error("Amount is too large");
             }
 
-            if (amount > remainingAmount) {
-                throw new Error(`Repayment amount cannot exceed remaining debt of ${formatCurrency(remainingAmount, userCurrency)}`);
+            // Round both amounts to 2 decimal places for proper comparison
+            const roundedAmount = Math.round(amount * 100) / 100;
+            const roundedRemaining = Math.round(remainingAmount * 100) / 100;
+            
+            if (roundedAmount > roundedRemaining) {
+                throw new Error(`Repayment amount cannot exceed remaining debt of ${formatCurrency(roundedRemaining, userCurrency)}`);
             }
 
             if (!formData.repaymentDate) {
@@ -131,14 +160,16 @@ export function AddRepaymentModal({ debt, isOpen, onClose, onSuccess }: AddRepay
 
     const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
-        // Allow only numbers and decimal point
-        if (value === "" || /^\d*\.?\d*$/.test(value)) {
+        // Allow only numbers and decimal point, with max 2 decimal places
+        if (value === "" || /^\d*\.?\d{0,2}$/.test(value)) {
             setFormData(prev => ({ ...prev, amount: value }));
         }
     };
 
     const setFullAmount = () => {
-        setFormData(prev => ({ ...prev, amount: remainingAmount.toString() }));
+        // Round to 2 decimal places to avoid floating-point precision issues
+        const roundedAmount = Math.round(remainingAmount * 100) / 100;
+        setFormData(prev => ({ ...prev, amount: roundedAmount.toFixed(2) }));
     };
 
     return (
@@ -169,6 +200,16 @@ export function AddRepaymentModal({ debt, isOpen, onClose, onSuccess }: AddRepay
                         <div className="flex justify-between items-center mb-2">
                             <span className="text-sm text-gray-600">Original Amount:</span>
                             <span className="font-medium text-gray-900">{formatCurrency(debt.amount, userCurrency)}</span>
+                        </div>
+                        {remainingWithInterest.interestAmount > 0 && (
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm text-gray-600">Interest ({debt.interestRate}%):</span>
+                                <span className="font-medium text-orange-600">{formatCurrency(remainingWithInterest.interestAmount, userCurrency)}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm text-gray-600">Total Amount{remainingWithInterest.interestAmount > 0 ? ' (with Interest)' : ''}:</span>
+                            <span className="font-medium text-gray-900">{formatCurrency(remainingWithInterest.totalWithInterest, userCurrency)}</span>
                         </div>
                         <div className="flex justify-between items-center mb-2">
                             <span className="text-sm text-gray-600">Total Repaid:</span>

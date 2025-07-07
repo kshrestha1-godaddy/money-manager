@@ -5,6 +5,7 @@ import { DebtInterface } from "../../types/debts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { deleteRepayment } from "../../actions/debts";
+import { calculateRemainingWithInterest } from "../../utils/interestCalculation";
 
 interface ViewDebtModalProps {
     debt: DebtInterface | null;
@@ -21,10 +22,18 @@ export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment, o
 
     if (!isOpen || !debt) return null;
 
-    // Calculate debt summary
+    // Calculate debt summary including interest
     const totalRepayments = debt.repayments?.reduce((sum, repayment) => sum + repayment.amount, 0) || 0;
-    const remainingAmount = debt.amount - totalRepayments;
-    const repaymentPercentage = ((totalRepayments / debt.amount) * 100);
+    const remainingWithInterest = calculateRemainingWithInterest(
+        debt.amount,
+        debt.interestRate,
+        debt.lentDate,
+        debt.dueDate,
+        debt.repayments || [],
+        new Date()
+    );
+    const remainingAmount = remainingWithInterest.remainingAmount;
+    const repaymentPercentage = remainingWithInterest.totalWithInterest > 0 ? ((totalRepayments / remainingWithInterest.totalWithInterest) * 100) : 0;
 
     // Get status color
     const getStatusColor = (status: string) => {
@@ -95,11 +104,17 @@ export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment, o
                 {/* Content */}
                 <div className="p-3 sm:p-6 overflow-y-auto max-h-[calc(95vh-6rem)] sm:max-h-[calc(90vh-8rem)]">
                     {/* Summary Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 mb-6 sm:mb-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
                         <div className="bg-blue-50 p-3 sm:p-4 rounded-lg">
                             <h3 className="text-xs sm:text-sm font-medium text-blue-700 mb-1">Original Amount</h3>
                             <p className="text-lg sm:text-2xl font-bold text-blue-900">{formatCurrency(debt.amount, userCurrency)}</p>
                         </div>
+                        {remainingWithInterest.interestAmount > 0 && (
+                            <div className="bg-orange-50 p-3 sm:p-4 rounded-lg">
+                                <h3 className="text-xs sm:text-sm font-medium text-orange-700 mb-1">Interest ({debt.interestRate}%)</h3>
+                                <p className="text-lg sm:text-2xl font-bold text-orange-900">{formatCurrency(remainingWithInterest.interestAmount, userCurrency)}</p>
+                            </div>
+                        )}
                         <div className="bg-green-50 p-3 sm:p-4 rounded-lg">
                             <h3 className="text-xs sm:text-sm font-medium text-green-700 mb-1">Repaid Amount</h3>
                             <p className="text-lg sm:text-2xl font-bold text-green-900">{formatCurrency(totalRepayments, userCurrency)}</p>
