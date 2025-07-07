@@ -424,7 +424,7 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
             {/* Chart */}
             <div 
                 ref={chartRef} 
-                className={isExpanded ? "h-[60vh] w-full" : "h-[40rem] w-full"}
+                className={isExpanded ? "h-[60vh] w-full" : "h-[30rem] sm:h-[40rem] w-full"}
                 role="img"
                 aria-label={`Monthly trend chart showing income, expenses, and savings ${timePeriodText.toLowerCase()}`}
             >
@@ -531,18 +531,18 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
             </div>
             
             {/* Custom Legend */}
-            <div className="flex justify-center items-center gap-6 mt-4">
+            <div className="flex justify-center items-center gap-3 sm:gap-6 mt-4">
                 <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-green-500 rounded"></div>
-                    <span className="text-sm text-gray-700">Income</span>
+                    <div className="w-3 h-3 sm:w-4 sm:h-4 bg-green-500 rounded"></div>
+                    <span className="text-xs sm:text-sm text-gray-700">Income</span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-red-500 rounded"></div>
-                    <span className="text-sm text-gray-700">Expenses</span>
+                    <div className="w-3 h-3 sm:w-4 sm:h-4 bg-red-500 rounded"></div>
+                    <span className="text-xs sm:text-sm text-gray-700">Expenses</span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-blue-500 rounded"></div>
-                    <span className="text-sm text-gray-700">Savings</span>
+                    <div className="w-3 h-3 sm:w-4 sm:h-4 bg-blue-500 rounded"></div>
+                    <span className="text-xs sm:text-sm text-gray-700">Savings</span>
                 </div>
             </div>
         </div>
@@ -565,7 +565,7 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
 
     return (
         <>
-            <div className="bg-white rounded-lg shadow p-6" data-chart-type="monthly-trend">
+            <div className="bg-white rounded-lg shadow p-3 sm:p-6" data-chart-type="monthly-trend">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">
                         Monthly Income, Expenses & Savings Trend {timePeriodText}

@@ -44,7 +44,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <button
                 id="hamburger-button"
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="md:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-md shadow-md border border-gray-200 hover:bg-gray-50 transition-colors"
+                className="md:hidden fixed top-2 left-2 z-50 p-2 bg-white rounded-md shadow-md border border-gray-200 hover:bg-gray-50 transition-colors"
                 aria-label="Toggle sidebar"
             >
                 <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -76,22 +76,22 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     md:translate-x-0
                 `}
             >
-                <div className="flex flex-col gap-3 md:gap-2 pt-20 md:pt-2 px-2">
+                <div className="flex flex-col gap-3 md:gap-2 pt-12 md:pt-2 px-2">
                     {/* Close button for mobile */}
                     {isMobile && (
                         <button
                             onClick={() => setSidebarOpen(false)}
-                            className="md:hidden absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                            className="md:hidden absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-600 transition-colors"
                             aria-label="Close sidebar"
                         >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </button>
                     )}
 
                     {/* Navigation Items */}
-                    <div className="space-y-8 md:space-y-3 mt-6 md:mt-0">
+                    <div className="space-y-4 md:space-y-3 mt-4 md:mt-0">
                         <SidebarItem 
                             href="/dashboard" 
                             icon={<DashboardIcon />} 
@@ -164,7 +164,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             
             {/* Main Content Area */}
             <div className="flex-1 md:ml-0 min-w-0">
-                <div className="p-4 md:p-6 pt-4 md:pt-6">
+                <div className="p-2 sm:p-4 md:p-6 pt-16 sm:pt-4 md:pt-6">
                     {children}
                 </div>
             </div>

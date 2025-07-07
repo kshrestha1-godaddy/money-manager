@@ -118,7 +118,7 @@ export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD", s
 
     return (
         <div 
-            className={`bg-white rounded-lg shadow p-6 ${isExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}
+            className={`bg-white rounded-lg shadow p-3 sm:p-6 ${isExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}
             role="region"
             aria-label="Financial Waterfall Chart"
             data-chart-type="waterfall"
@@ -134,28 +134,28 @@ export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD", s
             />
 
             {/* Summary Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4">
                 <div className="text-center">
-                    <p className="text-xs sm:text-sm text-gray-600">Total Income</p>
-                    <p className="text-base sm:text-xl font-bold text-green-600">
+                    <p className="text-xs text-gray-600">Total Income</p>
+                    <p className="text-sm sm:text-xl font-bold text-green-600">
                         {formatCurrency(totalIncome, currency)}
                     </p>
                 </div>
                 <div className="text-center">
-                    <p className="text-xs sm:text-sm text-gray-600">Total Expenses</p>
-                    <p className="text-base sm:text-xl font-bold text-red-600">
+                    <p className="text-xs text-gray-600">Total Expenses</p>
+                    <p className="text-sm sm:text-xl font-bold text-red-600">
                         -{formatCurrency(totalExpenses, currency)}
                     </p>
                 </div>
                 <div className="text-center">
-                    <p className="text-xs sm:text-sm text-gray-600">Net Savings</p>
-                    <p className={`text-base sm:text-xl font-bold ${totalSavings >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                    <p className="text-xs text-gray-600">Net Savings</p>
+                    <p className={`text-sm sm:text-xl font-bold ${totalSavings >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
                         {totalSavings >= 0 ? '+' : ''}{formatCurrency(totalSavings, currency)}
                     </p>
                 </div>
                 <div className="text-center">
-                    <p className="text-xs sm:text-sm text-gray-600">Savings Rate</p>
-                    <p className={`text-base sm:text-xl font-bold ${savingsRate >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                    <p className="text-xs text-gray-600">Savings Rate</p>
+                    <p className={`text-sm sm:text-xl font-bold ${savingsRate >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
                         {savingsRate.toFixed(1)}%
                     </p>
                 </div>
@@ -164,7 +164,7 @@ export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD", s
             {/* Chart */}
             <div 
                 ref={chartRef}
-                className={`${isExpanded ? 'h-[60vh] w-full' : 'h-[32rem] w-full'}`}
+                className={`${isExpanded ? 'h-[60vh] w-full' : 'h-[24rem] sm:h-[32rem] w-full'}`}
                 role="img"
                 aria-label={`Waterfall chart showing income of ${formatCurrency(totalIncome, currency)}, expenses of ${formatCurrency(totalExpenses, currency)}, and net savings of ${formatCurrency(totalSavings, currency)}`}
             >

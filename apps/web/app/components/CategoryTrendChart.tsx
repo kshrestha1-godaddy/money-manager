@@ -441,7 +441,7 @@ export function CategoryTrendChart({ data, type, currency = "USD", startDate, en
 
     return (
         <>
-            <div className="bg-white rounded-lg shadow p-6" data-chart-type={type === 'expense' ? 'expense-trend' : 'income-trend'}>
+            <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-6" data-chart-type={type === 'expense' ? 'expense-trend' : 'income-trend'}>
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">
                         Category {type === 'income' ? 'Income' : 'Expense'} Trend: {currentCategory}

@@ -240,11 +240,11 @@ export function CategoryPieChart({ data, type, currency = "USD", title, startDat
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
                 {/* Pie Chart */}
                 <div 
                     ref={chartRef} 
-                    className={`${isExpanded ? "h-[45rem]" : "h-[24rem] sm:h-[32rem]"} lg:col-span-2`}
+                    className={`${isExpanded ? "h-[45rem]" : "h-[20rem] sm:h-[24rem] md:h-[32rem]"} lg:col-span-2`}
                     role="img"
                     aria-label={`${type === 'income' ? 'Income' : 'Expense'} categories pie chart showing distribution of ${formatCurrency(total, currency)} across different categories`}
                 >
@@ -352,7 +352,7 @@ export function CategoryPieChart({ data, type, currency = "USD", title, startDat
 
         return (
         <>
-            <div className="bg-white rounded-lg shadow p-4 sm:p-6" data-chart-type={type === 'expense' ? 'expense-pie' : 'income-pie'}>
+            <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-6" data-chart-type={type === 'expense' ? 'expense-pie' : 'income-pie'}>
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 gap-2 sm:gap-0">
                     <h3 className="text-sm sm:text-lg font-semibold text-gray-900 truncate">{chartTitle}</h3>
                     <div className="flex items-center gap-1 sm:gap-2 justify-end">

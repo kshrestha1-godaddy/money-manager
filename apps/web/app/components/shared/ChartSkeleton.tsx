@@ -6,7 +6,7 @@ interface ChartSkeletonProps {
 
 export function ChartSkeleton({ title = "Loading...", height = "h-[32rem]", showControls = true }: ChartSkeletonProps) {
     return (
-        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+        <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-6">
             <div className="animate-pulse">
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6">
@@ -21,7 +21,7 @@ export function ChartSkeleton({ title = "Loading...", height = "h-[32rem]", show
                 </div>
 
                 {/* Chart Area - Responsive height */}
-                <div className={`${height} sm:${height} h-64 sm:h-auto w-full bg-gray-100 rounded-lg`}>
+                <div className={`${height} h-48 sm:h-64 md:h-auto w-full bg-gray-100 rounded-lg`}>
                     {/* Y-axis ticks */}
                     <div className="flex flex-col justify-between h-full py-2 sm:py-4">
                         <div className="h-3 sm:h-4 bg-gray-200 rounded w-8 sm:w-12 ml-2 sm:ml-4"></div>

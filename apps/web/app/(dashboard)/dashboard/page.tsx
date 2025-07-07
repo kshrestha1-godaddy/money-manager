@@ -106,12 +106,12 @@ function DashboardContent() {
 
     // Main UI render
     return (
-        <div className="space-y-3 sm:space-y-4">
+        <div className="space-y-2 sm:space-y-3 md:space-y-4">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
-                    <p className="text-gray-600 mt-1 text-sm sm:text-base">Overview of your financial health</p>
+                    <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Dashboard</h1>
+                    <p className="text-gray-600 mt-1 text-xs sm:text-sm md:text-base">Overview of your financial health</p>
                 </div>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
                     <ExportAllButton />
@@ -133,7 +133,7 @@ function DashboardContent() {
             />
 
             {/* Financial Overview - Waterfall Chart & Savings Rate Chart Side by Side on desktop, stacked on mobile */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
                 <Suspense fallback={<ChartSkeleton title="Financial Overview" />}>
                     <WaterfallChart 
                         totalIncome={totals.totalIncome}
@@ -176,7 +176,7 @@ function DashboardContent() {
             </div>
 
             {/* Category Charts - Side by Side on desktop, stacked on mobile */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
                 <Suspense fallback={<ChartSkeleton title="Expense Distribution" height="h-[20rem] sm:h-[24rem]" />}>
                     <CategoryPieChart 
                         data={filteredData.filteredExpenses}
@@ -203,7 +203,7 @@ function DashboardContent() {
             </div>
 
             {/* Category Trend Charts - Side by Side on desktop, stacked on mobile */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
                 <Suspense fallback={<ChartSkeleton title="Expense Category Trends" height="h-[20rem] sm:h-[32rem]" />}>
                     <CategoryTrendChart 
                         data={filteredData.filteredExpenses}

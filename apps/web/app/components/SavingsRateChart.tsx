@@ -150,7 +150,7 @@ export function SavingsRateChart({ incomes, expenses, currency, startDate, endDa
 
     return (
         <div 
-            className={`bg-white rounded-lg shadow p-6 ${isExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}
+            className={`bg-white rounded-lg shadow p-3 sm:p-6 ${isExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}
             role="region"
             aria-label="Savings Rate Trend Chart"
             data-chart-type="savings-rate"
@@ -189,7 +189,7 @@ export function SavingsRateChart({ incomes, expenses, currency, startDate, endDa
 
             <div 
                 ref={chartRef}
-                className={`${isExpanded ? 'h-[60vh] w-full' : 'h-[32rem] w-full'}`}
+                className={`${isExpanded ? 'h-[60vh] w-full' : 'h-[24rem] sm:h-[32rem] w-full'}`}
             >
                 <ResponsiveContainer width="100%" height="100%">
                     <LineChart
