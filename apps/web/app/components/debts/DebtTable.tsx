@@ -98,8 +98,8 @@ export function DebtTable({
                     bValue = bLentDate.getTime();
                     break;
                 case 'remaining':
-                    const aRemainingCalc = calculateRemainingWithInterest(a.amount, a.interestRate, a.lentDate, a.dueDate, a.repayments || []);
-                    const bRemainingCalc = calculateRemainingWithInterest(b.amount, b.interestRate, b.lentDate, b.dueDate, b.repayments || []);
+                    const aRemainingCalc = calculateRemainingWithInterest(a.amount, a.interestRate, a.lentDate, a.dueDate, a.repayments || [], new Date(), a.status);
+                    const bRemainingCalc = calculateRemainingWithInterest(b.amount, b.interestRate, b.lentDate, b.dueDate, b.repayments || [], new Date(), b.status);
                     aValue = aRemainingCalc.remainingAmount;
                     bValue = bRemainingCalc.remainingAmount;
                     break;
@@ -256,10 +256,10 @@ export function DebtTable({
                                     </div>
                                 </th>
                                 <th 
-                                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
                                     onClick={() => handleSort('remaining')}
                                 >
-                                    <div className="flex items-center justify-end space-x-1">
+                                    <div className="flex items-center space-x-1">
                                         <span>Remaining</span>
                                         {getSortIcon('remaining')}
                                     </div>
@@ -321,7 +321,9 @@ function MobileDebtCard({
         debt.interestRate, 
         debt.lentDate, 
         debt.dueDate, 
-        debt.repayments || []
+        debt.repayments || [],
+        new Date(),
+        debt.status
     );
     
     const totalRepayments = debt.repayments?.reduce((sum, repayment) => sum + repayment.amount, 0) || 0;
@@ -387,10 +389,15 @@ function MobileDebtCard({
                             )}
                         </div>
                         <div className="flex-shrink-0 text-right ml-4">
-                            <div className="text-lg font-bold text-red-600">
-                                {formatCurrency(remainingCalc.remainingAmount, currency)}
+                            <div className={`text-sm font-medium ${remainingCalc.remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                {remainingCalc.remainingAmount > 0 ? (
+                                    <>
+                                        {formatCurrency(remainingCalc.remainingAmount, currency)}
+                                    </>
+                                ) : (
+                                    <span className="text-green-600">Fully Paid</span>
+                                )}
                             </div>
-                            <div className="text-xs text-gray-500">Remaining</div>
                         </div>
                     </div>
 
@@ -444,7 +451,7 @@ function MobileDebtCard({
                     {interestCalc.interestAmount > 0 && (
                         <div className="mb-3 p-2 bg-orange-50 rounded-md">
                             <div className="text-xs text-orange-800">
-                                <div>Interest: {formatCurrency(interestCalc.interestAmount, currency)} ({interestCalc.daysElapsed} days)</div>
+                                <div>Interest: {formatCurrency(interestCalc.interestAmount, currency)} ({debt.dueDate ? interestCalc.daysTotal : interestCalc.daysElapsed} days {debt.dueDate ? 'term' : 'elapsed'})</div>
                                 <div>Total: {formatCurrency(interestCalc.totalAmountWithInterest, currency)}</div>
                             </div>
                         </div>
@@ -519,7 +526,9 @@ function DebtRow({
         debt.interestRate, 
         debt.lentDate, 
         debt.dueDate, 
-        debt.repayments || []
+        debt.repayments || [],
+        new Date(),
+        debt.status
     );
     
     const totalRepayments = debt.repayments?.reduce((sum, repayment) => sum + repayment.amount, 0) || 0;
@@ -627,7 +636,7 @@ function DebtRow({
                         {debt.interestRate}% interest
                         {interestCalc.interestAmount > 0 && (
                             <span className="text-xs text-gray-500 ml-1">
-                                ({interestCalc.daysElapsed} days)
+                                ({debt.dueDate ? interestCalc.daysTotal : interestCalc.daysElapsed} days {debt.dueDate ? 'term' : 'elapsed'})
                             </span>
                         )}
                     </div>
@@ -657,15 +666,21 @@ function DebtRow({
                     </div>
                     {debt.dueDate && (
                         <div className="text-xs text-gray-500 mt-1">
-                            {interestCalc.daysTotal} days total
+                            {interestCalc.daysTotal} days term
                         </div>
                     )}
                 </div>
             </td>
-            <td className="px-6 py-6 whitespace-nowrap text-sm font-medium text-right">
-                <span className={remainingCalc.remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}>
-                    {formatCurrency(remainingCalc.remainingAmount, currency)}
-                </span>
+            <td className="px-6 py-6 whitespace-nowrap">
+                <div className={`text-sm font-medium ${remainingCalc.remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    {remainingCalc.remainingAmount > 0 ? (
+                        <>
+                            {formatCurrency(remainingCalc.remainingAmount, currency)}
+                        </>
+                    ) : (
+                        <span className="text-green-600">Fully Paid</span>
+                    )}
+                </div>
             </td>
             <td className="px-6 py-6 whitespace-nowrap text-right text-sm font-medium">
                 <div className="flex justify-end space-x-2">

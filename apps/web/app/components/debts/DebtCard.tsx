@@ -42,7 +42,8 @@ export function DebtCard({
         debt.lentDate,
         debt.dueDate,
         debt.repayments || [],
-        new Date()
+        new Date(),
+        debt.status
     );
     const remainingAmount = remainingWithInterest.remainingAmount;
 
@@ -88,7 +89,7 @@ export function DebtCard({
                     <p className="text-lg text-gray-600 mt-1">{debt.purpose || 'Personal Loan'}</p>
                 </div>
                 <div className="text-right">
-                    <p className="text-2xl font-bold text-red-600">{formatCurrency(remainingAmount, userCurrency)}</p>
+                    <p className="text-sm font-medium text-red-600">{formatCurrency(remainingAmount, userCurrency)}</p>
                     <p className="text-sm text-gray-500">Remaining</p>
                 </div>
             </div>

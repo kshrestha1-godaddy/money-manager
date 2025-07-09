@@ -24,7 +24,8 @@ export function DeleteDebtModal({ isOpen, onClose, onConfirm, debt }: DeleteDebt
         debt.lentDate,
         debt.dueDate,
         debt.repayments || [],
-        new Date()
+        new Date(),
+        debt.status
     );
     const remainingAmount = remainingWithInterest.remainingAmount;
 

@@ -5,7 +5,7 @@ import { DebtInterface } from "../../types/debts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { deleteRepayment } from "../../actions/debts";
-import { calculateRemainingWithInterest } from "../../utils/interestCalculation";
+import { calculateRemainingWithInterest, calculateInterest } from "../../utils/interestCalculation";
 
 interface ViewDebtModalProps {
     debt: DebtInterface | null;
@@ -30,10 +30,19 @@ export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment, o
         debt.lentDate,
         debt.dueDate,
         debt.repayments || [],
-        new Date()
+        new Date(),
+        debt.status
     );
     const remainingAmount = remainingWithInterest.remainingAmount;
     const repaymentPercentage = remainingWithInterest.totalWithInterest > 0 ? ((totalRepayments / remainingWithInterest.totalWithInterest) * 100) : 0;
+
+    // Calculate interest details for display
+    const interestCalc = calculateInterest(debt.amount, debt.interestRate, debt.lentDate, debt.dueDate);
+    
+    // Calculate term days for display
+    const termDays = debt.dueDate 
+        ? Math.max(0, Math.floor((debt.dueDate.getTime() - debt.lentDate.getTime()) / (1000 * 60 * 60 * 24)))
+        : Math.max(0, Math.floor((new Date().getTime() - debt.lentDate.getTime()) / (1000 * 60 * 60 * 24)));
 
     // Get status color
     const getStatusColor = (status: string) => {
@@ -109,12 +118,16 @@ export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment, o
                             <h3 className="text-xs sm:text-sm font-medium text-blue-700 mb-1">Original Amount</h3>
                             <p className="text-lg sm:text-2xl font-bold text-blue-900">{formatCurrency(debt.amount, userCurrency)}</p>
                         </div>
-                        {remainingWithInterest.interestAmount > 0 && (
-                            <div className="bg-orange-50 p-3 sm:p-4 rounded-lg">
-                                <h3 className="text-xs sm:text-sm font-medium text-orange-700 mb-1">Interest ({debt.interestRate}%)</h3>
-                                <p className="text-lg sm:text-2xl font-bold text-orange-900">{formatCurrency(remainingWithInterest.interestAmount, userCurrency)}</p>
-                            </div>
-                        )}
+                        <div className="bg-orange-50 p-3 sm:p-4 rounded-lg">
+                            <h3 className="text-xs sm:text-sm font-medium text-orange-700 mb-1">
+                                Interest ({debt.interestRate}%)
+                                {debt.status === 'FULLY_PAID' && <span className="text-xs text-orange-600 ml-1">(Final)</span>}
+                            </h3>
+                            <p className="text-lg sm:text-2xl font-bold text-orange-900">{formatCurrency(remainingWithInterest.interestAmount, userCurrency)}</p>
+                            <p className="text-xs text-orange-600">
+                                {debt.dueDate ? `${termDays} days term` : `${termDays} days elapsed`}
+                            </p>
+                        </div>
                         <div className="bg-green-50 p-3 sm:p-4 rounded-lg">
                             <h3 className="text-xs sm:text-sm font-medium text-green-700 mb-1">Repaid Amount</h3>
                             <p className="text-lg sm:text-2xl font-bold text-green-900">{formatCurrency(totalRepayments, userCurrency)}</p>
@@ -124,11 +137,47 @@ export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment, o
                             <h3 className={`text-xs sm:text-sm font-medium mb-1 ${remainingAmount > 0 ? 'text-red-700' : 'text-gray-700'}`}>
                                 Remaining Amount
                             </h3>
-                            <p className={`text-lg sm:text-2xl font-bold ${remainingAmount > 0 ? 'text-red-900' : 'text-gray-900'}`}>
+                            <p className={`text-sm font-medium ${remainingAmount > 0 ? 'text-red-900' : 'text-gray-900'}`}>
                                 {formatCurrency(remainingAmount, userCurrency)}
                             </p>
+                            {debt.status === 'FULLY_PAID' && (
+                                <p className="text-xs text-green-600 font-medium">✓ Fully Paid</p>
+                            )}
                         </div>
                     </div>
+
+                    {/* Interest Calculation Details */}
+                    {(debt.interestRate > 0 || debt.status === 'FULLY_PAID') && (
+                        <div className="mb-6 sm:mb-8">
+                            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Interest Calculation</h3>
+                            <div className="bg-orange-50 p-4 rounded-lg">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <h4 className="text-sm font-medium text-orange-800 mb-2">Calculation Details</h4>
+                                        <div className="space-y-1 text-sm text-orange-700">
+                                            <div>Principal: {formatCurrency(debt.amount, userCurrency)}</div>
+                                            <div>Interest Rate: {debt.interestRate}% per year</div>
+                                            <div>Term: {termDays} days {debt.dueDate ? '(loan term)' : '(elapsed)'}</div>
+                                            <div>Time in Years: {(termDays / 365).toFixed(4)}</div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-medium text-orange-800 mb-2">Formula</h4>
+                                        <div className="space-y-1 text-sm text-orange-700">
+                                            <div>Interest = Principal × Rate × Time</div>
+                                            <div>= {formatCurrency(debt.amount, userCurrency)} × {debt.interestRate}% × {(termDays / 365).toFixed(4)}</div>
+                                            <div className="font-medium">= {formatCurrency(remainingWithInterest.interestAmount, userCurrency)}</div>
+                                            {debt.status === 'FULLY_PAID' && (
+                                                <div className="text-green-600 font-medium mt-2">
+                                                    ✓ Interest calculation stopped (Fully Paid)
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Progress Bar */}
                     <div className="mb-6 sm:mb-8">
@@ -142,6 +191,11 @@ export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment, o
                                 style={{ width: `${Math.min(repaymentPercentage, 100)}%` }}
                             ></div>
                         </div>
+                        {debt.status === 'FULLY_PAID' && (
+                            <div className="text-center mt-2">
+                                <span className="text-sm text-green-600 font-medium">✓ Debt Fully Repaid</span>
+                            </div>
+                        )}
                     </div>
 
                     {/* Debt Details */}

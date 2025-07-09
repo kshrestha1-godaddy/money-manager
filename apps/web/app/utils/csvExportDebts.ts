@@ -1,4 +1,6 @@
 import { DebtInterface, DebtRepaymentInterface } from '../types/debts';
+import { formatCurrency } from "./currency";
+import { calculateRemainingWithInterest } from "./interestCalculation";
 
 /**
  * Convert debts data to CSV format
@@ -211,13 +213,32 @@ export function getDebtExportStats(debts: DebtInterface[]): {
 
     const totalAmount = debts.reduce((sum, debt) => sum + debt.amount, 0);
     const totalAmountDue = debts.reduce((sum, debt) => {
-        const interestAmount = (debt.amount * debt.interestRate) / 100;
-        return sum + debt.amount + interestAmount;
+        const remainingWithInterest = calculateRemainingWithInterest(
+            debt.amount,
+            debt.interestRate,
+            debt.lentDate,
+            debt.dueDate,
+            debt.repayments || [],
+            new Date(),
+            debt.status
+        );
+        return sum + remainingWithInterest.totalWithInterest;
     }, 0);
     const totalAmountRepaid = debts.reduce((sum, debt) => {
         return sum + (debt.repayments?.reduce((repaySum, repayment) => repaySum + repayment.amount, 0) || 0);
     }, 0);
-    const totalOutstanding = totalAmountDue - totalAmountRepaid;
+    const totalOutstanding = debts.reduce((sum, debt) => {
+        const remainingWithInterest = calculateRemainingWithInterest(
+            debt.amount,
+            debt.interestRate,
+            debt.lentDate,
+            debt.dueDate,
+            debt.repayments || [],
+            new Date(),
+            debt.status
+        );
+        return sum + remainingWithInterest.remainingAmount;
+    }, 0);
     
     const dates = debts.map(debt => debt.lentDate).sort((a, b) => a.getTime() - b.getTime());
     const statusCounts = debts.reduce((counts, debt) => {

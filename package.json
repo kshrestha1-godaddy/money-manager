@@ -23,6 +23,7 @@
     "packages/*"
   ],
   "dependencies": {
+    "@anthropic-ai/claude-code": "^1.0.44",
     "recharts": "^2.15.3"
   }
 }

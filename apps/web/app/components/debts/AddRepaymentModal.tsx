@@ -81,7 +81,8 @@ export function AddRepaymentModal({ debt, isOpen, onClose, onSuccess }: AddRepay
         debt.lentDate,
         debt.dueDate,
         debt.repayments || [],
-        new Date()
+        new Date(),
+        debt.status
     );
     const remainingAmount = remainingWithInterest.remainingAmount;
 

@@ -120,7 +120,8 @@ export default function NetWorthPage() {
                 debt.lentDate,
                 debt.dueDate,
                 debt.repayments || [],
-                new Date()
+                new Date(),
+                debt.status
             );
             return sum + Math.max(0, remainingWithInterest.remainingAmount); // Only count positive remaining amounts
         }, 0);
@@ -259,7 +260,8 @@ export default function NetWorthPage() {
                 debt.lentDate,
                 debt.dueDate,
                 debt.repayments || [],
-                new Date()
+                new Date(),
+                debt.status
             );
             return remainingWithInterest.remainingAmount > 0;
         });
@@ -994,7 +996,8 @@ export default function NetWorthPage() {
                                     debt.lentDate,
                                     debt.dueDate,
                                     debt.repayments || [],
-                                    new Date()
+                                    new Date(),
+                                    debt.status
                                 );
                                 const remainingAmount = remainingWithInterest.remainingAmount;
                                 const isOverdue = debt.dueDate && new Date(debt.dueDate) < new Date();
@@ -1094,7 +1097,8 @@ export default function NetWorthPage() {
                                             debt.lentDate,
                                             debt.dueDate,
                                             debt.repayments || [],
-                                            new Date()
+                                            new Date(),
+                                            debt.status
                                         );
                                         const remainingAmount = remainingWithInterest.remainingAmount;
                                         const isOverdue = debt.dueDate && new Date(debt.dueDate) < new Date();

@@ -12,7 +12,7 @@ import {
 } from "../utils/auth";
 import { parseDebtsCSV, ParsedDebtData, parseRepaymentsCSV, ParsedRepaymentData } from "../utils/csvImportDebts";
 import { ImportResult } from "../types/bulkImport";
-import { calculateRemainingWithInterest } from "../utils/interestCalculation";
+import { calculateRemainingWithInterest, determineDebtStatus } from "../utils/interestCalculation";
 
 export async function getUserDebts(): Promise<{ data?: DebtInterface[], error?: string }> {
     try {
@@ -380,7 +380,8 @@ export async function addRepayment(debtId: number, amount: number, notes?: strin
                 existingDebt.lentDate,
                 existingDebt.dueDate || undefined,
                 existingDebt.repayments.map(r => ({ amount: decimalToNumber(r.amount, 'repayment amount') })),
-                new Date()
+                new Date(),
+                existingDebt.status
             );
 
             // Round both amounts to 2 decimal places for proper comparison
@@ -418,25 +419,26 @@ export async function addRepayment(debtId: number, amount: number, notes?: strin
             const currentTotalRepayments = existingDebt.repayments.reduce((sum, repayment) => {
                 return sum + decimalToNumber(repayment.amount, 'repayment amount');
             }, 0);
-            const newTotalRepayments = currentTotalRepayments + amount;
             
             // Update debt status based on total repayments compared to total amount with interest
-            // Round both amounts to 2 decimal places for proper comparison
-            const roundedTotalRepayments = Math.round(newTotalRepayments * 100) / 100;
-            const roundedTotalWithInterest = Math.round(remainingWithInterest.totalWithInterest * 100) / 100;
+            const updatedRemainingWithInterest = calculateRemainingWithInterest(
+                debtAmount,
+                interestRate,
+                existingDebt.lentDate,
+                existingDebt.dueDate || undefined,
+                existingDebt.repayments.map(r => ({ amount: decimalToNumber(r.amount, 'repayment amount') })),
+                new Date(),
+                existingDebt.status
+            );
             
-            let newStatus = existingDebt.status;
-            if (roundedTotalRepayments >= roundedTotalWithInterest) {
-                newStatus = 'FULLY_PAID';
-            } else if (roundedTotalRepayments > 0) {
-                newStatus = 'PARTIALLY_PAID';
-            }
+            const newTotalRepayments = currentTotalRepayments + amount;
+            const newStatus = determineDebtStatus(newTotalRepayments, updatedRemainingWithInterest.totalWithInterest, existingDebt.status);
 
             // Update debt status if it changed
             if (newStatus !== existingDebt.status) {
                 await tx.debt.update({
                     where: { id: debtId },
-                    data: { status: newStatus }
+                    data: { status: newStatus as any }
                 });
             }
 
@@ -531,27 +533,17 @@ export async function deleteRepayment(repaymentId: number, debtId: number) {
                 existingDebt.lentDate,
                 existingDebt.dueDate || undefined,
                 remainingRepayments.map(r => ({ amount: decimalToNumber(r.amount, 'repayment amount') })),
-                new Date()
+                new Date(),
+                existingDebt.status
             );
             
-            // Round both amounts to 2 decimal places for proper comparison
-            const roundedTotalRepayments = Math.round(totalRemainingRepayments * 100) / 100;
-            const roundedTotalWithInterest = Math.round(remainingWithInterest.totalWithInterest * 100) / 100;
-            
-            let newStatus = existingDebt.status;
-            if (roundedTotalRepayments >= roundedTotalWithInterest) {
-                newStatus = 'FULLY_PAID';
-            } else if (roundedTotalRepayments > 0) {
-                newStatus = 'PARTIALLY_PAID';
-            } else {
-                newStatus = 'ACTIVE'; // Only change to ACTIVE if no repayments remain
-            }
+            const newStatus = determineDebtStatus(totalRemainingRepayments, remainingWithInterest.totalWithInterest, existingDebt.status);
 
             // Update debt status if it changed
             if (newStatus !== existingDebt.status) {
                 await tx.debt.update({
                     where: { id: debtId },
-                    data: { status: newStatus }
+                    data: { status: newStatus as any }
                 });
             }
 
@@ -776,26 +768,18 @@ export async function bulkImportRepayments(csvContent: string, debtIdMapping?: R
                         debt.lentDate,
                         debt.dueDate || undefined,
                         debt.repayments.map(r => ({ amount: parseFloat(r.amount.toString()) })),
-                        new Date()
+                        new Date(),
+                        debt.status
                     );
 
                     // Update debt status based on repayment
-                    // Round both amounts to 2 decimal places for proper comparison
-                    const roundedTotalRepaid = Math.round(totalRepaid * 100) / 100;
-                    const roundedTotalWithInterest = Math.round(remainingWithInterest.totalWithInterest * 100) / 100;
-                    
-                    let newStatus = debt.status;
-                    if (roundedTotalRepaid >= roundedTotalWithInterest) {
-                        newStatus = 'FULLY_PAID';
-                    } else if (roundedTotalRepaid > 0) {
-                        newStatus = 'PARTIALLY_PAID';
-                    }
+                    const newStatus = determineDebtStatus(totalRepaid, remainingWithInterest.totalWithInterest, debt.status);
 
                     // Update debt status if changed
                     if (newStatus !== debt.status) {
                         await tx.debt.update({
                             where: { id: actualDebtId },
-                            data: { status: newStatus }
+                            data: { status: newStatus as any }
                         });
                     }
                 });

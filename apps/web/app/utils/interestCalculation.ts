@@ -36,16 +36,19 @@ export function calculateInterest(
     }
 
     // Calculate time period for interest
-    // If due date exists, use it as the end period, otherwise use current date
-    const endDate = dueDate || currentDate;
     const startDate = lentDate;
     
-    // Calculate days elapsed
+    // Calculate days elapsed (from lent date to current date)
     const daysElapsed = Math.max(0, Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
-    const daysTotal = Math.max(0, Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
     
-    // Use the longer period for interest calculation (either days elapsed or days total)
-    const daysForInterest = Math.max(daysElapsed, daysTotal);
+    // Calculate total days (from lent date to due date)
+    const daysTotal = dueDate 
+        ? Math.max(0, Math.floor((dueDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)))
+        : daysElapsed;
+    
+    // Use term days (daysTotal) for interest calculation when due date is provided
+    // Otherwise, use elapsed days
+    const daysForInterest = dueDate ? daysTotal : daysElapsed;
     
     // Calculate interest using simple interest formula
     // Interest = Principal × Rate × Time (in years)
@@ -71,6 +74,7 @@ export function calculateInterest(
  * @param dueDate - Due date for repayment (optional)
  * @param repayments - Array of repayments made
  * @param currentDate - Current date (defaults to today)
+ * @param status - Debt status (optional)
  * @returns Remaining amount including interest
  */
 export function calculateRemainingWithInterest(
@@ -79,15 +83,61 @@ export function calculateRemainingWithInterest(
     lentDate: Date,
     dueDate: Date | undefined,
     repayments: { amount: number }[],
-    currentDate: Date = new Date()
+    currentDate: Date = new Date(),
+    status?: string
 ): { remainingAmount: number; totalWithInterest: number; interestAmount: number } {
+    // Calculate interest first
     const interestCalc = calculateInterest(originalAmount, interestRate, lentDate, dueDate, currentDate);
     const totalRepayments = repayments.reduce((sum, payment) => sum + payment.amount, 0);
+    
+    // If debt is fully paid, return zero remaining amount and no additional interest
+    if (status === 'FULLY_PAID') {
+        return {
+            remainingAmount: 0,
+            totalWithInterest: interestCalc.totalAmountWithInterest,
+            interestAmount: interestCalc.interestAmount
+        };
+    }
+    
+    // Calculate remaining amount
     const remainingAmount = Math.max(0, interestCalc.totalAmountWithInterest - totalRepayments);
     
+    // Additional validation: if remaining amount is effectively zero (within 0.01), treat as fully paid
+    const isEffectivelyPaid = remainingAmount < 0.01;
+    
     return {
-        remainingAmount,
+        remainingAmount: isEffectivelyPaid ? 0 : remainingAmount,
         totalWithInterest: interestCalc.totalAmountWithInterest,
         interestAmount: interestCalc.interestAmount
     };
+}
+
+/**
+ * Determine debt status based on repayments and total amount with interest
+ * @param totalRepayments - Total amount repaid
+ * @param totalWithInterest - Total amount owed including interest
+ * @param currentStatus - Current debt status
+ * @returns New debt status
+ */
+export function determineDebtStatus(
+    totalRepayments: number,
+    totalWithInterest: number,
+    currentStatus: string = 'ACTIVE'
+): string {
+    // Round both amounts to 2 decimal places for proper comparison
+    const roundedTotalRepayments = Math.round(totalRepayments * 100) / 100;
+    const roundedTotalWithInterest = Math.round(totalWithInterest * 100) / 100;
+    
+    // If repayments equal or exceed total with interest, debt is fully paid
+    if (roundedTotalRepayments >= roundedTotalWithInterest) {
+        return 'FULLY_PAID';
+    }
+    
+    // If there are repayments but not fully paid, it's partially paid
+    if (roundedTotalRepayments > 0) {
+        return 'PARTIALLY_PAID';
+    }
+    
+    // If no repayments, return to active status
+    return 'ACTIVE';
 } 
