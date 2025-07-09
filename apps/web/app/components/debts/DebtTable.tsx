@@ -390,13 +390,7 @@ function MobileDebtCard({
                         </div>
                         <div className="flex-shrink-0 text-right ml-4">
                             <div className={`text-sm font-medium ${remainingCalc.remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                {remainingCalc.remainingAmount > 0 ? (
-                                    <>
-                                        {formatCurrency(remainingCalc.remainingAmount, currency)}
-                                    </>
-                                ) : (
-                                    <span className="text-green-600">Fully Paid</span>
-                                )}
+                                {formatCurrency(remainingCalc.remainingAmount, currency)}
                             </div>
                         </div>
                     </div>
@@ -673,13 +667,7 @@ function DebtRow({
             </td>
             <td className="px-6 py-6 whitespace-nowrap">
                 <div className={`text-sm font-medium ${remainingCalc.remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {remainingCalc.remainingAmount > 0 ? (
-                        <>
-                            {formatCurrency(remainingCalc.remainingAmount, currency)}
-                        </>
-                    ) : (
-                        <span className="text-green-600">Fully Paid</span>
-                    )}
+                    {formatCurrency(remainingCalc.remainingAmount, currency)}
                 </div>
             </td>
             <td className="px-6 py-6 whitespace-nowrap text-right text-sm font-medium">
