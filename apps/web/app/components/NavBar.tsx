@@ -15,6 +15,7 @@ export default function NavBar() {
   const { totalBalance, loading: balanceLoading } = useTotalBalance();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [currentDateTime, setCurrentDateTime] = useState(new Date());
 
 
 
@@ -34,6 +35,15 @@ export default function NavBar() {
     }
   }, [isDropdownOpen, isMobileMenuOpen]);
 
+  // Update time every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentDateTime(new Date());
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, []);
+
   // Handle currency change
   const handleCurrencyChange = async (currencyCode: string) => {
     try {
@@ -50,34 +60,40 @@ export default function NavBar() {
     return null; // or a loading skeleton
   }
   
-  const getCurrentDate = () => {
-    return new Date().toLocaleDateString('en-US', {
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString(undefined, {
       weekday: 'short',
       year: 'numeric',
       month: 'short',
       day: 'numeric'
     });
   };
+  
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 w-full bg-white/90 backdrop-blur-md shadow-sm border-b border-gray-100/50 z-50">
       {/* Main navbar content */}
-      <div className="flex items-center justify-between px-4 sm:px-8 py-3 sm:py-4 max-w-7xl mx-auto">
-        {/* Left side: User name for authenticated, menu for unauthenticated */}
-        <div className="flex items-center">
-          {status === "authenticated" ? (
-            <div className="flex items-center space-x-1 sm:space-x-2 bg-gray-50/80 rounded-full px-2 py-1 sm:px-3 sm:py-1.5">
-              <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center">
-                <span className="text-xs sm:text-sm font-semibold text-blue-700">
-                  {session?.user?.name?.charAt(0)?.toUpperCase()}
-                </span>
-              </div>
-              <span className="text-xs sm:text-sm font-medium text-gray-800 truncate max-w-20 sm:max-w-32">
-                {session?.user?.name}
-              </span>
-            </div>
-          ) : (
-            <>
+      <div className="flex items-center justify-between px-4 sm:px-8 py-3 sm:py-4 w-full">
+        {/* Left side: Date and Time */}
+        <div className="flex items-center flex-shrink-0 flex-col">
+          <div className="text-sm sm:text-base font-medium text-gray-700">
+            {formatDate(currentDateTime)}
+          </div>
+          <div className="text-xs sm:text-sm text-gray-600 font-mono">
+            {formatTime(currentDateTime)}
+          </div>
+          
+          {/* For unauthenticated users */}
+          {status === "unauthenticated" && (
+            <div className="mt-2">
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="md:hidden p-2 text-gray-600 hover:text-gray-900 transition-colors"
@@ -100,15 +116,30 @@ export default function NavBar() {
                   About
                 </Link>
               </div>
-            </>
+            </div>
           )}
         </div>
 
+        {/* Center: User Name */}
+        {status === "authenticated" && (
+          <div className="flex items-center justify-center flex-1 flex-col">
+            <span className="text-base sm:text-lg font-semibold text-gray-900">
+              {session?.user?.name}
+            </span>
+            <div className="flex items-center">
+              {balanceLoading ? (
+                <span className="text-xs sm:text-sm text-gray-500">Loading balance...</span>
+              ) : (
+                <span className="text-xs sm:text-sm font-medium text-green-600">
+                  Balance: {formatCurrency(totalBalance, selectedCurrency)}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
-
-        {/* Right side: Currency and Auth */}
-        <div className="flex items-center space-x-2 sm:space-x-4">
-
+        {/* Right side: Currency, Logout and Profile Icon */}
+        <div className="flex items-center space-x-3 sm:space-x-4 flex-shrink-0 pr-2 sm:pr-4">
           {/* Currency Selector */}
           {status === "authenticated" && (
             <div className="relative currency-dropdown">
@@ -162,14 +193,20 @@ export default function NavBar() {
                 </span>
               </button>
               
-              {/* User image if authenticated */}
-              {session?.user?.image && (
+              {/* Profile Icon */}
+              {session?.user?.image ? (
                 <img
                   src={session.user.image}
                   alt={session.user.name || "User"}
-                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-gray-200/50 hover:border-blue-300/50 transition-all duration-200 shadow-sm hover:shadow-md"
+                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-gray-200/50 hover:border-blue-300/50 transition-all duration-200 shadow-sm hover:shadow-md"
                   referrerPolicy="no-referrer"
                 />
+              ) : (
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center border-2 border-gray-200/50 hover:border-blue-300/50 transition-all duration-200 shadow-sm hover:shadow-md">
+                  <span className="text-lg sm:text-xl font-semibold text-blue-700">
+                    {session?.user?.name?.charAt(0)?.toUpperCase()}
+                  </span>
+                </div>
               )}
             </>
           ) : status === "unauthenticated" ? (
@@ -199,7 +236,6 @@ export default function NavBar() {
           </div>
         </div>
       )}
-
     </nav>
   );
 } 

@@ -71,12 +71,12 @@ export function FinancialList({
     // Column resizing state
     const [columnWidths, setColumnWidths] = useState({
         checkbox: 64,
-        title: 300,
-        category: 128,
+        title: 200,  // Reduced from 300
+        category: 140,
         account: 192,
         date: 112,
-        tags: 128,
-        notes: 192,
+        tags: 110,
+        notes: 280,  // Increased from 192
         amount: 128,
         actions: 128
     });
