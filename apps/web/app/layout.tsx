@@ -6,6 +6,7 @@ import { Inter } from "next/font/google";
 import { Providers } from "./providers";
 import NavBar from "./components/NavBar";
 import Footer from "./components/Footer";
+import { GlobalModals } from "./components/GlobalModals";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -26,6 +27,7 @@ export default function RootLayout({
       >
         <Providers>
           <NavBar />
+            <GlobalModals />
 
           <div className="mt-20 m-3 flex-grow p-10">
             {children}

@@ -4,6 +4,7 @@ import React from "react";
 import { SessionProvider } from "next-auth/react";
 import { CurrencyProvider } from "./providers/CurrencyProvider";
 import { QueryProvider } from "./providers/QueryProvider";
+import { ModalsProvider } from "./providers/ModalsProvider";
 
 export const Providers = ({ children }: { children: React.ReactNode }) => {
     return (
@@ -11,7 +12,9 @@ export const Providers = ({ children }: { children: React.ReactNode }) => {
         <SessionProvider>
             <QueryProvider>
                 <CurrencyProvider>
-                    {children}
+                    <ModalsProvider>
+                        {children}
+                    </ModalsProvider>
                 </CurrencyProvider>
             </QueryProvider>
         </SessionProvider>

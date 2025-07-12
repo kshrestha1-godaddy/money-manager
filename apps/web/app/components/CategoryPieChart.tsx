@@ -271,8 +271,11 @@ export function CategoryPieChart({ data, type, currency = "USD", title, startDat
                                     border: '1px solid #e5e7eb',
                                     borderRadius: '6px',
                                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                                    fontSize: '20px',
-                                    maxWidth: '300px'
+                                    fontSize: '10px',
+                                    maxWidth: '280px',
+                                    wordWrap: 'break-word',
+                                    whiteSpace: 'normal',
+                                    lineHeight: '1.4'
                                 }}
                             />
                         </PieChart>

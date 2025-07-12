@@ -209,20 +209,21 @@ export function DebtTable({
             ) : (
                 // Desktop Table View
                 <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 table-fixed">
+                    <table className="min-w-full divide-y divide-gray-200 table-fixed border-separate border-spacing-x-1">
                         <colgroup>
-                            {showBulkActions && <col className="w-12" />}
-                            <col className="w-1/6" />
-                            <col className="w-1/6" />
-                            <col className="w-1/6" />
-                            <col className="w-1/6" />
-                            <col className="w-1/6" />
-                            <col className="w-1/6" />
+                            {showBulkActions && <col className="w-10" />}
+                            <col className="w-4" />
+                            <col className="w-[10%]" />
+                            <col className="w-[14%]" />
+                            <col className="w-[26%]" />
+                            <col className="w-[16%]" />
+                            <col className="w-[12%]" />
+                            <col className="w-[14%]" />
                         </colgroup>
                         <thead className="bg-gray-50">
                             <tr>
                                 {showBulkActions && (
-                                    <th className="w-12 px-6 py-3 text-left">
+                                    <th className="w-10 px-3 py-3 text-left">
                                         <input
                                             type="checkbox"
                                             checked={isAllSelected}
@@ -234,8 +235,10 @@ export function DebtTable({
                                         />
                                     </th>
                                 )}
+                                {/* Spacer column */}
+                                {showBulkActions && <th className="w-4 p-0"></th>}
                                 <th 
-                                    className="w-1/6 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                    className="w-[18%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
                                     onClick={() => handleSort('borrowerName')}
                                 >
                                     <div className="flex items-center space-x-1">
@@ -244,7 +247,7 @@ export function DebtTable({
                                     </div>
                                 </th>
                                 <th 
-                                    className="w-1/6 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                    className="w-[14%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
                                     onClick={() => handleSort('amount')}
                                 >
                                     <div className="flex items-center space-x-1">
@@ -252,11 +255,11 @@ export function DebtTable({
                                         {getSortIcon('amount')}
                                     </div>
                                 </th>
-                                <th className="w-1/6 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th className="w-[26%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Interest & Progress
                                 </th>
                                 <th 
-                                    className="w-1/6 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                    className="w-[16%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
                                     onClick={() => handleSort('dueDate')}
                                 >
                                     <div className="flex items-center space-x-1">
@@ -265,7 +268,7 @@ export function DebtTable({
                                     </div>
                                 </th>
                                 <th 
-                                    className="w-1/6 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                    className="w-[12%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
                                     onClick={() => handleSort('remaining')}
                                 >
                                     <div className="flex items-center space-x-1">
@@ -273,12 +276,12 @@ export function DebtTable({
                                         {getSortIcon('remaining')}
                                     </div>
                                 </th>
-                                <th className="w-1/6 px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th className="w-[14%] px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Actions
                                 </th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y-2 divide-gray-100">
+                        <tbody className="bg-white divide-y divide-gray-200">
                             {sortedDebts.map((debt) => (
                                 <DebtRow 
                                     key={debt.id} 
@@ -589,9 +592,9 @@ function DebtRow({
     };
 
     return (
-        <tr className={`hover:bg-gray-50 border-b border-gray-100 ${isOverdue ? 'bg-red-25' : ''} ${isSelected ? 'bg-blue-50' : ''}`}>
+        <tr className={`hover:bg-gray-50 ${isOverdue ? 'bg-red-50' : ''} ${isSelected ? 'bg-blue-50' : ''}`}>
             {showCheckbox && (
-                <td className="w-12 px-6 py-6 whitespace-nowrap">
+                <td className="w-10 px-3 py-4 whitespace-nowrap">
                     <input
                         type="checkbox"
                         checked={isSelected}
@@ -600,7 +603,9 @@ function DebtRow({
                     />
                 </td>
             )}
-            <td className="w-1/6 px-6 py-6 whitespace-nowrap">
+            {/* Spacer column */}
+            {showCheckbox && <td className="w-4 p-0"></td>}
+            <td className="w-[18%] px-4 py-4 whitespace-nowrap">
                 <div>
                     <div className="text-sm font-medium text-gray-900">
                         {debt.borrowerName}
@@ -613,7 +618,7 @@ function DebtRow({
                     )}
                 </div>
             </td>
-            <td className="w-1/6 px-6 py-6 whitespace-nowrap">
+            <td className="w-[14%] px-4 py-4 whitespace-nowrap">
                 <div>
                     <div className="text-sm font-medium text-gray-900">
                         {formatCurrency(debt.amount, currency)}
@@ -633,7 +638,7 @@ function DebtRow({
                     </span>
                 </div>
             </td>
-            <td className="w-1/6 px-6 py-6 whitespace-nowrap">
+            <td className="w-[26%] px-4 py-4 whitespace-nowrap">
                 <div>
                     <div className="text-sm text-gray-900">
                         {debt.interestRate}% interest
@@ -659,7 +664,7 @@ function DebtRow({
                     </div>
                 </div>
             </td>
-            <td className="w-1/6 px-6 py-6 whitespace-nowrap">
+            <td className="w-[16%] px-4 py-4 whitespace-nowrap">
                 <div>
                     <div className="text-sm text-gray-900">
                         Lent: {formatDate(debt.lentDate)}
@@ -674,12 +679,12 @@ function DebtRow({
                     )}
                 </div>
             </td>
-            <td className="w-1/6 px-6 py-6 whitespace-nowrap">
+            <td className="w-[12%] px-4 py-4 whitespace-nowrap">
                 <div className={`text-sm font-medium ${remainingCalc.remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
                     {formatCurrency(remainingCalc.remainingAmount, currency)}
                 </div>
             </td>
-            <td className="w-1/6 px-6 py-6 whitespace-nowrap text-right text-sm font-medium">
+            <td className="w-[14%] px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <div className="flex justify-end space-x-2">
                     {onViewDetails && (
                         <button 
