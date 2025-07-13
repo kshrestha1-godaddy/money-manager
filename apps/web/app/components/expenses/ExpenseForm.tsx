@@ -3,6 +3,7 @@
 import React from "react";
 import { Category } from "../../types/financial";
 import { AccountInterface } from "../../types/accounts";
+import { EnhancedTagsInput } from "../shared/EnhancedTagsInput";
 import { 
     BaseFormData, 
     inputClasses, 
@@ -126,13 +127,10 @@ export function ExpenseForm({
             </div>
 
             <div>
-                <label className={labelClasses}>Tags</label>
-                <input
-                    type="text"
+                <EnhancedTagsInput
                     value={formData.tags}
-                    onChange={(e) => handleInputChange('tags', e.target.value)}
-                    className={inputClasses}
-                    placeholder="e.g., groceries, food (comma separated)"
+                    onChange={(value) => handleInputChange('tags', value)}
+                    transactionType="EXPENSE"
                     disabled={disabled}
                 />
             </div>
