@@ -67,28 +67,28 @@ export default function NetWorthPage() {
 
     const { data: debts = [], isLoading: debtsLoading } = useQuery({
         queryKey: QUERY_KEYS.debts,
-        queryFn: async () => {
-            const result = await getUserDebts();
-            if ('error' in result) {
-                return [];
-            }
-            return Array.isArray(result) ? result : (result.data || []);
-        },
+        queryFn: getUserDebts,
         staleTime: 5 * 60 * 1000, // 5 minutes
         gcTime: 15 * 60 * 1000, // 15 minutes
+        select: (data) => {
+            if (data && !('error' in data)) {
+                return data.data || [];
+            }
+            return [];
+        }
     });
 
     const { data: investments = [], isLoading: investmentsLoading } = useQuery({
         queryKey: QUERY_KEYS.investments,
-        queryFn: async () => {
-            const result = await getUserInvestments();
-            if ('error' in result) {
-                return [];
-            }
-            return Array.isArray(result) ? result : (result.data || []);
-        },
+        queryFn: getUserInvestments,
         staleTime: 5 * 60 * 1000, // 5 minutes
         gcTime: 15 * 60 * 1000, // 15 minutes
+        select: (data) => {
+            if (data && !('error' in data)) {
+                return data.data || [];
+            }
+            return [];
+        }
     });
 
     const loading = incomesLoading || expensesLoading || accountsLoading || debtsLoading || investmentsLoading;
