@@ -99,11 +99,23 @@ export function transformFormData(
         throw new Error('Invalid category or account selected');
     }
 
+    // Helper function to create date without timezone conversion
+    const createLocalDate = (dateString: string): Date => {
+        const parts = dateString.split('-').map(Number);
+        if (parts.length !== 3 || parts.some(part => isNaN(part))) {
+            throw new Error('Invalid date format');
+        }
+        const year = parts[0]!;
+        const month = parts[1]!;
+        const day = parts[2]!;
+        return new Date(year, month - 1, day); // month is 0-indexed
+    };
+
     return {
         title: formData.title,
         description: formData.description || undefined,
         amount: parseFloat(formData.amount),
-        date: new Date(formData.date + 'T00:00:00'),
+        date: createLocalDate(formData.date),
         category: selectedCategory,
         categoryId: selectedCategory.id,
         account: selectedAccount,
@@ -118,11 +130,23 @@ export function transformFormData(
 
 // Extract form data from existing expense/income
 export function extractFormData(item: any): BaseFormData {
+    // Helper function to format date without timezone conversion
+    const formatDateForInput = (date: Date): string => {
+        if (!date) return '';
+        // Create a new date object to avoid mutating the original
+        const localDate = new Date(date);
+        // Use local date methods to avoid timezone conversion
+        const year = localDate.getFullYear();
+        const month = String(localDate.getMonth() + 1).padStart(2, '0');
+        const day = String(localDate.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
     return {
         title: item.title || '',
         description: item.description || '',
         amount: item.amount?.toString() || '',
-        date: item.date ? item.date.toISOString().split('T')[0] : '',
+        date: item.date ? formatDateForInput(item.date) : '',
         categoryId: item.categoryId?.toString() || '',
         accountId: item.accountId?.toString() || '',
         tags: Array.isArray(item.tags) ? item.tags.join(', ') : '',
