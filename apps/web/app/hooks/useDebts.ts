@@ -1,183 +1,197 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { signOut } from "next-auth/react";
+import { useState, useMemo, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DebtInterface } from "../types/debts";
-import { getUserDebts, createDebt, updateDebt, deleteDebt } from "../actions/debts";
+import { getUserDebts, createDebt, updateDebt, deleteDebt, addRepayment, deleteRepayment } from "../actions/debts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
 
 interface UseDebtsReturn {
   debts: DebtInterface[];
   loading: boolean;
   error: string | null;
-  loadDebts: () => Promise<void>;
-  refreshDebts: () => Promise<DebtInterface[] | null>;
   addDebt: (debt: Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>) => Promise<void>;
   editDebt: (id: number, debt: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>) => Promise<void>;
   removeDebt: (debt: DebtInterface) => Promise<void>;
+  addRepaymentToDebt: (debtId: number, repaymentData: { amount: number; notes?: string; accountId?: number }) => Promise<void>;
+  deleteRepaymentFromDebt: (repaymentId: number, debtId: number) => Promise<void>;
   clearError: () => void;
 }
 
 export function useDebts(): UseDebtsReturn {
-  const [debts, setDebts] = useState<DebtInterface[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleAuthError = useCallback((errorMessage: string) => {
-    setError("Your session has expired. Please sign in again.");
-    
-    // Clear any existing timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
+  // Query keys for caching
+  const QUERY_KEYS = {
+    debts: ['debts'] as const,
+    accounts: ['accounts'] as const,
+  };
+
+  // Cached data query
+  const { data: debtsResponse, isLoading: loading } = useQuery({
+    queryKey: QUERY_KEYS.debts,
+    queryFn: getUserDebts,
+    staleTime: 3 * 60 * 1000, // 3 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    select: (data) => {
+      if (data && !('error' in data)) {
+        return data.data || [];
+      }
+      return [];
     }
-    
-    timeoutRef.current = setTimeout(() => {
-      signOut({ 
-        callbackUrl: "/api/auth/signin",
-        redirect: true 
+  });
+
+  const debts = debtsResponse || [];
+
+  // Optimized mutations with cache updates
+  const createDebtMutation = useMutation({
+    mutationFn: createDebt,
+    onSuccess: (newDebt: DebtInterface) => {
+      // Optimistically update the cache
+      queryClient.setQueryData(QUERY_KEYS.debts, (oldDebts: DebtInterface[] = []) => {
+        return [newDebt, ...oldDebts];
       });
-    }, 2000);
-  }, []);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
-  const loadDebts = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const userDebts = await getUserDebts();
-      
-      if (userDebts && !('error' in userDebts)) {
-        setDebts(userDebts.data || []);
-        triggerBalanceRefresh();
-      } else {
-        const errorMessage = userDebts?.error || "Unknown error";
-        console.error("Error loading debts:", errorMessage);
-        
-        if (errorMessage === "User not found" || errorMessage === "Unauthorized") {
-          handleAuthError(errorMessage);
-        } else {
-          setError(`Failed to load debts: ${errorMessage}`);
-        }
-        setDebts([]);
-      }
-    } catch (error) {
-      console.error("Error loading debts:", error);
-      setError(`An unexpected error occurred: ${error}`);
-      setDebts([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [handleAuthError]);
-
-  const addDebt = useCallback(async (newDebt: Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>) => {
-    try {
-      const debt = await createDebt(newDebt);
-      setDebts(prevDebts => [debt, ...prevDebts]);
-      setError(null);
+      // Refresh accounts cache for balance updates
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
       triggerBalanceRefresh();
-    } catch (error) {
+      setError(null);
+    },
+    onError: (error: Error) => {
       console.error("Error adding debt:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      
-      if (errorMessage.includes("Unauthorized") || errorMessage.includes("User not found")) {
-        handleAuthError(errorMessage);
-      } else {
-        setError(`Failed to add debt: ${errorMessage}`);
-        throw error; // Re-throw for component to handle
-      }
-    }
-  }, [handleAuthError]);
+      setError(`Failed to add debt: ${error.message}`);
+    },
+  });
 
-  const editDebt = useCallback(async (id: number, updatedDebt: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>) => {
-    try {
-      const debt = await updateDebt(id, updatedDebt);
-      setDebts(prevDebts => prevDebts.map(d => d.id === id ? debt : d));
-      setError(null);
+  const updateDebtMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>> }) => 
+      updateDebt(id, data),
+    onSuccess: (updatedDebt: DebtInterface) => {
+      // Optimistically update the cache
+      queryClient.setQueryData(QUERY_KEYS.debts, (oldDebts: DebtInterface[] = []) => {
+        return oldDebts.map(debt => debt.id === updatedDebt.id ? updatedDebt : debt);
+      });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
       triggerBalanceRefresh();
-    } catch (error) {
+      setError(null);
+    },
+    onError: (error: Error) => {
       console.error("Error updating debt:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      
-      if (errorMessage.includes("Unauthorized") || errorMessage.includes("User not found")) {
-        handleAuthError(errorMessage);
-      } else {
-        setError(`Failed to update debt: ${errorMessage}`);
-        throw error; // Re-throw for component to handle
-      }
-    }
-  }, [handleAuthError]);
+      setError(`Failed to update debt: ${error.message}`);
+    },
+  });
 
-  const removeDebt = useCallback(async (debtToDelete: DebtInterface) => {
-    try {
-      await deleteDebt(debtToDelete.id);
-      setDebts(prevDebts => prevDebts.filter(d => d.id !== debtToDelete.id));
-      setError(null);
+  const deleteDebtMutation = useMutation({
+    mutationFn: deleteDebt,
+    onSuccess: (_: any, deletedId: number) => {
+      // Optimistically update the cache
+      queryClient.setQueryData(QUERY_KEYS.debts, (oldDebts: DebtInterface[] = []) => {
+        return oldDebts.filter(debt => debt.id !== deletedId);
+      });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
       triggerBalanceRefresh();
-    } catch (error) {
-      console.error("Error deleting debt:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      
-      if (errorMessage.includes("Unauthorized") || errorMessage.includes("User not found")) {
-        handleAuthError(errorMessage);
-      } else {
-        setError(`Failed to delete debt: ${errorMessage}`);
-        throw error; // Re-throw for component to handle
-      }
-    }
-  }, [handleAuthError]);
-
-  const refreshDebts = useCallback(async (): Promise<DebtInterface[] | null> => {
-    try {
       setError(null);
-      const userDebts = await getUserDebts();
-      
-      if (userDebts && !('error' in userDebts)) {
-        const freshDebts = userDebts.data || [];
-        setDebts(freshDebts);
-        triggerBalanceRefresh();
-        return freshDebts;
-      } else {
-        const errorMessage = userDebts?.error || "Unknown error";
-        console.error("Error refreshing debts:", errorMessage);
-        
-        if (errorMessage === "User not found" || errorMessage === "Unauthorized") {
-          handleAuthError(errorMessage);
-        } else {
-          setError(`Failed to refresh debts: ${errorMessage}`);
-        }
-        return null;
-      }
-    } catch (error) {
-      console.error("Error refreshing debts:", error);
-      setError(`An unexpected error occurred: ${error}`);
-      return null;
-    }
-  }, [handleAuthError]);
+    },
+    onError: (error: Error) => {
+      console.error("Error deleting debt:", error);
+      setError(`Failed to delete debt: ${error.message}`);
+    },
+  });
+
+  const addRepaymentMutation = useMutation({
+    mutationFn: ({ debtId, amount, notes, accountId }: { debtId: number; amount: number; notes?: string; accountId?: number }) => 
+      addRepayment(debtId, amount, notes, accountId),
+    onSuccess: (repayment, variables) => {
+      // After adding repayment, we need to refresh the debt data to get the updated debt with new repayment
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.debts });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
+      triggerBalanceRefresh();
+      setError(null);
+    },
+    onError: (error: Error) => {
+      console.error("Error adding repayment:", error);
+      setError(`Failed to add repayment: ${error.message}`);
+    },
+  });
+
+  const deleteRepaymentMutation = useMutation({
+    mutationFn: ({ repaymentId, debtId }: { repaymentId: number; debtId: number }) => 
+      deleteRepayment(repaymentId, debtId),
+    onSuccess: (result, variables) => {
+      // After deleting repayment, refresh the debt data to get the updated debt without the repayment
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.debts });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
+      triggerBalanceRefresh();
+      setError(null);
+    },
+    onError: (error: Error) => {
+      console.error("Error deleting repayment:", error);
+      setError(`Failed to delete repayment: ${error.message}`);
+    },
+  });
+
+  // CRUD Handlers
+  const handleAddDebt = useCallback(async (newDebt: Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>) => {
+    return new Promise<void>((resolve, reject) => {
+      createDebtMutation.mutate(newDebt, {
+        onSuccess: () => resolve(),
+        onError: (error) => reject(error)
+      });
+    });
+  }, [createDebtMutation]);
+
+  const handleEditDebt = useCallback(async (id: number, updatedDebt: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>) => {
+    return new Promise<void>((resolve, reject) => {
+      updateDebtMutation.mutate({ id, data: updatedDebt }, {
+        onSuccess: () => resolve(),
+        onError: (error) => reject(error)
+      });
+    });
+  }, [updateDebtMutation]);
+
+  const handleRemoveDebt = useCallback(async (debtToDelete: DebtInterface) => {
+    return new Promise<void>((resolve, reject) => {
+      deleteDebtMutation.mutate(debtToDelete.id, {
+        onSuccess: () => resolve(),
+        onError: (error) => reject(error)
+      });
+    });
+  }, [deleteDebtMutation]);
+
+  const handleAddRepayment = useCallback(async (debtId: number, repaymentData: { amount: number; notes?: string; accountId?: number }) => {
+    return new Promise<void>((resolve, reject) => {
+      addRepaymentMutation.mutate({ 
+        debtId, 
+        amount: repaymentData.amount, 
+        notes: repaymentData.notes, 
+        accountId: repaymentData.accountId 
+      }, {
+        onSuccess: () => resolve(),
+        onError: (error) => reject(error)
+      });
+    });
+  }, [addRepaymentMutation]);
+
+  const handleDeleteRepayment = useCallback(async (repaymentId: number, debtId: number) => {
+    return new Promise<void>((resolve, reject) => {
+      deleteRepaymentMutation.mutate({ repaymentId, debtId }, {
+        onSuccess: () => resolve(),
+        onError: (error) => reject(error)
+      });
+    });
+  }, [deleteRepaymentMutation]);
 
   const clearError = useCallback(() => {
     setError(null);
   }, []);
 
-  useEffect(() => {
-    loadDebts();
-  }, [loadDebts]);
-
   return {
     debts,
     loading,
     error,
-    loadDebts,
-    refreshDebts,
-    addDebt,
-    editDebt,
-    removeDebt,
+    addDebt: handleAddDebt,
+    editDebt: handleEditDebt,
+    removeDebt: handleRemoveDebt,
+    addRepaymentToDebt: handleAddRepayment,
+    deleteRepaymentFromDebt: handleDeleteRepayment,
     clearError
   };
 } 

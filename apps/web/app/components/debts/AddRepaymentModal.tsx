@@ -13,10 +13,21 @@ interface AddRepaymentModalProps {
     debt: DebtInterface | null;
     isOpen: boolean;
     onClose: () => void;
+    onAdd: (repaymentData: {
+        amount: number;
+        notes?: string;
+        accountId?: number;
+    }) => void;
     onSuccess?: () => void;
 }
 
-export function AddRepaymentModal({ debt, isOpen, onClose, onSuccess }: AddRepaymentModalProps) {
+export function AddRepaymentModal({ 
+    debt, 
+    isOpen, 
+    onClose, 
+    onAdd, 
+    onSuccess 
+}: AddRepaymentModalProps) {
     const { currency: userCurrency } = useCurrency();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -133,13 +144,15 @@ export function AddRepaymentModal({ debt, isOpen, onClose, onSuccess }: AddRepay
                 throw new Error("Please select an account to receive the repayment");
             }
 
-            // Call the addRepayment action
-            await addRepayment(
-                debt.id, 
-                amount, 
-                formData.notes || undefined,
-                formData.accountId ? parseInt(formData.accountId) : undefined
-            );
+            // Prepare repayment data
+            const repaymentData = {
+                amount: roundedAmount,
+                notes: formData.notes || undefined,
+                accountId: formData.accountId ? parseInt(formData.accountId) : undefined
+            };
+
+            // Call the onAdd prop with repayment data
+            await onAdd(repaymentData);
 
             // Reset form
             setFormData({

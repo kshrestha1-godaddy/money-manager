@@ -1,26 +1,44 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from '@tanstack/react-query';
 import { DebtInterface } from "../../types/debts";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
-import { deleteRepayment } from "../../actions/debts";
+import { getUserDebts } from "../../actions/debts";
 import { calculateRemainingWithInterest, calculateInterest } from "../../utils/interestCalculation";
 
 interface ViewDebtModalProps {
-    debt: DebtInterface | null;
+    debtId: number | null;
     isOpen: boolean;
     onClose: () => void;
     onEdit?: (debt: DebtInterface) => void;
     onAddRepayment?: (debt: DebtInterface) => void;
-    onRepaymentDeleted?: () => void;
+    onDeleteRepayment?: (repaymentId: number, debtId: number) => Promise<void>;
 }
 
-export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment, onRepaymentDeleted }: ViewDebtModalProps) {
+export function ViewDebtModal({ debtId, isOpen, onClose, onEdit, onAddRepayment, onDeleteRepayment }: ViewDebtModalProps) {
     const { currency: userCurrency } = useCurrency();
     const [deletingRepayments, setDeletingRepayments] = useState<Set<number>>(new Set());
 
-    if (!isOpen || !debt) return null;
+    // Fetch debt data from React Query cache
+    const { data: debtsResponse } = useQuery({
+        queryKey: ['debts'],
+        queryFn: getUserDebts,
+        staleTime: 3 * 60 * 1000,
+        gcTime: 10 * 60 * 1000,
+        enabled: isOpen && debtId !== null,
+        select: (data) => {
+            if (data && !('error' in data)) {
+                return data.data || [];
+            }
+            return [];
+        }
+    });
+
+    const debt = debtsResponse?.find(d => d.id === debtId) || null;
+
+    if (!isOpen || !debtId || !debt) return null;
 
     // Calculate debt summary including interest
     const totalRepayments = debt.repayments?.reduce((sum, repayment) => sum + repayment.amount, 0) || 0;
@@ -66,12 +84,11 @@ export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment, o
     const isOverdue = debt.dueDate && new Date() > debt.dueDate && remainingAmount > 0;
 
     const handleDeleteRepayment = async (repaymentId: number) => {
-        if (deletingRepayments.has(repaymentId)) return;
+        if (deletingRepayments.has(repaymentId) || !onDeleteRepayment) return;
 
         try {
             setDeletingRepayments(prev => new Set([...prev, repaymentId]));
-            await deleteRepayment(repaymentId, debt.id);
-            onRepaymentDeleted?.();
+            await onDeleteRepayment(repaymentId, debt.id);
         } catch (error) {
             console.error("Error deleting repayment:", error);
             // You could add a toast notification here if you have one
@@ -86,7 +103,7 @@ export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment, o
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden transition-all duration-200 ease-in-out">
                 {/* Header */}
                 <div className="bg-gray-50 px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0">
@@ -113,7 +130,7 @@ export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment, o
                 {/* Content */}
                 <div className="p-3 sm:p-6 overflow-y-auto max-h-[calc(95vh-6rem)] sm:max-h-[calc(90vh-8rem)]">
                     {/* Summary Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8 transition-all duration-200 ease-in-out">
                         <div className="bg-blue-50 p-3 sm:p-4 rounded-lg">
                             <h3 className="text-xs sm:text-sm font-medium text-blue-700 mb-1">Original Amount</h3>
                             <p className="text-lg sm:text-2xl font-bold text-blue-900">{formatCurrency(debt.amount, userCurrency)}</p>
@@ -180,19 +197,19 @@ export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment, o
                     )}
 
                     {/* Progress Bar */}
-                    <div className="mb-6 sm:mb-8">
+                    <div className="mb-6 sm:mb-8 transition-all duration-200 ease-in-out">
                         <div className="flex justify-between items-center mb-2">
                             <h3 className="text-base sm:text-lg font-semibold text-gray-900">Repayment Progress</h3>
-                            <span className="text-sm text-gray-600">{repaymentPercentage.toFixed(1)}%</span>
+                            <span className="text-sm text-gray-600 transition-all duration-200 ease-in-out">{repaymentPercentage.toFixed(1)}%</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2 sm:h-3">
                             <div 
-                                className="bg-green-600 h-2 sm:h-3 rounded-full transition-all duration-300" 
+                                className="bg-green-600 h-2 sm:h-3 rounded-full transition-all duration-500 ease-in-out" 
                                 style={{ width: `${Math.min(repaymentPercentage, 100)}%` }}
                             ></div>
                         </div>
                         {debt.status === 'FULLY_PAID' && (
-                            <div className="text-center mt-2">
+                            <div className="text-center mt-2 transition-all duration-200 ease-in-out">
                                 <span className="text-sm text-green-600 font-medium">✓ Debt Fully Repaid</span>
                             </div>
                         )}
@@ -263,9 +280,9 @@ export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment, o
                     )}
 
                     {/* Repayment History */}
-                    <div className="mb-6">
+                    <div className="mb-6 transition-all duration-200 ease-in-out">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-semibold text-gray-900">
+                            <h3 className="text-lg font-semibold text-gray-900 transition-all duration-200 ease-in-out">
                                 Repayment History ({debt.repayments?.length || 0})
                             </h3>
                             {onAddRepayment && remainingAmount > 0 && (
@@ -302,7 +319,14 @@ export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment, o
                                             {debt.repayments
                                                 .sort((a, b) => new Date(b.repaymentDate).getTime() - new Date(a.repaymentDate).getTime())
                                                 .map((repayment, index) => (
-                                                <tr key={index} className="hover:bg-gray-50">
+                                                <tr 
+                                                    key={repayment.id} 
+                                                    className={`hover:bg-gray-50 transition-all duration-200 ease-in-out ${
+                                                        deletingRepayments.has(repayment.id) 
+                                                            ? 'opacity-50 bg-red-50 transform scale-95' 
+                                                            : 'opacity-100 transform scale-100'
+                                                    }`}
+                                                >
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                         {repayment.repaymentDate.toLocaleDateString()}
                                                     </td>
@@ -316,16 +340,20 @@ export function ViewDebtModal({ debt, isOpen, onClose, onEdit, onAddRepayment, o
                                                     </td>
                                                     <td className="px-6 py-4 text-sm text-gray-500">
                                                         {deletingRepayments.has(repayment.id) ? (
-                                                            <span className="text-gray-500">Deleting...</span>
+                                                            <span className="text-gray-500 flex items-center">
+                                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                </svg>
+                                                                Deleting...
+                                                            </span>
                                                         ) : (
-                                                            <>
-                                                                <button
-                                                                    onClick={() => handleDeleteRepayment(repayment.id)}
-                                                                    className="text-red-500 hover:text-red-700 mr-2"
-                                                                >
-                                                                    Delete
-                                                                </button>
-                                                            </>
+                                                            <button
+                                                                onClick={() => handleDeleteRepayment(repayment.id)}
+                                                                className="text-red-500 hover:text-red-700 transition-colors duration-150 ease-in-out"
+                                                            >
+                                                                Delete
+                                                            </button>
                                                         )}
                                                     </td>
                                                 </tr>

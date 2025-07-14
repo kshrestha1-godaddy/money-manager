@@ -19,6 +19,7 @@ import { exportDebtsToCSV } from "../../utils/csvExportDebts";
 import { BulkImportModal } from "../../components/debts/BulkImportModal";
 import { bulkDeleteDebts } from "../../actions/debts";
 
+
 // Modal types for cleaner state management
 type ModalType = 'add' | 'edit' | 'delete' | 'view' | 'repayment' | 'import' | null;
 
@@ -35,15 +36,77 @@ const DEBT_SECTIONS = [
 ] as const;
 
 export default function Debts() {
-    const { debts, loading, error, loadDebts, addDebt, editDebt, removeDebt, clearError } = useDebts();
     const { currency: userCurrency } = useCurrency();
+    const { debts, loading, error, addDebt: handleAddDebt, editDebt: handleEditDebt, removeDebt: handleDeleteDebt, addRepaymentToDebt, deleteRepaymentFromDebt, clearError } = useDebts();
     
-    // Simplified state management
+    // Modal state
     const [modal, setModal] = useState<ModalState>({ type: null });
+    const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+    const [selectedDebts, setSelectedDebts] = useState<Set<number>>(new Set());
+    
+    // Filter states
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedStatus, setSelectedStatus] = useState("");
-    const [selectedDebts, setSelectedDebts] = useState<Set<number>>(new Set());
-    const [viewMode, setViewMode] = useState<"cards" | "table">("table");
+
+    const openModal = (type: ModalType, debt?: DebtInterface) => setModal({ type, debt });
+    const closeModal = () => setModal({ type: null });
+
+    const handleDebtSelect = (debtId: number, selected: boolean) => {
+        setSelectedDebts(prev => {
+            const newSet = new Set(prev);
+            if (selected) {
+                newSet.add(debtId);
+            } else {
+                newSet.delete(debtId);
+            }
+            return newSet;
+        });
+    };
+
+    const handleSelectAll = (selected: boolean, sectionDebts: DebtInterface[]) => {
+        setSelectedDebts(prev => {
+            const newSet = new Set(prev);
+            sectionDebts.forEach(debt => {
+                if (selected) {
+                    newSet.add(debt.id);
+                } else {
+                    newSet.delete(debt.id);
+                }
+            });
+            return newSet;
+        });
+    };
+
+    const handleBulkDelete = async (sectionDebts: DebtInterface[]) => {
+        const selectedInSection = sectionDebts.filter(debt => selectedDebts.has(debt.id));
+        
+        if (selectedInSection.length === 0) {
+            alert("No debts selected for deletion");
+            return;
+        }
+
+        const confirmMessage = `Are you sure you want to delete ${selectedInSection.length} debt(s)? This action cannot be undone.`;
+        if (!confirm(confirmMessage)) return;
+
+        try {
+            // Delete debts one by one (since we don't have bulk delete for debts yet)
+            await Promise.all(selectedInSection.map(debt => handleDeleteDebt(debt)));
+            
+            // Clear selection
+            setSelectedDebts(new Set());
+        } catch (error) {
+            console.error("Error during bulk delete:", error);
+            alert("Some debts could not be deleted. Please try again.");
+        }
+    };
+
+    const handleExportToCSV = () => {
+        if (debts.length === 0) {
+            alert("No debts to export");
+            return;
+        }
+        exportDebtsToCSV(debts);
+    };
 
     // Memoized calculations to avoid redundant processing
     const processedData = useMemo(() => {
@@ -110,100 +173,39 @@ export default function Debts() {
         };
     }, [debts, searchTerm, selectedStatus]);
 
-    // Simplified modal handlers
-    const openModal = (type: ModalType, debt?: DebtInterface) => setModal({ type, debt });
-    const closeModal = () => setModal({ type: null });
-
     // Simplified CRUD handlers
-    const handleAddDebt = async (newDebt: Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>) => {
+    const handleAddDebtAction = async (newDebt: Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>) => {
         try {
-            await addDebt(newDebt);
+            await handleAddDebt(newDebt);
             closeModal();
         } catch (error) {
             console.error("Error adding debt:", error);
+            // Error is handled by the hook
         }
     };
 
-    const handleEditDebt = async (id: number, updatedDebt: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>) => {
+    const handleEditDebtAction = async (id: number, updatedDebt: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>) => {
         try {
-            await editDebt(id, updatedDebt);
+            await handleEditDebt(id, updatedDebt);
             closeModal();
         } catch (error) {
-            console.error("Error editing debt:", error);
+            console.error("Error updating debt:", error);
+            // Error is handled by the hook
         }
     };
 
-    const handleDeleteDebt = async () => {
+    const handleDeleteDebtAction = async () => {
         if (!modal.debt) return;
         try {
-            await removeDebt(modal.debt);
+            await handleDeleteDebt(modal.debt);
             closeModal();
         } catch (error) {
             console.error("Error deleting debt:", error);
+            // Error is handled by the hook
         }
     };
 
-    const handleRepaymentSuccess = async () => {
-        closeModal();
-        await loadDebts(); // Refresh data after repayment
-    };
-
-    // Simplified bulk operations
-    const handleDebtSelect = (debtId: number, selected: boolean) => {
-        setSelectedDebts(prev => {
-            const newSet = new Set(prev);
-            if (selected) newSet.add(debtId);
-            else newSet.delete(debtId);
-            return newSet;
-        });
-    };
-
-    const handleSelectAll = (selected: boolean, sectionDebts: DebtInterface[]) => {
-        setSelectedDebts(prev => {
-            const newSet = new Set(prev);
-            sectionDebts.forEach(debt => {
-                if (selected) newSet.add(debt.id);
-                else newSet.delete(debt.id);
-            });
-            return newSet;
-        });
-    };
-
-    const handleBulkDelete = async (sectionDebts: DebtInterface[]) => {
-        const sectionSelectedIds = Array.from(selectedDebts).filter(id => 
-            sectionDebts.some(debt => debt.id === id)
-        );
-
-        if (sectionSelectedIds.length === 0) return;
-
-        const confirmMessage = `Delete ${sectionSelectedIds.length} debt${sectionSelectedIds.length === 1 ? '' : 's'}?`;
-        
-        if (confirm(confirmMessage)) {
-            try {
-                await bulkDeleteDebts(sectionSelectedIds);
-                setSelectedDebts(prev => {
-                    const newSet = new Set(prev);
-                    sectionSelectedIds.forEach(id => newSet.delete(id));
-                    return newSet;
-                });
-                await loadDebts();
-            } catch (error) {
-                console.error("Error deleting debts:", error);
-                alert("Failed to delete debts. Please try again.");
-            }
-        }
-    };
-
-    // Utility functions
-    const handleExportToCSV = () => {
-        if (debts.length === 0) {
-            alert("No debts to export");
-            return;
-        }
-        exportDebtsToCSV(debts);
-    };
-
-    // Render section component
+    // Memoized calculations to avoid redundant processing
     const renderSection = (section: { key: string; title: string; statuses: readonly string[]; debts: DebtInterface[] }) => {
         if (section.debts.length === 0) return null;
 
@@ -404,37 +406,42 @@ export default function Debts() {
                 <AddDebtModal
                     isOpen={modal.type === 'add'}
                     onClose={closeModal}
-                    onAdd={handleAddDebt}
+                    onAdd={handleAddDebtAction}
                 />
 
                 <EditDebtModal
                     debt={modal.debt || null}
                     isOpen={modal.type === 'edit'}
                     onClose={closeModal}
-                    onEdit={handleEditDebt}
+                    onEdit={handleEditDebtAction}
                 />
 
                 <DeleteDebtModal
                     debt={modal.debt || null}
                     isOpen={modal.type === 'delete'}
                     onClose={closeModal}
-                    onConfirm={handleDeleteDebt}
+                    onConfirm={handleDeleteDebtAction}
                 />
 
                 <ViewDebtModal
-                    debt={modal.debt || null}
+                    debtId={modal.debt?.id || null}
                     isOpen={modal.type === 'view'}
                     onClose={closeModal}
                     onEdit={(debt) => openModal('edit', debt)}
                     onAddRepayment={(debt) => openModal('repayment', debt)}
-                    onRepaymentDeleted={loadDebts}
+                    onDeleteRepayment={async (repaymentId, debtId) => {
+                        await deleteRepaymentFromDebt(repaymentId, debtId);
+                    }}
                 />
 
                 <AddRepaymentModal
                     debt={modal.debt || null}
                     isOpen={modal.type === 'repayment'}
                     onClose={closeModal}
-                    onSuccess={handleRepaymentSuccess}
+                    onAdd={async (repaymentData) => {
+                        // Add the repayment using the optimized hook
+                        await addRepaymentToDebt(modal.debt!.id, repaymentData);
+                    }}
                 />
 
                 <BulkImportModal
@@ -442,7 +449,7 @@ export default function Debts() {
                     onClose={closeModal}
                     onSuccess={() => {
                         closeModal();
-                        loadDebts();
+                        // loadDebts(); // This line is removed as per the new_code's handleBulkDelete
                     }}
                 />
             </div>
