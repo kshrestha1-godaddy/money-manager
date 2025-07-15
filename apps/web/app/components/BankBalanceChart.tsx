@@ -142,18 +142,17 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                             top: 10,
                             right: 15,
                             left: 0,
-                            bottom: 0,
+                            bottom: 20,
                         }}
                     >
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                         <XAxis 
                             dataKey="bank" 
-                            tick={{ fontSize: 9 }}
+                            tick={{ fontSize: 11 }}
                             stroke="#666"
-                            height={60}
+                            height={40}
                             interval={0}
-                            angle={-45}
-                            textAnchor="end"
+                            textAnchor="middle"
                         />
                         <YAxis 
                             tick={{ fontSize: 10 }}
