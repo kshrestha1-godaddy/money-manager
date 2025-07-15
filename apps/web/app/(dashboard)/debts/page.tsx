@@ -299,43 +299,43 @@ export default function Debts() {
                 {/* Summary Cards */}
                 {debts.length > 0 && (
                     <div className="bg-white rounded-lg shadow p-6">
-                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-6">
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">Total Debts</p>
+                        <div className="grid grid-cols-1 md:grid-cols-4 xl:grid-cols-7 gap-6">
+                            <div className="text-center">
+                                <p className="text-sm font-medium text-gray-600 mb-2">Total Debts</p>
                                 <p className="text-2xl font-bold text-blue-600">{processedData.stats.totalDebts}</p>
                             </div>
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">Active</p>
+                            <div className="text-center">
+                                <p className="text-sm font-medium text-gray-600 mb-2">Active</p>
                                 <p className="text-2xl font-bold text-green-600">{processedData.stats.activeDebts}</p>
                             </div>
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">Overdue</p>
+                            <div className="text-center">
+                                <p className="text-sm font-medium text-gray-600 mb-2">Overdue</p>
                                 <p className="text-2xl font-bold text-red-600">{processedData.stats.overdueDebts}</p>
                             </div>
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">Principal Lent</p>
+                            <div className="text-center">
+                                <p className="text-sm font-medium text-gray-600 mb-2">Principal Lent</p>
                                 <p className="text-2xl font-bold text-purple-600">
                                     {formatCurrency(processedData.stats.totalLentAmount, userCurrency)}
                                 </p>
                             </div>
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">Interest Accrued</p>
+                            <div className="text-center">
+                                <p className="text-sm font-medium text-gray-600 mb-2">Interest Accrued</p>
                                 <p className="text-2xl font-bold text-orange-600">
                                     {formatCurrency(processedData.stats.totalInterestAmount, userCurrency)}
                                 </p>
                             </div>
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">Total Repaid</p>
+                            <div className="text-center">
+                                <p className="text-sm font-medium text-gray-600 mb-2">Total Repaid</p>
                                 <p className="text-2xl font-bold text-green-600">
                                     {formatCurrency(processedData.stats.totalRepaidAmount, userCurrency)}
                                 </p>
                             </div>
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">Outstanding</p>
+                            <div className="text-center">
+                                <p className="text-sm font-medium text-gray-600 mb-2">Outstanding</p>
                                 <p className="text-2xl font-bold text-red-600">
                                     {formatCurrency(processedData.stats.totalRemainingAmount, userCurrency)}
                                 </p>
-                                <p className="text-xs text-gray-500">with interest</p>
+                                <p className="text-sm text-gray-500">with interest</p>
                             </div>
                         </div>
                     </div>

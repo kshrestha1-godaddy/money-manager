@@ -568,7 +568,7 @@ export function FinancialList({
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {paginatedTransactions.map((transaction) => (
+                        {paginatedTransactions.map((transaction, index) => (
                             <FinancialRow 
                                 key={transaction.id} 
                                 transaction={transaction} 
@@ -582,6 +582,7 @@ export function FinancialList({
                                 showCheckbox={showBulkActions}
                                 amountColorClass={amountColorClass}
                                 columnWidths={columnWidths}
+                                rowIndex={index}
                             />
                         ))}
                     </tbody>
@@ -610,7 +611,8 @@ function FinancialRow({
     onSelect,
     showCheckbox = false,
     amountColorClass,
-    columnWidths
+    columnWidths,
+    rowIndex
 }: { 
     transaction: FinancialTransaction; 
     transactionType: TransactionType;
@@ -633,6 +635,7 @@ function FinancialRow({
         amount: number;
         actions: number;
     };
+    rowIndex: number;
 }) {
     const handleEdit = () => {
         if (onEdit) {
@@ -658,8 +661,16 @@ function FinancialRow({
         }
     };
 
+    const isEvenRow = rowIndex % 2 === 0;
+
+    // Determine background color based on state priority: selected > hover > alternating
+    const getRowBackgroundClass = () => {
+        if (isSelected) return 'bg-blue-50';
+        return isEvenRow ? 'bg-gray-50/30' : '';
+    };
+
     return (
-        <tr className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
+        <tr className={`hover:bg-gray-50 ${getRowBackgroundClass()}`}>
             {showCheckbox && (
                 <td className="px-6 py-4" style={{ width: `${columnWidths.checkbox}px` }}>
                     <input

@@ -331,38 +331,38 @@ export default function Investments() {
 
             {/* Summary Cards */}
             {investments.length > 0 && (
-                <div className="bg-white rounded-lg shadow p-4 sm:p-6">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6">
-                        <div className="text-center sm:text-left">
-                            <p className="text-xs sm:text-sm font-medium text-gray-600">Total Investments</p>
-                            <p className="text-xl sm:text-2xl font-bold text-blue-600">{investments.length}</p>
+                <div className="bg-white rounded-lg shadow p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-6">
+                        <div className="text-center">
+                            <p className="text-sm font-medium text-gray-600 mb-2">Total Investments</p>
+                            <p className="text-2xl font-bold text-blue-600">{investments.length}</p>
                         </div>
-                        <div className="text-center sm:text-left">
-                            <p className="text-xs sm:text-sm font-medium text-gray-600">Gainers</p>
-                            <p className="text-xl sm:text-2xl font-bold text-green-600">{gainers}</p>
+                        <div className="text-center">
+                            <p className="text-sm font-medium text-gray-600 mb-2">Gainers</p>
+                            <p className="text-2xl font-bold text-green-600">{gainers}</p>
                         </div>
-                        <div className="text-center sm:text-left">
-                            <p className="text-xs sm:text-sm font-medium text-gray-600">Losers</p>
-                            <p className="text-xl sm:text-2xl font-bold text-red-600">{losers}</p>
+                        <div className="text-center">
+                            <p className="text-sm font-medium text-gray-600 mb-2">Losers</p>
+                            <p className="text-2xl font-bold text-red-600">{losers}</p>
                         </div>
-                        <div className="text-center sm:text-left">
-                            <p className="text-xs sm:text-sm font-medium text-gray-600">Total Invested</p>
-                            <p className="text-base sm:text-xl lg:text-2xl font-bold text-purple-600">
+                        <div className="text-center">
+                            <p className="text-sm font-medium text-gray-600 mb-2">Total Invested</p>
+                            <p className="text-2xl font-bold text-purple-600">
                                 {formatCurrency(totalInvested, userCurrency)}
                             </p>
                         </div>
-                        <div className="text-center sm:text-left">
-                            <p className="text-xs sm:text-sm font-medium text-gray-600">Current Value</p>
-                            <p className="text-base sm:text-xl lg:text-2xl font-bold text-blue-600">
+                        <div className="text-center">
+                            <p className="text-sm font-medium text-gray-600 mb-2">Current Value</p>
+                            <p className="text-2xl font-bold text-blue-600">
                                 {formatCurrency(totalCurrentValue, userCurrency)}
                             </p>
                         </div>
-                        <div className="text-center sm:text-left col-span-2 sm:col-span-3 lg:col-span-1">
-                            <p className="text-xs sm:text-sm font-medium text-gray-600">Total Gain/Loss</p>
-                            <p className={`text-base sm:text-xl lg:text-2xl font-bold ${totalGain >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <div className="text-center">
+                            <p className="text-sm font-medium text-gray-600 mb-2">Total Gain/Loss</p>
+                            <p className={`text-2xl font-bold ${totalGain >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                 {formatCurrency(totalGain, userCurrency)}
                             </p>
-                            <p className={`text-xs sm:text-sm ${totalGain >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            <p className={`text-sm ${totalGain >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                 ({totalGainPercentage}%)
                             </p>
                         </div>
