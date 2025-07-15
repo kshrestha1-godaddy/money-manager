@@ -8,6 +8,7 @@ import { Button } from "@repo/ui/button";
 import { AddDebtModal } from "../../components/debts/AddDebtModal";
 import { EditDebtModal } from "../../components/debts/EditDebtModal";
 import { DeleteDebtModal } from "../../components/debts/DeleteDebtModal";
+import { BulkDeleteDebtModal } from "../../components/debts/BulkDeleteDebtModal";
 import { ViewDebtModal } from "../../components/debts/ViewDebtModal";
 import { AddRepaymentModal } from "../../components/debts/AddRepaymentModal";
 import { DebtErrorBoundary } from "../../components/debts/ErrorBoundary";
@@ -17,7 +18,6 @@ import { calculateRemainingWithInterest } from "../../utils/interestCalculation"
 import { useDebts } from "../../hooks/useDebts";
 import { exportDebtsToCSV } from "../../utils/csvExportDebts";
 import { BulkImportModal } from "../../components/debts/BulkImportModal";
-import { bulkDeleteDebts } from "../../actions/debts";
 
 
 // Modal types for cleaner state management
@@ -43,6 +43,8 @@ export default function Debts() {
     const [modal, setModal] = useState<ModalState>({ type: null });
     const [viewMode, setViewMode] = useState<"table" | "cards">("table");
     const [selectedDebts, setSelectedDebts] = useState<Set<number>>(new Set());
+    const [bulkDeleteDebts, setBulkDeleteDebts] = useState<DebtInterface[]>([]);
+    const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
     
     // Filter states
     const [searchTerm, setSearchTerm] = useState("");
@@ -77,25 +79,36 @@ export default function Debts() {
         });
     };
 
-    const handleBulkDelete = async (sectionDebts: DebtInterface[]) => {
+    const handleBulkDelete = (sectionDebts: DebtInterface[]) => {
         const selectedInSection = sectionDebts.filter(debt => selectedDebts.has(debt.id));
         
         if (selectedInSection.length === 0) {
+            // Still show alert for "no selection" as it's informational, not a confirmation
             alert("No debts selected for deletion");
             return;
         }
 
-        const confirmMessage = `Are you sure you want to delete ${selectedInSection.length} debt(s)? This action cannot be undone.`;
-        if (!confirm(confirmMessage)) return;
+        // Set the debts to be deleted and open the bulk delete modal
+        setBulkDeleteDebts(selectedInSection);
+        setIsBulkDeleteModalOpen(true);
+    };
 
+    const handleBulkDeleteConfirm = async () => {
+        if (bulkDeleteDebts.length === 0) return;
+        
+        // Close modal immediately when delete button is clicked
+        setIsBulkDeleteModalOpen(false);
+        setBulkDeleteDebts([]);
+        
         try {
             // Delete debts one by one (since we don't have bulk delete for debts yet)
-            await Promise.all(selectedInSection.map(debt => handleDeleteDebt(debt)));
+            await Promise.all(bulkDeleteDebts.map(debt => handleDeleteDebt(debt)));
             
-            // Clear selection
+            // Clear selection after successful deletion
             setSelectedDebts(new Set());
         } catch (error) {
             console.error("Error during bulk delete:", error);
+            // Error is handled by the hook, just show feedback
             alert("Some debts could not be deleted. Please try again.");
         }
     };
@@ -421,6 +434,16 @@ export default function Debts() {
                     isOpen={modal.type === 'delete'}
                     onClose={closeModal}
                     onConfirm={handleDeleteDebtAction}
+                />
+
+                <BulkDeleteDebtModal
+                    debts={bulkDeleteDebts}
+                    isOpen={isBulkDeleteModalOpen}
+                    onClose={() => {
+                        setIsBulkDeleteModalOpen(false);
+                        setBulkDeleteDebts([]);
+                    }}
+                    onConfirm={handleBulkDeleteConfirm}
                 />
 
                 <ViewDebtModal

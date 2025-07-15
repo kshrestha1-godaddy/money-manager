@@ -32,23 +32,27 @@ export function useDebts(): UseDebtsReturn {
     queryFn: getUserDebts,
     staleTime: 3 * 60 * 1000, // 3 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
-    select: (data) => {
-      if (data && !('error' in data)) {
-        return data.data || [];
-      }
-      return [];
-    }
   });
 
-  const debts = debtsResponse || [];
+  // Extract debts array safely
+  const debts = useMemo(() => {
+    if (debtsResponse && !('error' in debtsResponse)) {
+      return debtsResponse.data || [];
+    }
+    return [];
+  }, [debtsResponse]);
 
   // Optimized mutations with cache updates
   const createDebtMutation = useMutation({
     mutationFn: createDebt,
     onSuccess: (newDebt: DebtInterface) => {
       // Optimistically update the cache
-      queryClient.setQueryData(QUERY_KEYS.debts, (oldDebts: DebtInterface[] = []) => {
-        return [newDebt, ...oldDebts];
+      queryClient.setQueryData(QUERY_KEYS.debts, (oldData: any) => {
+        if (!oldData || 'error' in oldData) {
+          return { data: [newDebt] };
+        }
+        const currentDebts = oldData.data || [];
+        return { ...oldData, data: [newDebt, ...currentDebts] };
       });
       // Refresh accounts cache for balance updates
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
@@ -66,8 +70,15 @@ export function useDebts(): UseDebtsReturn {
       updateDebt(id, data),
     onSuccess: (updatedDebt: DebtInterface) => {
       // Optimistically update the cache
-      queryClient.setQueryData(QUERY_KEYS.debts, (oldDebts: DebtInterface[] = []) => {
-        return oldDebts.map(debt => debt.id === updatedDebt.id ? updatedDebt : debt);
+      queryClient.setQueryData(QUERY_KEYS.debts, (oldData: any) => {
+        if (!oldData || 'error' in oldData) {
+          return { data: [updatedDebt] };
+        }
+        const currentDebts = oldData.data || [];
+        const updatedDebts = currentDebts.map((debt: DebtInterface) => 
+          debt.id === updatedDebt.id ? updatedDebt : debt
+        );
+        return { ...oldData, data: updatedDebts };
       });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
       triggerBalanceRefresh();
@@ -83,8 +94,13 @@ export function useDebts(): UseDebtsReturn {
     mutationFn: deleteDebt,
     onSuccess: (_: any, deletedId: number) => {
       // Optimistically update the cache
-      queryClient.setQueryData(QUERY_KEYS.debts, (oldDebts: DebtInterface[] = []) => {
-        return oldDebts.filter(debt => debt.id !== deletedId);
+      queryClient.setQueryData(QUERY_KEYS.debts, (oldData: any) => {
+        if (!oldData || 'error' in oldData) {
+          return { data: [] };
+        }
+        const currentDebts = oldData.data || [];
+        const filteredDebts = currentDebts.filter((debt: DebtInterface) => debt.id !== deletedId);
+        return { ...oldData, data: filteredDebts };
       });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
       triggerBalanceRefresh();

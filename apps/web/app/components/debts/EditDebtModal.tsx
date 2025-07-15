@@ -63,18 +63,16 @@ export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalPr
         if (debt) {
             setFormData({
                 borrowerName: debt.borrowerName,
-                borrowerContact: (debt.borrowerContact || "") as string,
-                borrowerEmail: (debt.borrowerEmail || "") as string,
+                borrowerContact: (debt.borrowerContact ?? "") as string,
+                borrowerEmail: (debt.borrowerEmail ?? "") as string,
                 amount: debt.amount,
                 interestRate: debt.interestRate,
-                //@ts-ignore
-                dueDate: debt.dueDate ? debt.dueDate.toISOString().split('T')[0] : "",
-                //@ts-ignore
-                lentDate: debt.lentDate.toISOString().split('T')[0],
+                dueDate: debt.dueDate ? new Date(debt.dueDate).toISOString().split('T')[0] : "",
+                lentDate: new Date(debt.lentDate).toISOString().split('T')[0],
                 status: debt.status as 'ACTIVE' | 'PARTIALLY_PAID' | 'FULLY_PAID' | 'OVERDUE' | 'DEFAULTED',
-                purpose: debt.purpose || "",
-                notes: debt.notes || "",
-                accountId: debt.accountId?.toString() || "",
+                purpose: debt.purpose ?? "",
+                notes: debt.notes ?? "",
+                accountId: debt.accountId?.toString() ?? "",
             });
         }
     }, [debt]);
