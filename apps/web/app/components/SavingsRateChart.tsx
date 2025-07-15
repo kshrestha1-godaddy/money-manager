@@ -108,7 +108,9 @@ export function SavingsRateChart({ incomes, expenses, currency, startDate, endDa
     // Calculate average savings rate
     const averageSavingsRate = useMemo(() => {
         if (data.length === 0) return 0;
-        return data.reduce((sum, item) => sum + item.savingsRate, 0) / data.length;
+        const sum = data.reduce((sum, item) => sum + item.savingsRate, 0);
+        const average = sum / data.length;
+        return isNaN(average) || !isFinite(average) ? 0 : average;
     }, [data]);
 
     // Format month for display
@@ -171,19 +173,19 @@ export function SavingsRateChart({ incomes, expenses, currency, startDate, endDa
                 <div className="text-center">
                     <p className="text-xs sm:text-sm text-gray-600">Average Savings Rate</p>
                     <p className="text-lg sm:text-xl font-bold text-blue-600">
-                        {(data.reduce((sum, item) => sum + item.savingsRate, 0) / data.length).toFixed(1)}%
+                        {data.length === 0 ? '0.0' : (data.reduce((sum, item) => sum + item.savingsRate, 0) / data.length).toFixed(1)}%
                     </p>
                 </div>
                 <div className="text-center">
                     <p className="text-xs sm:text-sm text-gray-600">Highest Savings Rate</p>
                     <p className="text-lg sm:text-xl font-bold text-green-600">
-                        {Math.max(...data.map(item => item.savingsRate)).toFixed(1)}%
+                        {data.length === 0 ? '0.0' : Math.max(...data.map(item => item.savingsRate)).toFixed(1)}%
                     </p>
                 </div>
                 <div className="text-center">
                     <p className="text-xs sm:text-sm text-gray-600">Lowest Savings Rate</p>
                     <p className="text-lg sm:text-xl font-bold text-red-600">
-                        {Math.min(...data.map(item => item.savingsRate)).toFixed(1)}%
+                        {data.length === 0 ? '0.0' : Math.min(...data.map(item => item.savingsRate)).toFixed(1)}%
                     </p>
                 </div>
             </div>

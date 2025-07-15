@@ -122,21 +122,6 @@ export default function NavBar() {
           </div>
         </div>
         
-        {/* Navigation links for unauthenticated users - Desktop */}
-        {status === "unauthenticated" && (
-          <div className="hidden sm:flex items-center space-x-6 ml-6">
-            <Link href="/" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
-              Home
-            </Link>
-            <Link href="#features" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
-              Features
-            </Link>
-            <Link href="#about" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
-              About
-            </Link>
-          </div>
-        )}
-        
         {/* Empty div for spacing when unauthenticated */}
         {status === "unauthenticated" && (
           <div className="flex-1"></div>
@@ -257,14 +242,29 @@ export default function NavBar() {
                 </div>
               )}
             </>
-          ) : status === "unauthenticated" ? (
-            <Link
-              href="/signin"
-              className="px-4 sm:px-6 py-2 sm:py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-medium transition-all duration-200 shadow-sm hover:shadow-md text-xs sm:text-sm flex items-center"
-            >
-              Sign In
-            </Link>
-          ) : null}
+          ) : (
+            <>
+              {/* Navigation links for unauthenticated users - Desktop - moved to right side */}
+              <div className="hidden sm:flex items-center space-x-6">
+                <Link href="/" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                  Home
+                </Link>
+                <Link href="#features" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                  Features
+                </Link>
+                <Link href="#about" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                  About
+                </Link>
+              </div>
+              
+              <Link
+                href="/signin"
+                className="px-4 sm:px-6 py-2 sm:py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-medium transition-all duration-200 shadow-sm hover:shadow-md text-xs sm:text-sm flex items-center"
+              >
+                Sign In
+              </Link>
+            </>
+          )}
         </div>
       </div>
 
