@@ -186,17 +186,19 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
       if (startDate && endDate) {
         const itemDate = new Date(item.date);
         const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);  // Set to start of day
         const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
+        end.setHours(23, 59, 59, 999);  // Set to end of day
         matchesDateRange = itemDate >= start && itemDate <= end;
       } else if (startDate) {
         const itemDate = new Date(item.date);
         const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);  // Set to start of day
         matchesDateRange = itemDate >= start;
       } else if (endDate) {
         const itemDate = new Date(item.date);
         const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
+        end.setHours(23, 59, 59, 999);  // Set to end of day
         matchesDateRange = itemDate <= end;
       }
       
