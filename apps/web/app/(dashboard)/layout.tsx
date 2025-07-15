@@ -68,7 +68,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     left-0 top-0 md:top-0
                     w-64 h-screen md:h-screen
                     bg-white border-r border-gray-200 
-                    pt-2 flex-shrink-0 
+                    pt-20 md:pt-24 flex-shrink-0 
                     z-40 md:z-30 
                     overflow-y-auto
                     transition-transform duration-300 ease-in-out
@@ -76,12 +76,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     md:translate-x-0
                 `}
             >
-                <div className="flex flex-col gap-3 md:gap-2 pt-12 md:pt-6 px-2">
+                <div className="flex flex-col gap-3 md:gap-2 pt-4 md:pt-6 px-2">
                     {/* Close button for mobile */}
                     {isMobile && (
                         <button
                             onClick={() => setSidebarOpen(false)}
-                            className="md:hidden absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                            className="md:hidden absolute top-20 right-2 p-2 text-gray-400 hover:text-gray-600 transition-colors"
                             aria-label="Close sidebar"
                         >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -91,7 +91,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     )}
 
                     {/* Navigation Items */}
-                    <div className="space-y-4 md:space-y-3 mt-4 md:mt-16">
+                    <div className="space-y-4 md:space-y-3 mt-2 md:mt-4">
                         <SidebarItem 
                             href="/dashboard" 
                             icon={<DashboardIcon />} 
@@ -168,7 +168,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             
             {/* Main Content Area */}
             <div className="flex-1 md:ml-64 min-w-0 max-w-full overflow-x-auto">
-                <div className="p-2 sm:p-4 md:p-6 pt-16 sm:pt-6 md:pt-8 min-h-screen">
+                <div className="p-2 sm:p-4 md:p-6 pt-20 sm:pt-20 md:pt-24 min-h-screen">
                     {children}
                 </div>
             </div>

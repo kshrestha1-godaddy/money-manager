@@ -7,6 +7,7 @@ import { useCurrency } from "../providers/CurrencyProvider";
 import { useTotalBalance } from "../hooks/useTotalBalance";
 import { useModals } from "../providers/ModalsProvider";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function NavBar() {
   const { data: session, status } = useSession();
@@ -70,6 +71,7 @@ export default function NavBar() {
     const timeString = date.toLocaleTimeString(undefined, {
       hour: '2-digit',
       minute: '2-digit',
+      second: '2-digit',
       hour12: false
     });
     
@@ -84,34 +86,36 @@ export default function NavBar() {
     <nav className="fixed top-0 left-0 right-0 w-full bg-white/90 backdrop-blur-md shadow-sm border-b border-gray-100/50 z-50">
       {/* Main navbar content */}
       <div className="flex items-center justify-between px-4 sm:px-8 py-3 sm:py-4 w-full">
-        {/* Left side: Home button and Date/Time */}
-        <div className="flex items-center flex-shrink-0 space-x-3">
-          {/* Mobile menu toggle button */}
-          <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="sm:hidden p-2 text-gray-600 hover:text-gray-900 transition-colors"
-            aria-label="Toggle mobile menu"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          
-          {/* Home Button */}
-          {status === "authenticated" && (
-            <Link 
-              href="/dashboard" 
-              className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full flex items-center justify-center transition-all duration-200 border border-blue-100 shadow-sm hover:shadow-md"
-              aria-label="Go to Dashboard"
+        {/* Left side: Logo and Date/Time */}
+        <div className="flex flex-col flex-shrink-0">
+          {/* Mobile menu toggle button and Logo row */}
+          <div className="flex items-center space-x-3">
+            {/* Mobile menu toggle button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="sm:hidden p-2 text-gray-600 hover:text-gray-900 transition-colors"
+              aria-label="Toggle mobile menu"
             >
-              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
+            </button>
+            
+            {/* App Logo */}
+            <Link href={status === "authenticated" ? "/dashboard" : "/"} className="flex items-center">
+              <Image 
+                src="/logo.jpeg" 
+                alt="Money Manager Logo" 
+                width={40} 
+                height={40} 
+                className="rounded-full"
+              />
+              <span className="ml-2 text-lg font-semibold text-gray-900 hidden sm:block">Money Manager</span>
             </Link>
-          )}
+          </div>
           
-          {/* Date and Time */}
-          <div className="hidden sm:block text-sm text-gray-600 min-w-[200px]">
+          {/* Date and Time - now below the logo */}
+          <div className="text-sm text-gray-600 mt-1 ml-[53px] sm:ml-[53px]">
             <span className="font-medium">{formatDate(currentDateTime)}</span>
             <span className="mx-1.5 text-gray-400">•</span>
             <span className="font-mono">{formatTime(currentDateTime)}</span>
