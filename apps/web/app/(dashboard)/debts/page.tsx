@@ -248,8 +248,16 @@ export default function Debts() {
     // Loading state
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                    <h1 className="text-3xl font-bold text-gray-900">Debts</h1>
+                    <div className="text-sm text-gray-500">
+                        Track your lending activities
+                    </div>
+                </div>
+                <div className="flex items-center justify-center h-64">
+                    <div className="text-gray-500">Loading debts data...</div>
+                </div>
             </div>
         );
     }
