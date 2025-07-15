@@ -10,7 +10,7 @@ import { GlobalModals } from "./components/GlobalModals";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Your Money Manager",
+  title: "My Money Manager",
   description: "Simple financial tracker - track your income and expenses",
 };
 

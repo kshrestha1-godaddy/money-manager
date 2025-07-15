@@ -126,12 +126,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             onItemClick={() => isMobile && setSidebarOpen(false)}
                         />
                         <SidebarItem 
-                            href="/passwords" 
-                            icon={<PasswordsIcon />} 
-                            title="Passwords" 
-                            onItemClick={() => isMobile && setSidebarOpen(false)}
-                        />
-                        <SidebarItem 
                             href="/debts" 
                             icon={<DebtsIcon />} 
                             title="Debts" 
@@ -149,13 +143,23 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             title="Net Worth" 
                             onItemClick={() => isMobile && setSidebarOpen(false)}
                         />
+
+
                         
                         {/* Additional items */}
+
+                        <SidebarItem
+                            href="/passwords"
+                            icon={<PasswordsIcon />}
+                            title="Passwords"
+                            showSeparator={true} 
+                            onItemClick={() => isMobile && setSidebarOpen(false)}
+                        />
                         <SidebarItem 
                             href="/bookmarks" 
                             icon={<BookmarksIcon />} 
                             title="Bookmarks" 
-                            showSeparator={true} 
+                            showSeparator={false} 
                             onItemClick={() => isMobile && setSidebarOpen(false)}
                         />
                     </div>

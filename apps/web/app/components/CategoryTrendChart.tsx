@@ -49,19 +49,8 @@ export function CategoryTrendChart({ data, type, currency = "USD", startDate, en
             const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
             return `(Until ${endMonth})`;
         } else {
-            // Default to past year
-            const today = new Date();
-            const currentMonth = today.getMonth();
-            const currentYear = today.getFullYear();
-            
-            const yearAgoYear = currentYear - 1;
-            const yearAgoMonth = currentMonth;
-            
-            const startDate = new Date(yearAgoYear, yearAgoMonth, 1);
-            const startMonth = startDate.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            const endMonth = today.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            
-            return `(${startMonth} - ${endMonth})`;
+            // Default: show all available data
+            return "(All Data)";
         }
     };
 
@@ -92,26 +81,10 @@ export function CategoryTrendChart({ data, type, currency = "USD", startDate, en
                 return matchesCategory && matchesDateRange;
             });
         } else {
-            // Default to last full year if no date filters provided
-            const today = new Date();
-            const currentMonth = today.getMonth();
-            const currentYear = today.getFullYear();
-            
-            // Calculate the month 12 months ago
-            const yearAgoYear = currentYear - 1;
-            const yearAgoMonth = currentMonth;
-            
-            // Create date for first day of 12 months ago
-            const filterStartDate = new Date(yearAgoYear, yearAgoMonth, 1);
-            
-            // Create date for last day of current month
-            const filterEndDate = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59, 999);
-            
+            // Default: include all data for the category when no date filters provided
             return dataArray.filter((item: Income | Expense) => {
-                const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
                 const matchesCategory = item.category?.name === categoryName;
-                const withinTimeRange = itemDate >= filterStartDate && itemDate <= filterEndDate;
-                return matchesCategory && withinTimeRange;
+                return matchesCategory;
             });
         }
     };
