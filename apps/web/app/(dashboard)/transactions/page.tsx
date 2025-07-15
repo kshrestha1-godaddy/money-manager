@@ -124,7 +124,7 @@ export default function TransactionsPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
                     <div className="text-center sm:text-left">
                         <p className="text-sm font-medium text-gray-600">Net Amount</p>
-                        <p className={`text-lg sm:text-2xl font-bold ${totalAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <p className="text-lg sm:text-2xl font-bold text-blue-600">
                             {totalAmount >= 0 ? '+' : ''}{formatCurrency(totalAmount, userCurrency)}
                         </p>
                     </div>
