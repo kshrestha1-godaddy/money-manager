@@ -64,7 +64,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div 
                 id="sidebar"
                 className={`
-                    fixed md:sticky 
+                    fixed md:fixed
                     left-0 top-0 md:top-0
                     w-64 h-screen md:h-screen
                     bg-white border-r border-gray-200 
@@ -76,7 +76,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     md:translate-x-0
                 `}
             >
-                <div className="flex flex-col gap-3 md:gap-2 pt-12 md:pt-2 px-2">
+                <div className="flex flex-col gap-3 md:gap-2 pt-12 md:pt-6 px-2">
                     {/* Close button for mobile */}
                     {isMobile && (
                         <button
@@ -91,7 +91,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     )}
 
                     {/* Navigation Items */}
-                    <div className="space-y-4 md:space-y-3 mt-4 md:mt-0">
+                    <div className="space-y-4 md:space-y-3 mt-4 md:mt-16">
                         <SidebarItem 
                             href="/dashboard" 
                             icon={<DashboardIcon />} 
@@ -163,8 +163,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
             
             {/* Main Content Area */}
-            <div className="flex-1 md:ml-0 min-w-0">
-                <div className="p-2 sm:p-4 md:p-6 pt-16 sm:pt-4 md:pt-6">
+            <div className="flex-1 md:ml-64 min-w-0 max-w-full overflow-x-auto">
+                <div className="p-2 sm:p-4 md:p-6 pt-16 sm:pt-6 md:pt-8 min-h-screen">
                     {children}
                 </div>
             </div>
