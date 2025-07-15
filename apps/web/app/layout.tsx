@@ -41,7 +41,7 @@ export default function RootLayout({
           <NavBar />
             <GlobalModals />
 
-          <div className="mt-0 m-3 flex-grow p-10">
+          <div className="flex-grow p-10">
             {children}
           </div>
 

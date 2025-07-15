@@ -101,24 +101,24 @@ export default function NavBar() {
               </svg>
             </button>
             
-            {/* App Logo */}
-            <Link href={status === "authenticated" ? "/dashboard" : "/"} className="flex items-center">
+            {/* App Logo and Info Container */}
+            <Link href={status === "authenticated" ? "/dashboard" : "/"} className="flex items-center space-x-4">
               <Image 
                 src="/logo.jpeg" 
                 alt="Money Manager Logo" 
-                width={40} 
-                height={40} 
+                width={56} 
+                height={56} 
                 className="rounded-full"
               />
-              <span className="ml-2 text-lg font-semibold text-gray-900 hidden sm:block">Money Manager</span>
+              <div className="flex flex-col justify-center">
+                <span className="text-xl font-semibold text-gray-900">My Money Manager</span>
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium">{formatDate(currentDateTime)}</span>
+                  <span className="mx-1.5 text-gray-400">•</span>
+                  <span className="font-mono">{formatTime(currentDateTime)}</span>
+                </div>
+              </div>
             </Link>
-          </div>
-          
-          {/* Date and Time - now below the logo */}
-          <div className="text-sm text-gray-600 mt-1 ml-[53px] sm:ml-[53px]">
-            <span className="font-medium">{formatDate(currentDateTime)}</span>
-            <span className="mx-1.5 text-gray-400">•</span>
-            <span className="font-mono">{formatTime(currentDateTime)}</span>
           </div>
         </div>
         

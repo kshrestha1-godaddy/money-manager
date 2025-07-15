@@ -66,7 +66,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 className={`
                     fixed md:fixed
                     left-0 top-0 md:top-0
-                    w-64 h-screen md:h-screen
+                    w-72 h-screen md:h-screen
                     bg-white border-r border-gray-200 
                     pt-20 md:pt-24 flex-shrink-0 
                     z-40 md:z-30 
@@ -167,7 +167,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
             
             {/* Main Content Area */}
-            <div className="flex-1 md:ml-64 min-w-0 max-w-full overflow-x-auto">
+            <div className="flex-1 md:ml-60 max-w-full overflow-x-auto">
                 <div className="p-2 sm:p-4 md:p-6 pt-20 sm:pt-20 md:pt-24 min-h-screen">
                     {children}
                 </div>
