@@ -4,6 +4,8 @@ import { useState, useRef } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { formatCurrency } from "../utils/currency";
 import { Income, Expense } from "../types/financial";
+import { ChartControls } from "./ChartControls";
+import { useChartExpansion } from "../utils/chartUtils";
 
 interface CategoryPieChartProps {
     data: Income[] | Expense[];
@@ -27,7 +29,7 @@ const COLORS = [
 ];
 
 export function CategoryPieChart({ data, type, currency = "USD", title, startDate, endDate }: CategoryPieChartProps) {
-    const [isExpanded, setIsExpanded] = useState(false);
+    const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     
     // Generate time period text
@@ -124,6 +126,7 @@ export function CategoryPieChart({ data, type, currency = "USD", title, startDat
     const defaultTitle = type === 'income' ? 'Income by Category' : 'Expenses by Category';
     const chartTitle = `${title || defaultTitle} ${timePeriodText}`;
     const totalLabel = type === 'income' ? 'Total Income' : 'Total Expenses';
+    const subtitle = type === 'income' ? 'Breakdown of your income sources by category' : 'Analysis of your spending patterns by category';
 
     // Download functions
     const downloadPNG = async (): Promise<void> => {
@@ -225,14 +228,31 @@ export function CategoryPieChart({ data, type, currency = "USD", title, startDat
         URL.revokeObjectURL(link.href);
     };
 
-    const toggleExpanded = (): void => {
-        setIsExpanded(!isExpanded);
-    };
+    // Prepare CSV data for chart controls
+    const csvDataForControls = [
+        ['Category', 'Amount', 'Percentage'],
+        ...chartData.map(item => [
+            item.name || 'Unknown Category',
+            item.value.toString(),
+            total > 0 ? ((item.value / total) * 100).toFixed(1) + '%' : '0.0%'
+        ])
+    ];
+
+    // Add detailed breakdown if "Others" category exists
+    if (smallCategories.length > 0) {
+        csvDataForControls.push(['', '', '']); // Empty row for separation
+        csvDataForControls.push(['--- Detailed Breakdown ---', '', '']);
+        csvDataForControls.push(['All Categories (including < 2.5%)', '', '']);
+        rawChartData.forEach(item => {
+            const percentage = total > 0 ? ((item.value / total) * 100).toFixed(1) + '%' : '0.0%';
+            csvDataForControls.push([item.name, item.value.toString(), percentage]);
+        });
+    }
 
     const ChartContent = () => (
         <div>
-            <div className="flex justify-center sm:justify-end items-center mb-3 sm:mb-4">
-                <div className="text-center sm:text-right">
+            <div className="flex justify-start items-center mb-3 sm:mb-4">
+                <div className="text-left">
                     <p className="text-xs sm:text-sm text-gray-600">{totalLabel}</p>
                     <p className={`text-base sm:text-lg font-semibold ${type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
                         {formatCurrency(total, currency)}
@@ -353,67 +373,19 @@ export function CategoryPieChart({ data, type, currency = "USD", title, startDat
         );
     }
 
-        return (
+    return (
         <>
             <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-6" data-chart-type={type === 'expense' ? 'expense-pie' : 'income-pie'}>
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 gap-2 sm:gap-0">
-                    <h3 className="text-sm sm:text-lg font-semibold text-gray-900 truncate">{chartTitle}</h3>
-                    <div className="flex items-center gap-1 sm:gap-2 justify-end">
-                        {/* Download Chart as PNG Button */}
-                        <button
-                            onClick={downloadPNG}
-                            className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
-                            title="Download Chart as PNG (fallback to SVG)"
-                            aria-label="Download pie chart as PNG image"
-                        >
-                            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                        </button>
-                        
-                        {/* Download Chart as SVG Button */}
-                        <button
-                            onClick={downloadSVG}
-                            className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
-                            title="Download Chart as SVG"
-                            aria-label="Download pie chart as SVG image"
-                        >
-                            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                            </svg>
-                        </button>
-                        
-                        {/* Download Data Button */}
-                        <button
-                            onClick={downloadCSV}
-                            className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
-                            title="Download Data as CSV"
-                            aria-label="Download category data as CSV file"
-                        >
-                            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                        </button>
-                        
-                        {/* Expand/Collapse Button */}
-                        <button
-                            onClick={toggleExpanded}
-                            className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
-                            title={isExpanded ? "Exit Fullscreen" : "Expand to Fullscreen"}
-                            aria-label={isExpanded ? "Exit fullscreen view" : "Enter fullscreen view"}
-                        >
-                            {isExpanded ? (
-                                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            ) : (
-                                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                                </svg>
-                            )}
-                        </button>
-                    </div>
-                </div>
+                <ChartControls
+                    chartRef={chartRef}
+                    isExpanded={isExpanded}
+                    onToggleExpanded={toggleExpanded}
+                    fileName={`${type}-category-chart`}
+                    csvData={csvDataForControls}
+                    csvFileName={`${type}-category-data`}
+                    title={chartTitle}
+                    subtitle={subtitle}
+                />
                 <ChartContent />
             </div>
 
@@ -422,7 +394,10 @@ export function CategoryPieChart({ data, type, currency = "USD", title, startDat
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
                     <div className="bg-white rounded-lg p-3 sm:p-6 max-w-7xl w-full max-h-full overflow-auto">
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 gap-2 sm:gap-0">
-                            <h2 className="text-lg sm:text-2xl font-semibold truncate">{chartTitle}</h2>
+                            <div>
+                                <h2 className="text-lg sm:text-2xl font-semibold truncate">{chartTitle}</h2>
+                                <p className="text-sm text-gray-500">{subtitle}</p>
+                            </div>
                             <button
                                 onClick={toggleExpanded}
                                 className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm sm:text-base"

@@ -13,6 +13,7 @@ export interface ChartControlsProps {
     showDownloadButtons?: boolean;
     showExpandButton?: boolean;
     title?: string;
+    subtitle?: string;
 }
 
 /**
@@ -27,7 +28,8 @@ export const ChartControls: React.FC<ChartControlsProps> = ({
     csvFileName = 'chart-data',
     showDownloadButtons = true,
     showExpandButton = true,
-    title
+    title,
+    subtitle
 }) => {
     const config: ChartUtilsConfig = {
         chartRef,
@@ -38,7 +40,10 @@ export const ChartControls: React.FC<ChartControlsProps> = ({
 
     return (
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6 gap-2 sm:gap-0">
-            {title && <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">{title}</h3>}
+            <div className="flex flex-col">
+                {title && <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">{title}</h3>}
+                {subtitle && <p className="text-xs sm:text-sm text-gray-500 mt-0.5">{subtitle}</p>}
+            </div>
             <div className="flex items-center gap-1 sm:gap-2 justify-end">
                 {showDownloadButtons && (
                     <>

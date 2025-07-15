@@ -60,18 +60,24 @@ export default function NavBar() {
   
   const formatDate = (date: Date) => {
     return date.toLocaleDateString(undefined, {
-      weekday: 'short',
-      month: 'short',
+      weekday: 'long',
+      month: 'long',
       day: 'numeric'
     });
   };
   
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString(undefined, {
+    const timeString = date.toLocaleTimeString(undefined, {
       hour: '2-digit',
       minute: '2-digit',
-      hour12: true
+      hour12: false
     });
+    
+    const timeZone = date.toLocaleTimeString(undefined, {
+      timeZoneName: 'short'
+    }).split(' ').pop();
+    
+    return `${timeString} · ${timeZone}`;
   };
 
   return (
@@ -105,7 +111,7 @@ export default function NavBar() {
           )}
           
           {/* Date and Time */}
-          <div className="hidden sm:block text-sm text-gray-600">
+          <div className="hidden sm:block text-sm text-gray-600 min-w-[200px]">
             <span className="font-medium">{formatDate(currentDateTime)}</span>
             <span className="mx-1.5 text-gray-400">•</span>
             <span className="font-mono">{formatTime(currentDateTime)}</span>
@@ -262,6 +268,12 @@ export default function NavBar() {
       {isMobileMenuOpen && (
         <div className="mobile-menu absolute top-full left-0 right-0 bg-white border-b border-gray-200 shadow-lg md:hidden">
           <div className="px-4 py-2 space-y-2">
+            {/* Mobile Date and Time */}
+            <div className="text-sm text-gray-600 py-2 text-center">
+              <span className="font-medium block">{formatDate(currentDateTime)}</span>
+              <span className="font-mono block mt-1">{formatTime(currentDateTime)}</span>
+            </div>
+            
             {status === "authenticated" ? (
               <>
                 <div className="flex items-center justify-around py-2">

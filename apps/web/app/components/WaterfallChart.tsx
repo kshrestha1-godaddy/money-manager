@@ -131,6 +131,7 @@ export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD", s
                 csvData={csvData}
                 csvFileName="waterfall-data"
                 title={`Financial Waterfall: Income → Expenses → Savings ${timePeriodText}`}
+                subtitle="Visualizes the flow from income to expenses, showing your net savings"
             />
 
             {/* Summary Stats */}

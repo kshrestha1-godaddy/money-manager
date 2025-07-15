@@ -4,6 +4,8 @@ import { useState, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { formatCurrency } from "../utils/currency";
 import { Income, Expense } from "../types/financial";
+import { ChartControls } from "./ChartControls";
+import { useChartExpansion } from "../utils/chartUtils";
 
 interface CategoryTrendChartProps {
     data: Income[] | Expense[];
@@ -20,8 +22,8 @@ interface MonthlyData {
 }
 
 export function CategoryTrendChart({ data, type, currency = "USD", startDate, endDate }: CategoryTrendChartProps) {
-    const [isExpanded, setIsExpanded] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string>("");
+    const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
 
     // Get unique categories from data
@@ -229,9 +231,17 @@ export function CategoryTrendChart({ data, type, currency = "USD", startDate, en
         URL.revokeObjectURL(link.href);
     };
 
-    const toggleExpanded = (): void => {
-        setIsExpanded(!isExpanded);
-    };
+    // Prepare CSV data for chart controls
+    const csvData = [
+        ['Month', 'Amount'],
+        ...chartData.map(item => [
+            item.formattedMonth,
+            item.amount.toString()
+        ])
+    ];
+
+    const chartTitle = `${type === 'income' ? 'Income' : 'Expense'} Category Trends ${timePeriodText}`;
+    const subtitle = `Monthly trend for ${currentCategory} category over time`;
 
     const formatYAxisTick = (value: number): string => {
         if (value >= 1000000) {
@@ -288,25 +298,6 @@ export function CategoryTrendChart({ data, type, currency = "USD", startDate, en
 
     const ChartContent = () => (
         <div>
-            {/* Category Selection */}
-            <div className="mb-4">
-                <label htmlFor="category-select" className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Category
-                </label>
-                <select
-                    id="category-select"
-                    value={currentCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="block w-full max-w-xs px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                    {categories.map((category) => (
-                        <option key={category} value={category}>
-                            {category}
-                        </option>
-                    ))}
-                </select>
-            </div>
-
             {/* Summary Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
                 <div className="text-center sm:text-left">
@@ -397,16 +388,17 @@ export function CategoryTrendChart({ data, type, currency = "USD", startDate, en
         </div>
     );
 
+    // Return the component
     if (categories.length === 0) {
         return (
-            <div className="bg-white rounded-lg shadow p-6" data-chart-type={type === 'expense' ? 'expense-trend' : 'income-trend'}>
+            <div className="bg-white rounded-lg shadow p-6" data-chart-type={`${type}-category-trend`}>
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">
-                        Category {type === 'income' ? 'Income' : 'Expense'} Trend {timePeriodText}
+                        {chartTitle}
                     </h3>
                 </div>
                 <div className="flex items-center justify-center h-64 text-gray-500">
-                    No {type} categories available
+                    No categories available
                 </div>
             </div>
         );
@@ -414,67 +406,37 @@ export function CategoryTrendChart({ data, type, currency = "USD", startDate, en
 
     return (
         <>
-            <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-6" data-chart-type={type === 'expense' ? 'expense-trend' : 'income-trend'}>
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                        Category {type === 'income' ? 'Income' : 'Expense'} Trend: {currentCategory}
-                    </h3>
-                    <div className="flex items-center gap-2">
-                        {/* Download Chart as PNG Button */}
-                        <button
-                            onClick={downloadPNG}
-                            className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
-                            title="Download Chart as PNG (fallback to SVG)"
-                            aria-label="Download category trend chart as PNG image"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                        </button>
-                        
-                        {/* Download Chart as SVG Button */}
-                        <button
-                            onClick={downloadSVG}
-                            className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
-                            title="Download Chart as SVG"
-                            aria-label="Download category trend chart as SVG image"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                            </svg>
-                        </button>
-                        
-                        {/* Download Data Button */}
-                        <button
-                            onClick={downloadCSV}
-                            className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
-                            title="Download Data as CSV"
-                            aria-label="Download category trend data as CSV file"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                        </button>
-                        
-                        {/* Expand/Collapse Button */}
-                        <button
-                            onClick={toggleExpanded}
-                            className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
-                            title={isExpanded ? "Exit Fullscreen" : "Expand to Fullscreen"}
-                            aria-label={isExpanded ? "Exit fullscreen view" : "Enter fullscreen view"}
-                        >
-                            {isExpanded ? (
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            ) : (
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                                </svg>
-                            )}
-                        </button>
-                    </div>
+            <div className="bg-white rounded-lg shadow p-3 sm:p-6" data-chart-type={`${type}-category-trend`}>
+                <ChartControls
+                    chartRef={chartRef}
+                    isExpanded={isExpanded}
+                    onToggleExpanded={toggleExpanded}
+                    fileName={`${currentCategory}-trend-chart`}
+                    csvData={csvData}
+                    csvFileName={`${currentCategory}-trend-data`}
+                    title={chartTitle}
+                    subtitle={subtitle}
+                />
+                
+                {/* Category Selector */}
+                <div className="mb-4">
+                    <label htmlFor="category-selector" className="block text-sm font-medium text-gray-700 mb-1">
+                        Select Category:
+                    </label>
+                    <select
+                        id="category-selector"
+                        value={currentCategory}
+                        onChange={(e) => setSelectedCategory(e.target.value)}
+                        className="w-full sm:w-64 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    >
+                        {categories.map((category) => (
+                            <option key={category} value={category}>
+                                {category}
+                            </option>
+                        ))}
+                    </select>
                 </div>
+                
                 <ChartContent />
             </div>
 
@@ -482,20 +444,39 @@ export function CategoryTrendChart({ data, type, currency = "USD", startDate, en
             {isExpanded && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-lg p-6 max-w-[95%] w-full max-h-[95%] overflow-auto">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-2xl font-semibold">Category {type === 'income' ? 'Income' : 'Expense'} Trend: {currentCategory} {timePeriodText}</h2>
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-2 sm:gap-0">
+                            <div>
+                                <h2 className="text-lg sm:text-2xl font-semibold">{chartTitle}</h2>
+                                <p className="text-sm text-gray-500">{subtitle}</p>
+                            </div>
                             <button
                                 onClick={toggleExpanded}
-                                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm sm:text-base"
                             >
                                 Close
                             </button>
                         </div>
-                        <div className="flex flex-col items-center">
-                            <div className="w-full">
-                                <ChartContent />
-                            </div>
+                        
+                        {/* Category Selector */}
+                        <div className="mb-4">
+                            <label htmlFor="category-selector-fullscreen" className="block text-sm font-medium text-gray-700 mb-1">
+                                Select Category:
+                            </label>
+                            <select
+                                id="category-selector-fullscreen"
+                                value={currentCategory}
+                                onChange={(e) => setSelectedCategory(e.target.value)}
+                                className="w-full sm:w-64 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            >
+                                {categories.map((category) => (
+                                    <option key={category} value={category}>
+                                        {category}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
+                        
+                        <ChartContent />
                     </div>
                 </div>
             )}

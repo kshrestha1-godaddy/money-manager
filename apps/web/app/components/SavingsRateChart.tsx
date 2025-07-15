@@ -163,6 +163,7 @@ export function SavingsRateChart({ incomes, expenses, currency, startDate, endDa
                 csvData={csvData}
                 csvFileName="savings-rate-data"
                 title={`Monthly Savings Rate Trend ${timePeriodText}`}
+                subtitle="Tracks your monthly savings as a percentage of income over time"
             />
 
             {/* Summary Stats */}
