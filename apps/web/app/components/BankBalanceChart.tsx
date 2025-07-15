@@ -80,6 +80,16 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
         return formatCurrency(value, currency);
     };
 
+    // Data label formatter with 3 decimal precision for top labels
+    const formatDataLabel = (value: number) => {
+        if (value >= 1000000) {
+            return `${(value / 1000000).toFixed(3)}M`;
+        } else if (value >= 1000) {
+            return `${(value / 1000).toFixed(3)}K`;
+        }
+        return formatCurrency(value, currency);
+    };
+
     const renderCustomLabel = (props: any) => {
         const { x, y, width, height, payload } = props;
         
@@ -141,7 +151,7 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                         margin={{
                             top: 10,
                             right: 15,
-                            left: 0,
+                            left: 20,
                             bottom: 20,
                         }}
                     >
@@ -185,6 +195,18 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                             fill="#3b82f6" 
                             radius={[4, 4, 0, 0]}
                         >
+                            {/* Data labels on top of bars */}
+                            <LabelList 
+                                dataKey="balance" 
+                                position="top" 
+                                formatter={formatDataLabel}
+                                style={{ 
+                                    fill: '#374151',
+                                    fontSize: '11px',
+                                    fontWeight: '600'
+                                }}
+                            />
+                            {/* Percentage labels inside bars */}
                             <LabelList 
                                 dataKey="percentage" 
                                 position="center" 

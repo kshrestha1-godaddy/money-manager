@@ -394,6 +394,7 @@ export default function NetWorthPage() {
                                 {chartData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={entry.color} />
                                 ))}
+                                {/* Data labels on top of bars */}
                                 <LabelList 
                                     dataKey="value" 
                                     position="top" 
@@ -403,6 +404,15 @@ export default function NetWorthPage() {
                                         fontSize: '12px',
                                         fontWeight: '600'
                                     }}
+                                />
+                                {/* Percentage labels inside bars */}
+                                <LabelList 
+                                    dataKey="percentage" 
+                                    position="center" 
+                                    fill="white"
+                                    fontSize={12}
+                                    fontWeight="bold"
+                                    formatter={(value: string) => `${value}%`}
                                 />
                             </Bar>
                         </BarChart>
