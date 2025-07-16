@@ -103,7 +103,7 @@ export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD", s
             
             return (
                 <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-                    <p className="font-small text-gray-900">{displayLabel}</p>
+                    <p className=" text-gray-500">{displayLabel}</p>
                     <p className="text-sm" style={{ color: getBarColor(item.type) }}>
                         {formatCurrency(item.value, currency)}
                     </p>
