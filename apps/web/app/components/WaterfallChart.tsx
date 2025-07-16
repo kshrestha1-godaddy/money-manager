@@ -85,17 +85,32 @@ export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD", s
         }
     };
 
-    const formatTooltip = (value: number, name: string, props: any) => {
-        const { payload } = props;
-        if (name === "base") return null; // Don't show base in tooltip
-        
-        if (payload.name === "Expenses") {
-            return [formatCurrency(payload.value, currency), "Expenses"];
-        } else if (payload.name === "Net Savings") {
-            const label = payload.type === "savings" ? "Net Savings" : "Net Loss";
-            return [formatCurrency(payload.value, currency), label];
+    const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+        if (active && payload && payload.length) {
+            const data = payload.find(p => p.dataKey === "value");
+            if (!data) return null;
+            
+            const item = data.payload as WaterfallData;
+            let displayLabel = "";
+            
+            if (item.name === "Income") {
+                displayLabel = "Income";
+            } else if (item.name === "Expenses") {
+                displayLabel = "Expenses";
+            } else if (item.name === "Net Savings") {
+                displayLabel = item.type === "savings" ? "Net Savings" : "Net Loss";
+            }
+            
+            return (
+                <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+                    <p className="font-small text-gray-900">{displayLabel}</p>
+                    <p className="text-sm" style={{ color: getBarColor(item.type) }}>
+                        {formatCurrency(item.value, currency)}
+                    </p>
+                </div>
+            );
         }
-        return [formatCurrency(value, currency), payload.name];
+        return null;
     };
 
     const formatYAxisTick = (value: number): string => {
@@ -192,7 +207,7 @@ export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD", s
                             tick={{ fontSize: 12 }}
                             domain={[0, (dataMax: number) => Math.max(dataMax * 1.2, totalIncome * 1.1)]}
                         />
-                        <Tooltip formatter={formatTooltip} />
+                        <Tooltip content={<CustomTooltip />} />
                         
                         {/* Reference lines for better visual separation */}
                         <ReferenceLine y={totalIncome} stroke="#10b981" strokeDasharray="5 5" strokeWidth={2} label={{ value: "", position: "top" }} />
