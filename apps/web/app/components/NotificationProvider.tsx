@@ -32,7 +32,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     // Set up periodic notification checking
     const { triggerCheck } = useNotificationChecker({
         enabled: !!session?.user,
-        interval: 5 * 60 * 1000, // 5 minutes
+        interval: 10 * 60 * 1000, // 10 minutes
         onError: (error) => {
             console.error("Notification check error:", error);
         }
@@ -62,7 +62,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     useEffect(() => {
         if (!session?.user) return;
 
-        const interval = setInterval(refreshUnreadCount, 30 * 1000); // 30 seconds
+        const interval = setInterval(refreshUnreadCount, 10 * 60 * 1000); // 10 minutes
         return () => clearInterval(interval);
     }, [session?.user]);
 

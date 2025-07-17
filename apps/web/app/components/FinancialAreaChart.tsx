@@ -475,7 +475,7 @@ export function FinancialAreaChart({
                     )}
                 </div>
             </div>
-            <div ref={chartRef} className={`${isExpanded ? 'h-[70vh] w-full' : 'h-48 sm:h-64 w-full'}`}>
+            <div ref={chartRef} className={`${isExpanded ? 'h-[70vh] w-full' : 'h-64 sm:h-80 w-full'}`}>
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
                         data={chartData}

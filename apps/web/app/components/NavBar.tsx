@@ -107,6 +107,7 @@ export default function NavBar() {
               <Image 
                 src="/logo.png" 
                 alt="Money Manager Logo" 
+                priority={true}
                 width={56} 
                 height={56} 
                 className="rounded-full"

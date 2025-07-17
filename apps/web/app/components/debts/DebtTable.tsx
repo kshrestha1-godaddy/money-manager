@@ -164,29 +164,6 @@ export function DebtTable({
 
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-4 md:px-6 py-4 border-b border-gray-200">
-                <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-semibold text-gray-900">
-                        Debts ({debts.length})
-                    </h2>
-                    {showBulkActions && hasSelectionInSection && (
-                        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-                            <button
-                                onClick={onClearSelection}
-                                className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors"
-                            >
-                                Clear ({debts.filter(debt => selectedDebts.has(debt.id)).length})
-                            </button>
-                            <button
-                                onClick={onBulkDelete}
-                                className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
-                            >
-                                Delete ({debts.filter(debt => selectedDebts.has(debt.id)).length})
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
 
             {isMobile ? (
                 // Mobile Cards View

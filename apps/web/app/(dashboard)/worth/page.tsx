@@ -1,60 +1,17 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { useQuery } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
-import { Income, Expense } from "../../types/financial";
-import { AccountInterface } from "../../types/accounts";
-import { DebtInterface } from "../../types/debts";
-import { InvestmentInterface } from "../../types/investments";
-import { getIncomes } from "../../actions/incomes";
-import { getExpenses } from "../../actions/expenses";
-import { getUserAccounts } from "../../actions/accounts";
-import { getUserDebts } from "../../actions/debts";
-import { getUserInvestments } from "../../actions/investments";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency, getCurrencySymbol } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
-import { calculateRemainingWithInterest } from "../../utils/interestCalculation";
 import { useChartExpansion } from "../../utils/chartUtils";
 import { ChartControls } from "../../components/ChartControls";
+import { useOptimizedWorth } from "../../hooks/useOptimizedWorth";
+import { TrendingUp, TrendingDown, DollarSign, Target, PiggyBank, BarChart3, RefreshCw, Download } from "lucide-react";
 
-type SectionKey = 'accounts' | 'investments' | 'moneyLent';
-
-interface FinancialData {
-    accounts: AccountInterface[];
-    investments: InvestmentInterface[];
-    debts: DebtInterface[];
-    incomes: Income[];
-    expenses: Expense[];
-}
-
-interface NetWorthStats {
-    totalAccountBalance: number;
-    totalInvestmentValue: number;
-    totalMoneyLent: number;
-    totalAssets: number;
-    netWorth: number;
-    thisMonthIncome: number;
-    thisMonthExpenses: number;
-    thisMonthNetIncome: number;
-    savingsRate: number;
-    investmentAllocation: number;
-}
-
-// Stable query configuration
-const QUERY_CONFIG = {
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 15 * 60 * 1000, // 15 minutes
-} as const;
-
-// Chart colors
-const CHART_COLORS = {
-    accounts: '#10b981',
-    investments: '#3b82f6',
-    moneyLent: '#ef4444'
-} as const;
+type SectionKey = 'accounts' | 'investments' | 'debts';
 
 export default function NetWorthPage() {
     const session = useSession();
@@ -64,218 +21,82 @@ export default function NetWorthPage() {
     const [expandedSections, setExpandedSections] = useState<Record<SectionKey, boolean>>({
         accounts: false,
         investments: false,
-        moneyLent: false
+        debts: false
     });
 
-    // Data queries with consistent configuration
-    const { data: incomes = [], isLoading: incomesLoading } = useQuery({
-        queryKey: ['incomes'],
-        queryFn: getIncomes,
-        ...QUERY_CONFIG,
-    });
-
-    const { data: expenses = [], isLoading: expensesLoading } = useQuery({
-        queryKey: ['expenses'],
-        queryFn: getExpenses,
-        ...QUERY_CONFIG,
-    });
-
-    const { data: accounts = [], isLoading: accountsLoading } = useQuery({
-        queryKey: ['accounts'],
-        queryFn: async () => {
-            const result = await getUserAccounts();
-            return ('error' in result) ? [] : result;
-        },
-        ...QUERY_CONFIG,
-    });
-
-    const { data: debts = [], isLoading: debtsLoading } = useQuery({
-        queryKey: ['debts'],
-        queryFn: getUserDebts,
-        ...QUERY_CONFIG,
-        select: (data) => ('error' in data) ? [] : data.data || []
-    });
-
-    const { data: investments = [], isLoading: investmentsLoading } = useQuery({
-        queryKey: ['investments'],
-        queryFn: getUserInvestments,
-        ...QUERY_CONFIG,
-        select: (data) => ('error' in data) ? [] : data.data || []
-    });
-
-    const loading = incomesLoading || expensesLoading || accountsLoading || debtsLoading || investmentsLoading;
-
-    // Stable section toggle handler
-    const toggleSection = useCallback((section: SectionKey) => {
-        setExpandedSections(prev => ({
-            ...prev,
-            [section]: !prev[section]
-        }));
-    }, []);
-
-    // Memoized financial calculations
-    const netWorthStats = useMemo((): NetWorthStats => {
-        // Calculate assets
-        const totalAccountBalance = accounts.reduce((sum, account) => sum + (account.balance || 0), 0);
-        
-        const totalInvestmentValue = investments.reduce((sum, investment) => 
-            sum + (investment.quantity * investment.currentPrice), 0
-        );
-        
-        const totalMoneyLent = debts.reduce((sum: number, debt: DebtInterface) => {
-            const remainingWithInterest = calculateRemainingWithInterest(
-                debt.amount,
-                debt.interestRate,
-                debt.lentDate,
-                debt.dueDate,
-                debt.repayments || [],
-                new Date(),
-                debt.status
-            );
-            return sum + Math.max(0, remainingWithInterest.remainingAmount);
-        }, 0);
-        
-        const totalAssets = totalAccountBalance + totalInvestmentValue + totalMoneyLent;
-        const netWorth = totalAssets; // No liabilities in this model
-
-        // Calculate monthly stats
-        const currentMonth = new Date().getMonth();
-        const currentYear = new Date().getFullYear();
-        
-        const thisMonthIncome = incomes
-            .filter(income => {
-                const incomeDate = income.date instanceof Date ? income.date : new Date(income.date);
-                return incomeDate.getMonth() === currentMonth && incomeDate.getFullYear() === currentYear;
-            })
-            .reduce((sum, income) => sum + income.amount, 0);
-
-        const thisMonthExpenses = expenses
-            .filter(expense => {
-                const expenseDate = expense.date instanceof Date ? expense.date : new Date(expense.date);
-                return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
-            })
-            .reduce((sum, expense) => sum + expense.amount, 0);
-
-        const thisMonthNetIncome = thisMonthIncome - thisMonthExpenses;
-        const savingsRate = thisMonthIncome > 0 ? (thisMonthNetIncome / thisMonthIncome) * 100 : 0;
-        const investmentAllocation = totalAssets > 0 ? (totalInvestmentValue / totalAssets) * 100 : 0;
-
-        return {
-            totalAccountBalance,
-            totalInvestmentValue,
-            totalMoneyLent,
-            totalAssets,
-            netWorth,
-            thisMonthIncome,
-            thisMonthExpenses,
-            thisMonthNetIncome,
-            savingsRate,
-            investmentAllocation
-        };
-    }, [accounts, investments, debts, incomes, expenses]);
-
-    // Memoized chart data
-    const chartData = useMemo(() => [
-        {
-            name: 'Bank Balance',
-            value: netWorthStats.totalAccountBalance,
-            color: CHART_COLORS.accounts,
-            percentage: netWorthStats.totalAssets > 0 
-                ? ((netWorthStats.totalAccountBalance / netWorthStats.totalAssets) * 100).toFixed(1) 
-                : '0'
-        },
-        {
-            name: 'Investments',
-            value: netWorthStats.totalInvestmentValue,
-            color: CHART_COLORS.investments,
-            percentage: netWorthStats.totalAssets > 0 
-                ? ((netWorthStats.totalInvestmentValue / netWorthStats.totalAssets) * 100).toFixed(1) 
-                : '0'
-        },
-        {
-            name: 'Money Lent',
-            value: netWorthStats.totalMoneyLent,
-            color: CHART_COLORS.moneyLent,
-            percentage: netWorthStats.totalAssets > 0 
-                ? ((netWorthStats.totalMoneyLent / netWorthStats.totalAssets) * 100).toFixed(1) 
-                : '0'
-        }
-    ], [netWorthStats]);
-
-    // Prepare CSV data for chart controls
-    const csvData = useMemo(() => [
-        ['Category', 'Amount', 'Percentage'],
-        ['Bank Balance', netWorthStats.totalAccountBalance.toString(), `${((netWorthStats.totalAccountBalance / netWorthStats.totalAssets) * 100).toFixed(1)}%`],
-        ['Investments', netWorthStats.totalInvestmentValue.toString(), `${((netWorthStats.totalInvestmentValue / netWorthStats.totalAssets) * 100).toFixed(1)}%`],
-        ['Money Lent', netWorthStats.totalMoneyLent.toString(), `${((netWorthStats.totalMoneyLent / netWorthStats.totalAssets) * 100).toFixed(1)}%`],
-        ['Total Assets', netWorthStats.totalAssets.toString(), '100.0%'],
-        ['Net Worth', netWorthStats.netWorth.toString(), ''],
-        ['Savings Rate', `${netWorthStats.savingsRate.toFixed(1)}%`, ''],
-        ['Investment Allocation', `${netWorthStats.investmentAllocation.toFixed(1)}%`, '']
-    ], [netWorthStats]);
-
-    // Memoized outstanding debts
-    const outstandingDebts = useMemo(() => {
-        return debts.filter(debt => {
-            const remainingWithInterest = calculateRemainingWithInterest(
-                debt.amount,
-                debt.interestRate,
-                debt.lentDate,
-                debt.dueDate,
-                debt.repayments || [],
-                new Date(),
-                debt.status
-            );
-            return remainingWithInterest.remainingAmount > 0;
-        });
-    }, [debts]);
+    // Use the optimized worth hook
+    const {
+        netWorthStats,
+        chartData,
+        sections,
+        accounts,
+        investments,
+        debts,
+        loading,
+        error,
+        handleExportCSV,
+        refreshData,
+        exportData,
+        chartColors
+    } = useOptimizedWorth();
 
     // Helper functions
-    const formatCurrencyAbbreviated = useCallback((amount: number) => {
+    const formatCurrencyAbbreviated = (amount: number) => {
         if (amount >= 1000000) {
             return `${getCurrencySymbol(currency)}${(amount / 1000000).toFixed(1)}M`;
         } else if (amount >= 1000) {
             return `${getCurrencySymbol(currency)}${(amount / 1000).toFixed(1)}K`;
         }
         return formatCurrency(amount, currency);
-    }, [currency]);
+    };
 
-    // Data label formatter with 3 decimal precision
-    const formatDataLabel = useCallback((amount: number) => {
+    const calculateItemPercentage = (itemValue: number, sectionValue: number) => {
+        if (sectionValue === 0) return 0;
+        return ((itemValue / sectionValue) * 100).toFixed(1);
+    };
+
+    const formatDataLabel = (amount: number) => {
         if (amount >= 1000000) {
             return `${getCurrencySymbol(currency)}${(amount / 1000000).toFixed(3)}M`;
         } else if (amount >= 1000) {
             return `${getCurrencySymbol(currency)}${(amount / 1000).toFixed(3)}K`;
         }
         return formatCurrency(amount, currency);
-    }, [currency]);
+    };
 
+    const toggleSection = (section: SectionKey) => {
+        setExpandedSections(prev => ({
+            ...prev,
+            [section]: !prev[section]
+        }));
+    };
 
-
-    const getStatusColor = useCallback((status: string) => {
-        switch (status) {
-            case 'ACTIVE':
-                return 'bg-green-100 text-green-800';
-            case 'OVERDUE':
-                return 'bg-red-100 text-red-800';
-            case 'PAID':
-                return 'bg-gray-100 text-gray-800';
-            default:
-                return 'bg-gray-100 text-gray-800';
-        }
-    }, []);
+    // Display error if there's one
+    if (error) {
+        return (
+            <div className="p-8 text-center">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-red-800 mb-2">Error Loading Net Worth Data</h3>
+                    <p className="text-red-600">{String(error)}</p>
+                    <div className="flex gap-2 mt-4 justify-center">
+                        <button 
+                            onClick={refreshData} 
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                        >
+                            Retry       
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     // Loading state
     if (loading) {
         return (
             <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                    <h1 className="text-3xl font-bold text-gray-900">Net Worth</h1>
-                    <div className="text-sm text-gray-500">
-                        Welcome back, {session.data?.user?.name || 'User'}
-                    </div>
-                </div>
-                <div className="flex items-center justify-center h-64">
+                <div className="flex flex-col items-center justify-center h-64">
+                    <div className="animate-spin mb-4 h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full"></div>
                     <div className="text-gray-500">Loading net worth data...</div>
                 </div>
             </div>
@@ -285,13 +106,26 @@ export default function NetWorthPage() {
     return (
         <div className="space-y-6 max-w-full min-w-0">
             {/* Header */}
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">Net Worth</h1>
-                    <p className="text-gray-600 mt-1">Track your overall financial position</p>
+                    <p className="text-gray-600 mt-1">Track your overall financial position and growth</p>
                 </div>
-                <div className="text-sm text-gray-500">
-                    Welcome back, {session.data?.user?.name || 'User'}
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={refreshData}
+                        className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-gray-600 border border-gray-200 rounded-md flex items-center gap-2"
+                    >
+                        <RefreshCw className="h-4 w-4" />
+                        Refresh
+                    </button>
+                    <button
+                        onClick={handleExportCSV}
+                        className="px-4 py-2 bg-gray-50 hover:bg-green-100 text-gray-600 border border-gray-200 rounded-md flex items-center gap-2"
+                    >
+                        <Download className="h-4 w-4" />
+                        Export
+                    </button>
                 </div>
             </div>
 
@@ -305,449 +139,242 @@ export default function NetWorthPage() {
                             <h3 className="text-lg font-medium mb-2">Total Assets</h3>
                             <p className="text-2xl font-semibold text-green-200">{formatCurrency(netWorthStats.totalAssets, currency)}</p>
                             <div className="text-sm text-green-100 mt-1">
-                                Accounts: {formatCurrency(netWorthStats.totalAccountBalance, currency)} | 
-                                Investments: {formatCurrency(netWorthStats.totalInvestmentValue, currency)} | 
-                                Money Lent: {formatCurrency(netWorthStats.totalMoneyLent, currency)}
+                                Bank: {formatCurrencyAbbreviated(netWorthStats.totalAccountBalance)} | 
+                                Investments: {formatCurrencyAbbreviated(netWorthStats.totalInvestmentValue)} | 
+                                Lent: {formatCurrencyAbbreviated(netWorthStats.totalMoneyLent)}
                             </div>
                         </div>
                         <div className="text-center">
-                            <h3 className="text-lg font-medium mb-2">Total Liabilities</h3>
-                            <p className="text-2xl font-semibold text-red-200">{formatCurrency(0, currency)}</p>
-                            <div className="text-sm text-red-100 mt-1">
-                                Debt-free! 🎉
+                            <h3 className="text-lg font-medium mb-2">Monthly Growth</h3>
+                            <p className={`text-2xl font-semibold ${netWorthStats.monthlyGrowthRate >= 0 ? 'text-green-200' : 'text-red-200'}`}>
+                                {netWorthStats.monthlyGrowthRate >= 0 ? '+' : ''}{netWorthStats.monthlyGrowthRate.toFixed(1)}%
+                            </p>
+                            <div className="text-sm text-gray-100 mt-1">
+                                Projected yearly: {netWorthStats.projectedYearlyGrowth >= 0 ? '+' : ''}{netWorthStats.projectedYearlyGrowth.toFixed(1)}%
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Financial Health Indicators */}
-            <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Financial Health</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-700 mb-2">Savings Rate (This Month)</h4>
-                        <p className="text-2xl font-bold text-blue-600">
-                            {netWorthStats.savingsRate.toFixed(1)}%
-                        </p>
-                        <p className="text-sm text-gray-500 mt-1">
-                            {netWorthStats.thisMonthNetIncome >= 0 ? 'You are saving money this month! 🎉' : 'You are spending more than earning this month 📉'}
-                        </p>
+            {/* Financial Health Metrics - Card Style */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
+                    <div className="flex items-center justify-center mb-2">
+                        <h3 className="text-sm font-medium text-gray-500 mr-2">Savings Rate</h3>
+                        <PiggyBank className="h-4 w-4 text-blue-500" />
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-700 mb-2">Asset Allocation</h4>
-                        <p className="text-2xl font-bold text-purple-600">
-                            {netWorthStats.investmentAllocation.toFixed(1)}%
-                        </p>
-                        <p className="text-sm text-gray-500 mt-1">
-                            Percentage in investments
-                        </p>
+                    <p className="text-2xl font-bold text-blue-600">
+                        {netWorthStats.savingsRate.toFixed(1)}%
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">This month</p>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
+                    <div className="flex items-center justify-center mb-2">
+                        <h3 className="text-sm font-medium text-gray-500 mr-2">Investment Allocation</h3>
+                        <BarChart3 className="h-4 w-4 text-purple-500" />
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-4 sm:col-span-2 lg:col-span-1">
-                        <h4 className="font-medium text-gray-700 mb-2">Debt to Asset Ratio</h4>
-                        <p className="text-2xl font-bold text-green-600">0.0%</p>
-                        <p className="text-sm text-gray-500 mt-1">
-                            Debt-free! 🎉
-                        </p>
+                    <p className="text-2xl font-bold text-purple-600">
+                        {netWorthStats.investmentAllocation.toFixed(1)}%
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">Of total assets</p>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
+                    <div className="flex items-center justify-center mb-2">
+                        <h3 className="text-sm font-medium text-gray-500 mr-2">Liquidity Ratio</h3>
+                        <DollarSign className="h-4 w-4 text-green-500" />
                     </div>
+                    <p className="text-2xl font-bold text-green-600">
+                        {netWorthStats.liquidityRatio.toFixed(1)}%
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">Cash accessible</p>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
+                    <div className="flex items-center justify-center mb-2">
+                        <h3 className="text-sm font-medium text-gray-500 mr-2">Investment Gain</h3>
+                        {netWorthStats.totalInvestmentGain >= 0 ? 
+                            <TrendingUp className="h-4 w-4 text-green-500" /> : 
+                            <TrendingDown className="h-4 w-4 text-red-500" />
+                        }
+                    </div>
+                    <p className={`text-2xl font-bold ${netWorthStats.totalInvestmentGain >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {formatCurrencyAbbreviated(netWorthStats.totalInvestmentGain)}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                        {netWorthStats.totalInvestmentGainPercentage.toFixed(1)}% return
+                    </p>
                 </div>
             </div>
+
 
             {/* Asset Breakdown Chart */}
-            <div 
-                className={`bg-white rounded-lg shadow p-3 sm:p-6 ${isChartExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}
-                role="region"
-                aria-label="Asset Breakdown Chart"
-                data-chart-type="asset-breakdown"
-            >
-                <ChartControls
-                    chartRef={chartRef}
-                    isExpanded={isChartExpanded}
-                    onToggleExpanded={toggleChartExpansion}
-                    fileName="asset-breakdown-chart"
-                    csvData={csvData}
-                    csvFileName="asset-breakdown-data"
-                    title="Asset Breakdown"
-                />
-
-                <div 
-                    ref={chartRef}
-                    className={`${isChartExpanded ? 'h-[60vh] w-full' : 'h-[24rem] sm:h-[32rem] w-full'}`}
-                    role="img"
-                    aria-label={`Asset breakdown chart showing bank balance of ${formatCurrency(netWorthStats.totalAccountBalance, currency)}, investments of ${formatCurrency(netWorthStats.totalInvestmentValue, currency)}, and money lent of ${formatCurrency(netWorthStats.totalMoneyLent, currency)}`}
-                >
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={chartData} margin={{ top: 40, right: 30, left: 20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" />
-                            <YAxis tickFormatter={formatCurrencyAbbreviated} />
-                            <Tooltip 
-                                formatter={(value: number) => [formatCurrency(value, currency), 'Amount']}
-                                labelStyle={{ color: '#374151' }}
-                                contentStyle={{ 
-                                    backgroundColor: '#f9fafb', 
-                                    border: '1px solid #e5e7eb',
-                                    borderRadius: '8px'
-                                }}
-                            />
-                            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                {chartData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                                {/* Data labels on top of bars */}
-                                <LabelList 
-                                    dataKey="value" 
-                                    position="top" 
-                                    formatter={formatDataLabel}
-                                    style={{ 
-                                        fill: '#374151',
-                                        fontSize: '12px',
-                                        fontWeight: '600'
-                                    }}
-                                />
-                                {/* Percentage labels inside bars */}
-                                <LabelList 
-                                    dataKey="percentage" 
-                                    position="center" 
-                                    fill="white"
-                                    fontSize={12}
-                                    fontWeight="bold"
-                                    formatter={(value: string) => `${value}%`}
-                                />
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-                
-                {/* Chart Legend */}
-                <div className="mt-4 flex justify-center space-x-6">
-                    <div className="flex items-center">
-                        <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-                        <span className="text-sm text-gray-600">Bank Balance</span>
-                    </div>
-                    <div className="flex items-center">
-                        <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-                        <span className="text-sm text-gray-600">Investments</span>
-                    </div>
-                    <div className="flex items-center">
-                        <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-                        <span className="text-sm text-gray-600">Money Lent</span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Account Breakdown */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-                <div 
-                    className="px-6 py-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => toggleSection('accounts')}
-                >
-                    <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                            Bank Accounts ({accounts.length})
-                        </h3>
-                        <div className="flex items-center space-x-4">
-                            <span className="text-lg font-bold text-green-600">
-                                {formatCurrency(netWorthStats.totalAccountBalance, currency)}
-                            </span>
-                            <svg 
-                                className={`w-5 h-5 text-gray-500 transition-transform ${expandedSections.accounts ? 'rotate-180' : ''}`}
-                                fill="none" 
-                                stroke="currentColor" 
-                                viewBox="0 0 24 24"
-                            >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
+            {chartData.length > 0 && (
+                <div className={`bg-white rounded-lg shadow-sm border ${isChartExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}>
+                    <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-900">Asset Breakdown</h3>
+                            <p className="text-sm text-gray-600 mt-1">Distribution of your total assets</p>
                         </div>
+                        <ChartControls
+                            chartRef={chartRef}
+                            onToggleExpanded={toggleChartExpansion}
+                            isExpanded={isChartExpanded}
+                            csvData={exportData}
+                            fileName="net_worth_breakdown"
+                        />
                     </div>
-                </div>
-                {expandedSections.accounts && (
                     <div className="p-6">
-                        {accounts.length === 0 ? (
-                            <div className="text-center py-8">
-                                <div className="text-gray-400 text-4xl mb-4">🏦</div>
-                                <h4 className="text-lg font-medium text-gray-600 mb-2">No Accounts Found</h4>
-                                <p className="text-gray-500">Add your bank accounts to track your net worth accurately.</p>
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto w-full">
-                                <table className="w-full min-w-0 divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Account Details
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Bank
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Type
-                                            </th>
-                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Balance
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {accounts.map((account) => (
-                                            <tr key={account.id} className="hover:bg-gray-50">
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div>
-                                                        <div className="text-sm font-medium text-gray-900">
-                                                            {account.holderName}
-                                                        </div>
-                                                        <div className="text-sm text-gray-500 font-mono">
-                                                            {account.accountNumber}
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div>
-                                                        <div className="text-sm font-medium text-gray-900">{account.bankName}</div>
-                                                        <div className="text-sm text-gray-500">{account.branchName}</div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {account.accountType}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
-                                                    {account.balance !== undefined ? (
-                                                        <span className="text-green-600">
-                                                            {formatCurrency(account.balance, currency)}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-gray-400">-</span>
-                                                    )}
-                                                </td>
-                                            </tr>
+                        <div 
+                            ref={chartRef}
+                            className={`${
+                                isChartExpanded ? 'h-[70vh] w-full' : 'h-[32rem] sm:h-[36rem] w-full'
+                            }`}
+                        >
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart
+                                    data={chartData}
+                                    margin={{ top: 40, right: 30, left: 20, bottom: 20 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                    <XAxis 
+                                        dataKey="name" 
+                                        tick={{ fontSize: 12 }}
+                                        height={40}
+                                    />
+                                    <YAxis 
+                                        tick={{ fontSize: 12 }}
+                                        tickFormatter={formatCurrencyAbbreviated}
+                                    />
+                                    <Tooltip 
+                                        formatter={(value: number) => [formatCurrency(value, currency), 'Amount']}
+                                        labelStyle={{ fontWeight: 'bold' }}
+                                        contentStyle={{ 
+                                            backgroundColor: '#f9fafb', 
+                                            border: '1px solid #e5e7eb',
+                                            borderRadius: '8px' 
+                                        }}
+                                    />
+                                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                        {chartData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color} />
                                         ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            {/* Investment Breakdown */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-                <div 
-                    className="px-6 py-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => toggleSection('investments')}
-                >
-                    <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                            Investments ({investments.length})
-                        </h3>
-                        <div className="flex items-center space-x-4">
-                            <span className="text-lg font-bold text-blue-600">
-                                {formatCurrency(netWorthStats.totalInvestmentValue, currency)}
-                            </span>
-                            <svg 
-                                className={`w-5 h-5 text-gray-500 transition-transform ${expandedSections.investments ? 'rotate-180' : ''}`}
-                                fill="none" 
-                                stroke="currentColor" 
-                                viewBox="0 0 24 24"
-                            >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
+                                        {/* Total value labels at the top */}
+                                        <LabelList 
+                                            dataKey="value" 
+                                            position="top" 
+                                            formatter={(value: number) => formatCurrencyAbbreviated(value)}
+                                            style={{ 
+                                                fontSize: '11px', 
+                                                fontWeight: 'bold',
+                                                fill: '#374151'
+                                            }}
+                                        />
+                                        {/* Percentage labels inside the bars */}
+                                        <LabelList 
+                                            dataKey="percentage" 
+                                            position="center" 
+                                            formatter={(value: string) => `${value}%`}
+                                            style={{ 
+                                                fontSize: '12px', 
+                                                fontWeight: 'bold',
+                                                fill: '#ffffff'
+                                            }}
+                                        />
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
                         </div>
                     </div>
                 </div>
-                {expandedSections.investments && (
-                    <div className="p-6">
-                        {investments.length === 0 ? (
-                            <div className="text-center py-8">
-                                <div className="text-gray-400 text-4xl mb-4">📈</div>
-                                <h4 className="text-lg font-medium text-gray-600 mb-2">No Investments Found</h4>
-                                <p className="text-gray-500">Add your investments to track your portfolio value.</p>
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto w-full">
-                                <table className="w-full min-w-0 divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Investment
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Type
-                                            </th>
-                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Quantity
-                                            </th>
-                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Current Value
-                                            </th>
-                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Gain/Loss
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {investments.map((investment) => {
-                                            const currentValue = investment.quantity * investment.currentPrice;
-                                            const investedValue = investment.quantity * investment.purchasePrice;
-                                            const gainLoss = currentValue - investedValue;
-                                            const gainLossPercent = investedValue > 0 ? (gainLoss / investedValue) * 100 : 0;
-                                            
-                                            return (
-                                                <tr key={investment.id} className="hover:bg-gray-50">
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div>
-                                                            <div className="text-sm font-medium text-gray-900">
-                                                                {investment.name}
-                                                            </div>
-                                                            {investment.symbol && (
-                                                                <div className="text-sm text-gray-500">
-                                                                    {investment.symbol}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                        {investment.type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                                                        {investment.quantity.toLocaleString()}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
-                                                        <span className="text-blue-600">
-                                                            {formatCurrency(currentValue, currency)}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
-                                                        <span className={gainLoss >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                                            {gainLoss >= 0 ? '+' : ''}{formatCurrency(gainLoss, currency)}
-                                                            <div className="text-xs">
-                                                                ({gainLoss >= 0 ? '+' : ''}{gainLossPercent.toFixed(1)}%)
-                                                            </div>
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
+            )}
 
-            {/* Money Lent Breakdown */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-                <div 
-                    className="px-6 py-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => toggleSection('moneyLent')}
-                >
-                    <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                            Money Lent ({outstandingDebts.length})
-                        </h3>
-                        <div className="flex items-center space-x-4">
-                            <span className="text-lg font-bold text-red-600">
-                                {formatCurrency(netWorthStats.totalMoneyLent, currency)}
-                            </span>
-                            <svg 
-                                className={`w-5 h-5 text-gray-500 transition-transform ${expandedSections.moneyLent ? 'rotate-180' : ''}`}
-                                fill="none" 
-                                stroke="currentColor" 
-                                viewBox="0 0 24 24"
-                            >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
+            {/* Asset Details Sections */}
+            {sections.map((section) => (
+                <div key={section.key} className="bg-white rounded-lg shadow-sm border">
+                    <div 
+                        className="flex items-center justify-between p-6 border-b border-gray-200 cursor-pointer hover:bg-gray-50"
+                        onClick={() => toggleSection(section.key as SectionKey)}
+                    >
+                        <div className="flex items-center gap-4">
+                            <div 
+                                className="w-4 h-4 rounded-full"
+                                style={{ backgroundColor: section.color }}
+                            ></div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900">{section.title}</h3>
+                                <p className="text-sm text-gray-600">
+                                    {formatCurrency(section.value, currency)} ({section.percentage.toFixed(1)}% of total assets)
+                                </p>
+                            </div>
+                        </div>
+                        <div className="text-gray-400">
+                            {expandedSections[section.key as SectionKey] ? '▼' : '▶'}
                         </div>
                     </div>
-                </div>
-                {expandedSections.moneyLent && (
-                    <div className="p-6">
-                        {outstandingDebts.length === 0 ? (
-                            <div className="text-center py-8">
-                                <div className="text-gray-400 text-4xl mb-4">💰</div>
-                                <h4 className="text-lg font-medium text-gray-600 mb-2">No Outstanding Debts</h4>
-                                <p className="text-gray-500">All your loans have been repaid or you haven't lent any money yet.</p>
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto w-full">
-                                <table className="w-full min-w-0 divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Borrower
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Purpose
-                                            </th>
-                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Outstanding
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Due Date
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Status
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {outstandingDebts.map((debt) => {
-                                            const remainingWithInterest = calculateRemainingWithInterest(
-                                                debt.amount,
-                                                debt.interestRate,
-                                                debt.lentDate,
-                                                debt.dueDate,
-                                                debt.repayments || [],
-                                                new Date(),
-                                                debt.status
-                                            );
-                                            const remainingAmount = remainingWithInterest.remainingAmount;
-                                            const isOverdue = debt.dueDate && new Date(debt.dueDate) < new Date();
-                                            
-                                            return (
-                                                <tr key={debt.id} className="hover:bg-gray-50">
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div>
-                                                            <div className="text-sm font-medium text-gray-900">
-                                                                {debt.borrowerName}
-                                                            </div>
-                                                            {debt.borrowerContact && (
-                                                                <div className="text-sm text-gray-500">
-                                                                    {debt.borrowerContact}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                        {debt.purpose || '-'}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right text-red-600">
-                                                        {formatCurrency(remainingAmount, currency)}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                        {debt.dueDate ? (
-                                                            <span className={isOverdue ? 'text-red-600' : ''}>
-                                                                {formatDate(debt.dueDate)}
+                    
+                    {expandedSections[section.key as SectionKey] && (
+                        <div className="p-6">
+                            {section.items.length === 0 ? (
+                                <p className="text-gray-500 text-center py-4">No items in this category</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {section.items.map((item: any, index: number) => {
+                                        const itemValue = section.key === 'investments' 
+                                            ? item.quantity * item.currentPrice
+                                            : item.balance || item.amount || 0;
+                                        const itemPercentage = calculateItemPercentage(itemValue, section.value);
+                                        
+                                        return (
+                                            <div key={item.id || index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <h4 className="font-medium text-gray-900">
+                                                            {item.holderName || item.name || item.borrowerName || 'Unknown'}
+                                                        </h4>
+                                                        {section.key === 'debts' && (
+                                                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${item.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                                {item.status === 'ACTIVE' ? 'ACTIVE' : 'PARTIALLY PAID'}
                                                             </span>
-                                                        ) : (
-                                                            <span className="text-gray-400">No due date</span>
                                                         )}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(debt.status)}`}>
-                                                            {debt.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())}
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
+                                                    </div>
+                                                    <p className="text-sm text-gray-600">
+                                                        {item.bankName || item.symbol || item.purpose || 'No description'}
+                                                    </p>
+                                                    {section.key === 'debts' && item.dueDate && (
+                                                        <p className="text-xs text-orange-600 font-medium mt-1">
+                                                            Due: {formatDate(new Date(item.dueDate))}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="font-semibold text-gray-900">
+                                                        {formatCurrency(itemValue, currency)}
+                                                    </p>
+                                                    <p className="text-xs text-blue-600 font-medium">
+                                                        {itemPercentage}%
+                                                    </p>
+                                                    {section.key === 'investments' && (
+                                                        <p className={`text-xs ${
+                                                            (item.currentPrice - item.purchasePrice) >= 0 
+                                                                ? 'text-green-600' 
+                                                                : 'text-red-600'
+                                                        }`}>
+                                                            {((item.currentPrice - item.purchasePrice) / item.purchasePrice * 100).toFixed(1)}% gain/loss
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            ))}
         </div>
     );
 } 

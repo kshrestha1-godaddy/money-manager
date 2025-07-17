@@ -1,10 +1,8 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import React from "react";
 import { DebtList } from "../../components/debts/DebtList";
 import { DebtTable } from "../../components/debts/DebtTable";
-import { DebtInterface } from "../../types/debts";
-import { Button } from "@repo/ui/button";
 import { AddDebtModal } from "../../components/debts/AddDebtModal";
 import { EditDebtModal } from "../../components/debts/EditDebtModal";
 import { DeleteDebtModal } from "../../components/debts/DeleteDebtModal";
@@ -14,249 +12,110 @@ import { AddRepaymentModal } from "../../components/debts/AddRepaymentModal";
 import { BulkImportModal } from "../../components/debts/BulkImportModal";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
-import { calculateRemainingWithInterest } from "../../utils/interestCalculation";
-import { useDebts } from "../../hooks/useDebts";
-import { exportDebtsToCSV } from "../../utils/csvExportDebts";
-
-type ViewMode = "table" | "cards";
-type ModalType = 'add' | 'edit' | 'delete' | 'view' | 'repayment' | 'import' | null;
-
-interface ModalState {
-  type: ModalType;
-  debt?: DebtInterface;
-}
-
-// Stable section configuration to prevent re-renders
-const DEBT_SECTIONS = [
-  { key: 'ACTIVE', title: 'Active Debts', statuses: ['ACTIVE'] as const },
-  { key: 'PARTIALLY_PAID', title: 'Partially Paid Debts', statuses: ['PARTIALLY_PAID'] as const },
-  { key: 'FULLY_PAID', title: 'Fully Paid Debts', statuses: ['FULLY_PAID'] as const }
-] as const;
+import { useOptimizedDebts } from "../../hooks/useOptimizedDebts";
 
 export default function Debts() {
     const { currency: userCurrency } = useCurrency();
-    const { 
-        debts, 
-        loading, 
-        error, 
-        addDebt, 
-        editDebt, 
-        removeDebt, 
-        addRepaymentToDebt, 
-        deleteRepaymentFromDebt, 
-        clearError 
-    } = useDebts();
     
-    // UI State
-    const [modal, setModal] = useState<ModalState>({ type: null });
-    const [viewMode, setViewMode] = useState<ViewMode>("table");
-    const [searchTerm, setSearchTerm] = useState("");
-    const [selectedStatus, setSelectedStatus] = useState("");
-    
-    // Selection State
-    const [selectedDebts, setSelectedDebts] = useState<Set<number>>(new Set());
-    const [bulkDeleteDebts, setBulkDeleteDebts] = useState<DebtInterface[]>([]);
-    const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+    // Use the optimized debts hook
+    const {
+        // Data
+        debts,
+        filteredDebts,
+        loading,
+        error,
+        financialSummary,
+        totalDebtAmount,
+        totalRemainingAmount,
+        hasActiveFilters,
+        sections,
 
-    // Stable modal handlers
-    const openModal = useCallback((type: ModalType, debt?: DebtInterface) => {
-        setModal({ type, debt });
-    }, []);
+        // Modal states
+        modal,
+        openModal,
+        closeModal,
+        isBulkDeleteModalOpen,
+        setIsBulkDeleteModalOpen,
 
-    const closeModal = useCallback(() => {
-        setModal({ type: null });
-    }, []);
+        // UI states
+        viewMode,
+        setViewMode,
+        searchTerm,
+        setSearchTerm,
+        selectedStatus,
+        setSelectedStatus,
 
-    // Optimized debt selection handlers
-    const handleDebtSelect = useCallback((debtId: number, selected: boolean) => {
-        setSelectedDebts(prev => {
-            const newSet = new Set(prev);
-            if (selected) {
-                newSet.add(debtId);
-            } else {
-                newSet.delete(debtId);
+        // Selection states
+        selectedDebts,
+        bulkDeleteDebts,
+
+        // Handlers
+        handleAddDebt,
+        handleEditDebt,
+        handleDeleteDebt,
+        handleAddRepayment,
+        handleDeleteRepayment,
+        handleDebtSelect,
+        handleSelectAll,
+        handleBulkDelete,
+        handleBulkDeleteConfirm,
+        handleExportToCSV,
+        clearFilters,
+        clearError,
+    } = useOptimizedDebts();
+
+    // Get unique statuses for filter dropdown
+    const uniqueStatuses = Array.from(new Set(debts.map(debt => debt.status))).sort();
+
+    // Handle modal actions
+    const handleModalAction = async (action: string, data?: any) => {
+        try {
+            switch (action) {
+                case 'add':
+                    await handleAddDebt(data);
+                    break;
+                case 'edit':
+                    if (modal.debt) {
+                        await handleEditDebt(modal.debt.id, data);
+                    }
+                    break;
+                case 'delete':
+                    if (modal.debt) {
+                        await handleDeleteDebt(modal.debt);
+                    }
+                    break;
+                case 'addRepayment':
+                    if (modal.debt) {
+                        await handleAddRepayment(modal.debt.id, data);
+                    }
+                    break;
             }
-            return newSet;
-        });
-    }, []);
-
-    const handleSelectAll = useCallback((selected: boolean, sectionDebts: DebtInterface[]) => {
-        setSelectedDebts(prev => {
-            const newSet = new Set(prev);
-            sectionDebts.forEach(debt => {
-                if (selected) {
-                    newSet.add(debt.id);
-                } else {
-                    newSet.delete(debt.id);
-                }
-            });
-            return newSet;
-        });
-    }, []);
-
-    // Bulk operations
-    const handleBulkDelete = useCallback((sectionDebts: DebtInterface[]) => {
-        const selectedInSection = sectionDebts.filter(debt => selectedDebts.has(debt.id));
-        
-        if (selectedInSection.length === 0) {
-            alert("No debts selected for deletion");
-            return;
-        }
-
-        setBulkDeleteDebts(selectedInSection);
-        setIsBulkDeleteModalOpen(true);
-    }, [selectedDebts]);
-
-    const handleBulkDeleteConfirm = useCallback(async () => {
-        if (bulkDeleteDebts.length === 0) return;
-        
-        // Close modal immediately
-        setIsBulkDeleteModalOpen(false);
-        setBulkDeleteDebts([]);
-        
-        try {
-            await Promise.all(bulkDeleteDebts.map(debt => removeDebt(debt)));
-            setSelectedDebts(new Set());
         } catch (error) {
-            console.error("Error during bulk delete:", error);
-            alert("Some debts could not be deleted. Please try again.");
+            console.error(`Error with ${action}:`, error);
         }
-    }, [bulkDeleteDebts, removeDebt]);
+    };
 
-    const handleExportToCSV = useCallback(() => {
-        if (debts.length === 0) {
-            alert("No debts to export");
-            return;
-        }
-        exportDebtsToCSV(debts);
-    }, [debts]);
-
-    // Memoized processed data to prevent unnecessary recalculations
-    const processedData = useMemo(() => {
-        // Pre-calculate debt data once
-        const debtsWithCalc = debts.map(debt => {
-            const calc = calculateRemainingWithInterest(
-                debt.amount,
-                debt.interestRate,
-                debt.lentDate,
-                debt.dueDate,
-                debt.repayments || [],
-                new Date(),
-                debt.status
-            );
-            const totalRepayments = debt.repayments?.reduce((sum, rep) => sum + rep.amount, 0) || 0;
-            const isOverdue = debt.dueDate && new Date() > debt.dueDate && calc.remainingAmount > 0;
-            
-            return { ...debt, calc, totalRepayments, isOverdue };
-        });
-
-        // Apply filters
-        const filtered = debtsWithCalc.filter(debt => {
-            const matchesSearch = !searchTerm || [
-                debt.borrowerName,
-                debt.purpose,
-                debt.borrowerContact,
-                debt.borrowerEmail
-            ].some(field => field?.toLowerCase().includes(searchTerm.toLowerCase()));
-            
-            return matchesSearch && (!selectedStatus || debt.status === selectedStatus);
-        });
-
-        // Group by sections
-        const sections = DEBT_SECTIONS.map(section => ({
-            ...section,
-            debts: filtered.filter(debt => (section.statuses as readonly string[]).includes(debt.status))
-        }));
-
-        // Calculate stats
-        const stats = {
-            total: debts.length,
-            active: debts.filter(d => d.status === 'ACTIVE' || d.status === 'PARTIALLY_PAID').length,
-            overdue: debtsWithCalc.filter(d => d.isOverdue).length,
-            totalLent: debts.reduce((sum, debt) => sum + debt.amount, 0),
-            totalRepaid: debtsWithCalc.reduce((sum, debt) => sum + debt.totalRepayments, 0),
-            totalWithInterest: debtsWithCalc.reduce((sum, debt) => sum + debt.calc.totalWithInterest, 0),
-            totalRemaining: debtsWithCalc.reduce((sum, debt) => sum + debt.calc.remainingAmount, 0)
-        };
-
-        return {
-            sections,
-            filtered,
-            stats: {
-                ...stats,
-                totalInterest: stats.totalWithInterest - stats.totalLent
-            },
-            uniqueStatuses: [...new Set(debts.map(debt => debt.status))].sort()
-        };
-    }, [debts, searchTerm, selectedStatus]);
-
-    // CRUD handlers
-    const handleAddDebtAction = useCallback(async (newDebt: Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>) => {
-        try {
-            await addDebt(newDebt);
-            closeModal();
-        } catch (error) {
-            console.error("Error adding debt:", error);
-        }
-    }, [addDebt, closeModal]);
-
-    const handleEditDebtAction = useCallback(async (id: number, updatedDebt: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>) => {
-        try {
-            await editDebt(id, updatedDebt);
-            closeModal();
-        } catch (error) {
-            console.error("Error updating debt:", error);
-        }
-    }, [editDebt, closeModal]);
-
-    const handleDeleteDebtAction = useCallback(async () => {
-        if (!modal.debt) return;
-        try {
-            await removeDebt(modal.debt);
-            closeModal();
-        } catch (error) {
-            console.error("Error deleting debt:", error);
-        }
-    }, [modal.debt, removeDebt, closeModal]);
-
-    // Stable render section function
-    const renderSection = useCallback((section: typeof DEBT_SECTIONS[number] & { debts: DebtInterface[] }) => {
-        if (section.debts.length === 0) return null;
-
-        const SectionComponent = viewMode === "table" ? DebtTable : DebtList;
-        
+    // Display error if there's one
+    if (error) {
         return (
-            <div key={section.key}>
-                <h2 className="text-xl font-semibold text-gray-800 mb-4">{section.title}</h2>
-                <SectionComponent
-                    debts={section.debts}
-                    onEdit={(debt) => openModal('edit', debt)}
-                    onDelete={(debt) => openModal('delete', debt)}
-                    onViewDetails={(debt) => openModal('view', debt)}
-                    onAddRepayment={(debt) => openModal('repayment', debt)}
-                    selectedDebts={selectedDebts}
-                    onDebtSelect={handleDebtSelect}
-                    onSelectAll={(selected) => handleSelectAll(selected, section.debts)}
-                    showBulkActions={true}
-                    onBulkDelete={() => handleBulkDelete(section.debts)}
-                    onClearSelection={() => handleSelectAll(false, section.debts)}
-                />
-            </div>
-        );
-    }, [viewMode, selectedDebts, handleDebtSelect, handleSelectAll, handleBulkDelete, openModal]);
-
-    // Loading state
-    if (loading) {
-        return (
-            <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                    <h1 className="text-3xl font-bold text-gray-900">Debts</h1>
-                    <div className="text-sm text-gray-500">
-                        Track your lending activities
+            <div className="p-8 text-center">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-red-800 mb-2">Error Loading Debts</h3>
+                    <p className="text-red-600">{error}</p>
+                    <div className="flex gap-2 mt-4 justify-center">
+                        <button 
+                            onClick={() => window.location.reload()} 
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                        >
+                            Retry
+                        </button>
+                        <button 
+                            onClick={clearError} 
+                            className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+                        >
+                            Dismiss
+                        </button>
                     </div>
-                </div>
-                <div className="flex items-center justify-center h-64">
-                    <div className="text-gray-500">Loading debts data...</div>
                 </div>
             </div>
         );
@@ -264,160 +123,285 @@ export default function Debts() {
 
     return (
         <div className="space-y-6">
-            {/* Error Display */}
-            {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                            <svg className="h-5 w-5 text-red-400 mr-3" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                            </svg>
-                            <p className="text-sm font-medium text-red-800">{error}</p>
-                        </div>
-                        <button onClick={clearError} className="text-red-500 hover:text-red-700">
-                            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            )}
-            
             {/* Header */}
-            <div className="flex justify-between items-center">
+            <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Debts</h1>
-                    <p className="text-gray-600 mt-1">Track money you've lent and manage repayments</p>
+                    <h1 className="text-3xl font-bold">Debts</h1>
+                    <p className="text-gray-600">Track money you've lent to others and manage repayments</p>
                 </div>
-                <div className="flex items-center space-x-3">
-                    {/* View Toggle */}
-                    <div className="flex rounded-md border border-gray-300 bg-white">
-                        <button
-                            onClick={() => setViewMode("table")}
-                            className={`px-3 py-2 text-sm font-medium rounded-l-md transition-colors ${
-                                viewMode === "table" ? "bg-blue-600 text-white" : "text-gray-700 hover:bg-gray-50"
-                            }`}
-                        >
-                            📋 Table
-                        </button>
-                        <button
-                            onClick={() => setViewMode("cards")}
-                            className={`px-3 py-2 text-sm font-medium rounded-r-md transition-colors ${
-                                viewMode === "cards" ? "bg-blue-600 text-white" : "text-gray-700 hover:bg-gray-50"
-                            }`}
-                        >
-                            🗃️ Cards
-                        </button>
-                    </div>
-                    <Button onClick={() => openModal('import')}>Import CSV</Button>
-                    {debts.length > 0 && <Button onClick={handleExportToCSV}>Export CSV</Button>}
-                    <Button onClick={() => openModal('add')}>Add Debt</Button>
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        onClick={() => openModal('add')}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                    >
+                        Add Debt
+                    </button>
+                    <button
+                        onClick={() => openModal('import')}
+                        className="px-4 py-2 border border-gray-600 text-gray-600 hover:bg-blue-50 rounded-md"
+                    >
+                        Import CSV
+                    </button>
+                    <button
+                        onClick={handleExportToCSV}
+                        className="px-4 py-2 border border-gray-600 text-gray-600 hover:bg-green-50 rounded-md disabled:opacity-50"
+                        disabled={filteredDebts.length === 0}
+                    >
+                        Export CSV
+                    </button>
                 </div>
             </div>
 
-            {/* Summary Cards */}
-            {debts.length > 0 && (
-                <div className="bg-white rounded-lg shadow p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-4 xl:grid-cols-7 gap-6 text-center">
-                        <div>
-                            <p className="text-sm font-medium text-gray-600 mb-2">Total Debts</p>
-                            <p className="text-2xl font-bold text-blue-600">{processedData.stats.total}</p>
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-gray-600 mb-2">Active</p>
-                            <p className="text-2xl font-bold text-green-600">{processedData.stats.active}</p>
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-gray-600 mb-2">Overdue</p>
-                            <p className="text-2xl font-bold text-red-600">{processedData.stats.overdue}</p>
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-gray-600 mb-2">Principal Lent</p>
-                            <p className="text-2xl font-bold text-purple-600">
-                                {formatCurrency(processedData.stats.totalLent, userCurrency)}
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-gray-600 mb-2">Interest Accrued</p>
-                            <p className="text-2xl font-bold text-orange-600">
-                                {formatCurrency(processedData.stats.totalInterest, userCurrency)}
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-gray-600 mb-2">Total Repaid</p>
-                            <p className="text-2xl font-bold text-green-600">
-                                {formatCurrency(processedData.stats.totalRepaid, userCurrency)}
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-gray-600 mb-2">Outstanding</p>
-                            <p className="text-2xl font-bold text-red-600">
-                                {formatCurrency(processedData.stats.totalRemaining, userCurrency)}
-                            </p>
-                            <p className="text-sm text-gray-500">with interest</p>
+            {/* Financial Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+                <div className="bg-white rounded-lg border p-4 text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                        <h3 className="text-sm font-medium text-gray-600">Total Debts</h3>
+                    </div>
+                    <p className="text-2xl font-bold text-blue-600">
+                        {loading ? "..." : financialSummary.totalDebts}
+                    </p>
+                    <p className="text-sm text-gray-500">debt records</p>
+                </div>
+
+                <div className="bg-white rounded-lg border p-4 text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                        <h3 className="text-sm font-medium text-gray-600">Active</h3>
+                    </div>
+                    <p className="text-2xl font-bold text-green-600">
+                        {loading ? "..." : financialSummary.activeCount}
+                    </p>
+                    <p className="text-sm text-gray-500">active debts</p>
+                </div>
+
+                <div className="bg-white rounded-lg border p-4 text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                        <h3 className="text-sm font-medium text-gray-600">Overdue</h3>
+                    </div>
+                    <p className="text-2xl font-bold text-red-600">
+                        {loading ? "..." : financialSummary.overdueCount}
+                    </p>
+                    <p className="text-sm text-gray-500">overdue debts</p>
+                </div>
+
+                <div className="bg-white rounded-lg border p-4 text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                        <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                        <h3 className="text-sm font-medium text-gray-600">Principal Lent</h3>
+                    </div>
+                    <p className="text-2xl font-bold text-purple-600">
+                        {loading ? "..." : formatCurrency(financialSummary.totalPrincipal, userCurrency)}
+                    </p>
+                </div>
+
+                <div className="bg-white rounded-lg border p-4 text-center">
+                    <div className="flex items-center justify-center mb-2">
+                        <h3 className="text-sm font-medium text-gray-500 mr-2">Interest Accrued</h3>
+                        <div className="h-4 w-4 bg-orange-100 rounded-full flex items-center justify-center">
+                            <div className="h-2 w-2 bg-gray-500 rounded-full"></div>
                         </div>
                     </div>
+                    <p className="text-2xl font-bold text-gray-600">
+                        {loading ? "..." : formatCurrency(financialSummary.totalInterestAccrued, userCurrency)}
+                    </p>
                 </div>
-            )}
 
-            {/* Filters */}
-            {debts.length > 0 && (
-                <div className="bg-white rounded-lg shadow p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
-                            <input
-                                type="text"
-                                placeholder="Search borrowers, purpose, contact..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                            <select
-                                value={selectedStatus}
-                                onChange={(e) => setSelectedStatus(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="">All Statuses</option>
-                                {processedData.uniqueStatuses.map(status => (
-                                    <option key={status} value={status}>
-                                        {status.replace('_', ' ')}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="flex items-end">
-                            <div className="text-sm text-gray-600">
-                                Showing {processedData.filtered.length} of {debts.length} debts
-                            </div>
+                <div className="bg-white rounded-lg border p-4 text-center">
+                    <div className="flex items-center justify-center mb-2">
+                        <h3 className="text-sm font-medium text-gray-600 mr-2">Total Repaid</h3>
+                        <div className="h-4 w-4 bg-green-100 rounded-full flex items-center justify-center">
+                            <div className="h-2 w-2 bg-green-600 rounded-full"></div>
                         </div>
                     </div>
+                    <p className="text-2xl font-bold text-green-600">
+                        {loading ? "..." : formatCurrency(financialSummary.totalRepaid, userCurrency)}
+                    </p>
                 </div>
-            )}
 
-            {/* Content */}
-            {debts.length === 0 ? (
-                <div className="bg-white rounded-lg shadow p-8 text-center">
-                    <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                        <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                <div className="bg-white rounded-lg border p-4 text-center">
+                    <div className="flex items-center justify-center mb-2">
+                        <h3 className="text-sm font-medium text-gray-600 mr-2">Outstanding</h3>
+                        <div className="h-4 w-4 bg-red-100 rounded-full flex items-center justify-center">
+                            <div className="h-2 w-2 bg-red-600 rounded-full"></div>
+                        </div>
+                    </div>
+                    <p className="text-2xl font-bold text-red-600">
+                        {loading ? "..." : formatCurrency(financialSummary.totalOutstanding, userCurrency)}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                        {loading ? "" : `${((financialSummary.totalOutstanding / (financialSummary.totalPrincipal + financialSummary.totalInterestAccrued || 1)) * 100).toFixed(1)}% remaining`}
+                    </p>
+                </div>
+            </div>
+
+            {/* Filters and Actions */}
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+                <div className="flex flex-col lg:flex-row gap-4 mb-4">
+                    <div className="flex-1">
+                        <input
+                            type="text"
+                            placeholder="Search debts..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:w-auto">
+                        <select
+                            value={selectedStatus}
+                            onChange={(e) => setSelectedStatus(e.target.value)}
+                            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">All Statuses</option>
+                            {uniqueStatuses.map((status) => (
+                                <option key={status} value={status}>
+                                    {status.replace('_', ' ')}
+                                </option>
+                            ))}
+                        </select>
+                        <button
+                            onClick={clearFilters}
+                            className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                            disabled={!hasActiveFilters}
+                        >
+                            Clear Filters
+                        </button>
+                    </div>
+                </div>
+
+                {/* View Mode Toggle */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600">View:</span>
+                        <button
+                            onClick={() => setViewMode("table")}
+                            className={`px-3 py-1 rounded text-sm ${
+                                viewMode === "table"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : "text-gray-600 hover:bg-gray-100"
+                            }`}
+                        >
+                            Table
+                        </button>
+                        <button
+                            onClick={() => setViewMode("cards")}
+                            className={`px-3 py-1 rounded text-sm ${
+                                viewMode === "cards"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : "text-gray-600 hover:bg-gray-100"
+                            }`}
+                        >
+                            Cards
+                        </button>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                        {loading ? "Loading..." : `${filteredDebts.length} of ${debts.length} debts`}
+                    </div>
+                </div>
+            </div>
+
+            {/* Debts by Sections */}
+            {loading ? (
+                <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
+                    <div className="animate-spin mx-auto mb-4 h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                    <p className="text-gray-600">Loading debts...</p>
+                </div>
+            ) : filteredDebts.length === 0 ? (
+                <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
+                    <div className="text-gray-400 mb-4">
+                        <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
                         </svg>
                     </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No debts found</h3>
-                    <p className="text-gray-600 mb-6">Start tracking money you've lent by adding your first debt record.</p>
-                    <Button onClick={() => openModal('add')}>Add Your First Debt</Button>
-                </div>
-            ) : processedData.filtered.length === 0 ? (
-                <div className="bg-white rounded-lg shadow p-8 text-center">
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No matching debts</h3>
-                    <p className="text-gray-600">Try adjusting your search or filter criteria.</p>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        {hasActiveFilters ? "No debts match your filters" : "No debts yet"}
+                    </h3>
+                    <p className="text-gray-600 mb-6">
+                        {hasActiveFilters 
+                            ? "Try adjusting your search criteria or clearing filters." 
+                            : "Get started by adding your first debt record."
+                        }
+                    </p>
+                    {hasActiveFilters ? (
+                        <button onClick={clearFilters} className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
+                            Clear Filters
+                        </button>
+                    ) : (
+                        <button onClick={() => openModal('add')} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                            Add Your First Debt
+                        </button>
+                    )}
                 </div>
             ) : (
-                <div className="space-y-8">
-                    {processedData.sections.map(renderSection)}
+                <div className="space-y-6">
+                    {sections.map((section) => {
+                        if (section.debts.length === 0) return null;
+
+                        return (
+                            <div key={section.key} className="bg-white rounded-lg shadow-sm border">
+                                {/* Section Header */}
+                                <div className="px-6 py-4 border-b border-gray-200">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <h3 className="text-lg font-semibold text-gray-900">
+                                                {section.title} ({section.debts.length})
+                                            </h3>
+                                            <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
+                                                <span>Total: {formatCurrency(section.totalAmount, userCurrency)}</span>
+                                                <span>Outstanding: {formatCurrency(section.totalRemaining, userCurrency)}</span>
+                                            </div>
+                                        </div>
+                                        {selectedDebts.size > 0 && (
+                                            <button
+                                                onClick={() => handleBulkDelete(section.debts)}
+                                                className="px-3 py-2 text-red-600 border border-red-200 hover:bg-red-50 rounded-md text-sm"
+                                            >
+                                                Delete ({Array.from(selectedDebts).filter(id => section.debts.some(debt => debt.id === id)).length})
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Section Content */}
+                                <div className="p-0">
+                                    {viewMode === "table" ? (
+                                        <DebtTable
+                                            debts={section.debts}
+                                            onEdit={(debt) => openModal('edit', debt)}
+                                            onDelete={(debt) => openModal('delete', debt)}
+                                            onViewDetails={(debt) => openModal('view', debt)}
+                                            onAddRepayment={(debt) => openModal('repayment', debt)}
+                                            selectedDebts={selectedDebts}
+                                            onDebtSelect={handleDebtSelect}
+                                            onSelectAll={(selected) => handleSelectAll(selected, section.debts)}
+                                            showBulkActions={true}
+                                            onBulkDelete={() => handleBulkDelete(section.debts)}
+                                            onClearSelection={() => clearFilters()}
+                                        />
+                                    ) : (
+                                        <div className="p-6">
+                                            <DebtList
+                                                debts={section.debts}
+                                                onEdit={(debt) => openModal('edit', debt)}
+                                                onDelete={(debt) => openModal('delete', debt)}
+                                                onViewDetails={(debt) => openModal('view', debt)}
+                                                onAddRepayment={(debt) => openModal('repayment', debt)}
+                                                selectedDebts={selectedDebts}
+                                                onDebtSelect={handleDebtSelect}
+                                                onSelectAll={(selected) => handleSelectAll(selected, section.debts)}
+                                                showBulkActions={true}
+                                                onBulkDelete={() => handleBulkDelete(section.debts)}
+                                                onClearSelection={() => clearFilters()}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             )}
 
@@ -425,31 +409,21 @@ export default function Debts() {
             <AddDebtModal
                 isOpen={modal.type === 'add'}
                 onClose={closeModal}
-                onAdd={handleAddDebtAction}
+                onAdd={(data) => handleModalAction('add', data)}
             />
 
             <EditDebtModal
-                debt={modal.debt || null}
                 isOpen={modal.type === 'edit'}
                 onClose={closeModal}
-                onEdit={handleEditDebtAction}
+                onEdit={(data) => handleModalAction('edit', data)}
+                debt={modal.debt || null}
             />
 
             <DeleteDebtModal
-                debt={modal.debt || null}
                 isOpen={modal.type === 'delete'}
                 onClose={closeModal}
-                onConfirm={handleDeleteDebtAction}
-            />
-
-            <BulkDeleteDebtModal
-                debts={bulkDeleteDebts}
-                isOpen={isBulkDeleteModalOpen}
-                onClose={() => {
-                    setIsBulkDeleteModalOpen(false);
-                    setBulkDeleteDebts([]);
-                }}
-                onConfirm={handleBulkDeleteConfirm}
+                onConfirm={() => handleModalAction('delete')}
+                debt={modal.debt || null}
             />
 
             <ViewDebtModal
@@ -458,22 +432,30 @@ export default function Debts() {
                 onClose={closeModal}
                 onEdit={(debt) => openModal('edit', debt)}
                 onAddRepayment={(debt) => openModal('repayment', debt)}
-                onDeleteRepayment={deleteRepaymentFromDebt}
+                onDeleteRepayment={handleDeleteRepayment}
             />
 
             <AddRepaymentModal
                 debt={modal.debt || null}
                 isOpen={modal.type === 'repayment'}
                 onClose={closeModal}
-                onAdd={async (repaymentData) => {
-                    await addRepaymentToDebt(modal.debt!.id, repaymentData);
-                }}
+                onAdd={(data) => handleModalAction('addRepayment', data)}
             />
 
             <BulkImportModal
                 isOpen={modal.type === 'import'}
                 onClose={closeModal}
-                onSuccess={closeModal}
+                onSuccess={() => {
+                    closeModal();
+                    // The hook automatically handles cache invalidation
+                }}
+            />
+
+            <BulkDeleteDebtModal
+                isOpen={isBulkDeleteModalOpen}
+                onClose={() => setIsBulkDeleteModalOpen(false)}
+                onConfirm={handleBulkDeleteConfirm}
+                debts={bulkDeleteDebts}
             />
         </div>
     );

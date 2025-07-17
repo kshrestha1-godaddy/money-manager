@@ -272,7 +272,7 @@ export function NotificationBell({ className = "" }: NotificationBellProps) {
                                                     {formatRelativeTime(notification.createdAt)}
                                                 </span>
                                                 {!notification.isRead && (
-                                                    <div className="w-2 h-2 bg-gray-400 rounded-full" />
+                                                    <div className="w-2 h-2 bg-red-500 rounded-full" />
                                                 )}
                                             </div>
                                         </div>

@@ -144,7 +144,7 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                     {chartData.length} bank{chartData.length !== 1 ? 's' : ''}
                 </div>
             </div>
-            <div className="h-48 sm:h-64 w-full">
+            <div className="h-64 sm:h-80 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                         data={chartData}

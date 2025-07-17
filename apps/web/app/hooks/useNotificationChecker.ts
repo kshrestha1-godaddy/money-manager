@@ -17,7 +17,7 @@ interface UseNotificationCheckerOptions {
  */
 export function useNotificationChecker({
     enabled = true,
-    interval = 5 * 60 * 1000, // 5 minutes default
+    interval = 1 * 60 * 1000, // 5 minutes default
     onError
 }: UseNotificationCheckerOptions = {}) {
     const { data: session } = useSession();

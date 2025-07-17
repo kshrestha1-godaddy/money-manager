@@ -31,8 +31,11 @@ export function CategoryTrendChart({ data, type, currency = "USD", startDate, en
         new Set(data.map((item: Income | Expense) => item.category?.name).filter(Boolean))
     ).sort();
 
+    // randomly select a category
+    const currentCategory = selectedCategory || categories[Math.floor(Math.random() * categories.length)] || "";
+
     // Set default category if none selected
-    const currentCategory = selectedCategory || categories[0] || "";
+    // const currentCategory = selectedCategory || categories[0] || "";
 
     // Generate dynamic time period text
     const getTimePeriodText = (): string => {
