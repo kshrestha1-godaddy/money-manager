@@ -32,6 +32,8 @@ model User {
   loans Loan[]
   bookmarks Bookmark[]
   passwords Password[]
+  notifications Notification[]
+  notificationSettings NotificationSettings?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -294,6 +296,43 @@ model Password {
   updatedAt      DateTime  @updatedAt
 }
 
+model Notification {
+  id        Int      @id @default(autoincrement())
+  title     String
+  message   String
+  type      NotificationType
+  priority  NotificationPriority @default(NORMAL)
+  isRead    Boolean  @default(false)
+  actionUrl String?  // Optional URL for notification action
+  metadata  Json?    // Additional data for the notification
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model NotificationSettings {
+  id                    Int     @id @default(autoincrement())
+  // Balance alerts
+  lowBalanceEnabled     Boolean @default(true)
+  lowBalanceThreshold   Decimal @default(500)
+  // Due date alerts
+  dueDateEnabled        Boolean @default(true)
+  dueDateDaysBefore     Int     @default(7)
+  // Spending alerts
+  spendingAlertsEnabled Boolean @default(true)
+  monthlySpendingLimit  Decimal @default(5000)
+  // Investment alerts
+  investmentAlertsEnabled Boolean @default(true)
+  // General settings
+  emailNotifications    Boolean @default(false)
+  pushNotifications     Boolean @default(true)
+  user                  User    @relation(fields: [userId], references: [id])
+  userId                Int     @unique
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
 enum CategoryType {
   EXPENSE
   INCOME
@@ -345,4 +384,22 @@ enum LoanStatus {
   FULLY_PAID
   OVERDUE
   DEFAULTED
+}
+
+enum NotificationType {
+  LOW_BALANCE
+  DUE_DATE_REMINDER
+  SPENDING_ALERT
+  INVESTMENT_MATURITY
+  DEBT_REMINDER
+  LOAN_REMINDER
+  PASSWORD_EXPIRY
+  MONTHLY_SUMMARY
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
 }
