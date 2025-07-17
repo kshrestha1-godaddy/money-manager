@@ -14,14 +14,14 @@ export const metadata: Metadata = {
   description: "Simple financial tracker - track your income and expenses",
   icons: {
     icon: {
-      url: "/logo.jpeg",
-      type: "image/jpeg",
+      url: "/favicon.ico",
+      type: "image/png",
       sizes: "any",
       media: "(prefers-color-scheme: light)",
     },
     apple: {
-      url: "/logo.jpeg",
-      type: "image/jpeg",
+      url: "/favicon.ico",
+      type: "image/png",
     },
   },
 };

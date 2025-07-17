@@ -21,8 +21,5 @@
   },
   "exports": {
     "./client": "./src/index.ts"
-  },
-  "prisma": {
-    "seed": "npx ts-node prisma/seed.ts"
   }
 }

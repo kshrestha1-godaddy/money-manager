@@ -8,6 +8,7 @@ import { useTotalBalance } from "../hooks/useTotalBalance";
 import { useModals } from "../providers/ModalsProvider";
 import Link from "next/link";
 import Image from "next/image";
+import { NotificationBell } from "./NotificationBell";
 
 export default function NavBar() {
   const { data: session, status } = useSession();
@@ -104,7 +105,7 @@ export default function NavBar() {
             {/* App Logo and Info Container */}
             <Link href={status === "authenticated" ? "/dashboard" : "/"} className="flex items-center space-x-4">
               <Image 
-                src="/logo.jpeg" 
+                src="/logo.png" 
                 alt="Money Manager Logo" 
                 width={56} 
                 height={56} 
@@ -214,6 +215,9 @@ export default function NavBar() {
           {/* Auth buttons */}
           {status === "authenticated" ? (
             <>
+              {/* Notification Bell */}
+              <NotificationBell className="mr-2" />
+              
               <button
                 onClick={() => signOut({ callbackUrl: "/signin" })}
                 className="px-3 sm:px-4 py-2 sm:py-2.5 bg-gray-800/90 hover:bg-gray-900/90 text-white rounded-full text-xs sm:text-sm font-medium flex items-center transition-all duration-200 shadow-sm hover:shadow-md"
