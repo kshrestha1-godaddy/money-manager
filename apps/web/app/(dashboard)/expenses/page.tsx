@@ -18,7 +18,7 @@ import { exportExpensesToCSV } from '../../utils/csvExportExpenses'
 import { Expense } from '../../types/financial'
 import { useCurrency } from '../../providers/CurrencyProvider'
 
-export default function ExpensesPage() {
+function ExpensesContent() {
   const { currency: userCurrency } = useCurrency()
   const searchParams = useSearchParams()
   
@@ -339,5 +339,13 @@ export default function ExpensesPage() {
         onSuccess={handleBulkImportSuccess}
       />
     </div>
+  )
+}
+
+export default function ExpensesPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ExpensesContent />
+    </Suspense>
   )
 }

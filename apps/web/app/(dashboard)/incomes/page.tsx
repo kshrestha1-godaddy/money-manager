@@ -18,7 +18,7 @@ import { exportIncomesToCSV } from '../../utils/csvExportIncomes'
 import { Income } from '../../types/financial'
 import { useCurrency } from '../../providers/CurrencyProvider'
 
-export default function IncomesPage() {
+function IncomesContent() {
   const { currency: userCurrency } = useCurrency()
   const searchParams = useSearchParams()
   
@@ -340,4 +340,12 @@ export default function IncomesPage() {
       />
     </div>
   )
-} 
+}
+
+export default function IncomesPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <IncomesContent />
+    </Suspense>
+  )
+}
