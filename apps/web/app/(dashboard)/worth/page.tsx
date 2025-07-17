@@ -106,7 +106,7 @@ export default function NetWorthPage() {
     return (
         <div className="space-y-6 max-w-full min-w-0">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">Net Worth</h1>
                     <p className="text-gray-600 mt-1">Track your overall financial position and growth</p>
@@ -134,7 +134,7 @@ export default function NetWorthPage() {
                 <div className="text-center">
                     <h2 className="text-2xl font-semibold mb-2">Total Net Worth</h2>
                     <p className="text-5xl font-bold mb-4">{formatCurrency(netWorthStats.netWorth, currency)}</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+                    <div className="grid grid-cols-2 gap-8 mt-8">
                         <div className="text-center">
                             <h3 className="text-lg font-medium mb-2">Total Assets</h3>
                             <p className="text-2xl font-semibold text-green-200">{formatCurrency(netWorthStats.totalAssets, currency)}</p>
@@ -158,7 +158,7 @@ export default function NetWorthPage() {
             </div>
 
             {/* Financial Health Metrics - Card Style */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-4 gap-6">
                 <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
                     <div className="flex items-center justify-center mb-2">
                         <h3 className="text-sm font-medium text-gray-500 mr-2">Savings Rate</h3>
@@ -209,7 +209,6 @@ export default function NetWorthPage() {
                 </div>
             </div>
 
-
             {/* Asset Breakdown Chart */}
             {chartData.length > 0 && (
                 <div className={`bg-white rounded-lg shadow-sm border ${isChartExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}>
@@ -230,7 +229,7 @@ export default function NetWorthPage() {
                         <div 
                             ref={chartRef}
                             className={`${
-                                isChartExpanded ? 'h-[70vh] w-full' : 'h-[32rem] sm:h-[36rem] w-full'
+                                isChartExpanded ? 'h-[70vh] w-full' : 'h-[32rem] w-full'
                             }`}
                         >
                             <ResponsiveContainer width="100%" height="100%">

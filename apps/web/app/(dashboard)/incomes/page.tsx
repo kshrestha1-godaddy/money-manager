@@ -191,7 +191,7 @@ export default function IncomesPage() {
           <h1 className="text-3xl font-bold">Incomes</h1>
           <p className="text-gray-600">Track and manage your income sources</p>
         </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex gap-2">
             <button
               onClick={() => setIsAddModalOpen(true)}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
@@ -221,7 +221,7 @@ export default function IncomesPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-4 gap-4">
           {summaryCards.map((card, index) => (
             <div key={index} className="bg-white rounded-lg border p-4 text-center">
               <div className="flex items-center justify-center space-x-2 mb-2">

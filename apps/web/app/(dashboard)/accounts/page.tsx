@@ -132,7 +132,7 @@ export default function Accounts() {
                     <h1 className="text-3xl font-bold">Accounts</h1>
                     <p className="text-gray-600">Manage your bank accounts and financial institutions</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex gap-2">
                     <button
                         onClick={() => setIsAddModalOpen(true)}
                         className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
@@ -156,7 +156,7 @@ export default function Accounts() {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-4 gap-4">
                 <div className="bg-white rounded-lg border p-4 text-center">
                     <div className="flex items-center justify-center space-x-2 mb-2">
                         <div className="w-3 h-3 rounded-full bg-blue-500"></div>
@@ -209,7 +209,7 @@ export default function Accounts() {
 
             {/* Filters and Actions */}
             <div className="bg-white rounded-lg shadow-sm border p-6">
-                <div className="flex flex-col lg:flex-row gap-4 mb-4">
+                <div className="flex gap-4 mb-4">
                     <div className="flex-1">
                         <input
                             type="text"
@@ -219,7 +219,7 @@ export default function Accounts() {
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:w-auto">
+                    <div className="grid grid-cols-3 gap-4">
                         <select
                             value={selectedBank}
                             onChange={(e) => setSelectedBank(e.target.value)}
@@ -255,8 +255,6 @@ export default function Accounts() {
                         </div>
                     </div>
                 </div>
-
-
 
                 {/* View Mode Toggle */}
                 <div className="flex items-center justify-between mt-4">

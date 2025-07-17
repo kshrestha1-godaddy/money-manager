@@ -156,7 +156,7 @@ export default function Investments() {
                     <h1 className="text-3xl font-bold">Investment</h1>
                     <p className="text-gray-600">Track your investment portfolio and performance</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex gap-2">
                     <button
                         onClick={() => openModal('add')}
                         className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
@@ -180,7 +180,7 @@ export default function Investments() {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-6">
+            <div className="grid grid-cols-6 gap-6">
                 <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
                     <div className="flex items-center justify-center mb-2">
                         <h3 className="text-sm font-medium text-gray-500 mr-2">Total Investments</h3>
@@ -245,7 +245,7 @@ export default function Investments() {
 
             {/* Filters and Actions */}
             <div className="bg-white rounded-lg shadow-sm border p-6">
-                <div className="flex flex-col lg:flex-row gap-4 mb-4">
+                <div className="flex gap-4 mb-4">
                     <div className="flex-1">
                         <input
                             type="text"
@@ -255,7 +255,7 @@ export default function Investments() {
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:w-auto">
+                    <div className="grid grid-cols-3 gap-4">
                         <select
                             value={selectedType}
                             onChange={(e) => setSelectedType(e.target.value)}
