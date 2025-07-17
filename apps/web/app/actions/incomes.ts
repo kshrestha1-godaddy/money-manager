@@ -99,6 +99,16 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
 
         revalidateIncomePaths();
         console.info(`Income created successfully: ${data.title} - $${data.amount} for user ${userId}`);
+
+        // Trigger notification checks
+        try {
+            const { generateNotificationsForUser } = await import('./notifications');
+            
+            // Use the comprehensive check to ensure all notification types are evaluated
+            await generateNotificationsForUser(userId);
+        } catch (error) {
+            console.error("Failed to check notifications after income creation:", error);
+        }
         return getDisplayIncome(result);
     } catch (error) {
         console.error(`Failed to create income: ${data.title}`, error);

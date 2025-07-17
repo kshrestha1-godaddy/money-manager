@@ -183,6 +183,16 @@ export async function createDebt(debt: Omit<DebtInterface, 'id' | 'userId' | 'cr
         revalidatePath("/(dashboard)/accounts");
         
         console.info(`Debt created successfully: ${debt.borrowerName} - $${debt.amount} for user ${userId}`);
+
+        // Trigger notification checks
+        try {
+            const { generateNotificationsForUser } = await import('./notifications');
+            
+            // Use the comprehensive check to ensure all notification types are evaluated
+            await generateNotificationsForUser(userId);
+        } catch (error) {
+            console.error("Failed to check notifications after debt creation:", error);
+        }
         
         // Convert Decimal amounts to number to prevent serialization issues
         return {

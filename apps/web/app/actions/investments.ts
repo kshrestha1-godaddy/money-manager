@@ -212,6 +212,16 @@ export async function createInvestment(investment: Omit<InvestmentInterface, 'id
         revalidatePath("/(dashboard)/accounts");
         
         console.info(`Investment created successfully: ${investment.name} - $${investment.purchasePrice} for user ${userId}`);
+
+        // Trigger notification checks
+        try {
+            const { generateNotificationsForUser } = await import('./notifications');
+            
+            // Use the comprehensive check to ensure all notification types are evaluated
+            await generateNotificationsForUser(userId);
+        } catch (error) {
+            console.error("Failed to check notifications after investment creation:", error);
+        }
         
         // Convert Decimal amounts to number to prevent serialization issues
         // Transform nested account data if it exists

@@ -129,6 +129,20 @@ export async function createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'up
 
         console.info(`Expense created successfully: ${data.title} - $${data.amount} for user ${userId}`);
 
+        // Trigger notification checks
+        try {
+            const { 
+                checkLowBalanceAlerts, 
+                checkSpendingAlerts,
+                generateNotificationsForUser
+            } = await import('./notifications');
+            
+            // Use the comprehensive check to ensure all notification types are evaluated
+            await generateNotificationsForUser(userId);
+        } catch (error) {
+            console.error("Failed to check notifications after expense creation:", error);
+        }
+
         // Transform Prisma result to match our Expense type
         return {
             ...result,

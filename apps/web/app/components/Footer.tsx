@@ -7,7 +7,7 @@ export default function Footer() {
             <div className="container mx-auto px-4 flex flex-col sm:flex-row items-center justify-between">
                 <div className="flex items-center mb-4 sm:mb-0">
                     <Image 
-                        src="/logo.jpeg" 
+                        src="/logo.png" 
                         alt="Money Manager Logo" 
                         width={30} 
                         height={30} 

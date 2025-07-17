@@ -33,6 +33,7 @@ model User {
   bookmarks Bookmark[]
   passwords Password[]
   notifications Notification[]
+  dismissedNotifications DismissedNotification[]
   notificationSettings NotificationSettings?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -309,6 +310,18 @@ model Notification {
   userId    Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model DismissedNotification {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  notificationType NotificationType
+  entityId         String   // Identifier for the specific entity (e.g., "debt-123")
+  dismissedAt      DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id])
+  
+  @@unique([userId, notificationType, entityId])
+  @@index([userId, notificationType])
 }
 
 model NotificationSettings {
