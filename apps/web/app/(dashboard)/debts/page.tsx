@@ -269,38 +269,38 @@ export default function Debts() {
                         >
                             Clear Filters
                         </button>
+
+                        {/* View Mode Toggle */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setViewMode("table")}
+                                    className={`px-3 py-1 rounded text-sm ${viewMode === "table"
+                                            ? "bg-blue-100 text-blue-700"
+                                            : "text-gray-600 hover:bg-gray-100"
+                                        }`}
+                                >
+                                    Table
+                                </button>
+                                <button
+                                    onClick={() => setViewMode("cards")}
+                                    className={`px-3 py-1 rounded text-sm ${viewMode === "cards"
+                                            ? "bg-blue-100 text-blue-700"
+                                            : "text-gray-600 hover:bg-gray-100"
+                                        }`}
+                                >
+                                    Cards
+                                </button>
+                            </div>
+
+                        </div>
                     </div>
                 </div>
-
-                {/* View Mode Toggle */}
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-600">View:</span>
-                        <button
-                            onClick={() => setViewMode("table")}
-                            className={`px-3 py-1 rounded text-sm ${
-                                viewMode === "table"
-                                    ? "bg-blue-100 text-blue-700"
-                                    : "text-gray-600 hover:bg-gray-100"
-                            }`}
-                        >
-                            Table
-                        </button>
-                        <button
-                            onClick={() => setViewMode("cards")}
-                            className={`px-3 py-1 rounded text-sm ${
-                                viewMode === "cards"
-                                    ? "bg-blue-100 text-blue-700"
-                                    : "text-gray-600 hover:bg-gray-100"
-                            }`}
-                        >
-                            Cards
-                        </button>
-                    </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-gray-600 pl-1">
                         {loading ? "Loading..." : `${filteredDebts.length} of ${debts.length} debts`}
                     </div>
-                </div>
+
+
             </div>
 
             {/* Debts by Sections */}

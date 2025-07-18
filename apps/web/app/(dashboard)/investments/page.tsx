@@ -275,51 +275,43 @@ export default function Investments() {
                         >
                             Clear Filters
                         </button>
-                        <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm text-gray-600">Selected:</span>
-                            <span className="font-medium text-purple-600">{selectedInvestments.size}</span>
-                            {selectedInvestments.size > 0 && (
+
+
+                        {/* View Mode Toggle */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
                                 <button
-                                    onClick={handleBulkDelete}
-                                    disabled={isBulkDeleting}
-                                    className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded text-sm disabled:opacity-50"
+                                    onClick={() => setViewMode("table")}
+                                    className={`px-3 py-1 rounded text-sm ${viewMode === "table"
+                                            ? "bg-blue-100 text-blue-700"
+                                            : "text-gray-600 hover:bg-gray-100"
+                                        }`}
                                 >
-                                    {isBulkDeleting ? "Deleting..." : "Delete"}
+                                    Table
                                 </button>
-                            )}
+                                <button
+                                    onClick={() => setViewMode("cards")}
+                                    className={`px-3 py-1 rounded text-sm ${viewMode === "cards"
+                                            ? "bg-blue-100 text-blue-700"
+                                            : "text-gray-600 hover:bg-gray-100"
+                                        }`}
+                                >
+                                    Cards
+                                </button>
+                            </div>
                         </div>
+
+
+
                     </div>
+ 
                 </div>
 
-                {/* View Mode Toggle */}
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-600">View:</span>
-                        <button
-                            onClick={() => setViewMode("table")}
-                            className={`px-3 py-1 rounded text-sm ${
-                                viewMode === "table"
-                                    ? "bg-blue-100 text-blue-700"
-                                    : "text-gray-600 hover:bg-gray-100"
-                            }`}
-                        >
-                            Table
-                        </button>
-                        <button
-                            onClick={() => setViewMode("cards")}
-                            className={`px-3 py-1 rounded text-sm ${
-                                viewMode === "cards"
-                                    ? "bg-blue-100 text-blue-700"
-                                    : "text-gray-600 hover:bg-gray-100"
-                            }`}
-                        >
-                            Cards
-                        </button>
-                    </div>
-                    <div className="text-sm text-gray-600">
-                        {loading ? "Loading..." : `${filteredInvestments.length} of ${investments.length} investments`}
-                    </div>
+                <div className="text-sm text-gray-600">
+                    {loading ? "Loading..." : `${filteredInvestments.length} of ${investments.length} investments`}
                 </div>
+
+
             </div>
 
             {/* Investments by Sections */}
@@ -402,7 +394,7 @@ export default function Investments() {
                                     </div>
                                 </div>
                             </div>
-                            <div className="p-6">
+                            <div className="px-6 pb-6">
                                 {viewMode === "table" ? (
                                     <InvestmentTable
                                         investments={section.investments}
