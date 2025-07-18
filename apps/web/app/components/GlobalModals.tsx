@@ -7,7 +7,7 @@ import { AddIncomeModal } from "./incomes/AddIncomeModal";
 import { useModals } from "../providers/ModalsProvider";
 import { useRouter, usePathname } from "next/navigation";
 import { getCategories } from "../actions/categories";
-import { getAllAccounts } from "../actions/accounts";
+import { getUserAccounts } from "../actions/accounts";
 import { createExpense } from "../actions/expenses";
 import { createIncome } from "../actions/incomes";
 import { Expense, Income, Category } from "../types/financial";
@@ -37,11 +37,17 @@ export function GlobalModals() {
         const [expenseCategoriesData, incomeCategoriesData, accountsData] = await Promise.all([
           getCategories("EXPENSE"),
           getCategories("INCOME"),
-          getAllAccounts()
+          getUserAccounts()
         ]);
         setExpenseCategories(expenseCategoriesData);
         setIncomeCategories(incomeCategoriesData);
-        setAccounts(accountsData);
+        
+        if (accountsData && !('error' in accountsData)) {
+          setAccounts(accountsData);
+        } else {
+          console.error("Error loading accounts for quick actions:", accountsData?.error);
+          setAccounts([]);
+        }
       } catch (error) {
         console.error("Error fetching data for modals:", error);
       } finally {
