@@ -7,6 +7,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../lib/auth";
 import { getUserIdFromSession } from "../utils/auth";
 
+// Helper function to revalidate all income-related paths
+const revalidateIncomePaths = () => {
+    revalidatePath("/(dashboard)/incomes");
+    revalidatePath("/(dashboard)/accounts");
+};
+
 // Helper function to transform Prisma income to Income type
 const getDisplayIncome = (prismaIncome: any): Income => ({
     ...prismaIncome,
@@ -23,16 +29,11 @@ const getDisplayIncome = (prismaIncome: any): Income => ({
     } : null
 });
 
-// Helper function to revalidate all income-related paths
-const revalidateIncomePaths = () => {
-    revalidatePath("/(dashboard)/incomes");
-    revalidatePath("/(dashboard)/accounts");
-};
 
 export async function getIncomes() {
     try {
         const session = await getServerSession(authOptions);
-        if (!session) throw new Error("Unauthorized");
+        if (!session) throw new Error("Unauthorized for user " + session?.user?.id);
 
         const userId = getUserIdFromSession(session.user.id);
 
@@ -49,7 +50,7 @@ export async function getIncomes() {
 
     } catch (error) {
         console.error("Failed to fetch incomes:", error);
-        throw new Error("Failed to fetch incomes");
+        throw new Error("Failed to fetch incomes for user ");
     }
 }
 
@@ -61,6 +62,7 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
         const userId = getUserIdFromSession(session.user.id);
 
         const result = await prisma.$transaction(async (tx) => {
+
             const createData: any = {
                 title: data.title,
                 description: data.description,
@@ -87,6 +89,7 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
                 }
             });
 
+            // adding the amount to the account balance
             if (data.accountId) {
                 await tx.account.update({
                     where: { id: data.accountId },
@@ -103,13 +106,15 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
         // Trigger notification checks
         try {
             const { generateNotificationsForUser } = await import('./notifications');
-            
-            // Use the comprehensive check to ensure all notification types are evaluated
             await generateNotificationsForUser(userId);
         } catch (error) {
             console.error("Failed to check notifications after income creation:", error);
         }
+
+
         return getDisplayIncome(result);
+
+
     } catch (error) {
         console.error(`Failed to create income: ${data.title}`, error);
         throw new Error("Failed to create income");

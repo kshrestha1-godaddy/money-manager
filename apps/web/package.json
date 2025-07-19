@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --port 3000 --turbopack",
-    "build": "npm install && cd ../../packages/db && npx prisma generate && cd ../../apps/web && next build"
+    "build": "npm install && cd ../../packages/db && npx prisma generate && cd ../../apps/web && next build",
+    "test": "jest"
   },
   "dependencies": {
     "@repo/db": "*",

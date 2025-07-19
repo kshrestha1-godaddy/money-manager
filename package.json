@@ -10,8 +10,10 @@
     "start-user-app": "cd ./apps/web && npm run start"
   },
   "devDependencies": {
+    "@jest/globals": "^30.0.4",
     "prettier": "^3.5.3",
     "prettier-plugin-tailwindcss": "^0.6.11",
+    "ts-jest": "^29.4.0",
     "turbo": "^2.5.2"
   },
   "engines": {
