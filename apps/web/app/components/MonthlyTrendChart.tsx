@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import React, { useState, useRef, useMemo, useCallback } from "react";
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from "recharts";
 import { formatCurrency } from "../utils/currency";
 import { Income, Expense } from "../types/financial";
@@ -26,12 +26,138 @@ interface MonthlyData {
     formattedMonth: string;
 }
 
-export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDate, endDate }: MonthlyTrendChartProps) {
+interface CalculationsResult {
+    totalIncome: number;
+    totalExpenses: number;
+    totalSavings: number;
+    monthCount: number;
+    averageIncome: number;
+    averageExpenses: number;
+    averageSavings: number;
+    maxValue: number;
+    minValue: number;
+    yAxisMax: number;
+    yAxisMin: number;
+    referenceLines: number[];
+}
+
+// Memoized Summary Stats Component
+const SummaryStats = React.memo<{
+    calculations: CalculationsResult;
+    currency: string;
+}>(({ calculations, currency }) => (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+        <div className="text-center sm:text-left">
+            <p className="text-sm text-gray-600">Monthly Average Income</p>
+            <p className="text-base sm:text-lg font-bold text-green-600">
+                {formatCurrency(calculations.averageIncome, currency)}
+            </p>
+        </div>
+        <div className="text-center sm:text-left">
+            <p className="text-sm text-gray-600">Monthly Average Expenses</p>
+            <p className="text-base sm:text-lg font-bold text-red-600">
+                {formatCurrency(calculations.averageExpenses, currency)}
+            </p>
+        </div>
+        <div className="text-center sm:text-left">
+            <p className="text-sm text-gray-600">Monthly Average Savings</p>
+            <p className={`text-base sm:text-lg font-bold ${calculations.averageSavings >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                {formatCurrency(calculations.averageSavings, currency)}
+            </p>
+        </div>
+    </div>
+));
+
+SummaryStats.displayName = 'SummaryStats';
+
+// Memoized Chart Legend Component
+const ChartLegend = React.memo(() => (
+    <div className="flex justify-center items-center gap-3 sm:gap-6 mt-4">
+        <div className="flex items-center gap-2">
+            <div className="w-3 h-3 sm:w-4 sm:h-4 bg-green-500 rounded"></div>
+            <span className="text-xs sm:text-sm text-gray-700">Income</span>
+        </div>
+        <div className="flex items-center gap-2">
+            <div className="w-3 h-3 sm:w-4 sm:h-4 bg-red-500 rounded"></div>
+            <span className="text-xs sm:text-sm text-gray-700">Expenses</span>
+        </div>
+        <div className="flex items-center gap-2">
+            <div className="w-3 h-3 sm:w-4 sm:h-4 bg-blue-500 rounded"></div>
+            <span className="text-xs sm:text-sm text-gray-700">Savings</span>
+        </div>
+    </div>
+));
+
+ChartLegend.displayName = 'ChartLegend';
+
+// Constants to avoid recreating on each render
+const CHART_COLORS = {
+    income: "#10b981",
+    expenses: "#ef4444",
+    savings: "#3b82f6",
+    incomeTrend: "#059669",
+    expensesTrend: "#dc2626",
+    savingsTrend: "#2563eb"
+} as const;
+
+const CHART_MARGINS = {
+    top: 40,
+    right: 20,
+    left: 20,
+    bottom: 30
+} as const;
+
+// Optimized date utilities
+const createDateKey = (date: Date): string => {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+};
+
+const normalizeDate = (date: Date | string): Date => {
+    return date instanceof Date ? date : new Date(date);
+};
+
+export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({ 
+    incomes, 
+    expenses, 
+    currency = "USD", 
+    startDate, 
+    endDate 
+}) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     
-    // Generate dynamic time period text
-    const getTimePeriodText = (): string => {
+    // Memoize date range calculation only when dates change
+    const dateRange = useMemo(() => {
+        if (startDate || endDate) {
+            return {
+                start: startDate ? new Date(startDate) : null,
+                end: endDate ? new Date(endDate) : null,
+                hasExplicitRange: true
+            };
+        }
+        
+        // Calculate default range (last 4 months) only once
+        const today = new Date();
+        const currentMonth = today.getMonth();
+        const currentYear = today.getFullYear();
+        
+        let targetMonth = currentMonth - 3;
+        let targetYear = currentYear;
+        
+        if (targetMonth < 0) {
+            targetMonth += 12;
+            targetYear -= 1;
+        }
+        
+        return {
+            start: new Date(targetYear, targetMonth, 1),
+            end: new Date(currentYear, currentMonth + 1, 0),
+            hasExplicitRange: false
+        };
+    }, [startDate, endDate]);
+
+    // Memoize the time period text calculation
+    const timePeriodText = useMemo((): string => {
         if (startDate && endDate) {
             const start = new Date(startDate);
             const end = new Date(endDate);
@@ -47,133 +173,96 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
             const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
             return `(Until ${endMonth})`;
         } else {
-            // Calculate the last 4 full calendar months
-            const today = new Date();
-            const currentMonth = today.getMonth();
-            const currentYear = today.getFullYear();
-            
-            // Calculate the month 4 months ago
-            let fourMonthsAgoMonth = currentMonth - 3;
-            let fourMonthsAgoYear = currentYear;
-            
-            // Adjust for year boundary crossing
-            if (fourMonthsAgoMonth < 0) {
-                fourMonthsAgoMonth += 12;
-                fourMonthsAgoYear -= 1;
-            }
-            
-            const startDate = new Date(fourMonthsAgoYear, fourMonthsAgoMonth, 1);
-            const startMonth = startDate.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            const endMonth = today.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            
+            const startMonth = dateRange.start!.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            const endMonth = dateRange.end!.toLocaleDateString('en', { month: 'short', year: 'numeric' });
             return `(${startMonth} - ${endMonth})`;
         }
-    };
-
-    const timePeriodText = getTimePeriodText();
+    }, [startDate, endDate, dateRange]);
     
-    // Filter data based on provided date range or last 4 months
-    const filterData = (data: (Income | Expense)[]) => {
-        if (startDate || endDate) {
-            // If we have explicit date filters, use them directly
-            return data.filter(item => {
-                const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
-                let matchesDateRange = true;
-                
-                if (startDate && endDate) {
-                    const start = new Date(startDate);
-                    // Ensure start is set to beginning of the day
-                    start.setHours(0, 0, 0, 0);
-                    
-                    const end = new Date(endDate);
-                    // Ensure end is set to end of the day
-                    end.setHours(23, 59, 59, 999);
-                    
-                    matchesDateRange = itemDate >= start && itemDate <= end;
-                } else if (startDate) {
-                    const start = new Date(startDate);
-                    start.setHours(0, 0, 0, 0);
-                    matchesDateRange = itemDate >= start;
-                } else if (endDate) {
-                    const end = new Date(endDate);
-                    end.setHours(23, 59, 59, 999);
-                    matchesDateRange = itemDate <= end;
-                }
-                
-                return matchesDateRange;
-            });
-        } else {
-            // Default to last 4 full calendar months if no date filters provided
-            const today = new Date();
-            const currentMonth = today.getMonth();
-            const currentYear = today.getFullYear();
-            
-            // Calculate the month 4 months ago (including current month)
-            let targetMonth = currentMonth - 3; // Go back 3 months from current month (showing 4 months total)
-            let targetYear = currentYear;
-            
-            // Adjust for year boundary crossing
-            while (targetMonth < 0) {
-                targetMonth += 12;
-                targetYear -= 1;
+    // Optimized data filtering using the precomputed date range
+    const { filteredIncomes, filteredExpenses } = useMemo(() => {
+        const filterItems = <T extends Income | Expense>(items: T[]): T[] => {
+            if (!dateRange.hasExplicitRange && dateRange.start && dateRange.end) {
+                // Use precomputed range for default case
+                return items.filter(item => {
+                    const itemDate = normalizeDate(item.date);
+                    return itemDate >= dateRange.start! && itemDate <= dateRange.end!;
+                });
             }
             
-            // Create date for first day of the target month
-            const filterStartDate = new Date(targetYear, targetMonth, 1);
-            filterStartDate.setHours(0, 0, 0, 0);
-            
-            // Create date for last day of current month
-            const filterEndDate = new Date(currentYear, currentMonth + 1, 0);
-            filterEndDate.setHours(23, 59, 59, 999);
-            
-            return data.filter(item => {
-                const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
-                return itemDate >= filterStartDate && itemDate <= filterEndDate;
+            // Handle explicit date filters
+            return items.filter(item => {
+                const itemDate = normalizeDate(item.date);
+                
+                if (dateRange.start && dateRange.end) {
+                    const start = new Date(dateRange.start);
+                    start.setHours(0, 0, 0, 0);
+                    const end = new Date(dateRange.end);
+                    end.setHours(23, 59, 59, 999);
+                    return itemDate >= start && itemDate <= end;
+                } else if (dateRange.start) {
+                    const start = new Date(dateRange.start);
+                    start.setHours(0, 0, 0, 0);
+                    return itemDate >= start;
+                } else if (dateRange.end) {
+                    const end = new Date(dateRange.end);
+                    end.setHours(23, 59, 59, 999);
+                    return itemDate <= end;
+                }
+                
+                return true;
             });
+        };
+
+        return {
+            filteredIncomes: filterItems(incomes),
+            filteredExpenses: filterItems(expenses)
+        };
+    }, [incomes, expenses, dateRange]);
+
+    // Optimized chart data processing using Map for better performance
+    const chartData = useMemo((): MonthlyData[] => {
+        // Use Map for O(1) lookups instead of array operations
+        const monthlyData = new Map<string, { income: number; expenses: number }>();
+
+        // Process incomes efficiently
+        for (const income of filteredIncomes) {
+            const date = normalizeDate(income.date);
+            const monthKey = createDateKey(date);
+            const current = monthlyData.get(monthKey) || { income: 0, expenses: 0 };
+            current.income += income.amount;
+            monthlyData.set(monthKey, current);
         }
-    };
 
-    const filteredIncomes = filterData(incomes);
-    const filteredExpenses = filterData(expenses);
+        // Process expenses efficiently
+        for (const expense of filteredExpenses) {
+            const date = normalizeDate(expense.date);
+            const monthKey = createDateKey(date);
+            const current = monthlyData.get(monthKey) || { income: 0, expenses: 0 };
+            current.expenses += expense.amount;
+            monthlyData.set(monthKey, current);
+        }
 
-    // Group data by month
-    const monthlyMap = new Map<string, { income: number; expenses: number }>();
-
-    // Process incomes
-    filteredIncomes.forEach(income => {
-        const date = income.date instanceof Date ? income.date : new Date(income.date);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        const current = monthlyMap.get(monthKey) || { income: 0, expenses: 0 };
-        current.income += income.amount;
-        monthlyMap.set(monthKey, current);
-    });
-
-    // Process expenses
-    filteredExpenses.forEach(expense => {
-        const date = expense.date instanceof Date ? expense.date : new Date(expense.date);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        const current = monthlyMap.get(monthKey) || { income: 0, expenses: 0 };
-        current.expenses += expense.amount;
-        monthlyMap.set(monthKey, current);
-    });
-
-    // Convert to chart data and sort by date
-    const chartData: MonthlyData[] = Array.from(monthlyMap.entries())
-        .map(([monthKey, data]) => {
+        // Convert to array and sort
+        const result: MonthlyData[] = [];
+        for (const [monthKey, data] of monthlyData) {
             const parts = monthKey.split('-');
-            const year = parseInt(parts[0] || '0', 10);
-            const month = parseInt(parts[1] || '0', 10);
+            const yearStr = parts[0];
+            const monthStr = parts[1];
             
-            // Validate year and month
+            if (!yearStr || !monthStr) continue;
+            
+            const year = parseInt(yearStr, 10);
+            const month = parseInt(monthStr, 10);
+            
             if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
-                console.warn(`Invalid date components: year=${year}, month=${month}`);
-                return null;
+                continue;
             }
             
             const date = new Date(year, month - 1);
             const savings = data.income - data.expenses;
             
-            return {
+            result.push({
                 month: monthKey,
                 income: data.income,
                 expenses: data.expenses,
@@ -182,40 +271,94 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
                 expensesT: data.expenses,
                 savingsT: savings,
                 formattedMonth: date.toLocaleDateString('en', { month: 'short', year: 'numeric' })
+            });
+        }
+        
+        return result.sort((a, b) => a.month.localeCompare(b.month));
+    }, [filteredIncomes, filteredExpenses]);
+
+    // Optimized calculations using single pass through data
+    const calculations = useMemo((): CalculationsResult => {
+        if (chartData.length === 0) {
+            return {
+                totalIncome: 0,
+                totalExpenses: 0,
+                totalSavings: 0,
+                monthCount: 0,
+                averageIncome: 0,
+                averageExpenses: 0,
+                averageSavings: 0,
+                maxValue: 0,
+                minValue: 0,
+                yAxisMax: 100,
+                yAxisMin: 0,
+                referenceLines: [25, 50, 75]
             };
-        })
-        .filter((item): item is MonthlyData => item !== null)
-        .sort((a, b) => a.month.localeCompare(b.month));
+        }
 
-    // Calculate totals and averages
-    const totalIncome = chartData.reduce((sum, item) => sum + item.income, 0);
-    const totalExpenses = chartData.reduce((sum, item) => sum + item.expenses, 0);
-    const totalSavings = totalIncome - totalExpenses;
-    const monthCount = chartData.length;
+        let totalIncome = 0;
+        let totalExpenses = 0;
+        let maxValue = 0;
+        let minValue = 0;
 
-    const averageIncome = monthCount > 0 ? totalIncome / monthCount : 0;
-    const averageExpenses = monthCount > 0 ? totalExpenses / monthCount : 0;
-    const averageSavings = monthCount > 0 ? totalSavings / monthCount : 0;
+        // Single pass calculation
+        for (const item of chartData) {
+            totalIncome += item.income;
+            totalExpenses += item.expenses;
+            maxValue = Math.max(maxValue, item.income, item.expenses, item.savings);
+            minValue = Math.min(minValue, 0, item.savings);
+        }
 
-    // Calculate max and min values for reference lines
-    const maxValue = chartData.length > 0 ? Math.max(
-        ...chartData.map(item => Math.max(item.income, item.expenses, item.savings))
-    ) : 0;
-    const minValue = chartData.length > 0 ? Math.min(
-        ...chartData.map(item => Math.min(0, item.savings))
-    ) : 0;
-    
-    const yAxisMax = Math.ceil(maxValue * 1.3);
-    const yAxisMin = Math.floor(minValue * 1.5);
-    
-    const referenceLines = [
-        yAxisMax * 0.25,
-        yAxisMax * 0.5,
-        yAxisMax * 0.75
-    ];
+        const totalSavings = totalIncome - totalExpenses;
+        const monthCount = chartData.length;
+        const averageIncome = totalIncome / monthCount;
+        const averageExpenses = totalExpenses / monthCount;
+        const averageSavings = totalSavings / monthCount;
 
-    // Download functions
-    const downloadPNG = async (): Promise<void> => {
+        const yAxisMax = Math.ceil(maxValue * 1.3);
+        const yAxisMin = Math.floor(minValue * 1.5);
+        
+        const referenceLines = [
+            yAxisMax * 0.25,
+            yAxisMax * 0.5,
+            yAxisMax * 0.75
+        ];
+
+        return {
+            totalIncome,
+            totalExpenses,
+            totalSavings,
+            monthCount,
+            averageIncome,
+            averageExpenses,
+            averageSavings,
+            maxValue,
+            minValue,
+            yAxisMax,
+            yAxisMin,
+            referenceLines
+        };
+    }, [chartData]);
+
+    // Memoize CSV data
+    const csvData = useMemo(() => [
+        ['Month', 'Income', 'Expenses', 'Savings'],
+        ...chartData.map(item => [
+            item.formattedMonth,
+            item.income.toString(),
+            item.expenses.toString(),
+            item.savings.toString()
+        ])
+    ], [chartData]);
+
+    // Memoize chart title and subtitle
+    const { chartTitle, subtitle } = useMemo(() => ({
+        chartTitle: `Monthly Income, Expenses & Savings Trend ${timePeriodText}`,
+        subtitle: "Compare your monthly financial flows and identify patterns over time"
+    }), [timePeriodText]);
+
+    // Optimized download functions with better error handling
+    const downloadPNG = useCallback(async (): Promise<void> => {
         const element = chartRef.current;
         if (!element) return;
 
@@ -235,29 +378,34 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
             const svg = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
             const url = URL.createObjectURL(svg);
 
-            img.onload = () => {
-                canvas.width = img.width * 2;
-                canvas.height = img.height * 2;
-                ctx.scale(2, 2);
-                ctx.fillStyle = 'white';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(img, 0, 0);
-                URL.revokeObjectURL(url);
+            const cleanup = () => URL.revokeObjectURL(url);
 
-                canvas.toBlob((blob) => {
-                    if (blob) {
-                        const link = document.createElement('a');
-                        link.download = 'monthly-trend-chart.png';
-                        link.href = URL.createObjectURL(blob);
-                        link.click();
-                        URL.revokeObjectURL(link.href);
-                    }
-                }, 'image/png');
+            img.onload = () => {
+                try {
+                    canvas.width = img.width * 2;
+                    canvas.height = img.height * 2;
+                    ctx.scale(2, 2);
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            const link = document.createElement('a');
+                            link.download = 'monthly-trend-chart.png';
+                            link.href = URL.createObjectURL(blob);
+                            link.click();
+                            URL.revokeObjectURL(link.href);
+                        }
+                    }, 'image/png');
+                } finally {
+                    cleanup();
+                }
             };
 
             img.onerror = () => {
                 console.error('Failed to load SVG image');
-                URL.revokeObjectURL(url);
+                cleanup();
                 downloadSVG();
             };
 
@@ -266,9 +414,9 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
             console.error('Error downloading PNG:', error);
             downloadSVG();
         }
-    };
+    }, []);
 
-    const downloadSVG = (): void => {
+    const downloadSVG = useCallback((): void => {
         const element = chartRef.current;
         if (!element) return;
 
@@ -282,19 +430,9 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
         link.href = URL.createObjectURL(blob);
         link.click();
         URL.revokeObjectURL(link.href);
-    };
+    }, []);
 
-    const downloadCSV = (): void => {
-        const csvData = [
-            ['Month', 'Income', 'Expenses', 'Savings'],
-            ...chartData.map(item => [
-                item.formattedMonth,
-                item.income.toString(),
-                item.expenses.toString(),
-                item.savings.toString()
-            ])
-        ];
-        
+    const downloadCSV = useCallback((): void => {
         const csvString = csvData.map(row => row.join(',')).join('\n');
         const blob = new Blob([csvString], { type: 'text/csv' });
         const link = document.createElement('a');
@@ -302,95 +440,56 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
         link.href = URL.createObjectURL(blob);
         link.click();
         URL.revokeObjectURL(link.href);
-    };
+    }, [csvData]);
 
-    // Prepare CSV data for chart controls
-    const csvData = [
-        ['Month', 'Income', 'Expenses', 'Savings'],
-        ...chartData.map(item => [
-            item.formattedMonth,
-            item.income.toString(),
-            item.expenses.toString(),
-            item.savings.toString()
-        ])
-    ];
-
-    const chartTitle = `Monthly Income, Expenses & Savings Trend ${timePeriodText}`;
-    const subtitle = "Compare your monthly financial flows and identify patterns over time";
-
-    interface TooltipEntry {
-        dataKey: string;
-        value: number;
-        color: string;
-    }
-
-    interface TooltipProps {
+    // Optimized tooltip component with better performance
+    const CustomTooltip = useCallback(({ active, payload, label }: {
         active?: boolean;
-        payload?: TooltipEntry[];
+        payload?: Array<{ dataKey: string; value: number; color: string }>;
         label?: string;
-    }
+    }) => {
+        if (!active || !payload?.length) return null;
 
-    const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
-        if (active && payload && payload.length) {
-            // Filter to only show bar data (exclude trend lines)
-            const barData = payload.filter((entry) => 
-                entry.dataKey === 'income' || entry.dataKey === 'expenses' || entry.dataKey === 'savings'
-            );
-            
-            if (barData.length === 0) return null;
+        // Filter to only show bar data (exclude trend lines) - more efficient
+        const barData = payload.filter(entry => 
+            entry.dataKey === 'income' || entry.dataKey === 'expenses' || entry.dataKey === 'savings'
+        );
+        
+        if (barData.length === 0) return null;
 
-            return (
-                <div className="bg-white border border-gray-300 rounded p-3 shadow-lg">
-                    <p className="text-gray-900 font-medium mb-2">{label}</p>
-                    {barData.map((entry, index) => {
-                        let displayName = '';
-                        switch (entry.dataKey) {
-                            case 'income':
-                                displayName = 'Income';
-                                break;
-                            case 'expenses':
-                                displayName = 'Expenses';
-                                break;
-                            case 'savings':
-                                displayName = 'Savings';
-                                break;
-                            default:
-                                displayName = entry.dataKey;
-                        }
-                        return (
-                            <p key={index} style={{ color: entry.color }} className="text-sm">
-                                {displayName}: {formatCurrency(entry.value, currency)}
-                                <br />
-                            </p>
-                        );
-                    })}
-                </div>
-            );
-        }
-        return null;
-    };
+        return (
+            <div className="bg-white border border-gray-300 rounded p-3 shadow-lg">
+                <p className="text-gray-900 font-medium mb-2">{label}</p>
+                {barData.map((entry, index) => {
+                    const displayName = entry.dataKey === 'income' ? 'Income' :
+                                     entry.dataKey === 'expenses' ? 'Expenses' : 'Savings';
+                    
+                    return (
+                        <p key={index} style={{ color: entry.color }} className="text-sm">
+                            {displayName}: {formatCurrency(entry.value, currency)}
+                        </p>
+                    );
+                })}
+            </div>
+        );
+    }, [currency]);
 
-    const formatYAxisTick = (value: number) => {
+    const formatYAxisTick = useCallback((value: number) => {
         if (value >= 1000000) {
             return `${(value / 1000000).toFixed(1)}M`;
         } else if (value >= 1000) {
             return `${(value / 1000).toFixed(1)}K`;
         }
         return formatCurrency(value, currency).replace(/\$/, '');
-    };
+    }, [currency]);
 
     // Calculate optimal interval for x-axis ticks based on data length
-    const calculateOptimalInterval = () => {
-        // Show all months if there are 6 or fewer months
-        if (chartData.length <= 6) {
-            return 0; // Show all ticks
-        }
-        // Otherwise use a gap of 1 month (show every other month)
-        return 1;
-    };
+    const optimalInterval = useMemo(() => {
+        return chartData.length <= 6 ? 0 : 1;
+    }, [chartData.length]);
 
     // Custom tick component for rotated X-axis labels
-    const CustomXAxisTick = (props: any) => {
+    const CustomXAxisTick = useCallback((props: any) => {
         const { x, y, payload } = props;
         return (
             <g transform={`translate(${x},${y})`}>
@@ -407,158 +506,117 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
                 </text>
             </g>
         );
-    };
+    }, []);
 
-    const ChartContent = () => (
-        <div>
-            {/* Summary Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                <div className="text-center sm:text-left">
-                    <p className="text-sm text-gray-600">Monthly Average Income</p>
-                    <p className="text-base sm:text-lg font-bold text-green-600">
-                        {formatCurrency(averageIncome, currency)}
-                    </p>
-                </div>
-                <div className="text-center sm:text-left">
-                    <p className="text-sm text-gray-600">Monthly Average Expenses</p>
-                    <p className="text-base sm:text-lg font-bold text-red-600">
-                        {formatCurrency(averageExpenses, currency)}
-                    </p>
-                </div>
-                <div className="text-center sm:text-left">
-                    <p className="text-sm text-gray-600">Monthly Average Savings</p>
-                    <p className={`text-base sm:text-lg font-bold ${averageSavings >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-                        {formatCurrency(averageSavings, currency)}
-                    </p>
-                </div>
-            </div>
-
-            {/* Chart */}
-            <div 
-                ref={chartRef} 
-                className={isExpanded ? "h-[60vh] w-full" : "h-[30rem] sm:h-[40rem] w-full"}
-                role="img"
-                aria-label={`Monthly trend chart showing income, expenses, and savings ${timePeriodText.toLowerCase()}`}
-            >
-                <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart
-                        data={chartData}
-                        margin={{
-                            top: 40,
-                            right: 20,
-                            left: 20,
-                            bottom: 30,
-                        }}
-                        barCategoryGap="15%"
-                    >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                        
-                        {/* Reference lines for better visualization */}
+    // Main chart component - memoized for better performance
+    const Chart = useMemo(() => (
+        <div 
+            ref={chartRef} 
+            className={isExpanded ? "h-[60vh] w-full" : "h-[30rem] sm:h-[40rem] w-full"}
+            role="img"
+            aria-label={`Monthly trend chart showing income, expenses, and savings ${timePeriodText.toLowerCase()}`}
+        >
+            <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart
+                    data={chartData}
+                    margin={CHART_MARGINS}
+                    barCategoryGap="15%"
+                >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                    
+                    {/* Reference lines for better visualization */}
+                    <ReferenceLine y={0} stroke="#666" strokeWidth={2} />
+                    {calculations.referenceLines.map((value, index) => (
                         <ReferenceLine 
-                            y={0} 
-                            stroke="#666" 
-                            strokeWidth={2}
+                            key={index}
+                            y={value} 
+                            stroke="#d0d0d0" 
+                            strokeDasharray="2 2"
+                            strokeWidth={1}
                         />
-                        {referenceLines.map((value, index) => (
-                            <ReferenceLine 
-                                key={index}
-                                y={value} 
-                                stroke="#d0d0d0" 
-                                strokeDasharray="2 2"
-                                strokeWidth={1}
-                            />
-                        ))}
-                        
-                        <XAxis 
-                            dataKey="formattedMonth" 
-                            tick={<CustomXAxisTick />}
-                            interval={calculateOptimalInterval()}
-                            stroke="#666"
-                            height={50}
-                        />
-                        <YAxis 
-                            tickFormatter={formatYAxisTick}
-                            tick={{ fontSize: 12 }}
-                            stroke="#666"
-                            domain={[yAxisMin, yAxisMax]}
-                            tickCount={8}
-                        />
-                        <Tooltip content={<CustomTooltip />} />
- 
-                        <Bar 
-                            dataKey="income" 
-                            fill="#10b981" 
-                            name="Income"
-                            radius={[2, 2, 0, 0]}
-                        />
-                        <Bar 
-                            dataKey="expenses" 
-                            fill="#ef4444" 
-                            name="Expenses"
-                            radius={[2, 2, 0, 0]}
-                        />
-                        <Bar 
-                            dataKey="savings" 
-                            fill="#3b82f6" 
-                            name="Savings"
-                            radius={[2, 2, 0, 0]}
-                        />
-                        
-                        {/* Trend Lines */}
-                        <Line 
-                            type="monotone" 
-                            dataKey="incomeT" 
-                            stroke="#059669" 
-                            strokeWidth={3}
-                            dot={{ fill: "#059669", strokeWidth: 2, r: 4 }}
-                            name="Income Trend"
-                            connectNulls={false}
-                            legendType="none"
-                            activeDot={false}
-                        />
-                        <Line 
-                            type="monotone" 
-                            dataKey="expensesT" 
-                            stroke="#dc2626" 
-                            strokeWidth={3}
-                            dot={{ fill: "#dc2626", strokeWidth: 2, r: 4 }}
-                            name="Expenses Trend"
-                            connectNulls={false}
-                            legendType="none"
-                            activeDot={false}
-                        />
-                        <Line 
-                            type="monotone" 
-                            dataKey="savingsT" 
-                            stroke="#2563eb" 
-                            strokeWidth={3}
-                            dot={{ fill: "#2563eb", strokeWidth: 2, r: 4 }}
-                            name="Savings Trend"
-                            connectNulls={false}
-                            legendType="none"
-                            activeDot={false}
-                        />
-                    </ComposedChart>
-                </ResponsiveContainer>
-            </div>
-            
-            {/* Custom Legend */}
-            <div className="flex justify-center items-center gap-3 sm:gap-6 mt-4">
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 sm:w-4 sm:h-4 bg-green-500 rounded"></div>
-                    <span className="text-xs sm:text-sm text-gray-700">Income</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 sm:w-4 sm:h-4 bg-red-500 rounded"></div>
-                    <span className="text-xs sm:text-sm text-gray-700">Expenses</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 sm:w-4 sm:h-4 bg-blue-500 rounded"></div>
-                    <span className="text-xs sm:text-sm text-gray-700">Savings</span>
-                </div>
-            </div>
+                    ))}
+                    
+                    <XAxis 
+                        dataKey="formattedMonth" 
+                        tick={<CustomXAxisTick />}
+                        interval={optimalInterval}
+                        stroke="#666"
+                        height={50}
+                    />
+                    <YAxis 
+                        tickFormatter={formatYAxisTick}
+                        tick={{ fontSize: 12 }}
+                        stroke="#666"
+                        domain={[calculations.yAxisMin, calculations.yAxisMax]}
+                        tickCount={8}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+
+                    <Bar 
+                        dataKey="income" 
+                        fill={CHART_COLORS.income}
+                        name="Income"
+                        radius={[2, 2, 0, 0]}
+                    />
+                    <Bar 
+                        dataKey="expenses" 
+                        fill={CHART_COLORS.expenses}
+                        name="Expenses"
+                        radius={[2, 2, 0, 0]}
+                    />
+                    <Bar 
+                        dataKey="savings" 
+                        fill={CHART_COLORS.savings}
+                        name="Savings"
+                        radius={[2, 2, 0, 0]}
+                    />
+                    
+                    {/* Trend Lines */}
+                    <Line 
+                        type="monotone" 
+                        dataKey="incomeT" 
+                        stroke={CHART_COLORS.incomeTrend}
+                        strokeWidth={3}
+                        dot={{ fill: CHART_COLORS.incomeTrend, strokeWidth: 2, r: 4 }}
+                        name="Income Trend"
+                        connectNulls={false}
+                        legendType="none"
+                        activeDot={false}
+                    />
+                    <Line 
+                        type="monotone" 
+                        dataKey="expensesT" 
+                        stroke={CHART_COLORS.expensesTrend}
+                        strokeWidth={3}
+                        dot={{ fill: CHART_COLORS.expensesTrend, strokeWidth: 2, r: 4 }}
+                        name="Expenses Trend"
+                        connectNulls={false}
+                        legendType="none"
+                        activeDot={false}
+                    />
+                    <Line 
+                        type="monotone" 
+                        dataKey="savingsT" 
+                        stroke={CHART_COLORS.savingsTrend}
+                        strokeWidth={3}
+                        dot={{ fill: CHART_COLORS.savingsTrend, strokeWidth: 2, r: 4 }}
+                        name="Savings Trend"
+                        connectNulls={false}
+                        legendType="none"
+                        activeDot={false}
+                    />
+                </ComposedChart>
+            </ResponsiveContainer>
         </div>
-    );
+    ), [chartData, calculations, isExpanded, timePeriodText, optimalInterval, CustomXAxisTick, formatYAxisTick, CustomTooltip]);
+
+    const ChartContent = useCallback(() => (
+        <div>
+            <SummaryStats calculations={calculations} currency={currency} />
+            {Chart}
+            <ChartLegend />
+        </div>
+    ), [calculations, currency, Chart]);
 
     if (chartData.length === 0) {
         return (
@@ -617,4 +675,6 @@ export function MonthlyTrendChart({ incomes, expenses, currency = "USD", startDa
             )}
         </>
     );
-} 
+});
+
+MonthlyTrendChart.displayName = 'MonthlyTrendChart'; 
