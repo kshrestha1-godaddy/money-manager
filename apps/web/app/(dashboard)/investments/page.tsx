@@ -462,7 +462,7 @@ export default function Investments() {
                 investment={modal.investment || null}
                 isOpen={modal.type === 'edit'}
                 onClose={closeModal}
-                onEdit={handleModalAction.bind(null, 'edit')}
+                onEdit={(id, data) => handleModalAction('edit', data)}
             />
 
             <DeleteInvestmentModal
