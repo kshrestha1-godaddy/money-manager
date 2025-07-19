@@ -203,7 +203,7 @@ export default function Accounts() {
             {!loading && accounts.length > 0 && (
                 <div className="bg-white rounded-lg shadow-sm border p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Balances</h3>
-                    <BankBalanceChart accounts={accounts} />
+                    <BankBalanceChart accounts={accounts} currency={userCurrency} />
                 </div>
             )}
 

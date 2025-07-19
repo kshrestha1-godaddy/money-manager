@@ -133,17 +133,16 @@ export async function markAllNotificationsAsRead(): Promise<void> {
 }
 
 /**
- * Delete a notification
+ * Delete a specific notification
  */
-export async function deleteNotification(notificationId: number): Promise<void> {
+export async function deleteNotification(id: number): Promise<void> {
     try {
         const session = await getAuthenticatedSession();
         const userId = getUserIdFromSession(session.user.id);
 
-        // Delete the notification
         await prisma.notification.delete({
             where: { 
-                id: notificationId,
+                id,
                 userId // Ensure user can only delete their own notifications
             }
         });
@@ -152,6 +151,26 @@ export async function deleteNotification(notificationId: number): Promise<void> 
     } catch (error) {
         console.error("Failed to delete notification:", error);
         throw new Error("Failed to delete notification");
+    }
+}
+
+/**
+ * Clear all notifications for the current user
+ */
+export async function clearAllNotifications(): Promise<{ deletedCount: number }> {
+    try {
+        const session = await getAuthenticatedSession();
+        const userId = getUserIdFromSession(session.user.id);
+
+        const result = await prisma.notification.deleteMany({
+            where: { userId }
+        });
+
+        revalidatePath("/(dashboard)");
+        return { deletedCount: result.count };
+    } catch (error) {
+        console.error("Failed to clear all notifications:", error);
+        throw new Error("Failed to clear all notifications");
     }
 }
 

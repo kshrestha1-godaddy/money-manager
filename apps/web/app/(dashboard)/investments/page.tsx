@@ -244,7 +244,7 @@ export default function Investments() {
             </div>
 
             {/* Filters and Actions */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div>
                 <div className="flex gap-4 mb-4">
                     <div className="flex-1">
                         <input
@@ -306,11 +306,6 @@ export default function Investments() {
                     </div>
  
                 </div>
-
-                <div className="text-sm text-gray-600">
-                    {loading ? "Loading..." : `${filteredInvestments.length} of ${investments.length} investments`}
-                </div>
-
 
             </div>
 
