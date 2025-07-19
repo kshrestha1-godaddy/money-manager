@@ -278,9 +278,6 @@ export async function updateNotificationSettings(settings: Partial<NotificationS
         throw new Error("Failed to update notification settings");
     }
 }
-
-// ===== NOTIFICATION TRIGGER FUNCTIONS =====
-
 /**
  * Check for low balance alerts
  */
@@ -293,14 +290,16 @@ export async function checkLowBalanceAlerts(userId: number): Promise<void> {
         if (!settings?.lowBalanceEnabled) return;
 
         const threshold = decimalToNumber(settings.lowBalanceThreshold, 'threshold');
-        const currency = await getUserCurrency();
+        const userCurrency = await getUserCurrency();
         const accounts = await prisma.account.findMany({
             where: { userId }
         });
 
         for (const account of accounts) {
-            const balance = decimalToNumber(account.balance, 'balance');
-            if (balance < threshold) {
+            const accountBalance = decimalToNumber(account.balance, 'balance');
+            
+            // Simple comparison: both balance and threshold are in user's currency
+            if (accountBalance < threshold) {
                 const recentNotification = await prisma.notification.findFirst({
                     where: {
                         userId,
@@ -318,13 +317,13 @@ export async function checkLowBalanceAlerts(userId: number): Promise<void> {
                     await createNotification(
                         userId,
                         'Low Account Balance',
-                        `Your <strong>${account.bankName}</strong> account balance <strong>${formatCurrency(balance, currency)}</strong> is below your threshold of <strong>${formatCurrency(threshold, currency)}</strong>.`,
+                        `Your <strong>${account.bankName}</strong> account balance <strong>${formatCurrency(accountBalance, userCurrency)}</strong> is below your threshold of <strong>${formatCurrency(threshold, userCurrency)}</strong>.`,
                         'LOW_BALANCE',
                         'HIGH',
                         '/accounts',
                         {
                             accountId: account.id,
-                            balance,
+                            balance: accountBalance,
                             threshold,
                             entityId: `low-balance-${account.id}`
                         }

@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { Category } from "../../types/financial";
 import { AccountInterface } from "../../types/accounts";
 import { FinancialForm } from "./FinancialForm";
+import { useCurrency } from "../../providers/CurrencyProvider";
+import { getUserDualCurrency } from "../../utils/currency";
 import { 
     BaseFormData, 
     TransactionType,
@@ -25,7 +27,7 @@ interface FinancialModalProps {
     categories: Category[];
     accounts: AccountInterface[];
     transactionType: TransactionType;
-    transaction?: any | null;
+    transaction?: any;
     mode: 'add' | 'edit';
 }
 
@@ -39,7 +41,9 @@ export function FinancialModal({
     transaction, 
     mode 
 }: FinancialModalProps) {
-    const [formData, setFormData] = useState<BaseFormData>(initializeFormData());
+    const { currency: userCurrency } = useCurrency();
+    const defaultCurrency = getUserDualCurrency(userCurrency);
+    const [formData, setFormData] = useState<BaseFormData>(initializeFormData(true, defaultCurrency));
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const placeholders = getTransactionPlaceholders(transactionType);
@@ -48,9 +52,21 @@ export function FinancialModal({
         if (mode === 'edit' && transaction) {
             setFormData(extractFormData(transaction));
         } else if (mode === 'add') {
-            setFormData(initializeFormData());
+            const currentDefaultCurrency = getUserDualCurrency(userCurrency);
+            setFormData(initializeFormData(true, currentDefaultCurrency));
         }
-    }, [transaction, mode, isOpen]);
+    }, [transaction, mode, isOpen, userCurrency]);
+
+    // Additional effect to update currency when user changes it in navbar
+    useEffect(() => {
+        if (isOpen && mode === 'add') {
+            const currentDefaultCurrency = getUserDualCurrency(userCurrency);
+            setFormData(prev => ({
+                ...prev,
+                amountCurrency: currentDefaultCurrency
+            }));
+        }
+    }, [userCurrency, isOpen, mode]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -65,7 +81,7 @@ export function FinancialModal({
 
         setIsSubmitting(true);
         try {
-            const transformedData = transformFormData(formData, categories, accounts);
+            const transformedData = transformFormData(formData, categories, accounts, userCurrency);
             
             if (mode === 'edit' && transaction) {
                 onSubmit({ id: transaction.id, data: transformedData });
@@ -86,7 +102,8 @@ export function FinancialModal({
         if (mode === 'edit' && transaction) {
             setFormData(extractFormData(transaction));
         } else {
-            setFormData(initializeFormData());
+            const currentDefaultCurrency = getUserDualCurrency(userCurrency);
+            setFormData(initializeFormData(true, currentDefaultCurrency));
         }
         onClose();
     };

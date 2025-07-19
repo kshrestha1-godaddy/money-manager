@@ -5,12 +5,14 @@
 
 import { Category } from '../types/financial';
 import { AccountInterface } from '../types/accounts';
+import { DualCurrency, convertToAccountCurrency } from './currency';
 
 // Common form data interface for expenses/incomes
 export interface BaseFormData {
     title: string;
     description: string;
     amount: string;
+    amountCurrency: DualCurrency;
     date: string;
     categoryId: string;
     accountId: string;
@@ -24,11 +26,12 @@ export interface BaseFormData {
 export type TransactionType = 'EXPENSE' | 'INCOME';
 
 // Initialize form data with default values
-export function initializeFormData(defaultDate: boolean = true): BaseFormData {
+export function initializeFormData(defaultDate: boolean = true, defaultCurrency: DualCurrency = 'INR'): BaseFormData {
     return {
         title: '',
         description: '',
         amount: '',
+        amountCurrency: defaultCurrency,
         date: defaultDate ? (new Date().toISOString().split('T')[0] || '') : '',
         categoryId: '',
         accountId: '',
@@ -91,6 +94,7 @@ export function transformFormData(
     formData: BaseFormData,
     categories: Category[],
     accounts: AccountInterface[],
+    userAccountCurrency: string = 'INR',
     userId: number = 0
 ) {
     const selectedCategory = categories.find(c => c.id === parseInt(formData.categoryId));
@@ -115,6 +119,14 @@ export function transformFormData(
         throw new Error('Invalid category selected');
     }
 
+    // Convert amount to user's account currency
+    const inputAmount = parseFloat(formData.amount);
+    const convertedAmount = convertToAccountCurrency(
+        inputAmount,
+        formData.amountCurrency,
+        userAccountCurrency
+    );
+
     // Helper function to create date without timezone conversion
     const createLocalDate = (dateString: string): Date => {
         const parts = dateString.split('-').map(Number);
@@ -130,7 +142,9 @@ export function transformFormData(
     return {
         title: formData.title,
         description: formData.description || undefined,
-        amount: parseFloat(formData.amount),
+        amount: convertedAmount,
+        originalAmount: inputAmount,
+        originalCurrency: formData.amountCurrency,
         date: createLocalDate(formData.date),
         category: selectedCategory,
         categoryId: selectedCategory.id,
@@ -162,9 +176,10 @@ export function extractFormData(item: any): BaseFormData {
         title: item.title || '',
         description: item.description || '',
         amount: item.amount?.toString() || '',
+        amountCurrency: item.originalCurrency || 'INR',
         date: item.date ? formatDateForInput(item.date) : '',
         categoryId: item.categoryId?.toString() || '',
-        accountId: item.accountId === 0 || !item.accountId ? '0' : item.accountId.toString(),
+        accountId: !item.accountId ? '0' : item.accountId.toString(),
         tags: Array.isArray(item.tags) ? item.tags.join(', ') : '',
         notes: item.notes || '',
         isRecurring: item.isRecurring || false,

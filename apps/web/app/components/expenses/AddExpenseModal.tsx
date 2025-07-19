@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@repo/ui/button";
 import { Expense, Category } from "../../types/financial";
 import { AccountInterface } from "../../types/accounts";
 import { ExpenseForm } from "./ExpenseForm";
+import { useCurrency } from "../../providers/CurrencyProvider";
+import { getUserDualCurrency } from "../../utils/currency";
 import { 
     BaseFormData, 
     initializeFormData,
@@ -22,8 +24,21 @@ interface AddExpenseModalProps {
 }
 
 export function AddExpenseModal({ isOpen, onClose, onAdd, categories, accounts }: AddExpenseModalProps) {
-    const [formData, setFormData] = useState<BaseFormData>(initializeFormData());
+    const { currency: userCurrency } = useCurrency();
+    const defaultCurrency = getUserDualCurrency(userCurrency);
+    const [formData, setFormData] = useState<BaseFormData>(initializeFormData(true, defaultCurrency));
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Update form currency when user currency changes or modal opens
+    useEffect(() => {
+        if (isOpen) {
+            const currentDefaultCurrency = getUserDualCurrency(userCurrency);
+            setFormData(prev => ({
+                ...prev,
+                amountCurrency: currentDefaultCurrency
+            }));
+        }
+    }, [userCurrency, isOpen]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -36,11 +51,12 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, categories, accounts }
 
         setIsSubmitting(true);
         try {
-            const expense = transformFormData(formData, categories, accounts);
+            const expense = transformFormData(formData, categories, accounts, userCurrency);
             onAdd(expense as Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>);
             
-            // Reset form after successful submission
-            setFormData(initializeFormData());
+            // Reset form after successful submission with user's currency
+            const resetDefaultCurrency = getUserDualCurrency(userCurrency);
+            setFormData(initializeFormData(true, resetDefaultCurrency));
             onClose();
         } catch (error) {
             console.error('Error creating expense:', error);

@@ -4,6 +4,7 @@ import React from "react";
 import { Category } from "../../types/financial";
 import { AccountInterface } from "../../types/accounts";
 import { EnhancedTagsInput } from "../shared/EnhancedTagsInput";
+import { DUAL_CURRENCIES, formatDualCurrency, convertDualCurrency } from "../../utils/currency";
 import { 
     BaseFormData, 
     inputClasses, 
@@ -65,16 +66,47 @@ export function ExpenseForm({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                     <label className={labelClasses}>Amount *</label>
-                    <input
-                        type="number"
-                        step="0.01"
-                        value={formData.amount}
-                        onChange={(e) => handleInputChange('amount', e.target.value)}
-                        className={inputClasses}
-                        placeholder="0.00"
-                        required
-                        disabled={disabled}
-                    />
+                    <div className="flex space-x-2">
+                        <div className="flex-1">
+                            <input
+                                type="number"
+                                step="0.01"
+                                value={formData.amount}
+                                onChange={(e) => handleInputChange('amount', e.target.value)}
+                                className={inputClasses}
+                                placeholder="0.00"
+                                required
+                                disabled={disabled}
+                            />
+                        </div>
+                        <div className="w-24">
+                            <select
+                                value={formData.amountCurrency}
+                                onChange={(e) => handleInputChange('amountCurrency', e.target.value)}
+                                className={`${selectClasses} text-center font-medium`}
+                                disabled={disabled}
+                            >
+                                {DUAL_CURRENCIES.map(currency => (
+                                    <option key={currency} value={currency}>
+                                        {currency}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                    {/* Show conversion preview */}
+                    {formData.amount && parseFloat(formData.amount) > 0 && (
+                        <div className="mt-2 p-2 bg-blue-50 rounded-md border border-blue-100">
+                            <div className="text-xs text-blue-700 font-medium">
+                                {formData.amountCurrency === 'INR' ? (
+                                    <span>≈ {formatDualCurrency(convertDualCurrency(parseFloat(formData.amount), 'INR', 'NPR'), 'NPR')}</span>
+                                ) : (
+                                    <span>≈ {formatDualCurrency(convertDualCurrency(parseFloat(formData.amount), 'NPR', 'INR'), 'INR')}</span>
+                                )}
+                                <span className="ml-1 text-blue-500">(approx.)</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div>

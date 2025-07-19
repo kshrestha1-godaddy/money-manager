@@ -2,6 +2,7 @@
 
 import { Income } from "../../types/financial";
 import { formatCurrency } from "../../utils/currency";
+import { getDualCurrencyDisplay, formatDualCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
 import { useCurrency } from "../../providers/CurrencyProvider";
 
@@ -16,6 +17,9 @@ export function ViewIncomeModal({ income, isOpen, onClose, onEdit }: ViewIncomeM
     const { currency: userCurrency } = useCurrency();
 
     if (!isOpen || !income) return null;
+
+    // Get both currency values for display
+    const dualCurrencyValues = getDualCurrencyDisplay(income.amount, userCurrency);
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -50,8 +54,23 @@ export function ViewIncomeModal({ income, isOpen, onClose, onEdit }: ViewIncomeM
                     {/* Summary Card */}
                     <div className="bg-green-50 p-6 rounded-lg mb-8">
                         <h3 className="text-lg font-medium text-green-700 mb-2">Income Amount</h3>
-                        <p className="text-4xl font-bold text-green-900">{formatCurrency(income.amount, userCurrency)}</p>
-                        <p className="text-sm text-green-600 mt-1">
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <p className="text-4xl font-bold text-green-900">
+                                    {userCurrency === 'INR' 
+                                        ? formatDualCurrency(dualCurrencyValues.inr, 'INR')
+                                        : formatDualCurrency(dualCurrencyValues.npr, 'NPR')
+                                    }
+                                </p>
+                                <p className="text-lg text-green-700 mt-1">
+                                    {userCurrency === 'INR' 
+                                        ? formatDualCurrency(dualCurrencyValues.npr, 'NPR')
+                                        : formatDualCurrency(dualCurrencyValues.inr, 'INR')
+                                    }
+                                </p>
+                            </div>
+                        </div>
+                        <p className="text-sm text-green-600 mt-2">
                             {formatDate(income.date)}
                         </p>
                     </div>

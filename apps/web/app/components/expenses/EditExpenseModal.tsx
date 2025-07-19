@@ -5,6 +5,8 @@ import { Button } from "@repo/ui/button";
 import { Expense, Category } from "../../types/financial";
 import { AccountInterface } from "../../types/accounts";
 import { ExpenseForm } from "./ExpenseForm";
+import { useCurrency } from "../../providers/CurrencyProvider";
+import { getUserDualCurrency } from "../../utils/currency";
 import { 
     BaseFormData, 
     initializeFormData,
@@ -24,7 +26,9 @@ interface EditExpenseModalProps {
 }
 
 export function EditExpenseModal({ isOpen, onClose, onEdit, categories, accounts, expense }: EditExpenseModalProps) {
-    const [formData, setFormData] = useState<BaseFormData>(initializeFormData());
+    const { currency } = useCurrency();
+    const defaultCurrency = getUserDualCurrency(currency);
+    const [formData, setFormData] = useState<BaseFormData>(initializeFormData(true, defaultCurrency));
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
@@ -46,7 +50,7 @@ export function EditExpenseModal({ isOpen, onClose, onEdit, categories, accounts
 
         setIsSubmitting(true);
         try {
-            const updatedExpense = transformFormData(formData, categories, accounts);
+            const updatedExpense = transformFormData(formData, categories, accounts, currency);
             onEdit(expense.id, updatedExpense);
             onClose();
         } catch (error) {
