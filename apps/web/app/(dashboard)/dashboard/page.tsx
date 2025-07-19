@@ -154,11 +154,6 @@ function DashboardContent() {
                 </Suspense>
             </div>
 
-            {/* Divider */}
-            <div className="flex justify-center">
-                <div className="w-1/2 border-t border-gray-200"></div>
-            </div>
-
             {/* Monthly Trend Chart */}
             <Suspense fallback={<ChartSkeleton title="Monthly Trends" />}>
                 <MonthlyTrendChart 
@@ -170,10 +165,6 @@ function DashboardContent() {
                 />
             </Suspense>
 
-            {/* Divider */}
-            <div className="flex justify-center">
-                <div className="w-1/2 border-t border-gray-200"></div>
-            </div>
 
             {/* Category Charts - Side by Side */}
             <div className="grid grid-cols-2 gap-4">
@@ -197,11 +188,6 @@ function DashboardContent() {
                 </Suspense>
             </div>
 
-            {/* Divider */}
-            <div className="flex justify-center">
-                <div className="w-1/2 border-t border-gray-200"></div>
-            </div>
-
             {/* Category Trend Charts - Side by Side */}
             <div className="grid grid-cols-2 gap-4">
                 <Suspense fallback={<ChartSkeleton title="Expense Category Trends" height="h-[32rem]" />}>
@@ -222,11 +208,6 @@ function DashboardContent() {
                         endDate={endDate}
                     />
                 </Suspense>
-            </div>
-
-            {/* Divider */}
-            <div className="flex justify-center">
-                <div className="w-1/2 border-t border-gray-200"></div>
             </div>
 
             {/* Recent Transactions */}
