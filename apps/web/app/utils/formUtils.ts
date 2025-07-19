@@ -72,7 +72,8 @@ export function validateFormData(
 
     if (!formData.accountId) {
         errors.push('Account is required');
-    } else {
+    } else if (formData.accountId !== '0') {
+        // Only validate account existence if it's not cash payment
         const selectedAccount = accounts.find(a => a.id === parseInt(formData.accountId));
         if (!selectedAccount) {
             errors.push('Please select a valid account');
@@ -93,10 +94,25 @@ export function transformFormData(
     userId: number = 0
 ) {
     const selectedCategory = categories.find(c => c.id === parseInt(formData.categoryId));
-    const selectedAccount = accounts.find(a => a.id === parseInt(formData.accountId));
+    
+    // Handle cash payments
+    let selectedAccount = null;
+    let accountId = null; // Use null for cash payments
+    
+    if (formData.accountId === '0') {
+        // For cash payments, use accountId null
+        selectedAccount = null;
+        accountId = null;
+    } else {
+        selectedAccount = accounts.find(a => a.id === parseInt(formData.accountId));
+        if (!selectedAccount) {
+            throw new Error('Invalid account selected');
+        }
+        accountId = selectedAccount.id;
+    }
 
-    if (!selectedCategory || !selectedAccount) {
-        throw new Error('Invalid category or account selected');
+    if (!selectedCategory) {
+        throw new Error('Invalid category selected');
     }
 
     // Helper function to create date without timezone conversion
@@ -119,7 +135,7 @@ export function transformFormData(
         category: selectedCategory,
         categoryId: selectedCategory.id,
         account: selectedAccount,
-        accountId: selectedAccount.id,
+        accountId: accountId,
         userId,
         tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(Boolean) : [],
         notes: formData.notes || undefined,
@@ -148,7 +164,7 @@ export function extractFormData(item: any): BaseFormData {
         amount: item.amount?.toString() || '',
         date: item.date ? formatDateForInput(item.date) : '',
         categoryId: item.categoryId?.toString() || '',
-        accountId: item.accountId?.toString() || '',
+        accountId: item.accountId === 0 || !item.accountId ? '0' : item.accountId.toString(),
         tags: Array.isArray(item.tags) ? item.tags.join(', ') : '',
         notes: item.notes || '',
         isRecurring: item.isRecurring || false,

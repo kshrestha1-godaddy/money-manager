@@ -105,7 +105,9 @@ export function ViewExpenseModal({ expense, isOpen, onClose, onEdit }: ViewExpen
                                                 </span>
                                             </span>
                                         ) : (
-                                            'No account specified'
+                                            <span className="flex items-center">
+                                                Cash Payment
+                                            </span>
                                         )}
                                     </p>
                                 </div>

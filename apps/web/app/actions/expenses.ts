@@ -195,7 +195,7 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
         if (data.date !== undefined) updateData.date = data.date;
         if (data.categoryId !== undefined) updateData.category = { connect: { id: data.categoryId } };
         if (data.accountId !== undefined) {
-            updateData.account = data.accountId === null ? { disconnect: true } : { connect: { id: data.accountId } };
+            updateData.account = (data.accountId === null) ? { disconnect: true } : { connect: { id: data.accountId } };
         }
         if (data.tags !== undefined) updateData.tags = data.tags;
         if (data.receipt !== undefined) updateData.receipt = data.receipt;

@@ -65,18 +65,17 @@ export function FinancialList({
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
     const [currentPage, setCurrentPage] = useState(1);
-    const [isMobile, setIsMobile] = useState(false);
     const ITEMS_PER_PAGE = 25;
     
     // Column resizing state
     const [columnWidths, setColumnWidths] = useState({
         checkbox: 64,
-        title: 200,  // Reduced from 300
+        title: 200,
         category: 140,
         account: 192,
         date: 112,
         tags: 110,
-        notes: 280,  // Increased from 192
+        notes: 280,
         amount: 128,
         actions: 128
     });
@@ -85,17 +84,6 @@ export function FinancialList({
     const [resizing, setResizing] = useState<string | null>(null);
     const [startX, setStartX] = useState(0);
     const [startWidth, setStartWidth] = useState(0);
-
-    // Mobile detection
-    useEffect(() => {
-        const checkMobile = () => {
-            setIsMobile(window.innerWidth < 768);
-        };
-        
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
 
     const handleSort = useCallback((field: SortField) => {
         if (sortField === field) {
@@ -162,8 +150,8 @@ export function FinancialList({
                     bValue = b.category.name.toLowerCase();
                     break;
                 case 'account':
-                    aValue = a.account ? `${a.account.bankName} - ${a.account.accountType}` : '';
-                    bValue = b.account ? `${b.account.bankName} - ${b.account.accountType}` : '';
+                    aValue = a.account ? `${a.account.bankName} - ${a.account.accountType}` : 'Cash';
+                    bValue = b.account ? `${b.account.bankName} - ${b.account.accountType}` : 'Cash';
                     aValue = aValue.toLowerCase();
                     bValue = bValue.toLowerCase();
                     break;
@@ -232,176 +220,7 @@ export function FinancialList({
         );
     }
 
-    // Mobile Card View
-    if (isMobile) {
-        return (
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-200">
-                    <div className="flex justify-between items-center">
-                        <h2 className="text-lg font-semibold text-gray-900">
-                            {transactionLabel} ({transactions.length})
-                        </h2>
-                        <CompactPagination
-                            currentPage={currentPage}
-                            totalItems={transactions.length}
-                            itemsPerPage={ITEMS_PER_PAGE}
-                            onPageChange={setCurrentPage}
-                        />
-                    </div>
-                </div>
-
-                {/* Bulk Actions */}
-                {showBulkActions && selectedTransactions.size > 0 && (
-                    <div className="bg-blue-50 border-b border-blue-200 px-4 py-3">
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-blue-900">
-                                {selectedTransactions.size} selected
-                            </span>
-                            <div className="flex space-x-2">
-                                <button
-                                    onClick={handleBulkDelete}
-                                    className="px-3 py-1 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors"
-                                >
-                                    Delete Selected
-                                </button>
-                                <button
-                                    onClick={onClearSelection}
-                                    className="px-3 py-1 bg-gray-600 text-white rounded-md text-sm font-medium hover:bg-gray-700 transition-colors"
-                                >
-                                    Clear
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Mobile Cards */}
-                <div className="divide-y divide-gray-200">
-                    {paginatedTransactions.map((transaction) => (
-                        <div key={transaction.id} className="p-4 hover:bg-gray-50">
-                            <div className="flex items-start space-x-3">
-                                {/* Checkbox */}
-                                {showBulkActions && (
-                                    <div className="flex-shrink-0 pt-1">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedTransactions.has(transaction.id)}
-                                            onChange={() => {
-                                                if (onTransactionSelect) {
-                                                    onTransactionSelect(transaction.id, !selectedTransactions.has(transaction.id));
-                                                }
-                                            }}
-                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                        />
-                                    </div>
-                                )}
-                                
-                                {/* Main Content */}
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex-1 min-w-0">
-                                            {/* Title and Recurring Badge */}
-                                            <div className="flex items-center space-x-2 mb-1">
-                                                <h3 className="text-sm font-semibold text-gray-900 truncate">
-                                                    {transaction.title}
-                                                </h3>
-                                                {transaction.isRecurring && (
-                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                                        transactionType === 'EXPENSE' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
-                                                    }`}>
-                                                        Recurring
-                                                    </span>
-                                                )}
-                                            </div>
-                                            
-                                            {/* Description */}
-                                            {transaction.description && (
-                                                <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                                                    {transaction.description}
-                                                </p>
-                                            )}
-                                            
-                                            {/* Date and Amount Row */}
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="text-sm text-gray-500">
-                                                    {formatDate(transaction.date)}
-                                                </span>
-                                                <div className={`text-lg font-bold ${amountColorClass}`}>
-                                                    {formatCurrency(transaction.amount, currency)}
-                                                </div>
-                                            </div>
-                                            
-                                            {/* Tags */}
-                                            {transaction.tags.length > 0 && (
-                                                <div className="flex flex-wrap gap-1 mb-2">
-                                                    {transaction.tags.slice(0, 3).map((tag, index) => (
-                                                        <span
-                                                            key={index}
-                                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700"
-                                                        >
-                                                            {tag}
-                                                        </span>
-                                                    ))}
-                                                    {transaction.tags.length > 3 && (
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                                                            +{transaction.tags.length - 3} more
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            )}
-                                            
-                                            {/* Notes */}
-                                            {transaction.notes && (
-                                                <div className="mb-3">
-                                                    <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded-md line-clamp-2">
-                                                        <span className="font-medium text-gray-700">Note:</span> {transaction.notes}
-                                                    </p>
-                                                </div>
-                                            )}
-                                            
-                                            {/* Action Buttons */}
-                                            <div className="flex space-x-2">
-                                                {onView && (
-                                                    <button 
-                                                        onClick={() => onView(transaction)}
-                                                        className="flex-1 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md transition-colors text-center"
-                                                    >
-                                                        View
-                                                    </button>
-                                                )}
-                                                <button 
-                                                    onClick={() => onEdit && onEdit(transaction)}
-                                                    className="flex-1 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors text-center"
-                                                >
-                                                    Edit
-                                                </button>
-                                                <button 
-                                                    onClick={() => onDelete && onDelete(transaction)}
-                                                    className="flex-1 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-md transition-colors text-center"
-                                                >
-                                                    Delete
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-                
-                {/* Pagination */}
-                <Pagination
-                    currentPage={currentPage}
-                    totalItems={transactions.length}
-                    itemsPerPage={ITEMS_PER_PAGE}
-                    onPageChange={setCurrentPage}
-                />
-            </div>
-        );
-    }
-
-    // Desktop Table View
+    // Table View
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
@@ -718,7 +537,9 @@ function FinancialRow({
                         </div>
                     </div>
                 ) : (
-                    <span className="text-gray-400">No account</span>
+                    <span className="flex items-center text-gray-600">
+                        Cash
+                    </span>
                 )}
             </td>
             <td className="px-6 py-4 text-sm text-gray-900" style={{ width: `${columnWidths.date}px` }}>

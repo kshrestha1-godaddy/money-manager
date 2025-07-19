@@ -53,7 +53,7 @@ export async function getRecentTransactions(limit: number = 10): Promise<Transac
             amount: decimalToNumber(expense.amount, 'expense amount'),
             date: new Date(expense.date),
             category: expense.category.name,
-            account: expense.account?.bankName || 'Unknown Account'
+            account: expense.account?.bankName || 'Cash'
         }));
 
         // Transform incomes to Transaction format
@@ -64,7 +64,7 @@ export async function getRecentTransactions(limit: number = 10): Promise<Transac
             amount: decimalToNumber(income.amount, 'income amount'),
             date: new Date(income.date),
             category: income.category.name,
-            account: income.account?.bankName || 'Unknown Account'
+            account: income.account?.bankName || 'Cash'
         }));
 
         // Combine and sort all transactions by date (newest first)
@@ -122,7 +122,7 @@ export async function getAllTransactions(): Promise<Transaction[]> {
             amount: decimalToNumber(expense.amount, 'expense amount'),
             date: new Date(expense.date),
             category: expense.category.name,
-            account: expense.account?.bankName || 'Unknown Account'
+            account: expense.account?.bankName || 'Cash'
         }));
 
         // Transform incomes to Transaction format
@@ -133,7 +133,7 @@ export async function getAllTransactions(): Promise<Transaction[]> {
             amount: decimalToNumber(income.amount, 'income amount'),
             date: new Date(income.date),
             category: income.category.name,
-            account: income.account?.bankName || 'Unknown Account'
+            account: income.account?.bankName || 'Cash'
         }));
 
         // Combine and sort all transactions by date (newest first)

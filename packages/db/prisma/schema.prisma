@@ -97,8 +97,8 @@ model Expense {
   date DateTime @default(now())
   category Category @relation(fields: [categoryId], references: [id])
   categoryId Int
-  account Account @relation(fields: [accountId], references: [id])
-  accountId Int
+  account Account? @relation(fields: [accountId], references: [id])
+  accountId Int?
   user User @relation(fields: [userId], references: [id])
   userId Int
   tags String[]
@@ -118,8 +118,8 @@ model Income {
   date DateTime @default(now())
   category Category @relation(fields: [categoryId], references: [id])
   categoryId Int
-  account Account @relation(fields: [accountId], references: [id])
-  accountId Int
+  account Account? @relation(fields: [accountId], references: [id])
+  accountId Int?
   user User @relation(fields: [userId], references: [id])
   userId Int
   tags String[]

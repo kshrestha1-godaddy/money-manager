@@ -105,7 +105,9 @@ export function ViewIncomeModal({ income, isOpen, onClose, onEdit }: ViewIncomeM
                                                 </span>
                                             </span>
                                         ) : (
-                                            'No account specified'
+                                            <span className="flex items-center">
+                                                Cash Payment
+                                            </span>
                                         )}
                                     </p>
                                 </div>

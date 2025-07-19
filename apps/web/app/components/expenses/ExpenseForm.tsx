@@ -118,6 +118,7 @@ export function ExpenseForm({
                     disabled={disabled}
                 >
                     <option value="">Select an account</option>
+                    <option value="0">Cash</option>
                     {accounts.map(account => (
                         <option key={account.id} value={account.id}>
                             {account.bankName} - {account.holderName} ({account.accountType})
