@@ -7,14 +7,14 @@ export default function Footer() {
             <div className="container mx-auto px-4 flex flex-col sm:flex-row items-center justify-between">
                 <div className="flex items-center mb-4 sm:mb-0">
                     <Link href="/dashboard" className="flex items-center hover:opacity-80 transition-opacity">
-                        <Image 
-                            src="/logo.png" 
-                            alt="Money Manager Logo" 
-                            width={30} 
-                            height={30} 
-                            className="rounded-full mr-2" 
-                        />
-                        <span className="text-gray-700 font-medium">Money Manager</span>
+                    <Image 
+                        src="/logo.png" 
+                        alt="Money Manager Logo" 
+                        width={30} 
+                        height={30} 
+                        className="rounded-full mr-2" 
+                    />
+                    <span className="text-gray-700 font-medium">Money Manager</span>
                     </Link>
                 </div>
                 <div className="text-gray-500 text-sm">
