@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, ReferenceLine, Cell } from "recharts";
 import { AccountInterface } from "../types/accounts";
 import { formatCurrency } from "../utils/currency";
 
@@ -149,18 +149,19 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                     <BarChart
                         data={chartData}
                         margin={{
-                            top: 10,
+                            top: 20,
                             right: 15,
                             left: 20,
-                            bottom: 20,
+                            bottom: 80,
                         }}
                     >
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <ReferenceLine y={0} stroke="#666" strokeWidth={1} />
                         <XAxis 
                             dataKey="bank" 
                             tick={{ fontSize: 11 }}
                             stroke="#666"
-                            height={40}
+                            height={60}
                             interval={0}
                             textAnchor="middle"
                         />
@@ -169,6 +170,7 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                             stroke="#666"
                             tickFormatter={formatYAxisTick}
                             width={40}
+                            domain={['dataMin < 0 ? dataMin * 1.1 : 0', 'dataMax * 1.1']}
                         />
                         <Tooltip 
                             formatter={formatTooltip}
@@ -192,9 +194,15 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                         />
                         <Bar 
                             dataKey="balance" 
-                            fill="#3b82f6" 
                             radius={[4, 4, 0, 0]}
                         >
+                            {/* Conditional colors for positive/negative values */}
+                            {chartData.map((entry, index) => (
+                                <Cell 
+                                    key={`cell-${index}`} 
+                                    fill={entry.balance >= 0 ? "#3b82f6" : "#ef4444"} 
+                                />
+                            ))}
                             {/* Data labels on top of bars */}
                             <LabelList 
                                 dataKey="balance" 
