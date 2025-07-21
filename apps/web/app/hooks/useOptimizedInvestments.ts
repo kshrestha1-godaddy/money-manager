@@ -88,12 +88,13 @@ export function useOptimizedInvestments() {
     // Filter states
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedType, setSelectedType] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
 
     // Selection states
     const [selectedInvestments, setSelectedInvestments] = useState<Set<number>>(new Set());
 
     // UI states
-    const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
     const [error, setError] = useState<string | null>(
         queryError ? String(queryError) : null
     );
@@ -113,9 +114,24 @@ export function useOptimizedInvestments() {
             
             const matchesType = selectedType === "" || investment.type === selectedType;
             
-            return matchesSearch && matchesType;
+            // Date filtering based on purchase date
+            let matchesDateRange = true;
+            if (startDate) {
+                const start = new Date(startDate);
+                const investmentDate = investment.purchaseDate instanceof Date ? investment.purchaseDate : new Date(investment.purchaseDate);
+                matchesDateRange = matchesDateRange && investmentDate >= start;
+            }
+            
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999); // Include the entire end date
+                const investmentDate = investment.purchaseDate instanceof Date ? investment.purchaseDate : new Date(investment.purchaseDate);
+                matchesDateRange = matchesDateRange && investmentDate <= end;
+            }
+            
+            return matchesSearch && matchesType && matchesDateRange;
         });
-    }, [investments, searchTerm, selectedType]);
+    }, [investments, searchTerm, selectedType, startDate, endDate]);
 
     // Calculate summary statistics
     const {
@@ -179,8 +195,8 @@ export function useOptimizedInvestments() {
 
     // Check if filters are active
     const hasActiveFilters = useMemo(() => {
-        return searchTerm !== '' || selectedType !== '';
-    }, [searchTerm, selectedType]);
+        return searchTerm !== '' || selectedType !== '' || startDate !== '' || endDate !== '';
+    }, [searchTerm, selectedType, startDate, endDate]);
 
     // Organize investments by sections
     const sections = useMemo((): InvestmentSection[] => {
@@ -475,6 +491,8 @@ export function useOptimizedInvestments() {
     const clearFilters = useCallback(() => {
         setSearchTerm('');
         setSelectedType('');
+        setStartDate('');
+        setEndDate('');
     }, []);
 
     const clearError = useCallback(() => {
@@ -512,6 +530,10 @@ export function useOptimizedInvestments() {
         setSearchTerm,
         selectedType,
         setSelectedType,
+        startDate,
+        setStartDate,
+        endDate,
+        setEndDate,
 
         // Selection states
         selectedInvestments,
@@ -520,8 +542,6 @@ export function useOptimizedInvestments() {
         handleSelectAll,
 
         // UI states
-        viewMode,
-        setViewMode,
 
         // Handlers
         handleAddInvestment,

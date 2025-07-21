@@ -43,6 +43,10 @@ interface UseOptimizedAccountsReturn {
     setSelectedBank: (bank: string) => void;
     selectedAccountType: string;
     setSelectedAccountType: (type: string) => void;
+    startDate: string;
+    setStartDate: (date: string) => void;
+    endDate: string;
+    setEndDate: (date: string) => void;
 
     // Selected items
     accountToEdit: AccountInterface | null;
@@ -99,6 +103,8 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedBank, setSelectedBank] = useState("");
     const [selectedAccountType, setSelectedAccountType] = useState("");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
 
     // Selected item states
     const [accountToEdit, setAccountToEdit] = useState<AccountInterface | null>(null);
@@ -129,8 +135,8 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
 
     // Filter logic (memoized for performance)
     const hasActiveFilters = useMemo(() => {
-        return !!(searchTerm || selectedBank || selectedAccountType);
-    }, [searchTerm, selectedBank, selectedAccountType]);
+        return !!(searchTerm || selectedBank || selectedAccountType || startDate || endDate);
+    }, [searchTerm, selectedBank, selectedAccountType, startDate, endDate]);
 
     const filteredAccounts = useMemo(() => {
         let filtered = [...allAccounts];
@@ -153,8 +159,31 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
             filtered = filtered.filter(account => account.accountType === selectedAccountType);
         }
 
+        // Date filtering based on account opening date
+        if (startDate) {
+            const start = new Date(startDate);
+            start.setHours(0, 0, 0, 0);
+            filtered = filtered.filter(account => {
+                const accountDate = account.accountOpeningDate instanceof Date 
+                    ? account.accountOpeningDate 
+                    : new Date(account.accountOpeningDate);
+                return accountDate >= start;
+            });
+        }
+
+        if (endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            filtered = filtered.filter(account => {
+                const accountDate = account.accountOpeningDate instanceof Date 
+                    ? account.accountOpeningDate 
+                    : new Date(account.accountOpeningDate);
+                return accountDate <= end;
+            });
+        }
+
         return filtered;
-    }, [allAccounts, searchTerm, selectedBank, selectedAccountType]);
+    }, [allAccounts, searchTerm, selectedBank, selectedAccountType, startDate, endDate]);
 
     // Calculate total balance
     const totalBalance = useMemo(() => {
@@ -335,6 +364,8 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         setSearchTerm("");
         setSelectedBank("");
         setSelectedAccountType("");
+        setStartDate("");
+        setEndDate("");
         setSelectedAccounts(new Set());
     }, []);
 
@@ -373,6 +404,10 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         setSelectedBank,
         selectedAccountType,
         setSelectedAccountType,
+        startDate,
+        setStartDate,
+        endDate,
+        setEndDate,
 
         // Selected items
         accountToEdit,

@@ -2,9 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from '@tanstack/react-query';
-import { AccountList } from "../../components/accounts/AccountList";
 import { AccountTable } from "../../components/accounts/AccountTable";
-import { Button } from "@repo/ui/button";
 import { AddAccountModal } from "../../components/accounts/AddAccountModal";
 import { EditAccountModal } from "../../components/accounts/EditAccountModal";
 import { DeleteAccountModal } from "../../components/accounts/DeleteAccountModal";
@@ -17,6 +15,45 @@ import { BankBalanceChart } from "../../components/BankBalanceChart";
 import { useOptimizedAccounts } from "../../hooks/useOptimizedAccounts";
 import { getUserAccounts } from "../../actions/accounts";
 import { AccountInterface } from "../../types/accounts";
+import { 
+    getSummaryCardClasses,
+    BUTTON_COLORS,
+    TEXT_COLORS,
+    CONTAINER_COLORS,
+    INPUT_COLORS,
+    LOADING_COLORS,
+    UI_STYLES,
+} from "../../config/colorConfig";
+
+// Extract color variables for better readability
+const pageContainer = CONTAINER_COLORS.page;
+const errorContainer = CONTAINER_COLORS.error;
+const whiteContainer = CONTAINER_COLORS.whiteWithPadding;
+const cardContainer = CONTAINER_COLORS.card;
+const loadingContainer = LOADING_COLORS.container;
+const loadingSpinner = LOADING_COLORS.spinner;
+const loadingText = LOADING_COLORS.text;
+
+const pageTitle = TEXT_COLORS.title;
+const pageSubtitle = TEXT_COLORS.subtitle;
+const errorTitle = TEXT_COLORS.errorTitle;
+const errorMessage = TEXT_COLORS.errorMessage;
+const cardTitle = TEXT_COLORS.cardTitle;
+const cardValue = TEXT_COLORS.cardValue;
+const cardSubtitle = TEXT_COLORS.cardSubtitle;
+const emptyTitle = TEXT_COLORS.emptyTitle;
+const emptyMessage = TEXT_COLORS.emptyMessage;
+const resultText = TEXT_COLORS.resultText;
+const chartTitle = TEXT_COLORS.chartTitle;
+const labelText = TEXT_COLORS.label;
+
+const primaryButton = BUTTON_COLORS.primary;
+const secondaryBlueButton = BUTTON_COLORS.secondaryBlue;
+const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
+const clearButton = BUTTON_COLORS.clear;
+const clearFilterButton = BUTTON_COLORS.clearFilter;
+
+const standardInput = INPUT_COLORS.standard;
 
 export default function Accounts() {
     const { currency: userCurrency } = useCurrency();
@@ -53,6 +90,10 @@ export default function Accounts() {
         setSelectedBank,
         selectedAccountType,
         setSelectedAccountType,
+        startDate,
+        setStartDate,
+        endDate,
+        setEndDate,
 
         // Selected items
         accountToEdit,
@@ -63,10 +104,6 @@ export default function Accounts() {
         setAccountToView,
         accountToShare,
         setAccountToShare,
-
-        // View mode
-        viewMode,
-        setViewMode,
 
         // Handlers
         handleAddAccount,
@@ -110,12 +147,12 @@ export default function Accounts() {
     if (error) {
         return (
             <div className="p-8 text-center">
-                <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold text-red-800 mb-2">Error Loading Accounts</h3>
-                    <p className="text-red-600">{error}</p>
+                <div className={errorContainer}>
+                    <h3 className={errorTitle}>Error Loading Accounts</h3>
+                    <p className={errorMessage}>{error}</p>
                     <button 
                         onClick={() => window.location.reload()} 
-                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                        className={primaryButton + " mt-4"}
                     >
                         Retry
                     </button>
@@ -125,29 +162,29 @@ export default function Accounts() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className={pageContainer}>
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className={UI_STYLES.header.container}>
                 <div>
-                    <h1 className="text-3xl font-bold">Accounts</h1>
-                    <p className="text-gray-600">Manage your bank accounts and financial institutions</p>
+                    <h1 className={pageTitle}>Accounts</h1>
+                    <p className={pageSubtitle}>Manage your bank accounts and financial institutions</p>
                 </div>
-                <div className="flex gap-2">
+                <div className={UI_STYLES.header.buttonGroup}>
                     <button
                         onClick={() => setIsAddModalOpen(true)}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                        className={primaryButton}
                     >
                         Add Account
                     </button>
                     <button
                         onClick={() => setIsImportModalOpen(true)}
-                        className="px-4 py-2 border border-gray-600 text-gray-600 hover:bg-blue-50 rounded-md"
+                        className={secondaryBlueButton}
                     >
                         Import CSV
                     </button>
                     <button
                         onClick={handleExportToCSV}
-                        className="px-4 py-2 border border-gray-600 text-gray-600 hover:bg-green-50 rounded-md disabled:opacity-50"
+                        className={secondaryGreenButton}
                         disabled={filteredAccounts.length === 0}
                     >
                         Export CSV
@@ -157,73 +194,79 @@ export default function Accounts() {
 
             {/* Summary Cards */}
             <div className="grid grid-cols-4 gap-4">
-                <div className="bg-white rounded-lg border p-4 text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                        <h3 className="text-sm font-medium text-gray-600">Total Accounts</h3>
+                <div className={cardContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRow}>
+                        <div className={`${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('totalAccounts', 'accounts').indicator}`}></div>
+                        <h3 className={cardTitle}>Total Accounts</h3>
                     </div>
-                    <p className="text-2xl font-bold text-blue-600">
+                    <p className={`${cardValue} ${getSummaryCardClasses('totalAccounts', 'accounts').text}`}>
                         {loading ? "..." : filteredAccounts.length}
                     </p>
-                    <p className="text-sm text-gray-500">active accounts</p>
+                    <p className={cardSubtitle}>active accounts</p>
                 </div>
-                <div className="bg-white rounded-lg border p-4 text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                        <h3 className="text-sm font-medium text-gray-600">Total Balance</h3>
+                <div className={cardContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRow}>
+                        <div className={`${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('totalBalance', 'accounts').indicator}`}></div>
+                        <h3 className={cardTitle}>Total Balance</h3>
                     </div>
-                    <p className="text-2xl font-bold text-green-600">
+                    <p className={`${cardValue} ${getSummaryCardClasses('totalBalance', 'accounts').text}`}>
                         {loading ? "..." : formatCurrency(filteredTotalBalance, userCurrency)}
                     </p>
-                    <p className="text-sm text-gray-500">total balance</p>
+                    <p className={cardSubtitle}>total balance</p>
                 </div>
-                <div className="bg-white rounded-lg border p-4 text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                        <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-                        <h3 className="text-sm font-medium text-gray-600">Selected</h3>
+                <div className={cardContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRow}>
+                        <div className={`${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('selected', 'accounts').indicator}`}></div>
+                        <h3 className={cardTitle}>Selected</h3>
                     </div>
-                    <p className="text-2xl font-bold text-purple-600">
+                    <p className={`${cardValue} ${getSummaryCardClasses('selected', 'accounts').text}`}>
                         {selectedAccounts.size}
                     </p>
-                    <p className="text-sm text-gray-500">accounts selected</p>
+                    <p className={cardSubtitle}>accounts selected</p>
                 </div>
-                <div className="bg-white rounded-lg border p-4 text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                        <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                        <h3 className="text-sm font-medium text-gray-600">Bank Types</h3>
+                <div className={cardContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRow}>
+                        <div className={`${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('bankTypes', 'accounts').indicator}`}></div>
+                        <h3 className={cardTitle}>Bank Types</h3>
                     </div>
-                    <p className="text-2xl font-bold text-orange-600">
+                    <p className={`${cardValue} ${getSummaryCardClasses('bankTypes', 'accounts').text}`}>
                         {loading ? "..." : [...new Set(filteredAccounts.map(acc => acc.bankName))].length}
                     </p>
-                    <p className="text-sm text-gray-500">unique banks</p>
+                    <p className={cardSubtitle}>unique banks</p>
                 </div>
             </div>
 
             {/* Balance Chart */}
             {!loading && accounts.length > 0 && (
-                <div className="bg-white rounded-lg shadow-sm border p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Balances</h3>
+                <div className={UI_STYLES.chart.container}>
+                    <h3 className={chartTitle}>Account Balances</h3>
                     <BankBalanceChart accounts={accounts} currency={userCurrency} />
                 </div>
             )}
 
             {/* Filters and Actions */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-                <div className="flex gap-4 mb-4">
-                    <div className="flex-1">
+            <div className={UI_STYLES.filters.container}>
+                <div className={UI_STYLES.filters.gridSix}>
+                    <div>
+                        <label className={labelText}>
+                            Search Accounts
+                        </label>
                         <input
                             type="text"
-                            placeholder="Search accounts..."
+                            placeholder="Search by name, bank, number..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={standardInput}
                         />
                     </div>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div>
+                        <label className={labelText}>
+                            Filter by Bank
+                        </label>
                         <select
                             value={selectedBank}
                             onChange={(e) => setSelectedBank(e.target.value)}
-                            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={standardInput}
                         >
                             <option value="">All Banks</option>
                             {uniqueBankNames.map((bank) => (
@@ -232,10 +275,15 @@ export default function Accounts() {
                                 </option>
                             ))}
                         </select>
+                    </div>
+                    <div>
+                        <label className={labelText}>
+                            Filter by Type
+                        </label>
                         <select
                             value={selectedAccountType}
                             onChange={(e) => setSelectedAccountType(e.target.value)}
-                            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={standardInput}
                         >
                             <option value="">All Types</option>
                             {uniqueAccountTypes.map((type) => (
@@ -244,44 +292,41 @@ export default function Accounts() {
                                 </option>
                             ))}
                         </select>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={handleClearFilters}
-                                className="flex-1 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
-                                disabled={!hasActiveFilters}
-                            >
-                                Clear
-                            </button>
-                        </div>
+                    </div>
+                    <div>
+                        <label className={labelText}>
+                            Start Date
+                        </label>
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className={standardInput}
+                        />
+                    </div>
+                    <div>
+                        <label className={labelText}>
+                            End Date
+                        </label>
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className={standardInput}
+                        />
+                    </div>
+                    <div className={UI_STYLES.filters.clearButtonContainer}>
+                        <button
+                            onClick={handleClearFilters}
+                            className={clearFilterButton}
+                            disabled={!hasActiveFilters}
+                        >
+                            Clear Filters
+                        </button>
                     </div>
                 </div>
-
-                {/* View Mode Toggle */}
-                <div className="flex items-center justify-between mt-4">
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-600">View:</span>
-                        <button
-                            onClick={() => setViewMode("table")}
-                            className={`px-3 py-1 rounded text-sm ${
-                                viewMode === "table"
-                                    ? "bg-blue-100 text-blue-700"
-                                    : "text-gray-600 hover:bg-gray-100"
-                            }`}
-                        >
-                            Table
-                        </button>
-                        <button
-                            onClick={() => setViewMode("cards")}
-                            className={`px-3 py-1 rounded text-sm ${
-                                viewMode === "cards"
-                                    ? "bg-blue-100 text-blue-700"
-                                    : "text-gray-600 hover:bg-gray-100"
-                            }`}
-                        >
-                            Cards
-                        </button>
-                    </div>
-                    <div className="text-sm text-gray-600">
+                <div className={UI_STYLES.filters.resultContainer}>
+                    <div className={resultText}>
                         {loading ? "Loading..." : `${filteredAccounts.length} of ${allAccounts.length} accounts`}
                     </div>
                 </div>
@@ -289,68 +334,50 @@ export default function Accounts() {
 
             {/* Accounts List/Table */}
             {loading ? (
-                <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
-                    <div className="animate-spin mx-auto mb-4 h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                    <p className="text-gray-600">Loading accounts...</p>
+                <div className={loadingContainer}>
+                    <div className={loadingSpinner}></div>
+                    <p className={loadingText}>Loading accounts...</p>
                 </div>
             ) : filteredAccounts.length === 0 ? (
-                <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
-                    <div className="text-gray-400 mb-4">
+                <div className={UI_STYLES.empty.container}>
+                    <div className={UI_STYLES.empty.icon}>
                         <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H9m0 0H5m0 0H3" />
                         </svg>
                     </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    <h3 className={emptyTitle}>
                         {hasActiveFilters ? "No accounts match your filters" : "No accounts yet"}
                     </h3>
-                    <p className="text-gray-600 mb-6">
+                    <p className={emptyMessage}>
                         {hasActiveFilters 
                             ? "Try adjusting your search criteria or clearing filters." 
                             : "Get started by adding your first bank account."
                         }
                     </p>
                     {hasActiveFilters ? (
-                        <button onClick={handleClearFilters} className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
+                        <button onClick={handleClearFilters} className={clearButton}>
                             Clear Filters
                         </button>
                     ) : (
-                        <button onClick={() => setIsAddModalOpen(true)} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        <button onClick={() => setIsAddModalOpen(true)} className={primaryButton}>
                             Add Your First Account
                         </button>
                     )}
                 </div>
             ) : (
-                <>
-                    {viewMode === "table" ? (
-                        <AccountTable
-                            accounts={filteredAccounts}
-                            selectedAccounts={selectedAccounts}
-                            onAccountSelect={handleAccountSelect}
-                            onSelectAll={(checked) => handleSelectAll(checked)}
-                            showBulkActions={true}
-                            onBulkDelete={handleBulkDelete}
-                            onClearSelection={() => setSelectedAccounts(new Set())}
-                            onEdit={openEditModal}
-                            onDelete={openDeleteModal}
-                            onViewDetails={openViewModal}
-                            onShare={openShareModal}
-                        />
-                    ) : (
-                        <AccountList
-                            accounts={filteredAccounts}
-                            selectedAccounts={selectedAccounts}
-                            onAccountSelect={handleAccountSelect}
-                            onSelectAll={(checked) => handleSelectAll(checked)}
-                            showBulkActions={true}
-                            onBulkDelete={handleBulkDelete}
-                            onClearSelection={() => setSelectedAccounts(new Set())}
-                            onEdit={openEditModal}
-                            onDelete={openDeleteModal}
-                            onViewDetails={openViewModal}
-                            onShare={openShareModal}
-                        />
-                    )}
-                </>
+                <AccountTable
+                    accounts={filteredAccounts}
+                    selectedAccounts={selectedAccounts}
+                    onAccountSelect={handleAccountSelect}
+                    onSelectAll={(checked: boolean) => handleSelectAll(checked)}
+                    showBulkActions={true}
+                    onBulkDelete={handleBulkDelete}
+                    onClearSelection={() => setSelectedAccounts(new Set())}
+                    onEdit={openEditModal}
+                    onDelete={openDeleteModal}
+                    onViewDetails={openViewModal}
+                    onShare={openShareModal}
+                />
             )}
 
             {/* Modals */}

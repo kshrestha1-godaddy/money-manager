@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { DebtInterface } from "../../types/debts";
 import { formatDate } from "../../utils/date";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { calculateInterest, calculateRemainingWithInterest } from "../../utils/interestCalculation";
+import { getDefaultColumnWidths, getMinColumnWidth, type DebtColumnWidths } from "../../config/tableConfig";
+import { COLORS, getActionButtonClasses, getStatusClasses } from "../../config/colorConfig";
 
 type SortField = 'borrowerName' | 'amount' | 'dueDate' | 'lentDate' | 'remaining';
 type SortDirection = 'asc' | 'desc';
@@ -40,6 +42,16 @@ export function DebtTable({
     const { currency: userCurrency } = useCurrency();
     const [sortField, setSortField] = useState<SortField>('dueDate');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+    
+    // Column resizing state - optimized for better space utilization
+    const [columnWidths, setColumnWidths] = useState<DebtColumnWidths>(
+        getDefaultColumnWidths('debts')
+    );
+    
+    const tableRef = useRef<HTMLTableElement>(null);
+    const [resizing, setResizing] = useState<string | null>(null);
+    const [startX, setStartX] = useState(0);
+    const [startWidth, setStartWidth] = useState(0);
 
 
     const handleSelectAll = () => {
@@ -48,6 +60,41 @@ export function DebtTable({
             onSelectAll(!allSelected);
         }
     };
+
+    // Resizing handlers
+    const handleMouseDown = useCallback((e: React.MouseEvent, column: string) => {
+        e.preventDefault();
+        setResizing(column);
+        setStartX(e.pageX);
+        setStartWidth(columnWidths[column as keyof typeof columnWidths]);
+    }, [columnWidths]);
+
+    const handleMouseMove = useCallback((e: MouseEvent) => {
+        if (!resizing) return;
+        
+        const diff = e.pageX - startX;
+        const newWidth = Math.max(getMinColumnWidth(), startWidth + diff);
+        
+        setColumnWidths(prev => ({
+            ...prev,
+            [resizing]: newWidth
+        }));
+    }, [resizing, startX, startWidth]);
+
+    const handleMouseUp = useCallback(() => {
+        setResizing(null);
+    }, []);
+
+    useEffect(() => {
+        if (resizing) {
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+            return () => {
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+            };
+        }
+    }, [resizing, handleMouseMove, handleMouseUp]);
 
     const isAllSelected = debts.length > 0 && debts.every(debt => selectedDebts.has(debt.id));
     const isPartiallySelected = debts.some(debt => selectedDebts.has(debt.id)) && !isAllSelected;
@@ -154,11 +201,14 @@ export function DebtTable({
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="overflow-x-auto">
-                <table className="w-full">
+                <table ref={tableRef} className="min-w-full divide-y divide-gray-200 table-fixed">
                         <thead className="bg-gray-50">
                             <tr>
                                 {showBulkActions && (
-                                    <th className="px-6 py-3 text-left">
+                                    <th 
+                                        className="px-6 py-3 text-left relative border-r border-gray-200"
+                                        style={{ width: `${columnWidths.checkbox}px` }}
+                                    >
                                         <input
                                             type="checkbox"
                                             checked={isAllSelected}
@@ -168,48 +218,82 @@ export function DebtTable({
                                             onChange={handleSelectAll}
                                             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                         />
+                                        <div 
+                                            className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                            onMouseDown={(e) => handleMouseDown(e, 'checkbox')}
+                                        />
                                     </th>
                                 )}
                                 <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                    style={{ width: `${columnWidths.borrowerDetails}px` }}
                                     onClick={() => handleSort('borrowerName')}
                                 >
                                     <div className="flex items-center space-x-1">
                                         <span>Borrower Details</span>
                                         {getSortIcon('borrowerName')}
                                     </div>
+                                    <div 
+                                        className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                        onMouseDown={(e) => handleMouseDown(e, 'borrowerDetails')}
+                                    />
                                 </th>
                                 <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                    style={{ width: `${columnWidths.amountStatus}px` }}
                                     onClick={() => handleSort('amount')}
                                 >
                                     <div className="flex items-center space-x-1">
                                         <span>Amount & Status</span>
                                         {getSortIcon('amount')}
                                     </div>
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Interest & Progress
+                                    <div 
+                                        className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                        onMouseDown={(e) => handleMouseDown(e, 'amountStatus')}
+                                    />
                                 </th>
                                 <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200"
+                                    style={{ width: `${columnWidths.interestProgress}px` }}
+                                >
+                                    Interest & Progress
+                                    <div 
+                                        className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                        onMouseDown={(e) => handleMouseDown(e, 'interestProgress')}
+                                    />
+                                </th>
+                                <th 
+                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                    style={{ width: `${columnWidths.dates}px` }}
                                     onClick={() => handleSort('dueDate')}
                                 >
                                     <div className="flex items-center space-x-1">
                                         <span>Dates</span>
                                         {getSortIcon('dueDate')}
                                     </div>
+                                    <div 
+                                        className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                        onMouseDown={(e) => handleMouseDown(e, 'dates')}
+                                    />
                                 </th>
                                 <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                    style={{ width: `${columnWidths.remaining}px` }}
                                     onClick={() => handleSort('remaining')}
                                 >
                                     <div className="flex items-center space-x-1">
                                         <span>Remaining</span>
                                         {getSortIcon('remaining')}
                                     </div>
+                                    <div 
+                                        className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                        onMouseDown={(e) => handleMouseDown(e, 'remaining')}
+                                    />
                                 </th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th 
+                                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                    style={{ width: `${columnWidths.actions}px` }}
+                                >
                                     Actions
                                 </th>
                             </tr>
@@ -227,6 +311,7 @@ export function DebtTable({
                                     isSelected={selectedDebts.has(debt.id)}
                                     onSelect={onDebtSelect}
                                     showCheckbox={showBulkActions}
+                                    columnWidths={columnWidths}
                                 />
                             ))}
                         </tbody>
@@ -246,7 +331,8 @@ function DebtRow({
     onAddRepayment,
     isSelected = false,
     onSelect,
-    showCheckbox = false 
+    showCheckbox = false,
+    columnWidths
 }: { 
     debt: DebtInterface;
     currency: string;
@@ -257,6 +343,7 @@ function DebtRow({
     isSelected?: boolean;
     onSelect?: (debtId: number, selected: boolean) => void;
     showCheckbox?: boolean;
+    columnWidths: DebtColumnWidths;
 }) {
     // Calculate interest and remaining amounts
     const interestCalc = calculateInterest(debt.amount, debt.interestRate, debt.lentDate, debt.dueDate);
@@ -327,7 +414,7 @@ function DebtRow({
     return (
         <tr className={`hover:bg-gray-50 ${isOverdue ? 'bg-red-50' : ''} ${isSelected ? 'bg-blue-50' : ''}`}>
             {showCheckbox && (
-                <td className="w-10 px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.checkbox}px` }}>
                     <input
                         type="checkbox"
                         checked={isSelected}
@@ -336,31 +423,31 @@ function DebtRow({
                     />
                 </td>
             )}
-            <td className="w-[18%] px-6 py-4 whitespace-nowrap">
+            <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.borrowerDetails}px` }}>
                 <div>
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-gray-900 break-words">
                         {debt.borrowerName}
                     </div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-gray-500 break-words">
                         {debt.purpose || 'Personal Loan'}
                     </div>
                     {debt.borrowerContact && (
-                        <div className="text-xs text-gray-400">{debt.borrowerContact}</div>
+                        <div className="text-xs text-gray-400 break-words">{debt.borrowerContact}</div>
                     )}
                 </div>
             </td>
-            <td className="w-[14%] px-6 py-4 whitespace-nowrap">
+            <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.amountStatus}px` }}>
                 <div>
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-gray-900 break-words">
                         {formatCurrency(debt.amount, currency)}
                     </div>
                     {interestCalc.interestAmount > 0 && (
-                        <div className="text-xs text-gray-600">
+                        <div className="text-xs text-gray-600 break-words">
                             + {formatCurrency(interestCalc.interestAmount, currency)} total interest
                         </div>
                     )}
                     {interestCalc.interestAmount > 0 && (
-                        <div className="text-xs font-medium text-blue-600">
+                        <div className="text-xs font-medium text-blue-600 break-words">
                             = {formatCurrency(interestCalc.totalAmountWithInterest, currency)} total
                         </div>
                     )}
@@ -369,7 +456,7 @@ function DebtRow({
                     </span>
                 </div>
             </td>
-            <td className="w-[26%] px-6 py-4 whitespace-nowrap">
+            <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.interestProgress}px` }}>
                 <div>
                     <div className="text-sm text-gray-900">
                         {debt.interestRate}% interest
@@ -380,7 +467,7 @@ function DebtRow({
                         )}
                     </div>
                     {interestCalc.interestAmount > 0 && (
-                        <div className="text-xs text-orange-600 font-medium">
+                        <div className="text-xs text-orange-600 font-medium break-words">
                             Total Interest: {formatCurrency(interestCalc.interestAmount, currency)}
                         </div>
                     )}
@@ -395,32 +482,32 @@ function DebtRow({
                     </div>
                 </div>
             </td>
-            <td className="w-[16%] px-6 py-4 whitespace-nowrap">
+            <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.dates}px` }}>
                 <div>
-                    <div className="text-sm text-gray-900">
+                    <div className="text-sm text-gray-900 break-words">
                         Lent: {formatDate(debt.lentDate)}
                     </div>
-                    <div className={`text-sm ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                    <div className={`text-sm break-words ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
                         Due: {debt.dueDate ? formatDate(debt.dueDate) : 'No due date'}
                     </div>
                     {debt.dueDate && (
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="text-xs text-gray-500 mt-1 break-words">
                             {interestCalc.daysTotal} days term
                         </div>
                     )}
                 </div>
             </td>
-            <td className="w-[12%] px-6 py-4 whitespace-nowrap">
-                <div className={`text-sm font-medium ${remainingCalc.remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.remaining}px` }}>
+                <div className={`text-sm font-medium break-words ${remainingCalc.remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
                     {formatCurrency(remainingCalc.remainingAmount, currency)}
                 </div>
             </td>
-            <td className="w-[14%] px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <div className="flex justify-end space-x-2">
+            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" style={{ width: `${columnWidths.actions}px` }}>
+                <div className="flex justify-end space-x-1">
                     {onViewDetails && (
                         <button 
                             onClick={handleViewDetails}
-                            className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-800 transition-colors"
+                            className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-800 transition-colors"
                         >
                             View
                         </button>
@@ -428,7 +515,7 @@ function DebtRow({
                     {onAddRepayment && remainingCalc.remainingAmount > 0 && (
                         <button 
                             onClick={handleAddRepayment}
-                            className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-green-600 bg-green-50 hover:bg-green-100 hover:text-green-800 transition-colors"
+                            className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-green-600 bg-green-50 hover:bg-green-100 hover:text-green-800 transition-colors"
                         >
                             Repay
                         </button>
@@ -436,7 +523,7 @@ function DebtRow({
                     {onEdit && (
                         <button 
                             onClick={handleEdit}
-                            className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-800 transition-colors"
+                            className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-800 transition-colors"
                         >
                             Edit
                         </button>
@@ -444,7 +531,7 @@ function DebtRow({
                     {onDelete && (
                         <button 
                             onClick={handleDelete}
-                            className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-800 transition-colors"
+                            className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-800 transition-colors"
                         >
                             Delete
                         </button>

@@ -12,6 +12,42 @@ import { BulkImportModal } from "../../components/debts/BulkImportModal";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { useOptimizedDebts } from "../../hooks/useOptimizedDebts";
+import { 
+    getSummaryCardClasses,
+    BUTTON_COLORS,
+    TEXT_COLORS,
+    CONTAINER_COLORS,
+    INPUT_COLORS,
+    LOADING_COLORS,
+    UI_STYLES,
+} from "../../config/colorConfig";
+
+// Extract color variables for better readability
+const pageContainer = CONTAINER_COLORS.page;
+const errorContainer = CONTAINER_COLORS.error;
+const cardLargeContainer = CONTAINER_COLORS.cardLarge;
+const loadingContainer = LOADING_COLORS.container;
+const loadingSpinner = LOADING_COLORS.spinner;
+const loadingText = LOADING_COLORS.text;
+
+const pageTitle = TEXT_COLORS.title;
+const pageSubtitle = TEXT_COLORS.subtitle;
+const errorTitle = TEXT_COLORS.errorTitle;
+const errorMessage = TEXT_COLORS.errorMessage;
+const cardTitle = TEXT_COLORS.cardTitle;
+const cardValueLarge = TEXT_COLORS.cardValueLarge;
+const cardSubtitle = TEXT_COLORS.cardSubtitle;
+const emptyTitle = TEXT_COLORS.emptyTitle;
+const emptyMessage = TEXT_COLORS.emptyMessage;
+const labelText = TEXT_COLORS.label;
+
+const primaryButton = BUTTON_COLORS.primary;
+const secondaryBlueButton = BUTTON_COLORS.secondaryBlue;
+const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
+const clearButton = BUTTON_COLORS.clear;
+const clearFilterButton = BUTTON_COLORS.clearFilter;
+
+const standardInput = INPUT_COLORS.standard;
 
 export default function Debts() {
     const { currency: userCurrency } = useCurrency();
@@ -48,6 +84,7 @@ export default function Debts() {
 
         // Selection states
         selectedDebts,
+        setSelectedDebts,
         bulkDeleteDebts,
 
         // Handlers
@@ -100,13 +137,13 @@ export default function Debts() {
     if (error) {
         return (
             <div className="p-8 text-center">
-                <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold text-red-800 mb-2">Error Loading Debts</h3>
-                    <p className="text-red-600">{error}</p>
+                <div className={errorContainer}>
+                    <h3 className={errorTitle}>Error Loading Debts</h3>
+                    <p className={errorMessage}>{error}</p>
                     <div className="flex gap-2 mt-4 justify-center">
                         <button 
                             onClick={() => window.location.reload()} 
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                            className={primaryButton}
                         >
                             Retry
                         </button>
@@ -123,29 +160,29 @@ export default function Debts() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className={pageContainer}>
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className={UI_STYLES.header.container}>
                 <div>
-                    <h1 className="text-3xl font-bold">Debts</h1>
-                    <p className="text-gray-600">Track money you've lent to others and manage repayments</p>
+                    <h1 className={pageTitle}>Debts</h1>
+                    <p className={pageSubtitle}>Track money you've lent to others and manage repayments</p>
                 </div>
-                <div className="flex gap-2">
+                <div className={UI_STYLES.header.buttonGroup}>
                     <button
                         onClick={() => openModal('add')}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                        className={primaryButton}
                     >
                         Add Debt
                     </button>
                     <button
                         onClick={() => openModal('import')}
-                        className="px-4 py-2 border border-gray-600 text-gray-600 hover:bg-blue-50 rounded-md"
+                        className={secondaryBlueButton}
                     >
                         Import CSV
                     </button>
                     <button
                         onClick={handleExportToCSV}
-                        className="px-4 py-2 border border-gray-600 text-gray-600 hover:bg-green-50 rounded-md disabled:opacity-50"
+                        className={secondaryGreenButton}
                         disabled={filteredDebts.length === 0}
                     >
                         Export CSV
@@ -155,69 +192,69 @@ export default function Debts() {
 
             {/* Financial Summary Cards */}
             <div className="grid grid-cols-5 gap-6 mb-6">
-                <div className="bg-white rounded-lg border p-6 text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-3">
-                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                        <h3 className="text-sm font-medium text-gray-600">Total Debts</h3>
+                <div className={cardLargeContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRowLarge}>
+                        <div className={`${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('totalDebts', 'debts').indicator}`}></div>
+                        <h3 className={cardTitle}>Total Debts</h3>
                     </div>
-                    <p className="text-3xl font-bold text-blue-600 mb-1">
+                    <p className={`${cardValueLarge} ${getSummaryCardClasses('totalDebts', 'debts').text}`}>
                         {loading ? "..." : financialSummary.totalDebts}
                     </p>
-                    <p className="text-sm text-gray-500">debt records</p>
+                    <p className={cardSubtitle}>debt records</p>
                 </div>
 
-                <div className="bg-white rounded-lg border p-6 text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-3">
-                        <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-                        <h3 className="text-sm font-medium text-gray-600">Principal Lent</h3>
+                <div className={cardLargeContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRowLarge}>
+                        <div className={`${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('principalLent', 'debts').indicator}`}></div>
+                        <h3 className={cardTitle}>Principal Lent</h3>
                     </div>
-                    <p className="text-3xl font-bold text-purple-600 mb-1">
+                    <p className={`${cardValueLarge} ${getSummaryCardClasses('principalLent', 'debts').text}`}>
                         {loading ? "..." : formatCurrency(financialSummary.totalPrincipal, userCurrency)}
                     </p>
-                    <p className="text-sm text-gray-500">original amount</p>
+                    <p className={cardSubtitle}>original amount</p>
                 </div>
 
-                <div className="bg-white rounded-lg border p-6 text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-3">
-                        <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                        <h3 className="text-sm font-medium text-gray-600">Interest Earned</h3>
+                <div className={cardLargeContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRowLarge}>
+                        <div className={`${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('interestEarned', 'debts').indicator}`}></div>
+                        <h3 className={cardTitle}>Interest Earned</h3>
                     </div>
-                    <p className="text-3xl font-bold text-orange-600 mb-1">
+                    <p className={`${cardValueLarge} ${getSummaryCardClasses('interestEarned', 'debts').text}`}>
                         {loading ? "..." : formatCurrency(financialSummary.totalInterestAccrued, userCurrency)}
                     </p>
-                    <p className="text-sm text-gray-500">total interest</p>
+                    <p className={cardSubtitle}>total interest</p>
                 </div>
 
-                <div className="bg-white rounded-lg border p-6 text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-3">
-                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                        <h3 className="text-sm font-medium text-gray-600">Total Repaid</h3>
+                <div className={cardLargeContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRowLarge}>
+                        <div className={`${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('totalRepaid', 'debts').indicator}`}></div>
+                        <h3 className={cardTitle}>Total Repaid</h3>
                     </div>
-                    <p className="text-3xl font-bold text-green-600 mb-1">
+                    <p className={`${cardValueLarge} ${getSummaryCardClasses('totalRepaid', 'debts').text}`}>
                         {loading ? "..." : formatCurrency(financialSummary.totalRepaid, userCurrency)}
                     </p>
-                    <p className="text-sm text-gray-500">collected</p>
+                    <p className={cardSubtitle}>collected</p>
                 </div>
 
-                <div className="bg-white rounded-lg border p-6 text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-3">
-                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                        <h3 className="text-sm font-medium text-gray-600">Outstanding</h3>
+                <div className={cardLargeContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRowLarge}>
+                        <div className={`${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('outstanding', 'debts').indicator}`}></div>
+                        <h3 className={cardTitle}>Outstanding</h3>
                     </div>
-                    <p className="text-3xl font-bold text-red-600 mb-1">
+                    <p className={`${cardValueLarge} ${getSummaryCardClasses('outstanding', 'debts').text}`}>
                         {loading ? "..." : formatCurrency(financialSummary.totalOutstanding, userCurrency)}
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className={cardSubtitle}>
                         {loading ? "" : `${((financialSummary.totalOutstanding / (financialSummary.totalPrincipal + financialSummary.totalInterestAccrued || 1)) * 100).toFixed(1)}% remaining`}
                     </p>
                 </div>
             </div>
 
             {/* Filters and Actions */}
-            <div className="bg-white rounded-lg border p-6 mb-6">
-                <div className="grid grid-cols-5 gap-4">
+            <div className={UI_STYLES.filters.containerWithMargin}>
+                <div className={UI_STYLES.filters.gridFive}>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className={labelText}>
                             Search Debts
                         </label>
                         <input
@@ -225,17 +262,17 @@ export default function Debts() {
                             placeholder="Search by borrower name, purpose, contact..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className={standardInput}
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className={labelText}>
                             Filter by Status
                         </label>
                         <select
                             value={selectedStatus}
                             onChange={(e) => setSelectedStatus(e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className={standardInput}
                         >
                             <option value="">All Statuses</option>
                             {uniqueStatuses.map((status) => (
@@ -246,31 +283,31 @@ export default function Debts() {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className={labelText}>
                             Start Date
                         </label>
                         <input
                             type="date"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className={standardInput}
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className={labelText}>
                             End Date
                         </label>
                         <input
                             type="date"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className={standardInput}
                         />
                     </div>
-                    <div className="flex items-end">
+                    <div className={UI_STYLES.filters.clearButtonContainer}>
                         <button
                             onClick={clearFilters}
-                            className="w-full px-6 py-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className={clearFilterButton}
                             disabled={!hasActiveFilters}
                         >
                             Clear Filters
@@ -281,32 +318,32 @@ export default function Debts() {
 
             {/* Debts by Sections */}
             {loading ? (
-                <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
-                    <div className="animate-spin mx-auto mb-4 h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                    <p className="text-gray-600">Loading debts...</p>
+                <div className={loadingContainer}>
+                    <div className={loadingSpinner}></div>
+                    <p className={loadingText}>Loading debts...</p>
                 </div>
             ) : filteredDebts.length === 0 ? (
-                <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
-                    <div className="text-gray-400 mb-4">
+                <div className={UI_STYLES.empty.container}>
+                    <div className={UI_STYLES.empty.icon}>
                         <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
                         </svg>
                     </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    <h3 className={emptyTitle}>
                         {hasActiveFilters ? "No debts match your filters" : "No debts yet"}
                     </h3>
-                    <p className="text-gray-600 mb-6">
+                    <p className={emptyMessage}>
                         {hasActiveFilters 
                             ? "Try adjusting your search criteria or clearing filters." 
                             : "Get started by adding your first debt record."
                         }
                     </p>
                     {hasActiveFilters ? (
-                        <button onClick={clearFilters} className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
+                        <button onClick={clearFilters} className={clearButton}>
                             Clear Filters
                         </button>
                     ) : (
-                        <button onClick={() => openModal('add')} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        <button onClick={() => openModal('add')} className={primaryButton}>
                             Add Your First Debt
                         </button>
                     )}
@@ -317,12 +354,11 @@ export default function Debts() {
                         if (section.debts.length === 0) return null;
 
                         return (
-                            <div key={section.key} className="bg-white rounded-lg shadow-sm border">
-                                {/* Section Header */}
+                            <div key={section.key} className={CONTAINER_COLORS.white}>
                                 <div className="px-6 py-4 border-b border-gray-200">
-                                    <div className="flex justify-between items-center">
+                                    <div className="flex items-center justify-between">
                                         <div>
-                                            <h3 className="text-lg font-semibold text-gray-900">
+                                            <h3 className={`text-lg font-semibold ${TEXT_COLORS.cardTitle}`}>
                                                 {section.title} ({section.debts.length})
                                             </h3>
                                             <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
@@ -330,33 +366,47 @@ export default function Debts() {
                                                 <span>Outstanding: {formatCurrency(section.totalRemaining, userCurrency)}</span>
                                             </div>
                                         </div>
-                                        {selectedDebts.size > 0 && (
-                                            <button
-                                                onClick={() => handleBulkDelete(section.debts)}
-                                                className="px-3 py-2 text-red-600 border border-red-200 hover:bg-red-50 rounded-md text-sm"
-                                            >
-                                                Delete ({Array.from(selectedDebts).filter(id => section.debts.some(debt => debt.id === id)).length})
-                                            </button>
-                                        )}
+                                        <div className="flex items-center space-x-3">
+                                            {(() => {
+                                                const sectionSelectedIds = section.debts.filter(debt => selectedDebts.has(debt.id));
+                                                return sectionSelectedIds.length > 0 && (
+                                                    <div className="flex items-center space-x-2">
+                                                        <button
+                                                            onClick={() => {
+                                                                const newSelected = new Set(selectedDebts);
+                                                                section.debts.forEach(debt => newSelected.delete(debt.id));
+                                                                setSelectedDebts(newSelected);
+                                                            }}
+                                                            className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors"
+                                                        >
+                                                            Clear ({sectionSelectedIds.length})
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleBulkDelete(section.debts)}
+                                                            className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                                                        >
+                                                            Delete ({sectionSelectedIds.length})
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
                                     </div>
                                 </div>
-
-                                {/* Section Content */}
-                                <div className="p-0">
-                                    <DebtTable
-                                        debts={section.debts}
-                                        onEdit={(debt) => openModal('edit', debt)}
-                                        onDelete={(debt) => openModal('delete', debt)}
-                                        onViewDetails={(debt) => openModal('view', debt)}
-                                        onAddRepayment={(debt) => openModal('repayment', debt)}
-                                        selectedDebts={selectedDebts}
-                                        onDebtSelect={handleDebtSelect}
-                                        onSelectAll={(selected) => handleSelectAll(selected, section.debts)}
-                                        showBulkActions={true}
-                                        onBulkDelete={() => handleBulkDelete(section.debts)}
-                                        onClearSelection={() => clearFilters()}
-                                    />
-                                </div>
+                                
+                                <DebtTable
+                                    debts={section.debts}
+                                    selectedDebts={selectedDebts}
+                                    onDebtSelect={handleDebtSelect}
+                                    onSelectAll={(selected) => handleSelectAll(selected, section.debts)}
+                                    onEdit={(debt) => openModal('edit', debt)}
+                                    onDelete={(debt) => openModal('delete', debt)}
+                                    onViewDetails={(debt) => openModal('view', debt)}
+                                    onAddRepayment={(debt) => openModal('repayment', debt)}
+                                    showBulkActions={true}
+                                    onBulkDelete={() => handleBulkDelete(section.debts)}
+                                    onClearSelection={() => clearFilters()}
+                                />
                             </div>
                         );
                     })}

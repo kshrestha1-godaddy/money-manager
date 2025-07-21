@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { InvestmentList } from "../../components/investments/InvestmentList";
 import { InvestmentTable } from "../../components/investments/InvestmentTable";
 import { AddInvestmentModal } from "../../components/investments/AddInvestmentModal";
 import { EditInvestmentModal } from "../../components/investments/EditInvestmentModal";
@@ -14,6 +13,52 @@ import { useCurrency } from "../../providers/CurrencyProvider";
 import { useOptimizedInvestments } from "../../hooks/useOptimizedInvestments";
 import { InvestmentInterface } from "../../types/investments";
 import { Plus, Upload, TrendingUp, TrendingDown, DollarSign, Target } from "lucide-react";
+import { 
+    getSummaryCardClasses, 
+    getGainLossClasses,
+    BUTTON_COLORS,
+    TEXT_COLORS,
+    CONTAINER_COLORS,
+    INPUT_COLORS,
+    LOADING_COLORS,
+    ICON_COLORS,
+    UI_STYLES,
+} from "../../config/colorConfig";
+
+// Extract color variables for better readability
+const pageContainer = CONTAINER_COLORS.page;
+const errorContainer = CONTAINER_COLORS.error;
+const cardLargeContainer = CONTAINER_COLORS.cardLarge;
+const loadingContainer = LOADING_COLORS.container;
+const loadingSpinner = LOADING_COLORS.spinner;
+const loadingText = LOADING_COLORS.text;
+
+const pageTitle = TEXT_COLORS.title;
+const pageSubtitle = TEXT_COLORS.subtitle;
+const errorTitle = TEXT_COLORS.errorTitle;
+const errorMessage = TEXT_COLORS.errorMessage;
+const cardTitle = TEXT_COLORS.cardTitle;
+const cardValue = TEXT_COLORS.cardValue;
+const cardSubtitle = TEXT_COLORS.cardSubtitle;
+const emptyTitle = TEXT_COLORS.emptyTitle;
+const emptyMessage = TEXT_COLORS.emptyMessage;
+const labelText = TEXT_COLORS.label;
+
+const primaryButton = BUTTON_COLORS.primary;
+const secondaryBlueButton = BUTTON_COLORS.secondaryBlue;
+const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
+const clearButton = BUTTON_COLORS.clear;
+const clearFilterButton = BUTTON_COLORS.clearFilter;
+
+const standardInput = INPUT_COLORS.standard;
+
+// Icon colors
+const blueIcon = ICON_COLORS.blue;
+const greenIcon = ICON_COLORS.green;
+const redIcon = ICON_COLORS.red;
+const purpleIcon = ICON_COLORS.purple;
+const greenPositiveIcon = ICON_COLORS.greenPositive;
+const redNegativeIcon = ICON_COLORS.redNegative;
 
 export default function Investments() {
     const { currency: userCurrency } = useCurrency();
@@ -52,16 +97,16 @@ export default function Investments() {
         setSearchTerm,
         selectedType,
         setSelectedType,
+        startDate,
+        setStartDate,
+        endDate,
+        setEndDate,
 
         // Selection states
         selectedInvestments,
         setSelectedInvestments,
         handleInvestmentSelect,
         handleSelectAll,
-
-        // UI states
-        viewMode,
-        setViewMode,
 
         // Handlers
         handleAddInvestment,
@@ -126,13 +171,13 @@ export default function Investments() {
     if (error) {
         return (
             <div className="p-8 text-center">
-                <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold text-red-800 mb-2">Error Loading Investments</h3>
-                    <p className="text-red-600">{error}</p>
+                <div className={errorContainer}>
+                    <h3 className={errorTitle}>Error Loading Investments</h3>
+                    <p className={errorMessage}>{error}</p>
                     <div className="flex gap-2 mt-4 justify-center">
                         <button 
                             onClick={() => window.location.reload()} 
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                            className={primaryButton}
                         >
                             Retry
                         </button>
@@ -149,29 +194,29 @@ export default function Investments() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className={pageContainer}>
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className={UI_STYLES.header.container}>
                 <div>
-                    <h1 className="text-3xl font-bold">Investment</h1>
-                    <p className="text-gray-600">Track your investment portfolio and performance</p>
+                    <h1 className={pageTitle}>Investment</h1>
+                    <p className={pageSubtitle}>Track your investment portfolio and performance</p>
                 </div>
-                <div className="flex gap-2">
+                <div className={UI_STYLES.header.buttonGroup}>
                     <button
                         onClick={() => openModal('add')}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                        className={primaryButton}
                     >
                         Add Investment
                     </button>
                     <button
                         onClick={() => openModal('import')}
-                        className="px-4 py-2 border border-gray-600 text-gray-600 hover:bg-blue-50 rounded-md"
+                        className={secondaryBlueButton}
                     >
                         Import CSV
                     </button>
                     <button
                         onClick={handleExportToCSV}
-                        className="px-4 py-2 border border-gray-600 text-gray-600 hover:bg-green-50 rounded-md disabled:opacity-50"
+                        className={secondaryGreenButton}
                         disabled={filteredInvestments.length === 0}
                     >
                         Export CSV
@@ -181,85 +226,91 @@ export default function Investments() {
 
             {/* Summary Cards */}
             <div className="grid grid-cols-6 gap-6">
-                <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                        <h3 className="text-sm font-medium text-gray-500 mr-2">Total Investments</h3>
-                        <Target className="h-4 w-4 text-blue-500" />
+                <div className={cardLargeContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRow}>
+                        <h3 className={`${cardTitle} mr-2`}>Total Investments</h3>
+                        <Target className={`h-4 w-4 ${blueIcon}`} />
                     </div>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className={`${cardValue} ${getSummaryCardClasses('totalInvestments', 'investments').text}`}>
                         {loading ? "..." : investments.length}
                     </p>
                 </div>
-                <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                        <h3 className="text-sm font-medium text-gray-500 mr-2">Gainers</h3>
-                        <TrendingUp className="h-4 w-4 text-green-500" />
+                <div className={cardLargeContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRow}>
+                        <h3 className={`${cardTitle} mr-2`}>Gainers</h3>
+                        <TrendingUp className={`h-4 w-4 ${greenIcon}`} />
                     </div>
-                    <p className="text-2xl font-bold text-green-600">
+                    <p className={`${cardValue} ${getSummaryCardClasses('gainers', 'investments').text}`}>
                         {loading ? "..." : gainersCount}
                     </p>
                 </div>
-                <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                        <h3 className="text-sm font-medium text-gray-500 mr-2">Losers</h3>
-                        <TrendingDown className="h-4 w-4 text-red-500" />
+                <div className={cardLargeContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRow}>
+                        <h3 className={`${cardTitle} mr-2`}>Losers</h3>
+                        <TrendingDown className={`h-4 w-4 ${redIcon}`} />
                     </div>
-                    <p className="text-2xl font-bold text-red-600">
+                    <p className={`${cardValue} ${getSummaryCardClasses('losers', 'investments').text}`}>
                         {loading ? "..." : losersCount}
                     </p>
                 </div>
-                <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                        <h3 className="text-sm font-medium text-gray-500 mr-2">Total Invested</h3>
-                        <DollarSign className="h-4 w-4 text-purple-500" />
+                <div className={cardLargeContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRow}>
+                        <h3 className={`${cardTitle} mr-2`}>Total Invested</h3>
+                        <DollarSign className={`h-4 w-4 ${purpleIcon}`} />
                     </div>
-                    <p className="text-2xl font-bold text-purple-600">
+                    <p className={`${cardValue} ${getSummaryCardClasses('totalInvested', 'investments').text}`}>
                         {loading ? "..." : formatCurrency(totalInvested, userCurrency)}
                     </p>
                 </div>
-                <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                        <h3 className="text-sm font-medium text-gray-500 mr-2">Current Value</h3>
-                        <DollarSign className="h-4 w-4 text-blue-500" />
+                <div className={cardLargeContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRow}>
+                        <h3 className={`${cardTitle} mr-2`}>Current Value</h3>
+                        <DollarSign className={`h-4 w-4 ${blueIcon}`} />
                     </div>
-                    <p className="text-2xl font-bold text-blue-600">
+                    <p className={`${cardValue} ${getSummaryCardClasses('currentValue', 'investments').text}`}>
                         {loading ? "..." : formatCurrency(totalCurrentValue, userCurrency)}
                     </p>
                 </div>
-                <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                        <h3 className="text-sm font-medium text-gray-500 mr-2">Total Gain/Loss</h3>
+                <div className={cardLargeContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRow}>
+                        <h3 className={`${cardTitle} mr-2`}>Total Gain/Loss</h3>
                         {totalGainLoss >= 0 ? 
-                            <TrendingUp className="h-4 w-4 text-green-500" /> : 
-                            <TrendingDown className="h-4 w-4 text-red-500" />
+                            <TrendingUp className={`h-4 w-4 ${greenPositiveIcon}`} /> : 
+                            <TrendingDown className={`h-4 w-4 ${redNegativeIcon}`} />
                         }
                     </div>
-                    <p className={`text-2xl font-bold ${totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <p className={`${cardValue} ${getGainLossClasses(totalGainLoss)}`}>
                         {loading ? "..." : formatCurrency(totalGainLoss, userCurrency)}
                     </p>
-                    <p className={`text-sm ${totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <p className={`text-sm ${getGainLossClasses(totalGainLoss)}`}>
                         ({totalGainLossPercentage.toFixed(2)}%)
                     </p>
                 </div>
             </div>
 
             {/* Filters and Actions */}
-            <div>
-                <div className="flex gap-4 mb-4">
-                    <div className="flex-1">
+            <div className={UI_STYLES.filters.containerWithMargin}>
+                <div className={UI_STYLES.filters.gridFive}>
+                    <div>
+                        <label className={labelText}>
+                            Search Investments
+                        </label>
                         <input
                             type="text"
-                            placeholder="Search investments, symbols, notes..."
+                            placeholder="Search by name, symbol, notes..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={standardInput}
                         />
                     </div>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div>
+                        <label className={labelText}>
+                            Filter by Type
+                        </label>
                         <select
                             value={selectedType}
                             onChange={(e) => setSelectedType(e.target.value)}
-                            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={standardInput}
                         >
                             <option value="">All Types</option>
                             {uniqueTypes.map((type) => (
@@ -268,91 +319,84 @@ export default function Investments() {
                                 </option>
                             ))}
                         </select>
+                    </div>
+                    <div>
+                        <label className={labelText}>
+                            Start Date
+                        </label>
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className={standardInput}
+                        />
+                    </div>
+                    <div>
+                        <label className={labelText}>
+                            End Date
+                        </label>
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className={standardInput}
+                        />
+                    </div>
+                    <div className={UI_STYLES.filters.clearButtonContainer}>
                         <button
                             onClick={clearFilters}
-                            className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                            className={clearFilterButton}
                             disabled={!hasActiveFilters}
                         >
                             Clear Filters
                         </button>
-
-
-                        {/* View Mode Toggle */}
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setViewMode("table")}
-                                    className={`px-3 py-1 rounded text-sm ${viewMode === "table"
-                                            ? "bg-blue-100 text-blue-700"
-                                            : "text-gray-600 hover:bg-gray-100"
-                                        }`}
-                                >
-                                    Table
-                                </button>
-                                <button
-                                    onClick={() => setViewMode("cards")}
-                                    className={`px-3 py-1 rounded text-sm ${viewMode === "cards"
-                                            ? "bg-blue-100 text-blue-700"
-                                            : "text-gray-600 hover:bg-gray-100"
-                                        }`}
-                                >
-                                    Cards
-                                </button>
-                            </div>
-                        </div>
-
-
-
                     </div>
- 
                 </div>
-
             </div>
 
-            {/* Investments by Sections */}
             {loading ? (
-                <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
-                    <div className="animate-spin mx-auto mb-4 h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                    <p className="text-gray-600">Loading investments...</p>
+                <div className={loadingContainer}>
+                    <div className={loadingSpinner}></div>
+                    <p className={loadingText}>Loading investments...</p>
                 </div>
             ) : filteredInvestments.length === 0 ? (
-                <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
-                    <div className="text-gray-400 mb-4">
+                <div className={UI_STYLES.empty.container}>
+                    <div className={UI_STYLES.empty.icon}>
                         <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                         </svg>
                     </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    <h3 className={emptyTitle}>
                         {hasActiveFilters ? "No investments match your filters" : "No investments yet"}
                     </h3>
-                    <p className="text-gray-600 mb-6">
+                    <p className={emptyMessage}>
                         {hasActiveFilters 
                             ? "Try adjusting your search criteria or clearing filters." 
                             : "Start building your investment portfolio by adding your first investment."
                         }
                     </p>
                     {hasActiveFilters ? (
-                        <button onClick={clearFilters} className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
+                        <button onClick={clearFilters} className={clearButton}>
                             Clear Filters
                         </button>
                     ) : (
-                        <button onClick={() => openModal('add')} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        <button onClick={() => openModal('add')} className={primaryButton}>
                             Add Your First Investment
                         </button>
                     )}
                 </div>
-            ) : (
+            ) :
                 <div className="space-y-6">
                     {sections.map((section, index) => (
-                        <div key={index} className="bg-white rounded-lg shadow-sm border">
+                        <div key={index} className={CONTAINER_COLORS.white}>
                             <div className="px-6 py-4 border-b border-gray-200">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <h3 className="text-lg font-semibold text-gray-900">{section.title}</h3>
+                                        <h3 className={`text-lg font-semibold ${TEXT_COLORS.cardTitle} ${TEXT_COLORS.chartTitle.replace('mb-4', '')}`}>{section.title}</h3>
                                         <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
                                             <span>Invested: {formatCurrency(section.totalInvested, userCurrency)}</span>
                                             <span>Current: {formatCurrency(section.currentValue, userCurrency)}</span>
-                                            <span className={`font-medium ${section.gainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                            <span className={`font-medium ${getGainLossClasses(section.gainLoss)}`}>
                                                 {section.gainLoss >= 0 ? '+' : ''}{formatCurrency(section.gainLoss, userCurrency)} 
                                                 ({section.gainLossPercentage.toFixed(2)}%)
                                             </span>
@@ -383,79 +427,29 @@ export default function Investments() {
                                                 </div>
                                             );
                                         })()}
-                                        <div className="text-sm text-gray-500">
-                                            {section.count} investment{section.count !== 1 ? 's' : ''}
-                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            <div className="px-6 pb-6">
-                                {viewMode === "table" ? (
-                                    <InvestmentTable
-                                        investments={section.investments}
-                                        onEdit={(investment) => openModal('edit', investment)}
-                                        onDelete={(investment) => openModal('delete', investment)}
-                                        onViewDetails={(investment) => openModal('view', investment)}
-                                        selectedInvestments={selectedInvestments}
-                                        onInvestmentSelect={handleInvestmentSelect}
-                                        onSelectAll={(selected) => {
-                                            const newSelected = new Set(selectedInvestments);
-                                            section.investments.forEach(inv => {
-                                                if (selected) {
-                                                    newSelected.add(inv.id);
-                                                } else {
-                                                    newSelected.delete(inv.id);
-                                                }
-                                            });
-                                            setSelectedInvestments(newSelected);
-                                        }}
-                                        showBulkActions={true}
-                                        onBulkDelete={handleBulkDelete}
-                                        onClearSelection={() => {
-                                            const newSelected = new Set(selectedInvestments);
-                                            section.investments.forEach(inv => newSelected.delete(inv.id));
-                                            setSelectedInvestments(newSelected);
-                                        }}
-                                    />
-                                ) : (
-                                    <InvestmentList
-                                        investments={section.investments}
-                                        onEdit={(investment) => openModal('edit', investment)}
-                                        onDelete={(investment) => openModal('delete', investment)}
-                                        onViewDetails={(investment) => openModal('view', investment)}
-                                        selectedInvestments={selectedInvestments}
-                                        onInvestmentSelect={handleInvestmentSelect}
-                                        onSelectAll={(selected) => {
-                                            const newSelected = new Set(selectedInvestments);
-                                            section.investments.forEach(inv => {
-                                                if (selected) {
-                                                    newSelected.add(inv.id);
-                                                } else {
-                                                    newSelected.delete(inv.id);
-                                                }
-                                            });
-                                            setSelectedInvestments(newSelected);
-                                        }}
-                                        showBulkActions={true}
-                                        onBulkDelete={handleBulkDelete}
-                                        onClearSelection={() => {
-                                            const newSelected = new Set(selectedInvestments);
-                                            section.investments.forEach(inv => newSelected.delete(inv.id));
-                                            setSelectedInvestments(newSelected);
-                                        }}
-                                    />
-                                )}
-                            </div>
+                            
+                            <InvestmentTable
+                                investments={section.investments}
+                                selectedInvestments={selectedInvestments}
+                                onInvestmentSelect={handleInvestmentSelect}
+                                onEdit={(investment: InvestmentInterface) => openModal('edit', investment)}
+                                onDelete={(investment: InvestmentInterface) => openModal('delete', investment)}
+                                onViewDetails={(investment: InvestmentInterface) => openModal('view', investment)}
+                                showBulkActions={true}
+                            />
                         </div>
                     ))}
                 </div>
-            )}
+            }
 
             {/* Modals */}
             <AddInvestmentModal
                 isOpen={modal.type === 'add'}
                 onClose={closeModal}
-                onAdd={handleModalAction.bind(null, 'add')}
+                onAdd={(data) => handleModalAction('add', data)}
             />
 
             <EditInvestmentModal

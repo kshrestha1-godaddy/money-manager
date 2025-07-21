@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { InvestmentInterface } from "../../types/investments";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
+import { getDefaultColumnWidths, getMinColumnWidth, type InvestmentColumnWidths } from "../../config/tableConfig";
+import { COLORS, getActionButtonClasses, getGainLossClasses } from "../../config/colorConfig";
 
 interface InvestmentTableProps {
     investments: InvestmentInterface[];
@@ -12,7 +14,6 @@ interface InvestmentTableProps {
     onViewDetails: (investment: InvestmentInterface) => void;
     selectedInvestments?: Set<number>;
     onInvestmentSelect?: (investmentId: number, selected: boolean) => void;
-    onSelectAll?: (selected: boolean) => void;
     showBulkActions?: boolean;
     onBulkDelete?: () => void;
     onClearSelection?: () => void;
@@ -28,14 +29,23 @@ export function InvestmentTable({
     onViewDetails,
     selectedInvestments = new Set(),
     onInvestmentSelect,
-    onSelectAll,
-    showBulkActions = false,
+    showBulkActions = true,
     onBulkDelete,
     onClearSelection 
 }: InvestmentTableProps) {
     const [sortField, setSortField] = useState<SortField>('purchaseDate');
     const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
     const { currency: userCurrency } = useCurrency();
+
+    // Column resizing state - optimized for better space utilization
+    const [columnWidths, setColumnWidths] = useState<InvestmentColumnWidths>(
+        getDefaultColumnWidths('investments')
+    );
+    
+    const tableRef = useRef<HTMLTableElement>(null);
+    const [resizing, setResizing] = useState<string | null>(null);
+    const [startX, setStartX] = useState(0);
+    const [startWidth, setStartWidth] = useState(0);
 
     const handleSort = (field: SortField) => {
         if (sortField === field) {
@@ -46,15 +56,55 @@ export function InvestmentTable({
         }
     };
 
-    const handleSelectAll = () => {
-        const allSelected = selectedInvestments.size === investments.length;
-        if (onSelectAll) {
-            onSelectAll(!allSelected);
+    // Resizing handlers
+    const handleMouseDown = useCallback((e: React.MouseEvent, column: string) => {
+        e.preventDefault();
+        setResizing(column);
+        setStartX(e.pageX);
+        setStartWidth(columnWidths[column as keyof typeof columnWidths]);
+    }, [columnWidths]);
+
+    const handleMouseMove = useCallback((e: MouseEvent) => {
+        if (!resizing) return;
+        
+        const diff = e.pageX - startX;
+        const newWidth = Math.max(getMinColumnWidth(), startWidth + diff);
+        
+        setColumnWidths(prev => ({
+            ...prev,
+            [resizing]: newWidth
+        }));
+    }, [resizing, startX, startWidth]);
+
+    const handleMouseUp = useCallback(() => {
+        setResizing(null);
+    }, []);
+
+    useEffect(() => {
+        if (resizing) {
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+            return () => {
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+            };
         }
+    }, [resizing, handleMouseMove, handleMouseUp]);
+
+    const handleSelectAll = () => {
+        if (!onInvestmentSelect) return;
+        
+        const currentTableInvestmentIds = investments.map(inv => inv.id);
+        const allCurrentSelected = currentTableInvestmentIds.every(id => selectedInvestments.has(id));
+        
+        // Toggle selection for only the investments in this table
+        currentTableInvestmentIds.forEach(id => {
+            onInvestmentSelect(id, !allCurrentSelected);
+        });
     };
 
-    const isAllSelected = selectedInvestments.size === investments.length && investments.length > 0;
-    const isPartiallySelected = selectedInvestments.size > 0 && selectedInvestments.size < investments.length;
+    const isAllSelected = investments.length > 0 && investments.every(inv => selectedInvestments.has(inv.id));
+    const isPartiallySelected = investments.some(inv => selectedInvestments.has(inv.id)) && !isAllSelected;
 
     const sortedInvestments = [...investments].sort((a, b) => {
         let aValue: any;
@@ -125,11 +175,14 @@ export function InvestmentTable({
 
     return (
         <div className="overflow-x-auto">
-            <table className="w-full">
+            <table ref={tableRef} className="min-w-full divide-y divide-gray-200 table-fixed">
                 <thead className="bg-gray-50">
                     <tr>
                         {showBulkActions && (
-                            <th className="px-6 py-3 text-left">
+                            <th 
+                                className="px-6 py-3 text-left relative border-r border-gray-200"
+                                style={{ width: `${columnWidths.checkbox}px` }}
+                            >
                                 <input
                                     type="checkbox"
                                     checked={isAllSelected}
@@ -139,57 +192,128 @@ export function InvestmentTable({
                                     onChange={handleSelectAll}
                                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                 />
+                                <div 
+                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                    onMouseDown={(e) => handleMouseDown(e, 'checkbox')}
+                                />
                             </th>
                         )}
                         <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
+                            style={{ width: `${columnWidths.investment}px` }}
                             onClick={() => handleSort('name')}
                         >
-                            Investment {getSortIcon('name')}
+                            <div className="flex items-center justify-between">
+                                <span>Investment</span>
+                                {getSortIcon('name')}
+                            </div>
+                            <div 
+                                className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                onMouseDown={(e) => handleMouseDown(e, 'investment')}
+                            />
                         </th>
                         <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
+                            style={{ width: `${columnWidths.type}px` }}
                             onClick={() => handleSort('type')}
                         >
-                            Type {getSortIcon('type')}
+                            <div className="flex items-center justify-between">
+                                <span>Type</span>
+                                {getSortIcon('type')}
+                            </div>
+                            <div 
+                                className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                onMouseDown={(e) => handleMouseDown(e, 'type')}
+                            />
                         </th>
                         <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
+                            style={{ width: `${columnWidths.quantityInterest}px` }}
                             onClick={() => handleSort('quantity')}
                         >
-                            Quantity/Interest {getSortIcon('quantity')}
+                            <div className="flex items-center justify-between">
+                                <span>Quantity/Interest</span>
+                                {getSortIcon('quantity')}
+                            </div>
+                            <div 
+                                className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                onMouseDown={(e) => handleMouseDown(e, 'quantityInterest')}
+                            />
                         </th>
                         <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
+                            style={{ width: `${columnWidths.purchasePrincipal}px` }}
                             onClick={() => handleSort('purchasePrice')}
                         >
-                            Purchase/Principal {getSortIcon('purchasePrice')}
+                            <div className="flex items-center justify-between">
+                                <span>Purchase/Principal</span>
+                                {getSortIcon('purchasePrice')}
+                            </div>
+                            <div 
+                                className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                onMouseDown={(e) => handleMouseDown(e, 'purchasePrincipal')}
+                            />
                         </th>
                         <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
+                            style={{ width: `${columnWidths.currentValue}px` }}
                             onClick={() => handleSort('currentPrice')}
                         >
-                            Current Value {getSortIcon('currentPrice')}
+                            <div className="flex items-center justify-between">
+                                <span>Current Value</span>
+                                {getSortIcon('currentPrice')}
+                            </div>
+                            <div 
+                                className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                onMouseDown={(e) => handleMouseDown(e, 'currentValue')}
+                            />
                         </th>
                         <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
+                            style={{ width: `${columnWidths.totalValue}px` }}
                             onClick={() => handleSort('totalValue')}
                         >
-                            Total Value {getSortIcon('totalValue')}
+                            <div className="flex items-center justify-between">
+                                <span>Total Value</span>
+                                {getSortIcon('totalValue')}
+                            </div>
+                            <div 
+                                className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                onMouseDown={(e) => handleMouseDown(e, 'totalValue')}
+                            />
                         </th>
                         <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
+                            style={{ width: `${columnWidths.gainLoss}px` }}
                             onClick={() => handleSort('gain')}
                         >
-                            Gain/Loss {getSortIcon('gain')}
+                            <div className="flex items-center justify-between">
+                                <span>Gain/Loss</span>
+                                {getSortIcon('gain')}
+                            </div>
+                            <div 
+                                className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                onMouseDown={(e) => handleMouseDown(e, 'gainLoss')}
+                            />
                         </th>
                         <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
+                            style={{ width: `${columnWidths.purchaseDate}px` }}
                             onClick={() => handleSort('purchaseDate')}
                         >
-                            Purchase Date {getSortIcon('purchaseDate')}
+                            <div className="flex items-center justify-between">
+                                <span>Purchase Date</span>
+                                {getSortIcon('purchaseDate')}
+                            </div>
+                            <div 
+                                className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                onMouseDown={(e) => handleMouseDown(e, 'purchaseDate')}
+                            />
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th 
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            style={{ width: `${columnWidths.actions}px` }}
+                        >
                             Actions
                         </th>
                     </tr>
@@ -217,6 +341,7 @@ export function InvestmentTable({
                                 gainPercentage={gainPercentage}
                                 formatType={formatType}
                                 getGainColor={getGainColor}
+                                columnWidths={columnWidths}
                             />
                         );
                     })}
@@ -239,7 +364,8 @@ function InvestmentRow({
     gain,
     gainPercentage,
     formatType,
-    getGainColor
+    getGainColor,
+    columnWidths
 }: { 
     investment: InvestmentInterface;
     currency: string;
@@ -254,6 +380,7 @@ function InvestmentRow({
     gainPercentage: string;
     formatType: (type: string) => string;
     getGainColor: (gain: number) => string;
+    columnWidths: InvestmentColumnWidths;
 }) {
     const handleSelect = () => {
         if (onSelect) {
@@ -264,7 +391,7 @@ function InvestmentRow({
     return (
         <tr className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
             {showCheckbox && (
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.checkbox}px` }}>
                     <input
                         type="checkbox"
                         checked={isSelected}
@@ -273,29 +400,29 @@ function InvestmentRow({
                     />
                 </td>
             )}
-            <td className="px-6 py-4 whitespace-nowrap">
+            <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.investment}px` }}>
                 <div>
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-gray-900 break-words">
                         {investment.name}
                     </div>
                     {investment.symbol && (
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-gray-500 break-words">
                             {investment.symbol}
                         </div>
                     )}
                 </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap">
+            <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.type}px` }}>
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                     {formatType(investment.type)}
                 </span>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style={{ width: `${columnWidths.quantityInterest}px` }}>
                 {investment.type === 'FIXED_DEPOSIT' ? (
                     <div>
                         <div>{investment.interestRate}% p.a.</div>
                         {investment.maturityDate && (
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-gray-500 break-words">
                                 Matures: {new Date(investment.maturityDate).toLocaleDateString()}
                             </div>
                         )}
@@ -304,58 +431,60 @@ function InvestmentRow({
                     investment.quantity
                 )}
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {investment.type === 'FIXED_DEPOSIT' ? 
-                    `${formatCurrency(investment.purchasePrice, currency)} (Principal)` : 
-                    formatCurrency(investment.purchasePrice, currency)
-                }
+            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style={{ width: `${columnWidths.purchasePrincipal}px` }}>
+                <div className="break-words">
+                    {investment.type === 'FIXED_DEPOSIT' ? 
+                        `${formatCurrency(investment.purchasePrice, currency)} (Principal)` : 
+                        formatCurrency(investment.purchasePrice, currency)
+                    }
+                </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style={{ width: `${columnWidths.currentValue}px` }}>
                 {investment.type === 'FIXED_DEPOSIT' ? (
                     <div>
-                        <div>{formatCurrency(investment.currentPrice, currency)}</div>
+                        <div className="break-words">{formatCurrency(investment.currentPrice, currency)}</div>
                         <div className="text-xs text-gray-500">Current Value</div>
                     </div>
                 ) : (
-                    formatCurrency(investment.currentPrice, currency)
+                    <div className="break-words">{formatCurrency(investment.currentPrice, currency)}</div>
                 )}
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                {formatCurrency(totalValue, currency)}
+            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: `${columnWidths.totalValue}px` }}>
+                <div className="break-words">{formatCurrency(totalValue, currency)}</div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                <div className={`font-medium ${getGainColor(gain)}`}>
+            <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ width: `${columnWidths.gainLoss}px` }}>
+                <div className={`font-medium break-words ${getGainColor(gain)}`}>
                     {formatCurrency(gain, currency)}
                 </div>
-                <div className={`text-xs ${getGainColor(gain)}`}>
+                <div className={`text-xs break-words ${getGainColor(gain)}`}>
                     ({gainPercentage}%)
                 </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style={{ width: `${columnWidths.purchaseDate}px` }}>
                 <div>
-                    <div>{new Date(investment.purchaseDate).toLocaleDateString()}</div>
+                    <div className="break-words">{new Date(investment.purchaseDate).toLocaleDateString()}</div>
                     {investment.type === 'FIXED_DEPOSIT' && (
                         <div className="text-xs text-gray-500">Deposit Date</div>
                     )}
                 </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <div className="flex justify-end space-x-2">
+            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" style={{ width: `${columnWidths.actions}px` }}>
+                <div className="flex justify-end space-x-1">
                     <button 
                         onClick={() => onViewDetails(investment)}
-                        className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-800 transition-colors"
+                        className={getActionButtonClasses('view', 'investments')}
                     >
                         View
                     </button>
                     <button 
                         onClick={() => onEdit(investment)}
-                        className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-800 transition-colors"
+                        className={getActionButtonClasses('edit', 'investments')}
                     >
                         Edit
                     </button>
                     <button 
                         onClick={() => onDelete(investment)}
-                        className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-800 transition-colors"
+                        className={getActionButtonClasses('delete', 'investments')}
                     >
                         Delete
                     </button>

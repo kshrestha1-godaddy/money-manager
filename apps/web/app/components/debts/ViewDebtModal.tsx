@@ -287,25 +287,25 @@ export function ViewDebtModal({ debtId, isOpen, onClose, onEdit, onAddRepayment,
                             </div>
                         
                             {debt.repayments && debt.repayments.length > 0 ? (
-                                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                                    <div className="overflow-x-auto">
-                                        <table className="min-w-full divide-y divide-gray-200">
-                                            <thead className="bg-gray-50">
-                                                <tr>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                        Date
-                                                    </th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                        Amount
-                                                    </th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                        Notes
-                                                    </th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                        Actions
-                                                    </th>
-                                                </tr>
-                                            </thead>
+                                                                    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                                        <div className="overflow-x-auto">
+                                            <table className="min-w-full table-auto divide-y divide-gray-200">
+                                                <thead className="bg-gray-50">
+                                                    <tr>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '150px' }}>
+                                                            Date
+                                                        </th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '180px' }}>
+                                                            Amount
+                                                        </th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '250px' }}>
+                                                            Notes
+                                                        </th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '120px' }}>
+                                                            Actions
+                                                        </th>
+                                                    </tr>
+                                                </thead>
                                             <tbody className="bg-white divide-y divide-gray-200">
                                                 {debt.repayments
                                                     .sort((a, b) => new Date(b.repaymentDate).getTime() - new Date(a.repaymentDate).getTime())
@@ -318,18 +318,18 @@ export function ViewDebtModal({ debtId, isOpen, onClose, onEdit, onAddRepayment,
                                                                 : 'opacity-100 transform scale-100'
                                                         }`}
                                                     >
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                            {repayment.repaymentDate.toLocaleDateString()}
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style={{ width: '150px' }}>
+                                                            <div className="break-words">{repayment.repaymentDate.toLocaleDateString()}</div>
                                                         </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap">
-                                                            <span className="text-sm font-medium text-green-600">
+                                                        <td className="px-6 py-4 whitespace-nowrap" style={{ width: '180px' }}>
+                                                            <span className="text-sm font-medium text-green-600 break-words block">
                                                                 {formatCurrency(repayment.amount, userCurrency)}
                                                             </span>
                                                         </td>
-                                                        <td className="px-6 py-4 text-sm text-gray-500">
-                                                            {repayment.notes || '-'}
+                                                        <td className="px-6 py-4 text-sm text-gray-500" style={{ minWidth: '250px' }}>
+                                                            <div className="break-words">{repayment.notes || '-'}</div>
                                                         </td>
-                                                        <td className="px-6 py-4 text-sm text-gray-500">
+                                                        <td className="px-6 py-4 text-sm text-gray-500" style={{ width: '120px' }}>
                                                             {deletingRepayments.has(repayment.id) ? (
                                                                 <span className="text-gray-500 flex items-center">
                                                                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -341,7 +341,7 @@ export function ViewDebtModal({ debtId, isOpen, onClose, onEdit, onAddRepayment,
                                                             ) : (
                                                                 <button
                                                                     onClick={() => handleDeleteRepayment(repayment.id)}
-                                                                    className="text-red-500 hover:text-red-700 transition-colors duration-150 ease-in-out"
+                                                                    className="text-red-500 hover:text-red-700 transition-colors duration-150 ease-in-out text-xs px-2 py-1 rounded"
                                                                 >
                                                                     Delete
                                                                 </button>
