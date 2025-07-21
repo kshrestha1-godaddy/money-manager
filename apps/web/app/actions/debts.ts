@@ -92,6 +92,15 @@ export async function getUserDebts(): Promise<{ data?: DebtInterface[], error?: 
             }
         }) as DebtInterface[];
 
+        // Trigger notification checks after fetching debts to ensure due date notifications are up-to-date
+        try {
+            const { generateNotificationsForUser } = await import('./notifications');
+            await generateNotificationsForUser(userId);
+        } catch (error) {
+            console.error("Failed to check notifications after fetching debts:", error);
+            // Don't throw here to avoid breaking the main operation
+        }
+
         return { data: transformedDebts };
     } catch (error) {
         console.error("Failed to fetch user debts:", error);

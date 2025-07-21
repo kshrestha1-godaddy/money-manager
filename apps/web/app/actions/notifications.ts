@@ -360,9 +360,27 @@ export async function checkLowBalanceAlerts(userId: number): Promise<void> {
  */
 export async function checkDueDateAlerts(userId: number): Promise<void> {
     try {
-        const settings = await prisma.notificationSettings.findUnique({
+        let settings = await prisma.notificationSettings.findUnique({
             where: { userId }
         });
+
+        // Create default notification settings if they don't exist
+        if (!settings) {
+            settings = await prisma.notificationSettings.create({
+                data: {
+                    userId,
+                    lowBalanceEnabled: true,
+                    lowBalanceThreshold: 500,
+                    dueDateEnabled: true,
+                    dueDateDaysBefore: 7,
+                    spendingAlertsEnabled: true,
+                    monthlySpendingLimit: 5000,
+                    investmentAlertsEnabled: true,
+                    emailNotifications: false,
+                    pushNotifications: true
+                }
+            });
+        }
 
         if (!settings?.dueDateEnabled) return;
 
@@ -370,11 +388,13 @@ export async function checkDueDateAlerts(userId: number): Promise<void> {
         const alertDate = new Date();
         alertDate.setDate(alertDate.getDate() + daysBefore);
         const currency = await getUserCurrency();
-        // Check debts
+        // Check debts (both ACTIVE and PARTIALLY_PAID debts can have due dates)
         const debts = await prisma.debt.findMany({
             where: {
                 userId,
-                status: 'ACTIVE',
+                status: {
+                    in: ['ACTIVE', 'PARTIALLY_PAID']
+                },
                 dueDate: {
                     lte: alertDate,
                     gte: new Date()
@@ -395,11 +415,13 @@ export async function checkDueDateAlerts(userId: number): Promise<void> {
                 );
             }
         }
-        // Check loans
+        // Check loans (both ACTIVE and PARTIALLY_PAID loans can have due dates)
         const loans = await prisma.loan.findMany({
             where: {
                 userId,
-                status: 'ACTIVE',
+                status: {
+                    in: ['ACTIVE', 'PARTIALLY_PAID']
+                },
                 dueDate: {
                     lte: alertDate,
                     gte: new Date()
