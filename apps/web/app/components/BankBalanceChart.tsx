@@ -144,7 +144,7 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                     {chartData.length} bank{chartData.length !== 1 ? 's' : ''}
                 </div>
             </div>
-            <div className="h-64 sm:h-80 w-full">
+            <div className="h-36 sm:h-[200px] lg:h-[300px] xl:h-[400px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                         data={chartData}
@@ -152,7 +152,7 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                             top: 20,
                             right: 15,
                             left: 20,
-                            bottom: 80,
+                            bottom: 5,
                         }}
                     >
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -161,7 +161,7 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                             dataKey="bank" 
                             tick={{ fontSize: 11 }}
                             stroke="#666"
-                            height={60}
+                            height={40}
                             interval={0}
                             textAnchor="middle"
                         />
