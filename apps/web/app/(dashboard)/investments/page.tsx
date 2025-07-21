@@ -397,7 +397,7 @@ export default function Investments() {
                             <div className="px-6 py-4 border-b border-gray-200">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <h3 className={`text-lg font-semibold ${TEXT_COLORS.cardTitle} ${TEXT_COLORS.chartTitle.replace('mb-4', '')}`}>{section.title}</h3>
+                                        <h3 className={`text-lg font-semibold ${TEXT_COLORS.title} ${TEXT_COLORS.chartTitle.replace('mb-4', '')}`}>{section.title}</h3>
                                         <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
                                             <span>Invested: {formatCurrency(section.totalInvested, userCurrency)}</span>
                                             <span>Current: {formatCurrency(section.currentValue, userCurrency)}</span>

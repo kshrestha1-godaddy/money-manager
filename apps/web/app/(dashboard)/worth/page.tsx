@@ -373,7 +373,7 @@ export default function NetWorthPage() {
                                             <div key={item.id || index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-2 mb-1">
-                                                        <h4 className={`font-medium ${TEXT_COLORS.cardTitle}`}>
+                                                        <h4 className={`font-medium ${TEXT_COLORS.title}`}>
                                                             {item.holderName || item.name || item.borrowerName || 'Unknown'}
                                                         </h4>
                                                         {section.key === 'debts' && (

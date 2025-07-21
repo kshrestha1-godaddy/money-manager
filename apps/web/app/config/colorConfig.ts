@@ -471,9 +471,9 @@ export const UI_STYLES = {
     dismissButton: 'px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700',
   },
 
-  // Empty states
+  // Empty states - minimal and clean
   empty: {
-    container: `${COLORS.common.gray.background.white} rounded-lg shadow-sm border p-12 text-center`,
+    container: `p-12 text-center m-50`,
     icon: `${COLORS.common.gray.text[400]} mb-4`,
     title: `text-lg font-medium ${COLORS.common.gray.text[900]} mb-2`,
     message: `${COLORS.common.gray.text[600]} mb-6`,

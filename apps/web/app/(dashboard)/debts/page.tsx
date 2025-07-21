@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { DebtTable } from "../../components/debts/DebtTable";
 import { AddDebtModal } from "../../components/debts/AddDebtModal";
 import { EditDebtModal } from "../../components/debts/EditDebtModal";
@@ -51,6 +51,11 @@ const standardInput = INPUT_COLORS.standard;
 
 export default function Debts() {
     const { currency: userCurrency } = useCurrency();
+    
+    // State for managing expandable sections (only for Fully Paid Debts)
+    const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+        FULLY_PAID: false // Only fully paid debts are collapsible
+    });
     
     // Use the optimized debts hook
     const {
@@ -104,6 +109,16 @@ export default function Debts() {
 
     // Get unique statuses for filter dropdown
     const uniqueStatuses = Array.from(new Set(debts.map(debt => debt.status))).sort();
+
+    // Toggle function for expandable sections
+    const toggleSection = (sectionKey: string) => {
+        if (sectionKey === 'FULLY_PAID') {
+            setExpandedSections(prev => ({
+                ...prev,
+                [sectionKey]: !prev[sectionKey]
+            }));
+        }
+    };
 
     // Handle modal actions
     const handleModalAction = async (action: string, data?: any) => {
@@ -358,17 +373,25 @@ export default function Debts() {
                     {sections.map((section) => {
                         if (section.debts.length === 0) return null;
 
+                        const isFullyPaid = section.key === 'FULLY_PAID';
+                        const isExpanded = isFullyPaid ? expandedSections[section.key] : true;
+
                         return (
                             <div key={section.key} className={CONTAINER_COLORS.white}>
-                                <div className="px-6 py-4 border-b border-gray-200">
+                                <div 
+                                    className={`px-6 py-4 border-b border-gray-200 ${isFullyPaid ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                                    onClick={isFullyPaid ? () => toggleSection(section.key) : undefined}
+                                >
                                     <div className="flex items-center justify-between">
-                                        <div>
-                                            <h3 className={`text-lg font-semibold ${TEXT_COLORS.cardTitle}`}>
-                                                {section.title} ({section.debts.length})
-                                            </h3>
-                                            <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
-                                                <span>Total: {formatCurrency(section.totalAmount, userCurrency)}</span>
-                                                <span>Outstanding: {formatCurrency(section.totalRemaining, userCurrency)}</span>
+                                        <div className="flex items-center gap-4">
+                                            <div>
+                                                <h3 className={`text-lg font-semibold ${TEXT_COLORS.title}`}>
+                                                    {section.title} ({section.debts.length})
+                                                </h3>
+                                                <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
+                                                    <span>Total: {formatCurrency(section.totalAmount, userCurrency)}</span>
+                                                    <span>Outstanding: {formatCurrency(section.totalRemaining, userCurrency)}</span>
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="flex items-center space-x-3">
@@ -377,7 +400,8 @@ export default function Debts() {
                                                 return sectionSelectedIds.length > 0 && (
                                                     <div className="flex items-center space-x-2">
                                                         <button
-                                                            onClick={() => {
+                                                            onClick={(e) => {
+                                                                e.stopPropagation(); // Prevent header toggle when clicking button
                                                                 const newSelected = new Set(selectedDebts);
                                                                 section.debts.forEach(debt => newSelected.delete(debt.id));
                                                                 setSelectedDebts(newSelected);
@@ -387,7 +411,10 @@ export default function Debts() {
                                                             Clear ({sectionSelectedIds.length})
                                                         </button>
                                                         <button
-                                                            onClick={() => handleBulkDelete(section.debts)}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation(); // Prevent header toggle when clicking button
+                                                                handleBulkDelete(section.debts);
+                                                            }}
                                                             className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
                                                         >
                                                             Delete ({sectionSelectedIds.length})
@@ -395,23 +422,30 @@ export default function Debts() {
                                                     </div>
                                                 );
                                             })()}
+                                            {isFullyPaid && (
+                                                <div className="text-gray-400">
+                                                    {isExpanded ? '▼' : '▶'}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
                                 
-                                <DebtTable
-                                    debts={section.debts}
-                                    selectedDebts={selectedDebts}
-                                    onDebtSelect={handleDebtSelect}
-                                    onSelectAll={(selected) => handleSelectAll(selected, section.debts)}
-                                    onEdit={(debt) => openModal('edit', debt)}
-                                    onDelete={(debt) => openModal('delete', debt)}
-                                    onViewDetails={(debt) => openModal('view', debt)}
-                                    onAddRepayment={(debt) => openModal('repayment', debt)}
-                                    showBulkActions={true}
-                                    onBulkDelete={() => handleBulkDelete(section.debts)}
-                                    onClearSelection={() => clearFilters()}
-                                />
+                                {isExpanded && (
+                                    <DebtTable
+                                        debts={section.debts}
+                                        selectedDebts={selectedDebts}
+                                        onDebtSelect={handleDebtSelect}
+                                        onSelectAll={(selected) => handleSelectAll(selected, section.debts)}
+                                        onEdit={(debt) => openModal('edit', debt)}
+                                        onDelete={(debt) => openModal('delete', debt)}
+                                        onViewDetails={(debt) => openModal('view', debt)}
+                                        onAddRepayment={(debt) => openModal('repayment', debt)}
+                                        showBulkActions={true}
+                                        onBulkDelete={() => handleBulkDelete(section.debts)}
+                                        onClearSelection={() => clearFilters()}
+                                    />
+                                )}
                             </div>
                         );
                     })}
