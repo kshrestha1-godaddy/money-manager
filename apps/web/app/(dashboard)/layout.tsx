@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { SidebarItem } from "../components/SidebarItem";
+import { TutorialOverlay } from "../components/TutorialOverlay";
+import { TutorialButton } from "../components/TutorialButton";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -76,7 +78,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     md:translate-x-0
                 `}
             >
-                <div className="flex flex-col gap-3 md:gap-2 pt-4 md:pt-6 px-2">
+                <div id="sidebar-nav" className="flex flex-col gap-3 md:gap-2 pt-4 md:pt-6 px-2">
                     {/* Close button for mobile */}
                     {isMobile && (
                         <button
@@ -97,18 +99,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             icon={<DashboardIcon />} 
                             title="Dashboard" 
                             onItemClick={() => isMobile && setSidebarOpen(false)}
+                            id="dashboard-nav-item"
                         />
                         <SidebarItem 
                             href="/incomes" 
                             icon={<IncomesIcon />} 
                             title="Incomes" 
                             onItemClick={() => isMobile && setSidebarOpen(false)}
+                            id="incomes-nav-item"
                         />
                         <SidebarItem 
                             href="/expenses" 
                             icon={<ExpensesIcon />} 
                             title="Expenses" 
                             onItemClick={() => isMobile && setSidebarOpen(false)}
+                            id="expenses-nav-item"
                         />
                         <SidebarItem 
                             href="/history" 
@@ -124,6 +129,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             title="Accounts" 
                             showSeparator={true} 
                             onItemClick={() => isMobile && setSidebarOpen(false)}
+                            id="accounts-nav-item"
                         />
                         <SidebarItem 
                             href="/debts" 
@@ -172,6 +178,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     {children}
                 </div>
             </div>
+            
+            {/* Tutorial Overlay */}
+            <TutorialOverlay />
+            
+            {/* Tutorial Button */}
+            <TutorialButton />
         </div>
     );
 }

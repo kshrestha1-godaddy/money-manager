@@ -6,6 +6,7 @@ import { CurrencyProvider } from "./providers/CurrencyProvider";
 import { QueryProvider } from "./providers/QueryProvider";
 import { ModalsProvider } from "./providers/ModalsProvider";
 import { NotificationProvider } from "./components/NotificationProvider";
+import { TutorialProvider } from "./providers/TutorialProvider";
 
 export const Providers = ({ children }: { children: React.ReactNode }) => {
     return (
@@ -15,7 +16,9 @@ export const Providers = ({ children }: { children: React.ReactNode }) => {
                 <QueryProvider>
                     <CurrencyProvider>
                         <ModalsProvider>
-                            {children}
+                            <TutorialProvider>
+                                {children}
+                            </TutorialProvider>
                         </ModalsProvider>
                     </CurrencyProvider>
                 </QueryProvider>

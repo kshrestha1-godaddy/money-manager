@@ -8,12 +8,14 @@ export const SidebarItem = ({
   icon,
   showSeparator = false,
   onItemClick,
+  id,
 }: {
   href: string;
   title: string;
   icon: React.ReactNode;
   showSeparator?: boolean;
   onItemClick?: () => void;
+  id?: string;
 }) => {
   const router = useRouter();
   const pathname = usePathname();
@@ -30,6 +32,7 @@ export const SidebarItem = ({
         <div className="mx-2 md:mx-3 my-3 md:my-5 border-t border-gray-200"></div>
       )}
       <div
+        id={id}
         className={`flex items-center ${
           selected ? "text-[#6a51a6] bg-purple-50" : "text-slate-500 hover:text-slate-700 hover:bg-gray-50"
         } cursor-pointer p-2 md:p-4 pl-8 md:pl-6 rounded-md mx-2 md:mx-3 transition-colors`}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { Income, Expense } from "../../types/financial";
 import { getIncomes, createIncome, updateIncome, deleteIncome } from "../../actions/incomes";
 import { getExpenses, createExpense, updateExpense, deleteExpense } from "../../actions/expenses";
@@ -15,7 +15,6 @@ import { FinancialSummary } from "../../components/shared/FinancialSummary";
 import { FinancialFilters } from "../../components/shared/FinancialFilters";
 import { useOptimizedFinancialData } from "../../hooks/useOptimizedFinancialData";
 import { DateFilterButtons } from "../../components/DateFilterButtons";
-import { useState } from "react";
 import { SavingsRateChart } from "../../components/SavingsRateChart";
 import { ChartSkeleton } from "../../components/shared/ChartSkeleton";
 import { ExportAllButton } from "../../components/ExportAllButton";
@@ -107,6 +106,16 @@ function DashboardContent() {
         setEndDate("");
     };
 
+    // Set localStorage flag if user has any financial data (for tutorial system)
+    useEffect(() => {
+        const hasIncomes = filteredData.filteredIncomes.length > 0;
+        const hasExpenses = filteredData.filteredExpenses.length > 0;
+        
+        if (hasIncomes || hasExpenses) {
+            localStorage.setItem('user-has-accounts', 'true');
+        }
+    }, [filteredData.filteredIncomes.length, filteredData.filteredExpenses.length]);
+
     // Loading state
     if (incomesData.loading || expensesData.loading) {
         return (
@@ -119,9 +128,9 @@ function DashboardContent() {
 
     // Main UI render
     return (
-        <div className={pageContainer}>
+        <div id="dashboard-content" className={pageContainer}>
             {/* Header */}
-            <div className={UI_STYLES.header.container}>
+            <div id="dashboard-header" className={UI_STYLES.header.container}>
                 <div>
                     <h1 className={pageTitle}>Dashboard</h1>
                     <p className={pageSubtitle}>Overview of your financial health</p>

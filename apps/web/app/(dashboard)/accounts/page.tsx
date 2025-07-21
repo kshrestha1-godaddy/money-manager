@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from '@tanstack/react-query';
 import { AccountTable } from "../../components/accounts/AccountTable";
 import { AddAccountModal } from "../../components/accounts/AddAccountModal";
@@ -136,6 +136,13 @@ export default function Accounts() {
     const uniqueBankNames = Array.from(new Set(allAccounts.map(account => account.bankName)));
     const uniqueAccountTypes = Array.from(new Set(allAccounts.map(account => account.accountType)));
 
+    // Set localStorage when user has accounts (for tutorial system)
+    useEffect(() => {
+        if (allAccounts.length > 0) {
+            localStorage.setItem('user-has-accounts', 'true');
+        }
+    }, [allAccounts.length]);
+
     const handleClearFilters = () => {
         setSearchTerm("");
         setSelectedBank("");
@@ -181,6 +188,7 @@ export default function Accounts() {
                 </div>
                 <div className={UI_STYLES.header.buttonGroup}>
                     <button
+                        id="add-account-btn"
                         onClick={() => setIsAddModalOpen(true)}
                         className={primaryButton}
                     >
