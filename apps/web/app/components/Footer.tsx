@@ -8,7 +8,7 @@ export default function Footer() {
                 <div className="flex items-center mb-4 sm:mb-0">
                     <Link href="/dashboard" className="flex items-center hover:opacity-80 transition-opacity">
                     <Image 
-                        src="/logo-zero.gif" 
+                        src="/logo.png" 
                         alt="Money Manager Logo" 
                         width={50} 
                         height={50} 

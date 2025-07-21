@@ -209,7 +209,7 @@ export function SavingsRateChart({ incomes, expenses, currency, startDate, endDa
                             dataKey="month" 
                             tickFormatter={formatMonth}
                             tick={{ fontSize: 12 }}
-                            interval="preserveStartEnd"
+                            interval={1}
                             dy={10}
                         />
                         <YAxis

@@ -16,22 +16,24 @@ export default function NavBar() {
   const { totalBalance, loading: balanceLoading } = useTotalBalance();
   const { openExpenseModal, openIncomeModal } = useModals();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
-      if (!target.closest('.currency-dropdown')) {
+      if (!target.closest('.profile-dropdown')) {
+        setIsProfileDropdownOpen(false);
         setIsDropdownOpen(false);
       }
     };
 
-    if (isDropdownOpen) {
+    if (isProfileDropdownOpen) {
       document.addEventListener('click', handleClickOutside);
       return () => document.removeEventListener('click', handleClickOutside);
     }
-  }, [isDropdownOpen]);
+  }, [isProfileDropdownOpen]);
 
   // Update time every second
   useEffect(() => {
@@ -157,43 +159,7 @@ export default function NavBar() {
             </div>
           )}
           
-          {/* Currency Selector */}
-          {status === "authenticated" && (
-            <div className="relative currency-dropdown">
-              <button
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="flex items-center space-x-2 px-4 py-2.5 bg-gray-50/80 hover:bg-gray-100/80 rounded-full text-sm font-medium text-gray-700 transition-all duration-200 border border-gray-200/50 hover:border-gray-300/50 shadow-sm hover:shadow-md"
-              >
-                <span className="font-semibold">{getCurrencySymbol(selectedCurrency)}</span>
-                <span className="font-medium">{selectedCurrency}</span>
-                <svg className="w-4 h-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
 
-              {isDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200/50 z-50 max-h-60 overflow-y-auto">
-                  <div className="py-2">
-                    {CURRENCIES.map((currency) => (
-                      <button
-                        key={currency.code}
-                        onClick={() => handleCurrencyChange(currency.code)}
-                        className={`w-full text-left px-4 py-3 text-sm hover:bg-gray-50/80 flex items-center justify-between transition-all duration-200 ${
-                          selectedCurrency === currency.code ? 'bg-blue-50/80 text-blue-700 font-medium' : 'text-gray-700'
-                        }`}
-                      >
-                        <span className="flex items-center space-x-3">
-                          <span className="font-semibold text-base">{currency.symbol}</span>
-                          <span className="font-medium">{currency.code}</span>
-                        </span>
-                        <span className="text-xs text-gray-500">{currency.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Auth buttons */}
           {status === "authenticated" ? (
@@ -201,28 +167,144 @@ export default function NavBar() {
               {/* Notification Bell */}
               <NotificationBell className="mr-2" />
               
-              <button
-                onClick={() => signOut({ callbackUrl: "/signin" })}
-                className="px-4 py-2.5 bg-gray-800/90 hover:bg-gray-900/90 text-white rounded-full text-sm font-medium flex items-center transition-all duration-200 shadow-sm hover:shadow-md"
-              >
-                <span>Logout</span>
-              </button>
-              
-              {/* Profile Icon */}
-              {session?.user?.image ? (
-                <img
-                  src={session.user.image}
-                  alt={session.user.name || "User"}
-                  className="w-12 h-12 rounded-full object-cover border-2 border-gray-200/50 hover:border-blue-300/50 transition-all duration-200 shadow-sm hover:shadow-md"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center border-2 border-gray-200/50 hover:border-blue-300/50 transition-all duration-200 shadow-sm hover:shadow-md">
-                  <span className="text-xl font-semibold text-blue-700">
-                    {session?.user?.name?.charAt(0)?.toUpperCase()}
-                  </span>
-                </div>
-              )}
+              {/* Profile Dropdown */}
+              <div className="relative profile-dropdown">
+                <button
+                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                  className="w-12 h-12 rounded-full transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  {session?.user?.image ? (
+                    <img
+                      src={session.user.image}
+                      alt={session.user.name || "User"}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-gray-200/50 hover:border-blue-300/50 transition-all duration-200"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center border-2 border-gray-200/50 hover:border-blue-300/50 transition-all duration-200">
+                      <span className="text-xl font-semibold text-blue-700">
+                        {session?.user?.name?.charAt(0)?.toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                </button>
+
+                {isProfileDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200/50 z-50">
+                    <div className="py-2">
+                      {/* User Info */}
+                      <div className="px-4 py-3 border-b border-gray-100">
+                        <p className="text-sm font-medium text-gray-900">
+                          {session?.user?.name}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {session?.user?.email}
+                        </p>
+                      </div>
+
+                      {/* Currency Selector */}
+                      <div className="px-4 py-3 border-b border-gray-100">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide flex items-center">
+                            <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                            </svg>
+                            Currency
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <button
+                            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                            className="flex items-center justify-between w-full px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 rounded-xl text-sm font-medium text-gray-800 transition-all duration-200 border border-blue-200/50 hover:border-blue-300/50 shadow-sm hover:shadow-md group"
+                          >
+                            <span className="flex items-center space-x-3">
+                              <span className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm border border-gray-200/50 group-hover:shadow-md transition-all duration-200">
+                                <span className="font-bold text-blue-600 text-sm">{getCurrencySymbol(selectedCurrency)}</span>
+                              </span>
+                              <div className="flex flex-col items-start">
+                                <span className="font-semibold text-gray-900">{selectedCurrency}</span>
+                                <span className="text-xs text-gray-500">
+                                  {CURRENCIES.find(c => c.code === selectedCurrency)?.name || 'Select Currency'}
+                                </span>
+                              </div>
+                            </span>
+                            <svg className="w-4 h-4 transition-transform duration-200 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+
+                          {isDropdownOpen && (
+                            <div className="absolute left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-200/50 z-50 max-h-60 overflow-hidden">
+                              <div className="p-2">
+                                <div className="max-h-52 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                                  {CURRENCIES.map((currency) => (
+                                    <button
+                                      key={currency.code}
+                                      onClick={() => handleCurrencyChange(currency.code)}
+                                      className={`w-full text-left px-3 py-3 rounded-lg transition-all duration-200 flex items-center space-x-3 mb-1 last:mb-0 ${
+                                        selectedCurrency === currency.code 
+                                          ? 'bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-900 shadow-md border border-blue-200/50' 
+                                          : 'text-gray-700 hover:bg-gray-50/80 hover:shadow-sm'
+                                      }`}
+                                    >
+                                      <span className={`w-8 h-8 rounded-lg flex items-center justify-center shadow-sm border transition-all duration-200 ${
+                                        selectedCurrency === currency.code 
+                                          ? 'bg-white border-blue-200/50 shadow-md' 
+                                          : 'bg-gray-50 border-gray-200/50'
+                                      }`}>
+                                        <span className={`font-bold text-sm ${
+                                          selectedCurrency === currency.code ? 'text-blue-600' : 'text-gray-600'
+                                        }`}>
+                                          {currency.symbol}
+                                        </span>
+                                      </span>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between">
+                                          <span className={`font-medium ${
+                                            selectedCurrency === currency.code ? 'text-blue-900' : 'text-gray-900'
+                                          }`}>
+                                            {currency.code}
+                                          </span>
+                                          {selectedCurrency === currency.code && (
+                                            <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                          )}
+                                        </div>
+                                        <span className={`text-xs truncate block ${
+                                          selectedCurrency === currency.code ? 'text-blue-700/80' : 'text-gray-500'
+                                        }`}>
+                                          {currency.name}
+                                        </span>
+                                      </div>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Logout */}
+                      <div className="border-t border-gray-100 py-1">
+                        <button
+                          onClick={() => {
+                            setIsProfileDropdownOpen(false);
+                            signOut({ callbackUrl: "/signin" });
+                          }}
+                          className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50/80 transition-colors"
+                        >
+                          <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                          </svg>
+                          Logout
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <>
