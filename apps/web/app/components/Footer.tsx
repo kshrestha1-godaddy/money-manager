@@ -8,10 +8,10 @@ export default function Footer() {
                 <div className="flex items-center mb-4 sm:mb-0">
                     <Link href="/dashboard" className="flex items-center hover:opacity-80 transition-opacity">
                     <Image 
-                        src="/logo.png" 
+                        src="/logo-zero.gif" 
                         alt="Money Manager Logo" 
-                        width={30} 
-                        height={30} 
+                        width={50} 
+                        height={50} 
                         className="rounded-full mr-2" 
                     />
                     <span className="text-gray-700 font-medium">Money Manager</span>
