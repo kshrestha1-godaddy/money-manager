@@ -159,16 +159,14 @@ export default function NetWorthPage() {
                 <div className={UI_STYLES.header.buttonGroup}>
                     <button
                         onClick={refreshData}
-                        className={secondaryBlueButton}
+                        className={primaryButton}
                     >
-                        <RefreshCw className="h-4 w-4" />
                         Refresh
                     </button>
                     <button
                         onClick={handleExportCSV}
-                        className={secondaryGreenButton}
+                        className={secondaryBlueButton} 
                     >
-                        <Download className="h-4 w-4" />
                         Export
                     </button>
                 </div>
