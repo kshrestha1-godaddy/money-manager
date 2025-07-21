@@ -19,6 +19,23 @@ import { useState } from "react";
 import { SavingsRateChart } from "../../components/SavingsRateChart";
 import { ChartSkeleton } from "../../components/shared/ChartSkeleton";
 import { ExportAllButton } from "../../components/ExportAllButton";
+import { 
+    getSummaryCardClasses,
+    BUTTON_COLORS,
+    TEXT_COLORS,
+    CONTAINER_COLORS,
+    LOADING_COLORS,
+    UI_STYLES,
+} from "../../config/colorConfig";
+
+// Extract color variables for better readability
+const pageContainer = CONTAINER_COLORS.page;
+const loadingContainer = LOADING_COLORS.container;
+const loadingSpinner = LOADING_COLORS.spinner;
+const loadingText = LOADING_COLORS.text;
+
+const pageTitle = TEXT_COLORS.title;
+const pageSubtitle = TEXT_COLORS.subtitle;
 
 function DashboardContent() {
     // All hooks must be called before any conditional logic
@@ -90,28 +107,24 @@ function DashboardContent() {
         setEndDate("");
     };
 
-    // Loading state UI
+    // Loading state
     if (incomesData.loading || expensesData.loading) {
         return (
-            <div className="space-y-6">
-                <div className="flex flex-start items-center">
-                    <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-                </div>
-                <div className="flex items-center justify-center h-64">
-                    <div className="text-gray-500">Loading dashboard data...</div>
-                </div>
+            <div className={loadingContainer}>
+                <div className={loadingSpinner}></div>
+                <p className={loadingText}>Loading dashboard data...</p>
             </div>
         );
     }
 
     // Main UI render
     return (
-        <div className="space-y-4">
+        <div className={pageContainer}>
             {/* Header */}
-            <div className="flex justify-between items-center">
+            <div className={UI_STYLES.header.container}>
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-                    <p className="text-gray-600 mt-1">Overview of your financial health</p>
+                    <h1 className={pageTitle}>Dashboard</h1>
+                    <p className={pageSubtitle}>Overview of your financial health</p>
                 </div>
                 <div className="flex items-center gap-4">
                     <ExportAllButton />
@@ -220,7 +233,12 @@ function DashboardContent() {
 
 export default function Dashboard() {
     return (
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={
+            <div className={loadingContainer}>
+                <div className={loadingSpinner}></div>
+                <p className={loadingText}>Loading dashboard...</p>
+            </div>
+        }>
             <DashboardContent />
         </Suspense>
     );

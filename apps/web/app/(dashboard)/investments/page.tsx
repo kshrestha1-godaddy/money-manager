@@ -193,6 +193,16 @@ export default function Investments() {
         );
     }
 
+    // Loading state
+    if (loading) {
+        return (
+            <div className={loadingContainer}>
+                <div className={loadingSpinner}></div>
+                <p className={loadingText}>Loading investments...</p>
+            </div>
+        );
+    }
+
     return (
         <div className={pageContainer}>
             {/* Header */}
@@ -354,12 +364,7 @@ export default function Investments() {
                 </div>
             </div>
 
-            {loading ? (
-                <div className={loadingContainer}>
-                    <div className={loadingSpinner}></div>
-                    <p className={loadingText}>Loading investments...</p>
-                </div>
-            ) : filteredInvestments.length === 0 ? (
+            {filteredInvestments.length === 0 ? (
                 <div className={UI_STYLES.empty.container}>
                     <div className={UI_STYLES.empty.icon}>
                         <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">

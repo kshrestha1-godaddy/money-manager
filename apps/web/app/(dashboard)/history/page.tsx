@@ -10,6 +10,25 @@ import { getCategories } from "../../actions/categories";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
+import { 
+    getSummaryCardClasses,
+    BUTTON_COLORS,
+    TEXT_COLORS,
+    CONTAINER_COLORS,
+    LOADING_COLORS,
+    UI_STYLES,
+} from "../../config/colorConfig";
+
+// Extract color variables for better readability
+const pageContainer = CONTAINER_COLORS.page;
+const loadingContainer = LOADING_COLORS.container;
+const loadingSpinner = LOADING_COLORS.spinner;
+const loadingText = LOADING_COLORS.text;
+
+const pageTitle = TEXT_COLORS.title;
+const pageSubtitle = TEXT_COLORS.subtitle;
+const emptyTitle = TEXT_COLORS.emptyTitle;
+const emptyMessage = TEXT_COLORS.emptyMessage;
 
 type SortField = 'category' | 'period1' | 'period2' | 'delta';
 type SortDirection = 'asc' | 'desc';
@@ -938,23 +957,24 @@ export default function History() {
         </>
     );
 
+    // Loading state
     if (loading) {
         return (
-            <div className="space-y-6">
-                <h1 className="text-3xl font-bold text-gray-900">History & Comparison</h1>
-                {renderLoadingSkeleton()}
+            <div className={loadingContainer}>
+                <div className={loadingSpinner}></div>
+                <p className={loadingText}>Loading history data...</p>
             </div>
         );
     }
 
     if (!comparisonData) {
         return (
-            <div className="space-y-6">
-                <h1 className="text-3xl font-bold text-gray-900">History & Comparison</h1>
-                <div className="bg-white rounded-lg shadow p-8 text-center">
-                    <div className="text-gray-400 text-6xl mb-4">📊</div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No data available</h3>
-                    <p className="text-gray-500">Add some transactions to see your financial comparison.</p>
+            <div className={pageContainer}>
+                <h1 className={pageTitle}>History & Comparison</h1>
+                <div className={UI_STYLES.empty.container}>
+                    <div className={UI_STYLES.empty.icon}>📊</div>
+                    <h3 className={emptyTitle}>No data available</h3>
+                    <p className={emptyMessage}>Add some transactions to see your financial comparison.</p>
                 </div>
             </div>
         );
@@ -977,12 +997,12 @@ export default function History() {
     ]);
 
     return (
-        <div className="space-y-6">
+        <div className={pageContainer}>
             {/* Header */}
-            <div className="flex justify-between items-center">
+            <div className={UI_STYLES.header.container}>
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">History & Comparison</h1>
-                    <p className="text-gray-600 mt-2">Compare your financial performance across different time periods</p>
+                    <h1 className={pageTitle}>History & Comparison</h1>
+                    <p className={pageSubtitle}>Compare your financial performance across different time periods</p>
                 </div>
             </div>
 

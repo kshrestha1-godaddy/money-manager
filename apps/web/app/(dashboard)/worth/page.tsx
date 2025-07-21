@@ -10,6 +10,53 @@ import { useChartExpansion } from "../../utils/chartUtils";
 import { ChartControls } from "../../components/ChartControls";
 import { useOptimizedWorth } from "../../hooks/useOptimizedWorth";
 import { TrendingUp, TrendingDown, DollarSign, Target, PiggyBank, BarChart3, RefreshCw, Download } from "lucide-react";
+import { 
+    getSummaryCardClasses,
+    getGainLossClasses,
+    BUTTON_COLORS,
+    TEXT_COLORS,
+    CONTAINER_COLORS,
+    INPUT_COLORS,
+    LOADING_COLORS,
+    ICON_COLORS,
+    UI_STYLES,
+} from "../../config/colorConfig";
+
+// Extract color variables for better readability
+const pageContainer = CONTAINER_COLORS.page;
+const errorContainer = CONTAINER_COLORS.error;
+const whiteContainer = CONTAINER_COLORS.whiteWithPadding;
+const cardContainer = CONTAINER_COLORS.card;
+const cardLargeContainer = CONTAINER_COLORS.cardLarge;
+const loadingContainer = LOADING_COLORS.container;
+const loadingSpinner = LOADING_COLORS.spinner;
+const loadingText = LOADING_COLORS.text;
+
+const pageTitle = TEXT_COLORS.title;
+const pageSubtitle = TEXT_COLORS.subtitle;
+const errorTitle = TEXT_COLORS.errorTitle;
+const errorMessage = TEXT_COLORS.errorMessage;
+const cardTitle = TEXT_COLORS.cardTitle;
+const cardValue = TEXT_COLORS.cardValue;
+const cardValueLarge = TEXT_COLORS.cardValueLarge;
+const cardSubtitle = TEXT_COLORS.cardSubtitle;
+const emptyTitle = TEXT_COLORS.emptyTitle;
+const emptyMessage = TEXT_COLORS.emptyMessage;
+const labelText = TEXT_COLORS.label;
+const chartTitle = TEXT_COLORS.chartTitle;
+
+const primaryButton = BUTTON_COLORS.primary;
+const secondaryBlueButton = BUTTON_COLORS.secondaryBlue;
+const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
+const clearButton = BUTTON_COLORS.clear;
+
+// Icon colors
+const blueIcon = ICON_COLORS.blue;
+const greenIcon = ICON_COLORS.green;
+const redIcon = ICON_COLORS.red;
+const purpleIcon = ICON_COLORS.purple;
+const greenPositiveIcon = ICON_COLORS.greenPositive;
+const redNegativeIcon = ICON_COLORS.redNegative;
 
 type SectionKey = 'accounts' | 'investments' | 'debts';
 
@@ -75,13 +122,13 @@ export default function NetWorthPage() {
     if (error) {
         return (
             <div className="p-8 text-center">
-                <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold text-red-800 mb-2">Error Loading Net Worth Data</h3>
-                    <p className="text-red-600">{String(error)}</p>
+                <div className={errorContainer}>
+                    <h3 className={errorTitle}>Error Loading Net Worth Data</h3>
+                    <p className={errorMessage}>{String(error)}</p>
                     <div className="flex gap-2 mt-4 justify-center">
                         <button 
                             onClick={refreshData} 
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                            className={primaryButton}
                         >
                             Retry       
                         </button>
@@ -94,34 +141,32 @@ export default function NetWorthPage() {
     // Loading state
     if (loading) {
         return (
-            <div className="space-y-6">
-                <div className="flex flex-col items-center justify-center h-64">
-                    <div className="animate-spin mb-4 h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                    <div className="text-gray-500">Loading net worth data...</div>
-                </div>
+            <div className={loadingContainer}>
+                <div className={loadingSpinner}></div>
+                <p className={loadingText}>Loading net worth data...</p>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6 max-w-full min-w-0">
+        <div className={`${pageContainer} max-w-full min-w-0`}>
             {/* Header */}
-            <div className="flex justify-between items-center">
+            <div className={UI_STYLES.header.container}>
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Net Worth</h1>
-                    <p className="text-gray-600 mt-1">Track your overall financial position and growth</p>
+                    <h1 className={pageTitle}>Net Worth</h1>
+                    <p className={pageSubtitle}>Track your overall financial position and growth</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className={UI_STYLES.header.buttonGroup}>
                     <button
                         onClick={refreshData}
-                        className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-gray-600 border border-gray-200 rounded-md flex items-center gap-2"
+                        className={secondaryBlueButton}
                     >
                         <RefreshCw className="h-4 w-4" />
                         Refresh
                     </button>
                     <button
                         onClick={handleExportCSV}
-                        className="px-4 py-2 bg-gray-50 hover:bg-green-100 text-gray-600 border border-gray-200 rounded-md flex items-center gap-2"
+                        className={secondaryGreenButton}
                     >
                         <Download className="h-4 w-4" />
                         Export
@@ -149,7 +194,7 @@ export default function NetWorthPage() {
                             <p className={`text-2xl font-semibold ${netWorthStats.monthlyGrowthRate >= 0 ? 'text-green-200' : 'text-red-200'}`}>
                                 {netWorthStats.monthlyGrowthRate >= 0 ? '+' : ''}{netWorthStats.monthlyGrowthRate.toFixed(1)}%
                             </p>
-                            <div className="text-sm text-gray-100 mt-1">
+                            <div className="text-sm text-green-100 mt-1">
                                 Projected yearly: {netWorthStats.projectedYearlyGrowth >= 0 ? '+' : ''}{netWorthStats.projectedYearlyGrowth.toFixed(1)}%
                             </div>
                         </div>
@@ -159,51 +204,51 @@ export default function NetWorthPage() {
 
             {/* Financial Health Metrics - Card Style */}
             <div className="grid grid-cols-4 gap-6">
-                <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                        <h3 className="text-sm font-medium text-gray-500 mr-2">Savings Rate</h3>
-                        <PiggyBank className="h-4 w-4 text-blue-500" />
+                <div className={cardLargeContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRow}>
+                        <h3 className={`${cardTitle} mr-2`}>Savings Rate</h3>
+                        <PiggyBank className={`h-4 w-4 ${blueIcon}`} />
                     </div>
-                    <p className="text-2xl font-bold text-blue-600">
+                    <p className={`${cardValueLarge} ${getSummaryCardClasses('savingsRate', 'investments').text}`}>
                         {netWorthStats.savingsRate.toFixed(1)}%
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">This month</p>
+                    <p className={cardSubtitle}>This month</p>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                        <h3 className="text-sm font-medium text-gray-500 mr-2">Investment Allocation</h3>
-                        <BarChart3 className="h-4 w-4 text-purple-500" />
+                <div className={cardLargeContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRow}>
+                        <h3 className={`${cardTitle} mr-2`}>Investment Allocation</h3>
+                        <BarChart3 className={`h-4 w-4 ${purpleIcon}`} />
                     </div>
-                    <p className="text-2xl font-bold text-purple-600">
+                    <p className={`${cardValueLarge} ${getSummaryCardClasses('investmentAllocation', 'investments').text}`}>
                         {netWorthStats.investmentAllocation.toFixed(1)}%
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">Of total assets</p>
+                    <p className={cardSubtitle}>Of total assets</p>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                        <h3 className="text-sm font-medium text-gray-500 mr-2">Liquidity Ratio</h3>
-                        <DollarSign className="h-4 w-4 text-green-500" />
+                <div className={cardLargeContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRow}>
+                        <h3 className={`${cardTitle} mr-2`}>Liquidity Ratio</h3>
+                        <DollarSign className={`h-4 w-4 ${greenIcon}`} />
                     </div>
-                    <p className="text-2xl font-bold text-green-600">
+                    <p className={`${cardValueLarge} ${getSummaryCardClasses('liquidityRatio', 'investments').text}`}>
                         {netWorthStats.liquidityRatio.toFixed(1)}%
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">Cash accessible</p>
+                    <p className={cardSubtitle}>Cash accessible</p>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                        <h3 className="text-sm font-medium text-gray-500 mr-2">Investment Gain</h3>
+                <div className={cardLargeContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRow}>
+                        <h3 className={`${cardTitle} mr-2`}>Investment Gain</h3>
                         {netWorthStats.totalInvestmentGain >= 0 ? 
-                            <TrendingUp className="h-4 w-4 text-green-500" /> : 
-                            <TrendingDown className="h-4 w-4 text-red-500" />
+                            <TrendingUp className={`h-4 w-4 ${greenPositiveIcon}`} /> : 
+                            <TrendingDown className={`h-4 w-4 ${redNegativeIcon}`} />
                         }
                     </div>
-                    <p className={`text-2xl font-bold ${netWorthStats.totalInvestmentGain >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <p className={`${cardValueLarge} ${getGainLossClasses(netWorthStats.totalInvestmentGain)}`}>
                         {formatCurrencyAbbreviated(netWorthStats.totalInvestmentGain)}
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className={cardSubtitle}>
                         {netWorthStats.totalInvestmentGainPercentage.toFixed(1)}% return
                     </p>
                 </div>
@@ -211,11 +256,11 @@ export default function NetWorthPage() {
 
             {/* Asset Breakdown Chart */}
             {chartData.length > 0 && (
-                <div className={`bg-white rounded-lg shadow-sm border ${isChartExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}>
+                <div className={`${whiteContainer} ${isChartExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}>
                     <div className="flex items-center justify-between p-6 border-b border-gray-200">
                         <div>
-                            <h3 className="text-lg font-semibold text-gray-900">Asset Breakdown</h3>
-                            <p className="text-sm text-gray-600 mt-1">Distribution of your total assets</p>
+                            <h3 className={chartTitle}>Asset Breakdown</h3>
+                            <p className={cardSubtitle}>Distribution of your total assets</p>
                         </div>
                         <ChartControls
                             chartRef={chartRef}
@@ -292,7 +337,7 @@ export default function NetWorthPage() {
 
             {/* Asset Details Sections */}
             {sections.map((section) => (
-                <div key={section.key} className="bg-white rounded-lg shadow-sm border">
+                <div key={section.key} className={whiteContainer}>
                     <div 
                         className="flex items-center justify-between p-6 border-b border-gray-200 cursor-pointer hover:bg-gray-50"
                         onClick={() => toggleSection(section.key as SectionKey)}
@@ -303,8 +348,8 @@ export default function NetWorthPage() {
                                 style={{ backgroundColor: section.color }}
                             ></div>
                             <div>
-                                <h3 className="text-lg font-semibold text-gray-900">{section.title}</h3>
-                                <p className="text-sm text-gray-600">
+                                <h3 className={`text-lg font-semibold ${TEXT_COLORS.cardTitle}`}>{section.title}</h3>
+                                <p className={cardSubtitle}>
                                     {formatCurrency(section.value, currency)} ({section.percentage.toFixed(1)}% of total assets)
                                 </p>
                             </div>
@@ -317,7 +362,7 @@ export default function NetWorthPage() {
                     {expandedSections[section.key as SectionKey] && (
                         <div className="p-6">
                             {section.items.length === 0 ? (
-                                <p className="text-gray-500 text-center py-4">No items in this category</p>
+                                <p className={`${emptyMessage} text-center py-4`}>No items in this category</p>
                             ) : (
                                 <div className="space-y-3">
                                     {section.items.map((item: any, index: number) => {
@@ -330,7 +375,7 @@ export default function NetWorthPage() {
                                             <div key={item.id || index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-2 mb-1">
-                                                        <h4 className="font-medium text-gray-900">
+                                                        <h4 className={`font-medium ${TEXT_COLORS.cardTitle}`}>
                                                             {item.holderName || item.name || item.borrowerName || 'Unknown'}
                                                         </h4>
                                                         {section.key === 'debts' && (
@@ -339,7 +384,7 @@ export default function NetWorthPage() {
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <p className="text-sm text-gray-600">
+                                                    <p className={cardSubtitle}>
                                                         {item.bankName || item.symbol || item.purpose || 'No description'}
                                                     </p>
                                                     {section.key === 'debts' && item.dueDate && (
@@ -349,18 +394,14 @@ export default function NetWorthPage() {
                                                     )}
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="font-semibold text-gray-900">
+                                                    <p className={`font-semibold ${TEXT_COLORS.cardTitle}`}>
                                                         {formatCurrency(itemValue, currency)}
                                                     </p>
-                                                    <p className="text-xs text-blue-600 font-medium">
+                                                    <p className={`text-xs ${blueIcon} font-medium`}>
                                                         {itemPercentage}%
                                                     </p>
                                                     {section.key === 'investments' && (
-                                                        <p className={`text-xs ${
-                                                            (item.currentPrice - item.purchasePrice) >= 0 
-                                                                ? 'text-green-600' 
-                                                                : 'text-red-600'
-                                                        }`}>
+                                                        <p className={`text-xs ${getGainLossClasses(item.currentPrice - item.purchasePrice)}`}>
                                                             {((item.currentPrice - item.purchasePrice) / item.purchasePrice * 100).toFixed(1)}% gain/loss
                                                         </p>
                                                     )}

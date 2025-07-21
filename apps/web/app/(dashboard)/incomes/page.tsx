@@ -17,6 +17,29 @@ import { getIncomes, createIncome, updateIncome, deleteIncome, bulkDeleteIncomes
 import { exportIncomesToCSV } from '../../utils/csvExportIncomes'
 import { Income } from '../../types/financial'
 import { useCurrency } from '../../providers/CurrencyProvider'
+import { 
+    getSummaryCardClasses,
+    BUTTON_COLORS,
+    TEXT_COLORS,
+    CONTAINER_COLORS,
+    LOADING_COLORS,
+    UI_STYLES,
+} from '../../config/colorConfig'
+
+// Extract color variables for better readability
+const pageContainer = CONTAINER_COLORS.page;
+const loadingContainer = LOADING_COLORS.container;
+const loadingSpinner = LOADING_COLORS.spinner;
+const loadingText = LOADING_COLORS.text;
+
+const pageTitle = TEXT_COLORS.title;
+const pageSubtitle = TEXT_COLORS.subtitle;
+
+const primaryButton = BUTTON_COLORS.primary;
+const secondaryBlueButton = BUTTON_COLORS.secondaryBlue;
+const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
+// Use secondaryBlue for purple-like buttons since secondaryPurple doesn't exist
+const secondaryPurpleButton = BUTTON_COLORS.secondaryBlue;
 
 function IncomesContent() {
   const { currency: userCurrency } = useCurrency()
@@ -183,40 +206,50 @@ function IncomesContent() {
     }
   ]
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className={loadingContainer}>
+        <div className={loadingSpinner}></div>
+        <p className={loadingText}>Loading incomes...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className={pageContainer}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Incomes</h1>
-          <p className="text-gray-600">Track and manage your income sources</p>
-        </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
-            >
-              Add Income
-            </button>
-            <button
-              onClick={() => setIsBulkImportModalOpen(true)}
-              className="px-4 py-2 border border-gray-600 text-gray-600 hover:bg-blue-50 rounded-md"
-            >
-              Import CSV
-            </button>
-            <button
-              onClick={handleExportToCSV}
-              disabled={allIncomes.length === 0}
-              className="px-4 py-2 border border-gray-600 text-gray-600 hover:bg-green-50 rounded-md disabled:opacity-50"
-            >
-              Export CSV
-            </button>
-            <button
-              onClick={() => setIsAddCategoryModalOpen(true)}
-              className="px-4 py-2 border border-gray-600 text-gray-600 hover:bg-purple-50 rounded-md"
-            >
-              Add Category
-            </button>
+                  <div>
+            <h1 className={pageTitle}>Incomes</h1>
+            <p className={pageSubtitle}>Track and manage your income sources</p>
+          </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className={primaryButton}
+              >
+                Add Income
+              </button>
+              <button
+                onClick={() => setIsBulkImportModalOpen(true)}
+                className={secondaryBlueButton}
+              >
+                Import CSV
+              </button>
+              <button
+                onClick={handleExportToCSV}
+                disabled={allIncomes.length === 0}
+                className={`${secondaryGreenButton} disabled:opacity-50`}
+              >
+                Export CSV
+              </button>
+              <button
+                onClick={() => setIsAddCategoryModalOpen(true)}
+                className={secondaryPurpleButton}
+              >
+                Add Category
+              </button>
           </div>
         </div>
 

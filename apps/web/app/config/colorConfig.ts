@@ -455,11 +455,11 @@ export const COLORS = {
 
 // Loading States
 export const UI_STYLES = {
-  // Loading spinner
+  // Loading spinner - minimal and clean, centered on screen
   loading: {
-    container: `${COLORS.common.gray.background.white} rounded-lg shadow-sm border p-12 text-center`,
-    spinner: `animate-spin mx-auto mb-4 h-8 w-8 border-2 ${COLORS.common.primary.blue[500]} border-t-transparent rounded-full`,
-    text: COLORS.common.gray.text[600],
+    container: 'flex flex-col items-center justify-center min-h-screen',
+    spinner: `animate-spin h-8 w-8 border-2 ${COLORS.common.primary.blue[500]} border-t-transparent rounded-full`,
+    text: `${COLORS.common.gray.text[600]} mt-4 text-sm`,
   },
 
   // Error states
@@ -580,11 +580,11 @@ export const INPUT_COLORS = {
   standard: `w-full px-4 py-2 border ${COLORS.forms.input.border} rounded-lg focus:outline-none focus:ring-2 ${COLORS.forms.input.focus.ring} ${COLORS.forms.input.focus.border}`,
 } as const;
 
-// Loading Colors
+// Loading Colors - minimal and clean, centered on screen
 export const LOADING_COLORS = {
-  container: `${COLORS.common.gray.background.white} rounded-lg shadow-sm border p-12 text-center`,
-  spinner: `animate-spin mx-auto mb-4 h-8 w-8 border-2 ${COLORS.common.primary.blue[500]} border-t-transparent rounded-full`,
-  text: COLORS.common.gray.text[600],
+  container: 'flex flex-col items-center justify-center min-h-screen',
+  spinner: `animate-spin h-8 w-8 border-2 ${COLORS.common.primary.blue[500]} border-t-transparent rounded-full`,
+  text: `${COLORS.common.gray.text[600]} mt-4 text-sm`,
 } as const;
 
 // Icon Colors
