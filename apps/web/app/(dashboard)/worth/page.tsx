@@ -205,9 +205,12 @@ export default function NetWorthPage() {
                 <div className={cardLargeContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRow}>
                         <h3 className={`${cardTitle} mr-2`}>Savings Rate</h3>
-                        <PiggyBank className={`h-4 w-4 ${blueIcon}`} />
+                        {netWorthStats.savingsRate >= 0 ? 
+                            <PiggyBank className={`h-4 w-4 ${greenPositiveIcon}`} /> : 
+                            <PiggyBank className={`h-4 w-4 ${redNegativeIcon}`} />
+                        }
                     </div>
-                    <p className={`${cardValueLarge} ${getSummaryCardClasses('savingsRate', 'investments').text}`}>
+                    <p className={`${cardValueLarge} ${getGainLossClasses(netWorthStats.savingsRate)}`}>
                         {netWorthStats.savingsRate.toFixed(1)}%
                     </p>
                     <p className={cardSubtitle}>This month</p>
@@ -216,9 +219,18 @@ export default function NetWorthPage() {
                 <div className={cardLargeContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRow}>
                         <h3 className={`${cardTitle} mr-2`}>Investment Allocation</h3>
-                        <BarChart3 className={`h-4 w-4 ${purpleIcon}`} />
+                        {netWorthStats.investmentAllocation >= 20 ? 
+                            <BarChart3 className={`h-4 w-4 ${greenPositiveIcon}`} /> : 
+                            netWorthStats.investmentAllocation >= 10 ?
+                            <BarChart3 className={`h-4 w-4 ${purpleIcon}`} /> :
+                            <BarChart3 className={`h-4 w-4 ${redNegativeIcon}`} />
+                        }
                     </div>
-                    <p className={`${cardValueLarge} ${getSummaryCardClasses('investmentAllocation', 'investments').text}`}>
+                    <p className={`${cardValueLarge} ${
+                        netWorthStats.investmentAllocation >= 20 ? getGainLossClasses(1) :
+                        netWorthStats.investmentAllocation >= 10 ? getSummaryCardClasses('investmentAllocation', 'investments').text :
+                        getGainLossClasses(-1)
+                    }`}>
                         {netWorthStats.investmentAllocation.toFixed(1)}%
                     </p>
                     <p className={cardSubtitle}>Of total assets</p>
@@ -227,9 +239,18 @@ export default function NetWorthPage() {
                 <div className={cardLargeContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRow}>
                         <h3 className={`${cardTitle} mr-2`}>Liquidity Ratio</h3>
-                        <DollarSign className={`h-4 w-4 ${greenIcon}`} />
+                        {netWorthStats.liquidityRatio >= 50 ? 
+                            <DollarSign className={`h-4 w-4 ${greenPositiveIcon}`} /> : 
+                            netWorthStats.liquidityRatio >= 30 ?
+                            <DollarSign className={`h-4 w-4 ${greenIcon}`} /> :
+                            <DollarSign className={`h-4 w-4 ${redNegativeIcon}`} />
+                        }
                     </div>
-                    <p className={`${cardValueLarge} ${getSummaryCardClasses('liquidityRatio', 'investments').text}`}>
+                    <p className={`${cardValueLarge} ${
+                        netWorthStats.liquidityRatio >= 50 ? getGainLossClasses(1) :
+                        netWorthStats.liquidityRatio >= 30 ? getSummaryCardClasses('liquidityRatio', 'investments').text :
+                        getGainLossClasses(-1)
+                    }`}>
                         {netWorthStats.liquidityRatio.toFixed(1)}%
                     </p>
                     <p className={cardSubtitle}>Cash accessible</p>
@@ -309,7 +330,7 @@ export default function NetWorthPage() {
                                             position="top" 
                                             formatter={(value: number) => formatCurrencyAbbreviated(value)}
                                             style={{ 
-                                                fontSize: '11px', 
+                                                fontSize: '15px', 
                                                 fontWeight: 'bold',
                                                 fill: '#374151'
                                             }}
@@ -320,7 +341,7 @@ export default function NetWorthPage() {
                                             position="center" 
                                             formatter={(value: string) => `${value}%`}
                                             style={{ 
-                                                fontSize: '12px', 
+                                                fontSize: '13px', 
                                                 fontWeight: 'bold',
                                                 fill: '#ffffff'
                                             }}
