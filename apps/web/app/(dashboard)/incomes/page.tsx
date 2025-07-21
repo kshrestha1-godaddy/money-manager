@@ -42,7 +42,6 @@ const pageSubtitle = TEXT_COLORS.subtitle;
 const primaryButton = BUTTON_COLORS.primary;
 const secondaryBlueButton = BUTTON_COLORS.secondaryBlue;
 const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
-// Use secondaryBlue for purple-like buttons since secondaryPurple doesn't exist
 const secondaryPurpleButton = BUTTON_COLORS.secondaryBlue;
 
 function IncomesContent() {

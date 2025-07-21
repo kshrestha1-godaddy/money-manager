@@ -1,5 +1,12 @@
 import React from "react";
 import { Category } from "../../types/financial";
+import { 
+    BUTTON_COLORS,
+    TEXT_COLORS,
+    CONTAINER_COLORS,
+    INPUT_COLORS,
+    UI_STYLES,
+} from "../../config/colorConfig";
 
 interface FinancialFiltersProps {
   searchTerm: string;
@@ -19,6 +26,12 @@ interface FinancialFiltersProps {
   hasActiveFilters: boolean;
 }
 
+// Extract color variables for better readability
+const filtersContainer = CONTAINER_COLORS.whiteWithPadding;
+const labelText = TEXT_COLORS.label;
+const clearFilterButton = BUTTON_COLORS.clearFilter;
+const standardInput = INPUT_COLORS.standard;
+
 export function FinancialFilters({
   searchTerm,
   onSearchChange,
@@ -37,10 +50,10 @@ export function FinancialFilters({
   hasActiveFilters,
 }: FinancialFiltersProps) {
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+    <div className={filtersContainer}>
+      <div className={UI_STYLES.filters.gridSix}>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className={labelText}>
             Search {itemType === "income" ? "Incomes" : "Expenses"}
           </label>
           <input
@@ -48,17 +61,17 @@ export function FinancialFilters({
             placeholder="Search by title, description, or notes..."
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={standardInput}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className={labelText}>
             Filter by Category
           </label>
           <select
             value={selectedCategory}
             onChange={(e) => onCategoryChange(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={standardInput}
           >
             <option value="">All Categories</option>
             {categories.map(category => (
@@ -69,13 +82,13 @@ export function FinancialFilters({
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className={labelText}>
             Filter by Bank
           </label>
           <select
             value={selectedBank}
             onChange={(e) => onBankChange(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={standardInput}
           >
             <option value="">All Banks</option>
             {uniqueBankNames.map(bankName => (
@@ -86,40 +99,37 @@ export function FinancialFilters({
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className={labelText}>
             Start Date
           </label>
           <input
             type="date"
             value={startDate}
             onChange={(e) => onStartDateChange(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={standardInput}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className={labelText}>
             End Date
           </label>
           <input
             type="date"
             value={endDate}
             onChange={(e) => onEndDateChange(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={standardInput}
           />
         </div>
-      </div>
-      
-      {/* Clear Filters Button */}
-      {hasActiveFilters && (
-        <div className="mt-4 flex justify-end">
+        <div className={UI_STYLES.filters.clearButtonContainer}>
           <button
             onClick={onClearFilters}
-            className="text-sm px-4 py-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={clearFilterButton}
+            disabled={!hasActiveFilters}
           >
-            Clear All Filters
+            Clear Filters
           </button>
         </div>
-      )}
+      </div>
     </div>
   );
 } 
