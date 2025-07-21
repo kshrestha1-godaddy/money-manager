@@ -31,6 +31,10 @@ const pageContainer = CONTAINER_COLORS.page;
 const loadingContainer = LOADING_COLORS.container;
 const loadingSpinner = LOADING_COLORS.spinner;
 const loadingText = LOADING_COLORS.text;
+const cardLargeContainer = CONTAINER_COLORS.cardLarge;
+const cardTitle = TEXT_COLORS.cardTitle;
+const cardValue = TEXT_COLORS.cardValue;
+const cardSubtitle = TEXT_COLORS.cardSubtitle;
 
 const pageTitle = TEXT_COLORS.title;
 const pageSubtitle = TEXT_COLORS.subtitle;
@@ -174,7 +178,6 @@ function IncomesContent() {
   const quarterNames = ["Q1", "Q2", "Q3", "Q4"]
   
   const currentMonthName = monthNames[currentMonth]
-  const lastMonthName = currentMonth === 0 ? monthNames[11] : monthNames[currentMonth - 1]
   const currentQuarterName = quarterNames[currentQuarter]
   
   const summaryCards = [
@@ -219,12 +222,12 @@ function IncomesContent() {
   return (
     <div className={pageContainer}>
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className={UI_STYLES.header.container}>
                   <div>
             <h1 className={pageTitle}>Incomes</h1>
             <p className={pageSubtitle}>Track and manage your income sources</p>
           </div>
-            <div className="flex gap-2">
+          <div className={UI_STYLES.header.buttonGroup}>
               <button
                 onClick={() => setIsAddModalOpen(true)}
                 className={primaryButton}
@@ -254,17 +257,17 @@ function IncomesContent() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-4 gap-6 mb-6"> 
           {summaryCards.map((card, index) => (
-            <div key={index} className="bg-white rounded-lg border p-4 text-center">
+            <div key={index} className={cardLargeContainer}>
               <div className="flex items-center justify-center space-x-2 mb-2">
                 <div className={`w-3 h-3 rounded-full ${card.dotColor}`}></div>
-                <h3 className="text-sm font-medium text-gray-600">{card.title}</h3>
+                <h3 className={cardTitle}>{card.title}</h3>
               </div>
-              <p className={`text-2xl font-bold ${card.title.includes('Total') ? 'text-green-600' : 'text-gray-500'}`}>
+              <p className={`${cardValue} ${card.title.includes('Total') ? 'text-green-600' : 'text-black'}`}>
                 {isLoading ? '...' : card.value}
               </p>
-              <p className={`text-sm ${card.subtitleColor || 'text-gray-500'}`}>{card.subtitle}</p>
+              <p className={`${cardSubtitle} ${card.subtitleColor || 'text-gray-500'}`}>{card.subtitle}</p> 
             </div>
           ))}
         </div>

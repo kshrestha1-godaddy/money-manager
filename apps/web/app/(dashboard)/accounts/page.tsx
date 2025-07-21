@@ -203,7 +203,7 @@ export default function Accounts() {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-3 gap-6 mb-6">
                 <div className={cardContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRow}>
                         <div className={`${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('totalAccounts', 'accounts').indicator}`}></div>
@@ -223,16 +223,6 @@ export default function Accounts() {
                         {loading ? "..." : formatCurrency(filteredTotalBalance, userCurrency)}
                     </p>
                     <p className={cardSubtitle}>total balance</p>
-                </div>
-                <div className={cardContainer}>
-                    <div className={UI_STYLES.summaryCard.indicatorRow}>
-                        <div className={`${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('selected', 'accounts').indicator}`}></div>
-                        <h3 className={cardTitle}>Selected</h3>
-                    </div>
-                    <p className={`${cardValue} ${getSummaryCardClasses('selected', 'accounts').text}`}>
-                        {selectedAccounts.size}
-                    </p>
-                    <p className={cardSubtitle}>accounts selected</p>
                 </div>
                 <div className={cardContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRow}>
@@ -333,11 +323,6 @@ export default function Accounts() {
                         >
                             Clear Filters
                         </button>
-                    </div>
-                </div>
-                <div className={UI_STYLES.filters.resultContainer}>
-                    <div className={resultText}>
-                        {loading ? "Loading..." : `${filteredAccounts.length} of ${allAccounts.length} accounts`}
                     </div>
                 </div>
             </div>

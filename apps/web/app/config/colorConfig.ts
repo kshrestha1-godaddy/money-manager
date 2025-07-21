@@ -519,7 +519,7 @@ export const UI_STYLES = {
     label: `block text-sm font-medium ${COLORS.forms.label} mb-2`,
     input: `w-full px-4 py-2 border ${COLORS.forms.input.border} rounded-lg focus:outline-none focus:ring-2 ${COLORS.forms.input.focus.ring} ${COLORS.forms.input.focus.border}`,
     clearButton: `w-full px-6 py-2 border ${COLORS.buttons.secondary.border} ${COLORS.buttons.secondary.background} ${COLORS.buttons.secondary.text} ${COLORS.buttons.secondary.hover} rounded-lg focus:outline-none focus:ring-2 ${COLORS.forms.input.focus.ring} disabled:opacity-50 disabled:cursor-not-allowed`,
-    clearButtonContainer: 'flex items-end',
+    clearButtonContainer: 'flex items-center pt-6',
     resultText: `text-sm ${COLORS.common.gray.text[600]}`,
     resultContainer: 'flex justify-end mt-4',
   },
