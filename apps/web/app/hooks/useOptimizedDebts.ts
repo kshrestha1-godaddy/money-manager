@@ -13,7 +13,7 @@ import { triggerBalanceRefresh } from "./useTotalBalance";
 import { exportDebtsToCSV } from "../utils/csvExportDebts";
 import { calculateRemainingWithInterest } from "../utils/interestCalculation";
 
-type ViewMode = "table" | "cards";
+
 type ModalType = 'add' | 'edit' | 'delete' | 'view' | 'repayment' | 'import' | null;
 
 interface ModalState {
@@ -50,12 +50,14 @@ interface UseOptimizedDebtsReturn {
     setIsBulkDeleteModalOpen: (open: boolean) => void;
 
     // UI states
-    viewMode: ViewMode;
-    setViewMode: (mode: ViewMode) => void;
     searchTerm: string;
     setSearchTerm: (term: string) => void;
     selectedStatus: string;
     setSelectedStatus: (status: string) => void;
+    startDate: string;
+    setStartDate: (date: string) => void;
+    endDate: string;
+    setEndDate: (date: string) => void;
 
     // Selection states
     selectedDebts: Set<number>;
@@ -109,9 +111,10 @@ export function useOptimizedDebts(): UseOptimizedDebtsReturn {
 
     // UI State
     const [modal, setModal] = useState<ModalState>({ type: null });
-    const [viewMode, setViewMode] = useState<ViewMode>("table");
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedStatus, setSelectedStatus] = useState("");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
     
     // Selection State
     const [selectedDebts, setSelectedDebts] = useState<Set<number>>(new Set());
@@ -138,8 +141,8 @@ export function useOptimizedDebts(): UseOptimizedDebtsReturn {
 
     // Filter logic (memoized for performance)
     const hasActiveFilters = useMemo(() => {
-        return !!(searchTerm || selectedStatus);
-    }, [searchTerm, selectedStatus]);
+        return !!(searchTerm || selectedStatus || startDate || endDate);
+    }, [searchTerm, selectedStatus, startDate, endDate]);
 
     const filteredDebts = useMemo(() => {
         let filtered = [...allDebts];
@@ -159,8 +162,26 @@ export function useOptimizedDebts(): UseOptimizedDebtsReturn {
             filtered = filtered.filter(debt => debt.status === selectedStatus);
         }
 
+        // Date filtering
+        if (startDate) {
+            const start = new Date(startDate);
+            filtered = filtered.filter(debt => {
+                const debtDate = debt.lentDate instanceof Date ? debt.lentDate : new Date(debt.lentDate);
+                return debtDate >= start;
+            });
+        }
+
+        if (endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999); // Include the entire end date
+            filtered = filtered.filter(debt => {
+                const debtDate = debt.lentDate instanceof Date ? debt.lentDate : new Date(debt.lentDate);
+                return debtDate <= end;
+            });
+        }
+
         return filtered;
-    }, [allDebts, searchTerm, selectedStatus]);
+    }, [allDebts, searchTerm, selectedStatus, startDate, endDate]);
 
     // Calculate financial summary
 
@@ -475,6 +496,8 @@ export function useOptimizedDebts(): UseOptimizedDebtsReturn {
     const clearFilters = useCallback(() => {
         setSearchTerm("");
         setSelectedStatus("");
+        setStartDate("");
+        setEndDate("");
         setSelectedDebts(new Set());
     }, []);
 
@@ -506,12 +529,14 @@ export function useOptimizedDebts(): UseOptimizedDebtsReturn {
         setIsBulkDeleteModalOpen,
 
         // UI states
-        viewMode,
-        setViewMode,
         searchTerm,
         setSearchTerm,
         selectedStatus,
         setSelectedStatus,
+        startDate,
+        setStartDate,
+        endDate,
+        setEndDate,
 
         // Selection states
         selectedDebts,

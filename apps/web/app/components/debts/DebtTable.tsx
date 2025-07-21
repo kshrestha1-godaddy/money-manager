@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { DebtInterface } from "../../types/debts";
 import { formatDate } from "../../utils/date";
 import { formatCurrency } from "../../utils/currency";
@@ -40,18 +40,7 @@ export function DebtTable({
     const { currency: userCurrency } = useCurrency();
     const [sortField, setSortField] = useState<SortField>('dueDate');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-    const [isMobile, setIsMobile] = useState(false);
 
-    // Mobile detection
-    useEffect(() => {
-        const checkMobile = () => {
-            setIsMobile(window.innerWidth < 768);
-        };
-        
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
 
     const handleSelectAll = () => {
         const allSelected = debts.every(debt => selectedDebts.has(debt.id));
@@ -164,29 +153,8 @@ export function DebtTable({
 
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden">
-
-            {isMobile ? (
-                // Mobile Cards View
-                <div className="space-y-3 p-4">
-                    {sortedDebts.map((debt) => (
-                        <MobileDebtCard
-                            key={debt.id}
-                            debt={debt}
-                            currency={userCurrency}
-                            onEdit={onEdit}
-                            onDelete={onDelete}
-                            onViewDetails={onViewDetails}
-                            onAddRepayment={onAddRepayment}
-                            isSelected={selectedDebts.has(debt.id)}
-                            onSelect={onDebtSelect}
-                            showCheckbox={showBulkActions}
-                        />
-                    ))}
-                </div>
-            ) : (
-                // Desktop Table View
-                <div className="overflow-x-auto">
-                    <table className="w-full">
+            <div className="overflow-x-auto">
+                <table className="w-full">
                         <thead className="bg-gray-50">
                             <tr>
                                 {showBulkActions && (
@@ -264,210 +232,10 @@ export function DebtTable({
                         </tbody>
                     </table>
                 </div>
-            )}
         </div>
     );
 }
 
-// Mobile Card Component
-function MobileDebtCard({ 
-    debt, 
-    currency, 
-    onEdit, 
-    onDelete, 
-    onViewDetails, 
-    onAddRepayment,
-    isSelected = false,
-    onSelect,
-    showCheckbox = false 
-}: { 
-    debt: DebtInterface;
-    currency: string;
-    onEdit?: (debt: DebtInterface) => void;
-    onDelete?: (debt: DebtInterface) => void;
-    onViewDetails?: (debt: DebtInterface) => void;
-    onAddRepayment?: (debt: DebtInterface) => void;
-    isSelected?: boolean;
-    onSelect?: (debtId: number, selected: boolean) => void;
-    showCheckbox?: boolean;
-}) {
-    // Calculate interest and remaining amounts
-    const interestCalc = calculateInterest(debt.amount, debt.interestRate, debt.lentDate, debt.dueDate);
-    const remainingCalc = calculateRemainingWithInterest(
-        debt.amount, 
-        debt.interestRate, 
-        debt.lentDate, 
-        debt.dueDate, 
-        debt.repayments || [],
-        new Date(),
-        debt.status
-    );
-    
-    const totalRepayments = debt.repayments?.reduce((sum, repayment) => sum + repayment.amount, 0) || 0;
-    const progressPercentage = (totalRepayments / remainingCalc.totalWithInterest) * 100;
-
-    // Check if debt is overdue
-    const isOverdue = debt.dueDate && new Date() > debt.dueDate && remainingCalc.remainingAmount > 0;
-
-    // Get status color
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'ACTIVE':
-                return 'text-blue-600 bg-blue-50';
-            case 'PARTIALLY_PAID':
-                return 'text-yellow-600 bg-yellow-50';
-            case 'FULLY_PAID':
-                return 'text-green-600 bg-green-50';
-            case 'OVERDUE':
-                return 'text-red-600 bg-red-50';
-            case 'DEFAULTED':
-                return 'text-gray-600 bg-gray-50';
-            default:
-                return 'text-gray-600 bg-gray-50';
-        }
-    };
-
-    const handleSelect = () => {
-        if (onSelect) {
-            onSelect(debt.id, !isSelected);
-        }
-    };
-
-    return (
-        <div className={`p-4 rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow ${isOverdue ? 'bg-red-25' : ''} ${isSelected ? 'bg-blue-50 shadow-lg' : ''}`}>
-            <div className="flex items-start space-x-3">
-                {/* Checkbox */}
-                {showCheckbox && (
-                    <div className="flex-shrink-0 pt-1">
-                        <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={handleSelect}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                    </div>
-                )}
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                    {/* Header */}
-                    <div className="flex justify-between items-start mb-3">
-                        <div className="flex-1">
-                            <h3 className="text-base font-semibold text-gray-900 truncate">
-                                {debt.borrowerName}
-                            </h3>
-                            <p className="text-sm text-gray-600 truncate">
-                                {debt.purpose || 'Personal Loan'}
-                            </p>
-                            {debt.borrowerContact && (
-                                <p className="text-xs text-gray-500 truncate">
-                                    {debt.borrowerContact}
-                                </p>
-                            )}
-                        </div>
-                        <div className="flex-shrink-0 text-right ml-4">
-                            <div className={`text-sm font-medium ${remainingCalc.remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                {formatCurrency(remainingCalc.remainingAmount, currency)}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Status and Progress */}
-                    <div className="mb-3">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(debt.status)}`}>
-                                {debt.status.replace('_', ' ')}
-                            </span>
-                            <span className="text-xs text-gray-600">
-                                {progressPercentage.toFixed(1)}% repaid
-                            </span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5">
-                            <div 
-                                className="bg-green-600 h-1.5 rounded-full transition-all duration-300" 
-                                style={{ width: `${Math.min(progressPercentage, 100)}%` }}
-                            ></div>
-                        </div>
-                    </div>
-
-                    {/* Details Grid */}
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-3 text-sm">
-                        <div>
-                            <span className="text-gray-500">Principal:</span>
-                            <span className="ml-1 font-medium text-gray-900">
-                                {formatCurrency(debt.amount, currency)}
-                            </span>
-                        </div>
-                        <div>
-                            <span className="text-gray-500">Interest:</span>
-                            <span className="ml-1 font-medium text-gray-900">
-                                {debt.interestRate}%
-                            </span>
-                        </div>
-                        <div>
-                            <span className="text-gray-500">Lent:</span>
-                            <span className="ml-1 font-medium text-gray-900">
-                                {formatDate(debt.lentDate)}
-                            </span>
-                        </div>
-                        <div>
-                            <span className="text-gray-500">Due:</span>
-                            <span className={`ml-1 font-medium ${isOverdue ? 'text-red-600' : 'text-gray-900'}`}>
-                                {debt.dueDate ? formatDate(debt.dueDate) : 'No due date'}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Interest Details */}
-                    {interestCalc.interestAmount > 0 && (
-                        <div className="mb-3 p-2 bg-orange-50 rounded-md">
-                            <div className="text-xs text-orange-800">
-                                <div>Interest: {formatCurrency(interestCalc.interestAmount, currency)} ({debt.dueDate ? interestCalc.daysTotal : interestCalc.daysElapsed} days {debt.dueDate ? 'term' : 'elapsed'})</div>
-                                <div>Total: {formatCurrency(interestCalc.totalAmountWithInterest, currency)}</div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Action Buttons */}
-                    <div className="flex flex-wrap gap-2 pt-2">
-                        {onViewDetails && (
-                            <button 
-                                onClick={() => onViewDetails(debt)}
-                                className="flex-1 min-w-0 px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md transition-colors"
-                            >
-                                View
-                            </button>
-                        )}
-                        {onAddRepayment && remainingCalc.remainingAmount > 0 && (
-                            <button 
-                                onClick={() => onAddRepayment(debt)}
-                                className="flex-1 min-w-0 px-3 py-1.5 text-sm font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-md transition-colors"
-                            >
-                                Repay
-                            </button>
-                        )}
-                        {onEdit && (
-                            <button 
-                                onClick={() => onEdit(debt)}
-                                className="flex-1 min-w-0 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
-                            >
-                                Edit
-                            </button>
-                        )}
-                        {onDelete && (
-                            <button 
-                                onClick={() => onDelete(debt)}
-                                className="flex-1 min-w-0 px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-md transition-colors"
-                            >
-                                Del
-                            </button>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
 
 function DebtRow({ 
     debt, 

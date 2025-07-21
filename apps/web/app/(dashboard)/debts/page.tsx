@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { DebtList } from "../../components/debts/DebtList";
 import { DebtTable } from "../../components/debts/DebtTable";
 import { AddDebtModal } from "../../components/debts/AddDebtModal";
 import { EditDebtModal } from "../../components/debts/EditDebtModal";
@@ -38,12 +37,14 @@ export default function Debts() {
         setIsBulkDeleteModalOpen,
 
         // UI states
-        viewMode,
-        setViewMode,
         searchTerm,
         setSearchTerm,
         selectedStatus,
         setSelectedStatus,
+        startDate,
+        setStartDate,
+        endDate,
+        setEndDate,
 
         // Selection states
         selectedDebts,
@@ -153,107 +154,88 @@ export default function Debts() {
             </div>
 
             {/* Financial Summary Cards */}
-            <div className="grid grid-cols-7 gap-4">
-                <div className="bg-white rounded-lg border p-4 text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
+            <div className="grid grid-cols-5 gap-6 mb-6">
+                <div className="bg-white rounded-lg border p-6 text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-3">
                         <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                         <h3 className="text-sm font-medium text-gray-600">Total Debts</h3>
                     </div>
-                    <p className="text-2xl font-bold text-blue-600">
+                    <p className="text-3xl font-bold text-blue-600 mb-1">
                         {loading ? "..." : financialSummary.totalDebts}
                     </p>
                     <p className="text-sm text-gray-500">debt records</p>
                 </div>
 
-                <div className="bg-white rounded-lg border p-4 text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                        <h3 className="text-sm font-medium text-gray-600">Active</h3>
-                    </div>
-                    <p className="text-2xl font-bold text-green-600">
-                        {loading ? "..." : financialSummary.activeCount}
-                    </p>
-                    <p className="text-sm text-gray-500">active debts</p>
-                </div>
-
-                <div className="bg-white rounded-lg border p-4 text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                        <h3 className="text-sm font-medium text-gray-600">Overdue</h3>
-                    </div>
-                    <p className="text-2xl font-bold text-red-600">
-                        {loading ? "..." : financialSummary.overdueCount}
-                    </p>
-                    <p className="text-sm text-gray-500">overdue debts</p>
-                </div>
-
-                <div className="bg-white rounded-lg border p-4 text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
+                <div className="bg-white rounded-lg border p-6 text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-3">
                         <div className="w-3 h-3 rounded-full bg-purple-500"></div>
                         <h3 className="text-sm font-medium text-gray-600">Principal Lent</h3>
                     </div>
-                    <p className="text-2xl font-bold text-purple-600">
+                    <p className="text-3xl font-bold text-purple-600 mb-1">
                         {loading ? "..." : formatCurrency(financialSummary.totalPrincipal, userCurrency)}
                     </p>
+                    <p className="text-sm text-gray-500">original amount</p>
                 </div>
 
-                <div className="bg-white rounded-lg border p-4 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                        <h3 className="text-sm font-medium text-gray-500 mr-2">Interest Accrued</h3>
-                        <div className="h-4 w-4 bg-orange-100 rounded-full flex items-center justify-center">
-                            <div className="h-2 w-2 bg-gray-500 rounded-full"></div>
-                        </div>
+                <div className="bg-white rounded-lg border p-6 text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-3">
+                        <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                        <h3 className="text-sm font-medium text-gray-600">Interest Earned</h3>
                     </div>
-                    <p className="text-2xl font-bold text-gray-600">
+                    <p className="text-3xl font-bold text-orange-600 mb-1">
                         {loading ? "..." : formatCurrency(financialSummary.totalInterestAccrued, userCurrency)}
                     </p>
+                    <p className="text-sm text-gray-500">total interest</p>
                 </div>
 
-                <div className="bg-white rounded-lg border p-4 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                        <h3 className="text-sm font-medium text-gray-600 mr-2">Total Repaid</h3>
-                        <div className="h-4 w-4 bg-green-100 rounded-full flex items-center justify-center">
-                            <div className="h-2 w-2 bg-green-600 rounded-full"></div>
-                        </div>
+                <div className="bg-white rounded-lg border p-6 text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-3">
+                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                        <h3 className="text-sm font-medium text-gray-600">Total Repaid</h3>
                     </div>
-                    <p className="text-2xl font-bold text-green-600">
+                    <p className="text-3xl font-bold text-green-600 mb-1">
                         {loading ? "..." : formatCurrency(financialSummary.totalRepaid, userCurrency)}
                     </p>
+                    <p className="text-sm text-gray-500">collected</p>
                 </div>
 
-                <div className="bg-white rounded-lg border p-4 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                        <h3 className="text-sm font-medium text-gray-600 mr-2">Outstanding</h3>
-                        <div className="h-4 w-4 bg-red-100 rounded-full flex items-center justify-center">
-                            <div className="h-2 w-2 bg-red-600 rounded-full"></div>
-                        </div>
+                <div className="bg-white rounded-lg border p-6 text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-3">
+                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                        <h3 className="text-sm font-medium text-gray-600">Outstanding</h3>
                     </div>
-                    <p className="text-2xl font-bold text-red-600">
+                    <p className="text-3xl font-bold text-red-600 mb-1">
                         {loading ? "..." : formatCurrency(financialSummary.totalOutstanding, userCurrency)}
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-sm text-gray-500">
                         {loading ? "" : `${((financialSummary.totalOutstanding / (financialSummary.totalPrincipal + financialSummary.totalInterestAccrued || 1)) * 100).toFixed(1)}% remaining`}
                     </p>
                 </div>
             </div>
 
             {/* Filters and Actions */}
-            <div>
-                <div className="flex gap-4 mb-4">
-                    <div className="flex-1">
+            <div className="bg-white rounded-lg border p-6 mb-6">
+                <div className="grid grid-cols-5 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Search Debts
+                        </label>
                         <input
                             type="text"
-                            placeholder="Search debts..."
+                            placeholder="Search by borrower name, purpose, contact..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                     </div>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Filter by Status
+                        </label>
                         <select
                             value={selectedStatus}
                             onChange={(e) => setSelectedStatus(e.target.value)}
-                            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         >
                             <option value="">All Statuses</option>
                             {uniqueStatuses.map((status) => (
@@ -262,42 +244,39 @@ export default function Debts() {
                                 </option>
                             ))}
                         </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Start Date
+                        </label>
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            End Date
+                        </label>
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                    </div>
+                    <div className="flex items-end">
                         <button
                             onClick={clearFilters}
-                            className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                            className="w-full px-6 py-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled={!hasActiveFilters}
                         >
                             Clear Filters
                         </button>
-
-                        {/* View Mode Toggle */}
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setViewMode("table")}
-                                    className={`px-3 py-1 rounded text-sm ${viewMode === "table"
-                                            ? "bg-blue-100 text-blue-700"
-                                            : "text-gray-600 hover:bg-gray-100"
-                                        }`}
-                                >
-                                    Table
-                                </button>
-                                <button
-                                    onClick={() => setViewMode("cards")}
-                                    className={`px-3 py-1 rounded text-sm ${viewMode === "cards"
-                                            ? "bg-blue-100 text-blue-700"
-                                            : "text-gray-600 hover:bg-gray-100"
-                                        }`}
-                                >
-                                    Cards
-                                </button>
-                            </div>
-
-                        </div>
                     </div>
                 </div>
-
-
             </div>
 
             {/* Debts by Sections */}
@@ -364,37 +343,19 @@ export default function Debts() {
 
                                 {/* Section Content */}
                                 <div className="p-0">
-                                    {viewMode === "table" ? (
-                                        <DebtTable
-                                            debts={section.debts}
-                                            onEdit={(debt) => openModal('edit', debt)}
-                                            onDelete={(debt) => openModal('delete', debt)}
-                                            onViewDetails={(debt) => openModal('view', debt)}
-                                            onAddRepayment={(debt) => openModal('repayment', debt)}
-                                            selectedDebts={selectedDebts}
-                                            onDebtSelect={handleDebtSelect}
-                                            onSelectAll={(selected) => handleSelectAll(selected, section.debts)}
-                                            showBulkActions={true}
-                                            onBulkDelete={() => handleBulkDelete(section.debts)}
-                                            onClearSelection={() => clearFilters()}
-                                        />
-                                    ) : (
-                                        <div className="p-6">
-                                            <DebtList
-                                                debts={section.debts}
-                                                onEdit={(debt) => openModal('edit', debt)}
-                                                onDelete={(debt) => openModal('delete', debt)}
-                                                onViewDetails={(debt) => openModal('view', debt)}
-                                                onAddRepayment={(debt) => openModal('repayment', debt)}
-                                                selectedDebts={selectedDebts}
-                                                onDebtSelect={handleDebtSelect}
-                                                onSelectAll={(selected) => handleSelectAll(selected, section.debts)}
-                                                showBulkActions={true}
-                                                onBulkDelete={() => handleBulkDelete(section.debts)}
-                                                onClearSelection={() => clearFilters()}
-                                            />
-                                        </div>
-                                    )}
+                                    <DebtTable
+                                        debts={section.debts}
+                                        onEdit={(debt) => openModal('edit', debt)}
+                                        onDelete={(debt) => openModal('delete', debt)}
+                                        onViewDetails={(debt) => openModal('view', debt)}
+                                        onAddRepayment={(debt) => openModal('repayment', debt)}
+                                        selectedDebts={selectedDebts}
+                                        onDebtSelect={handleDebtSelect}
+                                        onSelectAll={(selected) => handleSelectAll(selected, section.debts)}
+                                        showBulkActions={true}
+                                        onBulkDelete={() => handleBulkDelete(section.debts)}
+                                        onClearSelection={() => clearFilters()}
+                                    />
                                 </div>
                             </div>
                         );
@@ -412,7 +373,7 @@ export default function Debts() {
             <EditDebtModal
                 isOpen={modal.type === 'edit'}
                 onClose={closeModal}
-                onEdit={(data) => handleModalAction('edit', data)}
+                onEdit={(id, data) => handleModalAction('edit', data)}
                 debt={modal.debt || null}
             />
 

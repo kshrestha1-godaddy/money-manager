@@ -67,8 +67,8 @@ export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalPr
                 borrowerEmail: (debt.borrowerEmail ?? "") as string,
                 amount: debt.amount,
                 interestRate: debt.interestRate,
-                dueDate: debt.dueDate ? new Date(debt.dueDate).toISOString().split('T')[0] : "",
-                lentDate: new Date(debt.lentDate).toISOString().split('T')[0],
+                dueDate: debt.dueDate ? new Date(debt.dueDate).toISOString().split('T')[0] || "" : "",
+                lentDate: new Date(debt.lentDate).toISOString().split('T')[0] || "",
                 status: debt.status as 'ACTIVE' | 'PARTIALLY_PAID' | 'FULLY_PAID' | 'OVERDUE' | 'DEFAULTED',
                 purpose: debt.purpose ?? "",
                 notes: debt.notes ?? "",
@@ -139,7 +139,7 @@ export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalPr
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Borrower Name *
