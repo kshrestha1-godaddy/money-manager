@@ -102,7 +102,27 @@ export function NotificationBell({ className = "" }: NotificationBellProps) {
     // Handle notification click
     const handleNotificationClick = async (notification: NotificationData) => {
         if (!notification.isRead) {
-            await handleMarkAsRead(notification.id);
+            // Update local state immediately
+            setNotifications(prev => 
+                prev.map(n => 
+                    n.id === notification.id 
+                        ? { ...n, isRead: true }
+                        : n
+                )
+            );
+            
+            // Make backend call to mark as read (but don't wait for it)
+            markNotificationAsRead(notification.id).catch(error => {
+                console.error("Failed to mark notification as read:", error);
+                // Revert local state on error
+                setNotifications(prev => 
+                    prev.map(n => 
+                        n.id === notification.id 
+                            ? { ...n, isRead: false }
+                            : n
+                    )
+                );
+            });
         }
         
         if (notification.actionUrl) {
