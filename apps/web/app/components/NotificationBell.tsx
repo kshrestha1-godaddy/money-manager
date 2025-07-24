@@ -23,7 +23,6 @@ export function NotificationBell({ className = "" }: NotificationBellProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [showClearDialog, setShowClearDialog] = useState(false);
-    const [processingNotifications, setProcessingNotifications] = useState<Set<number>>(new Set());
     const router = useRouter();
     const { unreadCount, refreshUnreadCount } = useNotificationContext();
 
@@ -102,67 +101,21 @@ export function NotificationBell({ className = "" }: NotificationBellProps) {
 
     // Handle notification click
     const handleNotificationClick = async (notification: NotificationData) => {
-        // Prevent double-clicking while processing
-        if (processingNotifications.has(notification.id)) {
-            return;
-        }
-        
-        // Optimistically update the notification as read in local state
         if (!notification.isRead) {
-            setNotifications(prev => 
-                prev.map(n => 
-                    n.id === notification.id 
-                        ? { ...n, isRead: true }
-                        : n
-                )
-            );
-            
-            // Mark as processing
-            setProcessingNotifications(prev => new Set([...prev, notification.id]));
+            await handleMarkAsRead(notification.id);
         }
         
-        // Mark as read in background first (don't await to avoid blocking navigation)
-        if (!notification.isRead) {
-            markNotificationAsRead(notification.id)
-                .then(() => {
-                    // Refresh in background after successful mark as read
-                    Promise.all([loadNotifications(), refreshUnreadCount()]);
-                })
-                .catch(error => {
-                    console.error("Failed to mark notification as read:", error);
-                    // Revert optimistic update on error
-                    setNotifications(prev => 
-                        prev.map(n => 
-                            n.id === notification.id 
-                                ? { ...n, isRead: false }
-                                : n
-                        )
-                    );
-                })
-                .finally(() => {
-                    // Remove from processing state
-                    setProcessingNotifications(prev => {
-                        const next = new Set(prev);
-                        next.delete(notification.id);
-                        return next;
-                    });
-                });
-        }
-        
-        // Navigate immediately if there's an action URL
         if (notification.actionUrl) {
             // Make sure we're using the correct path format
-            let url = notification.actionUrl!; // We know it's not null due to the if check
+            let url = notification.actionUrl;
             
-            // Ensure it starts with a slash for internal routes
-            if (!url.startsWith('/') && !url.startsWith('http')) {
+            // If it doesn't start with a slash, add one
+            if (!url.startsWith('/')) {
                 url = `/${url}`;
             }
             
-            // Navigate using Next.js router without closing dropdown
             router.push(url);
         }
-        // Note: Dropdown stays open for better user experience
     };
 
     // Get priority color
@@ -318,18 +271,11 @@ export function NotificationBell({ className = "" }: NotificationBellProps) {
                             notifications.map((notification) => (
                                 <div
                                     key={notification.id}
-                                    className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors relative ${
+                                    className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
                                         !notification.isRead ? 'bg-gray-50' : ''
-                                    } ${
-                                        processingNotifications.has(notification.id) ? 'opacity-75 pointer-events-none' : ''
                                     }`}
                                     onClick={() => handleNotificationClick(notification)}
                                 >
-                                    {processingNotifications.has(notification.id) && (
-                                        <div className="absolute inset-0 bg-blue-50 bg-opacity-50 flex items-center justify-center">
-                                            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                                        </div>
-                                    )}
                                     <div className="flex items-start space-x-4">
                                         {/* Icon */}
                                         <div className="mt-0.5">
