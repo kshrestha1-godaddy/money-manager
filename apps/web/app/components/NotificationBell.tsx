@@ -24,7 +24,10 @@ export function NotificationBell({ className = "" }: NotificationBellProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [showClearDialog, setShowClearDialog] = useState(false);
     const router = useRouter();
-    const { unreadCount, refreshUnreadCount } = useNotificationContext();
+    const { unreadCount: contextUnreadCount, refreshUnreadCount } = useNotificationContext();
+    
+    // Calculate local unread count from notifications
+    const localUnreadCount = notifications.filter(n => !n.isRead).length;
 
     // Load notifications
     const loadNotifications = async () => {
@@ -239,9 +242,9 @@ export function NotificationBell({ className = "" }: NotificationBellProps) {
                 aria-label="Notifications"
             >
                 <Bell size={22} />
-                {unreadCount > 0 && (
+                {localUnreadCount > 0 && (
                     <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                        {unreadCount > 99 ? '99+' : unreadCount}
+                        {localUnreadCount > 99 ? '99+' : localUnreadCount}
                     </span>
                 )}
             </button>
@@ -253,7 +256,7 @@ export function NotificationBell({ className = "" }: NotificationBellProps) {
                     <div className="flex items-center justify-between p-4 border-b border-gray-100">
                         <h3 className="text-lg font-semibold text-gray-800">Notifications</h3>
                         <div className="flex items-center space-x-3">
-                            {unreadCount > 0 && (
+                            {localUnreadCount > 0 && (
                                 <button
                                     onClick={handleMarkAllAsRead}
                                     className="text-sm text-gray-700 hover:text-gray-900 flex items-center space-x-1 px-2 py-1 rounded-md hover:bg-gray-100 transition-colors"
