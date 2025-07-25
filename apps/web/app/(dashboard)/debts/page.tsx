@@ -189,7 +189,7 @@ export default function Debts() {
             {/* Header */}
             <div className={UI_STYLES.header.container}>
                 <div>
-                    <h1 className={pageTitle}>Debts</h1>
+                    <h1 className={pageTitle}>Lendings</h1>
                     <p className={pageSubtitle}>Track money you've lent to others and manage repayments</p>
                 </div>
                 <div className={UI_STYLES.header.buttonGroup}>
