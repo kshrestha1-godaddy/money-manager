@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, Bell, DollarSign, Calendar, TrendingUp, Shield } from "lucide-react";
+import { Save, Bell, Earth, DollarSign, Calendar, TrendingUp, Shield, Settings } from "lucide-react";
 import {
     getNotificationSettings,
     updateNotificationSettings,
-    NotificationSettingsData
+    getUserAccountsForThresholds,
+    NotificationSettingsData,
+    AccountThresholdData
 } from "../actions/notifications";
 import { useCurrency } from "../providers/CurrencyProvider";
 
@@ -14,7 +16,7 @@ interface SettingsGroup {
     description: string;
     icon: React.ReactNode;
     settings: {
-        key: keyof NotificationSettingsData;
+        key: keyof Omit<NotificationSettingsData, 'accountThresholds'>;
         label: string;
         description: string;
         type: 'boolean' | 'number';
@@ -27,6 +29,7 @@ interface SettingsGroup {
 
 export function NotificationSettings() {
     const [settings, setSettings] = useState<NotificationSettingsData | null>(null);
+    const [availableAccounts, setAvailableAccounts] = useState<AccountThresholdData[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setSaving] = useState(false);
     const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -35,6 +38,7 @@ export function NotificationSettings() {
     // Load settings on mount
     useEffect(() => {
         loadSettings();
+        loadAvailableAccounts();
     }, []);
 
     const loadSettings = async () => {
@@ -50,9 +54,20 @@ export function NotificationSettings() {
         }
     };
 
+    const loadAvailableAccounts = async () => {
+        try {
+            const accounts = await getUserAccountsForThresholds();
+            setAvailableAccounts(accounts);
+        } catch (error) {
+            console.error("Failed to load accounts:", error);
+            setAvailableAccounts([]);
+        }
+    };
+
     const getDefaultSettings = (): NotificationSettingsData => ({
         lowBalanceEnabled: true,
         lowBalanceThreshold: 500,
+        accountThresholds: [],
         dueDateEnabled: true,
         dueDateDaysBefore: 7,
         spendingAlertsEnabled: true,
@@ -66,6 +81,36 @@ export function NotificationSettings() {
         if (!settings) return;
         
         setSettings(prev => prev ? { ...prev, [key]: value } : null);
+    };
+
+    const handleAccountThresholdChange = (accountId: number, threshold: number) => {
+        if (!settings) return;
+
+        setSettings(prev => {
+            if (!prev) return null;
+            
+            const existingThresholds = prev.accountThresholds || [];
+            const updatedThresholds = existingThresholds.some(t => t.accountId === accountId)
+                ? existingThresholds.map(t => 
+                    t.accountId === accountId 
+                        ? { ...t, lowBalanceThreshold: threshold }
+                        : t
+                  )
+                : [...existingThresholds, {
+                    accountId,
+                    accountName: availableAccounts.find(a => a.accountId === accountId)?.accountName || '',
+                    bankName: availableAccounts.find(a => a.accountId === accountId)?.bankName || '',
+                    lowBalanceThreshold: threshold
+                  }];
+
+            return { ...prev, accountThresholds: updatedThresholds };
+        });
+    };
+
+    const getAccountThreshold = (accountId: number): number => {
+        const accountThreshold = settings?.accountThresholds?.find(t => t.accountId === accountId);
+        const availableAccount = availableAccounts.find(a => a.accountId === accountId);
+        return accountThreshold?.lowBalanceThreshold ?? availableAccount?.lowBalanceThreshold ?? settings?.lowBalanceThreshold ?? 500;
     };
 
     const handleSave = async () => {
@@ -99,8 +144,8 @@ export function NotificationSettings() {
                 },
                 {
                     key: "lowBalanceThreshold",
-                    label: "Low balance threshold",
-                    description: "Alert when balance falls below this amount",
+                    label: "Default low balance threshold",
+                    description: "Default threshold for accounts without specific settings",
                     type: "number",
                     min: 0,
                     max: 10000,
@@ -319,6 +364,79 @@ export function NotificationSettings() {
                     </div>
                 </div>
             ))}
+
+            {/* Account-Specific Thresholds Section */}
+            {settings.lowBalanceEnabled && availableAccounts.length > 0 && (
+                <div className="bg-white rounded-lg border">
+                    {/* Header */}
+                    <div className="p-6 border-b border-gray-100">
+                        <div className="flex items-center space-x-3">
+                            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+                                <Settings className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-medium text-gray-900">Account-Specific Thresholds</h3>
+                                <p className="text-sm text-gray-500">Set different low balance thresholds for each of your accounts</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Account Threshold Settings */}
+                    <div className="p-6">
+                        <div className="space-y-4">
+                            {availableAccounts.map((account) => (
+                                <div
+                                    key={account.accountId}
+                                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                                >
+                                    <div className="flex-1">
+                                        <div className="flex items-center space-x-3">
+                                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                                <Earth className="w-5 h-5 text-blue-600" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-medium text-gray-900">
+                                                    {account.accountName}
+                                                </h4>
+                                                <p className="text-sm text-gray-500">{account.bankName}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex items-center space-x-2">
+                                        <span className="text-sm text-gray-500">{currency}</span>
+                                        <input
+                                            type="number"
+                                            value={getAccountThreshold(account.accountId)}
+                                            onChange={(e) => handleAccountThresholdChange(account.accountId, parseInt(e.target.value) || 0)}
+                                            min={0}
+                                            max={10000}
+                                            step={50}
+                                            className="w-28 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                            <div className="flex">
+                                <div className="flex-shrink-0">
+                                    <Settings className="h-5 w-5 text-blue-400" />
+                                </div>
+                                <div className="ml-3">
+                                    <h4 className="text-sm font-medium text-blue-800">
+                                        How it works
+                                    </h4>
+                                    <div className="mt-1 text-sm text-blue-700">
+                                        Each account can have its own low balance threshold. If an account doesn't have a specific threshold set, it will use the default threshold ({currency}{settings.lowBalanceThreshold}).
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 } 

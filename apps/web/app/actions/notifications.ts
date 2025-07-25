@@ -24,9 +24,17 @@ export interface NotificationData {
     updatedAt: Date;
 }
 
+export interface AccountThresholdData {
+    accountId: number;
+    accountName: string;
+    bankName: string;
+    lowBalanceThreshold: number;
+}
+
 export interface NotificationSettingsData {
     lowBalanceEnabled: boolean;
-    lowBalanceThreshold: number;
+    lowBalanceThreshold: number; // Global default threshold
+    accountThresholds: AccountThresholdData[]; // Per-account thresholds
     dueDateEnabled: boolean;
     dueDateDaysBefore: number;
     spendingAlertsEnabled: boolean;
@@ -253,6 +261,20 @@ export async function getNotificationSettings(): Promise<NotificationSettingsDat
             where: { userId }
         });
 
+        // Fetch account thresholds for this user
+        const accountThresholds = await prisma.accountThreshold.findMany({
+            where: { userId },
+            include: {
+                account: {
+                    select: {
+                        id: true,
+                        holderName: true,
+                        bankName: true
+                    }
+                }
+            }
+        });
+
         if (!settings) {
             return null;
         }
@@ -260,6 +282,12 @@ export async function getNotificationSettings(): Promise<NotificationSettingsDat
         return {
             lowBalanceEnabled: settings.lowBalanceEnabled,
             lowBalanceThreshold: decimalToNumber(settings.lowBalanceThreshold, 'lowBalanceThreshold'),
+            accountThresholds: accountThresholds.map(threshold => ({
+                accountId: threshold.accountId,
+                accountName: threshold.account.holderName,
+                bankName: threshold.account.bankName,
+                lowBalanceThreshold: decimalToNumber(threshold.lowBalanceThreshold, 'lowBalanceThreshold')
+            })),
             dueDateEnabled: settings.dueDateEnabled,
             dueDateDaysBefore: settings.dueDateDaysBefore,
             spendingAlertsEnabled: settings.spendingAlertsEnabled,
@@ -282,19 +310,99 @@ export async function updateNotificationSettings(settings: Partial<NotificationS
         const session = await getAuthenticatedSession();
         const userId = getUserIdFromSession(session.user.id);
 
+        // Extract account thresholds from settings
+        const { accountThresholds, ...otherSettings } = settings;
+
+        // Update main notification settings
         await prisma.notificationSettings.upsert({
             where: { userId },
-            update: settings,
+            update: otherSettings,
             create: {
                 userId,
-                ...settings
+                ...otherSettings
             }
         });
+
+        // Update account thresholds if provided
+        if (accountThresholds) {
+            await updateAccountThresholds(userId, accountThresholds);
+        }
 
         revalidatePath("/notifications");
     } catch (error) {
         console.error("Failed to update notification settings:", error);
         throw new Error("Failed to update notification settings");
+    }
+}
+
+/**
+ * Update account-specific low balance thresholds
+ */
+export async function updateAccountThresholds(userId: number, thresholds: AccountThresholdData[]): Promise<void> {
+    try {
+        // Use a transaction to ensure all updates succeed or fail together
+        await prisma.$transaction(async (tx) => {
+            for (const threshold of thresholds) {
+                await tx.accountThreshold.upsert({
+                    where: {
+                        accountId_userId: {
+                            accountId: threshold.accountId,
+                            userId: userId
+                        }
+                    },
+                    update: {
+                        lowBalanceThreshold: threshold.lowBalanceThreshold
+                    },
+                    create: {
+                        accountId: threshold.accountId,
+                        userId: userId,
+                        lowBalanceThreshold: threshold.lowBalanceThreshold
+                    }
+                });
+            }
+        });
+    } catch (error) {
+        console.error("Failed to update account thresholds:", error);
+        throw new Error("Failed to update account thresholds");
+    }
+}
+
+/**
+ * Get all user accounts for threshold configuration
+ */
+export async function getUserAccountsForThresholds(): Promise<AccountThresholdData[]> {
+    try {
+        const session = await getAuthenticatedSession();
+        const userId = getUserIdFromSession(session.user.id);
+
+        const accounts = await prisma.account.findMany({
+            where: { userId },
+            select: {
+                id: true,
+                holderName: true,
+                bankName: true,
+                accountThreshold: {
+                    select: {
+                        lowBalanceThreshold: true
+                    }
+                }
+            }
+        });
+
+        return accounts.map(account => {
+            const threshold = account.accountThreshold?.[0];
+            return {
+                accountId: account.id,
+                accountName: account.holderName,
+                bankName: account.bankName,
+                lowBalanceThreshold: threshold 
+                    ? decimalToNumber(threshold.lowBalanceThreshold, 'lowBalanceThreshold')
+                    : 500 // Default threshold
+            };
+        });
+    } catch (error) {
+        console.error("Failed to fetch user accounts for thresholds:", error);
+        throw new Error("Failed to fetch user accounts for thresholds");
     }
 }
 /**
@@ -308,17 +416,33 @@ export async function checkLowBalanceAlerts(userId: number): Promise<void> {
 
         if (!settings?.lowBalanceEnabled) return;
 
-        const threshold = decimalToNumber(settings.lowBalanceThreshold, 'threshold');
+        const defaultThreshold = decimalToNumber(settings.lowBalanceThreshold, 'threshold');
         const userCurrency = await getUserCurrency();
+        
+        // Get accounts with their specific thresholds
         const accounts = await prisma.account.findMany({
-            where: { userId }
+            where: { userId },
+            include: {
+                accountThreshold: {
+                    select: {
+                        lowBalanceThreshold: true
+                    }
+                }
+            }
         });
 
         for (const account of accounts) {
             const accountBalance = decimalToNumber(account.balance, 'balance');
             
-            // Simple comparison: both balance and threshold are in user's currency
+            // Use account-specific threshold if available, otherwise use default
+            const accountSpecificThreshold = account.accountThreshold?.[0];
+            const threshold = accountSpecificThreshold 
+                ? decimalToNumber(accountSpecificThreshold.lowBalanceThreshold, 'accountThreshold')
+                : defaultThreshold;
+            
+            // Check if balance is below threshold
             if (accountBalance < threshold) {
+                // Check if we already sent a notification in the last 24 hours
                 const recentNotification = await prisma.notification.findFirst({
                     where: {
                         userId,
@@ -332,6 +456,7 @@ export async function checkLowBalanceAlerts(userId: number): Promise<void> {
                         }
                     }
                 });
+
                 if (!recentNotification) {
                     await createNotification(
                         userId,
@@ -344,7 +469,9 @@ export async function checkLowBalanceAlerts(userId: number): Promise<void> {
                             accountId: account.id,
                             balance: accountBalance,
                             threshold,
-                            entityId: `low-balance-${account.id}`
+                            entityId: `low-balance-${account.id}`,
+                            accountName: account.holderName,
+                            bankName: account.bankName
                         }
                     );
                 }
