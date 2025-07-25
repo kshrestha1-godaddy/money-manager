@@ -121,7 +121,7 @@ export default function NavBar() {
             <span className="text-lg font-semibold text-gray-900">
               {session?.user?.name}
             </span>
-            <div className="flex items-center">
+            {/* <div className="flex items-center">
               {balanceLoading ? (
                 <span className="text-sm text-gray-500">Loading balance...</span>
               ) : (
@@ -129,7 +129,7 @@ export default function NavBar() {
                   Balance: {formatCurrency(totalBalance, selectedCurrency)}
                 </span>
               )}
-            </div>
+            </div> */}
           </div>
         )}
 
