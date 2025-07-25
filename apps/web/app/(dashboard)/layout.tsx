@@ -1,125 +1,42 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { SidebarItem } from "../components/SidebarItem";
 import { TutorialOverlay } from "../components/TutorialOverlay";
 import { TutorialButton } from "../components/TutorialButton";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-    const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [isMobile, setIsMobile] = useState(false);
-
-    // Check if we're on mobile
-    useEffect(() => {
-        const checkMobile = () => {
-            setIsMobile(window.innerWidth < 768);
-        };
-        
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
-
-    // Close sidebar when clicking outside on mobile
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (isMobile && sidebarOpen) {
-                const sidebar = document.getElementById('sidebar');
-                const hamburger = document.getElementById('hamburger-button');
-                
-                if (sidebar && hamburger && 
-                    !sidebar.contains(event.target as Node) && 
-                    !hamburger.contains(event.target as Node)) {
-                    setSidebarOpen(false);
-                }
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isMobile, sidebarOpen]);
-
     return (
         <div className="flex min-h-screen bg-gray-50">
-            {/* Mobile Hamburger Button - now in navbar */}
-            <button
-                id="hamburger-button"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="md:hidden fixed top-2 left-2 z-50 p-2 bg-white rounded-md shadow-md border border-gray-200 hover:bg-gray-50 transition-colors"
-                aria-label="Toggle sidebar"
-            >
-                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-            </button>
-
-            {/* Mobile Overlay */}
-            {isMobile && sidebarOpen && (
-                <div 
-                    className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
-                    onClick={() => setSidebarOpen(false)}
-                />
-            )}
-
             {/* Sidebar */}
             <div 
                 id="sidebar"
-                className={`
-                    fixed md:fixed
-                    left-0 top-0 md:top-0
-                    w-72 h-screen md:h-screen
-                    bg-white border-r border-gray-200 
-                    pt-20 md:pt-24 flex-shrink-0 
-                    z-40 md:z-30 
-                    overflow-y-auto
-                    transition-transform duration-300 ease-in-out
-                    ${isMobile ? (sidebarOpen ? 'translate-x-0' : '-translate-x-full') : 'translate-x-0'}
-                    md:translate-x-0
-                `}
+                className="fixed left-0 top-0 w-72 h-screen bg-white border-r border-gray-200 pt-24 flex-shrink-0 z-30 overflow-y-auto"
             >
-                <div id="sidebar-nav" className="flex flex-col gap-3 md:gap-2 pt-4 md:pt-6 px-2">
-                    {/* Close button for mobile */}
-                    {isMobile && (
-                        <button
-                            onClick={() => setSidebarOpen(false)}
-                            className="md:hidden absolute top-20 right-2 p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                            aria-label="Close sidebar"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    )}
-
+                <div id="sidebar-nav" className="flex flex-col gap-2 pt-6 px-2">
                     {/* Navigation Items */}
-                    <div className="space-y-4 md:space-y-3 mt-2 md:mt-4">
+                    <div className="space-y-3">
                         <SidebarItem 
                             href="/dashboard" 
                             icon={<DashboardIcon />} 
                             title="Dashboard" 
-                            onItemClick={() => isMobile && setSidebarOpen(false)}
                             id="dashboard-nav-item"
                         />
                         <SidebarItem 
                             href="/incomes" 
                             icon={<IncomesIcon />} 
                             title="Incomes" 
-                            onItemClick={() => isMobile && setSidebarOpen(false)}
                             id="incomes-nav-item"
                         />
                         <SidebarItem 
                             href="/expenses" 
                             icon={<ExpensesIcon />} 
                             title="Expenses" 
-                            onItemClick={() => isMobile && setSidebarOpen(false)}
                             id="expenses-nav-item"
                         />
                         <SidebarItem 
                             href="/history" 
                             icon={<HistoryIcon />} 
                             title="History" 
-                            onItemClick={() => isMobile && setSidebarOpen(false)}
                         />
                         
                         {/* Finance Section - with separator */}
@@ -128,53 +45,44 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             icon={<AccountsIcon />} 
                             title="Accounts" 
                             showSeparator={true} 
-                            onItemClick={() => isMobile && setSidebarOpen(false)}
                             id="accounts-nav-item"
                         />
                         <SidebarItem 
                             href="/debts" 
                             icon={<DebtsIcon />} 
-                            title="Debts" 
-                            onItemClick={() => isMobile && setSidebarOpen(false)}
+                            title="Lendings" 
                         />
                         <SidebarItem 
                             href="/investments" 
                             icon={<InvestmentsIcon />} 
                             title="Investments" 
-                            onItemClick={() => isMobile && setSidebarOpen(false)}
                         />
                         <SidebarItem 
                             href="/worth" 
                             icon={<NetWorthIcon />} 
                             title="Net Worth" 
-                            onItemClick={() => isMobile && setSidebarOpen(false)}
                         />
 
-
-                        
                         {/* Additional items */}
-
                         <SidebarItem
                             href="/passwords"
                             icon={<PasswordsIcon />}
                             title="Passwords"
                             showSeparator={true} 
-                            onItemClick={() => isMobile && setSidebarOpen(false)}
                         />
                         <SidebarItem 
                             href="/bookmarks" 
                             icon={<BookmarksIcon />} 
                             title="Bookmarks" 
                             showSeparator={false} 
-                            onItemClick={() => isMobile && setSidebarOpen(false)}
                         />
                     </div>
                 </div>
             </div>
             
             {/* Main Content Area */}
-            <div className="flex-1 md:ml-60 max-w-full overflow-x-auto">
-                <div className="p-2 sm:p-4 md:p-6 pt-20 sm:pt-20 md:pt-24 min-h-screen">
+            <div className="flex-1 ml-60 max-w-full overflow-x-auto">
+                <div className="p-6 pt-24 min-h-screen">
                     {children}
                 </div>
             </div>

@@ -94,9 +94,9 @@ interface UseOptimizedDebtsReturn {
 
 // Stable section configuration to prevent re-renders
 const DEBT_SECTIONS = [
-    { key: 'ACTIVE', title: 'Active Debts', statuses: ['ACTIVE'] },
-    { key: 'PARTIALLY_PAID', title: 'Partially Paid Debts', statuses: ['PARTIALLY_PAID'] },
-    { key: 'FULLY_PAID', title: 'Fully Paid Debts', statuses: ['FULLY_PAID'] }
+    { key: 'ACTIVE', title: 'Active Lendings', statuses: ['ACTIVE'] },
+    { key: 'PARTIALLY_PAID', title: 'Partially Paid Lendings', statuses: ['PARTIALLY_PAID'] },
+    { key: 'FULLY_PAID', title: 'Fully Paid Lendings', statuses: ['FULLY_PAID'] }
 ];
 
 export function useOptimizedDebts(): UseOptimizedDebtsReturn {

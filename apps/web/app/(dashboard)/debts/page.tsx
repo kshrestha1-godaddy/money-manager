@@ -179,7 +179,7 @@ export default function Debts() {
         return (
             <div className={loadingContainer}>
                 <div className={loadingSpinner}></div>
-                <p className={loadingText}>Loading debts...</p>
+                <p className={loadingText}>Loading lendings...</p>
             </div>
         );
     }
@@ -220,12 +220,12 @@ export default function Debts() {
                 <div className={cardLargeContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRowLarge}>
                         <div className={`${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('totalDebts', 'debts').indicator}`}></div>
-                        <h3 className={cardTitle}>Total Debts</h3>
+                        <h3 className={cardTitle}>Total Lendings</h3>
                     </div>
                     <p className={`${cardValueLarge} ${getSummaryCardClasses('totalDebts', 'debts').text}`}>
                         {loading ? "..." : financialSummary.totalDebts}
                     </p>
-                    <p className={cardSubtitle}>debt records</p>
+                    <p className={cardSubtitle}>lending records</p>
                 </div>
 
                 <div className={cardLargeContainer}>
@@ -280,7 +280,7 @@ export default function Debts() {
                 <div className={UI_STYLES.filters.gridFive}>
                     <div>
                         <label className={labelText}>
-                            Search Debts
+                            Search Lendings
                         </label>
                         <input
                             type="text"
@@ -350,12 +350,12 @@ export default function Debts() {
                         </svg>
                     </div>
                     <h3 className={emptyTitle}>
-                        {hasActiveFilters ? "No debts match your filters" : "No debts yet"}
+                        {hasActiveFilters ? "No lendings match your filters" : "No lendings yet"}
                     </h3>
                     <p className={emptyMessage}>
                         {hasActiveFilters 
                             ? "Try adjusting your search criteria or clearing filters." 
-                            : "Get started by adding your first debt record."
+                            : "Get started by adding your first lending record."
                         }
                     </p>
                     {hasActiveFilters ? (
@@ -364,7 +364,7 @@ export default function Debts() {
                         </button>
                     ) : (
                         <button onClick={() => openModal('add')} className={primaryButton}>
-                            Add Your First Debt
+                            Add Your First Lending
                         </button>
                     )}
                 </div>
