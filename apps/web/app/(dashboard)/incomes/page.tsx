@@ -84,6 +84,7 @@ function IncomesContent() {
     handleEditItem,
     handleDeleteItem,
     handleAddCategory,
+    handleDeleteCategory,
     openEditModal,
     openViewModal,
     openDeleteModal,
@@ -364,7 +365,9 @@ function IncomesContent() {
         isOpen={isAddCategoryModalOpen}
         onClose={() => setIsAddCategoryModalOpen(false)}
         onAdd={handleAddCategory}
+        onDelete={handleDeleteCategory}
         type="INCOME"
+        categories={categories}
       />
 
       {/* Bulk Import Modal */}

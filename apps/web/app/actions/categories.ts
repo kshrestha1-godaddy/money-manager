@@ -112,6 +112,41 @@ export async function updateCategory(id: number, data: {
     }
 }
 
+export async function checkCategoryUsage(id: number) {
+    try {
+        const session = await getAuthenticatedSession();
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Check if category is used in expenses
+        const expenseCount = await prisma.expense.count({
+            where: {
+                categoryId: id,
+                userId: userId,
+            },
+        });
+
+        // Check if category is used in incomes
+        const incomeCount = await prisma.income.count({
+            where: {
+                categoryId: id,
+                userId: userId,
+            },
+        });
+
+        const totalTransactions = expenseCount + incomeCount;
+
+        return {
+            isUsed: totalTransactions > 0,
+            expenseCount,
+            incomeCount,
+            totalTransactions,
+        };
+    } catch (error) {
+        console.error(`Failed to check category usage ${id}:`, error);
+        throw new Error("Failed to check category usage");
+    }
+}
+
 export async function deleteCategory(id: number) {
     try {
         const session = await getAuthenticatedSession();
@@ -130,6 +165,12 @@ export async function deleteCategory(id: number) {
             throw new Error("Category not found or unauthorized");
         }
 
+        // Check if category is being used
+        const usage = await checkCategoryUsage(id);
+        if (usage.isUsed) {
+            throw new Error(`Cannot delete category "${existingCategory.name}" because it is used in ${usage.totalTransactions} transaction(s) (${usage.expenseCount} expenses, ${usage.incomeCount} incomes).`);
+        }
+
         await prisma.category.delete({
             where: { id }
         });
@@ -141,6 +182,6 @@ export async function deleteCategory(id: number) {
         return { success: true };
     } catch (error) {
         console.error(`Failed to delete category ${id}:`, error);
-        throw new Error("Failed to delete category");
+        throw error; // Re-throw to preserve the specific error message
     }
 } 

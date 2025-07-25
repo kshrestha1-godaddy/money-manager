@@ -83,6 +83,7 @@ function ExpensesContent() {
     handleEditItem,
     handleDeleteItem,
     handleAddCategory,
+    handleDeleteCategory,
     openEditModal,
     openViewModal,
     openDeleteModal,
@@ -364,7 +365,9 @@ function ExpensesContent() {
         isOpen={isAddCategoryModalOpen}
         onClose={() => setIsAddCategoryModalOpen(false)}
         onAdd={handleAddCategory}
+        onDelete={handleDeleteCategory}
         type="EXPENSE"
+        categories={categories}
       />
 
       {/* Bulk Import Modal */}

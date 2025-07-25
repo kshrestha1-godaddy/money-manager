@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Category, FinancialItem, FinancialDataActions } from "../types/financial";
 import { AccountInterface } from "../types/accounts";
-import { getCategories, createCategory } from "../actions/categories";
+import { getCategories, createCategory, deleteCategory } from "../actions/categories";
 import { getUserAccounts } from "../actions/accounts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
 
@@ -161,6 +161,20 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     },
   });
 
+  const deleteCategoryMutation = useMutation({
+    mutationFn: deleteCategory,
+    onSuccess: (_: any, deletedId: number) => {
+      // Optimistically update categories cache
+      queryClient.setQueryData(QUERY_KEYS.categories, (oldCategories: Category[] = []) => {
+        return oldCategories.filter(category => category.id !== deletedId);
+      });
+    },
+    onError: (error) => {
+      // Don't show alert here - let the modal handle it
+      console.error("Error deleting category:", error);
+    },
+  });
+
   // Filter logic (memoized for performance)
   const hasActiveFilters = useMemo(() => {
     return !!(searchTerm || selectedCategory || selectedBank || startDate || endDate);
@@ -234,6 +248,11 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   const handleAddCategory = useCallback((newCategory: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>) => {
     createCategoryMutation.mutate(newCategory);
   }, [createCategoryMutation]);
+
+  const handleDeleteCategory = useCallback(async (categoryId: number) => {
+    // Return a promise that the modal can handle
+    return deleteCategoryMutation.mutateAsync(categoryId);
+  }, [deleteCategoryMutation]);
 
   // Modal handlers
   const openEditModal = useCallback((item: T) => {
@@ -356,6 +375,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     handleEditItem,
     handleDeleteItem,
     handleAddCategory,
+    handleDeleteCategory,
     openEditModal,
     openViewModal,
     openDeleteModal,
@@ -372,6 +392,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     deleteItemMutation,
     bulkDeleteMutation,
     createCategoryMutation,
+    deleteCategoryMutation,
     
     // Query invalidation helper
     invalidateQueries: () => {
