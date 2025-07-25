@@ -9,6 +9,7 @@ interface IncomeListProps {
     onEdit?: (income: Income) => void;
     onView?: (income: Income) => void;
     onDelete?: (income: Income) => void;
+    onBookmark?: (income: Income) => void;
     selectedIncomes?: Set<number>;
     onIncomeSelect?: (incomeId: number, selected: boolean) => void;
     onSelectAll?: (selected: boolean) => void;
@@ -23,6 +24,7 @@ export function IncomeList({
     onEdit, 
     onView,
     onDelete,
+    onBookmark,
     selectedIncomes,
     onIncomeSelect,
     onSelectAll,
@@ -34,6 +36,7 @@ export function IncomeList({
     const handleEdit = onEdit ? (transaction: any) => onEdit(transaction as Income) : undefined;
     const handleView = onView ? (transaction: any) => onView(transaction as Income) : undefined;
     const handleDelete = onDelete ? (transaction: any) => onDelete(transaction as Income) : undefined;
+    const handleBookmark = onBookmark ? (transaction: any) => onBookmark(transaction as Income) : undefined;
 
     return (
         <FinancialList
@@ -43,6 +46,7 @@ export function IncomeList({
             onEdit={handleEdit}
             onView={handleView}
             onDelete={handleDelete}
+            onBookmark={handleBookmark}
             selectedTransactions={selectedIncomes}
             onTransactionSelect={onIncomeSelect}
             onSelectAll={onSelectAll}

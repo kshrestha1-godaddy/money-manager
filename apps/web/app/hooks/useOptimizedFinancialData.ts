@@ -35,6 +35,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   const [searchTerm, setSearchTerm] = useState("");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
+  const [showBookmarkedOnly, setShowBookmarkedOnly] = useState<boolean>(false);
 
   // Selected item states
   const [itemToEdit, setItemToEdit] = useState<T | null>(null);
@@ -177,8 +178,8 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
 
   // Filter logic (memoized for performance)
   const hasActiveFilters = useMemo(() => {
-    return !!(searchTerm || selectedCategory || selectedBank || startDate || endDate);
-  }, [searchTerm, selectedCategory, selectedBank, startDate, endDate]);
+    return !!(searchTerm || selectedCategory || selectedBank || startDate || endDate || showBookmarkedOnly);
+  }, [searchTerm, selectedCategory, selectedBank, startDate, endDate, showBookmarkedOnly]);
   
   const filteredItems = useMemo(() => {
     return items.filter(item => {
@@ -216,9 +217,12 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
         matchesDateRange = itemDate <= end;
       }
       
-      return matchesSearch && matchesCategory && matchesBank && matchesDateRange;
+      // Bookmark filtering
+      const matchesBookmark = !showBookmarkedOnly || (item as any).isBookmarked;
+
+      return matchesSearch && matchesCategory && matchesBank && matchesDateRange && matchesBookmark;
     });
-  }, [items, searchTerm, selectedCategory, selectedBank, startDate, endDate]);
+  }, [items, searchTerm, selectedCategory, selectedBank, startDate, endDate, showBookmarkedOnly]);
 
   // Memoized calculations
   const totalAmount = useMemo(() => 
@@ -321,13 +325,14 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     setSelectedBank("");
     setStartDate("");
     setEndDate("");
+    setShowBookmarkedOnly(false);
   }, []);
 
   return {
     // Data
     items: filteredItems,
     allItems: items,
-    chartItems: items,
+    chartItems: filteredItems,
     categories,
     accounts,
     loading,
@@ -361,6 +366,8 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     setStartDate,
     endDate,
     setEndDate,
+    showBookmarkedOnly,
+    setShowBookmarkedOnly,
 
     // Selected items
     itemToEdit,

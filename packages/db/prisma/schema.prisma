@@ -31,6 +31,7 @@ model User {
   debts Debt[]
   loans Loan[]
   bookmarks Bookmark[]
+  transactionBookmarks TransactionBookmark[]
   passwords Password[]
   notifications Notification[]
   dismissedNotifications DismissedNotification[]
@@ -431,4 +432,20 @@ enum NotificationPriority {
   NORMAL
   HIGH
   URGENT
+}
+
+model TransactionBookmark {
+  id Int @id @default(autoincrement())
+  transactionType String // "INCOME" or "EXPENSE"
+  transactionId Int
+  title String
+  description String?
+  notes String?
+  tags String[]
+  user User @relation(fields: [userId], references: [id])
+  userId Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([transactionType, transactionId, userId])
 }

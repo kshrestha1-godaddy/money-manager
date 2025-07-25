@@ -9,6 +9,7 @@ interface ExpenseListProps {
     onEdit?: (expense: Expense) => void;
     onView?: (expense: Expense) => void;
     onDelete?: (expense: Expense) => void;
+    onBookmark?: (expense: Expense) => void;
     selectedExpenses?: Set<number>;
     onExpenseSelect?: (expenseId: number, selected: boolean) => void;
     onSelectAll?: (selected: boolean) => void;
@@ -23,6 +24,7 @@ export function ExpenseList({
     onEdit, 
     onView,
     onDelete,
+    onBookmark,
     selectedExpenses,
     onExpenseSelect,
     onSelectAll,
@@ -34,6 +36,7 @@ export function ExpenseList({
     const handleEdit = onEdit ? (transaction: any) => onEdit(transaction as Expense) : undefined;
     const handleView = onView ? (transaction: any) => onView(transaction as Expense) : undefined;
     const handleDelete = onDelete ? (transaction: any) => onDelete(transaction as Expense) : undefined;
+    const handleBookmark = onBookmark ? (transaction: any) => onBookmark(transaction as Expense) : undefined;
 
     return (
         <FinancialList
@@ -43,6 +46,7 @@ export function ExpenseList({
             onEdit={handleEdit}
             onView={handleView}
             onDelete={handleDelete}
+            onBookmark={handleBookmark}
             selectedTransactions={selectedExpenses}
             onTransactionSelect={onExpenseSelect}
             onSelectAll={onSelectAll}

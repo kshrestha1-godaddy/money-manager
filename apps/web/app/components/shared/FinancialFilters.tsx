@@ -1,4 +1,5 @@
 import React from "react";
+import { Bookmark } from "lucide-react";
 import { Category } from "../../types/financial";
 import { 
     BUTTON_COLORS,
@@ -24,6 +25,8 @@ interface FinancialFiltersProps {
   onClearFilters: () => void;
   itemType: "income" | "expense";
   hasActiveFilters: boolean;
+  showBookmarkedOnly: boolean;
+  onShowBookmarkedOnlyChange: (value: boolean) => void;
 }
 
 // Extract color variables for better readability
@@ -48,11 +51,13 @@ export function FinancialFilters({
   onClearFilters,
   itemType,
   hasActiveFilters,
+  showBookmarkedOnly,
+  onShowBookmarkedOnlyChange,
 }: FinancialFiltersProps) {
   return (
     <div className={filtersContainer}>
-      <div className={UI_STYLES.filters.gridSix}>
-        <div>
+      <div className="flex flex-wrap gap-4 items-end">
+        <div className="flex-1 min-w-[200px]">
           <label className={labelText}>
             Search {itemType === "income" ? "Incomes" : "Expenses"}
           </label>
@@ -61,17 +66,17 @@ export function FinancialFilters({
             placeholder="Search by title, description, or notes..."
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            className={standardInput}
+            className={`${standardInput} h-10`}
           />
         </div>
-        <div>
+        <div className="flex-1 min-w-[140px]">
           <label className={labelText}>
             Filter by Category
           </label>
           <select
             value={selectedCategory}
             onChange={(e) => onCategoryChange(e.target.value)}
-            className={standardInput}
+            className={`${standardInput} h-10`}
           >
             <option value="">All Categories</option>
             {categories.map(category => (
@@ -81,14 +86,14 @@ export function FinancialFilters({
             ))}
           </select>
         </div>
-        <div>
+        <div className="flex-1 min-w-[140px]">
           <label className={labelText}>
             Filter by Bank
           </label>
           <select
             value={selectedBank}
             onChange={(e) => onBankChange(e.target.value)}
-            className={standardInput}
+            className={`${standardInput} h-10`}
           >
             <option value="">All Banks</option>
             {uniqueBankNames.map(bankName => (
@@ -98,7 +103,7 @@ export function FinancialFilters({
             ))}
           </select>
         </div>
-        <div>
+        <div className="min-w-[120px]">
           <label className={labelText}>
             Start Date
           </label>
@@ -106,10 +111,10 @@ export function FinancialFilters({
             type="date"
             value={startDate}
             onChange={(e) => onStartDateChange(e.target.value)}
-            className={standardInput}
+            className={`${standardInput} h-10`}
           />
         </div>
-        <div>
+        <div className="min-w-[120px]">
           <label className={labelText}>
             End Date
           </label>
@@ -117,13 +122,33 @@ export function FinancialFilters({
             type="date"
             value={endDate}
             onChange={(e) => onEndDateChange(e.target.value)}
-            className={standardInput}
+            className={`${standardInput} h-10`}
           />
         </div>
-        <div className={UI_STYLES.filters.clearButtonContainer}>
+        <div className="min-w-[120px]">
+          <label className={labelText}>
+            {/* <Bookmark className="w-4 h-4 inline mr-1" /> */}
+            Bookmarked
+          </label>
+          <button
+            type="button"
+            onClick={() => onShowBookmarkedOnlyChange(!showBookmarkedOnly)}
+            className={`w-full h-10 px-3 py-2 text-left text-sm border rounded-md transition-colors ${
+              showBookmarkedOnly
+                ? 'bg-yellow-50 border-yellow-300 text-yellow-800'
+                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            {showBookmarkedOnly ? 'Bookmarked Only' : 'All Records'}
+          </button>
+        </div>
+        <div className="min-w-[100px]">
+          <label className={`${labelText} invisible`}>
+            Clear
+          </label>
           <button
             onClick={onClearFilters}
-            className={clearFilterButton}
+            className={`${clearFilterButton} h-10`}
             disabled={!hasActiveFilters}
           >
             Clear Filters

@@ -46,7 +46,21 @@ export async function getIncomes() {
             },
             orderBy: { date: 'desc' }
         });
-        return incomes.map(getDisplayIncome);
+
+        // Get all bookmarks for this user's incomes
+        const bookmarkedIncomes = await prisma.transactionBookmark.findMany({
+            where: {
+                userId: userId,
+                transactionType: 'INCOME'
+            }
+        });
+
+        const bookmarkedIncomeIds = new Set(bookmarkedIncomes.map(b => b.transactionId));
+
+        return incomes.map(income => ({
+            ...getDisplayIncome(income),
+            isBookmarked: bookmarkedIncomeIds.has(income.id)
+        }));
 
     } catch (error) {
         console.error("Failed to fetch incomes:", error);

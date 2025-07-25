@@ -15,6 +15,7 @@ import { FinancialFilters } from '../../components/shared/FinancialFilters'
 import { formatCurrency } from '../../utils/currency'
 import { getIncomes, createIncome, updateIncome, deleteIncome, bulkDeleteIncomes } from '../../actions/incomes'
 import { exportIncomesToCSV } from '../../utils/csvExportIncomes'
+import { createTransactionBookmark, deleteTransactionBookmarkByTransaction } from '../../actions/transaction-bookmarks'
 import { Income } from '../../types/financial'
 import { useCurrency } from '../../providers/CurrencyProvider'
 import { 
@@ -104,7 +105,10 @@ function IncomesContent() {
     setStartDate,
     endDate,
     setEndDate,
-    clearFilters
+    showBookmarkedOnly,
+    setShowBookmarkedOnly,
+    clearFilters,
+    invalidateQueries
   } = useOptimizedFinancialData<Income>("INCOME", {
     getItems: getIncomes,
     createItem: createIncome,
@@ -113,6 +117,31 @@ function IncomesContent() {
     bulkDeleteItems: bulkDeleteIncomes,
     exportToCSV: exportIncomesToCSV,
   })
+
+  // Handle bookmark toggle
+  const handleBookmarkToggle = async (income: Income) => {
+    try {
+      if (income.isBookmarked) {
+        await deleteTransactionBookmarkByTransaction('INCOME', income.id);
+      } else {
+        await createTransactionBookmark({
+          transactionType: 'INCOME',
+          transactionId: income.id,
+          title: income.title,
+          description: income.description || undefined,
+          notes: income.notes || undefined,
+          tags: income.tags || []
+        });
+      }
+      
+      // Invalidate queries to refetch data with updated bookmark status
+      invalidateQueries();
+    } catch (error) {
+      console.error('Error toggling bookmark:', error);
+      // Still refresh on error to ensure consistency
+      invalidateQueries();
+    }
+  };
 
   // Handle URL action parameter
   useEffect(() => {
@@ -299,6 +328,8 @@ function IncomesContent() {
         onClearFilters={clearFilters}
         itemType="income"
         hasActiveFilters={hasActiveFilters}
+        showBookmarkedOnly={showBookmarkedOnly}
+        onShowBookmarkedOnlyChange={setShowBookmarkedOnly}
       />
 
       <Suspense fallback={<div>Loading incomes...</div>}>
@@ -308,6 +339,7 @@ function IncomesContent() {
           onEdit={openEditModal}
           onView={openViewModal}
           onDelete={openDeleteModal}
+          onBookmark={handleBookmarkToggle}
           selectedIncomes={selectedItems}
           onIncomeSelect={handleItemSelect}
           onSelectAll={handleSelectAll}

@@ -15,6 +15,7 @@ import { FinancialFilters } from '../../components/shared/FinancialFilters'
 import { formatCurrency } from '../../utils/currency'
 import { getExpenses, createExpense, updateExpense, deleteExpense, bulkDeleteExpenses } from '../../actions/expenses'
 import { exportExpensesToCSV } from '../../utils/csvExportExpenses'
+import { createTransactionBookmark, deleteTransactionBookmarkByTransaction } from '../../actions/transaction-bookmarks'
 import { Expense } from '../../types/financial'
 import { useCurrency } from '../../providers/CurrencyProvider'
 import { 
@@ -103,7 +104,10 @@ function ExpensesContent() {
     setStartDate,
     endDate,
     setEndDate,
-    clearFilters
+    showBookmarkedOnly,
+    setShowBookmarkedOnly,
+    clearFilters,
+    invalidateQueries
   } = useOptimizedFinancialData<Expense>("EXPENSE", {
     getItems: getExpenses,
     createItem: createExpense,
@@ -112,6 +116,31 @@ function ExpensesContent() {
     bulkDeleteItems: bulkDeleteExpenses,
     exportToCSV: exportExpensesToCSV,
   })
+
+  // Handle bookmark toggle
+  const handleBookmarkToggle = async (expense: Expense) => {
+    try {
+      if (expense.isBookmarked) {
+        await deleteTransactionBookmarkByTransaction('EXPENSE', expense.id);
+      } else {
+        await createTransactionBookmark({
+          transactionType: 'EXPENSE',
+          transactionId: expense.id,
+          title: expense.title,
+          description: expense.description || undefined,
+          notes: expense.notes || undefined,
+          tags: expense.tags || []
+        });
+      }
+      
+      // Invalidate queries to refetch data with updated bookmark status
+      invalidateQueries();
+    } catch (error) {
+      console.error('Error toggling bookmark:', error);
+      // Still refresh on error to ensure consistency
+      invalidateQueries();
+    }
+  };
 
   // Handle URL action parameter
   useEffect(() => {
@@ -299,6 +328,8 @@ function ExpensesContent() {
         onClearFilters={clearFilters}
         itemType="expense"
         hasActiveFilters={hasActiveFilters}
+        showBookmarkedOnly={showBookmarkedOnly}
+        onShowBookmarkedOnlyChange={setShowBookmarkedOnly}
       />
 
       <Suspense fallback={<div>Loading expenses...</div>}>
@@ -308,6 +339,7 @@ function ExpensesContent() {
           onEdit={openEditModal}
           onView={openViewModal}
           onDelete={openDeleteModal}
+          onBookmark={handleBookmarkToggle}
           selectedExpenses={selectedItems}
           onExpenseSelect={handleItemSelect}
           onSelectAll={handleSelectAll}

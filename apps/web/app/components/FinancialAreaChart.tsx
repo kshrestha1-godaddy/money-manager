@@ -108,23 +108,27 @@ export function FinancialAreaChart({
     }, [data, startDate, endDate, pageStartDate, pageEndDate, hasPageFilters, type]);
 
     const chartData = useMemo(() => {
-        // Apply default 30-day filter when no chart filters and no page filters are active
-        if (!filteredData) return [];
+        if (!data) return [];
         
-        let recentData = filteredData;
+        let chartDisplayData;
         const effectiveStartDate = startDate || (hasPageFilters ? pageStartDate : '');
         const effectiveEndDate = endDate || (hasPageFilters ? pageEndDate : '');
         
-        if (!effectiveStartDate && !effectiveEndDate && !hasPageFilters) {
-            // Only apply 30-day filter if no page filters AND no chart filters are applied
+        // If any filters are active, use the filtered data
+        if (hasPageFilters || effectiveStartDate || effectiveEndDate) {
+            chartDisplayData = filteredData;
+        } else {
+            // No filters active - show default 30-day view
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
             
-            recentData = filteredData.filter(item => {
+            chartDisplayData = data.filter(item => {
                 const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
                 return itemDate >= thirtyDaysAgo;
             });
         }
+        
+        let recentData = chartDisplayData;
         
         // console.log(`${chartConfig.label} chart filtering:`, {
         //     chartStartDate: startDate,

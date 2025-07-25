@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { Bookmark, BookmarkCheck } from "lucide-react";
 import { formatCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
 import { TransactionType } from "../../utils/formUtils";
@@ -28,6 +29,7 @@ interface FinancialTransaction {
     notes?: string;
     isRecurring: boolean;
     recurringFrequency?: string;
+    isBookmarked?: boolean;
 }
 
 interface FinancialListProps {
@@ -37,6 +39,7 @@ interface FinancialListProps {
     onEdit?: (transaction: FinancialTransaction) => void;
     onView?: (transaction: FinancialTransaction) => void;
     onDelete?: (transaction: FinancialTransaction) => void;
+    onBookmark?: (transaction: FinancialTransaction) => void;
     selectedTransactions?: Set<number>;
     onTransactionSelect?: (transactionId: number, selected: boolean) => void;
     onSelectAll?: (selected: boolean) => void;
@@ -54,7 +57,8 @@ export function FinancialList({
     currency = "USD", 
     onEdit, 
     onView,
-    onDelete, 
+    onDelete,
+    onBookmark,
     selectedTransactions = new Set(),
     onTransactionSelect,
     onSelectAll,
@@ -69,9 +73,10 @@ export function FinancialList({
     
     // Column resizing state
     const [columnWidths, setColumnWidths] = useState({
-        checkbox: 64,
+        checkbox: 20,
+        bookmark: 20,
         title: 200,
-        category: 140,
+        category: 120,
         account: 192,
         date: 112,
         tags: 110,
@@ -223,12 +228,33 @@ export function FinancialList({
     // Table View
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
+            <div className="px-6 py-5 border-b border-gray-200">
                 <div className="flex justify-between items-center">
-                    <div className="flex justify-between w-full space-x-4">
-                        <h2 className="text-lg font-semibold text-gray-900">
-                            {transactionLabel} ({transactions.length})
-                        </h2>
+                    <h2 className="text-lg font-semibold text-gray-900">
+                        {transactionLabel} ({transactions.length})
+                    </h2>
+                    <div className="flex items-center space-x-4">
+                        {/* Bulk Actions */}
+                        {showBulkActions && selectedTransactions.size > 0 && (
+                            <div className="flex items-center space-x-3">
+                                <span className="text-sm font-medium text-gray-900">
+                                    {selectedTransactions.size} selected
+                                </span>
+                                <button
+                                    onClick={handleBulkDelete}
+                                    className="px-3 py-1.5 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors"
+                                >
+                                    Delete Selected
+                                </button>
+                                <button
+                                    onClick={onClearSelection}
+                                    className="px-3 py-1.5 bg-gray-600 text-white rounded-md text-sm font-medium hover:bg-gray-700 transition-colors"
+                                >
+                                    Clear Selection
+                                </button>
+                            </div>
+                        )}
+                        {/* Pagination */}
                         <CompactPagination
                             currentPage={currentPage}
                             totalItems={transactions.length}
@@ -239,38 +265,13 @@ export function FinancialList({
                 </div>
             </div>
 
-            {/* Bulk Actions */}
-            {showBulkActions && selectedTransactions.size > 0 && (
-                <div className="bg-blue-50 border-b border-blue-200 px-6 py-4">
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-blue-900">
-                            {selectedTransactions.size} selected
-                        </span>
-                        <div className="flex space-x-3">
-                            <button
-                                onClick={handleBulkDelete}
-                                className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors"
-                            >
-                                Delete Selected
-                            </button>
-                            <button
-                                onClick={onClearSelection}
-                                className="px-4 py-2 bg-gray-600 text-white rounded-md text-sm font-medium hover:bg-gray-700 transition-colors"
-                            >
-                                Clear Selection
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 table-fixed">
                     <thead className="bg-gray-50">
                         <tr>
                             {showBulkActions && (
                                 <th 
-                                    className="px-6 py-3 text-left relative border-r border-gray-200"
+                                    className="px-6 py-4 text-left relative border-r border-gray-200"
                                     style={{ width: `${columnWidths.checkbox}px` }}
                                 >
                                     <input
@@ -286,6 +287,14 @@ export function FinancialList({
                                         className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
                                         onMouseDown={(e) => handleMouseDown(e, 'checkbox')}
                                     />
+                                </th>
+                            )}
+                            {onBookmark && (
+                                <th 
+                                    className="px-1 py-3 text-center relative"
+                                    style={{ width: `${columnWidths.bookmark}px` }}
+                                >
+                                    {/* Empty header for bookmark column */}
                                 </th>
                             )}
                             <th 
@@ -388,14 +397,15 @@ export function FinancialList({
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {paginatedTransactions.map((transaction, index) => (
-                            <FinancialRow 
-                                key={transaction.id} 
-                                transaction={transaction} 
+                                                        <FinancialRow
+                                key={transaction.id}
+                                transaction={transaction}
                                 transactionType={transactionType}
                                 currency={currency}
                                 onEdit={onEdit}
                                 onView={onView}
                                 onDelete={onDelete}
+                                onBookmark={onBookmark}
                                 isSelected={selectedTransactions.has(transaction.id)}
                                 onSelect={onTransactionSelect}
                                 showCheckbox={showBulkActions}
@@ -426,6 +436,7 @@ function FinancialRow({
     onEdit, 
     onView,
     onDelete,
+    onBookmark,
     isSelected = false,
     onSelect,
     showCheckbox = false,
@@ -439,12 +450,14 @@ function FinancialRow({
     onEdit?: (transaction: FinancialTransaction) => void;
     onView?: (transaction: FinancialTransaction) => void;
     onDelete?: (transaction: FinancialTransaction) => void;
+    onBookmark?: (transaction: FinancialTransaction) => void;
     isSelected?: boolean;
     onSelect?: (transactionId: number, selected: boolean) => void;
     showCheckbox?: boolean;
     amountColorClass: string;
     columnWidths: {
         checkbox: number;
+        bookmark: number;
         title: number;
         category: number;
         account: number;
@@ -474,6 +487,12 @@ function FinancialRow({
         }
     };
 
+    const handleBookmark = () => {
+        if (onBookmark) {
+            onBookmark(transaction);
+        }
+    };
+
     const handleSelect = () => {
         if (onSelect) {
             onSelect(transaction.id, !isSelected);
@@ -498,6 +517,25 @@ function FinancialRow({
                         onChange={handleSelect}
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
+                </td>
+            )}
+            {onBookmark && (
+                <td className="px-1 py-4 text-center" style={{ width: `${columnWidths.bookmark}px` }}>
+                    <button 
+                        onClick={handleBookmark}
+                        className={`inline-flex items-center justify-center w-6 h-6 rounded transition-colors ${
+                            transaction.isBookmarked
+                                ? 'text-yellow-600 hover:bg-yellow-50'
+                                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                        }`}
+                        title={transaction.isBookmarked ? 'Remove bookmark' : 'Add bookmark'}
+                    >
+                        {transaction.isBookmarked ? (
+                            <BookmarkCheck className="w-4 h-4" />
+                        ) : (
+                            <Bookmark className="w-4 h-4" />
+                        )}
+                    </button>
                 </td>
             )}
             <td className="px-6 py-4" style={{ width: `${columnWidths.title}px` }}>

@@ -42,6 +42,16 @@ export async function getExpenses() {
             }
         });
 
+        // Get all bookmarks for this user's expenses
+        const bookmarkedExpenses = await prisma.transactionBookmark.findMany({
+            where: {
+                userId: userId,
+                transactionType: 'EXPENSE'
+            }
+        });
+
+        const bookmarkedExpenseIds = new Set(bookmarkedExpenses.map(b => b.transactionId));
+
         // Transform Prisma result to match our Expense type
         return expenses.map(expense => ({
             ...expense,
@@ -49,6 +59,7 @@ export async function getExpenses() {
             date: new Date(expense.date),
             createdAt: new Date(expense.createdAt),
             updatedAt: new Date(expense.updatedAt),
+            isBookmarked: bookmarkedExpenseIds.has(expense.id),
             // Convert account balance from Decimal to number
             account: expense.account ? {
                 ...expense.account,

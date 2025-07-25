@@ -50,6 +50,7 @@ export interface Expense {
   notes?: string;
   isRecurring: boolean;
   recurringFrequency?: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+  isBookmarked?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -69,6 +70,7 @@ export interface Income {
   notes?: string;
   isRecurring: boolean;
   recurringFrequency?: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+  isBookmarked?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
