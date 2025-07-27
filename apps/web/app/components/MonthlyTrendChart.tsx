@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useMemo, useCallback } from "react";
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from "recharts";
+import { Info } from "lucide-react";
 import { formatCurrency } from "../utils/currency";
 import { Income, Expense } from "../types/financial";
 import { ChartControls } from "./ChartControls";
@@ -48,19 +49,46 @@ const SummaryStats = React.memo<{
 }>(({ calculations, currency }) => (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
         <div className="text-center sm:text-left">
-            <p className="text-sm text-gray-600">Monthly Average Income</p>
+            <div className="flex items-center justify-center sm:justify-start space-x-1">
+                <p className="text-sm text-gray-600">Monthly Average Income</p>
+                <div className="relative group">
+                    <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                        Average income per month from the selected period
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                    </div>
+                </div>
+            </div>
             <p className="text-base sm:text-lg font-bold text-green-600">
                 {formatCurrency(calculations.averageIncome, currency)}
             </p>
         </div>
         <div className="text-center sm:text-left">
-            <p className="text-sm text-gray-600">Monthly Average Expenses</p>
+            <div className="flex items-center justify-center sm:justify-start space-x-1">
+                <p className="text-sm text-gray-600">Monthly Average Expenses</p>
+                <div className="relative group">
+                    <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                        Average expenses per month from the selected period
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                    </div>
+                </div>
+            </div>
             <p className="text-base sm:text-lg font-bold text-red-600">
                 {formatCurrency(calculations.averageExpenses, currency)}
             </p>
         </div>
         <div className="text-center sm:text-left">
-            <p className="text-sm text-gray-600">Monthly Average Savings</p>
+            <div className="flex items-center justify-center sm:justify-start space-x-1">
+                <p className="text-sm text-gray-600">Monthly Average Savings</p>
+                <div className="relative group">
+                    <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                        Average savings per month: Income - Expenses
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                    </div>
+                </div>
+            </div>
             <p className={`text-base sm:text-lg font-bold ${calculations.averageSavings >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
                 {formatCurrency(calculations.averageSavings, currency)}
             </p>
@@ -351,10 +379,10 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
         ])
     ], [chartData]);
 
-    // Memoize chart title and subtitle
-    const { chartTitle, subtitle } = useMemo(() => ({
+    // Memoize chart title and tooltip text
+    const { chartTitle, tooltipText } = useMemo(() => ({
         chartTitle: `Monthly Income, Expenses & Savings Trend ${timePeriodText}`,
-        subtitle: "Compare your monthly financial flows and identify patterns over time"
+        tooltipText: "Compare your monthly financial flows and identify patterns over time"
     }), [timePeriodText]);
 
     // Optimized download functions with better error handling
@@ -644,7 +672,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                     csvData={csvData}
                     csvFileName="monthly-trend-data"
                     title={chartTitle}
-                    subtitle={subtitle}
+                    tooltipText={tooltipText}
                 />
                 <ChartContent />
             </div>
@@ -656,7 +684,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                         <div className="flex justify-between items-center mb-4">
                             <div>
                                 <h2 className="text-2xl font-semibold">{chartTitle}</h2>
-                                <p className="text-sm text-gray-500">{subtitle}</p>
+                                <p className="text-sm text-gray-500">{tooltipText}</p>
                             </div>
                             <button
                                 onClick={toggleExpanded}

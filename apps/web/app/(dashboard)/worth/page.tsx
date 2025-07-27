@@ -9,7 +9,7 @@ import { formatDate } from "../../utils/date";
 import { useChartExpansion } from "../../utils/chartUtils";
 import { ChartControls } from "../../components/ChartControls";
 import { useOptimizedWorth } from "../../hooks/useOptimizedWorth";
-import { TrendingUp, TrendingDown, DollarSign, Target, PiggyBank, BarChart3, RefreshCw, Download } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Target, PiggyBank, BarChart3, RefreshCw, Download, Info } from "lucide-react";
 import { 
     getSummaryCardClasses,
     getGainLossClasses,
@@ -204,7 +204,16 @@ export default function NetWorthPage() {
             <div className="grid grid-cols-4 gap-6">
                 <div className={cardLargeContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRow}>
-                        <h3 className={`${cardTitle} mr-2`}>Savings Rate</h3>
+                        <div className="flex items-center space-x-1">
+                            <h3 className={`${cardTitle} mr-2`}>Savings Rate</h3>
+                            <div className="relative group">
+                                <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                    Percentage of income saved this month
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                                </div>
+                            </div>
+                        </div>
                         {netWorthStats.savingsRate >= 0 ? 
                             <PiggyBank className={`h-4 w-4 ${greenPositiveIcon}`} /> : 
                             <PiggyBank className={`h-4 w-4 ${redNegativeIcon}`} />
@@ -218,7 +227,16 @@ export default function NetWorthPage() {
 
                 <div className={cardLargeContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRow}>
-                        <h3 className={`${cardTitle} mr-2`}>Investment Allocation</h3>
+                        <div className="flex items-center space-x-1">
+                            <h3 className={`${cardTitle} mr-2`}>Investment Allocation</h3>
+                            <div className="relative group">
+                                <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                    Percentage of total assets allocated to investments
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                                </div>
+                            </div>
+                        </div>
                         {netWorthStats.investmentAllocation >= 20 ? 
                             <BarChart3 className={`h-4 w-4 ${greenPositiveIcon}`} /> : 
                             netWorthStats.investmentAllocation >= 10 ?
@@ -238,7 +256,16 @@ export default function NetWorthPage() {
 
                 <div className={cardLargeContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRow}>
-                        <h3 className={`${cardTitle} mr-2`}>Liquidity Ratio</h3>
+                        <div className="flex items-center space-x-1">
+                            <h3 className={`${cardTitle} mr-2`}>Liquidity Ratio</h3>
+                            <div className="relative group">
+                                <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                    Percentage of assets in easily accessible cash/bank accounts
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                                </div>
+                            </div>
+                        </div>
                         {netWorthStats.liquidityRatio >= 50 ? 
                             <DollarSign className={`h-4 w-4 ${greenPositiveIcon}`} /> : 
                             netWorthStats.liquidityRatio >= 30 ?
@@ -258,7 +285,16 @@ export default function NetWorthPage() {
 
                 <div className={cardLargeContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRow}>
-                        <h3 className={`${cardTitle} mr-2`}>Investment Gain</h3>
+                        <div className="flex items-center space-x-1">
+                            <h3 className={`${cardTitle} mr-2`}>Investment Gain</h3>
+                            <div className="relative group">
+                                <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                    Total profit/loss from all investment positions
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                                </div>
+                            </div>
+                        </div>
                         {netWorthStats.totalInvestmentGain >= 0 ? 
                             <TrendingUp className={`h-4 w-4 ${greenPositiveIcon}`} /> : 
                             <TrendingDown className={`h-4 w-4 ${redNegativeIcon}`} />

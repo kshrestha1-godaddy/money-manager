@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { Info } from "lucide-react";
 import { DebtTable } from "../../components/debts/DebtTable";
 import { AddDebtModal } from "../../components/debts/AddDebtModal";
 import { EditDebtModal } from "../../components/debts/EditDebtModal";
@@ -220,7 +221,16 @@ export default function Debts() {
                 <div className={cardLargeContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRowLarge}>
                         <div className={`${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('totalDebts', 'debts').indicator}`}></div>
-                        <h3 className={cardTitle}>Total Lendings</h3>
+                        <div className="flex items-center space-x-1">
+                            <h3 className={cardTitle}>Total Lendings</h3>
+                            <div className="relative group">
+                                <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                    Total number of lending records in your portfolio
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <p className={`${cardValueLarge} ${getSummaryCardClasses('totalDebts', 'debts').text}`}>
                         {loading ? "..." : financialSummary.totalDebts}
@@ -231,7 +241,16 @@ export default function Debts() {
                 <div className={cardLargeContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRowLarge}>
                         <div className={`${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('principalLent', 'debts').indicator}`}></div>
-                        <h3 className={cardTitle}>Principal Lent</h3>
+                        <div className="flex items-center space-x-1">
+                            <h3 className={cardTitle}>Principal Lent</h3>
+                            <div className="relative group">
+                                <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                    Total amount you have lent out (original principal)
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <p className={`${cardValueLarge} ${getSummaryCardClasses('principalLent', 'debts').text}`}>
                         {loading ? "..." : formatCurrency(financialSummary.totalPrincipal, userCurrency)}
@@ -242,7 +261,16 @@ export default function Debts() {
                 <div className={cardLargeContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRowLarge}>
                         <div className={`${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('interestEarned', 'debts').indicator}`}></div>
-                        <h3 className={cardTitle}>Interest Earned</h3>
+                        <div className="flex items-center space-x-1">
+                            <h3 className={cardTitle}>Interest Earned</h3>
+                            <div className="relative group">
+                                <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                    Total interest accumulated on all loans
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <p className={`${cardValueLarge} ${getSummaryCardClasses('interestEarned', 'debts').text}`}>
                         {loading ? "..." : formatCurrency(financialSummary.totalInterestAccrued, userCurrency)}
@@ -253,7 +281,16 @@ export default function Debts() {
                 <div className={cardLargeContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRowLarge}>
                         <div className={`${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('totalRepaid', 'debts').indicator}`}></div>
-                        <h3 className={cardTitle}>Total Repaid</h3>
+                        <div className="flex items-center space-x-1">
+                            <h3 className={cardTitle}>Total Repaid</h3>
+                            <div className="relative group">
+                                <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                    Total amount repaid by borrowers so far
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <p className={`${cardValueLarge} ${getSummaryCardClasses('totalRepaid', 'debts').text}`}>
                         {loading ? "..." : formatCurrency(financialSummary.totalRepaid, userCurrency)}
@@ -264,7 +301,16 @@ export default function Debts() {
                 <div className={cardLargeContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRowLarge}>
                         <div className={`${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('outstanding', 'debts').indicator}`}></div>
-                        <h3 className={cardTitle}>Outstanding</h3>
+                        <div className="flex items-center space-x-1">
+                            <h3 className={cardTitle}>Outstanding</h3>
+                            <div className="relative group">
+                                <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                    Amount still owed: (Principal + Interest) - Repaid
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <p className={`${cardValueLarge} ${getSummaryCardClasses('outstanding', 'debts').text}`}>
                         {loading ? "..." : formatCurrency(financialSummary.totalOutstanding, userCurrency)}

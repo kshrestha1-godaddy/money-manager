@@ -244,7 +244,7 @@ export function CategoryTrendChart({ data, type, currency = "USD", startDate, en
     ];
 
     const chartTitle = `${type === 'income' ? 'Income' : 'Expense'} Category Trends ${timePeriodText}`;
-    const subtitle = `Monthly trend for ${currentCategory} category over time`;
+    const tooltipText = `Monthly trend for ${currentCategory} category over time`;
 
     const formatYAxisTick = (value: number): string => {
         if (value >= 1000000) {
@@ -418,7 +418,7 @@ export function CategoryTrendChart({ data, type, currency = "USD", startDate, en
                     csvData={csvData}
                     csvFileName={`${currentCategory}-trend-data`}
                     title={chartTitle}
-                    subtitle={subtitle}
+                    tooltipText={tooltipText}
                 />
                 
                 {/* Category Selector */}
@@ -450,7 +450,7 @@ export function CategoryTrendChart({ data, type, currency = "USD", startDate, en
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-2 sm:gap-0">
                             <div>
                                 <h2 className="text-lg sm:text-2xl font-semibold">{chartTitle}</h2>
-                                <p className="text-sm text-gray-500">{subtitle}</p>
+                                <p className="text-sm text-gray-500">{tooltipText}</p>
                             </div>
                             <button
                                 onClick={toggleExpanded}

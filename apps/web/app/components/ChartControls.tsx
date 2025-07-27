@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { Info } from "lucide-react";
 import { ChartUtilsConfig, downloadChart, downloadAsSvg, downloadData } from '../utils/chartUtils';
 
 export interface ChartControlsProps {
@@ -14,6 +15,7 @@ export interface ChartControlsProps {
     showExpandButton?: boolean;
     title?: string;
     subtitle?: string;
+    tooltipText?: string;
 }
 
 /**
@@ -29,7 +31,8 @@ export const ChartControls: React.FC<ChartControlsProps> = ({
     showDownloadButtons = true,
     showExpandButton = true,
     title,
-    subtitle
+    subtitle,
+    tooltipText
 }) => {
     const config: ChartUtilsConfig = {
         chartRef,
@@ -41,8 +44,21 @@ export const ChartControls: React.FC<ChartControlsProps> = ({
     return (
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6 gap-2 sm:gap-0">
             <div className="flex flex-col">
-                {title && <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">{title}</h3>}
-                {subtitle && <p className="text-xs sm:text-sm text-gray-500 mt-0.5">{subtitle}</p>}
+                {title && (
+                    <div className="flex items-center space-x-2">
+                        <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">{title}</h3>
+                        {tooltipText && (
+                            <div className="relative group">
+                                <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help" />
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10 max-w-xs">
+                                    {tooltipText}
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+                {subtitle && !tooltipText && <p className="text-xs sm:text-sm text-gray-500 mt-0.5">{subtitle}</p>}
             </div>
             <div className="flex items-center gap-1 sm:gap-2 justify-end">
                 {showDownloadButtons && (

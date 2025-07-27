@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Label } from "recharts";
+import { Info } from "lucide-react";
 import { Income, Expense } from "../types/financial";
 import { useChartExpansion } from "../utils/chartUtils";
 import { ChartControls } from "./ChartControls";
@@ -165,25 +166,52 @@ export function SavingsRateChart({ incomes, expenses, currency, startDate, endDa
                 csvData={csvData}
                 csvFileName="savings-rate-data"
                 title={`Monthly Savings Rate Trend ${timePeriodText}`}
-                subtitle="Tracks your monthly savings as a percentage of income over time"
+                tooltipText="Tracks your monthly savings as a percentage of income over time"
             />
 
             {/* Summary Stats */}
             <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-4">
                 <div className="text-center">
-                    <p className="text-xs sm:text-sm text-gray-600">Average Savings Rate</p>
+                    <div className="flex items-center justify-center space-x-1">
+                        <p className="text-xs sm:text-sm text-gray-600">Average Savings Rate</p>
+                        <div className="relative group">
+                            <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                Average percentage of income saved across all months
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                            </div>
+                        </div>
+                    </div>
                     <p className="text-lg sm:text-xl font-bold text-blue-600">
                         {data.length === 0 ? '0.0' : (data.reduce((sum, item) => sum + item.savingsRate, 0) / data.length).toFixed(1)}%
                     </p>
                 </div>
                 <div className="text-center">
-                    <p className="text-xs sm:text-sm text-gray-600">Highest Savings Rate</p>
+                    <div className="flex items-center justify-center space-x-1">
+                        <p className="text-xs sm:text-sm text-gray-600">Highest Savings Rate</p>
+                        <div className="relative group">
+                            <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                Best month for saving money from the selected period
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                            </div>
+                        </div>
+                    </div>
                     <p className="text-lg sm:text-xl font-bold text-green-600">
                         {data.length === 0 ? '0.0' : Math.max(...data.map(item => item.savingsRate)).toFixed(1)}%
                     </p>
                 </div>
                 <div className="text-center">
-                    <p className="text-xs sm:text-sm text-gray-600">Lowest Savings Rate</p>
+                    <div className="flex items-center justify-center space-x-1">
+                        <p className="text-xs sm:text-sm text-gray-600">Lowest Savings Rate</p>
+                        <div className="relative group">
+                            <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                Month with lowest savings rate from the selected period
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                            </div>
+                        </div>
+                    </div>
                     <p className="text-lg sm:text-xl font-bold text-red-600">
                         {data.length === 0 ? '0.0' : Math.min(...data.map(item => item.savingsRate)).toFixed(1)}%
                     </p>

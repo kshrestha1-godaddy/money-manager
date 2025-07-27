@@ -126,7 +126,7 @@ export function CategoryPieChart({ data, type, currency = "USD", title, startDat
     const defaultTitle = type === 'income' ? 'Income by Category' : 'Expenses by Category';
     const chartTitle = `${title || defaultTitle} ${timePeriodText}`;
     const totalLabel = type === 'income' ? 'Total Income' : 'Total Expenses';
-    const subtitle = type === 'income' ? 'Breakdown of your income sources by category' : 'Analysis of your spending patterns by category';
+    const tooltipText = type === 'income' ? 'Breakdown of your income sources by category' : 'Analysis of your spending patterns by category';
 
     // Download functions
     const downloadPNG = async (): Promise<void> => {
@@ -384,7 +384,7 @@ export function CategoryPieChart({ data, type, currency = "USD", title, startDat
                     csvData={csvDataForControls}
                     csvFileName={`${type}-category-data`}
                     title={chartTitle}
-                    subtitle={subtitle}
+                    tooltipText={tooltipText}
                 />
                 <ChartContent />
             </div>
@@ -396,7 +396,7 @@ export function CategoryPieChart({ data, type, currency = "USD", title, startDat
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 gap-2 sm:gap-0">
                             <div>
                                 <h2 className="text-lg sm:text-2xl font-semibold truncate">{chartTitle}</h2>
-                                <p className="text-sm text-gray-500">{subtitle}</p>
+                                <p className="text-sm text-gray-500">{tooltipText}</p>
                             </div>
                             <button
                                 onClick={toggleExpanded}

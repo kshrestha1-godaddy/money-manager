@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { Info } from 'lucide-react'
 import { useOptimizedFinancialData } from '../../hooks/useOptimizedFinancialData'
 import { ExpenseList } from '../../components/expenses/ExpenseList'
 import { AddExpenseModal } from '../../components/expenses/AddExpenseModal'
@@ -154,6 +155,8 @@ function ExpensesContent() {
   const currentMonth = now.getMonth()
   const currentYear = now.getFullYear()
   const currentQuarter = Math.floor(currentMonth / 3)
+  const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1
+  const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear
   
   const currentMonthExpenses = allExpenses
     .filter(expense => {
@@ -165,8 +168,6 @@ function ExpensesContent() {
   const lastMonthExpenses = allExpenses
     .filter(expense => {
       const expenseDate = new Date(expense.date)
-      const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1
-      const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear
       return expenseDate.getMonth() === lastMonth && expenseDate.getFullYear() === lastMonthYear
     })
     .reduce((sum: number, expense: Expense) => sum + expense.amount, 0)
@@ -221,14 +222,18 @@ function ExpensesContent() {
       value: formatCurrency(currentMonthExpenses, userCurrency),
       subtitle: `${monthlyChange >= 0 ? '+' : ''}${monthlyChange.toFixed(1)}%`,
       subtitleColor: monthlyChange >= 0 ? "text-red-600" : "text-green-600",
-      dotColor: monthlyChange >= 0 ? "bg-red-500" : "bg-green-500"
+      dotColor: monthlyChange >= 0 ? "bg-red-500" : "bg-green-500",
+      hasPercentage: true,
+      tooltipText: `Compared to last month (${monthNames[lastMonth]}): ${formatCurrency(lastMonthExpenses, userCurrency)}`
     },
     {
       title: `${currentQuarterName} (${currentQuarterName === "Q1" ? "Jan-Mar" : currentQuarterName === "Q2" ? "Apr-Jun" : currentQuarterName === "Q3" ? "Jul-Sep" : "Oct-Dec"})`,
       value: formatCurrency(currentQuarterExpenses, userCurrency),
       subtitle: `${quarterlyChange >= 0 ? '+' : ''}${quarterlyChange.toFixed(1)}%`,
       subtitleColor: quarterlyChange >= 0 ? "text-red-600" : "text-green-600",
-      dotColor: quarterlyChange >= 0 ? "bg-red-500" : "bg-green-500"
+      dotColor: quarterlyChange >= 0 ? "bg-red-500" : "bg-green-500",
+      hasPercentage: true,
+      tooltipText: `Compared to last quarter (${quarterNames[currentQuarter === 0 ? 3 : currentQuarter - 1]}): ${formatCurrency(lastQuarterExpenses, userCurrency)}`
     },
     {
       title: "Average per Transaction",
@@ -296,7 +301,18 @@ function ExpensesContent() {
             <p className={`${cardValue} ${card.title.includes('Total') ? 'text-red-600' : 'text-black'}`}>
               {isLoading ? '...' : card.value}
             </p>
-            <p className={`${cardSubtitle} ${card.subtitleColor || 'text-gray-500'}`}>{card.subtitle}</p>
+            <div className="flex items-center justify-center space-x-1">
+              <p className={`${cardSubtitle} ${card.subtitleColor || 'text-gray-500'}`}>{card.subtitle}</p>
+              {(card as any).hasPercentage && (card as any).tooltipText && (
+                <div className="relative group">
+                  <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                    {(card as any).tooltipText}
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </div>

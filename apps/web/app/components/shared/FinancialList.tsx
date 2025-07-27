@@ -57,7 +57,7 @@ export function FinancialList({
     currency = "USD", 
     onEdit, 
     onView,
-    onDelete,
+    onDelete, 
     onBookmark,
     selectedTransactions = new Set(),
     onTransactionSelect,
@@ -230,9 +230,9 @@ export function FinancialList({
         <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-200">
                 <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-semibold text-gray-900">
-                        {transactionLabel} ({transactions.length})
-                    </h2>
+                        <h2 className="text-lg font-semibold text-gray-900">
+                            {transactionLabel} ({transactions.length})
+                        </h2>
                     <div className="flex items-center space-x-4">
                         {/* Bulk Actions */}
                         {showBulkActions && selectedTransactions.size > 0 && (
@@ -397,9 +397,9 @@ export function FinancialList({
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {paginatedTransactions.map((transaction, index) => (
-                                                        <FinancialRow
-                                key={transaction.id}
-                                transaction={transaction}
+                            <FinancialRow 
+                                key={transaction.id} 
+                                transaction={transaction} 
                                 transactionType={transactionType}
                                 currency={currency}
                                 onEdit={onEdit}

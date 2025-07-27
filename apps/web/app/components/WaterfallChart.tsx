@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, LabelList, TooltipProps } from "recharts";
+import { Info } from "lucide-react";
 import { formatCurrency } from "../utils/currency";
 import { useChartExpansion } from "../utils/chartUtils";
 import { ChartControls } from "./ChartControls";
@@ -145,8 +146,8 @@ export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD", s
                 fileName="waterfall-chart"
                 csvData={csvData}
                 csvFileName="waterfall-data"
-                title={`Financial Waterfall: Income → Expenses → Savings ${timePeriodText}`}
-                subtitle="Visualizes the flow from income to expenses, showing your net savings"
+                title={`Financial Waterfall ${timePeriodText}`}
+                tooltipText="Visualizes the flow from income to expenses, showing your net savings"
             />
 
             {/* Summary Stats */}
@@ -170,7 +171,16 @@ export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD", s
                     </p>
                 </div>
                 <div className="text-center">
-                    <p className="text-xs text-gray-600">Savings Rate</p>
+                    <div className="flex items-center justify-center space-x-1">
+                        <p className="text-xs text-gray-600">Savings Rate</p>
+                        <div className="relative group">
+                            <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                Percentage of income saved: (Income - Expenses) ÷ Income × 100
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                            </div>
+                        </div>
+                    </div>
                     <p className={`text-sm sm:text-xl font-bold ${savingsRate >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
                         {savingsRate.toFixed(1)}%
                     </p>
