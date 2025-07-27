@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Category } from "../../types/financial";
 import { AccountInterface } from "../../types/accounts";
 import { EnhancedTagsInput } from "../shared/EnhancedTagsInput";
@@ -13,6 +13,12 @@ import {
     labelClasses, 
     checkboxClasses 
 } from "../../utils/formUtils";
+import { 
+    ElectricityFields, 
+    ElectricityData, 
+    GoldFields, 
+    GoldData 
+} from "./category-specific";
 
 interface ExpenseFormProps {
     formData: BaseFormData;
@@ -29,12 +35,74 @@ export function ExpenseForm({
     accounts, 
     disabled = false 
 }: ExpenseFormProps) {
+    // Category-specific data state
+    const [electricityData, setElectricityData] = useState<ElectricityData>({
+        previousUnits: '',
+        currentUnits: '',
+        ratePerUnit: '',
+        connectionType: '',
+        meterNumber: ''
+    });
+
+    const [goldData, setGoldData] = useState<GoldData>({
+        weight: '',
+        purity: '',
+        ratePerGram: '',
+        makingCharges: '',
+        jewelerName: '',
+        itemType: '',
+        hallmarkNumber: ''
+    });
+
+    // Get current selected category
+    const selectedCategory = categories.find(cat => cat.id === parseInt(formData.categoryId));
+    const categoryName = selectedCategory?.name?.toLowerCase();
+
+    // Reset category-specific data when category changes
+    useEffect(() => {
+        if (categoryName !== 'electricity') {
+            setElectricityData({
+                previousUnits: '',
+                currentUnits: '',
+                ratePerUnit: '',
+                connectionType: '',
+                meterNumber: ''
+            });
+        }
+        if (categoryName !== 'gold') {
+            setGoldData({
+                weight: '',
+                purity: '',
+                ratePerGram: '',
+                makingCharges: '',
+                jewelerName: '',
+                itemType: '',
+                hallmarkNumber: ''
+            });
+        }
+        // Clear notes when category changes to non-specific category
+        if (categoryName !== 'electricity' && categoryName !== 'gold') {
+            handleInputChange('notes', '');
+        }
+    }, [categoryName]);
+
     const handleInputChange = (field: keyof BaseFormData, value: any) => {
         onFormDataChange({
             ...formData,
             [field]: value
         });
     };
+
+    // Use a ref to store the current form data to avoid dependency issues
+    const formDataRef = useRef(formData);
+    formDataRef.current = formData;
+
+    const handleNotesChange = useCallback((notes: string) => {
+        onFormDataChange({
+            ...formDataRef.current,
+            notes: notes
+        });
+    }, [onFormDataChange]);
 
     return (
         <div className="space-y-3 sm:space-y-4">
@@ -140,6 +208,25 @@ export function ExpenseForm({
                 </select>
             </div>
 
+            {/* Category-specific fields */}
+            {categoryName === 'electricity' && (
+                <ElectricityFields
+                    data={electricityData}
+                    onChange={setElectricityData}
+                    onNotesChange={handleNotesChange}
+                    disabled={disabled}
+                />
+            )}
+
+            {categoryName === 'gold' && (
+                <GoldFields
+                    data={goldData}
+                    onChange={setGoldData}
+                    onNotesChange={handleNotesChange}
+                    disabled={disabled}
+                />
+            )}
+
             <div>
                 <label className={labelClasses}>Account *</label>
                 <select
@@ -169,14 +256,27 @@ export function ExpenseForm({
             </div>
 
             <div>
-                <label className={labelClasses}>Notes</label>
+                <label className={labelClasses}>
+                    Notes
+                    {(categoryName === 'electricity' || categoryName === 'gold') && (
+                        <span className="text-xs text-gray-500 ml-1">(Auto-generated from details above)</span>
+                    )}
+                </label>
                 <textarea
                     value={formData.notes}
                     onChange={(e) => handleInputChange('notes', e.target.value)}
-                    className={textareaClasses}
-                    placeholder="Optional notes or remarks"
-                    rows={2}
-                    disabled={disabled}
+                    className={`${textareaClasses} ${
+                        (categoryName === 'electricity' || categoryName === 'gold') 
+                            ? 'bg-gray-50 text-gray-700' 
+                            : ''
+                    }`}
+                    placeholder={
+                        (categoryName === 'electricity' || categoryName === 'gold')
+                            ? "Notes will be auto-generated from the category details above"
+                            : "Optional notes or remarks"
+                    }
+                    rows={categoryName === 'electricity' || categoryName === 'gold' ? 3 : 2}
+                    disabled={disabled || (categoryName === 'electricity' || categoryName === 'gold')}
                 />
             </div>
 
