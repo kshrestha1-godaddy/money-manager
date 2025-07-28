@@ -239,7 +239,9 @@ function IncomesContent() {
       title: "Average per Transaction",
       value: formatCurrency(averagePerIncome, userCurrency),
       subtitle: `across ${allIncomes.length} records`,
-      dotColor: "bg-purple-500"
+      dotColor: "bg-purple-500",
+      hasPercentage: true,
+      tooltipText: "Average amount of income per transaction"
     }
   ]
 

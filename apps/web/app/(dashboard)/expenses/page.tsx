@@ -239,7 +239,9 @@ function ExpensesContent() {
       title: "Average per Transaction",
       value: formatCurrency(averagePerExpense, userCurrency),
       subtitle: `across ${allExpenses.length} records`,
-      dotColor: "bg-orange-500"
+      dotColor: "bg-orange-500",
+      hasPercentage: true,
+      tooltipText: "Average amount of income per transaction"
     }
   ]
 
