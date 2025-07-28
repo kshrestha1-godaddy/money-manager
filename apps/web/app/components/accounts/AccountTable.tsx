@@ -501,7 +501,7 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShar
                 className="px-6 py-4 whitespace-nowrap"
                 style={{ width: `${columnWidths.accountNumber}px` }}
             >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center space-between">
                     <div className="text-sm text-gray-900 font-mono truncate">
                         {isAccountNumberVisible ? account.accountNumber : maskAccountNumber(account.accountNumber)}
                     </div>
