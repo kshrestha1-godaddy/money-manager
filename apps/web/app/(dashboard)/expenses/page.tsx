@@ -294,17 +294,10 @@ function ExpensesContent() {
       {/* Summary Cards */}
       <div className="grid grid-cols-4 gap-6 mb-6">
         {summaryCards.map((card, index) => (
-          <div key={index} className={cardLargeContainer}>
-            <div className="flex items-center justify-center space-x-2 mb-2">
-              <div className={`w-3 h-3 rounded-full ${card.dotColor}`}></div>
-              <h3 className={cardTitle}>{card.title}</h3>
-            </div>
-            <p className={`${cardValue} ${card.title.includes('Total') ? 'text-red-600' : 'text-black'}`}>
-              {isLoading ? '...' : card.value}
-            </p>
-            <div className="flex items-center justify-center space-x-1">
-              <p className={`${cardSubtitle} ${card.subtitleColor || 'text-gray-500'}`}>{card.subtitle}</p>
-              {(card as any).hasPercentage && (card as any).tooltipText && (
+          <div key={index} className={`${cardLargeContainer} relative`}>
+            <div className={`absolute top-4 left-4 w-3 h-3 rounded-full ${card.dotColor}`}></div>
+            {(card as any).hasPercentage && (card as any).tooltipText && (
+              <div className="absolute top-4 right-4">
                 <div className="relative group">
                   <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
                   <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
@@ -312,7 +305,14 @@ function ExpensesContent() {
                     <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
                   </div>
                 </div>
-              )}
+              </div>
+            )}
+            <div className="flex flex-col items-center justify-center h-full text-center pt-6">
+              <h3 className={`${cardTitle} mb-2`}>{card.title}</h3>
+              <p className={`${cardValue} ${card.title.includes('Total') ? 'text-red-600' : 'text-black'} mb-1`}>
+                {isLoading ? '...' : card.value}
+              </p>
+              <p className={`${cardSubtitle} ${card.subtitleColor || 'text-gray-500'}`}>{card.subtitle}</p>
             </div>
           </div>
         ))}

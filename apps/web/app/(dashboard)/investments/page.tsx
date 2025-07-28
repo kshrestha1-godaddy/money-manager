@@ -236,119 +236,119 @@ export default function Investments() {
 
             {/* Summary Cards */}
             <div className="grid grid-cols-6 gap-6">
-                <div className={cardLargeContainer}>
-                    <div className={UI_STYLES.summaryCard.indicatorRow}>
-                        <div className="flex items-center space-x-1">
-                            <h3 className={`${cardTitle} mr-2`}>Total Investments</h3>
-                            <div className="relative group">
-                                <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
-                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                                    Total number of investment positions in your portfolio
-                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                                </div>
+                <div className={`${cardLargeContainer} relative`}>
+                    <Target className={`absolute top-4 left-4 h-4 w-4 ${blueIcon}`} />
+                    <div className="absolute top-4 right-4">
+                        <div className="relative group">
+                            <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                Total number of investment positions in your portfolio
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
                             </div>
                         </div>
-                        <Target className={`h-4 w-4 ${blueIcon}`} />
                     </div>
-                    <p className={`${cardValue} ${getSummaryCardClasses('totalInvestments', 'investments').text}`}>
-                        {loading ? "..." : investments.length}
-                    </p>
+                    <div className="flex flex-col items-center justify-center h-full text-center pt-6">
+                        <h3 className={`${cardTitle} mb-2`}>Total Investments</h3>
+                        <p className={`${cardValue} ${getSummaryCardClasses('totalInvestments', 'investments').text}`}>
+                            {loading ? "..." : investments.length}
+                        </p>
+                    </div>
                 </div>
-                <div className={cardLargeContainer}>
-                    <div className={UI_STYLES.summaryCard.indicatorRow}>
-                        <div className="flex items-center space-x-1">
-                            <h3 className={`${cardTitle} mr-2`}>Gainers</h3>
-                            <div className="relative group">
-                                <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
-                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                                    Number of investments with positive returns
-                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                                </div>
+                <div className={`${cardLargeContainer} relative`}>
+                    <TrendingUp className={`absolute top-4 left-4 h-4 w-4 ${greenIcon}`} />
+                    <div className="absolute top-4 right-4">
+                        <div className="relative group">
+                            <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                Number of investments with positive returns
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
                             </div>
                         </div>
-                        <TrendingUp className={`h-4 w-4 ${greenIcon}`} />
                     </div>
-                    <p className={`${cardValue} ${getSummaryCardClasses('gainers', 'investments').text}`}>
-                        {loading ? "..." : gainersCount}
-                    </p>
+                    <div className="flex flex-col items-center justify-center h-full text-center pt-6">
+                        <h3 className={`${cardTitle} mb-2`}>Gainers</h3>
+                        <p className={`${cardValue} ${getSummaryCardClasses('gainers', 'investments').text}`}>
+                            {loading ? "..." : gainersCount}
+                        </p>
+                    </div>
                 </div>
-                <div className={cardLargeContainer}>
-                    <div className={UI_STYLES.summaryCard.indicatorRow}>
-                        <div className="flex items-center space-x-1">
-                            <h3 className={`${cardTitle} mr-2`}>Losers</h3>
-                            <div className="relative group">
-                                <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
-                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                                    Number of investments with negative returns
-                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                                </div>
+                <div className={`${cardLargeContainer} relative`}>
+                    <TrendingDown className={`absolute top-4 left-4 h-4 w-4 ${redIcon}`} />
+                    <div className="absolute top-4 right-4">
+                        <div className="relative group">
+                            <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                Number of investments with negative returns
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
                             </div>
                         </div>
-                        <TrendingDown className={`h-4 w-4 ${redIcon}`} />
                     </div>
-                    <p className={`${cardValue} ${getSummaryCardClasses('losers', 'investments').text}`}>
-                        {loading ? "..." : losersCount}
-                    </p>
+                    <div className="flex flex-col items-center justify-center h-full text-center pt-6">
+                        <h3 className={`${cardTitle} mb-2`}>Losers</h3>
+                        <p className={`${cardValue} ${getSummaryCardClasses('losers', 'investments').text}`}>
+                            {loading ? "..." : losersCount}
+                        </p>
+                    </div>
                 </div>
-                <div className={cardLargeContainer}>
-                    <div className={UI_STYLES.summaryCard.indicatorRow}>
-                        <div className="flex items-center space-x-1">
-                            <h3 className={`${cardTitle} mr-2`}>Total Invested</h3>
-                            <div className="relative group">
-                                <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
-                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                                    Total amount of money you've invested (purchase price)
-                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                                </div>
+                <div className={`${cardLargeContainer} relative`}>
+                    <DollarSign className={`absolute top-4 left-4 h-4 w-4 ${purpleIcon}`} />
+                    <div className="absolute top-4 right-4">
+                        <div className="relative group">
+                            <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                Total amount of money you've invested (purchase price)
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
                             </div>
                         </div>
-                        <DollarSign className={`h-4 w-4 ${purpleIcon}`} />
                     </div>
-                    <p className={`${cardValue} ${getSummaryCardClasses('totalInvested', 'investments').text}`}>
-                        {loading ? "..." : formatCurrency(totalInvested, userCurrency)}
-                    </p>
+                    <div className="flex flex-col items-center justify-center h-full text-center pt-6">
+                        <h3 className={`${cardTitle} mb-2`}>Total Invested</h3>
+                        <p className={`${cardValue} ${getSummaryCardClasses('totalInvested', 'investments').text}`}>
+                            {loading ? "..." : formatCurrency(totalInvested, userCurrency)}
+                        </p>
+                    </div>
                 </div>
-                <div className={cardLargeContainer}>
-                    <div className={UI_STYLES.summaryCard.indicatorRow}>
-                        <div className="flex items-center space-x-1">
-                            <h3 className={`${cardTitle} mr-2`}>Current Value</h3>
-                            <div className="relative group">
-                                <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
-                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                                    Current market value of all your investments
-                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                                </div>
+                <div className={`${cardLargeContainer} relative`}>
+                    <DollarSign className={`absolute top-4 left-4 h-4 w-4 ${blueIcon}`} />
+                    <div className="absolute top-4 right-4">
+                        <div className="relative group">
+                            <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                Current market value of all your investments
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
                             </div>
                         </div>
-                        <DollarSign className={`h-4 w-4 ${blueIcon}`} />
                     </div>
-                    <p className={`${cardValue} ${getSummaryCardClasses('currentValue', 'investments').text}`}>
-                        {loading ? "..." : formatCurrency(totalCurrentValue, userCurrency)}
-                    </p>
+                    <div className="flex flex-col items-center justify-center h-full text-center pt-6">
+                        <h3 className={`${cardTitle} mb-2`}>Current Value</h3>
+                        <p className={`${cardValue} ${getSummaryCardClasses('currentValue', 'investments').text}`}>
+                            {loading ? "..." : formatCurrency(totalCurrentValue, userCurrency)}
+                        </p>
+                    </div>
                 </div>
-                <div className={cardLargeContainer}>
-                    <div className={UI_STYLES.summaryCard.indicatorRow}>
-                        <div className="flex items-center space-x-1">
-                            <h3 className={`${cardTitle} mr-2`}>Total Gain/Loss</h3>
-                            <div className="relative group">
-                                <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
-                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                                    Profit or loss: Current Value - Total Invested
-                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                                </div>
+                <div className={`${cardLargeContainer} relative`}>
+                    {totalGainLoss >= 0 ? 
+                        <TrendingUp className={`absolute top-4 left-4 h-4 w-4 ${greenPositiveIcon}`} /> : 
+                        <TrendingDown className={`absolute top-4 left-4 h-4 w-4 ${redNegativeIcon}`} />
+                    }
+                    <div className="absolute top-4 right-4">
+                        <div className="relative group">
+                            <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                Profit or loss: Current Value - Total Invested
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
                             </div>
                         </div>
-                        {totalGainLoss >= 0 ? 
-                            <TrendingUp className={`h-4 w-4 ${greenPositiveIcon}`} /> : 
-                            <TrendingDown className={`h-4 w-4 ${redNegativeIcon}`} />
-                        }
                     </div>
-                    <p className={`${cardValue} ${getGainLossClasses(totalGainLoss)}`}>
-                        {loading ? "..." : formatCurrency(totalGainLoss, userCurrency)}
-                    </p>
-                    <p className={`text-sm ${getGainLossClasses(totalGainLoss)}`}>
-                        ({totalGainLossPercentage.toFixed(2)}%)
-                    </p>
+                    <div className="flex flex-col items-center justify-center h-full text-center pt-6">
+                        <h3 className={`${cardTitle} mb-2`}>Total Gain/Loss</h3>
+                        <p className={`${cardValue} ${getGainLossClasses(totalGainLoss)}`}>
+                            {loading ? "..." : formatCurrency(totalGainLoss, userCurrency)}
+                        </p>
+                        <p className={`text-sm ${getGainLossClasses(totalGainLoss)}`}>
+                            ({totalGainLossPercentage.toFixed(2)}%)
+                        </p>
+                    </div>
                 </div>
             </div>
 

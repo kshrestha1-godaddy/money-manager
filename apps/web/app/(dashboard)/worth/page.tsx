@@ -202,110 +202,110 @@ export default function NetWorthPage() {
 
             {/* Financial Health Metrics - Card Style */}
             <div className="grid grid-cols-4 gap-6">
-                <div className={cardLargeContainer}>
-                    <div className={UI_STYLES.summaryCard.indicatorRow}>
-                        <div className="flex items-center space-x-1">
-                            <h3 className={`${cardTitle} mr-2`}>Savings Rate</h3>
-                            <div className="relative group">
-                                <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
-                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                                    Percentage of income saved this month
-                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                                </div>
+                <div className={`${cardLargeContainer} relative`}>
+                    {netWorthStats.savingsRate >= 0 ? 
+                        <PiggyBank className={`absolute top-4 left-4 h-4 w-4 ${greenPositiveIcon}`} /> : 
+                        <PiggyBank className={`absolute top-4 left-4 h-4 w-4 ${redNegativeIcon}`} />
+                    }
+                    <div className="absolute top-4 right-4">
+                        <div className="relative group">
+                            <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                Percentage of income saved this month
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
                             </div>
                         </div>
-                        {netWorthStats.savingsRate >= 0 ? 
-                            <PiggyBank className={`h-4 w-4 ${greenPositiveIcon}`} /> : 
-                            <PiggyBank className={`h-4 w-4 ${redNegativeIcon}`} />
-                        }
                     </div>
-                    <p className={`${cardValueLarge} ${getGainLossClasses(netWorthStats.savingsRate)}`}>
-                        {netWorthStats.savingsRate.toFixed(1)}%
-                    </p>
-                    <p className={cardSubtitle}>This month</p>
+                    <div className="flex flex-col items-center justify-center h-full text-center pt-6">
+                        <h3 className={`${cardTitle} mb-2`}>Savings Rate</h3>
+                        <p className={`${cardValueLarge} ${getGainLossClasses(netWorthStats.savingsRate)} mb-1`}>
+                            {netWorthStats.savingsRate.toFixed(1)}%
+                        </p>
+                        <p className={cardSubtitle}>This month</p>
+                    </div>
                 </div>
 
-                <div className={cardLargeContainer}>
-                    <div className={UI_STYLES.summaryCard.indicatorRow}>
-                        <div className="flex items-center space-x-1">
-                            <h3 className={`${cardTitle} mr-2`}>Investment Allocation</h3>
-                            <div className="relative group">
-                                <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
-                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                                    Percentage of total assets allocated to investments
-                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                                </div>
+                <div className={`${cardLargeContainer} relative`}>
+                    {netWorthStats.investmentAllocation >= 20 ? 
+                        <BarChart3 className={`absolute top-4 left-4 h-4 w-4 ${greenPositiveIcon}`} /> : 
+                        netWorthStats.investmentAllocation >= 10 ?
+                        <BarChart3 className={`absolute top-4 left-4 h-4 w-4 ${purpleIcon}`} /> :
+                        <BarChart3 className={`absolute top-4 left-4 h-4 w-4 ${redNegativeIcon}`} />
+                    }
+                    <div className="absolute top-4 right-4">
+                        <div className="relative group">
+                            <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                Percentage of total assets allocated to investments
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
                             </div>
                         </div>
-                        {netWorthStats.investmentAllocation >= 20 ? 
-                            <BarChart3 className={`h-4 w-4 ${greenPositiveIcon}`} /> : 
-                            netWorthStats.investmentAllocation >= 10 ?
-                            <BarChart3 className={`h-4 w-4 ${purpleIcon}`} /> :
-                            <BarChart3 className={`h-4 w-4 ${redNegativeIcon}`} />
-                        }
                     </div>
-                    <p className={`${cardValueLarge} ${
-                        netWorthStats.investmentAllocation >= 20 ? getGainLossClasses(1) :
-                        netWorthStats.investmentAllocation >= 10 ? getSummaryCardClasses('investmentAllocation', 'investments').text :
-                        getGainLossClasses(-1)
-                    }`}>
-                        {netWorthStats.investmentAllocation.toFixed(1)}%
-                    </p>
-                    <p className={cardSubtitle}>Of total assets</p>
+                    <div className="flex flex-col items-center justify-center h-full text-center pt-6">
+                        <h3 className={`${cardTitle} mb-2`}>Investment Allocation</h3>
+                        <p className={`${cardValueLarge} ${
+                            netWorthStats.investmentAllocation >= 20 ? getGainLossClasses(1) :
+                            netWorthStats.investmentAllocation >= 10 ? getSummaryCardClasses('investmentAllocation', 'investments').text :
+                            getGainLossClasses(-1)
+                        } mb-1`}>
+                            {netWorthStats.investmentAllocation.toFixed(1)}%
+                        </p>
+                        <p className={cardSubtitle}>Of total assets</p>
+                    </div>
                 </div>
 
-                <div className={cardLargeContainer}>
-                    <div className={UI_STYLES.summaryCard.indicatorRow}>
-                        <div className="flex items-center space-x-1">
-                            <h3 className={`${cardTitle} mr-2`}>Liquidity Ratio</h3>
-                            <div className="relative group">
-                                <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
-                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                                    Percentage of assets in easily accessible cash/bank accounts
-                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                                </div>
+                <div className={`${cardLargeContainer} relative`}>
+                    {netWorthStats.liquidityRatio >= 50 ? 
+                        <DollarSign className={`absolute top-4 left-4 h-4 w-4 ${greenPositiveIcon}`} /> : 
+                        netWorthStats.liquidityRatio >= 30 ?
+                        <DollarSign className={`absolute top-4 left-4 h-4 w-4 ${greenIcon}`} /> :
+                        <DollarSign className={`absolute top-4 left-4 h-4 w-4 ${redNegativeIcon}`} />
+                    }
+                    <div className="absolute top-4 right-4">
+                        <div className="relative group">
+                            <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                Percentage of assets in easily accessible cash/bank accounts
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
                             </div>
                         </div>
-                        {netWorthStats.liquidityRatio >= 50 ? 
-                            <DollarSign className={`h-4 w-4 ${greenPositiveIcon}`} /> : 
-                            netWorthStats.liquidityRatio >= 30 ?
-                            <DollarSign className={`h-4 w-4 ${greenIcon}`} /> :
-                            <DollarSign className={`h-4 w-4 ${redNegativeIcon}`} />
-                        }
                     </div>
-                    <p className={`${cardValueLarge} ${
-                        netWorthStats.liquidityRatio >= 50 ? getGainLossClasses(1) :
-                        netWorthStats.liquidityRatio >= 30 ? getSummaryCardClasses('liquidityRatio', 'investments').text :
-                        getGainLossClasses(-1)
-                    }`}>
-                        {netWorthStats.liquidityRatio.toFixed(1)}%
-                    </p>
-                    <p className={cardSubtitle}>Cash accessible</p>
+                    <div className="flex flex-col items-center justify-center h-full text-center pt-6">
+                        <h3 className={`${cardTitle} mb-2`}>Liquidity Ratio</h3>
+                        <p className={`${cardValueLarge} ${
+                            netWorthStats.liquidityRatio >= 50 ? getGainLossClasses(1) :
+                            netWorthStats.liquidityRatio >= 30 ? getSummaryCardClasses('liquidityRatio', 'investments').text :
+                            getGainLossClasses(-1)
+                        } mb-1`}>
+                            {netWorthStats.liquidityRatio.toFixed(1)}%
+                        </p>
+                        <p className={cardSubtitle}>Cash accessible</p>
+                    </div>
                 </div>
 
-                <div className={cardLargeContainer}>
-                    <div className={UI_STYLES.summaryCard.indicatorRow}>
-                        <div className="flex items-center space-x-1">
-                            <h3 className={`${cardTitle} mr-2`}>Investment Gain</h3>
-                            <div className="relative group">
-                                <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
-                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                                    Total profit/loss from all investment positions
-                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                                </div>
+                <div className={`${cardLargeContainer} relative`}>
+                    {netWorthStats.totalInvestmentGain >= 0 ? 
+                        <TrendingUp className={`absolute top-4 left-4 h-4 w-4 ${greenPositiveIcon}`} /> : 
+                        <TrendingDown className={`absolute top-4 left-4 h-4 w-4 ${redNegativeIcon}`} />
+                    }
+                    <div className="absolute top-4 right-4">
+                        <div className="relative group">
+                            <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                Total profit/loss from all investment positions
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
                             </div>
                         </div>
-                        {netWorthStats.totalInvestmentGain >= 0 ? 
-                            <TrendingUp className={`h-4 w-4 ${greenPositiveIcon}`} /> : 
-                            <TrendingDown className={`h-4 w-4 ${redNegativeIcon}`} />
-                        }
                     </div>
-                    <p className={`${cardValueLarge} ${getGainLossClasses(netWorthStats.totalInvestmentGain)}`}>
-                        {formatCurrencyAbbreviated(netWorthStats.totalInvestmentGain)}
-                    </p>
-                    <p className={cardSubtitle}>
-                        {netWorthStats.totalInvestmentGainPercentage.toFixed(1)}% return
-                    </p>
+                    <div className="flex flex-col items-center justify-center h-full text-center pt-6">
+                        <h3 className={`${cardTitle} mb-2`}>Investment Gain</h3>
+                        <p className={`${cardValueLarge} ${getGainLossClasses(netWorthStats.totalInvestmentGain)} mb-1`}>
+                            {formatCurrencyAbbreviated(netWorthStats.totalInvestmentGain)}
+                        </p>
+                        <p className={cardSubtitle}>
+                            {netWorthStats.totalInvestmentGainPercentage.toFixed(1)}% return
+                        </p>
+                    </div>
                 </div>
             </div>
 
