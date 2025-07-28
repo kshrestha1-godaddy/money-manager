@@ -268,6 +268,12 @@ function IncomesContent() {
               >
                 Add Income
               </button>
+            <button
+              onClick={() => setIsAddCategoryModalOpen(true)}
+              className={primaryButton}
+            >
+              Add Category
+            </button>
               <button
                 onClick={() => setIsBulkImportModalOpen(true)}
                 className={secondaryBlueButton}
@@ -281,12 +287,7 @@ function IncomesContent() {
               >
                 Export CSV
               </button>
-              <button
-                onClick={() => setIsAddCategoryModalOpen(true)}
-                className={secondaryPurpleButton}
-              >
-                Add Category
-              </button>
+
           </div>
         </div>
 

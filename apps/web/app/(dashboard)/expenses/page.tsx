@@ -269,6 +269,12 @@ function ExpensesContent() {
               Add Expense
             </button>
             <button
+              onClick={() => setIsAddCategoryModalOpen(true)}
+              className={primaryButton}
+            >
+              Add Category
+            </button>
+            <button
               onClick={() => setIsBulkImportModalOpen(true)}
               className={secondaryBlueButton}
             >
@@ -281,12 +287,7 @@ function ExpensesContent() {
             >
               Export CSV
             </button>
-            <button
-              onClick={() => setIsAddCategoryModalOpen(true)}
-              className={secondaryBlueButton}
-            >
-              Add Category
-            </button>
+
           </div>
         </div>
 
