@@ -70,22 +70,22 @@ export function AccountTable({
         setVisibleAccountNumbers(prev => {
             const newSet = new Set(prev);
             
-            // Clear existing timer if any
-            const existingTimer = hideTimers.get(accountId);
-            if (existingTimer) {
-                clearTimeout(existingTimer);
-                setHideTimers(prevTimers => {
-                    const newTimers = new Map(prevTimers);
-                    newTimers.delete(accountId);
-                    return newTimers;
-                });
-            }
+                // Clear ALL existing timers and hide all other account numbers
+            hideTimers.forEach((timer, id) => {
+                clearTimeout(timer);
+                if (id !== accountId) {
+                    newSet.delete(id);
+                }
+            });
+            
+            // Clear the timers map
+            setHideTimers(new Map());
             
             if (newSet.has(accountId)) {
-                // Hide the account number
+                // Hide the current account number
                 newSet.delete(accountId);
             } else {
-                // Show the account number and set timer to hide after 5 seconds
+                // Show only this account number and set timer to hide after 3 seconds
                 newSet.add(accountId);
                 const timer = setTimeout(() => {
                     setVisibleAccountNumbers(current => {
@@ -100,11 +100,7 @@ export function AccountTable({
                     });
                 }, 3000);
                 
-                setHideTimers(prevTimers => {
-                    const newTimers = new Map(prevTimers);
-                    newTimers.set(accountId, timer);
-                    return newTimers;
-                });
+                setHideTimers(new Map([[accountId, timer]]));
             }
             return newSet;
         });
