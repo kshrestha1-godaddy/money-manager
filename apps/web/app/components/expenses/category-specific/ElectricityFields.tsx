@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React from "react";
 import { inputClasses, labelClasses } from "../../../utils/formUtils";
 
 export interface ElectricityData {
@@ -27,44 +27,9 @@ export function ElectricityFields({ data, onChange, onNotesChange, disabled = fa
         onChange(updatedData);
     };
 
-    // Auto-generate notes when data changes
-    useEffect(() => {
-        const generateNotes = () => {
-            const parts = [];
-            
-            if (data.previousUnits) {
-                parts.push(`Previous Units: ${data.previousUnits}`);
-            }
-            
-            if (data.currentUnits) {
-                parts.push(`Current Units: ${data.currentUnits}`);
-            }
-            
-            if (data.previousUnits && data.currentUnits) {
-                const consumed = parseFloat(data.currentUnits) - parseFloat(data.previousUnits);
-                if (!isNaN(consumed) && consumed >= 0) {
-                    parts.push(`Units Consumed: ${consumed}`);
-                }
-            }
-            
-            if (data.ratePerUnit) {
-                parts.push(`Rate per Unit: ₹${data.ratePerUnit}`);
-            }
-            
-            if (data.connectionType) {
-                parts.push(`Connection Type: ${data.connectionType}`);
-            }
-            
-            if (data.meterNumber) {
-                parts.push(`Meter Number: ${data.meterNumber}`);
-            }
-            
-            return parts.join(', ');
-        };
-
-        const notes = generateNotes();
-        onNotesChange(notes);
-    }, [data.previousUnits, data.currentUnits, data.ratePerUnit, data.connectionType, data.meterNumber]);
+    // Generate notes function that can be called externally
+    // This is kept for potential future use or if we want to add auto-generation back
+    // The actual notes generation is now handled in the parent ExpenseForm component
 
     return (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">

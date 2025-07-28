@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React from "react";
 import { inputClasses, labelClasses } from "../../../utils/formUtils";
 
 export interface GoldData {
@@ -29,52 +29,9 @@ export function GoldFields({ data, onChange, onNotesChange, disabled = false }: 
         onChange(updatedData);
     };
 
-    // Auto-generate notes when data changes
-    useEffect(() => {
-        const generateNotes = () => {
-            const parts = [];
-            
-            if (data.weight) {
-                parts.push(`Weight: ${data.weight}g`);
-            }
-            
-            if (data.purity) {
-                parts.push(`Purity: ${data.purity}`);
-            }
-            
-            if (data.ratePerGram) {
-                parts.push(`Rate per Gram: ₹${data.ratePerGram}`);
-            }
-            
-            if (data.weight && data.ratePerGram) {
-                const goldValue = parseFloat(data.weight) * parseFloat(data.ratePerGram);
-                if (!isNaN(goldValue)) {
-                    parts.push(`Gold Value: ₹${goldValue.toFixed(2)}`);
-                }
-            }
-            
-            if (data.makingCharges) {
-                parts.push(`Making Charges: ₹${data.makingCharges}`);
-            }
-            
-            if (data.itemType) {
-                parts.push(`Item Type: ${data.itemType}`);
-            }
-            
-            if (data.jewelerName) {
-                parts.push(`Jeweler: ${data.jewelerName}`);
-            }
-            
-            if (data.hallmarkNumber) {
-                parts.push(`Hallmark No: ${data.hallmarkNumber}`);
-            }
-            
-            return parts.join(', ');
-        };
-
-        const notes = generateNotes();
-        onNotesChange(notes);
-    }, [data.weight, data.purity, data.ratePerGram, data.makingCharges, data.itemType, data.jewelerName, data.hallmarkNumber]);
+    // Generate notes function that can be called externally
+    // This is kept for potential future use or if we want to add auto-generation back
+    // The actual notes generation is now handled in the parent ExpenseForm component
 
     return (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 space-y-3">

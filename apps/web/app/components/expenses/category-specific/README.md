@@ -32,13 +32,29 @@ When "Gold" category is selected, additional fields appear:
 Weight: 10.50g, Purity: 22K (91.6%), Rate per Gram: ₹6250, Gold Value: ₹65625.00, Making Charges: ₹5000, Item Type: Ring, Jeweler: Tanishq, Hallmark No: BIS123456
 ```
 
+## Notes Editing Feature
+
+The notes field in category-specific expenses is now fully editable:
+
+- **Auto-Generation**: Notes are initially generated from the category-specific fields
+- **Manual Editing**: Users can modify the auto-generated notes as needed
+- **Visual Indicator**: Category-specific forms show a light blue background to indicate auto-generation
+- **Regenerate Button**: Click "Regenerate from details" to restore auto-generated content
+- **Flexible Use**: Perfect for adding custom remarks while keeping structured data
+
+**Example Use Cases:**
+- Add payment method: "Weight: 10.50g, Purity: 22K, Rate: ₹6250 - Paid via Credit Card"
+- Include additional details: "Previous: 1250, Current: 1350, Units: 100 - Includes security deposit"
+- Personal notes: "Gold Value: ₹65625 - Anniversary gift for spouse"
+
 ## How It Works
 
 1. **Category Selection**: When user selects a supported category, category-specific fields appear
 2. **Auto-calculation**: Fields automatically calculate derived values (units consumed, gold value, etc.)
 3. **Auto-notes**: All entered data is automatically formatted into the Notes field
-4. **Read-only Notes**: When category-specific fields are active, the Notes field becomes read-only
-5. **Reset on Change**: Changing to a different category clears category-specific data
+4. **Editable Notes**: Users can manually edit auto-generated notes as needed
+5. **Regenerate Option**: "Regenerate from details" button allows users to restore auto-generated notes
+6. **Reset on Change**: Changing to a different category clears category-specific data
 
 ## Technical Implementation
 
