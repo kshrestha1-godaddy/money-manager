@@ -98,7 +98,7 @@ export function AccountTable({
                         newTimers.delete(accountId);
                         return newTimers;
                     });
-                }, 5000);
+                }, 3000);
                 
                 setHideTimers(prevTimers => {
                     const newTimers = new Map(prevTimers);
