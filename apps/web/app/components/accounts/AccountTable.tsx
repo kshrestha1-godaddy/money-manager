@@ -8,6 +8,14 @@ import { useCurrency } from "../../providers/CurrencyProvider";
 import { getDefaultColumnWidths, getMinColumnWidth, type AccountColumnWidths } from "../../config/tableConfig";
 import { COLORS, getActionButtonClasses } from "../../config/colorConfig";
 
+// Function to mask account number
+const maskAccountNumber = (accountNumber: string) => {
+    if (accountNumber.length <= 4) return accountNumber;
+    const maskedPart = 'X'.repeat(accountNumber.length - 4);
+    const visiblePart = accountNumber.slice(-4);
+    return maskedPart + visiblePart;
+};
+
 interface AccountTableProps {
     accounts: AccountInterface[];
     onEdit?: (account: AccountInterface) => void;
@@ -41,6 +49,11 @@ export function AccountTable({
     const { currency: userCurrency } = useCurrency();
     const [sortField, setSortField] = useState<SortField>('bankName');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+    
+    // Track which account numbers are visible
+    const [visibleAccountNumbers, setVisibleAccountNumbers] = useState<Set<number>>(new Set());
+    // Track timers for auto-hiding account numbers
+    const [hideTimers, setHideTimers] = useState<Map<number, NodeJS.Timeout>>(new Map());
 
     // Column resizing state - optimized for better space utilization
     const [columnWidths, setColumnWidths] = useState<AccountColumnWidths>(
@@ -51,6 +64,58 @@ export function AccountTable({
     const [resizing, setResizing] = useState<string | null>(null);
     const [startX, setStartX] = useState(0);
     const [startWidth, setStartWidth] = useState(0);
+
+    // Toggle account number visibility
+    const toggleAccountNumberVisibility = (accountId: number) => {
+        setVisibleAccountNumbers(prev => {
+            const newSet = new Set(prev);
+            
+            // Clear existing timer if any
+            const existingTimer = hideTimers.get(accountId);
+            if (existingTimer) {
+                clearTimeout(existingTimer);
+                setHideTimers(prevTimers => {
+                    const newTimers = new Map(prevTimers);
+                    newTimers.delete(accountId);
+                    return newTimers;
+                });
+            }
+            
+            if (newSet.has(accountId)) {
+                // Hide the account number
+                newSet.delete(accountId);
+            } else {
+                // Show the account number and set timer to hide after 5 seconds
+                newSet.add(accountId);
+                const timer = setTimeout(() => {
+                    setVisibleAccountNumbers(current => {
+                        const updated = new Set(current);
+                        updated.delete(accountId);
+                        return updated;
+                    });
+                    setHideTimers(currentTimers => {
+                        const newTimers = new Map(currentTimers);
+                        newTimers.delete(accountId);
+                        return newTimers;
+                    });
+                }, 5000);
+                
+                setHideTimers(prevTimers => {
+                    const newTimers = new Map(prevTimers);
+                    newTimers.set(accountId, timer);
+                    return newTimers;
+                });
+            }
+            return newSet;
+        });
+    };
+
+    // Cleanup timers on unmount
+    useEffect(() => {
+        return () => {
+            hideTimers.forEach(timer => clearTimeout(timer));
+        };
+    }, [hideTimers]);
 
     // Resizing handlers
     const handleMouseDown = useCallback((e: React.MouseEvent, column: string) => {
@@ -330,6 +395,8 @@ export function AccountTable({
                                 onSelect={onAccountSelect}
                                 showCheckbox={showBulkActions}
                                 columnWidths={columnWidths}
+                                visibleAccountNumbers={visibleAccountNumbers}
+                                toggleAccountNumberVisibility={toggleAccountNumberVisibility}
                             />
                         ))}
                     </tbody>
@@ -339,7 +406,7 @@ export function AccountTable({
     );
 }
 
-function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShare, isSelected = false, onSelect, showCheckbox = false, columnWidths }: { 
+function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShare, isSelected = false, onSelect, showCheckbox = false, columnWidths, visibleAccountNumbers, toggleAccountNumberVisibility }: { 
     account: AccountInterface;
     currency: string;
     onEdit?: (account: AccountInterface) => void;
@@ -350,6 +417,8 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShar
     onSelect?: (accountId: number, selected: boolean) => void;
     showCheckbox?: boolean;
     columnWidths: AccountColumnWidths;
+    visibleAccountNumbers: Set<number>;
+    toggleAccountNumberVisibility: (accountId: number) => void;
 }) {
     const handleEdit = () => {
         if (onEdit) {
@@ -380,6 +449,8 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShar
             onSelect(account.id, !isSelected);
         }
     };
+
+    const isAccountNumberVisible = visibleAccountNumbers.has(account.id);
 
     return (
         <tr className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
@@ -427,11 +498,29 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShar
                 </div>
             </td>
             <td 
-                className="px-6 py-4 whitespace-nowrap truncate"
+                className="px-6 py-4 whitespace-nowrap"
                 style={{ width: `${columnWidths.accountNumber}px` }}
             >
-                <div className="text-sm text-gray-900 font-mono truncate">
-                    {account.accountNumber}
+                <div className="flex items-center justify-between">
+                    <div className="text-sm text-gray-900 font-mono truncate">
+                        {isAccountNumberVisible ? account.accountNumber : maskAccountNumber(account.accountNumber)}
+                    </div>
+                    <button
+                        onClick={() => toggleAccountNumberVisibility(account.id)}
+                        className="ml-2 p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all duration-200"
+                        title={isAccountNumberVisible ? 'Hide account number (auto-hides in 5s)' : 'Show account number'}
+                    >
+                        {isAccountNumberVisible ? (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                            </svg>
+                        ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                        )}
+                    </button>
                 </div>
             </td>
             <td 
