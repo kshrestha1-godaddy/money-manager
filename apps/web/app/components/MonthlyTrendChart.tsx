@@ -516,7 +516,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
         return chartData.length <= 6 ? 0 : 1;
     }, [chartData.length]);
 
-    // Custom tick component for rotated X-axis labels
+    // Custom tick component for horizontal X-axis labels
     const CustomXAxisTick = useCallback((props: any) => {
         const { x, y, payload } = props;
         return (
@@ -525,10 +525,9 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                     x={0} 
                     y={0} 
                     dy={16} 
-                    textAnchor="end" 
+                    textAnchor="middle" 
                     fill="#666" 
                     fontSize="12"
-                    transform="rotate(-45)"
                 >
                     {payload.value}
                 </text>

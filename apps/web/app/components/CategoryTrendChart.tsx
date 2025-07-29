@@ -278,7 +278,7 @@ export function CategoryTrendChart({ data, type, currency = "USD", startDate, en
         return null;
     };
 
-    // Custom tick component for rotated X-axis labels
+    // Custom tick component for horizontal X-axis labels
     const CustomXAxisTick = (props: any) => {
         const { x, y, payload } = props;
         return (
@@ -287,10 +287,9 @@ export function CategoryTrendChart({ data, type, currency = "USD", startDate, en
                     x={0} 
                     y={0} 
                     dy={16} 
-                    textAnchor="end" 
+                    textAnchor="middle" 
                     fill="#666" 
                     fontSize="12"
-                    transform="rotate(-45)"
                     style={{ fontWeight: isExpanded ? "normal" : "normal" }}
                 >
                     {payload.value}
