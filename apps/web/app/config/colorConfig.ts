@@ -4,8 +4,16 @@
 export const COLORS = {
   // Common UI colors
   common: {
-    // Primary brand colors
+    // Primary brand colors - Updated to use purple theme
     primary: {
+      purple: {
+        50: 'bg-brand-50',
+        100: 'bg-brand-100',
+        500: 'bg-brand-500',
+        600: 'bg-brand-600',
+        700: 'bg-brand-700',
+      },
+      // Keep blue for secondary use
       blue: {
         50: 'bg-blue-50',
         100: 'bg-blue-100',
@@ -14,6 +22,11 @@ export const COLORS = {
         700: 'bg-blue-700',
       },
       text: {
+        purple: {
+          500: 'text-brand-500',
+          600: 'text-brand-600',
+          700: 'text-brand-700',
+        },
         blue: {
           500: 'text-blue-500',
           600: 'text-blue-600',
@@ -21,6 +34,10 @@ export const COLORS = {
         }
       },
       border: {
+        purple: {
+          500: 'border-brand-500',
+          600: 'border-brand-600',
+        },
         blue: {
           500: 'border-blue-500',
           600: 'border-blue-600',
@@ -136,16 +153,16 @@ export const COLORS = {
   accounts: {
     summaryCards: {
       totalAccounts: {
-        indicator: 'bg-blue-500',
-        text: 'text-blue-600',
+        indicator: 'bg-brand-500',
+        text: 'text-brand-600',
       },
       totalBalance: {
         indicator: 'bg-green-500',
         text: 'text-green-600',
       },
       selected: {
-        indicator: 'bg-purple-500',
-        text: 'text-purple-600',
+        indicator: 'bg-brand-500',
+        text: 'text-brand-600',
       },
       bankTypes: {
         indicator: 'bg-orange-500',
@@ -163,11 +180,11 @@ export const COLORS = {
         }
       },
       view: {
-        background: 'bg-indigo-50',
-        text: 'text-indigo-600',
+        background: 'bg-brand-50',
+        text: 'text-brand-600',
         hover: {
-          background: 'hover:bg-indigo-100',
-          text: 'hover:text-indigo-800',
+          background: 'hover:bg-brand-100',
+          text: 'hover:text-brand-800',
         }
       },
       edit: {
@@ -189,8 +206,8 @@ export const COLORS = {
     },
 
     nickname: {
-      background: 'bg-blue-50',
-      text: 'text-blue-600',
+      background: 'bg-brand-50',
+      text: 'text-brand-600',
     },
 
     balance: {
@@ -335,11 +352,11 @@ export const COLORS = {
 
     actionButtons: {
       view: {
-        background: 'bg-indigo-50',
-        text: 'text-indigo-600',
+        background: 'bg-brand-50',
+        text: 'text-brand-600',
         hover: {
-          background: 'hover:bg-indigo-100',
-          text: 'hover:text-indigo-800',
+          background: 'hover:bg-brand-100',
+          text: 'hover:text-brand-800',
         }
       },
       edit: {
@@ -382,9 +399,9 @@ export const COLORS = {
   // Shared action button styles
   buttons: {
     primary: {
-      background: 'bg-blue-600',
+      background: 'bg-brand-600',
       text: 'text-white',
-      hover: 'hover:bg-blue-700',
+      hover: 'hover:bg-brand-700',
     },
     secondary: {
       background: 'bg-white',
@@ -407,7 +424,7 @@ export const COLORS = {
       border: 'border-gray-600',
       text: 'text-gray-600',
       hoverGreen: 'hover:bg-green-50',
-      hoverBlue: 'hover:bg-blue-50',
+      hoverPurple: 'hover:bg-brand-50',
     }
   },
 
@@ -416,7 +433,7 @@ export const COLORS = {
     input: {
       border: 'border-gray-300',
       focus: {
-        ring: 'focus:ring-blue-500',
+        ring: 'focus:ring-brand-500',
         border: 'focus:border-transparent',
       }
     },
@@ -434,16 +451,16 @@ export const COLORS = {
     body: {
       background: 'bg-white',
       hover: 'hover:bg-gray-50',
-      selected: 'bg-blue-50',
+      selected: 'bg-brand-50',
       divider: 'divide-gray-200',
     },
     resize: {
-      hover: 'hover:bg-blue-500',
+      hover: 'hover:bg-brand-500',
       opacity: 'hover:bg-opacity-50',
     },
     checkbox: {
-      text: 'text-blue-600',
-      focus: 'focus:ring-blue-500',
+      text: 'text-brand-600',
+      focus: 'focus:ring-brand-500',
       border: 'border-gray-300',
     }
   }
@@ -493,7 +510,7 @@ export const UI_STYLES = {
     container: 'flex items-center justify-between',
     buttonGroup: 'flex gap-2',
     primaryButton: `px-4 py-2 ${COLORS.buttons.primary.background} ${COLORS.buttons.primary.hover} ${COLORS.buttons.primary.text} rounded-md`,
-    secondaryButton: `px-4 py-2 border ${COLORS.buttons.outline.border} ${COLORS.buttons.outline.text} ${COLORS.buttons.outline.hoverBlue} rounded-md`,
+    secondaryButton: `px-4 py-2 border ${COLORS.buttons.outline.border} ${COLORS.buttons.outline.text} ${COLORS.buttons.outline.hoverPurple} rounded-md`,
     exportButton: `px-4 py-2 border ${COLORS.buttons.outline.border} ${COLORS.buttons.outline.text} ${COLORS.buttons.outline.hoverGreen} rounded-md disabled:opacity-50`,
   },
 
@@ -539,7 +556,7 @@ export const UI_STYLES = {
 export const BUTTON_COLORS = {
   primary: `px-4 py-2 ${COLORS.buttons.primary.background} ${COLORS.buttons.primary.hover} ${COLORS.buttons.primary.text} rounded-md`,
   secondary: `px-4 py-2 border ${COLORS.buttons.outline.border} ${COLORS.buttons.outline.text} rounded-md`,
-  secondaryBlue: `px-4 py-2 border ${COLORS.buttons.outline.border} ${COLORS.buttons.outline.text} ${COLORS.buttons.outline.hoverBlue} rounded-md`,
+  secondaryBlue: `px-4 py-2 border ${COLORS.buttons.outline.border} ${COLORS.buttons.outline.text} ${COLORS.buttons.outline.hoverPurple} rounded-md`,
   secondaryGreen: `px-4 py-2 border ${COLORS.buttons.outline.border} ${COLORS.buttons.outline.text} ${COLORS.buttons.outline.hoverGreen} rounded-md disabled:opacity-50`,
   clear: `px-4 py-2 border ${COLORS.buttons.secondary.border} rounded-md ${COLORS.common.hover.gray[50]}`,
   clearFilter: `w-full px-6 py-2 border ${COLORS.buttons.secondary.border} ${COLORS.buttons.secondary.background} ${COLORS.buttons.secondary.text} ${COLORS.buttons.secondary.hover} rounded-lg focus:outline-none focus:ring-2 ${COLORS.forms.input.focus.ring} disabled:opacity-50 disabled:cursor-not-allowed`,
@@ -648,4 +665,4 @@ export const getGainLossClasses = (value: number) => {
   if (value > 0) return COLORS.investments.gains.positive;
   if (value < 0) return COLORS.investments.gains.negative;
   return COLORS.investments.gains.neutral;
-}; 
+};

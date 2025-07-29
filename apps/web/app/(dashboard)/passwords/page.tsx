@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { PasswordInterface } from "../../types/passwords";
 import { getPasswords, createPassword, updatePassword, deletePassword } from "../../actions/passwords";
-import { PasswordGrid } from "../../components/passwords/PasswordCard";
 import { PasswordTable } from "../../components/passwords/PasswordTable";
 import { AddPasswordModal } from "../../components/passwords/AddPasswordModal";
 import { Button } from "@repo/ui/button";
@@ -14,8 +13,6 @@ import { BulkImportModal } from "../../components/passwords/BulkImportModal";
 export default function PasswordsPage() {
     const [passwords, setPasswords] = useState<PasswordInterface[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedPasswords, setSelectedPasswords] = useState<Set<number>>(new Set());
-    const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
     
     // Modal states
     const [showAddModal, setShowAddModal] = useState(false);
@@ -116,42 +113,6 @@ export default function PasswordsPage() {
         }
     };
 
-    const handlePasswordSelect = (passwordId: number, selected: boolean) => {
-        setSelectedPasswords(prev => {
-            const newSet = new Set(prev);
-            if (selected) {
-                newSet.add(passwordId);
-            } else {
-                newSet.delete(passwordId);
-            }
-            return newSet;
-        });
-    };
-
-    const selectAllPasswords = (selected: boolean) => {
-        if (selected) {
-            setSelectedPasswords(new Set(passwords.map(p => p.id)));
-        } else {
-            setSelectedPasswords(new Set());
-        }
-    };
-
-    const clearSelection = () => {
-        setSelectedPasswords(new Set());
-    };
-
-    const deleteBulkPasswords = async () => {
-        if (selectedPasswords.size === 0) return;
-        
-        try {
-            await Promise.all(Array.from(selectedPasswords).map(id => deletePassword(id)));
-            setPasswords(prev => prev.filter(p => !selectedPasswords.has(p.id)));
-            setSelectedPasswords(new Set());
-        } catch (error) {
-            console.error("Error deleting passwords:", error);
-        }
-    };
-
     // Handle CSV export
     const handleExportToCSV = () => {
         if (passwords.length === 0) {
@@ -190,48 +151,29 @@ export default function PasswordsPage() {
                     <p className="text-gray-600 mt-1">Securely manage your website passwords</p>
                 </div>
                 <div className="flex items-center">
-                    <div className="hidden md:inline-flex rounded-md shadow-sm mr-3">
-                        <button 
-                            onClick={() => setViewMode('table')}
-                            className={`relative inline-flex items-center h-10 px-4 text-sm font-medium border border-gray-300 rounded-l-md ${viewMode === 'table' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`}
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                            </svg>
-                            Table
-                        </button>
-                        <button 
-                            onClick={() => setViewMode('grid')}
-                            className={`relative inline-flex items-center h-10 px-4 text-sm font-medium border border-gray-300 rounded-r-md ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'} -ml-px`}
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                            </svg>
-                            Cards
-                        </button>
-                    </div>
+                    <button
+                        onClick={() => {
+                            setEditingPassword(null);
+                            setShowAddModal(true);
+                        }}
+                        className="h-10 px-4 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md"
+                    >
+                        Add Password
+                    </button>
                     <button
                         onClick={() => setShowImportModal(true)}
-                        className="h-10 px-4 text-sm font-medium text-white bg-gray-800 hover:bg-indigo-700 rounded-md mr-2"
+                        className="h-10 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-md mr-2"
                     >
                         Import CSV
                     </button>
                     <button
                         onClick={handleExportToCSV}
-                        className="h-10 px-4 text-sm font-medium text-white bg-gray-800 hover:bg-green-700 rounded-md mr-2"
+                        className="h-10 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-md mr-2"
                         disabled={passwords.length === 0}
                     >
                         Export CSV
                     </button>
-                    <button
-                        onClick={() => { 
-                            setEditingPassword(null); 
-                            setShowAddModal(true); 
-                        }}
-                        className="h-10 px-4 text-sm font-medium text-white bg-gray-800 hover:bg-gray-900 rounded-md"
-                    >
-                        Add Password
-                    </button>
+
                 </div>
             </div>
 
@@ -244,34 +186,7 @@ export default function PasswordsPage() {
                 </div>
             </div>
 
-            {/* Global bulk actions - Only show in grid view */}
-            {viewMode === 'grid' && passwords.length > 0 && selectedPasswords.size > 0 && (
-                <div className="bg-white rounded-lg shadow p-4">
-                    <div className="flex justify-between items-center">
-                        <div className="flex items-center space-x-4">
-                            <span className="text-sm text-gray-700">
-                                {selectedPasswords.size} password{selectedPasswords.size !== 1 ? 's' : ''} selected across all categories
-                            </span>
-                        </div>
-                        <div className="flex space-x-2">
-                            <button
-                                onClick={clearSelection}
-                                className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors"
-                            >
-                                Clear All Selections
-                            </button>
-                            <button
-                                onClick={deleteBulkPasswords}
-                                className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
-                            >
-                                Delete Selected ({selectedPasswords.size})
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Passwords View (Grid or Table) */}
+            {/* Passwords Table View */}
             {passwords.length === 0 ? (
                 <div className="text-center py-12">
                     <div className="text-gray-400 mb-4">
@@ -299,103 +214,43 @@ export default function PasswordsPage() {
                     </div>
                 </div>
             ) : (
-                <>
-                    {viewMode === 'grid' ? (
-                        <PasswordGrid
-                            passwords={passwords}
-                            onEdit={handleEditPassword}
-                            onDelete={handleDeletePassword}
-                            selectedPasswords={selectedPasswords}
-                            onPasswordSelect={handlePasswordSelect}
-                            showBulkActions={true}
-                        />
-                    ) : (
-                        <div className="space-y-6">
-                            {groupedPasswords.map(({ category, passwords: categoryPasswords }) => {
-                                if (!categoryPasswords || categoryPasswords.length === 0) return null;
-                                
-                                return (
-                                    <div key={category} className="bg-white rounded-lg shadow overflow-hidden">
-                                        {/* Category Header */}
-                                        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-                                            <div className="flex justify-between items-center">
-                                                <div className="flex items-center space-x-3">
-                                                    <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                                                        </svg>
-                                                    </div>
-                                                    <h3 className="text-lg font-semibold text-gray-900 capitalize">
-                                                        {category.replace(/_/g, ' ')}
-                                                    </h3>
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                        {categoryPasswords.length} password{categoryPasswords.length !== 1 ? 's' : ''}
-                                                    </span>
-                                                </div>
-                                                
-                                                {/* Category-specific bulk actions */}
-                                                {(() => {
-                                                    const categoryPasswordIds = categoryPasswords.map(p => p.id);
-                                                    const selectedInCategory = categoryPasswordIds.filter(id => selectedPasswords.has(id));
-                                                    
-                                                    return selectedInCategory.length > 0 ? (
-                                                        <div className="flex space-x-2">
-                                                            <button
-                                                                onClick={() => {
-                                                                    // Clear selection for this category only
-                                                                    categoryPasswordIds.forEach(id => {
-                                                                        if (selectedPasswords.has(id)) {
-                                                                            handlePasswordSelect(id, false);
-                                                                        }
-                                                                    });
-                                                                }}
-                                                                className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors"
-                                                            >
-                                                                Clear Selection
-                                                            </button>
-                                                            <button
-                                                                onClick={async () => {
-                                                                    // Delete selected passwords in this category
-                                                                    try {
-                                                                        await Promise.all(selectedInCategory.map(id => deletePassword(id)));
-                                                                        setPasswords(prev => prev.filter(p => !selectedInCategory.includes(p.id)));
-                                                                        // Clear selection for deleted passwords
-                                                                        setSelectedPasswords(prev => {
-                                                                            const newSet = new Set(prev);
-                                                                            selectedInCategory.forEach(id => newSet.delete(id));
-                                                                            return newSet;
-                                                                        });
-                                                                    } catch (error) {
-                                                                        console.error("Error deleting passwords:", error);
-                                                                    }
-                                                                }}
-                                                                className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
-                                                            >
-                                                                Delete Selected ({selectedInCategory.length})
-                                                            </button>
-                                                        </div>
-                                                    ) : null;
-                                                })()}
+                <div className="space-y-6">
+                    {groupedPasswords.map(({ category, passwords: categoryPasswords }) => {
+                        if (!categoryPasswords || categoryPasswords.length === 0) return null;
+                        
+                        return (
+                            <div key={category} className="bg-white rounded-lg shadow overflow-hidden">
+                                {/* Category Header */}
+                                <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center space-x-3">
+                                            <div className="flex items-center justify-center w-8 h-8 bg-brand-100 rounded-full">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                                </svg>
                                             </div>
+                                            <h3 className="text-lg font-semibold text-gray-900 capitalize">
+                                                {category.replace(/_/g, ' ')}
+                                            </h3>
+                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-800">
+                                                {categoryPasswords.length} password{categoryPasswords.length !== 1 ? 's' : ''}
+                                            </span>
                                         </div>
-                                        
-                                        {/* Category Table */}
-                                        <PasswordTable
-                                            passwords={categoryPasswords}
-                                            onEdit={handleEditPassword}
-                                            onDelete={handleDeletePassword}
-                                            selectedPasswords={selectedPasswords}
-                                            onPasswordSelect={handlePasswordSelect}
-                                            showBulkActions={true}
-                                            hideHeader={true}
-                                            hideCategoryColumn={true}
-                                        />
                                     </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </>
+                                </div>
+                                
+                                {/* Category Table */}
+                                <PasswordTable
+                                    passwords={categoryPasswords}
+                                    onEdit={handleEditPassword}
+                                    onDelete={handleDeletePassword}
+                                    hideHeader={true}
+                                    hideCategoryColumn={true}
+                                />
+                            </div>
+                        );
+                    })}
+                </div>
             )}
 
             {/* Add/Edit Password Modal */}

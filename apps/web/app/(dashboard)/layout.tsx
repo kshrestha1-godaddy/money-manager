@@ -12,7 +12,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 id="sidebar"
                 className="fixed left-0 top-0 w-72 h-screen bg-white border-r border-gray-200 pt-24 flex-shrink-0 z-30 overflow-y-auto"
             >
-                <div id="sidebar-nav" className="flex flex-col gap-2 pt-6 px-2">
+                <div id="sidebar-nav" className="flex flex-col gap-2 pt-12 px-2">
                     {/* Navigation Items */}
                     <div className="space-y-3">
                         <SidebarItem 

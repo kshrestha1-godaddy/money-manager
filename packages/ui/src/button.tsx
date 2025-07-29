@@ -12,7 +12,7 @@ export const Button = ({ onClick, children }: ButtonProps) => {
         <button
             onClick={onClick}
             type="button"
-            className="ui-text-white ui-bg-gray-800 ui-hover:bg-gray-900 ui-focus:outline-none ui-focus:ring-4 ui-focus:ring-gray-300 ui-font-medium ui-rounded-lg ui-text-sm ui-px-5 ui-py-2.5 ui-me-2 ui-mb-2"
+            className="text-white bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-4 focus:ring-brand-300 font-medium rounded-lg text-sm px-5 py-2.5"
         >
             {children}
         </button>

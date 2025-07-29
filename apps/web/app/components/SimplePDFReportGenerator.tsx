@@ -1264,7 +1264,7 @@ export function SimplePDFReportGenerator({
             <button
                 onClick={generateReport}
                 disabled={isGenerating}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-sm"
+                className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 disabled:bg-brand-400 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-sm"
             >
                 {isGenerating ? (
                     <>

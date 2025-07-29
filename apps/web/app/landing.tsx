@@ -24,7 +24,7 @@ export default function Landing() {
                     <div className="rounded-md shadow">
                       <Link
                         href="/signin"
-                        className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-gray-800 hover:bg-gray-900 md:py-4 md:text-lg md:px-10 transition-all duration-200"
+                        className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-brand-600 hover:bg-brand-700 md:py-4 md:text-lg md:px-10 transition-all duration-200"
                       >
                         Get Started
                       </Link>
@@ -60,7 +60,7 @@ export default function Landing() {
                           alt="Income Tracking Interface"
                           className="w-full max-w-3xl mx-auto rounded-2xl shadow-xl border border-gray-200 group-hover:shadow-2xl transition-shadow duration-300 transform group-hover:scale-105 transition-transform"
                         />
-                        <div className="absolute -top-4 -left-4 bg-blue-500 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
+                        <div className="absolute -top-4 -left-4 bg-brand-500 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
                           Income Tracking
                         </div>
                       </div>
@@ -88,7 +88,7 @@ export default function Landing() {
 
                     <div className="absolute bottom-1/3 -right-12 bg-white rounded-xl shadow-lg p-6 border border-gray-200 hidden xl:block">
                       <div className="flex items-center space-x-3">
-                        <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
+                        <div className="w-4 h-4 bg-brand-500 rounded-full"></div>
                         <span className="text-base font-medium text-gray-700">Beautiful charts</span>
                       </div>
                     </div>
@@ -132,10 +132,10 @@ export default function Landing() {
             {/* Step 2 */}
             <div className="text-center">
               <div className="relative">
-                <div className="flex items-center justify-center w-16 h-16 mx-auto bg-blue-100 rounded-full">
-                  <span className="text-2xl font-bold text-blue-600">2</span>
+                <div className="flex items-center justify-center w-16 h-16 mx-auto bg-brand-100 rounded-full">
+                  <span className="text-2xl font-bold text-brand-600">2</span>
                 </div>
-                <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
+                <div className="absolute -top-2 -right-2 bg-brand-500 text-white text-xs px-2 py-1 rounded-full">
                   Step 2
                 </div>
               </div>
@@ -451,7 +451,7 @@ export default function Landing() {
           </p>
           <Link
             href="/signin"
-            className="mt-8 w-full inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-gray-800 bg-white hover:bg-gray-50 sm:w-auto transition-all duration-200"
+            className="mt-8 w-full inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-brand-600 hover:bg-brand-700 sm:w-auto transition-all duration-200"
           >
             Get Started for Free
           </Link>

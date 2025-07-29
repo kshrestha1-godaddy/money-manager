@@ -164,12 +164,12 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
             };
         }
         
-        // Calculate default range (last 4 months) only once
+        // Calculate default range (last 6 months) only once
         const today = new Date();
         const currentMonth = today.getMonth();
         const currentYear = today.getFullYear();
         
-        let targetMonth = currentMonth - 3;
+        let targetMonth = currentMonth - 5;
         let targetYear = currentYear;
         
         if (targetMonth < 0) {

@@ -216,7 +216,7 @@ export function showValidationErrors(errors: string[]): void {
 
 // Common button classes for styling consistency
 export const buttonClasses = {
-    primary: "px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-md transition-colors",
+    primary: "px-4 py-2 bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-md transition-colors",
     secondary: "px-4 py-2 bg-gray-300 text-gray-700 hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-md transition-colors",
     danger: "px-4 py-2 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-md transition-colors"
 };
