@@ -211,8 +211,8 @@ export const COLORS = {
         text: 'text-purple-600',
       },
       interestEarned: {
-        indicator: 'bg-orange-500',
-        text: 'text-orange-600',
+        indicator: 'bg-green-500',
+        text: 'text-green-600',
       },
       totalRepaid: {
         indicator: 'bg-green-500',
@@ -307,7 +307,7 @@ export const COLORS = {
     summaryCards: {
       totalInvestments: {
         icon: 'text-blue-500',
-        text: 'text-gray-900',
+        text: 'text-blue-600',
       },
       gainers: {
         icon: 'text-green-500',
@@ -318,12 +318,12 @@ export const COLORS = {
         text: 'text-red-600',
       },
       totalInvested: {
-        icon: 'text-purple-500',
-        text: 'text-purple-600',
-      },
-      currentValue: {
         icon: 'text-blue-500',
         text: 'text-blue-600',
+      },
+      currentValue: {
+        icon: 'text-purple-500',
+        text: 'text-purple-600',
       },
       totalGainLoss: {
         iconPositive: 'text-green-500',

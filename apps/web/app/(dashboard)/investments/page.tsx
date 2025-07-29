@@ -38,7 +38,7 @@ const pageSubtitle = TEXT_COLORS.subtitle;
 const errorTitle = TEXT_COLORS.errorTitle;
 const errorMessage = TEXT_COLORS.errorMessage;
 const cardTitle = TEXT_COLORS.cardTitle;
-const cardValue = TEXT_COLORS.cardValue;
+const cardValueLarge = TEXT_COLORS.cardValueLarge;
 const cardSubtitle = TEXT_COLORS.cardSubtitle;
 const emptyTitle = TEXT_COLORS.emptyTitle;
 const emptyMessage = TEXT_COLORS.emptyMessage;
@@ -249,9 +249,10 @@ export default function Investments() {
                     </div>
                     <div className="flex flex-col items-center justify-center h-full text-center pt-6">
                         <h3 className={`${cardTitle} mb-2`}>Total Investments</h3>
-                        <p className={`${cardValue} ${getSummaryCardClasses('totalInvestments', 'investments').text}`}>
+                        <p className={`${cardValueLarge} ${getSummaryCardClasses('totalInvestments', 'investments').text}`}>
                             {loading ? "..." : investments.length}
                         </p>
+                        <p className={cardSubtitle}>positions</p>
                     </div>
                 </div>
                 <div className={`${cardLargeContainer} relative`}>
@@ -267,9 +268,10 @@ export default function Investments() {
                     </div>
                     <div className="flex flex-col items-center justify-center h-full text-center pt-6">
                         <h3 className={`${cardTitle} mb-2`}>Gainers</h3>
-                        <p className={`${cardValue} ${getSummaryCardClasses('gainers', 'investments').text}`}>
+                        <p className={`${cardValueLarge} ${getSummaryCardClasses('gainers', 'investments').text}`}>
                             {loading ? "..." : gainersCount}
                         </p>
+                        <p className={cardSubtitle}>profitable</p>
                     </div>
                 </div>
                 <div className={`${cardLargeContainer} relative`}>
@@ -285,9 +287,10 @@ export default function Investments() {
                     </div>
                     <div className="flex flex-col items-center justify-center h-full text-center pt-6">
                         <h3 className={`${cardTitle} mb-2`}>Losers</h3>
-                        <p className={`${cardValue} ${getSummaryCardClasses('losers', 'investments').text}`}>
+                        <p className={`${cardValueLarge} ${getSummaryCardClasses('losers', 'investments').text}`}>
                             {loading ? "..." : losersCount}
                         </p>
+                        <p className={cardSubtitle}>at loss</p>
                     </div>
                 </div>
                 <div className={`${cardLargeContainer} relative`}>
@@ -303,9 +306,10 @@ export default function Investments() {
                     </div>
                     <div className="flex flex-col items-center justify-center h-full text-center pt-6">
                         <h3 className={`${cardTitle} mb-2`}>Total Invested</h3>
-                        <p className={`${cardValue} ${getSummaryCardClasses('totalInvested', 'investments').text}`}>
+                        <p className={`${cardValueLarge} ${getSummaryCardClasses('totalInvested', 'investments').text}`}>
                             {loading ? "..." : formatCurrency(totalInvested, userCurrency)}
                         </p>
+                        <p className={cardSubtitle}>purchase cost</p>
                     </div>
                 </div>
                 <div className={`${cardLargeContainer} relative`}>
@@ -321,9 +325,10 @@ export default function Investments() {
                     </div>
                     <div className="flex flex-col items-center justify-center h-full text-center pt-6">
                         <h3 className={`${cardTitle} mb-2`}>Current Value</h3>
-                        <p className={`${cardValue} ${getSummaryCardClasses('currentValue', 'investments').text}`}>
+                        <p className={`${cardValueLarge} ${getSummaryCardClasses('currentValue', 'investments').text}`}>
                             {loading ? "..." : formatCurrency(totalCurrentValue, userCurrency)}
                         </p>
+                        <p className={cardSubtitle}>market value</p>
                     </div>
                 </div>
                 <div className={`${cardLargeContainer} relative`}>
@@ -342,11 +347,11 @@ export default function Investments() {
                     </div>
                     <div className="flex flex-col items-center justify-center h-full text-center pt-6">
                         <h3 className={`${cardTitle} mb-2`}>Total Gain/Loss</h3>
-                        <p className={`${cardValue} ${getGainLossClasses(totalGainLoss)}`}>
+                        <p className={`${cardValueLarge} ${getGainLossClasses(totalGainLoss)}`}>
                             {loading ? "..." : formatCurrency(totalGainLoss, userCurrency)}
                         </p>
-                        <p className={`text-sm ${getGainLossClasses(totalGainLoss)}`}>
-                            ({totalGainLossPercentage.toFixed(2)}%)
+                        <p className={cardSubtitle}>
+                            {loading ? "" : `${totalGainLossPercentage >= 0 ? '+' : ''}${totalGainLossPercentage.toFixed(2)}% return`}
                         </p>
                     </div>
                 </div>
