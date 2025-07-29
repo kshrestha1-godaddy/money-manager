@@ -98,6 +98,8 @@ export default function NavBar() {
               width={56} 
               height={56} 
               className="rounded-full"
+              quality={85}
+              sizes="56px"
             />
             <div className="flex flex-col justify-center">
               <span className="text-xl font-semibold text-gray-900">My Money Manager</span>
@@ -179,6 +181,7 @@ export default function NavBar() {
                       alt={session.user.name || "User"}
                       className="w-12 h-12 rounded-full object-cover border-2 border-gray-200/50 hover:border-blue-300/50 transition-all duration-200"
                       referrerPolicy="no-referrer"
+                      loading="lazy"
                     />
                   ) : (
                     <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center border-2 border-gray-200/50 hover:border-blue-300/50 transition-all duration-200">

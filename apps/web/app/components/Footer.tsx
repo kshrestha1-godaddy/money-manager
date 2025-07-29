@@ -12,7 +12,9 @@ export default function Footer() {
                         alt="Money Manager Logo" 
                         width={50} 
                         height={50} 
-                        className="rounded-full mr-2" 
+                        className="rounded-full mr-2"
+                        priority={false}
+                        loading="lazy"
                     />
                     <span className="text-gray-700 font-medium">Money Manager</span>
                     </Link>
