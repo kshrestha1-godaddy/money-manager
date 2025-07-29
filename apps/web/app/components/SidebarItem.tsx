@@ -34,14 +34,14 @@ export const SidebarItem = ({
       <div
         id={id}
         className={`flex items-center ${
-          selected ? "text-[#6a51a6] bg-purple-50" : "text-slate-500 hover:text-slate-700 hover:bg-gray-50"
+          selected ? "text-white bg-[#705ba0] shadow-md" : "text-slate-600 hover:text-slate-700 hover:bg-gray-50"
         } cursor-pointer p-2 md:p-4 pl-8 md:pl-6 rounded-md mx-2 md:mx-3 transition-colors`}
         onClick={handleClick}
       >
         <div className="pr-2 md:pr-3">{icon}</div>
         <div
           className={`font-medium text-sm md:text-base ${
-            selected ? "text-[#6a51a6]" : "text-slate-500"
+            selected ? "text-white font-semibold" : "text-slate-600"
           }`}
         >
           {title}
