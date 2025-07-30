@@ -232,7 +232,7 @@ export default function Debts() {
                     </div>
                     <div className="flex flex-col items-center justify-center h-full text-center pt-6">
                         <h3 className={`${cardTitle} mb-2`}>Total Lendings</h3>
-                        <p className={`${cardValueLarge} ${getSummaryCardClasses('totalDebts', 'debts').text}`}>
+                        <p className="text-2xl font-bold text-gray-900">
                             {loading ? "..." : financialSummary.totalDebts}
                         </p>
                         <p className={cardSubtitle}>lending records</p>
@@ -252,7 +252,7 @@ export default function Debts() {
                     </div>
                     <div className="flex flex-col items-center justify-center h-full text-center pt-6">
                         <h3 className={`${cardTitle} mb-2`}>Principal Lent</h3>
-                        <p className={`${cardValueLarge} ${getSummaryCardClasses('principalLent', 'debts').text}`}>
+                        <p className="text-2xl font-bold text-gray-900">
                             {loading ? "..." : formatCurrency(financialSummary.totalPrincipal, userCurrency)}
                         </p>
                         <p className={cardSubtitle}>original amount</p>
@@ -272,7 +272,7 @@ export default function Debts() {
                     </div>
                     <div className="flex flex-col items-center justify-center h-full text-center pt-6">
                         <h3 className={`${cardTitle} mb-2`}>Interest Earned</h3>
-                        <p className={`${cardValueLarge} ${getSummaryCardClasses('interestEarned', 'debts').text}`}>
+                        <p className="text-2xl font-bold text-gray-900">
                             {loading ? "..." : formatCurrency(financialSummary.totalInterestAccrued, userCurrency)}
                         </p>
                         <p className={cardSubtitle}>total interest</p>
@@ -292,7 +292,7 @@ export default function Debts() {
                     </div>
                     <div className="flex flex-col items-center justify-center h-full text-center pt-6">
                         <h3 className={`${cardTitle} mb-2`}>Total Repaid</h3>
-                        <p className={`${cardValueLarge} ${getSummaryCardClasses('totalRepaid', 'debts').text}`}>
+                        <p className="text-2xl font-bold text-green-600">
                             {loading ? "..." : formatCurrency(financialSummary.totalRepaid, userCurrency)}
                         </p>
                         <p className={cardSubtitle}>collected</p>
@@ -312,7 +312,7 @@ export default function Debts() {
                     </div>
                     <div className="flex flex-col items-center justify-center h-full text-center pt-6">
                         <h3 className={`${cardTitle} mb-2`}>Outstanding</h3>
-                        <p className={`${cardValueLarge} ${getSummaryCardClasses('outstanding', 'debts').text}`}>
+                        <p className="text-2xl font-bold text-red-600">
                             {loading ? "..." : formatCurrency(financialSummary.totalOutstanding, userCurrency)}
                         </p>
                         <p className={cardSubtitle}>

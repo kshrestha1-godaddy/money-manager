@@ -266,7 +266,7 @@ export default function Investments() {
                     </div>
                     <div className="flex flex-col items-center justify-center h-full text-center pt-6">
                         <h3 className={`${cardTitle} mb-2`}>Total Investments</h3>
-                        <p className={`${cardValueLarge} ${getSummaryCardClasses('totalInvestments', 'investments').text}`}>
+                        <p className="text-2xl font-bold text-gray-900">
                             {loading ? "..." : investments.length}
                         </p>
                         <p className={cardSubtitle}>positions</p>
@@ -285,7 +285,7 @@ export default function Investments() {
                     </div>
                     <div className="flex flex-col items-center justify-center h-full text-center pt-6">
                         <h3 className={`${cardTitle} mb-2`}>Gainers</h3>
-                        <p className={`${cardValueLarge} ${getSummaryCardClasses('gainers', 'investments').text}`}>
+                        <p className="text-2xl font-bold text-gray-900">
                             {loading ? "..." : gainersCount}
                         </p>
                         <p className={cardSubtitle}>profitable</p>
@@ -304,7 +304,7 @@ export default function Investments() {
                     </div>
                     <div className="flex flex-col items-center justify-center h-full text-center pt-6">
                         <h3 className={`${cardTitle} mb-2`}>Losers</h3>
-                        <p className={`${cardValueLarge} ${getSummaryCardClasses('losers', 'investments').text}`}>
+                        <p className="text-2xl font-bold text-gray-900">
                             {loading ? "..." : losersCount}
                         </p>
                         <p className={cardSubtitle}>at loss</p>
@@ -323,7 +323,7 @@ export default function Investments() {
                     </div>
                     <div className="flex flex-col items-center justify-center h-full text-center pt-6">
                         <h3 className={`${cardTitle} mb-2`}>Total Invested</h3>
-                        <p className={`${cardValueLarge} ${getSummaryCardClasses('totalInvested', 'investments').text}`}>
+                        <p className="text-2xl font-bold text-gray-900">
                             {loading ? "..." : formatCurrency(totalInvested, userCurrency)}
                         </p>
                         <p className={cardSubtitle}>purchase cost</p>
@@ -342,7 +342,7 @@ export default function Investments() {
                     </div>
                     <div className="flex flex-col items-center justify-center h-full text-center pt-6">
                         <h3 className={`${cardTitle} mb-2`}>Current Value</h3>
-                        <p className={`${cardValueLarge} ${getSummaryCardClasses('currentValue', 'investments').text}`}>
+                        <p className="text-2xl font-bold text-gray-900">
                             {loading ? "..." : formatCurrency(totalCurrentValue, userCurrency)}
                         </p>
                         <p className={cardSubtitle}>market value</p>
@@ -364,7 +364,7 @@ export default function Investments() {
                     </div>
                     <div className="flex flex-col items-center justify-center h-full text-center pt-6">
                         <h3 className={`${cardTitle} mb-2`}>Total Gain/Loss</h3>
-                        <p className={`${cardValueLarge} ${getGainLossClasses(totalGainLoss)}`}>
+                        <p className={`text-2xl font-bold ${totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {loading ? "..." : formatCurrency(totalGainLoss, userCurrency)}
                         </p>
                         <p className={cardSubtitle}>
