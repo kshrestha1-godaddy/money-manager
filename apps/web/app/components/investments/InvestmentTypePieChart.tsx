@@ -162,7 +162,7 @@ export function InvestmentTypePieChart({ investments, currency = "USD", title }:
 
     const ChartContent = () => (
         <div>
-            <div className="flex justify-start items-center mb-3 sm:mb-4">
+            <div className="flex justify-start items-center mb-2 sm:mb-3">
                 <div className="text-left">
                     <p className="text-xs sm:text-sm text-gray-600">Total Invested</p>
                     <p className="text-base sm:text-lg font-semibold text-blue-600">
@@ -172,11 +172,11 @@ export function InvestmentTypePieChart({ investments, currency = "USD", title }:
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-1 sm:gap-2">
                 {/* Pie Chart */}
                 <div 
                     ref={chartRef} 
-                    className={`${isExpanded ? "h-[45rem]" : "h-[24rem] sm:h-[32rem] md:h-[38rem]"} lg:col-span-2`}
+                    className={`${isExpanded ? "h-[45rem]" : "h-[18rem] sm:h-[20rem] md:h-[22rem]"} lg:col-span-3`}
                     role="img"
                     aria-label={`Investment portfolio distribution pie chart showing ${formatCurrency(totalInvested, currency)} across different investment types`}
                 >
@@ -188,7 +188,7 @@ export function InvestmentTypePieChart({ investments, currency = "USD", title }:
                                 cy="50%"
                                 labelLine={false}
                                 label={renderCustomizedLabel}
-                                outerRadius={isExpanded ? 200 : 160}
+                                outerRadius={isExpanded ? 200 : 100}
                                 fill="#8884d8"
                                 dataKey="value"
                             >
@@ -215,28 +215,28 @@ export function InvestmentTypePieChart({ investments, currency = "USD", title }:
                 </div>
 
                 {/* Legend and breakdown */}
-                <div className="space-y-2 sm:space-y-3">
-                    <h4 className="text-sm sm:text-base font-medium text-gray-900">Type Breakdown</h4>
-                    <div className="space-y-1 sm:space-y-2 max-h-60 sm:max-h-80 overflow-y-auto">
+                <div className="lg:col-span-2 space-y-1">
+                    <h4 className="text-sm font-medium text-gray-900">Type Breakdown</h4>
+                    <div className="space-y-1 max-h-48 sm:max-h-64 overflow-y-auto">
                         {chartData.map((entry, index) => {
                             const percentage = totalInvested > 0 ? ((entry.value / totalInvested) * 100).toFixed(1) : '0.0';
                             const isOthers = entry.name === 'Others';
                             
                             return (
                                 <div key={entry.name}>
-                                    <div className="flex items-center justify-between gap-2">
-                                        <div className="flex items-center space-x-2 flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-1">
+                                        <div className="flex items-center space-x-1.5 flex-1 min-w-0">
                                             <div
-                                                className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full flex-shrink-0"
+                                                className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full flex-shrink-0"
                                                 style={{ backgroundColor: entry.color }}
                                             />
-                                            <span className="text-sm sm:text-base text-gray-700 truncate">{entry.name}</span>
+                                            <span className="text-xs sm:text-sm text-gray-700 truncate">{entry.name}</span>
                                             <span className="text-xs text-gray-500">
                                                 ({entry.count})
                                             </span>
                                         </div>
                                         <div className="text-right flex-shrink-0">
-                                            <div className="text-sm sm:text-base font-medium text-gray-900">
+                                            <div className="text-xs sm:text-sm font-medium text-gray-900">
                                                 {formatCurrency(entry.value, currency)}
                                             </div>
                                             <div className="text-xs text-gray-500">
@@ -247,7 +247,7 @@ export function InvestmentTypePieChart({ investments, currency = "USD", title }:
                                     
                                     {/* Show breakdown for Others category */}
                                     {isOthers && smallTypes.length > 0 && (
-                                        <div className="ml-4 sm:ml-5 mt-1 space-y-1">
+                                        <div className="ml-3 mt-1 space-y-1">
                                             {smallTypes.map((smallType) => {
                                                 const smallPercentage = totalInvested > 0 ? ((smallType.value / totalInvested) * 100).toFixed(1) : '0.0';
                                                 return (
@@ -272,8 +272,8 @@ export function InvestmentTypePieChart({ investments, currency = "USD", title }:
 
     if (chartData.length === 0) {
         return (
-            <div className="bg-white rounded-lg shadow p-6" data-chart-type="investment-type-pie">
-                <div className="flex justify-between items-center mb-4">
+            <div className="bg-white rounded-lg shadow p-2 sm:p-3 md:p-4" data-chart-type="investment-type-pie">
+                <div className="flex justify-between items-center mb-2">
                     <h3 className="text-lg font-semibold text-gray-900">{chartTitle}</h3>
                 </div>
                 <div className="flex items-center justify-center h-64 text-gray-500">
@@ -285,7 +285,7 @@ export function InvestmentTypePieChart({ investments, currency = "USD", title }:
 
     return (
         <>
-            <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-6" data-chart-type="investment-type-pie">
+            <div className="bg-white rounded-lg shadow p-2 sm:p-3 md:p-4" data-chart-type="investment-type-pie">
                 <ChartControls
                     chartRef={chartRef}
                     isExpanded={isExpanded}

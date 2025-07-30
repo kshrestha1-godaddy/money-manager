@@ -17,7 +17,7 @@ export default function NavBar() {
   const { openExpenseModal, openIncomeModal } = useModals();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const [currentDateTime, setCurrentDateTime] = useState(new Date());
+  const currentDate = new Date();
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -34,15 +34,6 @@ export default function NavBar() {
       return () => document.removeEventListener('click', handleClickOutside);
     }
   }, [isProfileDropdownOpen]);
-
-  // Update time every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentDateTime(new Date());
-    }, 1000);
-    
-    return () => clearInterval(timer);
-  }, []);
 
   // Handle currency change
   const handleCurrencyChange = async (currencyCode: string) => {
@@ -62,25 +53,11 @@ export default function NavBar() {
   
   const formatDate = (date: Date) => {
     return date.toLocaleDateString(undefined, {
-      weekday: 'long',
+      year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
+      weekday: 'long'
     });
-  };
-  
-  const formatTime = (date: Date) => {
-    const timeString = date.toLocaleTimeString(undefined, {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
-    
-    const timeZone = date.toLocaleTimeString(undefined, {
-      timeZoneName: 'short'
-    }).split(' ').pop();
-    
-    return `${timeString} · ${timeZone}`;
   };
 
   return (
@@ -104,9 +81,7 @@ export default function NavBar() {
             <div className="flex flex-col justify-center">
               <span className="text-xl font-semibold text-gray-900">My Money Manager</span>
               <div className="text-sm text-gray-600">
-                <span className="font-medium">{formatDate(currentDateTime)}</span>
-                <span className="mx-1.5 text-gray-400">•</span>
-                <span className="font-mono">{formatTime(currentDateTime)}</span>
+                <span className="font-medium">Take control of your financial future</span>
               </div>
             </div>
           </Link>
@@ -117,12 +92,15 @@ export default function NavBar() {
           <div className="flex-1"></div>
         )}
 
-        {/* Center: User Name */}
+        {/* Center: User Name and Date */}
         {status === "authenticated" && (
           <div className="flex items-center justify-center flex-1 flex-col">
             <span className="text-lg font-semibold text-gray-900">
               {session?.user?.name}
             </span>
+            <div className="text-sm text-gray-600">
+              <span className="font-medium">{formatDate(currentDate)}</span>
+            </div>
             {/* <div className="flex items-center">
               {balanceLoading ? (
                 <span className="text-sm text-gray-500">Loading balance...</span>
