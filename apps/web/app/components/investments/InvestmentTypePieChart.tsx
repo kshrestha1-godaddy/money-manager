@@ -130,9 +130,9 @@ export function InvestmentTypePieChart({ investments, currency = "USD", title }:
         value: number;
     }
 
-    const renderCustomizedLabel = (entry: LabelEntry): string => {
+    const renderCustomizedLabel = (entry: any): string => {
         const percentage = totalInvested > 0 ? ((entry.value / totalInvested) * 100).toFixed(1) : '0.0';
-        return `${percentage}%`;
+        return `${entry.name} (${percentage}%)`;
     };
 
     const chartTitle = title || 'Investment Portfolio by Type';
