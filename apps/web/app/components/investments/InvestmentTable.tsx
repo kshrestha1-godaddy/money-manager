@@ -418,13 +418,21 @@ function InvestmentRow({
                 </span>
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style={{ width: `${columnWidths.quantityInterest}px` }}>
-                {investment.type === 'FIXED_DEPOSIT' ? (
+                {investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' ? (
                     <div>
-                        <div>{investment.interestRate}% p.a.</div>
+                        {investment.interestRate && (
+                            <div>{investment.interestRate}% p.a.</div>
+                        )}
                         {investment.maturityDate && (
                             <div className="text-xs text-gray-500 break-words">
                                 Matures: {new Date(investment.maturityDate).toLocaleDateString()}
                             </div>
+                        )}
+                        {!investment.interestRate && !investment.maturityDate && investment.type === 'FIXED_DEPOSIT' && (
+                            <div className="text-gray-500">No rate set</div>
+                        )}
+                        {!investment.interestRate && !investment.maturityDate && (investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS') && (
+                            <div className="text-gray-500">-</div>
                         )}
                     </div>
                 ) : (
@@ -435,12 +443,14 @@ function InvestmentRow({
                 <div className="break-words">
                     {investment.type === 'FIXED_DEPOSIT' ? 
                         `${formatCurrency(investment.purchasePrice, currency)} (Principal)` : 
+                        investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' ?
+                        `${formatCurrency(investment.purchasePrice, currency)} (Amount)` :
                         formatCurrency(investment.purchasePrice, currency)
                     }
                 </div>
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style={{ width: `${columnWidths.currentValue}px` }}>
-                {investment.type === 'FIXED_DEPOSIT' ? (
+                {investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' ? (
                     <div>
                         <div className="break-words">{formatCurrency(investment.currentPrice, currency)}</div>
                         <div className="text-xs text-gray-500">Current Value</div>
@@ -465,6 +475,9 @@ function InvestmentRow({
                     <div className="break-words">{new Date(investment.purchaseDate).toLocaleDateString()}</div>
                     {investment.type === 'FIXED_DEPOSIT' && (
                         <div className="text-xs text-gray-500">Deposit Date</div>
+                    )}
+                    {(investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS') && (
+                        <div className="text-xs text-gray-500">Investment Date</div>
                     )}
                 </div>
             </td>

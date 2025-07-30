@@ -142,8 +142,8 @@ model Investment {
   purchasePrice Decimal
   currentPrice Decimal @default(0)
   purchaseDate DateTime
-  account Account @relation(fields: [accountId], references: [id])
-  accountId Int
+  account Account? @relation(fields: [accountId], references: [id])
+  accountId Int?
   user User @relation(fields: [userId], references: [id])
   userId Int
   notes String?
@@ -383,6 +383,8 @@ enum InvestmentType {
   REAL_ESTATE
   GOLD
   FIXED_DEPOSIT
+  PROVIDENT_FUNDS
+  SAFE_KEEPINGS
   OTHER
 }
 

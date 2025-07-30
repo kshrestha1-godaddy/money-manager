@@ -1,13 +1,13 @@
 export interface InvestmentInterface {
     id: number;
     name: string;
-    type: 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'OTHER';
+    type: 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'OTHER';
     symbol?: string;
     quantity: number;
     purchasePrice: number;
     currentPrice: number;
     purchaseDate: Date;
-    accountId: number;
+    accountId?: number;
     userId: number;
     notes?: string;
     // Fixed Deposit specific fields

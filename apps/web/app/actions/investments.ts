@@ -166,21 +166,25 @@ export async function createInvestment(investment: Omit<InvestmentInterface, 'id
 
         // Use a transaction to ensure both investment creation and account balance are updated atomically
         const result = await prisma.$transaction(async (tx) => {
-            // Validate account balance
-            const account = await tx.account.findUnique({
-                where: { id: investment.accountId },
-                select: { balance: true, bankName: true }
-            });
+            // Validate account balance only if account is provided
+            let account = null;
+            if (investment.accountId) {
+                account = await tx.account.findUnique({
+                    where: { id: investment.accountId },
+                    select: { balance: true, bankName: true }
+                });
 
-            if (!account) {
-                throw new Error("Selected account not found");
-            }
+                if (!account) {
+                    throw new Error("Selected account not found");
+                }
 
-            const totalInvestmentAmount = investment.type === 'FIXED_DEPOSIT' ? investment.purchasePrice : investment.quantity * investment.purchasePrice;
-            const currentBalance = parseFloat(account.balance.toString());
-            
-            if (currentBalance < totalInvestmentAmount) {
-                throw new Error(`Insufficient balance in ${account.bankName}. Available: ${currentBalance}, Required: ${totalInvestmentAmount}`);
+                const totalInvestmentAmount = (investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS') ? 
+                    investment.purchasePrice : investment.quantity * investment.purchasePrice;
+                const currentBalance = parseFloat(account.balance.toString());
+                
+                if (currentBalance < totalInvestmentAmount) {
+                    throw new Error(`Insufficient balance in ${account.bankName}. Available: ${currentBalance}, Required: ${totalInvestmentAmount}`);
+                }
             }
 
             // Create the investment
@@ -194,15 +198,20 @@ export async function createInvestment(investment: Omit<InvestmentInterface, 'id
                 },
             });
 
-            // Update the account balance (decrease by investment amount)
-            await tx.account.update({
-                where: { id: investment.accountId },
-                data: {
-                    balance: {
-                        decrement: totalInvestmentAmount
+            // Update the account balance (decrease by investment amount) only if account is provided
+            if (investment.accountId && account) {
+                const totalInvestmentAmount = (investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS') ? 
+                    investment.purchasePrice : investment.quantity * investment.purchasePrice;
+                
+                await tx.account.update({
+                    where: { id: investment.accountId },
+                    data: {
+                        balance: {
+                            decrement: totalInvestmentAmount
+                        }
                     }
-                }
-            });
+                });
+            }
 
             return newInvestment;
         });
@@ -362,19 +371,21 @@ export async function deleteInvestment(id: number) {
                 where: { id },
             });
 
-            // Restore the account balance
-            const totalInvestmentAmount = existingInvestment.type === 'FIXED_DEPOSIT' ? 
-                parseFloat(existingInvestment.purchasePrice.toString()) : 
-                parseFloat(existingInvestment.quantity.toString()) * parseFloat(existingInvestment.purchasePrice.toString());
-            
-            await tx.account.update({
-                where: { id: existingInvestment.accountId },
-                data: {
-                    balance: {
-                        increment: totalInvestmentAmount
+            // Restore the account balance only if investment was linked to an account
+            if (existingInvestment.accountId) {
+                const totalInvestmentAmount = (existingInvestment.type === 'FIXED_DEPOSIT' || existingInvestment.type === 'PROVIDENT_FUNDS' || existingInvestment.type === 'SAFE_KEEPINGS') ? 
+                    parseFloat(existingInvestment.purchasePrice.toString()) : 
+                    parseFloat(existingInvestment.quantity.toString()) * parseFloat(existingInvestment.purchasePrice.toString());
+                
+                await tx.account.update({
+                    where: { id: existingInvestment.accountId },
+                    data: {
+                        balance: {
+                            increment: totalInvestmentAmount
+                        }
                     }
-                }
-            });
+                });
+            }
         });
 
         // Revalidate related pages
@@ -487,7 +498,7 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
                                 continue;
                             }
 
-                            const totalInvestmentAmount = investmentData.type === 'FIXED_DEPOSIT' ? 
+                            const totalInvestmentAmount = (investmentData.type === 'FIXED_DEPOSIT' || investmentData.type === 'PROVIDENT_FUNDS' || investmentData.type === 'SAFE_KEEPINGS') ? 
                                 investmentData.purchasePrice : 
                                 investmentData.quantity * investmentData.purchasePrice;
 
@@ -499,15 +510,17 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
                                 },
                             });
 
-                            // Update account balance - no balance check for bulk import
-                            await tx.account.update({
-                                where: { id: investmentData.accountId },
-                                data: {
-                                    balance: {
-                                        decrement: totalInvestmentAmount
+                            // Update account balance - no balance check for bulk import (only if account is provided)
+                            if (investmentData.accountId) {
+                                await tx.account.update({
+                                    where: { id: investmentData.accountId },
+                                    data: {
+                                        balance: {
+                                            decrement: totalInvestmentAmount
+                                        }
                                     }
-                                }
-                            });
+                                });
+                            }
 
                             result.importedCount++;
                         } catch (error) {

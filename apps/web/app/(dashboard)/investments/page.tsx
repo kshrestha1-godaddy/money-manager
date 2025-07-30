@@ -139,9 +139,25 @@ export default function Investments() {
     };
 
     const handleBulkDeleteConfirm = async () => {
-        await handleBulkDelete();
-        setIsBulkDeleteModalOpen(false);
-        setBulkDeleteInvestments([]);
+        if (bulkDeleteInvestments.length === 0) return;
+        
+        // Delete only the investments from the specific section
+        try {
+            const investmentIds = bulkDeleteInvestments.map(inv => inv.id);
+            await Promise.all(investmentIds.map(id => handleDeleteInvestment({ id } as InvestmentInterface)));
+            
+            // Clear selection for deleted investments
+            setSelectedInvestments(prev => {
+                const newSet = new Set(prev);
+                investmentIds.forEach(id => newSet.delete(id));
+                return newSet;
+            });
+        } catch (error) {
+            console.error("Error in bulk delete:", error);
+        } finally {
+            setIsBulkDeleteModalOpen(false);
+            setBulkDeleteInvestments([]);
+        }
     };
 
     // Handle modal actions

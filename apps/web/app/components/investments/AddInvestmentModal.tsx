@@ -26,7 +26,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
     
     const [formData, setFormData] = useState({
         name: "",
-        type: "STOCKS" as 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'OTHER',
+        type: "STOCKS" as 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'OTHER',
         symbol: "",
         quantity: "",
         purchasePrice: "",
@@ -92,6 +92,14 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                     setError("Maturity date must be after the purchase date");
                     return;
                 }
+            } else if (formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') {
+                // Provident Funds and Safe Keepings validation - simpler requirements
+                if (!formData.purchasePrice || parseFloat(formData.purchasePrice) <= 0) {
+                    setError("Investment amount must be greater than 0");
+                    return;
+                }
+                // Quantity is not relevant for these types, set to 1
+                // Interest rate and maturity date are optional
             } else {
                 // Regular investment validation
                 if (!formData.quantity || parseFloat(formData.quantity) <= 0) {
@@ -108,25 +116,30 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                 }
             }
             
-            if (!formData.accountId) {
+            // Account selection validation - optional for Provident Funds and Safe Keepings
+            if (!formData.accountId && formData.type !== 'PROVIDENT_FUNDS' && formData.type !== 'SAFE_KEEPINGS') {
                 setError("Please select an account");
                 return;
             }
 
-            // Validate account balance for investment amount
-            const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
-            let totalInvestmentAmount: number;
-            
-            if (formData.type === 'FIXED_DEPOSIT') {
-                totalInvestmentAmount = parseFloat(formData.purchasePrice); // Principal amount for FD
-            } else {
-                totalInvestmentAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice || "0");
-            }
-            
-            if (selectedAccount && selectedAccount.balance !== undefined) {
-                if (totalInvestmentAmount > selectedAccount.balance) {
-                    setError(`Insufficient balance. Investment total of ${formatCurrency(totalInvestmentAmount, userCurrency)} exceeds account balance of ${formatCurrency(selectedAccount.balance, userCurrency)}.`);
-                    return;
+            // Validate account balance for investment amount (only if account is selected)
+            if (formData.accountId) {
+                const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
+                let totalInvestmentAmount: number;
+                
+                if (formData.type === 'FIXED_DEPOSIT') {
+                    totalInvestmentAmount = parseFloat(formData.purchasePrice); // Principal amount for FD
+                } else if (formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') {
+                    totalInvestmentAmount = parseFloat(formData.purchasePrice); // Investment amount
+                } else {
+                    totalInvestmentAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice || "0");
+                }
+                
+                if (selectedAccount && selectedAccount.balance !== undefined) {
+                    if (totalInvestmentAmount > selectedAccount.balance) {
+                        setError(`Insufficient balance. Investment total of ${formatCurrency(totalInvestmentAmount, userCurrency)} exceeds account balance of ${formatCurrency(selectedAccount.balance, userCurrency)}.`);
+                        return;
+                    }
                 }
             }
 
@@ -134,18 +147,26 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                 name: formData.name.trim(),
                 type: formData.type,
                 symbol: formData.symbol.trim() || undefined,
-                quantity: formData.type === 'FIXED_DEPOSIT' ? 1 : parseFloat(formData.quantity || "0"),
+                quantity: (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') ? 1 : parseFloat(formData.quantity || "0"),
                 purchasePrice: parseFloat(formData.purchasePrice || "0"),
-                currentPrice: formData.type === 'FIXED_DEPOSIT' ? parseFloat(formData.purchasePrice || "0") : parseFloat(formData.currentPrice || "0"),
+                currentPrice: (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') ? parseFloat(formData.purchasePrice || "0") : parseFloat(formData.currentPrice || "0"),
                 purchaseDate: new Date(formData.purchaseDate + 'T00:00:00'),
-                accountId: parseInt(formData.accountId),
+                accountId: formData.accountId ? parseInt(formData.accountId) : undefined,
                 notes: formData.notes.trim() || undefined,
             };
 
-            // Add Fixed Deposit specific fields
+            // Add type-specific fields
             if (formData.type === 'FIXED_DEPOSIT') {
                 investmentData.interestRate = parseFloat(formData.interestRate || "0");
                 investmentData.maturityDate = formData.maturityDate ? new Date(formData.maturityDate + 'T00:00:00') : undefined;
+            } else if (formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') {
+                // Optional interest rate and maturity date for these types
+                if (formData.interestRate) {
+                    investmentData.interestRate = parseFloat(formData.interestRate);
+                }
+                if (formData.maturityDate) {
+                    investmentData.maturityDate = new Date(formData.maturityDate + 'T00:00:00');
+                }
             }
 
             await onAdd(investmentData);
@@ -185,6 +206,8 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
         { value: 'BONDS', label: 'Bonds' },
         { value: 'REAL_ESTATE', label: 'Real Estate' },
         { value: 'GOLD', label: 'Gold' },
+        { value: 'PROVIDENT_FUNDS', label: 'Provident Funds' },
+        { value: 'SAFE_KEEPINGS', label: 'Safe Keepings' },
         { value: 'OTHER', label: 'Other' },
     ];
 
@@ -244,7 +267,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                         </select>
                     </div>
 
-                    {formData.type !== 'FIXED_DEPOSIT' && (
+                    {formData.type !== 'FIXED_DEPOSIT' && formData.type !== 'PROVIDENT_FUNDS' && formData.type !== 'SAFE_KEEPINGS' && (
                         <div>
                             <label htmlFor="symbol" className="block text-sm font-medium text-gray-700 mb-1">
                                 Symbol (Optional)
@@ -309,6 +332,57 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                                         onChange={(e) => handleInputChange("maturityDate", e.target.value)}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         required
+                                    />
+                                </div>
+                            </div>
+                        </>
+                    ) : formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' ? (
+                        <>
+                            <div>
+                                <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 mb-1">
+                                    Investment Amount *
+                                </label>
+                                <input
+                                    type="number"
+                                    id="purchasePrice"
+                                    step="0.01"
+                                    min="0"
+                                    value={formData.purchasePrice}
+                                    onChange={(e) => handleInputChange("purchasePrice", e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="0.00"
+                                    required
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label htmlFor="interestRate" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Interest Rate (Optional)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        id="interestRate"
+                                        step="0.01"
+                                        min="0"
+                                        max="100"
+                                        value={formData.interestRate}
+                                        onChange={(e) => handleInputChange("interestRate", e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="5.50"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label htmlFor="maturityDate" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Maturity Date (Optional)
+                                    </label>
+                                    <input
+                                        type="date"
+                                        id="maturityDate"
+                                        value={formData.maturityDate}
+                                        onChange={(e) => handleInputChange("maturityDate", e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>
                             </div>
@@ -386,10 +460,10 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
 
                     <div>
                         <label htmlFor="accountId" className="block text-sm font-medium text-gray-700 mb-1">
-                            Account * {formData.accountId && (() => {
+                            Account {formData.type !== 'PROVIDENT_FUNDS' && formData.type !== 'SAFE_KEEPINGS' ? '*' : '(Optional)'} {formData.accountId && (() => {
                                 const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
                                 let totalAmount: number;
-                                if (formData.type === 'FIXED_DEPOSIT') {
+                                if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') {
                                     totalAmount = parseFloat(formData.purchasePrice || "0");
                                 } else {
                                     totalAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice || "0");
@@ -409,19 +483,19 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                             value={formData.accountId}
                             onChange={(e) => handleInputChange("accountId", e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
+                            required={formData.type !== 'PROVIDENT_FUNDS' && formData.type !== 'SAFE_KEEPINGS'}
                         >
-                            <option value="">Select an account</option>
+                            <option value="">{formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' ? 'No account selected' : 'Select an account'}</option>
                             {accounts.map(account => (
                                 <option key={account.id} value={account.id}>
                                     {account.bankName} - {account.accountNumber} ({formatCurrency(account.balance, userCurrency)})
                                 </option>
                             ))}
                         </select>
-                        {formData.accountId && formData.purchasePrice && (formData.type === 'FIXED_DEPOSIT' || formData.quantity) && (() => {
+                        {formData.accountId && formData.purchasePrice && (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.quantity) && (() => {
                             const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
                             let totalAmount: number;
-                            if (formData.type === 'FIXED_DEPOSIT') {
+                            if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') {
                                 totalAmount = parseFloat(formData.purchasePrice);
                             } else {
                                 totalAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice);
@@ -463,10 +537,10 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                         <button
                             type="submit"
                             disabled={loading || (() => {
-                                if (formData.accountId && formData.purchasePrice && (formData.type === 'FIXED_DEPOSIT' || formData.quantity)) {
+                                if (formData.accountId && formData.purchasePrice && (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.quantity)) {
                                     const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
                                     let totalAmount: number;
-                                    if (formData.type === 'FIXED_DEPOSIT') {
+                                    if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') {
                                         totalAmount = parseFloat(formData.purchasePrice);
                                     } else {
                                         totalAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice);
@@ -477,10 +551,10 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                             })()}
                             className={`flex-1 px-4 py-2 rounded-md disabled:opacity-50 ${
                                 (() => {
-                                    if (formData.accountId && formData.purchasePrice && (formData.type === 'FIXED_DEPOSIT' || formData.quantity)) {
+                                    if (formData.accountId && formData.purchasePrice && (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.quantity)) {
                                         const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
                                         let totalAmount: number;
-                                        if (formData.type === 'FIXED_DEPOSIT') {
+                                        if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') {
                                             totalAmount = parseFloat(formData.purchasePrice);
                                         } else {
                                             totalAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice);

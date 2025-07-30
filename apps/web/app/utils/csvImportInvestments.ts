@@ -6,13 +6,13 @@ import { ImportResult } from '../types/bulkImport';
  */
 export interface ParsedInvestmentData {
     name: string;
-    type: 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'OTHER';
+    type: 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'OTHER';
     symbol?: string;
     quantity: number;
     purchasePrice: number;
     currentPrice: number;
     purchaseDate: Date;
-    accountId: number;
+    accountId?: number;
     notes?: string;
     interestRate?: number;
     maturityDate?: Date;
@@ -104,10 +104,10 @@ function parseDate(dateStr: string): Date {
 /**
  * Parse investment type
  */
-function parseInvestmentType(typeStr: string): 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'OTHER' {
+function parseInvestmentType(typeStr: string): 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'OTHER' {
     const normalizedType = typeStr.toUpperCase().replace(/[\s\-_]/g, '');
     
-    const typeMap: Record<string, 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'OTHER'> = {
+    const typeMap: Record<string, 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'OTHER'> = {
         'STOCKS': 'STOCKS',
         'STOCK': 'STOCKS',
         'EQUITY': 'STOCKS',
@@ -125,6 +125,14 @@ function parseInvestmentType(typeStr: string): 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUN
         'FIXEDDEPOSIT': 'FIXED_DEPOSIT',
         'FD': 'FIXED_DEPOSIT',
         'DEPOSIT': 'FIXED_DEPOSIT',
+        'PROVIDENTFUNDS': 'PROVIDENT_FUNDS',
+        'PROVIDENTFUND': 'PROVIDENT_FUNDS',
+        'PF': 'PROVIDENT_FUNDS',
+        'EPF': 'PROVIDENT_FUNDS',
+        'SAFEKEEPINGS': 'SAFE_KEEPINGS',
+        'SAFEKEEPING': 'SAFE_KEEPINGS',
+        'SAFETY': 'SAFE_KEEPINGS',
+        'VAULT': 'SAFE_KEEPINGS',
         'OTHER': 'OTHER'
     };
     
@@ -221,7 +229,7 @@ function validateAndConvertRow(
     }
 
     // Parse investment type
-    let investmentType: 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'OTHER';
+    let investmentType: 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'OTHER';
     try {
         investmentType = parseInvestmentType(rowData.type);
     } catch {

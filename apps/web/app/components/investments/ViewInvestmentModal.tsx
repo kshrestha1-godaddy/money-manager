@@ -45,6 +45,9 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
             case 'BONDS': return '🏛️';
             case 'REAL_ESTATE': return '🏠';
             case 'GOLD': return '🥇';
+            case 'FIXED_DEPOSIT': return '🏦';
+            case 'PROVIDENT_FUNDS': return '🏛️';
+            case 'SAFE_KEEPINGS': return '🔒';
             default: return '💼';
         }
     };
@@ -83,24 +86,48 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
                         <div className="bg-gray-50 rounded-lg p-4">
                             <h3 className="text-lg font-semibold text-gray-900 mb-4">Investment Details</h3>
                             <div className="space-y-3">
+                                {(investment.type !== 'FIXED_DEPOSIT' && investment.type !== 'PROVIDENT_FUNDS' && investment.type !== 'SAFE_KEEPINGS') && (
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Quantity:</span>
+                                        <span className="font-medium text-gray-900">{investment.quantity}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between">
-                                    <span className="text-gray-600">Quantity:</span>
-                                    <span className="font-medium text-gray-900">{investment.quantity}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Purchase Price:</span>
+                                    <span className="text-gray-600">
+                                        {investment.type === 'FIXED_DEPOSIT' ? 'Principal Amount:' : 
+                                         investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' ? 'Investment Amount:' : 
+                                         'Purchase Price:'}
+                                    </span>
                                     <span className="font-medium text-gray-900">
                                         {formatCurrency(investment.purchasePrice, userCurrency)}
                                     </span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-gray-600">Current Price:</span>
+                                    <span className="text-gray-600">Current Value:</span>
                                     <span className="font-medium text-gray-900">
                                         {formatCurrency(investment.currentPrice, userCurrency)}
                                     </span>
                                 </div>
+                                {(investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS') && investment.interestRate && (
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Interest Rate:</span>
+                                        <span className="font-medium text-gray-900">{investment.interestRate}% per annum</span>
+                                    </div>
+                                )}
+                                {(investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS') && investment.maturityDate && (
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Maturity Date:</span>
+                                        <span className="font-medium text-gray-900">
+                                            {new Date(investment.maturityDate).toLocaleDateString()}
+                                        </span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between">
-                                    <span className="text-gray-600">Purchase Date:</span>
+                                    <span className="text-gray-600">
+                                        {investment.type === 'FIXED_DEPOSIT' ? 'Deposit Date:' : 
+                                         investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' ? 'Investment Date:' : 
+                                         'Purchase Date:'}
+                                    </span>
                                     <span className="font-medium text-gray-900">
                                         {new Date(investment.purchaseDate).toLocaleDateString()}
                                     </span>
