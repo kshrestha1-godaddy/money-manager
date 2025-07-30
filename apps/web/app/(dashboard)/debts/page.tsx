@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Info } from "lucide-react";
+import { DebtStatusWaterfallChart } from "../../components/debts/DebtStatusWaterfallChart";
 import { DebtTable } from "../../components/debts/DebtTable";
 import { AddDebtModal } from "../../components/debts/AddDebtModal";
 import { EditDebtModal } from "../../components/debts/EditDebtModal";
@@ -320,6 +321,18 @@ export default function Debts() {
                     </div>
                 </div>
             </div>
+
+            {/* Debt Status Distribution Chart */}
+            {!loading && filteredDebts.length > 0 && (
+                <div className="mb-6">
+                    <DebtStatusWaterfallChart
+                        activeAmount={sections.find(s => s.key === 'ACTIVE')?.totalAmount || 0}
+                        partiallyPaidAmount={sections.find(s => s.key === 'PARTIALLY_PAID')?.totalAmount || 0}
+                        fullyPaidAmount={sections.find(s => s.key === 'FULLY_PAID')?.totalAmount || 0}
+                        currency={userCurrency}
+                    />
+                </div>
+            )}
 
             {/* Filters and Actions */}
             <div className={UI_STYLES.filters.containerWithMargin}>

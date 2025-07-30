@@ -8,6 +8,7 @@ import { DeleteInvestmentModal } from "../../components/investments/DeleteInvest
 import { ViewInvestmentModal } from "../../components/investments/ViewInvestmentModal";
 import { BulkImportModal } from "../../components/investments/BulkImportModal";
 import { BulkDeleteInvestmentModal } from "../../components/investments/BulkDeleteInvestmentModal";
+import { InvestmentTypePieChart } from "../../components/investments/InvestmentTypePieChart";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { useOptimizedInvestments } from "../../hooks/useOptimizedInvestments";
@@ -373,6 +374,13 @@ export default function Investments() {
                 </div>
             </div>
 
+            {/* Investment Type Distribution Chart */}
+            <InvestmentTypePieChart
+                investments={filteredInvestments}
+                currency={userCurrency}
+                title="Portfolio Distribution by Investment Type"
+            />
+
             {/* Filters and Actions */}
             <div className={UI_STYLES.filters.containerWithMargin}>
                 <div className={UI_STYLES.filters.gridFive}>
@@ -465,8 +473,10 @@ export default function Investments() {
                         </button>
                     )}
                 </div>
-            ) :
+            ) : (
                 <div className="space-y-6">
+                    
+                    {/* Investment Sections */}
                     {sections.map((section, index) => (
                         <div key={index} className={CONTAINER_COLORS.white}>
                             <div className="px-6 py-4 border-b border-gray-200">
@@ -523,7 +533,7 @@ export default function Investments() {
                         </div>
                     ))}
                 </div>
-            }
+            )}
 
             {/* Modals */}
             <AddInvestmentModal
