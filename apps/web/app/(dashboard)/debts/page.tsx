@@ -328,6 +328,7 @@ export default function Debts() {
                     <DebtStatusWaterfallChart
                         activeAmount={sections.find(s => s.key === 'ACTIVE')?.totalAmount || 0}
                         partiallyPaidAmount={sections.find(s => s.key === 'PARTIALLY_PAID')?.totalAmount || 0}
+                        partiallyPaidOutstandingAmount={sections.find(s => s.key === 'PARTIALLY_PAID')?.totalRemaining || 0}
                         fullyPaidAmount={sections.find(s => s.key === 'FULLY_PAID')?.totalAmount || 0}
                         currency={userCurrency}
                     />

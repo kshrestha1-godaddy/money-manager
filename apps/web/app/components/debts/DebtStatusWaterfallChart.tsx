@@ -10,6 +10,7 @@ import { ChartControls } from "../ChartControls";
 interface DebtStatusWaterfallChartProps {
     activeAmount: number;
     partiallyPaidAmount: number;
+    partiallyPaidOutstandingAmount: number;
     fullyPaidAmount: number;
     currency?: string;
 }
@@ -25,12 +26,18 @@ interface WaterfallData {
 export function DebtStatusWaterfallChart({ 
     activeAmount, 
     partiallyPaidAmount, 
+    partiallyPaidOutstandingAmount,
     fullyPaidAmount, 
     currency = "USD" 
 }: DebtStatusWaterfallChartProps) {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const totalAmount = activeAmount + partiallyPaidAmount + fullyPaidAmount;
+    
+    // Calculate the total outstanding amount for percentage calculations
+    const totalOutstandingAmount = activeAmount + partiallyPaidOutstandingAmount + fullyPaidAmount;
+
+    // Use the actual outstanding amount passed from parent component
 
     // Create waterfall data
     const data: WaterfallData[] = [
@@ -50,15 +57,15 @@ export function DebtStatusWaterfallChart({
         },
         {
             name: "Partially Paid",
-            value: partiallyPaidAmount,
+            value: partiallyPaidOutstandingAmount, // Only showing outstanding amount
             base: activeAmount,
-            total: activeAmount + partiallyPaidAmount,
+            total: activeAmount + partiallyPaidOutstandingAmount,
             type: "partial"
         },
         {
             name: "Fully Paid",
             value: fullyPaidAmount,
-            base: activeAmount + partiallyPaidAmount,
+            base: activeAmount + partiallyPaidOutstandingAmount,
             total: totalAmount,
             type: "paid"
         }
@@ -80,7 +87,7 @@ export function DebtStatusWaterfallChart({
             if (!data) return null;
             
             const item = data.payload as WaterfallData;
-            const percentage = ((item.value / totalAmount) * 100).toFixed(1);
+            const percentage = item.type === 'total' ? '100.0' : ((item.value / totalOutstandingAmount) * 100).toFixed(1);
             
             return (
                 <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
@@ -109,7 +116,7 @@ export function DebtStatusWaterfallChart({
         ...data.map(item => [
             item.name,
             item.value.toString(),
-            `${((item.value / totalAmount) * 100).toFixed(1)}%`
+            item.type === 'total' ? '100.0%' : `${((item.value / totalOutstandingAmount) * 100).toFixed(1)}%`
         ])
     ];
 
@@ -139,16 +146,16 @@ export function DebtStatusWaterfallChart({
                         {formatCurrency(activeAmount, currency)}
                     </p>
                     <p className="text-xs text-gray-500">
-                        {((activeAmount / totalAmount) * 100).toFixed(1)}%
+                        {((activeAmount / totalOutstandingAmount) * 100).toFixed(1)}%
                     </p>
                 </div>
                 <div className="text-center">
-                    <p className="text-xs text-gray-600">Partially Paid</p>
+                    <p className="text-xs text-gray-600">Partially Paid (Outstanding)</p>
                     <p className="text-sm sm:text-xl font-bold text-orange-600">
-                        {formatCurrency(partiallyPaidAmount, currency)}
+                        {formatCurrency(partiallyPaidOutstandingAmount, currency)}
                     </p>
                     <p className="text-xs text-gray-500">
-                        {((partiallyPaidAmount / totalAmount) * 100).toFixed(1)}%
+                        {((partiallyPaidOutstandingAmount / totalOutstandingAmount) * 100).toFixed(1)}%
                     </p>
                 </div>
                 <div className="text-center">
@@ -157,7 +164,7 @@ export function DebtStatusWaterfallChart({
                         {formatCurrency(fullyPaidAmount, currency)}
                     </p>
                     <p className="text-xs text-gray-500">
-                        {((fullyPaidAmount / totalAmount) * 100).toFixed(1)}%
+                        {((fullyPaidAmount / totalOutstandingAmount) * 100).toFixed(1)}%
                     </p>
                 </div>
             </div>
@@ -222,7 +229,7 @@ export function DebtStatusWaterfallChart({
                             }} 
                         />
                         <ReferenceLine 
-                            y={activeAmount + partiallyPaidAmount} 
+                            y={activeAmount + partiallyPaidOutstandingAmount} 
                             stroke="#f59e0b" 
                             strokeDasharray="5 5" 
                             strokeWidth={2} 
@@ -230,6 +237,19 @@ export function DebtStatusWaterfallChart({
                                 value: "Partial", 
                                 position: "right", 
                                 fill: "#f59e0b",
+                                offset: 25,
+                                fontSize: 12
+                            }} 
+                        />
+                        <ReferenceLine 
+                            y={activeAmount + partiallyPaidOutstandingAmount + fullyPaidAmount} 
+                            stroke="#10b981" 
+                            strokeDasharray="5 5" 
+                            strokeWidth={2} 
+                            label={{ 
+                                value: "Fully Paid", 
+                                position: "right", 
+                                fill: "#10b981",
                                 offset: 25,
                                 fontSize: 12
                             }} 
@@ -265,8 +285,13 @@ export function DebtStatusWaterfallChart({
                                 fill="white" 
                                 fontSize={12}
                                 fontWeight="bold"
-                                formatter={(value: number) => {
-                                    const percentage = ((value / totalAmount) * 100).toFixed(1);
+                                formatter={(value: number, entry: any) => {
+                                    // For total bar, show 100%
+                                    if (entry && entry.payload && entry.payload.type === 'total') {
+                                        return '100.0%';
+                                    }
+                                    // For other bars, calculate percentage based on total outstanding amount
+                                    const percentage = ((value / totalOutstandingAmount) * 100).toFixed(1);
                                     return `${percentage}%`;
                                 }}
                             />
