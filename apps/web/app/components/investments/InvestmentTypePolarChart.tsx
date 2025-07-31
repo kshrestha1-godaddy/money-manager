@@ -8,13 +8,14 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { PolarArea } from 'react-chartjs-2';
 import { formatCurrency } from "../../utils/currency";
 import { InvestmentInterface } from "../../types/investments";
 import { ChartControls } from "../ChartControls";
 import { useChartExpansion } from "../../utils/chartUtils";
 
-ChartJS.register(RadialLinearScale, ArcElement, Tooltip, Legend);
+ChartJS.register(RadialLinearScale, ArcElement, Tooltip, Legend, ChartDataLabels);
 
 interface InvestmentTypePolarChartProps {
     investments: InvestmentInterface[];
@@ -327,10 +328,11 @@ export function InvestmentTypePolarChart({ investments, currency = "USD", title 
     const options = useMemo(() => ({
         responsive: true,
         maintainAspectRatio: false,
+        resizeDelay: 0,
         animation: {
             animateRotate: true,
             animateScale: true,
-            duration: 1500,
+            duration: isExpanded ? 0 : 1500, // Disable animation when expanded to prevent layout issues
         },
         plugins: {
             legend: {
@@ -362,7 +364,33 @@ export function InvestmentTypePolarChart({ investments, currency = "USD", title 
                         return lines;
                     }
                 }
-            }
+            },
+            datalabels: {
+                display: true,
+                color: '#ffffff',
+                font: {
+                    size: 10,
+
+                },
+                formatter: function(value: number, context: any) {
+                    const dataIndex = context.dataIndex;
+                    const typeInfo = typeData[dataIndex];
+                    if (!typeInfo) return '';
+                    
+                    const percentage = totalInvested > 0 ? ((typeInfo.value / totalInvested) * 100).toFixed(1) : '0.0';
+                    // Only show labels for segments >= 5%
+                    if (parseFloat(percentage) >= 10) {
+                        return `${typeInfo.label}\n${percentage}%`;
+                    } else {
+                        return '';
+                    }
+                },
+                textAlign: 'center' as const,
+                anchor: 'center' as const,
+                align: 'center' as const,
+                offset: 0,
+                padding: 4,
+            } as any
         },
         scales: {
             r: {
@@ -384,7 +412,7 @@ export function InvestmentTypePolarChart({ investments, currency = "USD", title 
                 }
             }
         },
-    }), [currency, typeData, totalInvested]);
+    }), [currency, typeData, totalInvested, isExpanded]);
 
     return (
         <div 
@@ -420,8 +448,12 @@ export function InvestmentTypePolarChart({ investments, currency = "USD", title 
                         aria-label={`Polar chart showing investment portfolio distribution with total invested of ${formatCurrency(totalInvested, currency)}`}
                     >
                         <div className={`grid ${isExpanded ? 'grid-cols-1 xl:grid-cols-5 gap-4 h-full' : 'grid-cols-1 lg:grid-cols-6 gap-3 h-full'}`}>
-                            <div className={isExpanded ? 'xl:col-span-4 h-full' : 'lg:col-span-5 h-full'}>
-                                <PolarArea data={chartData} options={options} />
+                            <div className={`${isExpanded ? 'xl:col-span-4 h-full' : 'lg:col-span-5 h-full'} relative`}>
+                                <PolarArea 
+                                    key={`polar-chart-${isExpanded ? 'expanded' : 'normal'}`}
+                                    data={chartData} 
+                                    options={options} 
+                                />
                             </div>
                             
                             {/* Enhanced legend */}
