@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Income, Expense } from "../types/financial";
 import { ChartControls } from "./ChartControls";
 import { useChartExpansion } from "../utils/chartUtils";
@@ -40,6 +40,7 @@ export function CustomCalendarChart({
 }: CustomCalendarChartProps) {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const chartRef = useRef<HTMLDivElement>(null);
     
     // Generate time period text
     const getTimePeriodText = (): string => {
@@ -63,18 +64,31 @@ export function CustomCalendarChart({
 
     const timePeriodText = getTimePeriodText();
 
-    // Process data for selected year
+    // Process data for selected year or date range
     const processedData = useMemo(() => {
-        // Filter data to selected year
-        const yearData = data.filter(transaction => {
-            const transactionYear = new Date(transaction.date).getFullYear();
-            return transactionYear === selectedYear;
-        });
+        // If global date filters are provided, use them; otherwise use selected year
+        let filteredData = data;
+        
+        if (startDate || endDate) {
+            // Use global date filters
+            filteredData = data.filter(transaction => {
+                const transactionDate = new Date(transaction.date);
+                const start = startDate ? new Date(startDate) : new Date('1900-01-01');
+                const end = endDate ? new Date(endDate) : new Date('2100-12-31');
+                return transactionDate >= start && transactionDate <= end;
+            });
+        } else {
+            // Use selected year filter
+            filteredData = data.filter(transaction => {
+                const transactionYear = new Date(transaction.date).getFullYear();
+                return transactionYear === selectedYear;
+            });
+        }
 
         // Create a map of date strings to transaction data
         const dateMap = new Map<string, { count: number; amount: number }>();
         
-        yearData.forEach(transaction => {
+        filteredData.forEach(transaction => {
             const date = new Date(transaction.date);
             const dateKey = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
             
@@ -88,65 +102,121 @@ export function CustomCalendarChart({
         });
 
         return dateMap;
-    }, [data, selectedYear]);
+    }, [data, selectedYear, startDate, endDate]);
 
-    // Generate calendar data in row-column format (rows = days of week, columns = months)
+    // Determine which years to show based on filters
+    const displayYears = useMemo(() => {
+        if (startDate || endDate) {
+            const years = new Set<number>();
+            Array.from(processedData.keys()).forEach(dateKey => {
+                const yearPart = dateKey.split('-')[0];
+                if (yearPart) {
+                    const year = parseInt(yearPart);
+                    years.add(year);
+                }
+            });
+            return Array.from(years).sort();
+        } else {
+            return [selectedYear];
+        }
+    }, [processedData, selectedYear, startDate, endDate]);
+
+    // Generate calendar data in row-column format (rows = days of month 1-31, columns = months)
     const calendarData = useMemo(() => {
         const today = new Date();
-        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         
         // Get max count for color intensity calculation
         const maxCount = Math.max(...Array.from(processedData.values()).map(d => d.count), 1);
 
-        // Create a 7x12 grid: 7 rows (days of week) × 12 columns (months)
-        const grid: DayData[][] = [];
-        
-        for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
-            const row: DayData[] = [];
+        // When using global filters, we need to show data across multiple years
+        if (startDate || endDate) {
+            // For filtered data, aggregate across all years and months
+            const grid: DayData[][] = [];
             
-            for (let month = 0; month < 12; month++) {
-                // Get all days of this month that fall on this day of week
-                const monthDays: DayData[] = [];
-                const firstDay = new Date(selectedYear, month, 1);
-                const lastDay = new Date(selectedYear, month + 1, 0);
+            for (let dayOfMonth = 1; dayOfMonth <= 31; dayOfMonth++) {
+                const row: DayData[] = [];
                 
-                for (let date = 1; date <= lastDay.getDate(); date++) {
-                    const currentDate = new Date(selectedYear, month, date);
+                for (let month = 0; month < 12; month++) {
+                    // Aggregate data for this day across all years in the filter range
+                    let totalCount = 0;
+                    let totalAmount = 0;
+                    let hasToday = false;
+                    let isValidDay = false;
                     
-                    if (currentDate.getDay() === dayOfWeek) {
+                    displayYears.forEach(year => {
+                        const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+                        if (dayOfMonth <= lastDayOfMonth) {
+                            isValidDay = true;
+                            const currentDate = new Date(year, month, dayOfMonth);
+                            const dateKey = `${year}-${month}-${dayOfMonth}`;
+                            const dayInfo = processedData.get(dateKey);
+                            
+                            if (dayInfo) {
+                                totalCount += dayInfo.count;
+                                totalAmount += dayInfo.amount;
+                            }
+                            
+                            if (currentDate.toDateString() === today.toDateString()) {
+                                hasToday = true;
+                            }
+                        }
+                    });
+                    
+                    row.push({
+                        date: new Date(displayYears[0] || selectedYear, month, dayOfMonth),
+                        count: totalCount,
+                        amount: totalAmount,
+                        isCurrentMonth: isValidDay,
+                        isToday: hasToday
+                    });
+                }
+                
+                grid.push(row);
+            }
+            
+            return { grid, maxCount, monthNames };
+        } else {
+            // Original single-year logic
+            const grid: DayData[][] = [];
+            
+            for (let dayOfMonth = 1; dayOfMonth <= 31; dayOfMonth++) {
+                const row: DayData[] = [];
+                
+                for (let month = 0; month < 12; month++) {
+                    const lastDayOfMonth = new Date(selectedYear, month + 1, 0).getDate();
+                    
+                    if (dayOfMonth <= lastDayOfMonth) {
+                        // This day exists in this month
+                        const currentDate = new Date(selectedYear, month, dayOfMonth);
                         const dateKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}-${currentDate.getDate()}`;
                         const dayInfo = processedData.get(dateKey) || { count: 0, amount: 0 };
                         
-                        monthDays.push({
+                        row.push({
                             date: new Date(currentDate),
                             count: dayInfo.count,
                             amount: dayInfo.amount,
                             isCurrentMonth: true,
                             isToday: currentDate.toDateString() === today.toDateString()
                         });
+                    } else {
+                        // This day doesn't exist in this month (e.g., Feb 31st)
+                        row.push({
+                            date: new Date(selectedYear, month, 1), // Placeholder date
+                            count: 0,
+                            amount: 0,
+                            isCurrentMonth: false,
+                            isToday: false
+                        });
                     }
                 }
                 
-                // Aggregate data for this day-of-week in this month
-                const totalCount = monthDays.reduce((sum, day) => sum + day.count, 0);
-                const totalAmount = monthDays.reduce((sum, day) => sum + day.amount, 0);
-                const hasToday = monthDays.some(day => day.isToday);
-                
-                row.push({
-                    date: new Date(selectedYear, month, 1), // Representative date
-                    count: totalCount,
-                    amount: totalAmount,
-                    isCurrentMonth: true,
-                    isToday: hasToday
-                });
+                grid.push(row);
             }
             
-            grid.push(row);
+            return { grid, maxCount, monthNames };
         }
-
-        return { grid, maxCount, dayNames, monthNames };
-    }, [selectedYear, processedData]);
+    }, [selectedYear, processedData, startDate, endDate, displayYears]);
 
     // Get color intensity for a day based on transaction count
     const getColorIntensity = (count: number): string => {
@@ -176,36 +246,39 @@ export function CustomCalendarChart({
 
     // Prepare CSV data for chart controls
     const csvDataForControls = [
-        ['Day of Week', 'Month', 'Transaction Count', 'Total Amount'],
+        ['Day of Month', 'Month', 'Transaction Count', 'Total Amount'],
         ...calendarData.grid.flatMap((row, rowIndex) => 
             row.map((cellData, colIndex) => [
-                calendarData.dayNames[rowIndex],
-                calendarData.monthNames[colIndex],
-                cellData.count.toString(),
-                cellData.amount.toFixed(2)
+                (rowIndex + 1).toString(),
+                calendarData.monthNames[colIndex] || '',
+                cellData.isCurrentMonth ? cellData.count.toString() : 'N/A',
+                cellData.isCurrentMonth ? cellData.amount.toFixed(2) : 'N/A'
             ])
         )
     ];
 
     const ChartContent = () => (
         <div className={`${isExpanded ? "h-full flex flex-col" : ""} p-4`}>
-            {/* Year Selector */}
-            <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">
-                    {selectedYear}
-                </h3>
-                {availableYears.length > 1 && (
-                    <select
-                        value={selectedYear}
-                        onChange={(e) => setSelectedYear(Number(e.target.value))}
-                        className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        {availableYears.map(year => (
-                            <option key={year} value={year}>{year}</option>
-                        ))}
-                    </select>
-                )}
-            </div>
+            {/* Year Selector - Only show when not using global date filters */}
+            {!(startDate || endDate) && (
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                        {selectedYear}
+                    </h3>
+                    {availableYears.length > 1 && (
+                        <select
+                            value={selectedYear}
+                            onChange={(e) => setSelectedYear(Number(e.target.value))}
+                            className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            {availableYears.map(year => (
+                                <option key={year} value={year}>{year}</option>
+                            ))}
+                        </select>
+                    )}
+                </div>
+            )}
+        
 
             {/* Legend */}
             <div className="flex items-center justify-center mb-4 text-sm text-gray-600">
@@ -231,9 +304,9 @@ export function CustomCalendarChart({
                 <div className="inline-block min-w-full">
                     {/* Month Headers */}
                     <div className="flex mb-2">
-                        <div className="w-20 flex-shrink-0"></div> {/* Space for day labels */}
+                        <div className="w-12 flex-shrink-0"></div> {/* Space for day labels */}
                         {calendarData.monthNames.map((monthName, index) => (
-                            <div key={index} className="flex-1 text-center font-semibold text-gray-900 text-sm px-1 min-w-[60px]">
+                            <div key={index} className="flex-1 text-center font-semibold text-gray-900 text-sm px-1 min-w-[50px]">
                                 {monthName}
                             </div>
                         ))}
@@ -241,10 +314,10 @@ export function CustomCalendarChart({
                     
                     {/* Calendar Rows */}
                     {calendarData.grid.map((row, rowIndex) => (
-                        <div key={rowIndex} className="flex mb-1">
-                            {/* Day of Week Label */}
-                            <div className="w-20 flex-shrink-0 text-xs text-gray-600 font-medium flex items-center pr-3">
-                                {calendarData.dayNames[rowIndex]}
+                        <div key={rowIndex} className="flex mb-0.5">
+                            {/* Day of Month Label */}
+                            <div className="w-12 flex-shrink-0 text-xs text-gray-600 font-medium flex items-center justify-center pr-2">
+                                {rowIndex + 1}
                             </div>
                             
                             {/* Month Cells */}
@@ -252,31 +325,63 @@ export function CustomCalendarChart({
                                 <div
                                     key={colIndex}
                                     className={`
-                                        relative group flex-1 h-8 border border-gray-200 rounded-sm cursor-pointer mx-0.5
+                                        relative group flex-1 h-6 border border-gray-200 rounded-sm cursor-pointer mx-0.5
                                         ${cellData.isToday ? 'ring-2 ring-blue-500' : ''}
-                                        hover:ring-2 hover:ring-gray-400 transition-all
-                                        min-w-[60px]
+                                        ${cellData.isCurrentMonth ? 'hover:ring-2 hover:ring-gray-400' : 'opacity-30'}
+                                        transition-all
+                                        min-w-[50px]
                                     `}
                                     style={{
-                                        backgroundColor: getColorIntensity(cellData.count)
+                                        backgroundColor: cellData.isCurrentMonth ? getColorIntensity(cellData.count) : '#f9fafb'
                                     }}
-                                    title={`${calendarData.dayNames[rowIndex]}s in ${calendarData.monthNames[colIndex]} ${selectedYear}: ${cellData.count} transactions`}
+                                    title={cellData.isCurrentMonth ? 
+                                        `${calendarData.monthNames[colIndex]} ${rowIndex + 1}, ${selectedYear}: ${cellData.count} transactions` :
+                                        `${calendarData.monthNames[colIndex]} ${rowIndex + 1} does not exist`
+                                    }
                                 >
                                     {/* Transaction count display */}
-                                    {cellData.count > 0 && (
+                                    {cellData.count > 0 && cellData.isCurrentMonth && (
                                         <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-gray-700">
                                             {cellData.count}
                                         </span>
                                     )}
                                     
-                                    {/* Tooltip */}
-                                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap pointer-events-none">
-                                        <div className="font-semibold">{calendarData.dayNames[rowIndex]}s in {calendarData.monthNames[colIndex]} {selectedYear}</div>
-                                        <div>{cellData.count} transaction{cellData.count !== 1 ? 's' : ''}</div>
-                                        {cellData.amount > 0 && (
-                                            <div>{currency} {cellData.amount.toLocaleString()}</div>
-                                        )}
-                                    </div>
+                                    {/* Tooltip - only show for valid days */}
+                                    {cellData.isCurrentMonth && (
+                                        <div className={`
+                                            absolute left-1/2 transform -translate-x-1/2 px-3 py-2 
+                                            bg-gray-900 text-white text-xs rounded shadow-lg 
+                                            opacity-0 group-hover:opacity-100 transition-opacity z-20 
+                                            whitespace-nowrap pointer-events-none
+                                            ${rowIndex < 15 ? 'top-full mt-2' : 'bottom-full mb-2'}
+                                        `}>
+                                            <div className="font-semibold">
+                                                {calendarData.monthNames[colIndex]} {rowIndex + 1}
+                                                {(startDate || endDate) && displayYears.length > 1 ? (
+                                                    ` (${displayYears.length} years)`
+                                                ) : (
+                                                    `, ${selectedYear}`
+                                                )}
+                                            </div>
+                                            <div>{cellData.count} transaction{cellData.count !== 1 ? 's' : ''}</div>
+                                            {cellData.amount > 0 && (
+                                                <div>{currency} {cellData.amount.toLocaleString()}</div>
+                                            )}
+                                            {(startDate || endDate) && displayYears.length > 1 && (
+                                                <div className="text-gray-300 text-xs mt-1">
+                                                    Aggregated: {Math.min(...displayYears)}-{Math.max(...displayYears)}
+                                                </div>
+                                            )}
+                                            {/* Tooltip Arrow */}
+                                            <div className={`
+                                                absolute left-1/2 transform -translate-x-1/2 w-0 h-0 
+                                                ${rowIndex < 15 
+                                                    ? 'top-0 -mt-1 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900' 
+                                                    : 'bottom-0 -mb-1 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900'
+                                                }
+                                            `} />
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -312,6 +417,7 @@ export function CustomCalendarChart({
                     csvFileName={`${type}-transaction-frequency-${selectedYear}`}
                     isExpanded={isExpanded}
                     onToggleExpanded={toggleExpanded}
+                    chartRef={chartRef}
                 />
                 <div className={isExpanded ? 'flex-1 mt-4' : ''}>
                     <ChartContent />
