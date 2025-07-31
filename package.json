@@ -26,6 +26,8 @@
   ],
   "dependencies": {
     "@anthropic-ai/claude-code": "^1.0.44",
+    "ag-charts-enterprise": "^12.1.0",
+    "chart.js": "^4.5.0",
     "recharts": "^2.15.3"
   }
 }

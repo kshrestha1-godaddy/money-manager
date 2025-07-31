@@ -8,7 +8,7 @@ import { DeleteInvestmentModal } from "../../components/investments/DeleteInvest
 import { ViewInvestmentModal } from "../../components/investments/ViewInvestmentModal";
 import { BulkImportModal } from "../../components/investments/BulkImportModal";
 import { BulkDeleteInvestmentModal } from "../../components/investments/BulkDeleteInvestmentModal";
-import { InvestmentTypePieChart } from "../../components/investments/InvestmentTypePieChart";
+import { InvestmentTypePolarChart } from "../../components/investments/InvestmentTypePolarChart";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { useOptimizedInvestments } from "../../hooks/useOptimizedInvestments";
@@ -375,7 +375,7 @@ export default function Investments() {
             </div>
 
             {/* Investment Type Distribution Chart */}
-            <InvestmentTypePieChart
+            <InvestmentTypePolarChart
                 investments={filteredInvestments}
                 currency={userCurrency}
                 title="Portfolio Distribution by Investment Type"
