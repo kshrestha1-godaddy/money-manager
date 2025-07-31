@@ -8,7 +8,6 @@ import { DeleteInvestmentModal } from "../../components/investments/DeleteInvest
 import { ViewInvestmentModal } from "../../components/investments/ViewInvestmentModal";
 import { BulkImportModal } from "../../components/investments/BulkImportModal";
 import { BulkDeleteInvestmentModal } from "../../components/investments/BulkDeleteInvestmentModal";
-import { InvestmentTypePolarChart } from "../../components/investments/InvestmentTypePolarChart";
 import { InvestmentTargetProgressChart } from "../../components/investments/InvestmentTargetProgressChart";
 import { InvestmentTargetModal } from "../../components/investments/InvestmentTargetModal";
 import { formatCurrency } from "../../utils/currency";
@@ -28,6 +27,7 @@ import {
     ICON_COLORS,
     UI_STYLES,
 } from "../../config/colorConfig";
+import { InvestmentTypePieChart } from "../../components/investments/InvestmentTypePieChart";
 
 // Extract color variables for better readability
 const pageContainer = CONTAINER_COLORS.page;
@@ -141,7 +141,7 @@ export default function Investments() {
         return type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
     };
     
-    // Load investment target progress when component mounts or when investments change
+    // Load investment target progress when component mounts only
     useEffect(() => {
         const loadTargetData = async () => {
             try {
@@ -171,7 +171,7 @@ export default function Investments() {
         };
 
         loadTargetData();
-    }, [investments]); // Reload when investments change
+    }, []); // Only load on component mount - server actions handle revalidation
 
     // Target management handlers
     const handleCreateTarget = async (data: InvestmentTargetFormData) => {
@@ -482,12 +482,12 @@ export default function Investments() {
             {/* Charts Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Investment Type Distribution Chart */}
-                <InvestmentTypePolarChart
+
+                <InvestmentTypePieChart
                     investments={filteredInvestments}
                     currency={userCurrency}
                     title="Portfolio Distribution by Investment Type"
                 />
-                
                 {/* Investment Target Progress Chart */}
                 <InvestmentTargetProgressChart
                     targets={targetProgress}
