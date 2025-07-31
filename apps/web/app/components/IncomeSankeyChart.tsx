@@ -26,6 +26,7 @@ interface SankeyData {
     from: string;
     to: string;
     size: number;
+    color?: string;
 }
 
 export function IncomeSankeyChart({ data, currency = "USD", title, startDate, endDate }: IncomeSankeyChartProps) {
@@ -56,13 +57,47 @@ export function IncomeSankeyChart({ data, currency = "USD", title, startDate, en
 
     const timePeriodText = getTimePeriodText();
     
+    // Define color palette for randomization (no duplicates)
+    const colorPalette = [
+        '#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
+        '#06b6d4', '#84cc16', '#ec4899', '#a855f7', '#10b981', 
+        '#6366f1', '#dc2626', '#7c3aed', '#0891b2', '#65a30d', 
+        '#ea580c', '#db2777', '#9333ea', '#059669', '#4f46e5', 
+        '#d97706', '#b91c1c', '#6d28d9', '#f43f5e', '#14b8a6',
+        '#8b5a2b', '#0ea5e9', '#eab308', '#be123c', '#7e22ce'
+    ];
+
+    // Shuffle function to randomize array
+    const shuffleArray = (array: string[]): string[] => {
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const temp = shuffled[i]!;
+            shuffled[i] = shuffled[j]!;
+            shuffled[j] = temp;
+        }
+        return shuffled;
+    };
+
     // Group data by category and sum amounts
     const categoryMap = new Map<string, number>();
+    const categoryColors = new Map<string, string>();
+    
+    // Create randomized colors for this render
+    const randomizedColors = shuffleArray(colorPalette);
+    let colorIndex = 0;
     
     data.forEach(item => {
         const categoryName = item.category?.name || 'Unknown Category';
         const currentAmount = categoryMap.get(categoryName) || 0;
         categoryMap.set(categoryName, currentAmount + item.amount);
+        
+        // Assign randomized color if not already assigned
+        if (!categoryColors.has(categoryName)) {
+            const color = randomizedColors[colorIndex % randomizedColors.length] || '#9ca3af';
+            categoryColors.set(categoryName, color);
+            colorIndex++;
+        }
     });
 
     // Convert to Sankey data format
@@ -74,7 +109,8 @@ export function IncomeSankeyChart({ data, currency = "USD", title, startDate, en
         sankeyData.push({
             from: categoryName,
             to: "Total Income",
-            size: amount
+            size: amount,
+            color: categoryColors.get(categoryName) || randomizedColors[0]
         });
     });
 
@@ -98,7 +134,8 @@ export function IncomeSankeyChart({ data, currency = "USD", title, startDate, en
         finalSankeyData.push({
             from: "Other Sources",
             to: "Total Income",
-            size: othersTotal
+            size: othersTotal,
+            color: randomizedColors[colorIndex % randomizedColors.length] || '#9ca3af'
         });
     }
 
@@ -171,15 +208,22 @@ export function IncomeSankeyChart({ data, currency = "USD", title, startDate, en
                 });
                 data.addRows(rows);
 
+
                 // Chart options (accounting for container padding)
                 const containerWidth = chartRef.current.offsetWidth || 600;
                 const containerHeight = isExpanded ? 600 : 400;
+
+                // print the category and its color
+                finalSankeyData.forEach(item => {
+                    console.log(item.from, item.color);
+                });
+
                 const options = {
                     width: containerWidth - 40, // Subtract padding (20px on each side)
                     height: containerHeight - 40, // Subtract padding (20px top and bottom)
                     sankey: {
                         node: {
-                            colors: ['#22c55e', '#ef4444', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#a855f7'],
+                            colors: [...finalSankeyData.map(item => item.color), '#22c55e'], // Add green for "Total Income" node
                             label: {
                                 fontName: 'Arial',
                                 fontSize: 12,
@@ -187,10 +231,13 @@ export function IncomeSankeyChart({ data, currency = "USD", title, startDate, en
                                 bold: false
                             },
                             interactivity: true,
+                            fillOpacity: 0.1,
                             width: 15
                         },
                         link: {
-                            colorMode: 'source'
+                            colorMode: 'source',
+                            fillOpacity: 0.3,
+                            strokeOpacity: 0.3
                         }
                     },
                     tooltip: {
@@ -200,8 +247,9 @@ export function IncomeSankeyChart({ data, currency = "USD", title, startDate, en
                         left: 60,
                         top: 40,
                         width: '60%',
-                        height: '75%'
-                    }
+                        height: '75%',
+
+                    },
                 };
 
                 // Create and draw the chart
