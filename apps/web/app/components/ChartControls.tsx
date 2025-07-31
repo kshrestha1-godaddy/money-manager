@@ -16,6 +16,7 @@ export interface ChartControlsProps {
     title?: string;
     subtitle?: string;
     tooltipText?: string;
+    customDownloadPNG?: () => void;
 }
 
 /**
@@ -32,7 +33,8 @@ export const ChartControls: React.FC<ChartControlsProps> = ({
     showExpandButton = true,
     title,
     subtitle,
-    tooltipText
+    tooltipText,
+    customDownloadPNG
 }) => {
     const config: ChartUtilsConfig = {
         chartRef,
@@ -65,7 +67,7 @@ export const ChartControls: React.FC<ChartControlsProps> = ({
                     <>
                         {/* Download Chart as PNG Button */}
                         <button
-                            onClick={() => downloadChart(config)}
+                            onClick={() => customDownloadPNG ? customDownloadPNG() : downloadChart(config)}
                             className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
                             title="Download Chart as PNG (fallback to SVG)"
                             aria-label="Download chart as PNG image"
