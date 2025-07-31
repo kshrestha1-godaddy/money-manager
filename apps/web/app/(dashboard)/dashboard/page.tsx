@@ -10,6 +10,7 @@ import { CategoryPieChart } from "../../components/CategoryPieChart";
 import { IncomeSankeyChart } from "../../components/IncomeSankeyChart";
 import { MonthlyTrendChart } from "../../components/MonthlyTrendChart";
 import { CategoryTrendChart } from "../../components/CategoryTrendChart";
+import { CustomCalendarChart } from "../../components/CustomCalendarChart";
 import { RecentTransactions } from "../../components/RecentTransactions";
 import { SimplePDFReportGenerator } from "../../components/SimplePDFReportGenerator";
 import { FinancialSummary } from "../../components/shared/FinancialSummary";
@@ -230,6 +231,28 @@ function DashboardContent() {
                 </Suspense>
                 <Suspense fallback={<ChartSkeleton title="Income Category Trends" height="h-[32rem]" />}>
                     <CategoryTrendChart 
+                        data={filteredData.filteredIncomes}
+                        type="income"
+                        currency={currency}
+                        startDate={startDate}
+                        endDate={endDate}
+                    />
+                </Suspense>
+            </div>
+
+            {/* Transaction Calendar Charts - Side by Side */}
+            <div className="grid grid-cols-2 gap-4">
+                <Suspense fallback={<ChartSkeleton title="Expense Transaction Calendar" height="h-[32rem]" />}>
+                    <CustomCalendarChart 
+                        data={filteredData.filteredExpenses}
+                        type="expense"
+                        currency={currency}
+                        startDate={startDate}
+                        endDate={endDate}
+                    />
+                </Suspense>
+                <Suspense fallback={<ChartSkeleton title="Income Transaction Calendar" height="h-[32rem]" />}>
+                    <CustomCalendarChart 
                         data={filteredData.filteredIncomes}
                         type="income"
                         currency={currency}

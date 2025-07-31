@@ -399,7 +399,7 @@ export function IncomeSankeyChart({ data, currency = "USD", title, startDate, en
                         className="w-full" 
                         style={{ 
                             height: isExpanded ? '600px' : '400px',
-                            width: isExpanded ? '600px' : '95%',
+                            width: isExpanded ? '90vw' : '95%',
                             minHeight: '400px',
                             position: 'relative',
                             padding: '40px',
