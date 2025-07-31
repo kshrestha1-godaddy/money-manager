@@ -400,13 +400,13 @@ function InvestmentRow({
                     />
                 </td>
             )}
-            <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.investment}px` }}>
+            <td className="px-6 py-4" style={{ width: `${columnWidths.investment}px` }}>
                 <div>
-                    <div className="text-sm font-medium text-gray-900 break-words">
+                    <div className="text-sm font-medium text-gray-900 break-words leading-tight">
                         {investment.name}
                     </div>
                     {investment.symbol && (
-                        <div className="text-sm text-gray-500 break-words">
+                        <div className="text-sm text-gray-500 break-words leading-tight">
                             {investment.symbol}
                         </div>
                     )}
@@ -417,14 +417,14 @@ function InvestmentRow({
                     {formatType(investment.type)}
                 </span>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style={{ width: `${columnWidths.quantityInterest}px` }}>
+            <td className="px-6 py-4 text-sm text-gray-900" style={{ width: `${columnWidths.quantityInterest}px` }}>
                 {investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' ? (
-                    <div>
+                    <div className="space-y-1">
                         {investment.interestRate && (
-                            <div>{investment.interestRate}% p.a.</div>
+                            <div className="font-medium">{investment.interestRate}% p.a.</div>
                         )}
                         {investment.maturityDate && (
-                            <div className="text-xs text-gray-500 break-words">
+                            <div className="text-xs text-gray-500 break-words leading-tight">
                                 Matures: {new Date(investment.maturityDate).toLocaleDateString()}
                             </div>
                         )}
@@ -436,43 +436,46 @@ function InvestmentRow({
                         )}
                     </div>
                 ) : (
-                    investment.quantity
+                    <div className="font-medium">{investment.quantity}</div>
                 )}
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style={{ width: `${columnWidths.purchasePrincipal}px` }}>
+            <td className="px-6 py-4 text-sm text-gray-900" style={{ width: `${columnWidths.purchasePrincipal}px` }}>
                 <div className="break-words">
-                    {investment.type === 'FIXED_DEPOSIT' ? 
-                        `${formatCurrency(investment.purchasePrice, currency)} (Principal)` : 
-                        investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' ?
-                        `${formatCurrency(investment.purchasePrice, currency)} (Amount)` :
-                        formatCurrency(investment.purchasePrice, currency)
-                    }
+                    <div className="font-medium">{formatCurrency(investment.purchasePrice, currency)}</div>
+                    {investment.type === 'FIXED_DEPOSIT' && (
+                        <div className="text-xs text-gray-500">Principal</div>
+                    )}
+                    {(investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS') && (
+                        <div className="text-xs text-gray-500">Amount</div>
+                    )}
                 </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style={{ width: `${columnWidths.currentValue}px` }}>
+            <td className="px-6 py-4 text-sm text-gray-900" style={{ width: `${columnWidths.currentValue}px` }}>
                 {investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' ? (
-                    <div>
-                        <div className="break-words">{formatCurrency(investment.currentPrice, currency)}</div>
+                    <div className="space-y-1">
+                        <div className="break-words font-medium">{formatCurrency(investment.currentPrice, currency)}</div>
                         <div className="text-xs text-gray-500">Current Value</div>
                     </div>
                 ) : (
-                    <div className="break-words">{formatCurrency(investment.currentPrice, currency)}</div>
+                    <div className="break-words font-medium">{formatCurrency(investment.currentPrice, currency)}</div>
                 )}
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: `${columnWidths.totalValue}px` }}>
+            <td className="px-6 py-4 text-sm font-medium text-gray-900" style={{ width: `${columnWidths.totalValue}px` }}>
                 <div className="break-words">{formatCurrency(totalValue, currency)}</div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ width: `${columnWidths.gainLoss}px` }}>
-                <div className={`font-medium break-words ${getGainColor(gain)}`}>
-                    {formatCurrency(gain, currency)}
-                </div>
-                <div className={`text-xs break-words ${getGainColor(gain)}`}>
-                    ({gainPercentage}%)
+            <td className="px-6 py-4 text-sm" style={{ width: `${columnWidths.gainLoss}px` }}>
+                <div className="space-y-1">
+                    <div className={`font-medium break-words ${getGainColor(gain)}`}>
+                        {formatCurrency(gain, currency)}
+                    </div>
+                    <div className={`text-xs break-words ${getGainColor(gain)}`}>
+                        ({gainPercentage}%)
+                    </div>
                 </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style={{ width: `${columnWidths.purchaseDate}px` }}>
-                <div>
-                    <div className="break-words">{new Date(investment.purchaseDate).toLocaleDateString()}</div>
+            <td className="px-6 py-4 text-sm text-gray-900" style={{ width: `${columnWidths.purchaseDate}px` }}>
+                <div className="space-y-1">
+                    <div className="break-words font-medium">{new Date(investment.purchaseDate).toLocaleDateString()}</div>
                     {investment.type === 'FIXED_DEPOSIT' && (
                         <div className="text-xs text-gray-500">Deposit Date</div>
                     )}

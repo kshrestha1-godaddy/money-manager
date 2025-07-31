@@ -33,16 +33,16 @@ export const TABLE_COLUMN_WIDTHS = {
 
   // Investment table column widths
   investments: {
-    checkbox: 30,
-    investment: 250,
-    type: 120,
-    quantityInterest: 180,
-    purchasePrincipal: 160,
-    currentValue: 140,
-    totalValue: 120,
-    gainLoss: 140,
-    purchaseDate: 120,
-    actions: 200,
+    checkbox: 40,
+    investment: 280,
+    type: 140,
+    quantityInterest: 200,
+    purchasePrincipal: 180,
+    currentValue: 160,
+    totalValue: 140,
+    gainLoss: 160,
+    purchaseDate: 140,
+    actions: 240,
   },
 };
 
