@@ -8,6 +8,30 @@ import {
     decimalToNumber 
 } from "../utils/auth";
 
+// Helper function to check if transactions are bookmarked
+async function checkTransactionBookmarks(
+    expenses: any[], 
+    incomes: any[], 
+    userId: number
+): Promise<Map<string, boolean>> {
+    const bookmarks = new Map<string, boolean>();
+    
+    // Get all bookmarks for this user
+    const transactionBookmarks = await prisma.transactionBookmark.findMany({
+        where: {
+            userId: userId
+        }
+    });
+    
+    // Create lookup map
+    transactionBookmarks.forEach(bookmark => {
+        const key = `${bookmark.transactionType.toLowerCase()}-${bookmark.transactionId}`;
+        bookmarks.set(key, true);
+    });
+    
+    return bookmarks;
+}
+
 export async function getRecentTransactions(limit: number = 10): Promise<Transaction[]> {
     try {
         const session = await getAuthenticatedSession();
@@ -45,6 +69,9 @@ export async function getRecentTransactions(limit: number = 10): Promise<Transac
             take: limit
         });
 
+        // Check which transactions are bookmarked
+        const bookmarkMap = await checkTransactionBookmarks(expenses, incomes, userId);
+
         // Transform expenses to Transaction format
         const expenseTransactions: Transaction[] = expenses.map(expense => ({
             id: `expense-${expense.id}`,
@@ -56,7 +83,8 @@ export async function getRecentTransactions(limit: number = 10): Promise<Transac
             account: expense.account?.bankName || 'Cash',
             description: expense.description,
             notes: expense.notes,
-            tags: expense.tags
+            tags: expense.tags,
+            isBookmarked: bookmarkMap.get(`expense-${expense.id}`) || false
         }));
 
         // Transform incomes to Transaction format
@@ -70,7 +98,8 @@ export async function getRecentTransactions(limit: number = 10): Promise<Transac
             account: income.account?.bankName || 'Cash',
             description: income.description,
             notes: income.notes,
-            tags: income.tags
+            tags: income.tags,
+            isBookmarked: bookmarkMap.get(`income-${income.id}`) || false
         }));
 
         // Combine and sort all transactions by date (newest first)
@@ -120,6 +149,9 @@ export async function getAllTransactions(): Promise<Transaction[]> {
             }
         });
 
+        // Check which transactions are bookmarked
+        const bookmarkMap = await checkTransactionBookmarks(expenses, incomes, userId);
+
         // Transform expenses to Transaction format
         const expenseTransactions: Transaction[] = expenses.map(expense => ({
             id: `expense-${expense.id}`,
@@ -131,7 +163,8 @@ export async function getAllTransactions(): Promise<Transaction[]> {
             account: expense.account?.bankName || 'Cash',
             description: expense.description,
             notes: expense.notes,
-            tags: expense.tags
+            tags: expense.tags,
+            isBookmarked: bookmarkMap.get(`expense-${expense.id}`) || false
         }));
 
         // Transform incomes to Transaction format
@@ -145,7 +178,8 @@ export async function getAllTransactions(): Promise<Transaction[]> {
             account: income.account?.bankName || 'Cash',
             description: income.description,
             notes: income.notes,
-            tags: income.tags
+            tags: income.tags,
+            isBookmarked: bookmarkMap.get(`income-${income.id}`) || false
         }));
 
         // Combine and sort all transactions by date (newest first)

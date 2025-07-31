@@ -135,6 +135,7 @@ export interface Transaction {
   description?: string;
   notes?: string;
   tags?: string[];
+  isBookmarked?: boolean;
 }
 
 export interface DashboardStats {

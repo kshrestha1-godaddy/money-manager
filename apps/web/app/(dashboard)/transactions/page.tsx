@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Bookmark, BookmarkCheck } from "lucide-react";
 import { Transaction } from "../../types/financial";
 import { formatDate } from "../../utils/date";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { getAllTransactions } from "../../actions/transactions";
+import { createTransactionBookmark, deleteTransactionBookmarkByTransaction } from "../../actions/transaction-bookmarks";
 import { TransactionPDFReportGenerator } from "../../components/TransactionPDFReportGenerator";
 import { CompactPagination } from "../../components/shared/CompactPagination";
 
@@ -19,6 +21,7 @@ export default function TransactionsPage() {
     const [selectedCategory, setSelectedCategory] = useState("");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
+    const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const { currency: userCurrency } = useCurrency();
 
@@ -42,7 +45,7 @@ export default function TransactionsPage() {
     // Reset to first page when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, selectedType, selectedCategory, startDate, endDate]);
+    }, [searchTerm, selectedType, selectedCategory, startDate, endDate, showBookmarkedOnly]);
 
     // Filter transactions
     const filteredTransactions = transactions.filter(transaction => {
@@ -75,8 +78,10 @@ export default function TransactionsPage() {
             end.setHours(23, 59, 59, 999);
             matchesDateRange = transactionDate <= end;
         }
+
+        const matchesBookmark = !showBookmarkedOnly || transaction.isBookmarked;
         
-        return matchesSearch && matchesType && matchesCategory && matchesDateRange;
+        return matchesSearch && matchesType && matchesCategory && matchesDateRange && matchesBookmark;
     });
 
     // Pagination logic
@@ -105,6 +110,34 @@ export default function TransactionsPage() {
         setCurrentPage(page);
         // Scroll to top of table when page changes
         document.querySelector('.bg-white.rounded-lg.shadow')?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    // Handle bookmark toggle
+    const handleBookmarkToggle = async (transaction: Transaction) => {
+        try {
+            // Extract the actual transaction ID from the string ID
+            const idParts = transaction.id.toString().split('-');
+            const transactionId = parseInt(idParts[1] || '0');
+            
+            if (transaction.isBookmarked) {
+                await deleteTransactionBookmarkByTransaction(transaction.type, transactionId);
+            } else {
+                await createTransactionBookmark({
+                    transactionType: transaction.type,
+                    transactionId: transactionId,
+                    title: transaction.title,
+                    description: transaction.description || undefined,
+                    notes: transaction.notes || undefined,
+                    tags: transaction.tags || []
+                });
+            }
+            
+            // Reload transactions to get updated bookmark status
+            const allTransactions = await getAllTransactions();
+            setTransactions(allTransactions);
+        } catch (error) {
+            console.error('Error toggling bookmark:', error);
+        }
     };
 
     if (loading) {
@@ -176,36 +209,41 @@ export default function TransactionsPage() {
 
             {/* Filters */}
             <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Filters</h3>
-                <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                <div className="flex flex-wrap gap-4 items-end">
+                    <div className="flex-1 min-w-[300px]">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Search Transactions
+                        </label>
                         <input
                             type="text"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="Search transactions..."
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Search by title, description, notes..."
+                            className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                         />
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                    <div className="min-w-[120px]">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Filter by Type
+                        </label>
                         <select
                             value={selectedType}
                             onChange={(e) => setSelectedType(e.target.value as "ALL" | "INCOME" | "EXPENSE")}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                         >
                             <option value="ALL">All Types</option>
                             <option value="INCOME">Income</option>
                             <option value="EXPENSE">Expense</option>
                         </select>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <div className="min-w-[120px]">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Filter by Category
+                        </label>
                         <select
                             value={selectedCategory}
                             onChange={(e) => setSelectedCategory(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                         >
                             <option value="">All Categories</option>
                             {uniqueCategories.map(category => (
@@ -213,26 +251,48 @@ export default function TransactionsPage() {
                             ))}
                         </select>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                    <div className="min-w-[120px]">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Start Date
+                        </label>
                         <input
                             type="date"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                         />
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                    <div className="min-w-[120px]">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            End Date
+                        </label>
                         <input
                             type="date"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                         />
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">&nbsp;</label>
+                    <div className="min-w-[120px]">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Bookmarked
+                        </label>
+                        <button
+                            type="button"
+                            onClick={() => setShowBookmarkedOnly(!showBookmarkedOnly)}
+                            className={`w-full h-10 px-3 py-2 text-left text-sm border rounded-md transition-colors ${
+                                showBookmarkedOnly
+                                    ? 'bg-yellow-50 border-yellow-300 text-yellow-800'
+                                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                            }`}
+                        >
+                            {showBookmarkedOnly ? 'Bookmarked Only' : 'All Records'}
+                        </button>
+                    </div>
+                    <div className="min-w-[100px]">
+                        <label className="block text-sm font-medium text-gray-700 mb-1 invisible">
+                            Clear
+                        </label>
                         <button
                             onClick={() => {
                                 setSearchTerm("");
@@ -240,8 +300,9 @@ export default function TransactionsPage() {
                                 setSelectedCategory("");
                                 setStartDate("");
                                 setEndDate("");
+                                setShowBookmarkedOnly(false);
                             }}
-                            className="w-full px-3 py-2 text-lg text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                            className="w-full h-10 px-3 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
                         >
                             Clear Filters
                         </button>
@@ -280,6 +341,9 @@ export default function TransactionsPage() {
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
                                     <tr>
+                                        <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            {/* Bookmark column */}
+                                        </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Transaction
                                         </th>
@@ -306,6 +370,23 @@ export default function TransactionsPage() {
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {paginatedTransactions.map((transaction) => (
                                         <tr key={transaction.id} className="hover:bg-gray-50">
+                                            <td className="px-1 py-4 text-center">
+                                                <button 
+                                                    onClick={() => handleBookmarkToggle(transaction)}
+                                                    className={`inline-flex items-center justify-center w-6 h-6 rounded transition-colors ${
+                                                        transaction.isBookmarked
+                                                            ? 'text-yellow-600 hover:bg-yellow-50'
+                                                            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                                                    }`}
+                                                    title={transaction.isBookmarked ? 'Remove bookmark' : 'Add bookmark'}
+                                                >
+                                                    {transaction.isBookmarked ? (
+                                                        <BookmarkCheck className="w-4 h-4" />
+                                                    ) : (
+                                                        <Bookmark className="w-4 h-4" />
+                                                    )}
+                                                </button>
+                                            </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center">
                                                     <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-white text-sm ${
