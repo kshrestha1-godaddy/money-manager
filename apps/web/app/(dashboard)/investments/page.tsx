@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { InvestmentTable } from "../../components/investments/InvestmentTable";
 import { AddInvestmentModal } from "../../components/investments/AddInvestmentModal";
 import { EditInvestmentModal } from "../../components/investments/EditInvestmentModal";
@@ -8,16 +8,14 @@ import { DeleteInvestmentModal } from "../../components/investments/DeleteInvest
 import { ViewInvestmentModal } from "../../components/investments/ViewInvestmentModal";
 import { BulkImportModal } from "../../components/investments/BulkImportModal";
 import { BulkDeleteInvestmentModal } from "../../components/investments/BulkDeleteInvestmentModal";
-import { InvestmentTargetProgressChart } from "../../components/investments/InvestmentTargetProgressChart";
 import { InvestmentTargetModal } from "../../components/investments/InvestmentTargetModal";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { useOptimizedInvestments } from "../../hooks/useOptimizedInvestments";
-import { InvestmentInterface, InvestmentTarget, InvestmentTargetProgress, InvestmentTargetFormData } from "../../types/investments";
-import { getInvestmentTargetProgress, getInvestmentTargets, createInvestmentTarget, updateInvestmentTarget, deleteInvestmentTarget } from "../../actions/investment-targets";
+import { InvestmentInterface } from "../../types/investments";
+import { useOptimizedInvestmentTargets } from "../../hooks/useOptimizedInvestmentTargets";
 import { Plus, Upload, TrendingUp, TrendingDown, DollarSign, Target, Info } from "lucide-react";
 import { 
-    getSummaryCardClasses, 
     getGainLossClasses,
     BUTTON_COLORS,
     TEXT_COLORS,
@@ -27,8 +25,8 @@ import {
     ICON_COLORS,
     UI_STYLES,
 } from "../../config/colorConfig";
-import { InvestmentTypePieChart } from "../../components/investments/InvestmentTypePieChart";
-
+import { InvestmentTypePolarChart } from "../../components/investments/InvestmentTypePolarChart";
+import { InvestmentTargetProgressChart } from "../../components/investments/InvestmentTargetProgressChart";
 // Extract color variables for better readability
 const pageContainer = CONTAINER_COLORS.page;
 const errorContainer = CONTAINER_COLORS.error;
@@ -42,7 +40,6 @@ const pageSubtitle = TEXT_COLORS.subtitle;
 const errorTitle = TEXT_COLORS.errorTitle;
 const errorMessage = TEXT_COLORS.errorMessage;
 const cardTitle = TEXT_COLORS.cardTitle;
-const cardValueLarge = TEXT_COLORS.cardValueLarge;
 const cardSubtitle = TEXT_COLORS.cardSubtitle;
 const emptyTitle = TEXT_COLORS.emptyTitle;
 const emptyMessage = TEXT_COLORS.emptyMessage;
@@ -71,13 +68,22 @@ export default function Investments() {
     const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
     const [bulkDeleteInvestments, setBulkDeleteInvestments] = useState<InvestmentInterface[]>([]);
     
-    // Investment targets states
-    const [targetProgress, setTargetProgress] = useState<InvestmentTargetProgress[]>([]);
-    const [actualTargets, setActualTargets] = useState<InvestmentTarget[]>([]);
-    const [targetsLoading, setTargetsLoading] = useState(true);
-    const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
-    const [targetModalMode, setTargetModalMode] = useState<'create' | 'edit'>('create');
-    const [editingTarget, setEditingTarget] = useState<InvestmentTarget | null>(null);
+    // Use the optimized investment targets hook
+    const {
+        targets: actualTargets,
+        targetProgress,
+        loading: targetsLoading,
+        error: targetsError,
+        modal: targetModal,
+        openModal: openTargetModal,
+        closeModal: closeTargetModal,
+        handleCreateTarget,
+        handleUpdateTarget,
+        handleDeleteTarget,
+        isCreating: isCreatingTarget,
+        isUpdating: isUpdatingTarget,
+        isDeleting: isDeletingTarget,
+    } = useOptimizedInvestmentTargets();
     
     // Use the optimized investments hook
     const {
@@ -141,99 +147,20 @@ export default function Investments() {
         return type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
     };
     
-    // Load investment target progress when component mounts only
-    useEffect(() => {
-        const loadTargetData = async () => {
-            try {
-                setTargetsLoading(true);
-                // Load both progress and actual targets
-                const [progressResult, targetsResult] = await Promise.all([
-                    getInvestmentTargetProgress(),
-                    getInvestmentTargets()
-                ]);
-                
-                if (progressResult.data) {
-                    setTargetProgress(progressResult.data);
-                } else {
-                    console.error("Failed to load target progress:", progressResult.error);
-                }
+    // Target data is now managed by useOptimizedInvestmentTargets hook
 
-                if (targetsResult.data) {
-                    setActualTargets(targetsResult.data);
-                } else {
-                    console.error("Failed to load targets:", targetsResult.error);
-                }
-            } catch (error) {
-                console.error("Error loading target data:", error);
-            } finally {
-                setTargetsLoading(false);
-            }
-        };
+    // Target modal handlers using the optimized hook
+    const openAddTargetModal = useCallback(() => {
+        openTargetModal('create');
+    }, [openTargetModal]);
 
-        loadTargetData();
-    }, []); // Only load on component mount - server actions handle revalidation
-
-    // Target management handlers
-    const handleCreateTarget = async (data: InvestmentTargetFormData) => {
-        try {
-            await createInvestmentTarget(data);
-            // Reload both progress and targets
-            const [progressResult, targetsResult] = await Promise.all([
-                getInvestmentTargetProgress(),
-                getInvestmentTargets()
-            ]);
-            if (progressResult.data) setTargetProgress(progressResult.data);
-            if (targetsResult.data) setActualTargets(targetsResult.data);
-        } catch (error) {
-            throw error;
-        }
-    };
-
-    const handleUpdateTarget = async (id: number, data: Partial<InvestmentTargetFormData>) => {
-        try {
-            await updateInvestmentTarget(id, data);
-            // Reload both progress and targets
-            const [progressResult, targetsResult] = await Promise.all([
-                getInvestmentTargetProgress(),
-                getInvestmentTargets()
-            ]);
-            if (progressResult.data) setTargetProgress(progressResult.data);
-            if (targetsResult.data) setActualTargets(targetsResult.data);
-        } catch (error) {
-            throw error;
-        }
-    };
-
-    const handleDeleteTarget = async (id: number) => {
-        try {
-            await deleteInvestmentTarget(id);
-            // Reload both progress and targets
-            const [progressResult, targetsResult] = await Promise.all([
-                getInvestmentTargetProgress(),
-                getInvestmentTargets()
-            ]);
-            if (progressResult.data) setTargetProgress(progressResult.data);
-            if (targetsResult.data) setActualTargets(targetsResult.data);
-        } catch (error) {
-            throw error;
-        }
-    };
-
-    const openAddTargetModal = () => {
-        setTargetModalMode('create');
-        setEditingTarget(null);
-        setIsTargetModalOpen(true);
-    };
-
-    const openEditTargetModal = (investmentType: string) => {
+    const openEditTargetModal = useCallback((investmentType: string) => {
         // Find the actual target for editing
         const actualTarget = actualTargets.find(t => t.investmentType === investmentType);
         if (actualTarget) {
-            setTargetModalMode('edit');
-            setEditingTarget(actualTarget);
-            setIsTargetModalOpen(true);
+            openTargetModal('edit', actualTarget);
         }
-    };
+    }, [actualTargets, openTargetModal]);
 
     // Bulk delete modal handlers
     const handleSectionBulkDelete = (sectionInvestments: InvestmentInterface[]) => {
@@ -481,13 +408,13 @@ export default function Investments() {
 
             {/* Charts Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Investment Type Distribution Chart */}
-
-                <InvestmentTypePieChart
-                    investments={filteredInvestments}
+                {/* Investment Type Distribution Polar Chart */}
+                <InvestmentTypePolarChart
+                    investments={investments}
                     currency={userCurrency}
                     title="Portfolio Distribution by Investment Type"
                 />
+                
                 {/* Investment Target Progress Chart */}
                 <InvestmentTargetProgressChart
                     targets={targetProgress}
@@ -697,13 +624,13 @@ export default function Investments() {
             />
 
             <InvestmentTargetModal
-                isOpen={isTargetModalOpen}
-                onClose={() => setIsTargetModalOpen(false)}
-                onSave={handleCreateTarget}
-                onUpdate={handleUpdateTarget}
-                onDelete={handleDeleteTarget}
-                existingTarget={editingTarget}
-                mode={targetModalMode}
+                isOpen={targetModal.type !== null}
+                onClose={closeTargetModal}
+                onSave={async (data) => { await handleCreateTarget(data); }}
+                onUpdate={async (id, data) => { await handleUpdateTarget(id, data); }}
+                onDelete={async (id) => { await handleDeleteTarget(id); }}
+                existingTarget={targetModal.target}
+                mode={targetModal.type || 'create'}
                 existingTargetTypes={actualTargets.map(t => t.investmentType)}
                 currency={userCurrency}
             />
