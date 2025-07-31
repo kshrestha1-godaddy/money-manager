@@ -49,7 +49,10 @@ export default function TransactionsPage() {
         const matchesSearch = 
             transaction.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             transaction.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            transaction.account.toLowerCase().includes(searchTerm.toLowerCase());
+            transaction.account.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (transaction.description && transaction.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (transaction.notes && transaction.notes.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (transaction.tags && transaction.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())));
         
         const matchesType = selectedType === "ALL" || transaction.type === selectedType;
         
@@ -287,7 +290,13 @@ export default function TransactionsPage() {
                                             Account
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Tags
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Date
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Notes
                                         </th>
                                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Amount
@@ -308,7 +317,12 @@ export default function TransactionsPage() {
                                                         <div className="text-sm font-medium text-gray-900">
                                                             {transaction.title}
                                                         </div>
-                                                        <div className="text-sm text-gray-500">
+                                                        {transaction.description && (
+                                                            <div className="text-sm text-gray-500">
+                                                                {transaction.description}
+                                                            </div>
+                                                        )}
+                                                        <div className="text-xs text-gray-400">
                                                             {transaction.type}
                                                         </div>
                                                     </div>
@@ -320,8 +334,30 @@ export default function TransactionsPage() {
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 {transaction.account}
                                             </td>
+                                            <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
+                                                <div className="flex flex-wrap gap-1">
+                                                    {transaction.tags && transaction.tags.length > 0 ? (
+                                                        transaction.tags.map((tag, index) => (
+                                                            <span
+                                                                key={index}
+                                                                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                                                                title={tag}
+                                                            >
+                                                                {tag}
+                                                            </span>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-gray-400">-</span>
+                                                    )}
+                                                </div>
+                                            </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 {formatDate(transaction.date)}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
+                                                <div className="truncate" title={transaction.notes || ''}>
+                                                    {transaction.notes || '-'}
+                                                </div>
                                             </td>
                                             <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-right ${
                                                 transaction.type === 'INCOME' ? 'text-green-600' : 'text-red-600'

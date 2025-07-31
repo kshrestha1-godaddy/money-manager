@@ -132,6 +132,9 @@ export interface Transaction {
   date: Date;
   category: string;
   account: string;
+  description?: string;
+  notes?: string;
+  tags?: string[];
 }
 
 export interface DashboardStats {

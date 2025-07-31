@@ -53,7 +53,10 @@ export async function getRecentTransactions(limit: number = 10): Promise<Transac
             amount: decimalToNumber(expense.amount, 'expense amount'),
             date: new Date(expense.date),
             category: expense.category.name,
-            account: expense.account?.bankName || 'Cash'
+            account: expense.account?.bankName || 'Cash',
+            description: expense.description,
+            notes: expense.notes,
+            tags: expense.tags
         }));
 
         // Transform incomes to Transaction format
@@ -64,7 +67,10 @@ export async function getRecentTransactions(limit: number = 10): Promise<Transac
             amount: decimalToNumber(income.amount, 'income amount'),
             date: new Date(income.date),
             category: income.category.name,
-            account: income.account?.bankName || 'Cash'
+            account: income.account?.bankName || 'Cash',
+            description: income.description,
+            notes: income.notes,
+            tags: income.tags
         }));
 
         // Combine and sort all transactions by date (newest first)
@@ -122,7 +128,10 @@ export async function getAllTransactions(): Promise<Transaction[]> {
             amount: decimalToNumber(expense.amount, 'expense amount'),
             date: new Date(expense.date),
             category: expense.category.name,
-            account: expense.account?.bankName || 'Cash'
+            account: expense.account?.bankName || 'Cash',
+            description: expense.description,
+            notes: expense.notes,
+            tags: expense.tags
         }));
 
         // Transform incomes to Transaction format
@@ -133,7 +142,10 @@ export async function getAllTransactions(): Promise<Transaction[]> {
             amount: decimalToNumber(income.amount, 'income amount'),
             date: new Date(income.date),
             category: income.category.name,
-            account: income.account?.bankName || 'Cash'
+            account: income.account?.bankName || 'Cash',
+            description: income.description,
+            notes: income.notes,
+            tags: income.tags
         }));
 
         // Combine and sort all transactions by date (newest first)

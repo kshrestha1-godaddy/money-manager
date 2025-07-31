@@ -188,6 +188,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
         item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (item.tags && item.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())));
                           
       // Category filtering

@@ -100,6 +100,7 @@ export function useFinancialData<T extends FinancialItem>(
       const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             item.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             item.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            item.category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             item.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
                             
       const matchesCategory = selectedCategory === "" || item.category.name === selectedCategory;
