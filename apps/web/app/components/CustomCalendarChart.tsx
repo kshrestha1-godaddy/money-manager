@@ -494,7 +494,7 @@ export function CustomCalendarChart({
         >
             {/* Year Selector - Only show when not using global date filters */}
             {!(startDate || endDate) && (
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between gap-4 mb-6">
                     <h3 className="text-lg font-semibold text-gray-900">
                         {selectedYear}
                     </h3>
