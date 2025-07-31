@@ -456,14 +456,12 @@ export function InvestmentTypePolarChart({ investments, currency = "USD", title 
                                 />
                             </div>
                             
-                            {/* Enhanced legend */}
-                            <div className={`space-y-3 ${isExpanded ? 'xl:col-span-1' : 'lg:col-span-1'}`}>
-                                <h4 className="text-sm font-semibold text-gray-900 border-b pb-2">Investment Breakdown</h4>
+                            <div className={`space-y-3 ${isExpanded ? 'xl:col-span-1' : 'lg:col-span-1'}`} style={{ margin: '20px' }}>
                                 <div className="space-y-2 max-h-full overflow-y-auto">
                                     {typeData.map((item, index) => {
                                         const percentage = totalInvested > 0 ? ((item.value / totalInvested) * 100).toFixed(1) : '0.0';
                                         return (
-                                            <div key={item.type} className="p-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                                            <div key={item.type} className="p-2 rounded-lg  transition-colors">
                                                 <div className="flex items-center justify-between mb-1">
                                                     <div className="flex items-center space-x-2">
                                                         <div
