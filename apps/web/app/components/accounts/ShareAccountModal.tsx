@@ -15,11 +15,13 @@ export function ShareAccountModal({ isOpen, onClose, account }: ShareAccountModa
     if (!isOpen || !account) return null;
 
     const handleCopyToClipboard = () => {
-        const accountDetails = `Account Details:
-Account Number: ${account.accountNumber}
-Account Holder Name: ${account.holderName}
-Branch Address: ${account.bankAddress}
-Account Type: ${account.accountType}`;
+        const accountDetails = `
+        Account Number: ${account.accountNumber}
+        Account Holder Name: ${account.holderName}
+        Bank Name: ${account.bankName}
+        Branch Name: ${account.branchName}
+        Branch Address: ${account.bankAddress}
+        Account Type: ${account.accountType}`;
         
         navigator.clipboard.writeText(accountDetails).then(() => {
             setCopied(true);
@@ -62,6 +64,24 @@ Account Type: ${account.accountType}`;
                                 </label>
                                 <div className="text-sm text-gray-900 bg-white p-2 rounded border">
                                     {account.holderName}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">
+                                    Bank Name
+                                </label>
+                                <div className="text-sm text-gray-900 bg-white p-2 rounded border">
+                                    {account.bankName}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">
+                                    Branch Name
+                                </label>
+                                <div className="text-sm text-gray-900 bg-white p-2 rounded border">
+                                    {account.branchName}
                                 </div>
                             </div>
 

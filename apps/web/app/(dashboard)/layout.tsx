@@ -82,7 +82,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             
             {/* Main Content Area */}
             <div className="flex-1 ml-60 max-w-full overflow-x-auto">
-                <div className="p-6 pt-24 min-h-screen">
+                <div className="p-6 pt-24 min-h-[calc(100vh-12rem)]">
                     {children}
                 </div>
             </div>
