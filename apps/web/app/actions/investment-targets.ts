@@ -211,7 +211,10 @@ export async function getInvestmentTargetProgress(): Promise<{ data?: Investment
             };
         });
 
-        return { data: progressData };
+        // Sort by progress percentage in descending order (highest % first)
+        const sortedProgressData = progressData.sort((a, b) => b.progress - a.progress);
+
+        return { data: sortedProgressData };
     } catch (error) {
         console.error("Error calculating investment target progress:", error);
         return { error: "Failed to calculate investment target progress" };
