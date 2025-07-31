@@ -64,22 +64,8 @@ export async function createInvestmentTarget(data: InvestmentTargetFormData): Pr
         });
 
         if (existingTarget) {
-            const typeLabel = (() => {
-                switch (data.investmentType) {
-                    case 'STOCKS': return 'Stocks';
-                    case 'CRYPTO': return 'Cryptocurrency';
-                    case 'MUTUAL_FUNDS': return 'Mutual Funds';
-                    case 'BONDS': return 'Bonds';
-                    case 'REAL_ESTATE': return 'Real Estate';
-                    case 'GOLD': return 'Gold';
-                    case 'FIXED_DEPOSIT': return 'Fixed Deposit';
-                    case 'PROVIDENT_FUNDS': return 'Provident Funds';
-                    case 'SAFE_KEEPINGS': return 'Safe Keepings';
-                    case 'OTHER': return 'Other';
-                    default: return data.investmentType;
-                }
-            })();
-            throw new Error(`A target for ${typeLabel} already exists. Please edit the existing target instead.`);
+            const { formatInvestmentType } = await import("../components/investments/constants");
+            throw new Error(`A target for ${formatInvestmentType(data.investmentType)} already exists. Please edit the existing target instead.`);
         }
 
         const target = await prisma.investmentTarget.create({

@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { InvestmentTarget, InvestmentTargetFormData } from "../../types/investments";
 import { X, Target } from "lucide-react";
 import { getCurrencySymbol } from "../../utils/currency";
+import { INVESTMENT_TYPES, getInvestmentTypeLabel } from "./constants";
 
 interface InvestmentTargetModalProps {
     isOpen: boolean;
@@ -16,19 +17,6 @@ interface InvestmentTargetModalProps {
     existingTargetTypes?: string[];
     currency?: string;
 }
-
-const INVESTMENT_TYPES = [
-    { value: 'STOCKS', label: 'Stocks' },
-    { value: 'CRYPTO', label: 'Cryptocurrency' },
-    { value: 'MUTUAL_FUNDS', label: 'Mutual Funds' },
-    { value: 'BONDS', label: 'Bonds' },
-    { value: 'REAL_ESTATE', label: 'Real Estate' },
-    { value: 'GOLD', label: 'Gold' },
-    { value: 'FIXED_DEPOSIT', label: 'Fixed Deposit' },
-    { value: 'PROVIDENT_FUNDS', label: 'Provident Funds' },
-    { value: 'SAFE_KEEPINGS', label: 'Safe Keepings' },
-    { value: 'OTHER', label: 'Other' },
-] as const;
 
 export function InvestmentTargetModal({
     isOpen,
@@ -47,6 +35,14 @@ export function InvestmentTargetModal({
     });
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string>("");
+
+    // Memoize available types calculation
+    const availableTypes = React.useMemo(() => 
+        mode === 'create' 
+            ? INVESTMENT_TYPES.filter(type => !existingTargetTypes.includes(type.value))
+            : INVESTMENT_TYPES,
+        [mode, existingTargetTypes]
+    );
 
     // Reset form when modal opens/closes or existing target changes
     useEffect(() => {
@@ -79,7 +75,7 @@ export function InvestmentTargetModal({
         }
 
         if (mode === 'create' && existingTargetTypes.includes(formData.investmentType)) {
-            setError(`A target for ${INVESTMENT_TYPES.find(t => t.value === formData.investmentType)?.label} already exists. Please edit the existing target instead.`);
+            setError(`A target for ${getInvestmentTypeLabel(formData.investmentType)} already exists. Please edit the existing target instead.`);
             return;
         }
 
@@ -98,7 +94,7 @@ export function InvestmentTargetModal({
         }
     };
 
-    const handleDelete = async () => {
+    const handleDelete = useCallback(async () => {
         if (!existingTarget || !onDelete) return;
         
         setIsLoading(true);
@@ -110,13 +106,9 @@ export function InvestmentTargetModal({
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [existingTarget, onDelete, onClose]);
 
     if (!isOpen) return null;
-
-    const availableTypes = mode === 'create' 
-        ? INVESTMENT_TYPES.filter(type => !existingTargetTypes.includes(type.value))
-        : INVESTMENT_TYPES;
 
     return (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">

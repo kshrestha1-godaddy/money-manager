@@ -2,8 +2,9 @@
 
 import React from "react";
 import { InvestmentTargetProgress } from "../../types/investments";
-import { formatCurrency } from "../../utils/currency";
-import { Target, TrendingUp, Edit } from "lucide-react";
+import { Target } from "lucide-react";
+import { TargetProgressItem } from "./TargetProgressItem";
+import { ProgressLegend } from "./ProgressLegend";
 
 interface InvestmentTargetProgressChartProps {
     targets: InvestmentTargetProgress[];
@@ -13,37 +14,7 @@ interface InvestmentTargetProgressChartProps {
     onAddTarget?: () => void;
 }
 
-const formatInvestmentType = (type: string): string => {
-    switch (type) {
-        case 'STOCKS': return 'Stocks';
-        case 'CRYPTO': return 'Cryptocurrency';
-        case 'MUTUAL_FUNDS': return 'Mutual Funds';
-        case 'BONDS': return 'Bonds';
-        case 'REAL_ESTATE': return 'Real Estate';
-        case 'GOLD': return 'Gold';
-        case 'FIXED_DEPOSIT': return 'Fixed Deposit';
-        case 'PROVIDENT_FUNDS': return 'Provident Funds';
-        case 'SAFE_KEEPINGS': return 'Safe Keepings';
-        case 'OTHER': return 'Other';
-        default: return type;
-    }
-};
 
-const getProgressColor = (progress: number, isComplete: boolean): string => {
-    if (isComplete) return "bg-green-500";
-    if (progress >= 75) return "bg-blue-500";
-    if (progress >= 50) return "bg-yellow-500";
-    if (progress >= 25) return "bg-orange-500";
-    return "bg-red-500";
-};
-
-const getProgressBgColor = (progress: number, isComplete: boolean): string => {
-    if (isComplete) return "bg-green-50";
-    if (progress >= 75) return "bg-blue-50";
-    if (progress >= 50) return "bg-yellow-50";
-    if (progress >= 25) return "bg-orange-50";
-    return "bg-red-50";
-};
 
 export function InvestmentTargetProgressChart({ 
     targets, 
@@ -52,7 +23,23 @@ export function InvestmentTargetProgressChart({
     onEditTarget,
     onAddTarget
 }: InvestmentTargetProgressChartProps) {
-    if (!targets || targets.length === 0) {
+    // Memoize summary calculations
+    const summary = React.useMemo(() => {
+        if (!targets?.length) {
+            return { total: 0, completed: 0, averageProgress: 0 };
+        }
+        
+        const completed = targets.filter(t => t.isComplete).length;
+        const averageProgress = targets.reduce((sum, t) => sum + t.progress, 0) / targets.length;
+        
+        return {
+            total: targets.length,
+            completed,
+            averageProgress: Number(averageProgress.toFixed(1))
+        };
+    }, [targets]);
+
+    if (!targets?.length) {
         return (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -78,6 +65,9 @@ export function InvestmentTargetProgressChart({
                         </button>
                     )}
                 </div>
+                
+                {/* Progress Legend for empty state */}
+                <ProgressLegend className="mt-6" />
             </div>
         );
     }
@@ -104,82 +94,30 @@ export function InvestmentTargetProgressChart({
                 <div className="grid grid-cols-3 gap-4 text-center">
                     <div>
                         <p className="text-sm text-gray-600">Total Targets</p>
-                        <p className="text-lg font-semibold text-gray-900">{targets.length}</p>
+                        <p className="text-lg font-semibold text-gray-900">{summary.total}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-600">Completed</p>
-                        <p className="text-lg font-semibold text-green-600">
-                            {targets.filter(t => t.isComplete).length}
-                        </p>
+                        <p className="text-lg font-semibold text-green-600">{summary.completed}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-600">Average Progress</p>
-                        <p className="text-lg font-semibold text-blue-600">
-                            {targets.length > 0 ? (targets.reduce((sum, t) => sum + t.progress, 0) / targets.length).toFixed(1) : 0}%
-                        </p>
+                        <p className="text-lg font-semibold text-blue-600">{summary.averageProgress}%</p>
                     </div>
                 </div>
             </div>
 
+            {/* Progress Legend */}
+            <ProgressLegend className="mb-4" />
+
             <div className="space-y-4 overflow-y-auto pr-2" style={{ maxHeight: '420px' }}>
                 {targets.map((target, index) => (
-                    <div key={index} className={`p-4 rounded-lg border ${getProgressBgColor(target.progress, target.isComplete)}`}>
-                        <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center">
-                                <h4 className="font-medium text-gray-900">
-                                    {formatInvestmentType(target.investmentType)}
-                                </h4>
-                                {target.isComplete && (
-                                    <TrendingUp className="w-4 h-4 text-green-600 ml-2" />
-                                )}
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <span className="text-sm font-medium text-gray-700">
-                                    {target.progress.toFixed(1)}%
-                                </span>
-                                {onEditTarget && (
-                                    <button
-                                        onClick={() => onEditTarget(target.investmentType)}
-                                        className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-                                        title="Edit target"
-                                    >
-                                        <Edit className="w-3 h-3" />
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Progress Bar */}
-                        <div className="w-full bg-gray-200 rounded-full h-3 mb-3 overflow-hidden">
-                            <div
-                                className={`h-full transition-all duration-500 ease-out ${getProgressColor(target.progress, target.isComplete)}`}
-                                style={{ width: `${Math.min(target.progress, 100)}%` }}
-                            />
-                        </div>
-
-                        {/* Progress Details */}
-                        <div className="flex justify-between items-center text-sm">
-                            <div className="flex items-center space-x-4">
-                                <span className="text-gray-600">
-                                    Current: <span className="font-medium text-gray-900">{formatCurrency(target.currentAmount, currency)}</span>
-                                </span>
-                                <span className="text-gray-600">
-                                    Target: <span className="font-medium text-gray-900">{formatCurrency(target.targetAmount, currency)}</span>
-                                </span>
-                            </div>
-                            <div className="text-right">
-                                {target.isComplete ? (
-                                    <span className="text-green-600 font-medium">Target Achieved! 🎉</span>
-                                ) : (
-                                    <span className="text-gray-600">
-                                        Remaining: <span className="font-medium text-gray-900">
-                                            {formatCurrency(Math.max(0, target.targetAmount - target.currentAmount), currency)}
-                                        </span>
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                    </div>
+                    <TargetProgressItem
+                        key={`${target.investmentType}-${index}`}
+                        target={target}
+                        currency={currency}
+                        onEditTarget={onEditTarget}
+                    />
                 ))}
             </div>
         </div>
