@@ -465,3 +465,4 @@ model TransactionBookmark {
 
   @@unique([transactionType, transactionId, userId])
 }
+
