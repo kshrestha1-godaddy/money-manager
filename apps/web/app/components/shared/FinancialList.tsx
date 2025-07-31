@@ -504,11 +504,11 @@ function FinancialRow({
     // Determine background color based on state priority: selected > hover > alternating
     const getRowBackgroundClass = () => {
         if (isSelected) return 'bg-blue-50';
-        return isEvenRow ? 'bg-gray-50/30' : '';
+        return isEvenRow ? 'bg-gray-50' : 'bg-gray-80';
     };
 
     return (
-        <tr className={`hover:bg-gray-50 ${getRowBackgroundClass()}`}>
+        <tr className={`hover:bg-[#ece3f4] hover:shadow-sm transition-colors duration-150 ${getRowBackgroundClass()}`}>
             {showCheckbox && (
                 <td className="px-6 py-4" style={{ width: `${columnWidths.checkbox}px` }}>
                     <input
