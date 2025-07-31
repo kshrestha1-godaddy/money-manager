@@ -57,14 +57,17 @@ export function InvestmentTargetModal({
                     targetAmount: parseFloat(existingTarget.targetAmount.toString()),
                 });
             } else {
+                // For create mode, find the first available type
+                const availableTypes = INVESTMENT_TYPES.filter(type => !existingTargetTypes.includes(type.value));
+                const defaultType = availableTypes.length > 0 ? availableTypes[0]?.value || 'STOCKS' : 'STOCKS';
                 setFormData({
-                    investmentType: 'STOCKS',
+                    investmentType: defaultType as any,
                     targetAmount: 0,
                 });
             }
             setError("");
         }
-    }, [isOpen, existingTarget, mode]);
+    }, [isOpen, existingTarget, mode, existingTargetTypes]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -98,16 +101,14 @@ export function InvestmentTargetModal({
     const handleDelete = async () => {
         if (!existingTarget || !onDelete) return;
         
-        if (confirm("Are you sure you want to delete this investment target?")) {
-            setIsLoading(true);
-            try {
-                await onDelete(existingTarget.id);
-                onClose();
-            } catch (err) {
-                setError(err instanceof Error ? err.message : "Failed to delete target");
-            } finally {
-                setIsLoading(false);
-            }
+        setIsLoading(true);
+        try {
+            await onDelete(existingTarget.id);
+            onClose();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to delete target");
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -210,7 +211,7 @@ export function InvestmentTargetModal({
                                     disabled={isLoading}
                                     className="px-4 py-2 text-red-600 hover:text-red-700 font-medium transition-colors disabled:opacity-50"
                                 >
-                                    Delete Target
+                                    Delete
                                 </button>
                             )}
                         </div>

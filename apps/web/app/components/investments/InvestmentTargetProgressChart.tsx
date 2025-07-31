@@ -84,7 +84,7 @@ export function InvestmentTargetProgressChart({
 
     return (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center">
                     <Target className="w-5 h-5 text-blue-600 mr-2" />
                     <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
@@ -99,7 +99,29 @@ export function InvestmentTargetProgressChart({
                 )}
             </div>
 
-            <div className="space-y-4">
+            {/* Summary */}
+            <div className="mb-6 pb-4 border-b border-gray-200">
+                <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                        <p className="text-sm text-gray-600">Total Targets</p>
+                        <p className="text-lg font-semibold text-gray-900">{targets.length}</p>
+                    </div>
+                    <div>
+                        <p className="text-sm text-gray-600">Completed</p>
+                        <p className="text-lg font-semibold text-green-600">
+                            {targets.filter(t => t.isComplete).length}
+                        </p>
+                    </div>
+                    <div>
+                        <p className="text-sm text-gray-600">Average Progress</p>
+                        <p className="text-lg font-semibold text-blue-600">
+                            {targets.length > 0 ? (targets.reduce((sum, t) => sum + t.progress, 0) / targets.length).toFixed(1) : 0}%
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="space-y-4 overflow-y-auto pr-2" style={{ maxHeight: '420px' }}>
                 {targets.map((target, index) => (
                     <div key={index} className={`p-4 rounded-lg border ${getProgressBgColor(target.progress, target.isComplete)}`}>
                         <div className="flex items-center justify-between mb-3">
@@ -159,28 +181,6 @@ export function InvestmentTargetProgressChart({
                         </div>
                     </div>
                 ))}
-            </div>
-
-            {/* Summary */}
-            <div className="mt-6 pt-4 border-t border-gray-200">
-                <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                        <p className="text-sm text-gray-600">Total Targets</p>
-                        <p className="text-lg font-semibold text-gray-900">{targets.length}</p>
-                    </div>
-                    <div>
-                        <p className="text-sm text-gray-600">Completed</p>
-                        <p className="text-lg font-semibold text-green-600">
-                            {targets.filter(t => t.isComplete).length}
-                        </p>
-                    </div>
-                    <div>
-                        <p className="text-sm text-gray-600">Average Progress</p>
-                        <p className="text-lg font-semibold text-blue-600">
-                            {targets.length > 0 ? (targets.reduce((sum, t) => sum + t.progress, 0) / targets.length).toFixed(1) : 0}%
-                        </p>
-                    </div>
-                </div>
             </div>
         </div>
     );

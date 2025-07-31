@@ -64,7 +64,22 @@ export async function createInvestmentTarget(data: InvestmentTargetFormData): Pr
         });
 
         if (existingTarget) {
-            throw new Error(`Target already exists for ${data.investmentType}. Please update the existing target instead.`);
+            const typeLabel = (() => {
+                switch (data.investmentType) {
+                    case 'STOCKS': return 'Stocks';
+                    case 'CRYPTO': return 'Cryptocurrency';
+                    case 'MUTUAL_FUNDS': return 'Mutual Funds';
+                    case 'BONDS': return 'Bonds';
+                    case 'REAL_ESTATE': return 'Real Estate';
+                    case 'GOLD': return 'Gold';
+                    case 'FIXED_DEPOSIT': return 'Fixed Deposit';
+                    case 'PROVIDENT_FUNDS': return 'Provident Funds';
+                    case 'SAFE_KEEPINGS': return 'Safe Keepings';
+                    case 'OTHER': return 'Other';
+                    default: return data.investmentType;
+                }
+            })();
+            throw new Error(`A target for ${typeLabel} already exists. Please edit the existing target instead.`);
         }
 
         const target = await prisma.investmentTarget.create({
@@ -198,11 +213,12 @@ export async function getInvestmentTargetProgress(): Promise<{ data?: Investment
         // Create progress data
         const progressData: InvestmentTargetProgress[] = targets.map(target => {
             const currentAmount = currentAmountsByType[target.investmentType] || 0;
-            const progress = target.targetAmount > 0 ? (currentAmount / target.targetAmount) * 100 : 0;
+            const targetAmount = parseFloat(target.targetAmount.toString());
+            const progress = targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
             
             return {
                 investmentType: target.investmentType,
-                targetAmount: parseFloat(target.targetAmount.toString()),
+                targetAmount: targetAmount,
                 currentAmount,
                 progress: Math.min(progress, 100), // Cap at 100%
                 isComplete: progress >= 100,

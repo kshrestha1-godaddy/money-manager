@@ -15,7 +15,7 @@ import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { useOptimizedInvestments } from "../../hooks/useOptimizedInvestments";
 import { InvestmentInterface, InvestmentTarget, InvestmentTargetProgress, InvestmentTargetFormData } from "../../types/investments";
-import { getInvestmentTargetProgress, createInvestmentTarget, updateInvestmentTarget, deleteInvestmentTarget } from "../../actions/investment-targets";
+import { getInvestmentTargetProgress, getInvestmentTargets, createInvestmentTarget, updateInvestmentTarget, deleteInvestmentTarget } from "../../actions/investment-targets";
 import { Plus, Upload, TrendingUp, TrendingDown, DollarSign, Target, Info } from "lucide-react";
 import { 
     getSummaryCardClasses, 
@@ -73,6 +73,7 @@ export default function Investments() {
     
     // Investment targets states
     const [targetProgress, setTargetProgress] = useState<InvestmentTargetProgress[]>([]);
+    const [actualTargets, setActualTargets] = useState<InvestmentTarget[]>([]);
     const [targetsLoading, setTargetsLoading] = useState(true);
     const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
     const [targetModalMode, setTargetModalMode] = useState<'create' | 'edit'>('create');
@@ -142,34 +143,47 @@ export default function Investments() {
     
     // Load investment target progress when component mounts or when investments change
     useEffect(() => {
-        const loadTargetProgress = async () => {
+        const loadTargetData = async () => {
             try {
                 setTargetsLoading(true);
-                const result = await getInvestmentTargetProgress();
-                if (result.data) {
-                    setTargetProgress(result.data);
+                // Load both progress and actual targets
+                const [progressResult, targetsResult] = await Promise.all([
+                    getInvestmentTargetProgress(),
+                    getInvestmentTargets()
+                ]);
+                
+                if (progressResult.data) {
+                    setTargetProgress(progressResult.data);
                 } else {
-                    console.error("Failed to load target progress:", result.error);
+                    console.error("Failed to load target progress:", progressResult.error);
+                }
+
+                if (targetsResult.data) {
+                    setActualTargets(targetsResult.data);
+                } else {
+                    console.error("Failed to load targets:", targetsResult.error);
                 }
             } catch (error) {
-                console.error("Error loading target progress:", error);
+                console.error("Error loading target data:", error);
             } finally {
                 setTargetsLoading(false);
             }
         };
 
-        loadTargetProgress();
+        loadTargetData();
     }, [investments]); // Reload when investments change
 
     // Target management handlers
     const handleCreateTarget = async (data: InvestmentTargetFormData) => {
         try {
             await createInvestmentTarget(data);
-            // Reload target progress
-            const result = await getInvestmentTargetProgress();
-            if (result.data) {
-                setTargetProgress(result.data);
-            }
+            // Reload both progress and targets
+            const [progressResult, targetsResult] = await Promise.all([
+                getInvestmentTargetProgress(),
+                getInvestmentTargets()
+            ]);
+            if (progressResult.data) setTargetProgress(progressResult.data);
+            if (targetsResult.data) setActualTargets(targetsResult.data);
         } catch (error) {
             throw error;
         }
@@ -178,11 +192,13 @@ export default function Investments() {
     const handleUpdateTarget = async (id: number, data: Partial<InvestmentTargetFormData>) => {
         try {
             await updateInvestmentTarget(id, data);
-            // Reload target progress
-            const result = await getInvestmentTargetProgress();
-            if (result.data) {
-                setTargetProgress(result.data);
-            }
+            // Reload both progress and targets
+            const [progressResult, targetsResult] = await Promise.all([
+                getInvestmentTargetProgress(),
+                getInvestmentTargets()
+            ]);
+            if (progressResult.data) setTargetProgress(progressResult.data);
+            if (targetsResult.data) setActualTargets(targetsResult.data);
         } catch (error) {
             throw error;
         }
@@ -191,11 +207,13 @@ export default function Investments() {
     const handleDeleteTarget = async (id: number) => {
         try {
             await deleteInvestmentTarget(id);
-            // Reload target progress
-            const result = await getInvestmentTargetProgress();
-            if (result.data) {
-                setTargetProgress(result.data);
-            }
+            // Reload both progress and targets
+            const [progressResult, targetsResult] = await Promise.all([
+                getInvestmentTargetProgress(),
+                getInvestmentTargets()
+            ]);
+            if (progressResult.data) setTargetProgress(progressResult.data);
+            if (targetsResult.data) setActualTargets(targetsResult.data);
         } catch (error) {
             throw error;
         }
@@ -208,22 +226,11 @@ export default function Investments() {
     };
 
     const openEditTargetModal = (investmentType: string) => {
-        // Find the target data for editing
-        // We need to get the actual target record, not just the progress
-        // For now, we'll create a mock target for editing - in a real app, 
-        // you'd want to store the actual targets separately
-        const progressItem = targetProgress.find(t => t.investmentType === investmentType);
-        if (progressItem) {
-            const mockTarget: InvestmentTarget = {
-                id: 0, // This would be the actual ID from the database
-                userId: 0,
-                investmentType: investmentType as any,
-                targetAmount: progressItem.targetAmount,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            };
+        // Find the actual target for editing
+        const actualTarget = actualTargets.find(t => t.investmentType === investmentType);
+        if (actualTarget) {
             setTargetModalMode('edit');
-            setEditingTarget(mockTarget);
+            setEditingTarget(actualTarget);
             setIsTargetModalOpen(true);
         }
     };
@@ -697,7 +704,7 @@ export default function Investments() {
                 onDelete={handleDeleteTarget}
                 existingTarget={editingTarget}
                 mode={targetModalMode}
-                existingTargetTypes={targetProgress.map(t => t.investmentType)}
+                existingTargetTypes={actualTargets.map(t => t.investmentType)}
                 currency={userCurrency}
             />
         </div>
