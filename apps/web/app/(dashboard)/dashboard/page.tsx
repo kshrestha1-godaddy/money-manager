@@ -7,7 +7,7 @@ import { getExpenses, createExpense, updateExpense, deleteExpense } from "../../
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { WaterfallChart } from "../../components/WaterfallChart";
 import { CategoryPieChart } from "../../components/CategoryPieChart";
-import { SankeyChart } from "../../components/SankeyChart";
+import { IncomeSankeyChart } from "../../components/IncomeSankeyChart";
 import { MonthlyTrendChart } from "../../components/MonthlyTrendChart";
 import { CategoryTrendChart } from "../../components/CategoryTrendChart";
 import { RecentTransactions } from "../../components/RecentTransactions";
@@ -192,7 +192,7 @@ function DashboardContent() {
             {/* Category Charts - Side by Side */}
             <div className="grid grid-cols-2 gap-4">
                 <Suspense fallback={<ChartSkeleton title="Expense Distribution" height="h-[24rem]" />}>
-                    <SankeyChart 
+                    <CategoryPieChart 
                         data={filteredData.filteredExpenses}
                         type="expense"
                         currency={currency}
@@ -201,20 +201,19 @@ function DashboardContent() {
                     />
                 </Suspense>
                 <Suspense fallback={<ChartSkeleton title="Income Distribution" height="h-[24rem]" />}>
-                    {/* <SankeyChart
+                    <IncomeSankeyChart 
+                        data={filteredData.filteredIncomes}
+                        currency={currency}
+                        startDate={startDate}
+                        endDate={endDate}
+                    />
+                    {/* <CategoryPieChart
                         data={filteredData.filteredIncomes}
                         type="income"
                         currency={currency}
                         startDate={startDate}
                         endDate={endDate}
                     /> */}
-                    <CategoryPieChart 
-                        data={filteredData.filteredIncomes}
-                        type="income"
-                        currency={currency}
-                        startDate={startDate}
-                        endDate={endDate}
-                    />
                 </Suspense>
             </div>
 
