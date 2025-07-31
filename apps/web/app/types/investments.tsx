@@ -39,4 +39,26 @@ export interface InvestmentTransaction {
     notes?: string;
     createdAt: Date;
     updatedAt: Date;
+}
+
+export interface InvestmentTarget {
+    id: number;
+    userId: number;
+    investmentType: 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'OTHER';
+    targetAmount: number;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+export type InvestmentTargetFormData = {
+    investmentType: 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'OTHER';
+    targetAmount: number;
+};
+
+export interface InvestmentTargetProgress {
+    investmentType: string;
+    targetAmount: number;
+    currentAmount: number;
+    progress: number; // percentage
+    isComplete: boolean;
 } 

@@ -63,8 +63,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             title="Net Worth" 
                         />
 
-                        {/* Additional items */}
-                        <SidebarItem
+                        {/* Additional items - Moved to profile dropdown */}
+                        {/* <SidebarItem
                             href="/passwords"
                             icon={<PasswordsIcon />}
                             title="Passwords"
@@ -75,7 +75,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             icon={<BookmarksIcon />} 
                             title="Bookmarks" 
                             showSeparator={false} 
-                        />
+                        /> */}
                     </div>
                 </div>
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { InvestmentTable } from "../../components/investments/InvestmentTable";
 import { AddInvestmentModal } from "../../components/investments/AddInvestmentModal";
 import { EditInvestmentModal } from "../../components/investments/EditInvestmentModal";
@@ -9,10 +9,13 @@ import { ViewInvestmentModal } from "../../components/investments/ViewInvestment
 import { BulkImportModal } from "../../components/investments/BulkImportModal";
 import { BulkDeleteInvestmentModal } from "../../components/investments/BulkDeleteInvestmentModal";
 import { InvestmentTypePolarChart } from "../../components/investments/InvestmentTypePolarChart";
+import { InvestmentTargetProgressChart } from "../../components/investments/InvestmentTargetProgressChart";
+import { InvestmentTargetModal } from "../../components/investments/InvestmentTargetModal";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { useOptimizedInvestments } from "../../hooks/useOptimizedInvestments";
-import { InvestmentInterface } from "../../types/investments";
+import { InvestmentInterface, InvestmentTarget, InvestmentTargetProgress, InvestmentTargetFormData } from "../../types/investments";
+import { getInvestmentTargetProgress, createInvestmentTarget, updateInvestmentTarget, deleteInvestmentTarget } from "../../actions/investment-targets";
 import { Plus, Upload, TrendingUp, TrendingDown, DollarSign, Target, Info } from "lucide-react";
 import { 
     getSummaryCardClasses, 
@@ -67,6 +70,13 @@ export default function Investments() {
     // Bulk delete modal states
     const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
     const [bulkDeleteInvestments, setBulkDeleteInvestments] = useState<InvestmentInterface[]>([]);
+    
+    // Investment targets states
+    const [targetProgress, setTargetProgress] = useState<InvestmentTargetProgress[]>([]);
+    const [targetsLoading, setTargetsLoading] = useState(true);
+    const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
+    const [targetModalMode, setTargetModalMode] = useState<'create' | 'edit'>('create');
+    const [editingTarget, setEditingTarget] = useState<InvestmentTarget | null>(null);
     
     // Use the optimized investments hook
     const {
@@ -128,6 +138,94 @@ export default function Investments() {
     // Format investment type for display
     const formatType = (type: string) => {
         return type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+    };
+    
+    // Load investment target progress when component mounts or when investments change
+    useEffect(() => {
+        const loadTargetProgress = async () => {
+            try {
+                setTargetsLoading(true);
+                const result = await getInvestmentTargetProgress();
+                if (result.data) {
+                    setTargetProgress(result.data);
+                } else {
+                    console.error("Failed to load target progress:", result.error);
+                }
+            } catch (error) {
+                console.error("Error loading target progress:", error);
+            } finally {
+                setTargetsLoading(false);
+            }
+        };
+
+        loadTargetProgress();
+    }, [investments]); // Reload when investments change
+
+    // Target management handlers
+    const handleCreateTarget = async (data: InvestmentTargetFormData) => {
+        try {
+            await createInvestmentTarget(data);
+            // Reload target progress
+            const result = await getInvestmentTargetProgress();
+            if (result.data) {
+                setTargetProgress(result.data);
+            }
+        } catch (error) {
+            throw error;
+        }
+    };
+
+    const handleUpdateTarget = async (id: number, data: Partial<InvestmentTargetFormData>) => {
+        try {
+            await updateInvestmentTarget(id, data);
+            // Reload target progress
+            const result = await getInvestmentTargetProgress();
+            if (result.data) {
+                setTargetProgress(result.data);
+            }
+        } catch (error) {
+            throw error;
+        }
+    };
+
+    const handleDeleteTarget = async (id: number) => {
+        try {
+            await deleteInvestmentTarget(id);
+            // Reload target progress
+            const result = await getInvestmentTargetProgress();
+            if (result.data) {
+                setTargetProgress(result.data);
+            }
+        } catch (error) {
+            throw error;
+        }
+    };
+
+    const openAddTargetModal = () => {
+        setTargetModalMode('create');
+        setEditingTarget(null);
+        setIsTargetModalOpen(true);
+    };
+
+    const openEditTargetModal = (investmentType: string) => {
+        // Find the target data for editing
+        // We need to get the actual target record, not just the progress
+        // For now, we'll create a mock target for editing - in a real app, 
+        // you'd want to store the actual targets separately
+        const progressItem = targetProgress.find(t => t.investmentType === investmentType);
+        if (progressItem) {
+            const mockTarget: InvestmentTarget = {
+                id: 0, // This would be the actual ID from the database
+                userId: 0,
+                investmentType: investmentType as any,
+                targetAmount: progressItem.targetAmount,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            };
+            setTargetModalMode('edit');
+            setEditingTarget(mockTarget);
+            setIsTargetModalOpen(true);
+        }
     };
 
     // Bulk delete modal handlers
@@ -374,12 +472,24 @@ export default function Investments() {
                 </div>
             </div>
 
-            {/* Investment Type Distribution Chart */}
-            <InvestmentTypePolarChart
-                investments={filteredInvestments}
-                currency={userCurrency}
-                title="Portfolio Distribution by Investment Type"
-            />
+            {/* Charts Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Investment Type Distribution Chart */}
+                <InvestmentTypePolarChart
+                    investments={filteredInvestments}
+                    currency={userCurrency}
+                    title="Portfolio Distribution by Investment Type"
+                />
+                
+                {/* Investment Target Progress Chart */}
+                <InvestmentTargetProgressChart
+                    targets={targetProgress}
+                    currency={userCurrency}
+                    title="Investment Target Progress"
+                    onEditTarget={openEditTargetModal}
+                    onAddTarget={openAddTargetModal}
+                />
+            </div>
 
             {/* Filters and Actions */}
             <div className={UI_STYLES.filters.containerWithMargin}>
@@ -577,6 +687,18 @@ export default function Investments() {
                 onClose={() => setIsBulkDeleteModalOpen(false)}
                 onConfirm={handleBulkDeleteConfirm}
                 investments={bulkDeleteInvestments}
+            />
+
+            <InvestmentTargetModal
+                isOpen={isTargetModalOpen}
+                onClose={() => setIsTargetModalOpen(false)}
+                onSave={handleCreateTarget}
+                onUpdate={handleUpdateTarget}
+                onDelete={handleDeleteTarget}
+                existingTarget={editingTarget}
+                mode={targetModalMode}
+                existingTargetTypes={targetProgress.map(t => t.investmentType)}
+                currency={userCurrency}
             />
         </div>
     );

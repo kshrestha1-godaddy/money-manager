@@ -266,6 +266,30 @@ export default function NavBar() {
                           )}
                         </div>
                       </div>
+
+                      {/* User Tools */}
+                      <div className="border-t border-gray-100 py-3">
+                        <Link
+                          href="/passwords"
+                          onClick={() => setIsProfileDropdownOpen(false)}
+                          className="flex items-center w-full px-6 py-3 mx-2 text-sm text-gray-700 hover:bg-gray-50/80 rounded-lg transition-colors"
+                        >
+                          <svg className="w-4 h-4 mr-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                          </svg>
+                          Passwords
+                        </Link>
+                        <Link
+                          href="/bookmarks"
+                          onClick={() => setIsProfileDropdownOpen(false)}
+                          className="flex items-center w-full px-6 py-3 mx-2 mt-1 text-sm text-gray-700 hover:bg-gray-50/80 rounded-lg transition-colors"
+                        >
+                          <svg className="w-4 h-4 mr-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+                          </svg>
+                          Bookmarks
+                        </Link>
+                      </div>
                       
                       {/* Logout */}
                       <div className="border-t border-gray-100 py-1">
