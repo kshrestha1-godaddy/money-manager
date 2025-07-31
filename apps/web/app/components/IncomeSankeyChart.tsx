@@ -213,11 +213,6 @@ export function IncomeSankeyChart({ data, currency = "USD", title, startDate, en
                 const containerWidth = chartRef.current.offsetWidth || 600;
                 const containerHeight = isExpanded ? 600 : 400;
 
-                // print the category and its color
-                finalSankeyData.forEach(item => {
-                    console.log(item.from, item.color);
-                });
-
                 const options = {
                     width: containerWidth - 40, // Subtract padding (20px on each side)
                     height: containerHeight - 40, // Subtract padding (20px top and bottom)

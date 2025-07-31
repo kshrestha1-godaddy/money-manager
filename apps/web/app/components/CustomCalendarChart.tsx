@@ -126,8 +126,16 @@ export function CustomCalendarChart({
         const today = new Date();
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         
-        // Get max count for color intensity calculation
+        // Get max count and amount for color intensity calculation (using percentiles to handle outliers)
+        const amounts = Array.from(processedData.values()).map(d => d.amount).filter(amount => amount > 0);
         const maxCount = Math.max(...Array.from(processedData.values()).map(d => d.count), 1);
+        
+        // Use 95th percentile to reduce outlier impact on color scale
+        const sortedAmounts = amounts.sort((a, b) => a - b);
+        const percentile95Index = Math.floor(sortedAmounts.length * 0.95);
+        const maxAmount = sortedAmounts.length > 0 
+            ? Math.max((sortedAmounts[percentile95Index] || sortedAmounts[sortedAmounts.length - 1] || 1), 1)
+            : 1;
 
         // When using global filters, we need to show data across multiple years
         if (startDate || endDate) {
@@ -175,7 +183,7 @@ export function CustomCalendarChart({
                 grid.push(row);
             }
             
-            return { grid, maxCount, monthNames };
+            return { grid, maxCount, maxAmount, monthNames };
         } else {
             // Original single-year logic
             const grid: DayData[][] = [];
@@ -214,15 +222,16 @@ export function CustomCalendarChart({
                 grid.push(row);
             }
             
-            return { grid, maxCount, monthNames };
+            return { grid, maxCount, maxAmount, monthNames };
         }
     }, [selectedYear, processedData, startDate, endDate, displayYears]);
 
-    // Get color intensity for a day based on transaction count
-    const getColorIntensity = (count: number): string => {
-        if (count === 0) return 'transparent';
+    // Get color intensity for a day based on transaction amount (capped at 95th percentile)
+    const getColorIntensity = (amount: number): string => {
+        if (amount === 0) return 'transparent';
         
-        const intensity = Math.min(count / calendarData.maxCount, 1);
+        // Cap intensity at 95th percentile - outliers will have max intensity
+        const intensity = Math.min(amount / calendarData.maxAmount, 1);
         const baseColors = type === 'income' 
             ? { r: 34, g: 197, b: 94 }   // Green for income
             : { r: 239, g: 68, b: 68 };  // Red for expenses
@@ -257,8 +266,232 @@ export function CustomCalendarChart({
         )
     ];
 
+    // Custom download function for HTML-based calendar chart
+    const downloadCalendarChartAsPNG = async () => {
+        if (!chartRef.current) return;
+
+        try {
+            // Dynamically import html2canvas
+            const html2canvas = (await import('html2canvas')).default;
+            
+            const canvas = await html2canvas(chartRef.current, {
+                backgroundColor: '#ffffff',
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                width: chartRef.current.scrollWidth,
+                height: chartRef.current.scrollHeight
+            });
+
+            // Convert to blob and download
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.download = `${type}-transaction-frequency-${selectedYear}.png`;
+                    link.href = url;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                }
+            }, 'image/png', 1.0);
+        } catch (error) {
+            console.error('Error downloading calendar chart as PNG:', error);
+            // Fallback: try to create SVG representation
+            downloadCalendarChartAsSVG();
+        }
+    };
+
+    // Custom SVG download function for calendar chart
+    const downloadCalendarChartAsSVG = () => {
+        if (!chartRef.current) return;
+
+        try {
+            const chartElement = chartRef.current;
+            const rect = chartElement.getBoundingClientRect();
+            const width = Math.max(2500, rect.width * 1.5); // Increased base width and scaling
+            const height = Math.max(1000, rect.height);
+
+            // Create SVG
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', width.toString());
+            svg.setAttribute('height', height.toString());
+            svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+            // Add background
+            const background = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            background.setAttribute('width', '100%');
+            background.setAttribute('height', '100%');
+            background.setAttribute('fill', '#ffffff');
+            svg.appendChild(background);
+
+            // Add title
+            const titleElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            titleElement.setAttribute('x', '40');
+            titleElement.setAttribute('y', '40');
+            titleElement.setAttribute('font-family', 'Arial, sans-serif');
+            titleElement.setAttribute('font-size', '22');
+            titleElement.setAttribute('font-weight', 'bold');
+            titleElement.setAttribute('fill', '#111827');
+            titleElement.textContent = chartTitle;
+            svg.appendChild(titleElement);
+
+            // Calendar grid dimensions - increased for better spacing
+            const gridStartX = 40;
+            const gridStartY = 100;
+            const availableWidth = width - (gridStartX * 2); // Leave margins on both sides
+            const dayLabelWidth = 60;
+            const gridWidth = availableWidth - dayLabelWidth;
+            const cellWidth = Math.floor(gridWidth / 12); // Distribute width evenly across 12 months
+            const cellHeight = 25; // Slightly taller cells
+
+            // Add month headers
+            calendarData.monthNames.forEach((monthName, index) => {
+                const monthHeader = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                monthHeader.setAttribute('x', (gridStartX + dayLabelWidth + (index * cellWidth) + cellWidth / 2).toString());
+                monthHeader.setAttribute('y', (gridStartY - 15).toString());
+                monthHeader.setAttribute('text-anchor', 'middle');
+                monthHeader.setAttribute('font-family', 'Arial, sans-serif');
+                monthHeader.setAttribute('font-size', '14');
+                monthHeader.setAttribute('font-weight', 'bold');
+                monthHeader.setAttribute('fill', '#111827');
+                monthHeader.textContent = monthName;
+                svg.appendChild(monthHeader);
+            });
+
+            // Add calendar grid
+            calendarData.grid.forEach((row, rowIndex) => {
+                // Add day label
+                const dayLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                dayLabel.setAttribute('x', (gridStartX + dayLabelWidth / 2).toString());
+                dayLabel.setAttribute('y', (gridStartY + (rowIndex * cellHeight) + cellHeight / 2 + 5).toString());
+                dayLabel.setAttribute('text-anchor', 'middle');
+                dayLabel.setAttribute('font-family', 'Arial, sans-serif');
+                dayLabel.setAttribute('font-size', '12');
+                dayLabel.setAttribute('fill', '#6b7280');
+                dayLabel.textContent = (rowIndex + 1).toString();
+                svg.appendChild(dayLabel);
+
+                // Add month cells
+                row.forEach((cellData, colIndex) => {
+                    const x = gridStartX + dayLabelWidth + (colIndex * cellWidth);
+                    const y = gridStartY + (rowIndex * cellHeight);
+
+                    // Cell background
+                    const cellRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    cellRect.setAttribute('x', x.toString());
+                    cellRect.setAttribute('y', y.toString());
+                    cellRect.setAttribute('width', (cellWidth - 3).toString());
+                    cellRect.setAttribute('height', (cellHeight - 3).toString());
+                    cellRect.setAttribute('rx', '3');
+                    
+                    if (cellData.isCurrentMonth) {
+                        const backgroundColor = getColorIntensity(cellData.amount);
+                        cellRect.setAttribute('fill', backgroundColor === 'transparent' ? '#f9fafb' : backgroundColor);
+                        cellRect.setAttribute('stroke', '#e5e7eb');
+                        cellRect.setAttribute('stroke-width', '1');
+                        
+                        if (cellData.isToday) {
+                            cellRect.setAttribute('stroke', '#3b82f6');
+                            cellRect.setAttribute('stroke-width', '2');
+                        }
+                    } else {
+                        cellRect.setAttribute('fill', '#f9fafb');
+                        cellRect.setAttribute('stroke', '#e5e7eb');
+                        cellRect.setAttribute('stroke-width', '1');
+                        cellRect.setAttribute('opacity', '0.3');
+                    }
+                    svg.appendChild(cellRect);
+
+                    // Cell count text
+                    if (cellData.count > 0 && cellData.isCurrentMonth) {
+                        const countText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        countText.setAttribute('x', (x + cellWidth / 2).toString());
+                        countText.setAttribute('y', (y + cellHeight / 2 + 4).toString());
+                        countText.setAttribute('text-anchor', 'middle');
+                        countText.setAttribute('font-family', 'Arial, sans-serif');
+                        countText.setAttribute('font-size', '12');
+                        countText.setAttribute('font-weight', 'bold');
+                        countText.setAttribute('fill', '#374151');
+                        countText.textContent = cellData.count.toString();
+                        svg.appendChild(countText);
+                    }
+                });
+            });
+
+            // Add legend with min/max values
+            const legendY = gridStartY + (calendarData.grid.length * cellHeight) + 60;
+            const legendCenterX = width / 2;
+            
+            // Calculate min and 95th percentile transaction amounts for legend
+            const allAmounts = Array.from(processedData.values()).map(d => d.amount).filter(amount => amount > 0);
+            const minAmount = allAmounts.length > 0 ? Math.min(...allAmounts) : 0;
+            
+            // Use the same 95th percentile calculation as the calendar data
+            const sortedAmounts = [...allAmounts].sort((a, b) => a - b);
+            const percentile95Index = Math.floor(sortedAmounts.length * 0.95);
+            const maxScaleAmount = sortedAmounts.length > 0 
+                ? Math.max((sortedAmounts[percentile95Index] || sortedAmounts[sortedAmounts.length - 1] || 1), 1)
+                : 0;
+            
+            const legendText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            legendText.setAttribute('x', (legendCenterX - 140).toString());
+            legendText.setAttribute('y', legendY.toString());
+            legendText.setAttribute('font-family', 'Arial, sans-serif');
+            legendText.setAttribute('font-size', '14');
+            legendText.setAttribute('fill', '#6b7280');
+            legendText.textContent = `Less [${currency} ${minAmount.toLocaleString()}]`;
+            svg.appendChild(legendText);
+
+            // Legend colors - centered
+            [0, 0.25, 0.5, 0.75, 1].forEach((intensity, index) => {
+                const legendRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                legendRect.setAttribute('x', (legendCenterX - 60 + (index * 24)).toString());
+                legendRect.setAttribute('y', (legendY - 15).toString());
+                legendRect.setAttribute('width', '20');
+                legendRect.setAttribute('height', '20');
+                legendRect.setAttribute('rx', '3');
+                legendRect.setAttribute('stroke', '#e5e7eb');
+                legendRect.setAttribute('stroke-width', '1');
+                
+                const baseColors = type === 'income' 
+                    ? { r: 34, g: 197, b: 94 }   // Green for income
+                    : { r: 239, g: 68, b: 68 };  // Red for expenses
+                
+                if (intensity === 0) {
+                    legendRect.setAttribute('fill', '#f3f4f6');
+                } else {
+                    legendRect.setAttribute('fill', `rgba(${baseColors.r}, ${baseColors.g}, ${baseColors.b}, ${intensity})`);
+                }
+                svg.appendChild(legendRect);
+            });
+
+            const moreText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            moreText.setAttribute('x', (legendCenterX + 80).toString());
+            moreText.setAttribute('y', legendY.toString());
+            moreText.setAttribute('font-family', 'Arial, sans-serif');
+            moreText.setAttribute('font-size', '14');
+            moreText.setAttribute('fill', '#6b7280');
+            moreText.textContent = `More [${currency} ${maxScaleAmount.toLocaleString()}]`;
+            svg.appendChild(moreText);
+
+            // Create SVG blob and download
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const link = document.createElement('a');
+            link.download = `${type}-transaction-frequency-${selectedYear}.svg`;
+            link.href = URL.createObjectURL(blob);
+            link.click();
+            URL.revokeObjectURL(link.href);
+        } catch (error) {
+            console.error('Error downloading calendar chart as SVG:', error);
+        }
+    };
+
     const ChartContent = () => (
-        <div className={`${isExpanded ? "h-full flex flex-col" : ""} p-4`}>
+        <div 
+            ref={chartRef}
+            className={`${isExpanded ? "h-full flex flex-col" : ""} p-4`}
+        >
             {/* Year Selector - Only show when not using global date filters */}
             {!(startDate || endDate) && (
                 <div className="flex items-center justify-between mb-6">
@@ -282,21 +515,39 @@ export function CustomCalendarChart({
 
             {/* Legend */}
             <div className="flex items-center justify-center mb-4 text-sm text-gray-600">
-                <span className="mr-4">Less</span>
-                <div className="flex space-x-1">
-                    {[0, 0.25, 0.5, 0.75, 1].map((intensity, index) => (
-                        <div
-                            key={index}
-                            className="w-3 h-3 border border-gray-200 rounded-sm"
-                            style={{
-                                backgroundColor: intensity === 0 
-                                    ? '#f3f4f6' 
-                                    : `rgba(${type === 'income' ? '34, 197, 94' : '239, 68, 68'}, ${intensity})`
-                            }}
-                        />
-                    ))}
-                </div>
-                <span className="ml-4">More</span>
+                {(() => {
+                    // Calculate min and 95th percentile for legend (to show the scale being used)
+                    const allAmounts = Array.from(processedData.values()).map(d => d.amount).filter(amount => amount > 0);
+                    const minAmount = allAmounts.length > 0 ? Math.min(...allAmounts) : 0;
+                    
+                    // Use the same 95th percentile calculation as the calendar data
+                    const sortedAmounts = [...allAmounts].sort((a, b) => a - b);
+                    const percentile95Index = Math.floor(sortedAmounts.length * 0.95);
+                    const maxScaleAmount = sortedAmounts.length > 0 
+                        ? Math.max((sortedAmounts[percentile95Index] || sortedAmounts[sortedAmounts.length - 1] || 1), 1)
+                        : 0;
+                    
+                    return (
+                        <>
+                            <span className="mr-4">Less [{currency} {minAmount.toLocaleString()}]</span>
+                            <div className="flex space-x-1">
+                                {[0, 0.25, 0.5, 0.75, 1].map((intensity, index) => (
+                                    <div
+                                        key={index}
+                                        className="w-3 h-3 border border-gray-200 rounded-sm"
+                                        style={{
+                                            backgroundColor: intensity === 0 
+                                                ? '#f3f4f6' 
+                                                : `rgba(${type === 'income' ? '34, 197, 94' : '239, 68, 68'}, ${intensity})`
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                            <span className="ml-4">More [{currency} {maxScaleAmount.toLocaleString()}]</span>
+                            <span className="ml-2 text-xs text-gray-400">(95th percentile)</span>
+                        </>
+                    );
+                })()}
             </div>
 
             {/* Row-Column Calendar Grid */}
@@ -332,7 +583,7 @@ export function CustomCalendarChart({
                                         min-w-[50px]
                                     `}
                                     style={{
-                                        backgroundColor: cellData.isCurrentMonth ? getColorIntensity(cellData.count) : '#f9fafb'
+                                        backgroundColor: cellData.isCurrentMonth ? getColorIntensity(cellData.amount) : '#f9fafb'
                                     }}
                                     title={cellData.isCurrentMonth ? 
                                         `${calendarData.monthNames[colIndex]} ${rowIndex + 1}, ${selectedYear}: ${cellData.count} transactions` :
@@ -418,6 +669,8 @@ export function CustomCalendarChart({
                     isExpanded={isExpanded}
                     onToggleExpanded={toggleExpanded}
                     chartRef={chartRef}
+                    customDownloadPNG={downloadCalendarChartAsPNG}
+                    customDownloadSVG={downloadCalendarChartAsSVG}
                 />
                 <div className={isExpanded ? 'flex-1 mt-4' : ''}>
                     <ChartContent />
