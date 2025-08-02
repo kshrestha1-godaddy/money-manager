@@ -20,11 +20,11 @@ interface CategoryData {
     color: string;
 }
 
-// Fixed color palette matching IncomeSankeyChart - no randomization
+// Beautiful soft color palette inspired by design palettes
 const COLORS = [
-    '#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
-    '#06b6d4', '#84cc16', '#ec4899', '#a855f7', '#10b981', 
-    '#6366f1', '#dc2626', '#7c3aed', '#0891b2', '#65a30d'
+    '#77BEF0', '#FFCB61', '#FF894F', '#EA5B6F',
+    '#87CEEB', '#F0E68C', '#DDA0DD',
+    '#FFB6C1', '#20B2AA', '#F4A460', '#9370DB'
 ];
 
 export function CategoryPieChart({ type, currency = "USD", title }: CategoryPieChartProps) {
@@ -88,13 +88,13 @@ export function CategoryPieChart({ type, currency = "USD", title }: CategoryPieC
         if (name === 'Others' && smallCategories.length > 0) {
             const categoryNames = smallCategories.map(cat => cat.name).join(', ');
             return [
-                `${formatCurrency(value, currency)} (${percentage}%) - Includes: ${categoryNames}`,
+                `${formatCurrency(value, currency)} [${percentage}%] - Includes: ${categoryNames}`,
                 name
             ];
         }
         
         return [
-            `${formatCurrency(value, currency)} (${percentage}%)`,
+            `${formatCurrency(value, currency)} [${percentage}%]`,
             name
         ];
     }, [total, smallCategories, currency]);
