@@ -247,7 +247,6 @@ export default function Accounts() {
             {/* Balance Chart */}
             {!loading && accounts.length > 0 && (
                 <div className={UI_STYLES.chart.container}>
-                    <h3 className={chartTitle}>Account Balances</h3>
                     <BankBalanceChart accounts={accounts} currency={userCurrency} />
                 </div>
             )}

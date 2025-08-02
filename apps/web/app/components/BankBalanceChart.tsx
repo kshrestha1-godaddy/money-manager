@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, ReferenceLine, Cell } from "recharts";
 import { AccountInterface } from "../types/accounts";
 import { formatCurrency } from "../utils/currency";
+import { ChartControls } from "./ChartControls";
+import { useChartExpansion } from "../utils/chartUtils";
 
 interface BankBalanceChartProps {
     accounts: AccountInterface[];
@@ -18,6 +20,9 @@ interface ChartDataPoint {
 }
 
 export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChartProps) {
+    const { isExpanded, toggleExpanded } = useChartExpansion();
+    const chartRef = useRef<HTMLDivElement>(null);
+    
     const chartData = useMemo(() => {
         // Group accounts by bank and calculate total balance per bank
         const bankMap = new Map<string, { balance: number; accountCount: number }>();
@@ -60,6 +65,17 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
 
         return chartDataPoints;
     }, [accounts]);
+
+    // Prepare CSV data for export
+    const csvData = [
+        ['Bank', 'Total Balance', 'Account Count', 'Percentage'],
+        ...chartData.map(item => [
+            item.bank,
+            item.balance.toString(),
+            item.accountCount.toString(),
+            item.percentage.toFixed(1) + '%'
+        ])
+    ];
 
     const formatTooltip = (value: number, name: string, props: any) => {
         if (name === 'balance') {
@@ -122,29 +138,12 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
         );
     };
 
-    if (chartData.length === 0) {
-        return (
-            <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Bank Balances</h3>
-                <div className="flex items-center justify-center h-64 text-gray-500">
-                    <div className="text-center">
-                        <div className="text-4xl mb-2">🏦</div>
-                        <p>No account data to display</p>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="bg-white rounded-lg shadow p-3 sm:p-6">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 gap-1 sm:gap-0">
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Bank Balances</h3>
-                <div className="text-xs sm:text-sm text-gray-500">
-                    {chartData.length} bank{chartData.length !== 1 ? 's' : ''}
-                </div>
-            </div>
-            <div className="h-36 sm:h-[200px] lg:h-[300px] xl:h-[400px] w-full">
+    const ChartContent = () => (
+        <div>
+            <div 
+                ref={chartRef}
+                className={`${isExpanded ? 'h-[60vh] w-full' : 'h-36 sm:h-[200px] lg:h-[300px] xl:h-[400px] w-full'}`}
+            >
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                         data={chartData}
@@ -228,5 +227,88 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                 </ResponsiveContainer>
             </div>
         </div>
+    );
+
+    if (chartData.length === 0) {
+        return (
+            <div className="bg-white rounded-lg shadow p-3 sm:p-6" data-chart-type="bank-balance">
+                <ChartControls
+                    chartRef={chartRef}
+                    isExpanded={isExpanded}
+                    onToggleExpanded={toggleExpanded}
+                    fileName="bank-balance-chart"
+                    csvData={csvData}
+                    csvFileName="bank-balance-data"
+                    title="Bank Balances"
+                    tooltipText="Distribution of account balances across different banks"
+                />
+                <div className="flex items-center justify-center h-64 text-gray-500">
+                    <div className="text-center">
+                        <div className="text-4xl mb-2">🏦</div>
+                        <p>No account data to display</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <>
+            <div 
+                className="bg-white rounded-lg shadow p-3 sm:p-6" 
+                role="region"
+                aria-label="Bank Balance Chart"
+                data-chart-type="bank-balance"
+            >
+                <ChartControls
+                    chartRef={chartRef}
+                    isExpanded={isExpanded}
+                    onToggleExpanded={toggleExpanded}
+                    fileName="bank-balance-chart"
+                    csvData={csvData}
+                    csvFileName="bank-balance-data"
+                    title="Bank Balances"
+                    tooltipText="Distribution of account balances across different banks"
+                />
+                
+                {/* Summary Stats */}
+                <div className="mb-3 sm:mb-4">
+                    <div className="text-xs sm:text-sm text-gray-500">
+                        {chartData.length} bank{chartData.length !== 1 ? 's' : ''} • Total Balance: {formatCurrency(chartData.reduce((sum, item) => sum + item.balance, 0), currency)}
+                    </div>
+                </div>
+                
+                <ChartContent />
+            </div>
+
+            {/* Full screen modal */}
+            {isExpanded && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg p-6 max-w-[95%] w-full max-h-[95%] overflow-auto">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-2 sm:gap-0">
+                            <div>
+                                <h2 className="text-lg sm:text-2xl font-semibold">Bank Balances</h2>
+                                <p className="text-sm text-gray-500">Distribution of account balances across different banks</p>
+                            </div>
+                            <button
+                                onClick={toggleExpanded}
+                                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm sm:text-base"
+                            >
+                                Close
+                            </button>
+                        </div>
+                        
+                        {/* Summary Stats */}
+                        <div className="mb-4">
+                            <div className="text-sm text-gray-500">
+                                {chartData.length} bank{chartData.length !== 1 ? 's' : ''} • Total Balance: {formatCurrency(chartData.reduce((sum, item) => sum + item.balance, 0), currency)}
+                            </div>
+                        </div>
+                        
+                        <ChartContent />
+                    </div>
+                </div>
+            )}
+        </>
     );
 } 
