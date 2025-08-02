@@ -236,16 +236,25 @@ export function NotificationSettings() {
 
     if (isLoading) {
         return (
-            <div className="space-y-6">
-                {[...Array(5)].map((_, i) => (
-                    <div key={i} className="bg-white rounded-lg border p-6">
-                        <div className="h-6 bg-gray-200 rounded-md animate-pulse w-48 mb-4" />
-                        <div className="space-y-3">
-                            <div className="h-4 bg-gray-100 rounded-md animate-pulse w-full" />
-                            <div className="h-4 bg-gray-100 rounded-md animate-pulse w-3/4" />
+            <div className="space-y-8">
+                {/* Save button loading */}
+                <div className="h-16 bg-gray-100 rounded-lg animate-pulse" />
+                
+                {/* Grid layout for loading cards */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {[...Array(4)].map((_, i) => (
+                        <div key={i} className="bg-white rounded-lg border p-6 space-y-4">
+                            <div className="h-6 bg-gray-200 rounded-md animate-pulse w-48" />
+                            <div className="space-y-3">
+                                <div className="h-4 bg-gray-100 rounded-md animate-pulse w-full" />
+                                <div className="h-4 bg-gray-100 rounded-md animate-pulse w-3/4" />
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
+                
+                {/* Account-specific section loading */}
+                <div className="h-64 bg-gray-100 rounded-lg animate-pulse" />
             </div>
         );
     }
@@ -261,109 +270,116 @@ export function NotificationSettings() {
     }
 
     return (
-        <div className="space-y-6">
-            {/* Save Button and Status */}
-            <div className="flex items-center justify-between bg-white rounded-lg border p-4">
-                <div className="flex items-center space-x-3">
-                    <button
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <Save className="w-4 h-4 mr-2" />
-                        {isSaving ? "Saving..." : "Save Settings"}
-                    </button>
-                    {saveMessage && (
-                        <span className={`text-sm ${
-                            saveMessage.includes("success") ? "text-green-600" : "text-red-600"
-                        }`}>
-                            {saveMessage}
-                        </span>
-                    )}
+        <div className="space-y-8">
+            {/* Save Button and Status - Full Width */}
+            <div className="bg-white rounded-lg border p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex items-center space-x-3">
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            <Save className="w-4 h-4 mr-2" />
+                            {isSaving ? "Saving..." : "Save Settings"}
+                        </button>
+                        {saveMessage && (
+                            <span className={`text-sm font-medium ${
+                                saveMessage.includes("success") ? "text-green-600" : "text-red-600"
+                            }`}>
+                                {saveMessage}
+                            </span>
+                        )}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                        Changes are saved automatically when you click "Save Settings"
+                    </div>
                 </div>
             </div>
 
-            {/* Settings Groups */}
-            {settingsGroups.map((group, groupIndex) => (
-                <div key={groupIndex} className="bg-white rounded-lg border">
-                    {/* Group Header */}
-                    <div className="p-6 border-b border-gray-100">
-                        <div className="flex items-center space-x-3">
-                            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
-                                {group.icon}
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-medium text-gray-900">{group.title}</h3>
-                                <p className="text-sm text-gray-500">{group.description}</p>
+            {/* Settings Groups - Grid Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {settingsGroups.map((group, groupIndex) => (
+                    <div key={groupIndex} className="bg-white rounded-lg border hover:shadow-md transition-shadow">
+                        {/* Group Header */}
+                        <div className="p-6 border-b border-gray-100">
+                            <div className="flex items-center space-x-3">
+                                <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+                                    {group.icon}
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="text-lg font-medium text-gray-900">{group.title}</h3>
+                                    <p className="text-sm text-gray-500 mt-1">{group.description}</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Group Settings */}
-                    <div className="p-6 space-y-6">
-                        {group.settings.map((setting) => {
-                            const isDependent = setting.dependsOn && !settings[setting.dependsOn];
-                            
-                            return (
-                                <div
-                                    key={setting.key}
-                                    className={`${isDependent ? 'opacity-50' : ''}`}
-                                >
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex-1">
-                                            <label className="text-sm font-medium text-gray-900">
-                                                {setting.label}
-                                            </label>
-                                            <p className="text-sm text-gray-500 mt-1">
-                                                {setting.description}
-                                            </p>
-                                        </div>
-                                        
-                                        <div className="ml-4">
-                                            {setting.type === 'boolean' ? (
-                                                <div className="flex items-center">
-                                                    <button
-                                                        type="button"
-                                                        disabled={isDependent}
-                                                        onClick={() => handleSettingChange(setting.key, !settings[setting.key])}
-                                                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed ${
-                                                            settings[setting.key] 
-                                                                ? 'bg-blue-600' 
-                                                                : 'bg-gray-200'
-                                                        }`}
-                                                    >
-                                                        <span
-                                                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        {/* Group Settings */}
+                        <div className="p-6 space-y-6">
+                            {group.settings.map((setting) => {
+                                const isDependent = setting.dependsOn && !settings[setting.dependsOn];
+                                
+                                return (
+                                    <div
+                                        key={setting.key}
+                                        className={`${isDependent ? 'opacity-50' : ''}`}
+                                    >
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex-1 pr-4">
+                                                <label className="text-sm font-medium text-gray-900">
+                                                    {setting.label}
+                                                </label>
+                                                <p className="text-sm text-gray-500 mt-1">
+                                                    {setting.description}
+                                                </p>
+                                            </div>
+                                            
+                                            <div className="flex-shrink-0">
+                                                {setting.type === 'boolean' ? (
+                                                    <div className="flex items-center">
+                                                        <button
+                                                            type="button"
+                                                            disabled={isDependent}
+                                                            onClick={() => handleSettingChange(setting.key, !settings[setting.key])}
+                                                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed ${
                                                                 settings[setting.key] 
-                                                                    ? 'translate-x-5' 
-                                                                    : 'translate-x-0'
+                                                                    ? 'bg-blue-600' 
+                                                                    : 'bg-gray-200'
                                                             }`}
+                                                        >
+                                                            <span
+                                                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                                                    settings[setting.key] 
+                                                                        ? 'translate-x-5' 
+                                                                        : 'translate-x-0'
+                                                                }`}
+                                                            />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center space-x-2">
+                                                        <span className="text-sm text-gray-500">{currency}</span>
+                                                        <input
+                                                            type="number"
+                                                            disabled={isDependent}
+                                                            value={settings[setting.key] as number}
+                                                            onChange={(e) => handleSettingChange(setting.key, parseInt(e.target.value) || 0)}
+                                                            min={setting.min}
+                                                            max={setting.max}
+                                                            step={setting.step}
+                                                            className="w-28 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
                                                         />
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <div className="flex items-center space-x-2">
-                                                    <span className="text-sm text-gray-500">{currency}</span>
-                                                    <input
-                                                        type="number"
-                                                        disabled={isDependent}
-                                                        value={settings[setting.key] as number}
-                                                        onChange={(e) => handleSettingChange(setting.key, parseInt(e.target.value) || 0)}
-                                                        min={setting.min}
-                                                        max={setting.max}
-                                                        step={setting.step}
-                                                        className="w-24 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                                                    />
-                                                </div>
-                                            )}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
                     </div>
-                </div>
-            ))}
+                ))}
+            </div>
 
             {/* Account-Specific Thresholds Section */}
             {settings.lowBalanceEnabled && availableAccounts.length > 0 && (
@@ -374,37 +390,35 @@ export function NotificationSettings() {
                             <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
                                 <Settings className="w-5 h-5" />
                             </div>
-                            <div>
+                            <div className="flex-1">
                                 <h3 className="text-lg font-medium text-gray-900">Account-Specific Thresholds</h3>
                                 <p className="text-sm text-gray-500">Set different low balance thresholds for each of your accounts</p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Account Threshold Settings */}
+                    {/* Account Threshold Settings - Grid Layout */}
                     <div className="p-6">
-                        <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
                             {availableAccounts.map((account) => (
                                 <div
                                     key={account.accountId}
-                                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                                    className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors"
                                 >
-                                    <div className="flex-1">
-                                        <div className="flex items-center space-x-3">
-                                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                                <Earth className="w-5 h-5 text-blue-600" />
-                                            </div>
-                                            <div>
-                                                <h4 className="text-sm font-medium text-gray-900">
-                                                    {account.accountName}
-                                                </h4>
-                                                <p className="text-sm text-gray-500">{account.bankName}</p>
-                                            </div>
+                                    <div className="flex items-center space-x-3 mb-3">
+                                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                            <Earth className="w-5 h-5 text-blue-600" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="text-sm font-medium text-gray-900 truncate">
+                                                {account.accountName}
+                                            </h4>
+                                            <p className="text-sm text-gray-500 truncate">{account.bankName}</p>
                                         </div>
                                     </div>
                                     
                                     <div className="flex items-center space-x-2">
-                                        <span className="text-sm text-gray-500">{currency}</span>
+                                        <span className="text-sm text-gray-500 flex-shrink-0">{currency}</span>
                                         <input
                                             type="number"
                                             value={getAccountThreshold(account.accountId)}
@@ -412,14 +426,15 @@ export function NotificationSettings() {
                                             min={0}
                                             max={10000}
                                             step={50}
-                                            className="w-28 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            placeholder="Threshold"
                                         />
                                     </div>
                                 </div>
                             ))}
                         </div>
 
-                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                             <div className="flex">
                                 <div className="flex-shrink-0">
                                     <Settings className="h-5 w-5 text-blue-400" />

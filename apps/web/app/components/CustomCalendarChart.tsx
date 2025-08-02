@@ -79,11 +79,11 @@ export function CustomCalendarChart({
         const amounts = Array.from(processedData.values()).map(d => d.amount).filter(amount => amount > 0);
         const maxCount = Math.max(...Array.from(processedData.values()).map(d => d.count), 1);
         
-        // Use 95th percentile to reduce outlier impact on color scale
+        // Use 80th percentile to reduce outlier impact on color scale
         const sortedAmounts = amounts.sort((a, b) => a - b);
-        const percentile95Index = Math.floor(sortedAmounts.length * 0.95);
+        const percentile80Index = Math.floor(sortedAmounts.length * 0.80);
         const maxAmount = sortedAmounts.length > 0 
-            ? Math.max((sortedAmounts[percentile95Index] || sortedAmounts[sortedAmounts.length - 1] || 1), 1)
+            ? Math.max((sortedAmounts[percentile80Index] || sortedAmounts[sortedAmounts.length - 1] || 1), 1)
             : 1;
 
         // Multi-year calendar grid logic - aggregate data across all years
@@ -137,11 +137,11 @@ export function CustomCalendarChart({
         return { grid, maxCount, maxAmount, monthNames };
     }, [processedData, displayYears]);
 
-    // Get color intensity for a day based on transaction amount (capped at 95th percentile)
+    // Get color intensity for a day based on transaction amount (capped at 80th percentile)
     const getColorIntensity = (amount: number): string => {
         if (amount === 0) return 'transparent';
         
-        // Cap intensity at 95th percentile - outliers will have max intensity
+        // Cap intensity at 80th percentile - outliers will have max intensity
         const intensity = Math.min(amount / calendarData.maxAmount, 1);
         const baseColors = type === 'income' 
             ? { r: 34, g: 197, b: 94 }   // Green for income
@@ -324,15 +324,15 @@ export function CustomCalendarChart({
             const legendY = gridStartY + (calendarData.grid.length * cellHeight) + 60;
             const legendCenterX = width / 2;
             
-            // Calculate min and 95th percentile transaction amounts for legend
+            // Calculate min and 80th percentile transaction amounts for legend
             const allAmounts = Array.from(processedData.values()).map(d => d.amount).filter(amount => amount > 0);
             const minAmount = allAmounts.length > 0 ? Math.min(...allAmounts) : 0;
             
-            // Use the same 95th percentile calculation as the calendar data
+            // Use the same 80th percentile calculation as the calendar data
             const sortedAmounts = [...allAmounts].sort((a, b) => a - b);
-            const percentile95Index = Math.floor(sortedAmounts.length * 0.95);
+            const percentile80Index = Math.floor(sortedAmounts.length * 0.80);
             const maxScaleAmount = sortedAmounts.length > 0 
-                ? Math.max((sortedAmounts[percentile95Index] || sortedAmounts[sortedAmounts.length - 1] || 1), 1)
+                ? Math.max((sortedAmounts[percentile80Index] || sortedAmounts[sortedAmounts.length - 1] || 1), 1)
                 : 0;
             
             const legendText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -394,15 +394,15 @@ export function CustomCalendarChart({
             {/* Legend */}
             <div className="flex items-center justify-center mb-4 text-sm text-gray-600">
                 {(() => {
-                    // Calculate min and 95th percentile for legend (to show the scale being used)
+                    // Calculate min and 80th percentile for legend (to show the scale being used)
                     const allAmounts = Array.from(processedData.values()).map(d => d.amount).filter(amount => amount > 0);
                     const minAmount = allAmounts.length > 0 ? Math.min(...allAmounts) : 0;
                     
-                    // Use the same 95th percentile calculation as the calendar data
+                    // Use the same 80th percentile calculation as the calendar data
                     const sortedAmounts = [...allAmounts].sort((a, b) => a - b);
-                    const percentile95Index = Math.floor(sortedAmounts.length * 0.95);
+                    const percentile80Index = Math.floor(sortedAmounts.length * 0.80);
                     const maxScaleAmount = sortedAmounts.length > 0 
-                        ? Math.max((sortedAmounts[percentile95Index] || sortedAmounts[sortedAmounts.length - 1] || 1), 1)
+                        ? Math.max((sortedAmounts[percentile80Index] || sortedAmounts[sortedAmounts.length - 1] || 1), 1)
                         : 0;
                     
                     return (
@@ -422,7 +422,7 @@ export function CustomCalendarChart({
                                 ))}
                             </div>
                             <span className="ml-4">More [{currency} {maxScaleAmount.toLocaleString()}]</span>
-                            <span className="ml-2 text-xs text-gray-400">(95th percentile)</span>
+                            <span className="ml-2 text-xs text-gray-400">(80th percentile)</span>
                         </>
                     );
                 })()}
