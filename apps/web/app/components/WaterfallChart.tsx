@@ -5,14 +5,11 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Info } from "lucide-react";
 import { formatCurrency } from "../utils/currency";
 import { useChartExpansion } from "../utils/chartUtils";
+import { useChartData } from "../hooks/useChartDataContext";
 import { ChartControls } from "./ChartControls";
 
 interface WaterfallChartProps {
-    totalIncome: number;
-    totalExpenses: number;
     currency?: string;
-    startDate?: string;
-    endDate?: string;
 }
 
 interface WaterfallData {
@@ -23,33 +20,17 @@ interface WaterfallData {
     type: "income" | "expenses" | "savings" | "loss";
 }
 
-export function WaterfallChart({ totalIncome, totalExpenses, currency = "USD", startDate, endDate }: WaterfallChartProps) {
+export function WaterfallChart({ currency = "USD" }: WaterfallChartProps) {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
-    const totalSavings = totalIncome - totalExpenses;
+    const { totals, formatTimePeriod } = useChartData();
+    
+    const totalIncome = totals.income;
+    const totalExpenses = totals.expenses;
+    const totalSavings = totals.savings;
     const savingsRate = totalIncome > 0 ? ((totalSavings / totalIncome) * 100) : 0;
 
-    // Generate dynamic time period text
-    const getTimePeriodText = (): string => {
-        if (startDate && endDate) {
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(${startMonth} - ${endMonth})`;
-        } else if (startDate) {
-            const start = new Date(startDate);
-            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(From ${startMonth})`;
-        } else if (endDate) {
-            const end = new Date(endDate);
-            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(Until ${endMonth})`;
-        }
-        return "";
-    };
-
-    const timePeriodText = getTimePeriodText();
+    const timePeriodText = formatTimePeriod();
 
     // Create waterfall data - each bar shows cumulative values with base and value parts
     const data: WaterfallData[] = [

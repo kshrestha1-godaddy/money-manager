@@ -5,15 +5,12 @@ import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Respons
 import { Info } from "lucide-react";
 import { formatCurrency } from "../utils/currency";
 import { Income, Expense } from "../types/financial";
+import { useChartData } from "../hooks/useChartDataContext";
 import { ChartControls } from "./ChartControls";
 import { useChartExpansion } from "../utils/chartUtils";
 
 interface MonthlyTrendChartProps {
-    incomes: Income[];
-    expenses: Expense[];
     currency?: string;
-    startDate?: string;
-    endDate?: string;
 }
 
 interface MonthlyData {
@@ -135,175 +132,30 @@ const CHART_MARGINS = {
     bottom: 30
 } as const;
 
-// Optimized date utilities
-const createDateKey = (date: Date): string => {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-};
-
-const normalizeDate = (date: Date | string): Date => {
-    return date instanceof Date ? date : new Date(date);
-};
+// Note: Date utilities now centralized in useChartDataContext
 
 export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({ 
-    incomes, 
-    expenses, 
-    currency = "USD", 
-    startDate, 
-    endDate 
+    currency = "USD"
 }) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
+    const { monthlyData, formatTimePeriod } = useChartData();
     
-    // Memoize date range calculation only when dates change
-    const dateRange = useMemo(() => {
-        if (startDate || endDate) {
-            return {
-                start: startDate ? new Date(startDate) : null,
-                end: endDate ? new Date(endDate) : null,
-                hasExplicitRange: true
-            };
-        }
-        
-        // Calculate default range (last 6 months) only once
-        const today = new Date();
-        const currentMonth = today.getMonth();
-        const currentYear = today.getFullYear();
-        
-        let targetMonth = currentMonth - 5;
-        let targetYear = currentYear;
-        
-        if (targetMonth < 0) {
-            targetMonth += 12;
-            targetYear -= 1;
-        }
-        
-        return {
-            start: new Date(targetYear, targetMonth, 1),
-            end: new Date(currentYear, currentMonth + 1, 0),
-            hasExplicitRange: false
-        };
-    }, [startDate, endDate]);
-
-    // Memoize the time period text calculation
-    const timePeriodText = useMemo((): string => {
-        if (startDate && endDate) {
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(${startMonth} - ${endMonth})`;
-        } else if (startDate) {
-            const start = new Date(startDate);
-            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(From ${startMonth})`;
-        } else if (endDate) {
-            const end = new Date(endDate);
-            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(Until ${endMonth})`;
-        } else {
-            const startMonth = dateRange.start!.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            const endMonth = dateRange.end!.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(${startMonth} - ${endMonth})`;
-        }
-    }, [startDate, endDate, dateRange]);
+    const timePeriodText = formatTimePeriod();
     
-    // Optimized data filtering using the precomputed date range
-    const { filteredIncomes, filteredExpenses } = useMemo(() => {
-        const filterItems = <T extends Income | Expense>(items: T[]): T[] => {
-            if (!dateRange.hasExplicitRange && dateRange.start && dateRange.end) {
-                // Use precomputed range for default case
-                return items.filter(item => {
-                    const itemDate = normalizeDate(item.date);
-                    return itemDate >= dateRange.start! && itemDate <= dateRange.end!;
-                });
-            }
-            
-            // Handle explicit date filters
-            return items.filter(item => {
-                const itemDate = normalizeDate(item.date);
-                
-                if (dateRange.start && dateRange.end) {
-                    const start = new Date(dateRange.start);
-                    start.setHours(0, 0, 0, 0);
-                    const end = new Date(dateRange.end);
-                    end.setHours(23, 59, 59, 999);
-                    return itemDate >= start && itemDate <= end;
-                } else if (dateRange.start) {
-                    const start = new Date(dateRange.start);
-                    start.setHours(0, 0, 0, 0);
-                    return itemDate >= start;
-                } else if (dateRange.end) {
-                    const end = new Date(dateRange.end);
-                    end.setHours(23, 59, 59, 999);
-                    return itemDate <= end;
-                }
-                
-                return true;
-            });
-        };
-
-        return {
-            filteredIncomes: filterItems(incomes),
-            filteredExpenses: filterItems(expenses)
-        };
-    }, [incomes, expenses, dateRange]);
-
-    // Optimized chart data processing using Map for better performance
+    // Transform chart data to match component expectations
     const chartData = useMemo((): MonthlyData[] => {
-        // Use Map for O(1) lookups instead of array operations
-        const monthlyData = new Map<string, { income: number; expenses: number }>();
-
-        // Process incomes efficiently
-        for (const income of filteredIncomes) {
-            const date = normalizeDate(income.date);
-            const monthKey = createDateKey(date);
-            const current = monthlyData.get(monthKey) || { income: 0, expenses: 0 };
-            current.income += income.amount;
-            monthlyData.set(monthKey, current);
-        }
-
-        // Process expenses efficiently
-        for (const expense of filteredExpenses) {
-            const date = normalizeDate(expense.date);
-            const monthKey = createDateKey(date);
-            const current = monthlyData.get(monthKey) || { income: 0, expenses: 0 };
-            current.expenses += expense.amount;
-            monthlyData.set(monthKey, current);
-        }
-
-        // Convert to array and sort
-        const result: MonthlyData[] = [];
-        for (const [monthKey, data] of monthlyData) {
-            const parts = monthKey.split('-');
-            const yearStr = parts[0];
-            const monthStr = parts[1];
-            
-            if (!yearStr || !monthStr) continue;
-            
-            const year = parseInt(yearStr, 10);
-            const month = parseInt(monthStr, 10);
-            
-            if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
-                continue;
-            }
-            
-            const date = new Date(year, month - 1);
-            const savings = data.income - data.expenses;
-            
-            result.push({
-                month: monthKey,
-                income: data.income,
-                expenses: data.expenses,
-                savings,
-                incomeT: data.income,
-                expensesT: data.expenses,
-                savingsT: savings,
-                formattedMonth: date.toLocaleDateString('en', { month: 'short', year: 'numeric' })
-            });
-        }
-        
-        return result.sort((a, b) => a.month.localeCompare(b.month));
-    }, [filteredIncomes, filteredExpenses]);
+        return monthlyData.map(month => ({
+            month: month.monthKey,
+            income: month.income,
+            expenses: month.expenses,
+            savings: month.savings,
+            incomeT: month.income,
+            expensesT: month.expenses,
+            savingsT: month.savings,
+            formattedMonth: month.formattedMonth
+        }));
+    }, [monthlyData]);
 
     // Optimized calculations using single pass through data
     const calculations = useMemo((): CalculationsResult => {

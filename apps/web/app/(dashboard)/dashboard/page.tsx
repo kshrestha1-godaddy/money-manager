@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState, useCallback } from "react";
 import { Income, Expense } from "../../types/financial";
 import { getIncomes, createIncome, updateIncome, deleteIncome } from "../../actions/incomes";
 import { getExpenses, createExpense, updateExpense, deleteExpense } from "../../actions/expenses";
 import { useCurrency } from "../../providers/CurrencyProvider";
+import { ChartDataProvider } from "../../hooks/useChartDataContext";
 import { WaterfallChart } from "../../components/WaterfallChart";
 import { CategoryPieChart } from "../../components/CategoryPieChart";
 import { IncomeSankeyChart } from "../../components/IncomeSankeyChart";
@@ -62,61 +63,26 @@ function DashboardContent() {
         exportToCSV: () => {}, // Not used here
     });
 
-    // Memoize the filtered data calculation
-    const filteredData = useMemo(() => {
-        const getFilteredData = (data: (Income | Expense)[]) => {
-            if (!startDate && !endDate) return data;
-            return data.filter(item => {
-                const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
-                let matchesDateRange = true;
-                if (startDate && endDate) {
-                    const start = new Date(startDate);
-                    const end = new Date(endDate);
-                    end.setHours(23, 59, 59, 999);
-                    matchesDateRange = itemDate >= start && itemDate <= end;
-                } else if (startDate) {
-                    const start = new Date(startDate);
-                    matchesDateRange = itemDate >= start;
-                } else if (endDate) {
-                    const end = new Date(endDate);
-                    end.setHours(23, 59, 59, 999);
-                    matchesDateRange = itemDate <= end;
-                }
-                return matchesDateRange;
-            });
-        };
-
-        return {
-            filteredIncomes: getFilteredData(incomesData.items) as Income[],
-            filteredExpenses: getFilteredData(expensesData.items) as Expense[],
-        };
-    }, [incomesData.items, expensesData.items, startDate, endDate]);
-
-    // Memoize total calculations
-    const totals = useMemo(() => ({
-        totalIncome: filteredData.filteredIncomes.reduce((sum, income) => sum + income.amount, 0),
-        totalExpenses: filteredData.filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0),
-    }), [filteredData]);
-
-    // Date filter handlers
-    const handleDateChange = (start: string, end: string) => {
+    // Optimized date filter handlers with useCallback to prevent unnecessary re-renders
+    const handleDateChange = useCallback((start: string, end: string) => {
         setStartDate(start);
         setEndDate(end);
-    };
-    const clearFilters = () => {
+    }, []);
+    
+    const clearFilters = useCallback(() => {
         setStartDate("");
         setEndDate("");
-    };
+    }, []);
 
     // Set localStorage flag if user has any financial data (for tutorial system)
     useEffect(() => {
-        const hasIncomes = filteredData.filteredIncomes.length > 0;
-        const hasExpenses = filteredData.filteredExpenses.length > 0;
+        const hasIncomes = incomesData.items.length > 0;
+        const hasExpenses = expensesData.items.length > 0;
         
         if (hasIncomes || hasExpenses) {
             localStorage.setItem('user-has-accounts', 'true');
         }
-    }, [filteredData.filteredIncomes.length, filteredData.filteredExpenses.length]);
+    }, [incomesData.items.length, expensesData.items.length]);
 
     // Loading state
     if (incomesData.loading || expensesData.loading) {
@@ -128,7 +94,39 @@ function DashboardContent() {
         );
     }
 
-    // Main UI render
+    // Main UI render - wrapped with ChartDataProvider for optimal performance
+    return (
+        <ChartDataProvider
+            incomes={incomesData.items}
+            expenses={expensesData.items}
+            startDate={startDate}
+            endDate={endDate}
+        >
+            <DashboardCharts
+                currency={currency}
+                startDate={startDate}
+                endDate={endDate}
+                onDateChange={handleDateChange}
+                onClearFilters={clearFilters}
+            />
+        </ChartDataProvider>
+    );
+}
+
+// Separate component for charts to leverage ChartDataContext
+function DashboardCharts({ 
+    currency, 
+    startDate, 
+    endDate, 
+    onDateChange, 
+    onClearFilters 
+}: {
+    currency: string;
+    startDate: string;
+    endDate: string;
+    onDateChange: (start: string, end: string) => void;
+    onClearFilters: () => void;
+}) {
     return (
         <div id="dashboard-content" className={pageContainer}>
             {/* Header */}
@@ -140,8 +138,6 @@ function DashboardContent() {
                 <div className="flex items-center gap-4">
                     <ExportAllButton />
                     <SimplePDFReportGenerator 
-                        incomes={filteredData.filteredIncomes}
-                        expenses={filteredData.filteredExpenses}
                         startDate={startDate}
                         endDate={endDate}
                     />
@@ -152,113 +148,52 @@ function DashboardContent() {
             <DateFilterButtons
                 startDate={startDate}
                 endDate={endDate}
-                onDateChange={handleDateChange}
-                onClearFilters={clearFilters}
+                onDateChange={onDateChange}
+                onClearFilters={onClearFilters}
             />
 
             {/* Financial Overview - Waterfall Chart & Savings Rate Chart Side by Side */}
             <div className="grid grid-cols-2 gap-4">
                 <Suspense fallback={<ChartSkeleton title="Financial Overview" />}>
-                    <WaterfallChart 
-                        totalIncome={totals.totalIncome}
-                        totalExpenses={totals.totalExpenses}
-                        currency={currency}
-                        startDate={startDate}
-                        endDate={endDate}
-                    />
+                    <WaterfallChart currency={currency} />
                 </Suspense>
                 <Suspense fallback={<ChartSkeleton title="Savings Rate Trend" />}>
-                    <SavingsRateChart 
-                        incomes={filteredData.filteredIncomes}
-                        expenses={filteredData.filteredExpenses}
-                        currency={currency}
-                        startDate={startDate}
-                        endDate={endDate}
-                    />
+                    <SavingsRateChart currency={currency} />
                 </Suspense>
             </div>
 
             {/* Monthly Trend Chart */}
             <Suspense fallback={<ChartSkeleton title="Monthly Trends" />}>
-                <MonthlyTrendChart 
-                    incomes={filteredData.filteredIncomes}
-                    expenses={filteredData.filteredExpenses}
-                    currency={currency}
-                    startDate={startDate}
-                    endDate={endDate}
-                />
+                <MonthlyTrendChart currency={currency} />
             </Suspense>
-
 
             {/* Category Charts - Side by Side */}
             <div className="grid grid-cols-2 gap-4">
                 <Suspense fallback={<ChartSkeleton title="Expense Distribution" height="h-[24rem]" />}>
-                    <CategoryPieChart 
-                        data={filteredData.filteredExpenses}
-                        type="expense"
-                        currency={currency}
-                        startDate={startDate}
-                        endDate={endDate}
-                    />
+                    <CategoryPieChart type="expense" currency={currency} />
                 </Suspense>
                 <Suspense fallback={<ChartSkeleton title="Income Distribution" height="h-[24rem]" />}>
-                    <IncomeSankeyChart 
-                        data={filteredData.filteredIncomes}
-                        currency={currency}
-                        startDate={startDate}
-                        endDate={endDate}
-                    />
-                    {/* <CategoryPieChart
-                        data={filteredData.filteredIncomes}
-                        type="income"
-                        currency={currency}
-                        startDate={startDate}
-                        endDate={endDate}
-                    /> */}
+                    <IncomeSankeyChart currency={currency} />
                 </Suspense>
             </div>
 
             {/* Category Trend Charts - Side by Side */}
             <div className="grid grid-cols-2 gap-4">
                 <Suspense fallback={<ChartSkeleton title="Expense Category Trends" height="h-[32rem]" />}>
-                    <CategoryTrendChart 
-                        data={filteredData.filteredExpenses}
-                        type="expense"
-                        currency={currency}
-                        startDate={startDate}
-                        endDate={endDate}
-                    />
+                    <CategoryTrendChart type="expense" currency={currency} />
                 </Suspense>
                 <Suspense fallback={<ChartSkeleton title="Income Category Trends" height="h-[32rem]" />}>
-                    <CategoryTrendChart 
-                        data={filteredData.filteredIncomes}
-                        type="income"
-                        currency={currency}
-                        startDate={startDate}
-                        endDate={endDate}
-                    />
+                    <CategoryTrendChart type="income" currency={currency} />
                 </Suspense>
             </div>
 
             {/* Transaction Calendar Charts - Side by Side */}
             <div className="grid grid-cols-2 gap-4">
                 <Suspense fallback={<ChartSkeleton title="Expense Transaction Calendar" height="h-[32rem]" />}>
-                    <CustomCalendarChart 
-                        data={filteredData.filteredExpenses}
-                        type="expense"
-                        currency={currency}
-                        startDate={startDate}
-                        endDate={endDate}
-                    />
+                    <CustomCalendarChart type="expense" currency={currency} />
                 </Suspense>
                 <Suspense fallback={<ChartSkeleton title="Income Transaction Calendar" height="h-[32rem]" />}>
-                    <CustomCalendarChart 
-                        data={filteredData.filteredIncomes}
-                        type="income"
-                        currency={currency}
-                        startDate={startDate}
-                        endDate={endDate}
-                    />
+                    <CustomCalendarChart type="income" currency={currency} />
                 </Suspense>
             </div>
 

@@ -2,16 +2,14 @@
 
 import { useState, useMemo, useRef } from "react";
 import { Income, Expense } from "../types/financial";
+import { useChartData } from "../hooks/useChartDataContext";
 import { ChartControls } from "./ChartControls";
 import { useChartExpansion } from "../utils/chartUtils";
 
 interface CustomCalendarChartProps {
-    data: (Income | Expense)[];
     type: "income" | "expense";
     currency?: string;
     title?: string;
-    startDate?: string;
-    endDate?: string;
 }
 
 interface DayData {
@@ -31,64 +29,23 @@ interface MonthData {
 }
 
 export function CustomCalendarChart({ 
-    data, 
     type, 
     currency = "USD", 
-    title, 
-    startDate, 
-    endDate 
+    title
 }: CustomCalendarChartProps) {
     const { isExpanded, toggleExpanded } = useChartExpansion();
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const chartRef = useRef<HTMLDivElement>(null);
+    const { filteredIncomes, filteredExpenses, formatTimePeriod } = useChartData();
     
-    // Generate time period text
-    const getTimePeriodText = (): string => {
-        if (startDate && endDate) {
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(${startMonth} - ${endMonth})`;
-        } else if (startDate) {
-            const start = new Date(startDate);
-            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(From ${startMonth})`;
-        } else if (endDate) {
-            const end = new Date(endDate);
-            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(Until ${endMonth})`;
-        }
-        return '';
-    };
+    const timePeriodText = formatTimePeriod();
+    const data = type === 'income' ? filteredIncomes : filteredExpenses;
 
-    const timePeriodText = getTimePeriodText();
-
-    // Process data for selected year or date range
+    // Process data directly from context (no additional filtering)
     const processedData = useMemo(() => {
-        // If global date filters are provided, use them; otherwise use selected year
-        let filteredData = data;
-        
-        if (startDate || endDate) {
-            // Use global date filters
-            filteredData = data.filter(transaction => {
-                const transactionDate = new Date(transaction.date);
-                const start = startDate ? new Date(startDate) : new Date('1900-01-01');
-                const end = endDate ? new Date(endDate) : new Date('2100-12-31');
-                return transactionDate >= start && transactionDate <= end;
-            });
-        } else {
-            // Use selected year filter
-            filteredData = data.filter(transaction => {
-                const transactionYear = new Date(transaction.date).getFullYear();
-                return transactionYear === selectedYear;
-            });
-        }
-
-        // Create a map of date strings to transaction data
+        // Use data as-is from context (already filtered by global date range if applicable)
         const dateMap = new Map<string, { count: number; amount: number }>();
         
-        filteredData.forEach(transaction => {
+        data.forEach(transaction => {
             const date = new Date(transaction.date);
             const dateKey = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
             
@@ -102,24 +59,16 @@ export function CustomCalendarChart({
         });
 
         return dateMap;
-    }, [data, selectedYear, startDate, endDate]);
+    }, [data]);
 
-    // Determine which years to show based on filters
+    // Get unique years from the filtered data for calendar generation
     const displayYears = useMemo(() => {
-        if (startDate || endDate) {
-            const years = new Set<number>();
-            Array.from(processedData.keys()).forEach(dateKey => {
-                const yearPart = dateKey.split('-')[0];
-                if (yearPart) {
-                    const year = parseInt(yearPart);
-                    years.add(year);
-                }
-            });
-            return Array.from(years).sort();
-        } else {
-            return [selectedYear];
-        }
-    }, [processedData, selectedYear, startDate, endDate]);
+        const years = new Set<number>();
+        data.forEach(transaction => {
+            years.add(new Date(transaction.date).getFullYear());
+        });
+        return Array.from(years).sort();
+    }, [data]);
 
     // Generate calendar data in row-column format (rows = days of month 1-31, columns = months)
     const calendarData = useMemo(() => {
@@ -137,94 +86,56 @@ export function CustomCalendarChart({
             ? Math.max((sortedAmounts[percentile95Index] || sortedAmounts[sortedAmounts.length - 1] || 1), 1)
             : 1;
 
-        // When using global filters, we need to show data across multiple years
-        if (startDate || endDate) {
-            // For filtered data, aggregate across all years and months
-            const grid: DayData[][] = [];
+        // Multi-year calendar grid logic - aggregate data across all years
+        const grid: DayData[][] = [];
+        const currentYear = new Date().getFullYear();
+        
+        for (let dayOfMonth = 1; dayOfMonth <= 31; dayOfMonth++) {
+            const row: DayData[] = [];
             
-            for (let dayOfMonth = 1; dayOfMonth <= 31; dayOfMonth++) {
-                const row: DayData[] = [];
+            for (let month = 0; month < 12; month++) {
+                // Aggregate data for this day across all years in the data
+                let totalCount = 0;
+                let totalAmount = 0;
+                let hasToday = false;
+                let isValidDay = false;
                 
-                for (let month = 0; month < 12; month++) {
-                    // Aggregate data for this day across all years in the filter range
-                    let totalCount = 0;
-                    let totalAmount = 0;
-                    let hasToday = false;
-                    let isValidDay = false;
+                // Check if this day exists in any month (use current year as reference)
+                const lastDayOfMonth = new Date(currentYear, month + 1, 0).getDate();
+                if (dayOfMonth <= lastDayOfMonth) {
+                    isValidDay = true;
                     
+                    // Aggregate across all years in displayYears
                     displayYears.forEach(year => {
-                        const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
-                        if (dayOfMonth <= lastDayOfMonth) {
-                            isValidDay = true;
-                            const currentDate = new Date(year, month, dayOfMonth);
-                            const dateKey = `${year}-${month}-${dayOfMonth}`;
-                            const dayInfo = processedData.get(dateKey);
-                            
-                            if (dayInfo) {
-                                totalCount += dayInfo.count;
-                                totalAmount += dayInfo.amount;
-                            }
-                            
-                            if (currentDate.toDateString() === today.toDateString()) {
-                                hasToday = true;
-                            }
+                        const currentDate = new Date(year, month, dayOfMonth);
+                        const dateKey = `${year}-${month}-${dayOfMonth}`;
+                        const dayInfo = processedData.get(dateKey);
+                        
+                        if (dayInfo) {
+                            totalCount += dayInfo.count;
+                            totalAmount += dayInfo.amount;
+                        }
+                        
+                        if (currentDate.toDateString() === today.toDateString()) {
+                            hasToday = true;
                         }
                     });
-                    
-                    row.push({
-                        date: new Date(displayYears[0] || selectedYear, month, dayOfMonth),
-                        count: totalCount,
-                        amount: totalAmount,
-                        isCurrentMonth: isValidDay,
-                        isToday: hasToday
-                    });
                 }
                 
-                grid.push(row);
+                row.push({
+                    date: new Date(currentYear, month, dayOfMonth),
+                    count: totalCount,
+                    amount: totalAmount,
+                    isCurrentMonth: isValidDay,
+                    isToday: hasToday
+                });
             }
             
-            return { grid, maxCount, maxAmount, monthNames };
-        } else {
-            // Original single-year logic
-            const grid: DayData[][] = [];
-            
-            for (let dayOfMonth = 1; dayOfMonth <= 31; dayOfMonth++) {
-                const row: DayData[] = [];
-                
-                for (let month = 0; month < 12; month++) {
-                    const lastDayOfMonth = new Date(selectedYear, month + 1, 0).getDate();
-                    
-                    if (dayOfMonth <= lastDayOfMonth) {
-                        // This day exists in this month
-                        const currentDate = new Date(selectedYear, month, dayOfMonth);
-                        const dateKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}-${currentDate.getDate()}`;
-                        const dayInfo = processedData.get(dateKey) || { count: 0, amount: 0 };
-                        
-                        row.push({
-                            date: new Date(currentDate),
-                            count: dayInfo.count,
-                            amount: dayInfo.amount,
-                            isCurrentMonth: true,
-                            isToday: currentDate.toDateString() === today.toDateString()
-                        });
-                    } else {
-                        // This day doesn't exist in this month (e.g., Feb 31st)
-                        row.push({
-                            date: new Date(selectedYear, month, 1), // Placeholder date
-                            count: 0,
-                            amount: 0,
-                            isCurrentMonth: false,
-                            isToday: false
-                        });
-                    }
-                }
-                
-                grid.push(row);
-            }
-            
-            return { grid, maxCount, maxAmount, monthNames };
+            grid.push(row);
         }
-    }, [selectedYear, processedData, startDate, endDate, displayYears]);
+        
+        return { grid, maxCount, maxAmount, monthNames };
+    }, [processedData, displayYears]);
 
     // Get color intensity for a day based on transaction amount (capped at 95th percentile)
     const getColorIntensity = (amount: number): string => {
@@ -241,17 +152,8 @@ export function CustomCalendarChart({
         return `rgba(${baseColors.r}, ${baseColors.g}, ${baseColors.b}, ${opacity})`;
     };
 
-    // Available years for selection
-    const availableYears = useMemo(() => {
-        const years = new Set<number>();
-        data.forEach(transaction => {
-            years.add(new Date(transaction.date).getFullYear());
-        });
-        return Array.from(years).sort((a, b) => b - a);
-    }, [data]);
-
-    const chartTitle = title || `${type === 'income' ? 'Income' : 'Expense'} Transaction Frequency - ${selectedYear} ${timePeriodText}`;
-    const tooltipText = `Calendar view showing the frequency of ${type} transactions per day in ${selectedYear}`;
+    const chartTitle = title || `${type === 'income' ? 'Income' : 'Expense'} Transaction Frequency - ${timePeriodText}`;
+    const tooltipText = `Calendar view showing the frequency of ${type} transactions per day`;
 
     // Prepare CSV data for chart controls
     const csvDataForControls = [
@@ -288,7 +190,7 @@ export function CustomCalendarChart({
                 if (blob) {
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');
-                    link.download = `${type}-transaction-frequency-${selectedYear}.png`;
+                    link.download = `${type}-transaction-frequency.png`;
                     link.href = url;
                     link.click();
                     URL.revokeObjectURL(url);
@@ -478,7 +380,7 @@ export function CustomCalendarChart({
             const svgData = new XMLSerializer().serializeToString(svg);
             const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
             const link = document.createElement('a');
-            link.download = `${type}-transaction-frequency-${selectedYear}.svg`;
+            link.download = `${type}-transaction-frequency.svg`;
             link.href = URL.createObjectURL(blob);
             link.click();
             URL.revokeObjectURL(link.href);
@@ -488,31 +390,7 @@ export function CustomCalendarChart({
     };
 
     const ChartContent = () => (
-        <div 
-            ref={chartRef}
-            className={`${isExpanded ? "h-full flex flex-col" : ""} p-4`}
-        >
-            {/* Year Selector - Only show when not using global date filters */}
-            {!(startDate || endDate) && (
-                <div className="flex items-center justify-between gap-4 mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                        {selectedYear}
-                    </h3>
-                    {availableYears.length > 1 && (
-                        <select
-                            value={selectedYear}
-                            onChange={(e) => setSelectedYear(Number(e.target.value))}
-                            className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            {availableYears.map(year => (
-                                <option key={year} value={year}>{year}</option>
-                            ))}
-                        </select>
-                    )}
-                </div>
-            )}
-        
-
+        <div className="p-4">
             {/* Legend */}
             <div className="flex items-center justify-center mb-4 text-sm text-gray-600">
                 {(() => {
@@ -551,7 +429,7 @@ export function CustomCalendarChart({
             </div>
 
             {/* Row-Column Calendar Grid */}
-            <div className="flex-1 overflow-auto">
+            <div className="overflow-auto">
                 <div className="inline-block min-w-full">
                     {/* Month Headers */}
                     <div className="flex mb-2">
@@ -586,7 +464,7 @@ export function CustomCalendarChart({
                                         backgroundColor: cellData.isCurrentMonth ? getColorIntensity(cellData.amount) : '#f9fafb'
                                     }}
                                     title={cellData.isCurrentMonth ? 
-                                        `${calendarData.monthNames[colIndex]} ${rowIndex + 1}, ${selectedYear}: ${cellData.count} transactions` :
+                                        `${calendarData.monthNames[colIndex]} ${rowIndex + 1}: ${cellData.count} transactions` :
                                         `${calendarData.monthNames[colIndex]} ${rowIndex + 1} does not exist`
                                     }
                                 >
@@ -608,20 +486,15 @@ export function CustomCalendarChart({
                                         `}>
                                             <div className="font-semibold">
                                                 {calendarData.monthNames[colIndex]} {rowIndex + 1}
-                                                {(startDate || endDate) && displayYears.length > 1 ? (
-                                                    ` (${displayYears.length} years)`
-                                                ) : (
-                                                    `, ${selectedYear}`
+                                                {displayYears.length > 1 && (
+                                                    <span className="text-xs font-normal text-gray-300 ml-1">
+                                                        ({displayYears.length} years)
+                                                    </span>
                                                 )}
                                             </div>
                                             <div>{cellData.count} transaction{cellData.count !== 1 ? 's' : ''}</div>
                                             {cellData.amount > 0 && (
                                                 <div>{currency} {cellData.amount.toLocaleString()}</div>
-                                            )}
-                                            {(startDate || endDate) && displayYears.length > 1 && (
-                                                <div className="text-gray-300 text-xs mt-1">
-                                                    Aggregated: {Math.min(...displayYears)}-{Math.max(...displayYears)}
-                                                </div>
                                             )}
                                             {/* Tooltip Arrow */}
                                             <div className={`
@@ -644,9 +517,9 @@ export function CustomCalendarChart({
             {Array.from(processedData.values()).every(d => d.count === 0) && (
                 <div className="flex flex-col items-center justify-center py-16 text-gray-500">
                     <div className="text-6xl mb-4">{type === 'income' ? '💰' : '💸'}</div>
-                    <h3 className="text-lg font-medium mb-2">No {type === 'income' ? 'Income' : 'Expense'} Data for {selectedYear}</h3>
+                    <h3 className="text-lg font-medium mb-2">No {type === 'income' ? 'Income' : 'Expense'} Data</h3>
                     <p className="text-sm text-center max-w-sm">
-                        Add some {type} entries for {selectedYear} to see the transaction frequency calendar.
+                        Add some {type} entries to see the transaction frequency calendar.
                         Your daily {type} activity will appear here.
                     </p>
                 </div>
@@ -655,27 +528,46 @@ export function CustomCalendarChart({
     );
 
     return (
-        <div 
-            className={`bg-white rounded-lg shadow-sm border border-gray-200 ${
-                isExpanded ? 'fixed inset-4 z-50 overflow-auto flex flex-col' : ''
-            }`}
-        >
-            <div className={`${isExpanded ? 'p-4 flex-1 flex flex-col' : 'p-6'}`}>
+        <>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6" data-chart-type={`${type}-calendar`}>
                 <ChartControls
                     title={chartTitle}
                     tooltipText={tooltipText}
                     csvData={csvDataForControls}
-                    csvFileName={`${type}-transaction-frequency-${selectedYear}`}
+                    csvFileName={`${type}-transaction-frequency`}
                     isExpanded={isExpanded}
                     onToggleExpanded={toggleExpanded}
                     chartRef={chartRef}
                     customDownloadPNG={downloadCalendarChartAsPNG}
                     customDownloadSVG={downloadCalendarChartAsSVG}
                 />
-                <div className={isExpanded ? 'flex-1 mt-4' : ''}>
-                    <ChartContent />
-                </div>
+                
+                <ChartContent />
             </div>
-        </div>
+
+            {/* Full screen modal */}
+            {isExpanded && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg p-6 max-w-[95%] w-full max-h-[95%] overflow-auto">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-2 sm:gap-0">
+                            <div>
+                                <h2 className="text-lg sm:text-2xl font-semibold">{chartTitle}</h2>
+                                <p className="text-sm text-gray-500">{tooltipText}</p>
+                            </div>
+                            <button
+                                onClick={toggleExpanded}
+                                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm sm:text-base"
+                            >
+                                Close
+                            </button>
+                        </div>
+                        
+                        <div ref={chartRef}>
+                            <ChartContent />
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }

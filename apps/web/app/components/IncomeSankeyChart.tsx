@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Info } from "lucide-react";
 import { formatCurrency } from "../utils/currency";
 import { Income } from "../types/financial";
+import { useChartData } from "../hooks/useChartDataContext";
 import { ChartControls } from "./ChartControls";
 import { useChartExpansion } from "../utils/chartUtils";
 
@@ -15,11 +16,8 @@ declare global {
 }
 
 interface IncomeSankeyChartProps {
-    data: Income[];
     currency?: string;
     title?: string;
-    startDate?: string;
-    endDate?: string;
 }
 
 interface SankeyData {
@@ -29,33 +27,15 @@ interface SankeyData {
     color?: string;
 }
 
-export function IncomeSankeyChart({ data, currency = "USD", title, startDate, endDate }: IncomeSankeyChartProps) {
+export function IncomeSankeyChart({ currency = "USD", title }: IncomeSankeyChartProps) {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const chartInstance = useRef<any>(null);
     const chartId = useRef(`income-sankey-${Math.random().toString(36).substring(7)}`);
+    const { filteredIncomes, formatTimePeriod } = useChartData();
     
-    // Generate time period text
-    const getTimePeriodText = (): string => {
-        if (startDate && endDate) {
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(${startMonth} - ${endMonth})`;
-        } else if (startDate) {
-            const start = new Date(startDate);
-            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(From ${startMonth})`;
-        } else if (endDate) {
-            const end = new Date(endDate);
-            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(Until ${endMonth})`;
-        }
-        return '';
-    };
-
-    const timePeriodText = getTimePeriodText();
+    const timePeriodText = formatTimePeriod();
+    const data = filteredIncomes;
     
     // Define color palette for randomization (no duplicates)
     const colorPalette = [

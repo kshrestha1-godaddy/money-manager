@@ -7,6 +7,7 @@ import { Income, Expense } from "../types/financial";
 import { InvestmentInterface } from "../types/investments";
 import { DebtInterface } from "../types/debts";
 import { useCurrency } from "../providers/CurrencyProvider";
+import { useChartData } from "../hooks/useChartDataContext";
 import { useOptimizedInvestments } from "../hooks/useOptimizedInvestments";
 import { useOptimizedDebts } from "../hooks/useOptimizedDebts";
 import { useOptimizedWorth } from "../hooks/useOptimizedWorth";
@@ -14,10 +15,8 @@ import { useOptimizedWorth } from "../hooks/useOptimizedWorth";
 import html2canvas from "html2canvas";
 
 interface SimplePDFReportGeneratorProps {
-    incomes: Income[];
-    expenses: Expense[];
-    startDate: string;
-    endDate: string;
+    startDate?: string;
+    endDate?: string;
 }
 
 interface FinancialSummary {
@@ -63,15 +62,18 @@ interface NetWorthData {
     monthlyGrowthRate: number;
 }
 
-export function SimplePDFReportGenerator({ 
-    incomes, 
-    expenses, 
-    startDate, 
-    endDate 
+export function SimplePDFReportGenerator({
+    startDate,
+    endDate
 }: SimplePDFReportGeneratorProps) {
     const { data: session } = useSession();
     const { currency } = useCurrency();
+    const { filteredIncomes, filteredExpenses } = useChartData();
     const [isGenerating, setIsGenerating] = useState(false);
+
+    // Use data from chart context
+    const incomes = filteredIncomes;
+    const expenses = filteredExpenses;
 
     // Get additional financial data
     const investmentData = useOptimizedInvestments();

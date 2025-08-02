@@ -4,16 +4,14 @@ import { useState, useRef } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { formatCurrency } from "../utils/currency";
 import { Income, Expense } from "../types/financial";
+import { useChartData } from "../hooks/useChartDataContext";
 import { ChartControls } from "./ChartControls";
 import { useChartExpansion } from "../utils/chartUtils";
 
 interface CategoryPieChartProps {
-    data: Income[] | Expense[];
     type: 'income' | 'expense';
     currency?: string;
     title?: string;
-    startDate?: string;
-    endDate?: string;
 }
 
 interface CategoryData {
@@ -28,39 +26,21 @@ const COLORS = [
     '#87D068', '#F7A35C', '#434348', '#90ED7D', '#F15C80'
 ];
 
-export function CategoryPieChart({ data, type, currency = "USD", title, startDate, endDate }: CategoryPieChartProps) {
+export function CategoryPieChart({ type, currency = "USD", title }: CategoryPieChartProps) {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
+    const { categoryData, formatTimePeriod } = useChartData();
     
-    // Generate time period text
-    const getTimePeriodText = (): string => {
-        if (startDate && endDate) {
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(${startMonth} - ${endMonth})`;
-        } else if (startDate) {
-            const start = new Date(startDate);
-            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(From ${startMonth})`;
-        } else if (endDate) {
-            const end = new Date(endDate);
-            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(Until ${endMonth})`;
-        }
-        return '';
-    };
-
-    const timePeriodText = getTimePeriodText();
+    const timePeriodText = formatTimePeriod();
     
-    // Group data by category and sum amounts
+    // Create category map based on type
     const categoryMap = new Map<string, number>();
     
-    data.forEach(item => {
-        const categoryName = item.category?.name || 'Unknown Category';
-        const currentAmount = categoryMap.get(categoryName) || 0;
-        categoryMap.set(categoryName, currentAmount + item.amount);
+    Object.entries(categoryData).forEach(([categoryName, data]) => {
+        const amount = type === 'income' ? data.income : data.expenses;
+        if (amount > 0) {
+            categoryMap.set(categoryName, amount);
+        }
     });
 
     // Convert to array and add colors

@@ -54,31 +54,51 @@ export function DateFilterButtons({
         onDateChange(start, end);
     };
 
+    // Check if current selection matches a quick filter option
+    const isActiveQuickFilter = (months: number) => {
+        const { start, end } = getDateRange(months);
+        return startDate === start && endDate === end;
+    };
+
+    // Check if we're in default state (no dates selected = default 6 months)
+    const isDefaultState = !startDate && !endDate;
+    
+    // Get button styling based on active state
+    const getButtonStyle = (months: number, isDefault = false) => {
+        const isActive = isActiveQuickFilter(months) || (isDefault && isDefaultState);
+        
+        if (isActive) {
+            return "px-3 py-1 text-xs border-2 border-blue-500 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium shadow-sm";
+        }
+        
+        return "px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500";
+    };
+
     return (
         <div className="flex flex-wrap items-center gap-3 p-3 bg-gray-50 rounded-lg border">
                          {/* Quick Filter Buttons */}
              <div className="flex flex-wrap items-center gap-2">
                  <button
                      onClick={() => handleQuickFilter(1)}
-                     className="px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                     className={getButtonStyle(1)}
                  >
                      Last Month
                  </button>
                  <button
                      onClick={() => handleQuickFilter(3)}
-                     className="px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                     className={getButtonStyle(3)}
                  >
                      Last 3 Months
                  </button>
                  <button
                      onClick={() => handleQuickFilter(6)}
-                     className="px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                     className={getButtonStyle(6, true)} // true indicates this is the default
                  >
                      Last 6 Months
                  </button>
                  <button
                      onClick={() => handleQuickFilter(12)}
-                     className="px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                     className={getButtonStyle(12)}
                  >
                      Last 12 Months
                  </button>

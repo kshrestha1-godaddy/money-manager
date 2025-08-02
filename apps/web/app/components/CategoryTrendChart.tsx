@@ -4,15 +4,13 @@ import { useState, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { formatCurrency } from "../utils/currency";
 import { Income, Expense } from "../types/financial";
+import { useChartData } from "../hooks/useChartDataContext";
 import { ChartControls } from "./ChartControls";
 import { useChartExpansion } from "../utils/chartUtils";
 
 interface CategoryTrendChartProps {
-    data: Income[] | Expense[];
     type: 'income' | 'expense';
     currency?: string;
-    startDate?: string;
-    endDate?: string;
 }
 
 interface MonthlyData {
@@ -21,113 +19,29 @@ interface MonthlyData {
     formattedMonth: string;
 }
 
-export function CategoryTrendChart({ data, type, currency = "USD", startDate, endDate }: CategoryTrendChartProps) {
+export function CategoryTrendChart({ type, currency = "USD" }: CategoryTrendChartProps) {
     const [selectedCategory, setSelectedCategory] = useState<string>("");
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
+    const { getCategoryList, getMonthlyDataForCategory, formatTimePeriod } = useChartData();
 
     // Get unique categories from data
-    const categories = Array.from(
-        new Set(data.map((item: Income | Expense) => item.category?.name).filter(Boolean))
-    ).sort();
+    const categories = getCategoryList(type);
 
     // randomly select a category
     const currentCategory = selectedCategory || categories[Math.floor(Math.random() * categories.length)] || "";
 
-    // Set default category if none selected
-    // const currentCategory = selectedCategory || categories[0] || "";
+    const timePeriodText = formatTimePeriod();
 
-    // Generate dynamic time period text
-    const getTimePeriodText = (): string => {
-        if (startDate && endDate) {
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(${startMonth} - ${endMonth})`;
-        } else if (startDate) {
-            const start = new Date(startDate);
-            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(From ${startMonth})`;
-        } else if (endDate) {
-            const end = new Date(endDate);
-            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(Until ${endMonth})`;
-        } else {
-            // Default: show all available data
-            return "(All Data)";
-        }
-    };
+    // Get monthly data for the selected category
+    const monthlyData = getMonthlyDataForCategory(currentCategory, type);
 
-    const timePeriodText = getTimePeriodText();
-
-    // Filter data by selected category and date range
-    const filterByCategory = (dataArray: (Income | Expense)[], categoryName: string) => {
-        if (startDate || endDate) {
-            return dataArray.filter((item: Income | Expense) => {
-                const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
-                const matchesCategory = item.category?.name === categoryName;
-                let matchesDateRange = true;
-                
-                if (startDate && endDate) {
-                    const start = new Date(startDate);
-                    const end = new Date(endDate);
-                    end.setHours(23, 59, 59, 999);
-                    matchesDateRange = itemDate >= start && itemDate <= end;
-                } else if (startDate) {
-                    const start = new Date(startDate);
-                    matchesDateRange = itemDate >= start;
-                } else if (endDate) {
-                    const end = new Date(endDate);
-                    end.setHours(23, 59, 59, 999);
-                    matchesDateRange = itemDate <= end;
-                }
-                
-                return matchesCategory && matchesDateRange;
-            });
-        } else {
-            // Default: include all data for the category when no date filters provided
-            return dataArray.filter((item: Income | Expense) => {
-                const matchesCategory = item.category?.name === categoryName;
-                return matchesCategory;
-            });
-        }
-    };
-
-    const filteredData = filterByCategory(data, currentCategory);
-
-    // Group data by month
-    const monthlyMap = new Map<string, number>();
-
-    filteredData.forEach((item: Income | Expense) => {
-        const date = item.date instanceof Date ? item.date : new Date(item.date);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        const current = monthlyMap.get(monthKey) || 0;
-        monthlyMap.set(monthKey, current + item.amount);
-    });
-
-    // Convert to chart data and sort by date
-    const chartData: MonthlyData[] = Array.from(monthlyMap.entries())
-        .map(([monthKey, amount]) => {
-            const parts = monthKey.split('-');
-            const year = parseInt(parts[0] || '0', 10);
-            const month = parseInt(parts[1] || '0', 10);
-            
-            if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
-                console.warn(`Invalid date components: year=${year}, month=${month}`);
-                return null;
-            }
-            
-            const date = new Date(year, month - 1);
-            
-            return {
-                month: monthKey,
-                amount,
-                formattedMonth: date.toLocaleDateString('en', { month: 'short', year: 'numeric' })
-            };
-        })
-        .filter((item): item is MonthlyData => item !== null)
-        .sort((a, b) => a.month.localeCompare(b.month));
+    // Convert monthly data to chart format
+    const chartData: MonthlyData[] = monthlyData.map(month => ({
+        month: month.monthKey,
+        amount: type === 'income' ? month.income : month.expenses,
+        formattedMonth: month.formattedMonth
+    }));
 
     // Calculate statistics
     const totalAmount = chartData.reduce((sum, item) => sum + item.amount, 0);

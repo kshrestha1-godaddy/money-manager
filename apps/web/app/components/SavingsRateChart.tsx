@@ -3,15 +3,12 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Info } from "lucide-react";
 import { Income, Expense } from "../types/financial";
 import { useChartExpansion } from "../utils/chartUtils";
+import { useChartData } from "../hooks/useChartDataContext";
 import { ChartControls } from "./ChartControls";
 import { useRef } from "react";
 
 interface SavingsRateChartProps {
-    incomes: Income[];
-    expenses: Expense[];
     currency: string;
-    startDate?: string;
-    endDate?: string;
 }
 
 interface MonthlyData {
@@ -22,89 +19,30 @@ interface MonthlyData {
     savings: number;
 }
 
-export function SavingsRateChart({ incomes, expenses, currency, startDate, endDate }: SavingsRateChartProps) {
+export function SavingsRateChart({ currency }: SavingsRateChartProps) {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
+    const { monthlyData, formatTimePeriod } = useChartData();
 
-    // Generate dynamic time period text
-    const getTimePeriodText = (): string => {
-        if (startDate && endDate) {
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(${startMonth} - ${endMonth})`;
-        } else if (startDate) {
-            const start = new Date(startDate);
-            const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(From ${startMonth})`;
-        } else if (endDate) {
-            const end = new Date(endDate);
-            const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
-            return `(Until ${endMonth})`;
-        }
-        return "";
-    };
-
-    const timePeriodText = getTimePeriodText();
+    const timePeriodText = formatTimePeriod();
 
     const data = useMemo(() => {
-        // Create a map to store monthly totals
-        const monthlyTotals = new Map<string, MonthlyData>();
+        // Transform monthly data to savings rate format
+        const monthlyData_ = monthlyData.map(month => ({
+            month: month.monthKey,
+            totalIncome: month.income,
+            totalExpenses: month.expenses,
+            savings: month.savings,
+            savingsRate: month.income > 0 
+                ? Math.max(-100, (month.savings / month.income) * 100)
+                : -100
+        }));
 
-        // Process incomes
-        incomes.forEach(income => {
-            const date = new Date(income.date);
-            const monthKey = date.toISOString().slice(0, 7); // YYYY-MM format
-            
-            if (!monthlyTotals.has(monthKey)) {
-                monthlyTotals.set(monthKey, {
-                    month: monthKey,
-                    totalIncome: 0,
-                    totalExpenses: 0,
-                    savings: 0,
-                    savingsRate: 0
-                });
-            }
-            
-            const monthData = monthlyTotals.get(monthKey)!;
-            monthData.totalIncome += income.amount;
-        });
-
-        // Process expenses
-        expenses.forEach(expense => {
-            const date = new Date(expense.date);
-            const monthKey = date.toISOString().slice(0, 7);
-            
-            if (!monthlyTotals.has(monthKey)) {
-                monthlyTotals.set(monthKey, {
-                    month: monthKey,
-                    totalIncome: 0,
-                    totalExpenses: 0,
-                    savings: 0,
-                    savingsRate: 0
-                });
-            }
-            
-            const monthData = monthlyTotals.get(monthKey)!;
-            monthData.totalExpenses += expense.amount;
-        });
-
-        // Calculate savings rate for each month
-        const monthlyData = Array.from(monthlyTotals.values())
-            .map(data => {
-                data.savings = data.totalIncome - data.totalExpenses;
-                let savingsRate = data.totalIncome > 0 
-                    ? Math.max(-100, (data.savings / data.totalIncome) * 100)
-                    : -100;
-                // Round to 2 decimal places during data processing
-                data.savingsRate = Number(savingsRate.toFixed(2));
-                return data;
-            })
-            .sort((a, b) => a.month.localeCompare(b.month));
-
-        return monthlyData;
-    }, [incomes, expenses]);
+        return monthlyData_.map(data => ({
+            ...data,
+            savingsRate: Number(data.savingsRate.toFixed(2))
+        }));
+    }, [monthlyData]);
 
     // Calculate average savings rate
     const averageSavingsRate = useMemo(() => {
