@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { Income, Expense } from "../types/financial";
 import { useChartData } from "../hooks/useChartDataContext";
 import { ChartControls } from "./ChartControls";
 import { useChartExpansion } from "../utils/chartUtils";
+import { useChartAnimationState } from "../hooks/useChartAnimationContext";
 
 interface CustomCalendarChartProps {
     type: "income" | "expense";
@@ -28,14 +29,18 @@ interface MonthData {
     weeks: DayData[][];
 }
 
-export function CustomCalendarChart({ 
+export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({ 
     type, 
     currency = "USD", 
     title
-}: CustomCalendarChartProps) {
+}) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { filteredIncomes, filteredExpenses, formatTimePeriod } = useChartData();
+    
+    // Animation control to prevent restart on re-renders
+    const chartId = `calendar-${type}`;
+    const { hasAnimated } = useChartAnimationState(chartId);
     
     const timePeriodText = formatTimePeriod();
     const data = type === 'income' ? filteredIncomes : filteredExpenses;
@@ -59,7 +64,11 @@ export function CustomCalendarChart({
         });
 
         return dateMap;
-    }, [data]);
+    }, [
+        data.length,
+        // Add checksum to detect actual data changes, not just reference changes
+        data.reduce((sum, item) => sum + item.amount + item.id, 0)
+    ]);
 
     // Get unique years from the filtered data for calendar generation
     const displayYears = useMemo(() => {
@@ -68,7 +77,11 @@ export function CustomCalendarChart({
             years.add(new Date(transaction.date).getFullYear());
         });
         return Array.from(years).sort();
-    }, [data]);
+    }, [
+        data.length,
+        // Add checksum to detect actual data changes, not just reference changes
+        data.reduce((sum, item) => sum + item.id, 0)
+    ]);
 
     // Generate calendar data in row-column format (rows = days of month 1-31, columns = months)
     const calendarData = useMemo(() => {
@@ -135,7 +148,13 @@ export function CustomCalendarChart({
         }
         
         return { grid, maxCount, maxAmount, monthNames };
-    }, [processedData, displayYears]);
+    }, [
+        processedData.size,
+        displayYears.length,
+        // Add checksums to detect actual data changes
+        displayYears.join(','),
+        Array.from(processedData.values()).reduce((sum, d) => sum + d.count + d.amount, 0)
+    ]);
 
     // Get color intensity for a day based on transaction amount (capped at 80th percentile)
     const getColorIntensity = (amount: number): string => {
@@ -570,4 +589,6 @@ export function CustomCalendarChart({
             )}
         </>
     );
-}
+});
+
+CustomCalendarChart.displayName = 'CustomCalendarChart';

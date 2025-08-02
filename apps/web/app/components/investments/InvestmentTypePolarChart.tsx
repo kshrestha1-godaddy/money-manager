@@ -54,9 +54,9 @@ export const InvestmentTypePolarChart = React.memo<InvestmentTypePolarChartProps
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     
-    // Animation control to prevent restart on re-renders  
+    // Animation control - allow animations but prevent excessive re-renders
     const chartId = "investment-type-polar";
-    const { animationDuration, isAnimationActive } = useChartAnimationState(chartId);
+    const { hasAnimated } = useChartAnimationState(chartId);
     
     // Process data - group by investment type
     const processedData = useMemo(() => {
@@ -339,9 +339,9 @@ export const InvestmentTypePolarChart = React.memo<InvestmentTypePolarChartProps
         maintainAspectRatio: false,
         resizeDelay: 0,
         animation: {
-            animateRotate: isAnimationActive,
-            animateScale: isAnimationActive,
-            duration: isExpanded ? 0 : animationDuration, // Use controlled animation duration
+            animateRotate: true,
+            animateScale: true,
+            duration: isExpanded ? 0 : 1500, // Animate on initial load, disable when expanded for performance
         },
         plugins: {
             legend: {
@@ -421,7 +421,7 @@ export const InvestmentTypePolarChart = React.memo<InvestmentTypePolarChartProps
                 }
             }
         },
-    }), [currency, typeData, totalInvested, isExpanded, animationDuration, isAnimationActive]);
+    }), [currency, typeData, totalInvested, isExpanded]);
 
     const ChartContent = () => (
         <div>
