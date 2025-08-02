@@ -89,24 +89,8 @@ export function SavingsRateChart({ currency }: SavingsRateChartProps) {
         ])
     ];
 
-    return (
-        <div 
-            className={`bg-white rounded-lg shadow p-3 sm:p-6 ${isExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}
-            role="region"
-            aria-label="Savings Rate Trend Chart"
-            data-chart-type="savings-rate"
-        >
-            <ChartControls
-                chartRef={chartRef}
-                isExpanded={isExpanded}
-                onToggleExpanded={toggleExpanded}
-                fileName="savings-rate-chart"
-                csvData={csvData}
-                csvFileName="savings-rate-data"
-                title={`Monthly Savings Rate Trend ${timePeriodText}`}
-                tooltipText="Tracks your monthly savings as a percentage of income over time"
-            />
-
+    const ChartContent = () => (
+        <div>
             {/* Summary Stats */}
             <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-4">
                 <div className="text-center">
@@ -230,8 +214,50 @@ export function SavingsRateChart({ currency }: SavingsRateChartProps) {
                     </LineChart>
                 </ResponsiveContainer>
             </div>
-
-
         </div>
     );
-} 
+
+    return (
+        <>
+            <div 
+                className="bg-white rounded-lg shadow p-3 sm:p-6"
+                role="region"
+                aria-label="Savings Rate Trend Chart"
+                data-chart-type="savings-rate"
+            >
+                <ChartControls
+                    chartRef={chartRef}
+                    isExpanded={isExpanded}
+                    onToggleExpanded={toggleExpanded}
+                    fileName="savings-rate-chart"
+                    csvData={csvData}
+                    csvFileName="savings-rate-data"
+                    title={`Monthly Savings Rate Trend ${timePeriodText}`}
+                    tooltipText="Tracks your monthly savings as a percentage of income over time"
+                />
+                <ChartContent />
+            </div>
+
+            {/* Full screen modal */}
+            {isExpanded && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+                    <div className="bg-white rounded-lg p-3 sm:p-6 max-w-7xl w-full max-h-full overflow-auto">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 gap-2 sm:gap-0">
+                            <div>
+                                <h2 className="text-lg sm:text-2xl font-semibold">Monthly Savings Rate Trend {timePeriodText}</h2>
+                                <p className="text-sm text-gray-500">Tracks your monthly savings as a percentage of income over time</p>
+                            </div>
+                            <button
+                                onClick={toggleExpanded}
+                                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm sm:text-base"
+                            >
+                                Close
+                            </button>
+                        </div>
+                        <ChartContent />
+                    </div>
+                </div>
+            )}
+        </>
+    );
+}

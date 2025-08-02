@@ -69,42 +69,43 @@ export function WaterfallChart({ currency = "USD" }: WaterfallChartProps) {
 
     const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
         if (active && payload && payload.length) {
-            const data = payload.find(p => p.dataKey === "value");
-            if (!data) return null;
-            
-            const item = data.payload as WaterfallData;
-            let displayLabel = "";
-            
-            if (item.name === "Income") {
-                displayLabel = "Income";
-            } else if (item.name === "Expenses") {
-                displayLabel = "Expenses";
-            } else if (item.name === "Net Savings") {
-                displayLabel = item.type === "savings" ? "Net Savings" : "Net Loss";
-            }
-            
+            const data = payload[0]?.payload as WaterfallData;
             return (
-                <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-                    <p className=" text-gray-500">{displayLabel}</p>
-                    <p className="text-sm" style={{ color: getBarColor(item.type) }}>
-                        {formatCurrency(item.value, currency)}
+                <div className="bg-white p-3 border border-gray-200 rounded shadow-lg">
+                    <p className="font-medium">{label}</p>
+                    <p className="text-sm">
+                        <span className="inline-block w-3 h-3 rounded mr-2" style={{ backgroundColor: getBarColor(data.type) }}></span>
+                        {formatCurrency(data.value, currency)}
                     </p>
+                    {data.type === "expenses" && (
+                        <p className="text-xs text-gray-500">Reduces available savings</p>
+                    )}
+                    {data.type === "savings" && (
+                        <p className="text-xs text-gray-500">Money saved this period</p>
+                    )}
+                    {data.type === "loss" && (
+                        <p className="text-xs text-gray-500">Spending exceeded income</p>
+                    )}
                 </div>
             );
         }
         return null;
     };
 
-    const formatYAxisTick = (value: number): string => {
+    const formatYAxisTick = (value: number) => {
+        // Create a compact format for Y-axis ticks
+        const symbol = currency === "USD" ? "$" : currency === "NPR" ? "₨ " : "$";
+        
         if (value >= 1000000) {
-            return `${(value / 1000000).toFixed(1)}M`;
+            return `${symbol}${(value / 1000000).toFixed(1)}M`;
         } else if (value >= 1000) {
-            return `${(value / 1000).toFixed(1)}K`;
+            return `${symbol}${(value / 1000).toFixed(1)}K`;
+        } else {
+            return `${symbol}${value.toFixed(0)}`;
         }
-        return formatCurrency(value, currency);
     };
 
-    // Prepare CSV data for chart controls
+    // Prepare CSV data
     const csvData = [
         ['Category', 'Amount', 'Type'],
         ['Income', totalIncome.toString(), 'Positive'],
@@ -113,24 +114,8 @@ export function WaterfallChart({ currency = "USD" }: WaterfallChartProps) {
         ['Savings Rate', `${savingsRate.toFixed(1)}%`, 'Percentage']
     ];
 
-    return (
-        <div 
-            className={`bg-white rounded-lg shadow p-3 sm:p-6 ${isExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}
-            role="region"
-            aria-label="Financial Waterfall Chart"
-            data-chart-type="waterfall"
-        >
-            <ChartControls
-                chartRef={chartRef}
-                isExpanded={isExpanded}
-                onToggleExpanded={toggleExpanded}
-                fileName="waterfall-chart"
-                csvData={csvData}
-                csvFileName="waterfall-data"
-                title={`Financial Waterfall ${timePeriodText}`}
-                tooltipText="Visualizes the flow from income to expenses, showing your net savings"
-            />
-
+    const ChartContent = () => (
+        <div>
             {/* Summary Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4">
                 <div className="text-center">
@@ -157,7 +142,7 @@ export function WaterfallChart({ currency = "USD" }: WaterfallChartProps) {
                         <div className="relative group">
                             <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
                             <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                                Percentage of income saved: (Income - Expenses) ÷ Income × 100
+                                Percentage of income that was saved
                                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
                             </div>
                         </div>
@@ -255,4 +240,48 @@ export function WaterfallChart({ currency = "USD" }: WaterfallChartProps) {
             </div>
         </div>
     );
-} 
+
+    return (
+        <>
+            <div 
+                className="bg-white rounded-lg shadow p-3 sm:p-6"
+                role="region"
+                aria-label="Financial Waterfall Chart"
+                data-chart-type="waterfall"
+            >
+                <ChartControls
+                    chartRef={chartRef}
+                    isExpanded={isExpanded}
+                    onToggleExpanded={toggleExpanded}
+                    fileName="waterfall-chart"
+                    csvData={csvData}
+                    csvFileName="waterfall-data"
+                    title={`Financial Waterfall ${timePeriodText}`}
+                    tooltipText="Visualizes the flow from income to expenses, showing your net savings"
+                />
+                <ChartContent />
+            </div>
+
+            {/* Full screen modal */}
+            {isExpanded && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+                    <div className="bg-white rounded-lg p-3 sm:p-6 max-w-7xl w-full max-h-full overflow-auto">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 gap-2 sm:gap-0">
+                            <div>
+                                <h2 className="text-lg sm:text-2xl font-semibold">Financial Waterfall {timePeriodText}</h2>
+                                <p className="text-sm text-gray-500">Visualizes the flow from income to expenses, showing your net savings</p>
+                            </div>
+                            <button
+                                onClick={toggleExpanded}
+                                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm sm:text-base"
+                            >
+                                Close
+                            </button>
+                        </div>
+                        <ChartContent />
+                    </div>
+                </div>
+            )}
+        </>
+    );
+}
