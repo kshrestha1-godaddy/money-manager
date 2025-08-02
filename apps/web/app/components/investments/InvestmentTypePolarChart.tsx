@@ -414,26 +414,8 @@ export function InvestmentTypePolarChart({ investments, currency = "USD", title 
         },
     }), [currency, typeData, totalInvested, isExpanded]);
 
-    return (
-        <div 
-            className={`bg-white rounded-lg shadow p-3 sm:p-6 ${isExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}
-            role="region"
-            aria-label="Investment Portfolio Polar Chart"
-            data-chart-type="polar-area"
-        >
-            <ChartControls
-                chartRef={chartRef}
-                isExpanded={isExpanded}
-                onToggleExpanded={toggleExpanded}
-                fileName="investment-portfolio-polar-chart"
-                csvData={csvData}
-                csvFileName="investment-portfolio-data"
-                title={title || 'Investment Portfolio by Type'}
-                subtitle={`Total Invested: ${formatCurrency(totalInvested, currency)}`}
-                customDownloadPNG={downloadChartAsPNG}
-                customDownloadSVG={downloadChartAsSVG}
-            />
-
+    const ChartContent = () => (
+        <div>
             {!investments.length ? (
                 <div className="flex items-center justify-center h-64 text-gray-500">
                     No investment data available
@@ -461,7 +443,7 @@ export function InvestmentTypePolarChart({ investments, currency = "USD", title 
                                     {typeData.map((item, index) => {
                                         const percentage = totalInvested > 0 ? ((item.value / totalInvested) * 100).toFixed(1) : '0.0';
                                         return (
-                                            <div key={item.type} className="p-2 rounded-lg  transition-colors">
+                                            <div key={item.type} className="p-2 rounded-lg transition-colors">
                                                 <div className="flex items-center justify-between mb-1">
                                                     <div className="flex items-center space-x-2">
                                                         <div
@@ -490,5 +472,51 @@ export function InvestmentTypePolarChart({ investments, currency = "USD", title 
                 </>
             )}
         </div>
+    );
+
+    return (
+        <>
+            <div 
+                className="bg-white rounded-lg shadow p-3 sm:p-6"
+                role="region"
+                aria-label="Investment Portfolio Polar Chart"
+                data-chart-type="polar-area"
+            >
+                <ChartControls
+                    chartRef={chartRef}
+                    isExpanded={isExpanded}
+                    onToggleExpanded={toggleExpanded}
+                    fileName="investment-portfolio-polar-chart"
+                    csvData={csvData}
+                    csvFileName="investment-portfolio-data"
+                    title={title || 'Investment Portfolio by Type'}
+                    tooltipText={`Total Invested: ${formatCurrency(totalInvested, currency)}`}
+                    customDownloadPNG={downloadChartAsPNG}
+                    customDownloadSVG={downloadChartAsSVG}
+                />
+                <ChartContent />
+            </div>
+
+            {/* Full screen modal */}
+            {isExpanded && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+                    <div className="bg-white rounded-lg p-3 sm:p-6 max-w-7xl w-full max-h-full overflow-auto">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 gap-2 sm:gap-0">
+                            <div>
+                                <h2 className="text-lg sm:text-2xl font-semibold">{title || 'Investment Portfolio by Type'}</h2>
+                                <p className="text-sm text-gray-500">Total Invested: {formatCurrency(totalInvested, currency)}</p>
+                            </div>
+                            <button
+                                onClick={toggleExpanded}
+                                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm sm:text-base"
+                            >
+                                Close
+                            </button>
+                        </div>
+                        <ChartContent />
+                    </div>
+                </div>
+            )}
+        </>
     );
 }

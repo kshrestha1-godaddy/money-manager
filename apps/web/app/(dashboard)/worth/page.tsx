@@ -311,83 +311,163 @@ export default function NetWorthPage() {
 
             {/* Asset Breakdown Chart */}
             {chartData.length > 0 && (
-                <div className={`${whiteContainer} ${isChartExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}>
-                    <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                        <div>
-                            <h3 className={chartTitle}>Asset Breakdown</h3>
-                            <p className={cardSubtitle}>Distribution of your total assets</p>
+                <>
+                    <div className={whiteContainer}>
+                        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                            <div>
+                                <h3 className={chartTitle}>Asset Breakdown</h3>
+                                <p className={cardSubtitle}>Distribution of your total assets</p>
+                            </div>
+                            <ChartControls
+                                chartRef={chartRef}
+                                onToggleExpanded={toggleChartExpansion}
+                                isExpanded={isChartExpanded}
+                                csvData={exportData}
+                                fileName="net_worth_breakdown"
+                                title="Asset Breakdown"
+                                tooltipText="Distribution of your total assets"
+                            />
                         </div>
-                        <ChartControls
-                            chartRef={chartRef}
-                            onToggleExpanded={toggleChartExpansion}
-                            isExpanded={isChartExpanded}
-                            csvData={exportData}
-                            fileName="net_worth_breakdown"
-                        />
+                        <div className="p-6">
+                            <div 
+                                ref={chartRef}
+                                className="h-[32rem] w-full"
+                            >
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                        data={chartData}
+                                        margin={{ top: 40, right: 30, left: 20, bottom: 20 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                        <XAxis 
+                                            dataKey="name" 
+                                            tick={{ fontSize: 12 }}
+                                            height={40}
+                                        />
+                                        <YAxis 
+                                            tick={{ fontSize: 12 }}
+                                            tickFormatter={formatCurrencyAbbreviated}
+                                        />
+                                        <Tooltip 
+                                            formatter={(value: number) => [formatCurrency(value, currency), 'Amount']}
+                                            labelStyle={{ fontWeight: 'bold' }}
+                                            contentStyle={{ 
+                                                backgroundColor: '#f9fafb', 
+                                                border: '1px solid #e5e7eb',
+                                                borderRadius: '8px' 
+                                            }}
+                                        />
+                                        <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                            {chartData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                            {/* Total value labels at the top */}
+                                            <LabelList 
+                                                dataKey="value" 
+                                                position="top" 
+                                                formatter={(value: number) => formatCurrencyAbbreviated(value)}
+                                                style={{ 
+                                                    fontSize: '15px', 
+                                                    fontWeight: 'bold',
+                                                    fill: '#374151'
+                                                }}
+                                            />
+                                            {/* Percentage labels inside the bars */}
+                                            <LabelList 
+                                                dataKey="percentage" 
+                                                position="center" 
+                                                formatter={(value: string) => `${value}%`}
+                                                style={{ 
+                                                    fontSize: '13px', 
+                                                    fontWeight: 'bold',
+                                                    fill: '#ffffff'
+                                                }}
+                                            />
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
                     </div>
-                    <div className="p-6">
-                        <div 
-                            ref={chartRef}
-                            className={`${
-                                isChartExpanded ? 'h-[70vh] w-full' : 'h-[32rem] w-full'
-                            }`}
-                        >
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart
-                                    data={chartData}
-                                    margin={{ top: 40, right: 30, left: 20, bottom: 20 }}
+
+                    {/* Full screen modal */}
+                    {isChartExpanded && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+                            <div className="bg-white rounded-lg p-3 sm:p-6 max-w-7xl w-full max-h-full overflow-auto">
+                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 gap-2 sm:gap-0">
+                                    <div>
+                                        <h2 className="text-lg sm:text-2xl font-semibold">Asset Breakdown</h2>
+                                        <p className="text-sm text-gray-500">Distribution of your total assets</p>
+                                    </div>
+                                    <button
+                                        onClick={toggleChartExpansion}
+                                        className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm sm:text-base"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                                <div 
+                                    ref={chartRef}
+                                    className="h-[70vh] w-full"
                                 >
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                    <XAxis 
-                                        dataKey="name" 
-                                        tick={{ fontSize: 12 }}
-                                        height={40}
-                                    />
-                                    <YAxis 
-                                        tick={{ fontSize: 12 }}
-                                        tickFormatter={formatCurrencyAbbreviated}
-                                    />
-                                    <Tooltip 
-                                        formatter={(value: number) => [formatCurrency(value, currency), 'Amount']}
-                                        labelStyle={{ fontWeight: 'bold' }}
-                                        contentStyle={{ 
-                                            backgroundColor: '#f9fafb', 
-                                            border: '1px solid #e5e7eb',
-                                            borderRadius: '8px' 
-                                        }}
-                                    />
-                                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                        {chartData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                        {/* Total value labels at the top */}
-                                        <LabelList 
-                                            dataKey="value" 
-                                            position="top" 
-                                            formatter={(value: number) => formatCurrencyAbbreviated(value)}
-                                            style={{ 
-                                                fontSize: '15px', 
-                                                fontWeight: 'bold',
-                                                fill: '#374151'
-                                            }}
-                                        />
-                                        {/* Percentage labels inside the bars */}
-                                        <LabelList 
-                                            dataKey="percentage" 
-                                            position="center" 
-                                            formatter={(value: string) => `${value}%`}
-                                            style={{ 
-                                                fontSize: '13px', 
-                                                fontWeight: 'bold',
-                                                fill: '#ffffff'
-                                            }}
-                                        />
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart
+                                            data={chartData}
+                                            margin={{ top: 40, right: 30, left: 20, bottom: 20 }}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                            <XAxis 
+                                                dataKey="name" 
+                                                tick={{ fontSize: 12 }}
+                                                height={40}
+                                            />
+                                            <YAxis 
+                                                tick={{ fontSize: 12 }}
+                                                tickFormatter={formatCurrencyAbbreviated}
+                                            />
+                                            <Tooltip 
+                                                formatter={(value: number) => [formatCurrency(value, currency), 'Amount']}
+                                                labelStyle={{ fontWeight: 'bold' }}
+                                                contentStyle={{ 
+                                                    backgroundColor: '#f9fafb', 
+                                                    border: '1px solid #e5e7eb',
+                                                    borderRadius: '8px' 
+                                                }}
+                                            />
+                                            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                                {chartData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                                ))}
+                                                {/* Total value labels at the top */}
+                                                <LabelList 
+                                                    dataKey="value" 
+                                                    position="top" 
+                                                    formatter={(value: number) => formatCurrencyAbbreviated(value)}
+                                                    style={{ 
+                                                        fontSize: '15px', 
+                                                        fontWeight: 'bold',
+                                                        fill: '#374151'
+                                                    }}
+                                                />
+                                                {/* Percentage labels inside the bars */}
+                                                <LabelList 
+                                                    dataKey="percentage" 
+                                                    position="center" 
+                                                    formatter={(value: string) => `${value}%`}
+                                                    style={{ 
+                                                        fontSize: '13px', 
+                                                        fontWeight: 'bold',
+                                                        fill: '#ffffff'
+                                                    }}
+                                                />
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
+                    )}
+                </>
             )}
 
             {/* Asset Details Sections */}

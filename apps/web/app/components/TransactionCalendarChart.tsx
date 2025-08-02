@@ -291,12 +291,8 @@ export function TransactionCalendarChart({
     );
 
     return (
-        <div 
-            className={`bg-white rounded-lg shadow-sm border border-gray-200 ${
-                isExpanded ? 'fixed inset-4 z-50 overflow-auto flex flex-col' : ''
-            }`}
-        >
-            <div className={`${isExpanded ? 'p-4 flex-1 flex flex-col' : 'p-6'}`}>
+        <>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6" data-chart-type={`${type}-transaction-calendar`}>
                 <ChartControls
                     title={chartTitle}
                     tooltipText={tooltipText}
@@ -306,10 +302,29 @@ export function TransactionCalendarChart({
                     onToggleExpanded={toggleExpanded}
                     chartRef={chartRef}
                 />
-                <div className={isExpanded ? 'flex-1 mt-4' : ''}>
-                    <ChartContent />
-                </div>
+                <ChartContent />
             </div>
-        </div>
+
+            {/* Full screen modal */}
+            {isExpanded && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+                    <div className="bg-white rounded-lg p-3 sm:p-6 max-w-7xl w-full max-h-full overflow-auto">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 gap-2 sm:gap-0">
+                            <div>
+                                <h2 className="text-lg sm:text-2xl font-semibold">{chartTitle}</h2>
+                                <p className="text-sm text-gray-500">{tooltipText}</p>
+                            </div>
+                            <button
+                                onClick={toggleExpanded}
+                                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm sm:text-base"
+                            >
+                                Close
+                            </button>
+                        </div>
+                        <ChartContent />
+                    </div>
+                </div>
+            )}
+        </>
     );
 }
