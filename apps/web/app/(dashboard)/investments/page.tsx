@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { InvestmentTable } from "../../components/investments/InvestmentTable";
 import { AddInvestmentModal } from "../../components/investments/AddInvestmentModal";
 import { EditInvestmentModal } from "../../components/investments/EditInvestmentModal";
@@ -27,6 +27,7 @@ import {
 } from "../../config/colorConfig";
 import { InvestmentTypePolarChart } from "../../components/investments/InvestmentTypePolarChart";
 import { InvestmentTargetProgressChart } from "../../components/investments/InvestmentTargetProgressChart";
+import { ChartAnimationProvider } from "../../hooks/useChartAnimationContext";
 // Extract color variables for better readability
 const pageContainer = CONTAINER_COLORS.page;
 const errorContainer = CONTAINER_COLORS.error;
@@ -63,6 +64,9 @@ const redNegativeIcon = ICON_COLORS.redNegative;
 
 export default function Investments() {
     const { currency: userCurrency } = useCurrency();
+    
+    // Debounce timeout ref for filter changes
+    const debounceTimeoutRef = useRef<NodeJS.Timeout>();
 
     // Bulk delete modal states
     const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
@@ -142,6 +146,43 @@ export default function Investments() {
         isBulkDeleting,
     } = useOptimizedInvestments();
 
+    // Cleanup debounce timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (debounceTimeoutRef.current) {
+                clearTimeout(debounceTimeoutRef.current);
+            }
+        };
+    }, []);
+
+    // Debounced filter handlers to prevent rapid re-renders
+    const debouncedSetSearchTerm = useCallback((value: string) => {
+        if (debounceTimeoutRef.current) {
+            clearTimeout(debounceTimeoutRef.current);
+        }
+        debounceTimeoutRef.current = setTimeout(() => {
+            setSearchTerm(value);
+        }, 200); // 200ms debounce for search
+    }, [setSearchTerm]);
+
+    const debouncedSetStartDate = useCallback((value: string) => {
+        if (debounceTimeoutRef.current) {
+            clearTimeout(debounceTimeoutRef.current);
+        }
+        debounceTimeoutRef.current = setTimeout(() => {
+            setStartDate(value);
+        }, 150); // 150ms debounce for dates
+    }, [setStartDate]);
+
+    const debouncedSetEndDate = useCallback((value: string) => {
+        if (debounceTimeoutRef.current) {
+            clearTimeout(debounceTimeoutRef.current);
+        }
+        debounceTimeoutRef.current = setTimeout(() => {
+            setEndDate(value);
+        }, 150); // 150ms debounce for dates
+    }, [setEndDate]);
+
     // Format investment type for display
     const formatType = (type: string) => {
         return type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
@@ -149,7 +190,7 @@ export default function Investments() {
     
     // Target data is now managed by useOptimizedInvestmentTargets hook
 
-    // Target modal handlers using the optimized hook
+    // Target modal handlers using the optimized hook - memoized for stability
     const openAddTargetModal = useCallback(() => {
         openTargetModal('create');
     }, [openTargetModal]);
@@ -161,6 +202,22 @@ export default function Investments() {
             openTargetModal('edit', actualTarget);
         }
     }, [actualTargets, openTargetModal]);
+
+    // Memoize chart props to prevent unnecessary re-renders
+    const chartProps = useMemo(() => ({
+        polarChartProps: {
+            investments,
+            currency: userCurrency,
+            title: "Portfolio Distribution by Investment Type"
+        },
+        targetChartProps: {
+            targets: targetProgress,
+            currency: userCurrency,
+            title: "Investment Target Progress",
+            onEditTarget: openEditTargetModal,
+            onAddTarget: openAddTargetModal
+        }
+    }), [investments, userCurrency, targetProgress, openEditTargetModal, openAddTargetModal]);
 
     // Bulk delete modal handlers
     const handleSectionBulkDelete = (sectionInvestments: InvestmentInterface[]) => {
@@ -406,24 +463,16 @@ export default function Investments() {
                 </div>
             </div>
 
-            {/* Charts Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Investment Type Distribution Polar Chart */}
-                <InvestmentTypePolarChart
-                    investments={investments}
-                    currency={userCurrency}
-                    title="Portfolio Distribution by Investment Type"
-                />
-                
-                {/* Investment Target Progress Chart */}
-                <InvestmentTargetProgressChart
-                    targets={targetProgress}
-                    currency={userCurrency}
-                    title="Investment Target Progress"
-                    onEditTarget={openEditTargetModal}
-                    onAddTarget={openAddTargetModal}
-                />
-            </div>
+            {/* Charts Section - Wrapped with ChartAnimationProvider for optimal performance */}
+            <ChartAnimationProvider>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Investment Type Distribution Polar Chart */}
+                    <InvestmentTypePolarChart {...chartProps.polarChartProps} />
+                    
+                    {/* Investment Target Progress Chart */}
+                    <InvestmentTargetProgressChart {...chartProps.targetChartProps} />
+                </div>
+            </ChartAnimationProvider>
 
             {/* Filters and Actions */}
             <div className={UI_STYLES.filters.containerWithMargin}>
@@ -436,7 +485,7 @@ export default function Investments() {
                             type="text"
                             placeholder="Search by name, symbol, notes..."
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => debouncedSetSearchTerm(e.target.value)}
                             className={standardInput}
                         />
                     </div>
@@ -464,7 +513,7 @@ export default function Investments() {
                         <input
                             type="date"
                             value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
+                            onChange={(e) => debouncedSetStartDate(e.target.value)}
                             className={standardInput}
                         />
                     </div>
@@ -475,7 +524,7 @@ export default function Investments() {
                         <input
                             type="date"
                             value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
+                            onChange={(e) => debouncedSetEndDate(e.target.value)}
                             className={standardInput}
                         />
                     </div>

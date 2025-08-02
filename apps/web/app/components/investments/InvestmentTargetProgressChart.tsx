@@ -16,13 +16,13 @@ interface InvestmentTargetProgressChartProps {
 
 
 
-export function InvestmentTargetProgressChart({ 
+export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgressChartProps>(({ 
     targets, 
     currency = "USD", 
     title = "Investment Target Progress",
     onEditTarget,
     onAddTarget
-}: InvestmentTargetProgressChartProps) {
+}) => {
     // Memoize summary calculations
     const summary = React.useMemo(() => {
         if (!targets?.length) {
@@ -37,7 +37,11 @@ export function InvestmentTargetProgressChart({
             completed,
             averageProgress: Number(averageProgress.toFixed(1))
         };
-    }, [targets]);
+    }, [
+        targets?.length,
+        // Add checksum to detect actual data changes, not just reference changes
+        targets?.reduce((sum, target) => sum + target.progress + (target.isComplete ? 1 : 0), 0) ?? 0
+    ]);
 
     if (!targets?.length) {
         return (
@@ -122,4 +126,6 @@ export function InvestmentTargetProgressChart({
             </div>
         </div>
     );
-}
+});
+
+InvestmentTargetProgressChart.displayName = 'InvestmentTargetProgressChart';

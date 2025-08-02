@@ -1,11 +1,10 @@
-import { useMemo } from "react";
+import React, { useMemo, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Label } from "recharts";
 import { Info } from "lucide-react";
 import { Income, Expense } from "../types/financial";
 import { useChartExpansion } from "../utils/chartUtils";
 import { useChartData } from "../hooks/useChartDataContext";
 import { ChartControls } from "./ChartControls";
-import { useRef } from "react";
 
 interface SavingsRateChartProps {
     currency: string;
@@ -19,7 +18,7 @@ interface MonthlyData {
     savings: number;
 }
 
-export function SavingsRateChart({ currency }: SavingsRateChartProps) {
+export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency }) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { monthlyData, formatTimePeriod } = useChartData();
@@ -260,4 +259,6 @@ export function SavingsRateChart({ currency }: SavingsRateChartProps) {
             )}
         </>
     );
-}
+});
+
+SavingsRateChart.displayName = 'SavingsRateChart';

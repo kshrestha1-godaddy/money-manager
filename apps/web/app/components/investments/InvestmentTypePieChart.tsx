@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { formatCurrency } from "../../utils/currency";
 import { InvestmentInterface } from "../../types/investments";
 import { ChartControls } from "../ChartControls";
 import { useChartExpansion } from "../../utils/chartUtils";
+import { useChartAnimationState } from "../../hooks/useChartAnimationContext";
 
 interface InvestmentTypePieChartProps {
     investments: InvestmentInterface[];
@@ -46,41 +47,54 @@ const TYPE_LABELS = {
     OTHER: 'Other'
 };
 
-export function InvestmentTypePieChart({ investments, currency = "USD", title }: InvestmentTypePieChartProps) {
+export const InvestmentTypePieChart = React.memo<InvestmentTypePieChartProps>(({ investments, currency = "USD", title }) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     
-    // Group investments by type and calculate total invested amounts
-    const typeMap = new Map<string, { totalValue: number; count: number }>();
+    // Animation control to prevent restart on re-renders
+    const chartId = "investment-type-pie";
+    const { animationDuration, isAnimationActive } = useChartAnimationState(chartId);
     
-    investments.forEach(investment => {
-        const type = investment.type || 'OTHER';
-        const currentData = typeMap.get(type) || { totalValue: 0, count: 0 };
+    // Process data with useMemo for stability and optimized dependencies
+    const { rawChartData, totalInvested, totalPositions } = useMemo(() => {
+        // Group investments by type and calculate total invested amounts
+        const typeMap = new Map<string, { totalValue: number; count: number }>();
         
-        // Calculate total invested amount (purchase price * quantity for current value)
-        // Ensure we handle null/undefined values safely
-        const quantity = Number(investment.quantity) || 0;
-        const purchasePrice = Number(investment.purchasePrice) || 0;
-        const investedAmount = quantity * purchasePrice;
-        
-        typeMap.set(type, {
-            totalValue: currentData.totalValue + investedAmount,
-            count: currentData.count + 1
+        investments.forEach(investment => {
+            const type = investment.type || 'OTHER';
+            const currentData = typeMap.get(type) || { totalValue: 0, count: 0 };
+            
+            // Calculate total invested amount (purchase price * quantity for current value)
+            // Ensure we handle null/undefined values safely
+            const quantity = Number(investment.quantity) || 0;
+            const purchasePrice = Number(investment.purchasePrice) || 0;
+            const investedAmount = quantity * purchasePrice;
+            
+            typeMap.set(type, {
+                totalValue: currentData.totalValue + investedAmount,
+                count: currentData.count + 1
+            });
         });
-    });
 
-    // Convert to array and add colors
-    const rawChartData: TypeData[] = Array.from(typeMap.entries())
-        .map(([type, data]) => ({
-            name: TYPE_LABELS[type as keyof typeof TYPE_LABELS] || type,
-            value: data.totalValue,
-            count: data.count,
-            color: INVESTMENT_TYPE_COLORS[type as keyof typeof INVESTMENT_TYPE_COLORS] || '#9CA3AF'
-        }))
-        .sort((a, b) => b.value - a.value); // Sort by value descending
+        // Convert to array and add colors
+        const rawChartData: TypeData[] = Array.from(typeMap.entries())
+            .map(([type, data]) => ({
+                name: TYPE_LABELS[type as keyof typeof TYPE_LABELS] || type,
+                value: data.totalValue,
+                count: data.count,
+                color: INVESTMENT_TYPE_COLORS[type as keyof typeof INVESTMENT_TYPE_COLORS] || '#9CA3AF'
+            }))
+            .sort((a, b) => b.value - a.value); // Sort by value descending
 
-    const totalInvested = rawChartData.reduce((sum, item) => sum + item.value, 0);
-    const totalPositions = rawChartData.reduce((sum, item) => sum + item.count, 0);
+        const totalInvested = rawChartData.reduce((sum, item) => sum + item.value, 0);
+        const totalPositions = rawChartData.reduce((sum, item) => sum + item.count, 0);
+
+        return { rawChartData, totalInvested, totalPositions };
+    }, [
+        investments.length,
+        // Add checksum to detect actual data changes, not just reference changes
+        investments.reduce((sum, inv) => sum + inv.id + inv.quantity + inv.purchasePrice, 0)
+    ]);
 
     // Filter types >= 2% and group smaller ones as "Others"
     const significantTypes = rawChartData.filter(item => {
@@ -191,6 +205,9 @@ export function InvestmentTypePieChart({ investments, currency = "USD", title }:
                                 outerRadius={isExpanded ? 200 : 100}
                                 fill="#8884d8"
                                 dataKey="value"
+                                animationBegin={0}
+                                animationDuration={animationDuration}
+                                isAnimationActive={isAnimationActive}
                             >
                                 {chartData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -321,4 +338,6 @@ export function InvestmentTypePieChart({ investments, currency = "USD", title }:
             )}
         </>
     );
-}
+});
+
+InvestmentTypePieChart.displayName = 'InvestmentTypePieChart';

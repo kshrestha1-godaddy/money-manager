@@ -342,10 +342,21 @@ export function ChartDataProvider({
   startDate, 
   endDate 
 }: ChartDataProviderProps) {
-  // Use useMemo at component level (proper place for React hooks)
+  // Use useMemo with stable dependencies and deep comparison for arrays
   const processedData = useMemo(
-    () => processChartData(incomes, expenses, startDate, endDate),
-    [incomes, expenses, startDate, endDate]
+    () => {
+      // Only recalculate if data actually changed, not just reference
+      return processChartData(incomes, expenses, startDate, endDate);
+    },
+    [
+      incomes.length, 
+      expenses.length, 
+      startDate, 
+      endDate,
+      // Add checksums to detect actual data changes
+      incomes.reduce((sum, income) => sum + income.amount + income.id, 0),
+      expenses.reduce((sum, expense) => sum + expense.amount + expense.id, 0)
+    ]
   );
 
   const contextValue: ChartDataContextType = useMemo(() => ({
