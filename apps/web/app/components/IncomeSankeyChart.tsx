@@ -152,27 +152,39 @@ export function IncomeSankeyChart({ currency = "USD", title }: IncomeSankeyChart
                 // Clear container
                 container.innerHTML = '';
 
-                // Create data table
+                // Create data table with simple tooltip
                 const data = new window.google.visualization.DataTable();
                 data.addColumn('string', 'From');
                 data.addColumn('string', 'To');
                 data.addColumn('number', 'Weight');
+                data.addColumn({type: 'string', role: 'tooltip'});
 
-                // Add rows with validated data
+                // Add rows with simple tooltips
                 const rows = validData.map((item) => {
                     const percentage = total > 0 ? ((item.size / total) * 100).toFixed(1) : '0.0';
                     const labelWithPercentage = `${item.from} (${percentage}%)`;
                     const validSize = Math.max(item.size, 0.01); // Ensure minimum positive value
-                    return [labelWithPercentage, item.to, validSize];
+                    
+                    // Simple tooltip format: "Category (X%)" on first line, "Currency Amount" on second line
+                    const formattedAmount = formatCurrency(item.size, currency);
+                    const tooltip = `Total: ${formattedAmount}`;
+                    
+                    return [labelWithPercentage, item.to, validSize, tooltip];
                 });
 
-                console.log('Chart data rows:', rows);
+                // console.log('Chart data rows:', rows);
                 data.addRows(rows);
 
-                // Chart options with validated numeric dimensions
+                // Chart options with simple tooltip
                 const options = {
                     width: width,
                     height: height,
+                    tooltip: {
+                        textStyle: {
+                            fontName: 'Arial',
+                            fontSize: 13
+                        }
+                    },
                     sankey: {
                         node: {
                             colors: COLORS.slice(0, validData.length + 1), // Only use colors we need
@@ -189,7 +201,7 @@ export function IncomeSankeyChart({ currency = "USD", title }: IncomeSankeyChart
                     }
                 };
 
-                console.log('Chart options:', options);
+                // console.log('Chart options:', options);
 
                 // Create and draw chart
                 currentChart = new window.google.visualization.Sankey(container);
