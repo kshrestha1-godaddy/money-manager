@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useCallback } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, ReferenceLine, Cell } from "recharts";
 import { AccountInterface } from "../types/accounts";
 import { formatCurrency } from "../utils/currency";
@@ -18,6 +18,34 @@ interface ChartDataPoint {
     accountCount: number;
     percentage: number;
 }
+
+// Extract formatting functions outside component to prevent re-definitions
+const formatTooltipValue = (value: number, name: string, currency: string) => {
+    if (name === 'balance') {
+        return [formatCurrency(value, currency), 'Total Balance'];
+    }
+    return [value, name];
+};
+
+const formatYAxisTick = (value: number, currency: string) => {
+    if (value >= 1000000) {
+        return `${(value / 1000000).toFixed(1)}M`;
+    } else if (value >= 1000) {
+        return `${(value / 1000).toFixed(1)}K`;
+    }
+    return formatCurrency(value, currency);
+};
+
+const formatDataLabel = (value: number, currency: string) => {
+    if (value >= 1000000) {
+        return `${(value / 1000000).toFixed(3)}M`;
+    } else if (value >= 1000) {
+        return `${(value / 1000).toFixed(3)}K`;
+    }
+    return formatCurrency(value, currency);
+};
+
+const formatPercentageLabel = (value: number) => `${value.toFixed(1)}%`;
 
 export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChartProps) {
     const { isExpanded, toggleExpanded } = useChartExpansion();
@@ -66,8 +94,8 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
         return chartDataPoints;
     }, [accounts]);
 
-    // Prepare CSV data for export
-    const csvData = [
+    // Memoize CSV data to prevent unnecessary recalculations
+    const csvData = useMemo(() => [
         ['Bank', 'Total Balance', 'Account Count', 'Percentage'],
         ...chartData.map(item => [
             item.bank,
@@ -75,121 +103,69 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
             item.accountCount.toString(),
             item.percentage.toFixed(1) + '%'
         ])
-    ];
+    ], [chartData]);
 
-    const formatTooltip = (value: number, name: string, props: any) => {
-        if (name === 'balance') {
-            return [
-                formatCurrency(value, currency), 
-                'Total Balance'
-            ];
+    // Memoize callback functions to prevent unnecessary re-renders
+    const handleFormatTooltip = useCallback((value: number, name: string) => 
+        formatTooltipValue(value, name, currency), [currency]);
+    
+    const handleFormatYAxisTick = useCallback((value: number) => 
+        formatYAxisTick(value, currency), [currency]);
+    
+    const handleFormatDataLabel = useCallback((value: number) => 
+        formatDataLabel(value, currency), [currency]);
+
+    // Custom tooltip content component
+    const CustomTooltip = useCallback(({ active, payload, label }: any) => {
+        if (active && payload && payload.length > 0 && payload[0]) {
+            const data = payload[0].payload as ChartDataPoint;
+            return (
+                <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-2 sm:p-3 max-w-xs">
+                    <p className="text-xs sm:text-sm font-medium text-gray-900 mb-1">{label}</p>
+                    <p className="text-xs sm:text-sm text-blue-600">
+                        Balance: {formatCurrency(data.balance, currency)}
+                    </p>
+                    <p className="text-xs sm:text-sm text-gray-600">
+                        Accounts: {data.accountCount}
+                    </p>
+                </div>
+            );
         }
-        return [value, name];
-    };
+        return null;
+    }, [currency]);
 
-    const formatYAxisTick = (value: number) => {
-        if (value >= 1000000) {
-            return `${(value / 1000000).toFixed(1)}M`;
-        } else if (value >= 1000) {
-            return `${(value / 1000).toFixed(1)}K`;
-        }
-        return formatCurrency(value, currency);
-    };
-
-    // Data label formatter with 3 decimal precision for top labels
-    const formatDataLabel = (value: number) => {
-        if (value >= 1000000) {
-            return `${(value / 1000000).toFixed(3)}M`;
-        } else if (value >= 1000) {
-            return `${(value / 1000).toFixed(3)}K`;
-        }
-        return formatCurrency(value, currency);
-    };
-
-    const renderCustomLabel = (props: any) => {
-        const { x, y, width, height, payload } = props;
-        
-        // Debug log to see what data we're getting
-        console.log('Label props:', props);
-        
-        // Check if payload exists and has percentage property
-        if (!payload || typeof payload.percentage !== 'number') {
-            console.log('No valid payload or percentage:', payload);
-            return null;
-        }
-        
-        const percentage = payload.percentage;
-        
-        // Temporarily remove the 5% filter to see all labels
-        // if (percentage < 5) return null;
-        
-        return (
-            <text
-                x={x + width / 2}
-                y={y + height / 2}
-                fill="white"
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fontSize="11"
-                fontWeight="bold"
-            >
-                {`${percentage.toFixed(1)}%`}
-            </text>
-        );
-    };
-
+    const chartHeight = isExpanded ? 'h-[60vh]' : 'h-48 sm:h-64 lg:h-80';
+    
     const ChartContent = () => (
         <div>
             <div 
                 ref={chartRef}
-                className={`${isExpanded ? 'h-[60vh] w-full' : 'h-36 sm:h-[200px] lg:h-[300px] xl:h-[400px] w-full'}`}
+                className={`${chartHeight} w-full`}
             >
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                         data={chartData}
-                        margin={{
-                            top: 20,
-                            right: 15,
-                            left: 20,
-                            bottom: 5,
-                        }}
+                        margin={{ top: 20, right: 15, left: 20, bottom: 5 }}
                     >
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <ReferenceLine y={0} stroke="#666" strokeWidth={1} />
+                        <ReferenceLine y={0} stroke="#666" />
                         <XAxis 
                             dataKey="bank" 
                             tick={{ fontSize: 11 }}
                             stroke="#666"
                             height={40}
                             interval={0}
-                            textAnchor="middle"
                         />
                         <YAxis 
                             tick={{ fontSize: 10 }}
                             stroke="#666"
-                            tickFormatter={formatYAxisTick}
-                            width={40}
+                            tickFormatter={handleFormatYAxisTick}
+                            width={50}
                             domain={['dataMin < 0 ? dataMin * 1.1 : 0', 'dataMax * 1.1']}
                         />
                         <Tooltip 
-                            formatter={formatTooltip}
-                            content={({ active, payload, label }) => {
-                                if (active && payload && payload.length > 0 && payload[0]) {
-                                    const data = payload[0].payload as ChartDataPoint;
-                                    return (
-                                        <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-2 sm:p-3 max-w-xs">
-                                            <p className="text-xs sm:text-sm font-medium text-gray-900 mb-1">{label}</p>
-                                            <p className="text-xs sm:text-sm text-blue-600">
-                                                Balance: {formatCurrency(data.balance, currency)}
-                                            </p>
-                                            <p className="text-xs sm:text-sm text-gray-600">
-                                                Accounts: {data.accountCount}
-                                            </p>
-                                        </div>
-                                    );
-                                }
-                                return null;
-                            }}
+                            formatter={handleFormatTooltip}
+                            content={CustomTooltip}
                         />
                         <Bar 
                             dataKey="balance" 
@@ -206,7 +182,7 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                             <LabelList 
                                 dataKey="balance" 
                                 position="top" 
-                                formatter={formatDataLabel}
+                                formatter={handleFormatDataLabel}
                                 style={{ 
                                     fill: '#374151',
                                     fontSize: '11px',
@@ -220,7 +196,7 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                                 fill="white"
                                 fontSize={9}
                                 fontWeight="bold"
-                                formatter={(value: number) => `${value.toFixed(1)}%`}
+                                formatter={formatPercentageLabel}
                             />
                         </Bar>
                     </BarChart>
@@ -272,8 +248,8 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                 />
                 
                 {/* Summary Stats */}
-                <div className="mb-3 sm:mb-4">
-                    <div className="text-xs sm:text-sm text-gray-500">
+                <div className="mb-4">
+                    <div className="text-sm text-gray-500">
                         {chartData.length} bank{chartData.length !== 1 ? 's' : ''} • Total Balance: {formatCurrency(chartData.reduce((sum, item) => sum + item.balance, 0), currency)}
                     </div>
                 </div>
