@@ -1,11 +1,12 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState, useCallback } from "react";
+import { Suspense, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Income, Expense } from "../../types/financial";
 import { getIncomes, createIncome, updateIncome, deleteIncome } from "../../actions/incomes";
 import { getExpenses, createExpense, updateExpense, deleteExpense } from "../../actions/expenses";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { ChartDataProvider } from "../../hooks/useChartDataContext";
+import { ChartAnimationProvider } from "../../hooks/useChartAnimationContext";
 import { WaterfallChart } from "../../components/WaterfallChart";
 import { CategoryPieChart } from "../../components/CategoryPieChart";
 import { IncomeSankeyChart } from "../../components/IncomeSankeyChart";
@@ -63,16 +64,35 @@ function DashboardContent() {
         exportToCSV: () => {}, // Not used here
     });
 
-    // Optimized date filter handlers with useCallback to prevent unnecessary re-renders
+    // Debounced date filter handlers to prevent rapid re-renders
+    const debounceTimeoutRef = useRef<NodeJS.Timeout>();
+    
     const handleDateChange = useCallback((start: string, end: string) => {
-        setStartDate(start);
-        setEndDate(end);
+        // Clear previous timeout
+        if (debounceTimeoutRef.current) {
+            clearTimeout(debounceTimeoutRef.current);
+        }
+        
+        // Debounce the state update
+        debounceTimeoutRef.current = setTimeout(() => {
+            setStartDate(start);
+            setEndDate(end);
+        }, 150); // 150ms debounce
     }, []);
     
     const clearFilters = useCallback(() => {
         setStartDate("");
         setEndDate("");
     }, []);
+
+    // Memoize props passed to charts to prevent unnecessary re-renders
+    const dashboardProps = useMemo(() => ({
+        currency,
+        startDate,
+        endDate,
+        onDateChange: handleDateChange,
+        onClearFilters: clearFilters
+    }), [currency, startDate, endDate, handleDateChange, clearFilters]);
 
     // Set localStorage flag if user has any financial data (for tutorial system)
     useEffect(() => {
@@ -84,6 +104,15 @@ function DashboardContent() {
         }
     }, [incomesData.items.length, expensesData.items.length]);
 
+    // Cleanup debounce timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (debounceTimeoutRef.current) {
+                clearTimeout(debounceTimeoutRef.current);
+            }
+        };
+    }, []);
+
     // Loading state
     if (incomesData.loading || expensesData.loading) {
         return (
@@ -94,22 +123,18 @@ function DashboardContent() {
         );
     }
 
-    // Main UI render - wrapped with ChartDataProvider for optimal performance
+    // Main UI render - wrapped with providers for optimal performance
     return (
-        <ChartDataProvider
-            incomes={incomesData.items}
-            expenses={expensesData.items}
-            startDate={startDate}
-            endDate={endDate}
-        >
-            <DashboardCharts
-                currency={currency}
+        <ChartAnimationProvider>
+            <ChartDataProvider
+                incomes={incomesData.items}
+                expenses={expensesData.items}
                 startDate={startDate}
                 endDate={endDate}
-                onDateChange={handleDateChange}
-                onClearFilters={clearFilters}
-            />
-        </ChartDataProvider>
+            >
+                <DashboardCharts {...dashboardProps} />
+            </ChartDataProvider>
+        </ChartAnimationProvider>
     );
 }
 
@@ -155,16 +180,22 @@ function DashboardCharts({
             {/* Financial Overview - Waterfall Chart & Savings Rate Chart Side by Side */}
             <div className="grid grid-cols-2 gap-4">
                 <Suspense fallback={<ChartSkeleton title="Financial Overview" />}>
-                    <WaterfallChart currency={currency} />
+                    <div key="waterfall-chart">
+                        <WaterfallChart currency={currency} />
+                    </div>
                 </Suspense>
                 <Suspense fallback={<ChartSkeleton title="Savings Rate Trend" />}>
-                    <SavingsRateChart currency={currency} />
+                    <div key="savings-rate-chart">
+                        <SavingsRateChart currency={currency} />
+                    </div>
                 </Suspense>
             </div>
 
             {/* Monthly Trend Chart */}
             <Suspense fallback={<ChartSkeleton title="Monthly Trends" />}>
-                <MonthlyTrendChart currency={currency} />
+                <div key="monthly-trend-chart">
+                    <MonthlyTrendChart currency={currency} />
+                </div>
             </Suspense>
 
             {/* Category Charts - Side by Side */}

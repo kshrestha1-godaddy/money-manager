@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { formatCurrency } from "../utils/currency";
 import { Income, Expense } from "../types/financial";
 import { useChartData } from "../hooks/useChartDataContext";
 import { ChartControls } from "./ChartControls";
 import { useChartExpansion } from "../utils/chartUtils";
+import { useChartAnimationState } from "../hooks/useChartAnimationContext";
 
 interface CategoryTrendChartProps {
     type: 'income' | 'expense';
@@ -19,11 +20,15 @@ interface MonthlyData {
     formattedMonth: string;
 }
 
-export function CategoryTrendChart({ type, currency = "USD" }: CategoryTrendChartProps) {
+export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(({ type, currency = "USD" }) => {
     const [selectedCategory, setSelectedCategory] = useState<string>("");
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { getCategoryList, getMonthlyDataForCategory, formatTimePeriod } = useChartData();
+    
+    // Animation control to prevent restart on re-renders
+    const chartId = `category-trend-${type}`;
+    const { animationDuration, isAnimationActive } = useChartAnimationState(chartId);
 
     // Get unique categories from data
     const categories = getCategoryList(type);
@@ -297,6 +302,8 @@ export function CategoryTrendChart({ type, currency = "USD" }: CategoryTrendChar
                             dot={{ fill: type === 'income' ? "#22c55e" : "#ef4444", strokeWidth: 2, r: 6 }}
                             activeDot={{ r: 8, fill: type === 'income' ? "#16a34a" : "#dc2626" }}
                             connectNulls={false}
+                            animationDuration={animationDuration}
+                            isAnimationActive={isAnimationActive}
                         />
                     </LineChart>
                 </ResponsiveContainer>
@@ -398,4 +405,6 @@ export function CategoryTrendChart({ type, currency = "USD" }: CategoryTrendChar
             )}
         </>
     );
-} 
+});
+
+CategoryTrendChart.displayName = 'CategoryTrendChart'; 

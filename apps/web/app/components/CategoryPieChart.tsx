@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo, useCallback } from "react";
+import React, { useState, useRef, useMemo, useCallback } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { formatCurrency } from "../utils/currency";
 import { Income, Expense } from "../types/financial";
@@ -27,7 +27,7 @@ const COLORS = [
     '#FFB6C1', '#20B2AA', '#F4A460', '#9370DB'
 ];
 
-export function CategoryPieChart({ type, currency = "USD", title }: CategoryPieChartProps) {
+export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, currency = "USD", title }) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { categoryData, formatTimePeriod } = useChartData();
@@ -385,4 +385,6 @@ export function CategoryPieChart({ type, currency = "USD", title }: CategoryPieC
             )}
         </>
     );
-}  
+});
+
+CategoryPieChart.displayName = 'CategoryPieChart';  

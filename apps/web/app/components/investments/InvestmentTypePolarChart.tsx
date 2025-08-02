@@ -14,6 +14,7 @@ import { formatCurrency } from "../../utils/currency";
 import { InvestmentInterface } from "../../types/investments";
 import { ChartControls } from "../ChartControls";
 import { useChartExpansion } from "../../utils/chartUtils";
+import { useChartAnimationState } from "../../hooks/useChartAnimationContext";
 
 ChartJS.register(RadialLinearScale, ArcElement, Tooltip, Legend, ChartDataLabels);
 
@@ -49,9 +50,13 @@ const TYPE_LABELS = {
     OTHER: 'Other'
 };
 
-export function InvestmentTypePolarChart({ investments, currency = "USD", title }: InvestmentTypePolarChartProps) {
+export const InvestmentTypePolarChart = React.memo<InvestmentTypePolarChartProps>(({ investments, currency = "USD", title }) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
+    
+    // Animation control to prevent restart on re-renders  
+    const chartId = "investment-type-polar";
+    const { animationDuration, isAnimationActive } = useChartAnimationState(chartId);
     
     // Process data - group by investment type
     const processedData = useMemo(() => {
@@ -101,7 +106,11 @@ export function InvestmentTypePolarChart({ investments, currency = "USD", title 
                 }]
             }
         };
-    }, [investments]);
+    }, [
+        investments.length,
+        // Add checksum to detect actual data changes, not just reference changes
+        investments.reduce((sum, inv) => sum + inv.id + inv.quantity + inv.purchasePrice, 0)
+    ]);
 
     const { typeData, totalInvested, chartData } = processedData;
 
@@ -330,9 +339,9 @@ export function InvestmentTypePolarChart({ investments, currency = "USD", title 
         maintainAspectRatio: false,
         resizeDelay: 0,
         animation: {
-            animateRotate: true,
-            animateScale: true,
-            duration: isExpanded ? 0 : 1500, // Disable animation when expanded to prevent layout issues
+            animateRotate: isAnimationActive,
+            animateScale: isAnimationActive,
+            duration: isExpanded ? 0 : animationDuration, // Use controlled animation duration
         },
         plugins: {
             legend: {
@@ -412,7 +421,7 @@ export function InvestmentTypePolarChart({ investments, currency = "USD", title 
                 }
             }
         },
-    }), [currency, typeData, totalInvested, isExpanded]);
+    }), [currency, typeData, totalInvested, isExpanded, animationDuration, isAnimationActive]);
 
     const ChartContent = () => (
         <div>
@@ -519,4 +528,6 @@ export function InvestmentTypePolarChart({ investments, currency = "USD", title 
             )}
         </>
     );
-}
+});
+
+InvestmentTypePolarChart.displayName = 'InvestmentTypePolarChart';

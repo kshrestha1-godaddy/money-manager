@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import React, { useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, LabelList, TooltipProps } from "recharts";
 import { Info } from "lucide-react";
 import { formatCurrency } from "../utils/currency";
@@ -20,7 +20,7 @@ interface WaterfallData {
     type: "income" | "expenses" | "savings" | "loss";
 }
 
-export function WaterfallChart({ currency = "USD" }: WaterfallChartProps) {
+export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency = "USD" }) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { totals, formatTimePeriod } = useChartData();
@@ -284,4 +284,6 @@ export function WaterfallChart({ currency = "USD" }: WaterfallChartProps) {
             )}
         </>
     );
-}
+});
+
+WaterfallChart.displayName = 'WaterfallChart';

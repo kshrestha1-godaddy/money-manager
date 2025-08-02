@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useEffect, useMemo } from "react";
+import React, { useRef, useEffect, useMemo } from "react";
 import { formatCurrency } from "../utils/currency";
 import { useChartData } from "../hooks/useChartDataContext";
 import { ChartControls } from "./ChartControls";
 import { useChartExpansion } from "../utils/chartUtils";
+import { useChartAnimationState } from "../hooks/useChartAnimationContext";
 
 // Declare Google Charts types
 declare global {
@@ -24,10 +25,14 @@ interface SankeyData {
     size: number;
 }
 
-export function IncomeSankeyChart({ currency = "USD", title }: IncomeSankeyChartProps) {
+export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency = "USD", title }) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { filteredIncomes, formatTimePeriod } = useChartData();
+    
+    // Animation control to prevent restart on re-renders (Google Charts has its own animation)
+    const chartId = "income-sankey";
+    const { hasAnimated } = useChartAnimationState(chartId);
     
     // Fixed color palette - no randomization
     const COLORS = [
@@ -36,7 +41,7 @@ export function IncomeSankeyChart({ currency = "USD", title }: IncomeSankeyChart
         '#6366f1', '#dc2626', '#7c3aed', '#0891b2', '#65a30d'
     ];
 
-    // Process data with useMemo for stability
+    // Process data with useMemo for stability and optimized dependencies
     const { sankeyData, total, csvData } = useMemo(() => {
         const categoryMap = new Map<string, number>();
         
@@ -74,9 +79,13 @@ export function IncomeSankeyChart({ currency = "USD", title }: IncomeSankeyChart
         ];
 
         return { sankeyData, total, csvData };
-    }, [filteredIncomes]);
+    }, [
+        filteredIncomes.length,
+        // Add checksum to detect actual data changes, not just reference changes
+        filteredIncomes.reduce((sum, income) => sum + income.amount + income.id, 0)
+    ]);
 
-    // Google Charts loading and drawing with proper error handling
+    // Google Charts loading and drawing with proper error handling and animation control
     useEffect(() => {
         if (sankeyData.length === 0 || !chartRef.current) return;
 
@@ -175,7 +184,7 @@ export function IncomeSankeyChart({ currency = "USD", title }: IncomeSankeyChart
                 // console.log('Chart data rows:', rows);
                 data.addRows(rows);
 
-                // Chart options with simple tooltip
+                // Chart options with simple tooltip and optimized animations
                 const options = {
                     width: width,
                     height: height,
@@ -184,6 +193,14 @@ export function IncomeSankeyChart({ currency = "USD", title }: IncomeSankeyChart
                             fontName: 'Arial',
                             fontSize: 13
                         }
+                    },
+                    // Reduce or disable animations on subsequent renders to prevent restart
+                    animation: hasAnimated ? {
+                        duration: 0, // No animation after first render
+                        easing: 'none'
+                    } : {
+                        duration: 750,
+                        easing: 'out'
                     },
                     sankey: {
                         node: {
@@ -252,7 +269,7 @@ export function IncomeSankeyChart({ currency = "USD", title }: IncomeSankeyChart
             window.removeEventListener('resize', handleResize);
             currentChart = null;
         };
-    }, [sankeyData, total, isExpanded, COLORS]);
+    }, [sankeyData, total, isExpanded, COLORS, hasAnimated]);
 
     const timePeriodText = formatTimePeriod();
     const chartTitle = title || `Income Distribution ${timePeriodText}`;
@@ -324,4 +341,6 @@ export function IncomeSankeyChart({ currency = "USD", title }: IncomeSankeyChart
             )}
         </>
     );
-}
+});
+
+IncomeSankeyChart.displayName = 'IncomeSankeyChart';
