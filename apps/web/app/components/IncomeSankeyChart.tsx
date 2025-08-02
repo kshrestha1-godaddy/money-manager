@@ -162,7 +162,7 @@ export function IncomeSankeyChart({ currency = "USD", title }: IncomeSankeyChart
                 // Add rows with simple tooltips
                 const rows = validData.map((item) => {
                     const percentage = total > 0 ? ((item.size / total) * 100).toFixed(1) : '0.0';
-                    const labelWithPercentage = `${item.from} (${percentage}%)`;
+                    const labelWithPercentage = `${item.from} [${percentage}%]`;
                     const validSize = Math.max(item.size, 0.01); // Ensure minimum positive value
                     
                     // Simple tooltip format: "Category (X%)" on first line, "Currency Amount" on second line

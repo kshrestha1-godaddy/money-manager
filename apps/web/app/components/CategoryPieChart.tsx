@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo, useCallback } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { formatCurrency } from "../utils/currency";
 import { Income, Expense } from "../types/financial";
@@ -20,10 +20,11 @@ interface CategoryData {
     color: string;
 }
 
+// Fixed color palette matching IncomeSankeyChart - no randomization
 const COLORS = [
-    '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8',
-    '#82CA9D', '#FFC658', '#FF7C7C', '#8DD1E1', '#D084D0',
-    '#87D068', '#F7A35C', '#434348', '#90ED7D', '#F15C80'
+    '#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
+    '#06b6d4', '#84cc16', '#ec4899', '#a855f7', '#10b981', 
+    '#6366f1', '#dc2626', '#7c3aed', '#0891b2', '#65a30d'
 ];
 
 export function CategoryPieChart({ type, currency = "USD", title }: CategoryPieChartProps) {
@@ -31,52 +32,56 @@ export function CategoryPieChart({ type, currency = "USD", title }: CategoryPieC
     const chartRef = useRef<HTMLDivElement>(null);
     const { categoryData, formatTimePeriod } = useChartData();
     
-    const timePeriodText = formatTimePeriod();
-    
-    // Create category map based on type
-    const categoryMap = new Map<string, number>();
-    
-    Object.entries(categoryData).forEach(([categoryName, data]) => {
-        const amount = type === 'income' ? data.income : data.expenses;
-        if (amount > 0) {
-            categoryMap.set(categoryName, amount);
-        }
-    });
-
-    // Convert to array and add colors
-    const rawChartData: CategoryData[] = Array.from(categoryMap.entries())
-        .map(([name, value], index) => ({
-            name,
-            value,
-            color: COLORS[index % COLORS.length] || '#8884d8'
-        }))
-        .sort((a, b) => b.value - a.value); // Sort by value descending
-
-    const total = rawChartData.reduce((sum, item) => sum + item.value, 0);
-
-    // Filter categories >= 2.5% and group smaller ones as "Others"
-    const significantCategories = rawChartData.filter(item => {
-        const percentage = total > 0 ? (item.value / total) * 100 : 0;
-        return percentage >= 2.5;
-    });
-
-    const smallCategories = rawChartData.filter(item => {
-        const percentage = total > 0 ? (item.value / total) * 100 : 0;
-        return percentage < 2.5;
-    });
-
-    // Create "Others" category if there are small categories
-    const chartData: CategoryData[] = [...significantCategories];
-    if (smallCategories.length > 0) {
-        const othersValue = smallCategories.reduce((sum, item) => sum + item.value, 0);
-        chartData.push({
-            name: 'Others',
-            value: othersValue,
-            color: '#9CA3AF' // Gray color for Others category
+    // Memoize all data processing for better performance
+    const { chartData, rawChartData, total, smallCategories } = useMemo(() => {
+        // Create category map based on type
+        const categoryMap = new Map<string, number>();
+        
+        Object.entries(categoryData).forEach(([categoryName, data]) => {
+            const amount = type === 'income' ? data.income : data.expenses;
+            if (amount > 0) {
+                categoryMap.set(categoryName, amount);
+            }
         });
-    }
 
-    const formatTooltip = (value: number, name: string): [string, string] => {
+        // Convert to array and add colors
+        const rawChartData: CategoryData[] = Array.from(categoryMap.entries())
+            .map(([name, value], index) => ({
+                name,
+                value,
+                color: COLORS[index % COLORS.length] || '#8884d8'
+            }))
+            .sort((a, b) => b.value - a.value); // Sort by value descending
+
+        const total = rawChartData.reduce((sum, item) => sum + item.value, 0);
+
+        // Filter categories >= 2.5% and group smaller ones as "Others"
+        const significantCategories = rawChartData.filter(item => {
+            const percentage = total > 0 ? (item.value / total) * 100 : 0;
+            return percentage >= 2.5;
+        });
+
+        const smallCategories = rawChartData.filter(item => {
+            const percentage = total > 0 ? (item.value / total) * 100 : 0;
+            return percentage < 2.5;
+        });
+
+        // Create "Others" category if there are small categories
+        const chartData: CategoryData[] = [...significantCategories];
+        if (smallCategories.length > 0) {
+            const othersValue = smallCategories.reduce((sum, item) => sum + item.value, 0);
+            chartData.push({
+                name: 'Others',
+                value: othersValue,
+                color: '#64748b' // Neutral gray for Others category
+            });
+        }
+
+        return { chartData, rawChartData, total, smallCategories };
+    }, [categoryData, type]);
+
+    // Memoize callback functions for better performance
+    const formatTooltip = useCallback((value: number, name: string): [string, string] => {
         const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
         
         // For "Others" category, show additional details
@@ -92,17 +97,19 @@ export function CategoryPieChart({ type, currency = "USD", title }: CategoryPieC
             `${formatCurrency(value, currency)} (${percentage}%)`,
             name
         ];
-    };
+    }, [total, smallCategories, currency]);
 
     interface LabelEntry {
         value: number;
     }
 
-    const renderCustomizedLabel = (entry: LabelEntry): string => {
+    const renderCustomizedLabel = useCallback((entry: any): string => {
         const percentage = total > 0 ? ((entry.value / total) * 100).toFixed(1) : '0.0';
-        return `${percentage}%`;
-    };
+        return `${entry.name} [${percentage}%]`;
+    }, [total]);
 
+    // Memoize computed text values
+    const timePeriodText = useMemo(() => formatTimePeriod(), [formatTimePeriod]);
     const defaultTitle = type === 'income' ? 'Income by Category' : 'Expenses by Category';
     const chartTitle = `${title || defaultTitle} ${timePeriodText}`;
     const totalLabel = type === 'income' ? 'Total Income' : 'Total Expenses';
@@ -178,11 +185,14 @@ export function CategoryPieChart({ type, currency = "USD", title }: CategoryPieC
         URL.revokeObjectURL(link.href);
     };
 
-    const downloadCSV = (): void => {
+
+
+    // Memoize CSV data preparation to avoid duplication and improve performance
+    const csvDataForControls = useMemo(() => {
         const csvData = [
             ['Category', 'Amount', 'Percentage'],
             ...chartData.map(item => [
-                item.name || 'Unknown Category', // Handle empty category names
+                item.name || 'Unknown Category',
                 item.value.toString(),
                 total > 0 ? ((item.value / total) * 100).toFixed(1) + '%' : '0.0%'
             ])
@@ -198,36 +208,9 @@ export function CategoryPieChart({ type, currency = "USD", title }: CategoryPieC
                 csvData.push([item.name, item.value.toString(), percentage]);
             });
         }
-        
-        const csvString = csvData.map(row => row.join(',')).join('\n');
-        const blob = new Blob([csvString], { type: 'text/csv' });
-        const link = document.createElement('a');
-        link.download = `${type}-category-data.csv`;
-        link.href = URL.createObjectURL(blob);
-        link.click();
-        URL.revokeObjectURL(link.href);
-    };
 
-    // Prepare CSV data for chart controls
-    const csvDataForControls = [
-        ['Category', 'Amount', 'Percentage'],
-        ...chartData.map(item => [
-            item.name || 'Unknown Category',
-            item.value.toString(),
-            total > 0 ? ((item.value / total) * 100).toFixed(1) + '%' : '0.0%'
-        ])
-    ];
-
-    // Add detailed breakdown if "Others" category exists
-    if (smallCategories.length > 0) {
-        csvDataForControls.push(['', '', '']); // Empty row for separation
-        csvDataForControls.push(['--- Detailed Breakdown ---', '', '']);
-        csvDataForControls.push(['All Categories (including < 2.5%)', '', '']);
-        rawChartData.forEach(item => {
-            const percentage = total > 0 ? ((item.value / total) * 100).toFixed(1) + '%' : '0.0%';
-            csvDataForControls.push([item.name, item.value.toString(), percentage]);
-        });
-    }
+        return csvData;
+    }, [chartData, total, smallCategories, rawChartData]);
 
     const ChartContent = () => (
         <div>
@@ -250,6 +233,7 @@ export function CategoryPieChart({ type, currency = "USD", title }: CategoryPieC
                 >
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
+
                             <Pie
                                 data={chartData}
                                 cx="50%"
@@ -257,11 +241,17 @@ export function CategoryPieChart({ type, currency = "USD", title }: CategoryPieC
                                 labelLine={false}
                                 label={renderCustomizedLabel}
                                 outerRadius={isExpanded ? 180 : 130}
+                                innerRadius={isExpanded ? 60 : 40}
                                 fill="#8884d8"
                                 dataKey="value"
+                                stroke="#ffffff"
+                                strokeWidth={2}
                             >
                                 {chartData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                    <Cell 
+                                        key={`cell-${index}`} 
+                                        fill={entry.color}
+                                    />
                                 ))}
                             </Pie>
                             <Tooltip 
@@ -269,13 +259,14 @@ export function CategoryPieChart({ type, currency = "USD", title }: CategoryPieC
                                 contentStyle={{
                                     backgroundColor: '#fff',
                                     border: '1px solid #e5e7eb',
-                                    borderRadius: '6px',
-                                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                                    fontSize: '10px',
-                                    maxWidth: '280px',
+                                    borderRadius: '8px',
+                                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                                    fontSize: '11px',
+                                    maxWidth: '300px',
                                     wordWrap: 'break-word',
                                     whiteSpace: 'normal',
-                                    lineHeight: '1.4'
+                                    lineHeight: '1.5',
+                                    padding: '12px'
                                 }}
                             />
                         </PieChart>
@@ -295,10 +286,13 @@ export function CategoryPieChart({ type, currency = "USD", title }: CategoryPieC
                                     <div className="flex items-center justify-between gap-2">
                                         <div className="flex items-center space-x-2 flex-1 min-w-0">
                                             <div
-                                                className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full flex-shrink-0"
-                                                style={{ backgroundColor: entry.color }}
+                                                className="w-3 h-3 sm:w-4 sm:h-4 rounded-full flex-shrink-0 border border-white"
+                                                style={{ 
+                                                    backgroundColor: entry.color,
+                                                    boxShadow: `0 1px 3px rgba(0, 0, 0, 0.1)`
+                                                }}
                                             />
-                                            <span className="text-sm sm:text-base text-gray-700 truncate">{entry.name}</span>
+                                            <span className="text-sm sm:text-base text-gray-700 truncate font-medium">{entry.name}</span>
                                             {isOthers && smallCategories.length > 0 && (
                                                 <span className="text-xs text-gray-500">
                                                     ({smallCategories.length})
