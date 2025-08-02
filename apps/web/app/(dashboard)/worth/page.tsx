@@ -324,7 +324,7 @@ export default function NetWorthPage() {
                                 isExpanded={isChartExpanded}
                                 csvData={exportData}
                                 fileName="net_worth_breakdown"
-                                title="Asset Breakdown"
+                                title=""
                                 tooltipText="Distribution of your total assets"
                             />
                         </div>
@@ -407,7 +407,6 @@ export default function NetWorthPage() {
                                     </button>
                                 </div>
                                 <div 
-                                    ref={chartRef}
                                     className="h-[70vh] w-full"
                                 >
                                     <ResponsiveContainer width="100%" height="100%">
