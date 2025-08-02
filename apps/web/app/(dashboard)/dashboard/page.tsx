@@ -201,30 +201,42 @@ function DashboardCharts({
             {/* Category Charts - Side by Side */}
             <div className="grid grid-cols-2 gap-4">
                 <Suspense fallback={<ChartSkeleton title="Expense Distribution" height="h-[24rem]" />}>
-                    <CategoryPieChart type="expense" currency={currency} />
+                    <div key="expense-pie-chart">
+                        <CategoryPieChart type="expense" currency={currency} />
+                    </div>
                 </Suspense>
                 <Suspense fallback={<ChartSkeleton title="Income Distribution" height="h-[24rem]" />}>
-                    <IncomeSankeyChart currency={currency} />
+                    <div key="income-sankey-chart">
+                        <IncomeSankeyChart currency={currency} />
+                    </div>
                 </Suspense>
             </div>
 
             {/* Category Trend Charts - Side by Side */}
             <div className="grid grid-cols-2 gap-4">
                 <Suspense fallback={<ChartSkeleton title="Expense Category Trends" height="h-[32rem]" />}>
-                    <CategoryTrendChart type="expense" currency={currency} />
+                    <div key="expense-trend-chart">
+                        <CategoryTrendChart type="expense" currency={currency} />
+                    </div>
                 </Suspense>
                 <Suspense fallback={<ChartSkeleton title="Income Category Trends" height="h-[32rem]" />}>
-                    <CategoryTrendChart type="income" currency={currency} />
+                    <div key="income-trend-chart">
+                        <CategoryTrendChart type="income" currency={currency} />
+                    </div>
                 </Suspense>
             </div>
 
             {/* Transaction Calendar Charts - Side by Side */}
             <div className="grid grid-cols-2 gap-4">
                 <Suspense fallback={<ChartSkeleton title="Expense Transaction Calendar" height="h-[32rem]" />}>
-                    <CustomCalendarChart type="expense" currency={currency} />
+                    <div key="expense-calendar-chart">
+                        <CustomCalendarChart type="expense" currency={currency} />
+                    </div>
                 </Suspense>
                 <Suspense fallback={<ChartSkeleton title="Income Transaction Calendar" height="h-[32rem]" />}>
-                    <CustomCalendarChart type="income" currency={currency} />
+                    <div key="income-calendar-chart">
+                        <CustomCalendarChart type="income" currency={currency} />
+                    </div>
                 </Suspense>
             </div>
 
