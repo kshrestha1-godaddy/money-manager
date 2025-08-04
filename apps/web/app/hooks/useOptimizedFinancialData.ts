@@ -236,6 +236,13 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     [accounts]
   );
 
+  // Chart data - optimized to balance performance with filter responsiveness
+  const chartItems = useMemo(() => {
+    // If page filters are active, use filtered data to respect user's filtering intent
+    // If no page filters, use all items to show complete trend (chart handles its own default filtering)
+    return hasActiveFilters ? filteredItems : items;
+  }, [items, filteredItems, hasActiveFilters]);
+
   // CRUD Handlers
   const handleAddItem = useCallback((newItem: Omit<T, 'id' | 'createdAt' | 'updatedAt'>) => {
     createItemMutation.mutate(newItem);
@@ -333,7 +340,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     // Data
     items: filteredItems,
     allItems: items,
-    chartItems: filteredItems,
+    chartItems,
     categories,
     accounts,
     loading,
