@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, memo, useCallback } from "react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { formatCurrency } from "../utils/currency";
 import { Income, Expense } from "../types/financial";
@@ -23,7 +23,7 @@ interface ChartDataPoint {
     formattedDate: string;
 }
 
-export function FinancialAreaChart({ 
+function FinancialAreaChartComponent({ 
     data, 
     currency = "USD", 
     type, 
@@ -51,71 +51,79 @@ export function FinancialAreaChart({
         }
     }[type];
 
-    // Filter data based on date range
+    // Determine effective date filters - memoized separately to reduce re-computations
+    const effectiveDateFilters = useMemo(() => ({
+        startDate: startDate || (hasPageFilters ? pageStartDate : ''),
+        endDate: endDate || (hasPageFilters ? pageEndDate : '')
+    }), [startDate, endDate, hasPageFilters, pageStartDate, pageEndDate]);
+
+    // Filter data based on date range - optimized with stable dependencies
     const filteredData = useMemo(() => {
-        // Use chart filters if they exist, otherwise use page filters
-        const effectiveStartDate = startDate || (hasPageFilters ? pageStartDate : '');
-        const effectiveEndDate = endDate || (hasPageFilters ? pageEndDate : '');
+        if (!data || data.length === 0) return [];
+        if (!effectiveDateFilters.startDate && !effectiveDateFilters.endDate) return data;
         
-        if (!effectiveStartDate && !effectiveEndDate) return data || [];
-        
-        if (!data) return [];
-        
-        const filtered = data.filter(item => {
+        return data.filter(item => {
             const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
             const itemDateStr = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}-${String(itemDate.getDate()).padStart(2, '0')}`;
             
-            let matchesStartDate = true;
-            let matchesEndDate = true;
+            let matchesDateRange = true;
             
-            if (effectiveStartDate) {
-                matchesStartDate = itemDateStr >= effectiveStartDate;
+            if (effectiveDateFilters.startDate) {
+                matchesDateRange = matchesDateRange && itemDateStr >= effectiveDateFilters.startDate;
             }
             
-            if (effectiveEndDate) {
-                matchesEndDate = itemDateStr <= effectiveEndDate;
+            if (effectiveDateFilters.endDate) {
+                matchesDateRange = matchesDateRange && itemDateStr <= effectiveDateFilters.endDate;
             }
             
-            return matchesStartDate && matchesEndDate;
+            return matchesDateRange;
         });
+    }, [data, effectiveDateFilters]);
 
-        return filtered;
-    }, [data, startDate, endDate, hasPageFilters, pageStartDate, pageEndDate]);
-
-    const chartData = useMemo(() => {
-        if (!data) return [];
+    // Determine which data to display - memoized separately
+    const displayData = useMemo(() => {
+        if (!data || data.length === 0) return [];
         
-        let chartDisplayData;
-        const effectiveStartDate = startDate || (hasPageFilters ? pageStartDate : '');
-        const effectiveEndDate = endDate || (hasPageFilters ? pageEndDate : '');
-        
-        // If any filters are active, use the filtered data
-        if (hasPageFilters || effectiveStartDate || effectiveEndDate) {
-            chartDisplayData = filteredData;
+        // If page filters are active (hasPageFilters=true), the data is already pre-filtered from parent
+        // In this case, respect the pre-filtered data and only apply chart-specific date filters
+        if (hasPageFilters) {
+            // Data is already filtered by parent, only apply chart-specific date filtering if present
+            if (effectiveDateFilters.startDate || effectiveDateFilters.endDate) {
+                return filteredData;
+            } else {
+                // Use the pre-filtered data as-is
+                return data;
+            }
         } else {
-            // No filters active - show default 30-day view
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-            
-            chartDisplayData = data.filter(item => {
-                const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
-                return itemDate >= thirtyDaysAgo;
-            });
+            // No page filters - apply chart's own filtering logic
+            if (effectiveDateFilters.startDate || effectiveDateFilters.endDate) {
+                return filteredData;
+            } else {
+                // No filters active - show default 30-day view
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                
+                return data.filter(item => {
+                    const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
+                    return itemDate >= thirtyDaysAgo;
+                });
+            }
         }
-        
-        let recentData = chartDisplayData;
+    }, [data, filteredData, effectiveDateFilters, hasPageFilters]);
+
+    // Chart data computation - simplified dependencies
+    const chartData = useMemo(() => {
+        if (!displayData || displayData.length === 0) return [];
         
         // Group data by date and sum amounts for each date
         const dateMap = new Map<string, number>();
         
-        if (recentData) {
-            recentData.forEach(item => {
-                const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
-                const dateKey = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}-${String(itemDate.getDate()).padStart(2, '0')}`;
-                const existingAmount = dateMap.get(dateKey) || 0;
-                dateMap.set(dateKey, existingAmount + item.amount);
-            });
-        }
+        displayData.forEach(item => {
+            const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
+            const dateKey = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}-${String(itemDate.getDate()).padStart(2, '0')}`;
+            const existingAmount = dateMap.get(dateKey) || 0;
+            dateMap.set(dateKey, existingAmount + item.amount);
+        });
 
         // Convert map to array and sort by date
         const chartPoints: ChartDataPoint[] = Array.from(dateMap.entries())
@@ -130,38 +138,38 @@ export function FinancialAreaChart({
             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
         return chartPoints;
-    }, [data, filteredData, startDate, endDate, hasPageFilters, pageStartDate, pageEndDate]);
+    }, [displayData]);
 
-    // Quick filter functions
-    const handleQuickFilter = (months: number) => {
+    // Quick filter functions - memoized to prevent unnecessary re-renders
+    const handleQuickFilter = useCallback((months: number) => {
         const endDateLocal = new Date();
         const startDateLocal = new Date();
         startDateLocal.setMonth(startDateLocal.getMonth() - months);
         
         setStartDate(startDateLocal.toISOString().split('T')[0] || '');
         setEndDate(endDateLocal.toISOString().split('T')[0] || '');
-    };
+    }, []);
 
-    const clearFilters = () => {
+    const clearFilters = useCallback(() => {
         setStartDate("");
         setEndDate("");
-    };
+    }, []);
 
-    // Format Y-axis values for compact display
-    const formatYAxisTick = (value: number) => {
+    // Format Y-axis values for compact display - memoized to prevent re-creation
+    const formatYAxisTick = useCallback((value: number) => {
         if (value >= 1000000) {
             return `${(value / 1000000).toFixed(1)}M`;
         } else if (value >= 1000) {
             return `${(value / 1000).toFixed(1)}K`;
         }
         return Math.round(value).toString();
-    };
+    }, []);
 
-    // Prepare CSV data
-    const csvData = [
+    // Prepare CSV data - memoized to prevent re-computation
+    const csvData = useMemo(() => [
         ['Date', 'Amount'],
         ...chartData.map(item => [item.date, item.amount])
-    ];
+    ], [chartData]);
 
     if (chartData.length === 0) {
         return (
@@ -424,3 +432,20 @@ export function FinancialAreaChart({
         </>
     );
 }
+
+// Custom comparison function for memo to prevent unnecessary re-renders
+const arePropsEqual = (prevProps: FinancialAreaChartProps, nextProps: FinancialAreaChartProps) => {
+    // Only re-render if meaningful props have changed
+    return (
+        prevProps.data === nextProps.data &&
+        prevProps.currency === nextProps.currency &&
+        prevProps.type === nextProps.type &&
+        prevProps.title === nextProps.title &&
+        prevProps.hasPageFilters === nextProps.hasPageFilters &&
+        prevProps.pageStartDate === nextProps.pageStartDate &&
+        prevProps.pageEndDate === nextProps.pageEndDate
+    );
+};
+
+// Export memoized component to prevent unnecessary re-renders
+export const FinancialAreaChart = memo(FinancialAreaChartComponent, arePropsEqual);

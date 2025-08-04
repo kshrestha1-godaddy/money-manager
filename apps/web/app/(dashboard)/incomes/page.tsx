@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect } from 'react'
+import { Suspense, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Info } from 'lucide-react'
 import { useOptimizedFinancialData } from '../../hooks/useOptimizedFinancialData'
@@ -203,6 +203,16 @@ function IncomesContent() {
     ? allIncomes.reduce((sum: number, income: Income) => sum + income.amount, 0) / allIncomes.length
     : 0
 
+  // Memoize chart props to prevent unnecessary re-renders
+  const chartProps = useMemo(() => ({
+    data: chartItems,
+    currency: userCurrency,
+    type: "income" as const,
+    hasPageFilters: hasActiveFilters,
+    pageStartDate: startDate,
+    pageEndDate: endDate
+  }), [chartItems, userCurrency, hasActiveFilters, startDate, endDate])
+
   // Get month names for better display
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
   const quarterNames = ["Q1", "Q2", "Q3", "Q4"]
@@ -321,14 +331,7 @@ function IncomesContent() {
         </div>
 
       {/* Area Chart */}
-      <FinancialAreaChart 
-        data={chartItems} 
-        currency={userCurrency} 
-        type="income" 
-        hasPageFilters={hasActiveFilters}
-        pageStartDate={startDate}
-        pageEndDate={endDate}
-      />
+      <FinancialAreaChart {...chartProps} />
 
       {/* Filters */}
       <FinancialFilters
