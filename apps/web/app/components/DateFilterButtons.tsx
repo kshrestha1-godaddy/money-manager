@@ -1,17 +1,21 @@
 "use client";
 
+import { useState } from "react";
+
 interface DateFilterButtonsProps {
     startDate: string;
     endDate: string;
     onDateChange: (startDate: string, endDate: string) => void;
     onClearFilters: () => void;
+    onSetAllTime?: () => void;
 }
 
 export function DateFilterButtons({ 
     startDate, 
     endDate, 
     onDateChange, 
-    onClearFilters 
+    onClearFilters,
+    onSetAllTime 
 }: DateFilterButtonsProps) {
     const getDateRange = (months: number) => {
         const today = new Date();
@@ -60,8 +64,36 @@ export function DateFilterButtons({
         return startDate === start && endDate === end;
     };
 
-    // Check if we're in default state (no dates selected = default 6 months)
-    const isDefaultState = !startDate && !endDate;
+    // Track if user explicitly selected All Time vs default state
+    const [isAllTimeSelected, setIsAllTimeSelected] = useState(false);
+    
+    // Check if we're in default state (no dates selected and not explicitly All Time)
+    const isDefaultState = !startDate && !endDate && !isAllTimeSelected;
+    
+    // Handle All Time filter
+    const handleAllTime = () => {
+        setIsAllTimeSelected(true);
+        if (onSetAllTime) {
+            onSetAllTime(); // Use the dedicated All Time handler if available
+        } else {
+            onClearFilters(); // Fallback to clearing filters
+        }
+    };
+    
+    // Override quick filter to reset All Time selection
+    const handleQuickFilterOverride = (months: number) => {
+        setIsAllTimeSelected(false);
+        handleQuickFilter(months);
+    };
+
+    // Handle custom date changes and reset All Time selection
+    const handleCustomDateChange = (newStartDate: string, newEndDate: string) => {
+        setIsAllTimeSelected(false);
+        onDateChange(newStartDate, newEndDate);
+    };
+    
+    // Check if All Time is active
+    const isAllTimeActive = !startDate && !endDate && isAllTimeSelected;
     
     // Get button styling based on active state
     const getButtonStyle = (months: number, isDefault = false) => {
@@ -74,35 +106,52 @@ export function DateFilterButtons({
         return "px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500";
     };
 
+    // Get All Time button styling (same as other buttons)
+    const getAllTimeButtonStyle = () => {
+        const isActive = isAllTimeActive;
+        
+        if (isActive) {
+            return "px-3 py-1 text-xs border-2 border-blue-500 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium shadow-sm";
+        }
+        
+        return "px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500";
+    };
+
     return (
         <div className="flex flex-wrap items-center gap-3 p-3 bg-gray-50 rounded-lg border">
                          {/* Quick Filter Buttons */}
              <div className="flex flex-wrap items-center gap-2">
-                 <button
-                     onClick={() => handleQuickFilter(1)}
-                     className={getButtonStyle(1)}
-                 >
-                     Last Month
-                 </button>
-                 <button
-                     onClick={() => handleQuickFilter(3)}
-                     className={getButtonStyle(3)}
-                 >
-                     Last 3 Months
-                 </button>
-                 <button
-                     onClick={() => handleQuickFilter(6)}
-                     className={getButtonStyle(6, true)} // true indicates this is the default
-                 >
-                     Last 6 Months
-                 </button>
-                 <button
-                     onClick={() => handleQuickFilter(12)}
-                     className={getButtonStyle(12)}
-                 >
-                     Last 12 Months
-                 </button>
-             </div>
+                                 <button
+                    onClick={() => handleQuickFilterOverride(1)}
+                    className={getButtonStyle(1)}
+                >
+                    Last Month
+                </button>
+                <button
+                    onClick={() => handleQuickFilterOverride(3)}
+                    className={getButtonStyle(3)}
+                >
+                    Last 3 Months
+                </button>
+                <button
+                    onClick={() => handleQuickFilterOverride(6)}
+                    className={getButtonStyle(6, true)} // true indicates this is the default
+                >
+                    Last 6 Months
+                </button>
+                <button
+                    onClick={() => handleQuickFilterOverride(12)}
+                    className={getButtonStyle(12)}
+                >
+                    Last 12 Months
+                </button>
+                <button
+                    onClick={handleAllTime}
+                    className={getAllTimeButtonStyle()}
+                >
+                    All Time
+                </button>
+            </div>
 
             {/* Divider */}
             <div className="h-4 w-px bg-gray-300"></div>
@@ -113,24 +162,27 @@ export function DateFilterButtons({
                 <input
                     type="date"
                     value={startDate}
-                    onChange={(e) => onDateChange(e.target.value, endDate)}
+                    onChange={(e) => handleCustomDateChange(e.target.value, endDate)}
                     className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
                 />
                 <span className="text-xs text-gray-500">to</span>
                 <input
                     type="date"
                     value={endDate}
-                    onChange={(e) => onDateChange(startDate, e.target.value)}
+                    onChange={(e) => handleCustomDateChange(startDate, e.target.value)}
                     className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
                 />
             </div>
 
             {/* Clear Button */}
-            {(startDate || endDate) && (
+            {(startDate || endDate || isAllTimeActive) && (
                 <>
                     <div className="h-4 w-px bg-gray-300"></div>
                     <button
-                        onClick={onClearFilters}
+                        onClick={() => {
+                            setIsAllTimeSelected(false);
+                            onClearFilters();
+                        }}
                         className="px-2 py-1 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
                     >
                         Clear

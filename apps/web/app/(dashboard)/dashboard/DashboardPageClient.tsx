@@ -48,8 +48,10 @@ export default function DashboardPageClient() {
   const {
     startDate,
     endDate,
+    isAllTime,
     handleDateChange,
     clearFilters,
+    setAllTime,
   } = useDashboardFilters({
     hasIncomes: incomesData.items.length > 0,
     hasExpenses: expensesData.items.length > 0,
@@ -71,6 +73,7 @@ export default function DashboardPageClient() {
         expenses={expensesData.items}
         startDate={startDate}
         endDate={endDate}
+        isAllTime={isAllTime}
       >
         <div className={pageContainer}>
           <DashboardHeader startDate={startDate} endDate={endDate} />
@@ -81,6 +84,7 @@ export default function DashboardPageClient() {
               endDate={endDate}
               onDateChange={handleDateChange}
               onClearFilters={clearFilters}
+              onSetAllTime={setAllTime}
             />
           </Suspense>
         </div>

@@ -117,7 +117,8 @@ const processChartData = (
   incomes: Income[],
   expenses: Expense[],
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  isAllTime?: boolean
 ): ProcessedChartData => {
   // Calculate date range
   let timeRange: TimeRangeData;
@@ -127,6 +128,14 @@ const processChartData = (
       startDate: startDate ? new Date(startDate) : null,
       endDate: endDate ? new Date(endDate) : null,
       timePeriodText: generateTimePeriodText(startDate, endDate)
+    };
+  } else if (isAllTime) {
+    // Explicit All Time selection - show all data
+    timeRange = {
+      hasExplicitRange: true,
+      startDate: null,
+      endDate: null,
+      timePeriodText: '(All Time)'
     };
   } else {
     // Default range (last 6 months)
@@ -333,6 +342,7 @@ interface ChartDataProviderProps {
   expenses: Expense[];
   startDate?: string;
   endDate?: string;
+  isAllTime?: boolean;
 }
 
 export function ChartDataProvider({ 
@@ -340,19 +350,21 @@ export function ChartDataProvider({
   incomes, 
   expenses, 
   startDate, 
-  endDate 
+  endDate,
+  isAllTime = false
 }: ChartDataProviderProps) {
   // Use useMemo with stable dependencies and deep comparison for arrays
   const processedData = useMemo(
     () => {
       // Only recalculate if data actually changed, not just reference
-      return processChartData(incomes, expenses, startDate, endDate);
+      return processChartData(incomes, expenses, startDate, endDate, isAllTime);
     },
     [
       incomes.length, 
       expenses.length, 
       startDate, 
       endDate,
+      isAllTime,
       // Add checksums to detect actual data changes
       incomes.reduce((sum, income) => sum + income.amount + income.id, 0),
       expenses.reduce((sum, expense) => sum + expense.amount + expense.id, 0)

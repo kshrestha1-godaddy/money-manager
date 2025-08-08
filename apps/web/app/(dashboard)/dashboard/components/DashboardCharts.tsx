@@ -18,6 +18,7 @@ interface DashboardChartsProps {
   endDate: string;
   onDateChange: (start: string, end: string) => void;
   onClearFilters: () => void;
+  onSetAllTime: () => void;
 }
 
 export function DashboardCharts({
@@ -26,6 +27,7 @@ export function DashboardCharts({
   endDate,
   onDateChange,
   onClearFilters,
+  onSetAllTime,
 }: DashboardChartsProps) {
   return (
     <div id="dashboard-content">
@@ -34,6 +36,7 @@ export function DashboardCharts({
         endDate={endDate}
         onDateChange={onDateChange}
         onClearFilters={onClearFilters}
+        onSetAllTime={onSetAllTime}
       />
 
       <div className="grid grid-cols-2 gap-4">
