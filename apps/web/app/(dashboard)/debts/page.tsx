@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { Info } from "lucide-react";
-import { DebtStatusWaterfallChart } from "../../components/debts/DebtStatusWaterfallChart";
 import { DebtTable } from "../../components/debts/DebtTable";
 import { AddDebtModal } from "../../components/debts/AddDebtModal";
 import { EditDebtModal } from "../../components/debts/EditDebtModal";
@@ -12,6 +11,7 @@ import { ViewDebtModal } from "../../components/debts/ViewDebtModal";
 import { AddRepaymentModal } from "../../components/debts/AddRepaymentModal";
 import { BulkImportModal } from "../../components/debts/BulkImportModal";
 import { formatCurrency } from "../../utils/currency";
+import DebtStatusWaterfallChart from "../../components/debts/DebtStatusWaterfallChart";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { useOptimizedDebts } from "../../hooks/useOptimizedDebts";
 import { 
@@ -322,18 +322,11 @@ export default function Debts() {
                 </div>
             </div>
 
-            {/* Debt Status Distribution Chart */}
-            {!loading && filteredDebts.length > 0 && (
-                <div className="mb-6">
-                    <DebtStatusWaterfallChart
-                        activeAmount={sections.find(s => s.key === 'ACTIVE')?.totalAmount || 0}
-                        partiallyPaidAmount={sections.find(s => s.key === 'PARTIALLY_PAID')?.totalAmount || 0}
-                        partiallyPaidOutstandingAmount={sections.find(s => s.key === 'PARTIALLY_PAID')?.totalRemaining || 0}
-                        fullyPaidAmount={sections.find(s => s.key === 'FULLY_PAID')?.totalAmount || 0}
-                        currency={userCurrency}
-                    />
-                </div>
-            )}
+            {/* Debts Waterfall Chart */}
+            <div className="mb-6">
+                <DebtStatusWaterfallChart debts={filteredDebts} currency={userCurrency} />
+            </div>
+
 
             {/* Filters and Actions */}
             <div className={UI_STYLES.filters.containerWithMargin}>
