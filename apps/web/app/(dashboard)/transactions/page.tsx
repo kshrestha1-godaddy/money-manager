@@ -6,8 +6,8 @@ import { Transaction } from "../../types/financial";
 import { formatDate } from "../../utils/date";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
-import { getAllTransactions } from "../../actions/transactions";
-import { createTransactionBookmark, deleteTransactionBookmarkByTransaction } from "../../actions/transaction-bookmarks";
+import { getAllTransactions } from "./actions/transactions";
+import { createTransactionBookmark, deleteTransactionBookmarkByTransaction } from "./actions/transaction-bookmarks";
 import { TransactionPDFReportGenerator } from "../../components/TransactionPDFReportGenerator";
 import { CompactPagination } from "../../components/shared/CompactPagination";
 

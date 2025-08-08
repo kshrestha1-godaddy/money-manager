@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { Button } from "@repo/ui/button";
 
 export interface DeleteConfirmationModalProps {
     isOpen: boolean;

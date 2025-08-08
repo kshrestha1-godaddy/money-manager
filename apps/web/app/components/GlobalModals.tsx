@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useQueryClient } from '@tanstack/react-query';
-import { AddExpenseModal } from "./expenses/AddExpenseModal";
-import { AddIncomeModal } from "./incomes/AddIncomeModal";
+import { AddExpenseModal } from "../(dashboard)/expenses/components/AddExpenseModal";
+import { AddIncomeModal } from "../(dashboard)/incomes/components";
 import { useModals } from "../providers/ModalsProvider";
 import { useRouter, usePathname } from "next/navigation";
 import { getCategories } from "../actions/categories";
-import { getUserAccounts } from "../actions/accounts";
-import { createExpense } from "../actions/expenses";
-import { createIncome } from "../actions/incomes";
+import { getUserAccounts } from "../(dashboard)/accounts/actions/accounts";
+import { createExpense } from "../(dashboard)/expenses/actions/expenses";
+import { createIncome } from "../(dashboard)/incomes/actions/incomes";
 import { Expense, Income, Category } from "../types/financial";
 import { AccountInterface } from "../types/accounts";
 import { triggerBalanceRefresh } from "../hooks/useTotalBalance";

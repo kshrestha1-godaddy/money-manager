@@ -2,10 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import { BookmarkInterface } from "../../types/bookmarks";
-import { getBookmarks, createBookmark, updateBookmark, deleteBookmark, searchBookmarks } from "../../actions/bookmarks";
-import { BookmarkGrid } from "../../components/bookmarks/BookmarkCard";
-import { AddBookmarkModal } from "../../components/bookmarks/AddBookmarkModal";
-import { Button } from "@repo/ui/button";
+import { getBookmarks, createBookmark, deleteBookmark } from "../../actions/bookmarks";
+import { BookmarkGrid } from "./components/BookmarkCard";
+import { AddBookmarkModal } from "./components/AddBookmarkModal";
 
 export default function BookmarksPage() {
     const [bookmarks, setBookmarks] = useState<BookmarkInterface[]>([]);

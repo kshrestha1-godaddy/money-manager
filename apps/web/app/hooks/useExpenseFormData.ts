@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { getUserAccounts } from "../actions/accounts";
-import { getCategories } from "../actions/categories";
+import { getUserAccounts } from "../(dashboard)/accounts/actions/accounts";
+import { getCategories } from "..//actions/categories";
 import { AccountInterface } from "../types/accounts";
 import { Category } from "../types/financial";
 

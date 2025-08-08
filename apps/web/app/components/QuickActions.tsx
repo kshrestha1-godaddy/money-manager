@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@repo/ui/button";
 import { useRouter } from "next/navigation";
 
 export function QuickActions() {

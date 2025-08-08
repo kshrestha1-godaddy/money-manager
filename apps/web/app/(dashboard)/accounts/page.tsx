@@ -1,20 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useQuery } from '@tanstack/react-query';
-import { AccountTable } from "../../components/accounts/AccountTable";
-import { AddAccountModal } from "../../components/accounts/AddAccountModal";
-import { EditAccountModal } from "../../components/accounts/EditAccountModal";
-import { DeleteAccountModal } from "../../components/accounts/DeleteAccountModal";
-import { ViewAccountModal } from "../../components/accounts/ViewAccountModal";
-import { ShareAccountModal } from "../../components/accounts/ShareAccountModal";
-import { ImportAccountModal } from "../../components/accounts/ImportAccountModal";
+import { AccountTable } from "./components/AccountTable";
+import { AddAccountModal } from "./components/AddAccountModal";
+import { EditAccountModal } from "./components/EditAccountModal";
+import { DeleteAccountModal } from "./components/DeleteAccountModal";
+import { ViewAccountModal } from "./components/ViewAccountModal";
+import { ShareAccountModal } from "./components/ShareAccountModal";
+import { ImportAccountModal } from "./components/ImportAccountModal";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
-import { BankBalanceChart } from "../../components/BankBalanceChart";
+import { BankBalanceChart } from "./components/BankBalanceChart";
 import { useOptimizedAccounts } from "../../hooks/useOptimizedAccounts";
-import { getUserAccounts } from "../../actions/accounts";
-import { AccountInterface } from "../../types/accounts";
+import { getUserAccounts } from "./actions/accounts";
 import { 
     getSummaryCardClasses,
     BUTTON_COLORS,
@@ -43,8 +42,6 @@ const cardValue = TEXT_COLORS.cardValue;
 const cardSubtitle = TEXT_COLORS.cardSubtitle;
 const emptyTitle = TEXT_COLORS.emptyTitle;
 const emptyMessage = TEXT_COLORS.emptyMessage;
-const resultText = TEXT_COLORS.resultText;
-const chartTitle = TEXT_COLORS.chartTitle;
 const labelText = TEXT_COLORS.label;
 
 const primaryButton = BUTTON_COLORS.primary;

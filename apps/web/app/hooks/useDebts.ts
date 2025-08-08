@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DebtInterface } from "../types/debts";
-import { getUserDebts, createDebt, updateDebt, deleteDebt, addRepayment, deleteRepayment } from "../actions/debts";
+import { getUserDebts, createDebt, updateDebt, deleteDebt, addRepayment, deleteRepayment } from "../(dashboard)/debts/actions/debts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
 
 interface UseDebtsReturn {

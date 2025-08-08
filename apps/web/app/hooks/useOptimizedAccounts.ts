@@ -8,7 +8,7 @@ import {
     deleteAccount, 
     bulkDeleteAccounts,
     bulkCreateAccounts 
-} from "../actions/accounts";
+} from "../(dashboard)/accounts/actions/accounts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
 import { exportAccountsToCSV } from "../utils/csvExport";
 import { ParsedAccountData } from "../utils/csvImport";

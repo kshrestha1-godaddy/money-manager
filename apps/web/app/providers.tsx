@@ -5,7 +5,7 @@ import { SessionProvider } from "next-auth/react";
 import { CurrencyProvider } from "./providers/CurrencyProvider";
 import { QueryProvider } from "./providers/QueryProvider";
 import { ModalsProvider } from "./providers/ModalsProvider";
-import { NotificationProvider } from "./components/NotificationProvider";
+import { NotificationProvider } from "./components/notification/NotificationProvider";
 import { TutorialProvider } from "./providers/TutorialProvider";
 
 export const Providers = ({ children }: { children: React.ReactNode }) => {

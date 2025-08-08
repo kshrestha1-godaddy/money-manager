@@ -8,7 +8,7 @@ import { useTotalBalance } from "../hooks/useTotalBalance";
 import { useModals } from "../providers/ModalsProvider";
 import Link from "next/link";
 import Image from "next/image";
-import { NotificationBell } from "./NotificationBell";
+import { NotificationBell } from "./notification/NotificationBell";
 
 export default function NavBar() {
   const { data: session, status } = useSession();

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Category } from "../types/financial";
 import { AccountInterface } from "../types/accounts";
 import { getCategories, createCategory } from "../actions/categories";
-import { getUserAccounts } from "../actions/accounts";
+import { getUserAccounts } from "../(dashboard)/accounts/actions/accounts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
 
 export type FinancialItem = {

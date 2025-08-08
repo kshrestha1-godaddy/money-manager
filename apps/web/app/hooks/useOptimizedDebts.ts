@@ -8,7 +8,7 @@ import {
     deleteDebt, 
     addRepayment, 
     deleteRepayment 
-} from "../actions/debts";
+} from "../(dashboard)/debts/actions/debts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
 import { exportDebtsToCSV } from "../utils/csvExportDebts";
 import { calculateRemainingWithInterest } from "../utils/interestCalculation";

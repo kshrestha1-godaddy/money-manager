@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { getUserAccounts } from "../actions/accounts";
+import { getUserAccounts } from "../(dashboard)/accounts/actions/accounts";
 import { AccountInterface } from "../types/accounts";
 
 // Create a custom event for balance refresh

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Category, FinancialItem, FinancialDataActions } from "../types/financial";
 import { AccountInterface } from "../types/accounts";
 import { getCategories, createCategory, deleteCategory } from "../actions/categories";
-import { getUserAccounts } from "../actions/accounts";
+import { getUserAccounts } from "../(dashboard)/accounts/actions/accounts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
 
 

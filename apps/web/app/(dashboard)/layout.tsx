@@ -1,6 +1,6 @@
 "use client";
 
-import { SidebarItem } from "../components/SidebarItem";
+import { SidebarItem } from "../components/sidebar/SidebarItem";
 import { TutorialOverlay } from "../components/TutorialOverlay";
 import { TutorialButton } from "../components/TutorialButton";
 

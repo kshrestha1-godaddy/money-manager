@@ -2,13 +2,12 @@
 
 import React, { useState, useEffect } from "react";
 import { PasswordInterface } from "../../types/passwords";
-import { getPasswords, createPassword, updatePassword, deletePassword } from "../../actions/passwords";
-import { PasswordTable } from "../../components/passwords/PasswordTable";
-import { AddPasswordModal } from "../../components/passwords/AddPasswordModal";
-import { Button } from "@repo/ui/button";
+import { getPasswords, createPassword, updatePassword, deletePassword } from "./actions/passwords";
+import { PasswordTable } from "./components/PasswordTable";
+import { AddPasswordModal } from "./components/AddPasswordModal";
 import { DeleteConfirmationModal } from "../../components/DeleteConfirmationModal";
 import { exportPasswordsToCSV } from "../../utils/csvExportPasswords";
-import { BulkImportModal } from "../../components/passwords/BulkImportModal";
+import { BulkImportModal } from "./components/BulkImportModal";
 
 export default function PasswordsPage() {
     const [passwords, setPasswords] = useState<PasswordInterface[]>([]);

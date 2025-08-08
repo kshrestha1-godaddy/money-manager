@@ -4,10 +4,9 @@ import { useMemo, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useOptimizedAccounts } from './useOptimizedAccounts';
 import { useOptimizedDebts } from './useOptimizedDebts';
-import { useOptimizedInvestments } from './useOptimizedInvestments';
-import { Income, Expense } from '../types/financial';
-import { getIncomes } from '../actions/incomes';
-import { getExpenses } from '../actions/expenses';
+import { useOptimizedInvestments } from '../(dashboard)/investments/hooks/useOptimizedInvestments';
+import { getIncomes } from '../(dashboard)/incomes/actions/incomes';
+import { getExpenses } from '../(dashboard)/expenses/actions/expenses';
 import { calculateRemainingWithInterest } from '../utils/interestCalculation';
 
 interface NetWorthStats {

@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { NotificationSettings } from "../../components/NotificationSettings";
+import { NotificationSettings } from "../../components/notification/NotificationSettings";
 
 function NotificationSettingsLoading() {
     return (
