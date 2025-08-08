@@ -1,4 +1,5 @@
 import { Income } from '../types/financial';
+import { formatDateForCSV } from './csvUtils';
 
 /**
  * Convert incomes data to CSV format
@@ -36,7 +37,7 @@ export function convertIncomesToCSV(incomes: Income[]): string {
         income.title,
         income.description || '',
         income.amount.toString(),
-        income.date.toISOString().split('T')[0], // YYYY-MM-DD format
+        formatDateForCSV(income.date),
         income.category.name,
         income.category.color,
         income.account ? `${income.account.holderName} - ${income.account.bankName}` : '',

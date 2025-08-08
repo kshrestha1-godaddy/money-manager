@@ -1,6 +1,7 @@
 import { DebtInterface, DebtRepaymentInterface } from '../types/debts';
 import { formatCurrency } from "./currency";
 import { calculateRemainingWithInterest } from "./interestCalculation";
+import { formatDateForCSV } from './csvUtils';
 
 /**
  * Convert debts data to CSV format
@@ -53,8 +54,8 @@ export function convertDebtsToCSV(debts: DebtInterface[]): string {
             totalAmountDue.toString(),
             amountRepaid.toString(),
             outstandingAmount.toString(),
-            debt.lentDate.toISOString().split('T')[0], // YYYY-MM-DD format
-            debt.dueDate?.toISOString().split('T')[0] || '',
+            formatDateForCSV(debt.lentDate),
+            debt.dueDate ? formatDateForCSV(debt.dueDate) : '',
             debt.status,
             debt.purpose || '',
             debt.notes || '',
@@ -103,7 +104,7 @@ export function convertRepaymentsToCSV(repayments: DebtRepaymentInterface[], deb
             repayment.debtId.toString(),
             debtIdMap[repayment.debtId] || '',
             repayment.amount.toString(),
-            repayment.repaymentDate.toISOString().split('T')[0], // YYYY-MM-DD format
+            formatDateForCSV(repayment.repaymentDate),
             repayment.notes || '',
             repayment.accountId?.toString() || '',
             repayment.createdAt.toISOString(),

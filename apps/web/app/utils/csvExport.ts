@@ -1,4 +1,5 @@
 import { AccountInterface } from '../types/accounts';
+import { formatDateForCSV } from './csvUtils';
 
 /**
  * Convert accounts data to CSV format
@@ -46,7 +47,7 @@ export function convertAccountsToCSV(accounts: AccountInterface[]): string {
         account.branchContacts.join('; '),
         account.swift,
         account.bankEmail,
-        account.accountOpeningDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+        formatDateForCSV(account.accountOpeningDate),
         account.securityQuestion.join('; '),
         account.balance?.toString() || '0',
         account.appUsername || '',

@@ -1,4 +1,5 @@
 import { PasswordInterface } from '../types/passwords';
+import { formatDateForCSV } from './csvUtils';
 
 /**
  * Convert passwords data to CSV format
@@ -34,7 +35,7 @@ export function convertPasswordsToCSV(passwords: PasswordInterface[]): string {
         password.transactionPin || '',
         password.category || '',
         password.tags.join('; '), // Join multiple tags with semicolon
-        password.validity ? password.validity.toISOString().split('T')[0] : '',
+        password.validity ? formatDateForCSV(password.validity) : '',
         password.notes || '',
         password.createdAt.toISOString(),
         password.updatedAt.toISOString()

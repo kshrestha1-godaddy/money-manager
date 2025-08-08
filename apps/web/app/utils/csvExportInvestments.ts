@@ -1,4 +1,5 @@
 import { InvestmentInterface } from '../types/investments';
+import { formatDateForCSV } from './csvUtils';
 
 /**
  * Convert investments data to CSV format
@@ -49,12 +50,12 @@ export function convertInvestmentsToCSV(investments: InvestmentInterface[]): str
             totalValue.toString(),
             gainLoss.toString(),
             gainLossPercentage.toFixed(2) + '%',
-            investment.purchaseDate.toISOString().split('T')[0], // YYYY-MM-DD format
+            formatDateForCSV(investment.purchaseDate),
             investment.account ? `${investment.account.holderName} - ${investment.account.bankName}` : '',
             investment.account?.bankName || '',
             investment.account?.accountNumber || '',
             investment.interestRate?.toString() || '',
-            investment.maturityDate?.toISOString().split('T')[0] || '',
+            investment.maturityDate ? formatDateForCSV(investment.maturityDate) : '',
             investment.notes || '',
             investment.createdAt.toISOString(),
             investment.updatedAt.toISOString()

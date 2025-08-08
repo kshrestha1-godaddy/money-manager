@@ -155,8 +155,8 @@ export function validateCSVHeaders(
     };
 }
 
-// Parse date from various formats
-export function parseDate(dateString: string): Date {
+// Parse date from various formats with optional day adjustment for legacy CSV files
+export function parseDate(dateString: string, addOneDay: boolean = false): Date {
     if (!dateString || typeof dateString !== 'string') {
         throw new Error('Date is required');
     }
@@ -169,14 +169,24 @@ export function parseDate(dateString: string): Date {
             // MM/DD/YYYY or DD/MM/YYYY format
             parsedDate = new Date(dateString);
         } else if (dateString.includes('-')) {
-            // YYYY-MM-DD format
-            parsedDate = new Date(dateString);
+            // YYYY-MM-DD format - parse manually to avoid timezone issues
+            const [year, month, day] = dateString.split('-').map(Number);
+            if (!year || !month || !day || month < 1 || month > 12 || day < 1 || day > 31) {
+                throw new Error('Invalid date components');
+            }
+            // Create date in local timezone
+            parsedDate = new Date(year, month - 1, day);
         } else {
             throw new Error('Invalid date format');
         }
         
         if (isNaN(parsedDate.getTime())) {
             throw new Error('Invalid date');
+        }
+        
+        // Temporary fix: Add one day if requested (for legacy CSV files with timezone issues)
+        if (addOneDay) {
+            parsedDate.setDate(parsedDate.getDate() + 1);
         }
     } catch (error) {
         throw new Error(`Invalid date format: ${dateString}`);
@@ -227,6 +237,17 @@ export function parseLocations(locationsString: string): string[] {
         .split(separator)
         .map(location => location?.trim() || '')
         .filter(Boolean);
+}
+
+// Format date to YYYY-MM-DD in local timezone (avoids timezone issues)
+export function formatDateForCSV(date: Date): string {
+    if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+        return '';
+    }
+    
+    return date.getFullYear() + '-' + 
+           String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+           String(date.getDate()).padStart(2, '0');
 }
 
 // Map CSV row to object based on headers

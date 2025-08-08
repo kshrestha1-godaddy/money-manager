@@ -62,11 +62,31 @@ const purpleIcon = ICON_COLORS.purple;
 const greenPositiveIcon = ICON_COLORS.greenPositive;
 const redNegativeIcon = ICON_COLORS.redNegative;
 
+// Memoized Charts Section to prevent unnecessary re-renders
+const ChartsSection = React.memo<{
+    polarChartProps: any;
+    targetChartProps: any;
+}>(({ polarChartProps, targetChartProps }) => {
+    return (
+        <ChartAnimationProvider>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Investment Type Distribution Polar Chart */}
+                <InvestmentTypePolarChart {...polarChartProps} />
+                
+                {/* Investment Target Progress Chart */}
+                <InvestmentTargetProgressChart {...targetChartProps} />
+            </div>
+        </ChartAnimationProvider>
+    );
+});
+
+ChartsSection.displayName = 'ChartsSection';
+
 export default function Investments() {
     const { currency: userCurrency } = useCurrency();
     
     // Debounce timeout ref for filter changes
-    const debounceTimeoutRef = useRef<NodeJS.Timeout>();
+    const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Bulk delete modal states
     const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
@@ -203,21 +223,33 @@ export default function Investments() {
         }
     }, [actualTargets, openTargetModal]);
 
-    // Memoize chart props to prevent unnecessary re-renders
-    const chartProps = useMemo(() => ({
-        polarChartProps: {
-            investments,
-            currency: userCurrency,
-            title: "Portfolio Distribution by Investment Type"
-        },
-        targetChartProps: {
-            targets: targetProgress,
-            currency: userCurrency,
-            title: "Investment Target Progress",
-            onEditTarget: openEditTargetModal,
-            onAddTarget: openAddTargetModal
-        }
-    }), [investments, userCurrency, targetProgress, openEditTargetModal, openAddTargetModal]);
+    // Create stable references for chart data to prevent unnecessary re-renders
+    const stableInvestments = useMemo(() => investments, [
+        investments?.length,
+        // Add checksum to detect actual data changes, not just reference changes
+        investments?.reduce((sum, inv) => sum + inv.id + (inv.currentPrice || 0), 0) ?? 0
+    ]);
+
+    const stableTargetProgress = useMemo(() => targetProgress, [
+        targetProgress?.length,
+        // Add checksum to detect actual data changes
+        targetProgress?.reduce((sum, target) => sum + target.progress + (target.isComplete ? 1 : 0), 0) ?? 0
+    ]);
+
+    // Memoize chart props with stable references to prevent unnecessary re-renders
+    const polarChartProps = useMemo(() => ({
+        investments: stableInvestments,
+        currency: userCurrency,
+        title: "Portfolio Distribution by Investment Type"
+    }), [stableInvestments, userCurrency]);
+
+    const targetChartProps = useMemo(() => ({
+        targets: stableTargetProgress,
+        currency: userCurrency,
+        title: "Investment Target Progress",
+        onEditTarget: openEditTargetModal,
+        onAddTarget: openAddTargetModal
+    }), [stableTargetProgress, userCurrency, openEditTargetModal, openAddTargetModal]);
 
     // Bulk delete modal handlers
     const handleSectionBulkDelete = (sectionInvestments: InvestmentInterface[]) => {
@@ -464,15 +496,10 @@ export default function Investments() {
             </div>
 
             {/* Charts Section - Wrapped with ChartAnimationProvider for optimal performance */}
-            <ChartAnimationProvider>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Investment Type Distribution Polar Chart */}
-                    <InvestmentTypePolarChart {...chartProps.polarChartProps} />
-                    
-                    {/* Investment Target Progress Chart */}
-                    <InvestmentTargetProgressChart {...chartProps.targetChartProps} />
-                </div>
-            </ChartAnimationProvider>
+            <ChartsSection 
+                polarChartProps={polarChartProps}
+                targetChartProps={targetChartProps}
+            />
 
             {/* Filters and Actions */}
             <div className={UI_STYLES.filters.containerWithMargin}>

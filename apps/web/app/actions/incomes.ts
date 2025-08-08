@@ -6,7 +6,7 @@ import prisma from "@repo/db/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../lib/auth";
 import { getUserIdFromSession } from "../utils/auth";
-import { parseCSV, parseTags } from "../utils/csvUtils";
+import { parseCSV, parseTags, parseDate } from "../utils/csvUtils";
 
 // Helper function to revalidate all income-related paths
 const revalidateIncomePaths = () => {
@@ -450,8 +450,8 @@ async function processIncomeRow(
     if (!rowObj.date) throw new Error("Date is required");
     if (!rowObj.category) throw new Error("Category is required");
 
-    const date = new Date(rowObj.date);
-    if (isNaN(date.getTime())) throw new Error("Invalid date format. Use YYYY-MM-DD");
+    // Temporary fix: Add one day to compensate for legacy CSV timezone issues
+    const date = parseDate(rowObj.date, true);
 
     const categoryName = rowObj.category;
     
