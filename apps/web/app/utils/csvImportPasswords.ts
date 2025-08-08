@@ -1,7 +1,7 @@
 import { PasswordFormData } from '../types/passwords';
 import { ImportResult } from '../types/bulkImport';
 import { parseCSV } from './csvUtils';
-import { bulkImportPasswords as saveBulkPasswords } from '../actions/passwords';
+import { bulkImportPasswords as saveBulkPasswords } from '../(dashboard)/passwords/actions/passwords';
 
 /**
  * Parse CSV content for password import

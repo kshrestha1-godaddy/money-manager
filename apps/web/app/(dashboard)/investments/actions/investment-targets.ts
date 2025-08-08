@@ -42,6 +42,22 @@ export async function getInvestmentTargets(): Promise<{ data?: InvestmentTarget[
     }
 }
 
+const formatInvestmentType = (type: string): string => {
+    switch (type) {
+        case 'STOCKS': return 'Stocks';
+        case 'CRYPTO': return 'Cryptocurrency';
+        case 'MUTUAL_FUNDS': return 'Mutual Funds';
+        case 'BONDS': return 'Bonds';
+        case 'REAL_ESTATE': return 'Real Estate';
+        case 'GOLD': return 'Gold';
+        case 'FIXED_DEPOSIT': return 'Fixed Deposit';
+        case 'PROVIDENT_FUNDS': return 'Provident Funds';
+        case 'SAFE_KEEPINGS': return 'Safe Keepings';
+        case 'OTHER': return 'Other';
+        default: return type;
+    }
+};
+
 export async function createInvestmentTarget(data: InvestmentTargetFormData): Promise<InvestmentTarget> {
     try {
         const session = await getServerSession(authOptions);
@@ -64,7 +80,7 @@ export async function createInvestmentTarget(data: InvestmentTargetFormData): Pr
         });
 
         if (existingTarget) {
-            const { formatInvestmentType } = await import("../constants");
+            // const { formatInvestmentType } = await import("../constants");
             throw new Error(`A target for ${formatInvestmentType(data.investmentType)} already exists. Please edit the existing target instead.`);
         }
 
