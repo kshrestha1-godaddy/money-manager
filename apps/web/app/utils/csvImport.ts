@@ -31,6 +31,14 @@ export interface ImportResult {
     validRows: number;
 }
 
+export interface BulkCreateResult {
+    success: boolean;
+    data: AccountInterface[];
+    errors: string[];
+    successCount: number;
+    totalAttempted: number;
+}
+
 /**
  * Parse CSV string to array of objects
  */

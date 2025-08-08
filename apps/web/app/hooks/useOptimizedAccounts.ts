@@ -6,7 +6,8 @@ import {
     createAccount, 
     updateAccount, 
     deleteAccount, 
-    bulkDeleteAccounts 
+    bulkDeleteAccounts,
+    bulkCreateAccounts 
 } from "../actions/accounts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
 import { exportAccountsToCSV } from "../utils/csvExport";
@@ -76,6 +77,9 @@ interface UseOptimizedAccountsReturn {
     openViewModal: (account: AccountInterface) => void;
     openDeleteModal: (account: AccountInterface) => void;
     openShareModal: (account: AccountInterface) => void;
+
+    // Import status
+    isImporting: boolean;
 
     // Query invalidation helper
     invalidateQueries: () => void;
@@ -264,6 +268,31 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         },
     });
 
+    const bulkCreateMutation = useMutation({
+        mutationFn: (accounts: Omit<AccountInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>[]) => 
+            bulkCreateAccounts(accounts),
+        onSuccess: (result) => {
+            // Optimistically update the cache with successfully created accounts
+            if (result.data.length > 0) {
+                queryClient.setQueryData(QUERY_KEYS.accounts, (oldAccounts: AccountInterface[] = []) => {
+                    return [...result.data, ...oldAccounts];
+                });
+                triggerBalanceRefresh();
+            }
+            setIsImportModalOpen(false);
+            setError(null);
+            
+            // Show success/error summary
+            if (result.errors.length > 0) {
+                console.warn(`Bulk import completed with ${result.errors.length} errors:`, result.errors);
+            }
+        },
+        onError: (error: Error) => {
+            console.error("Error bulk creating accounts:", error);
+            setError(`Failed to import accounts: ${error.message}`);
+        },
+    });
+
     // CRUD Handlers
     const handleAddAccount = useCallback(async (newAccount: Omit<AccountInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => {
         return new Promise<void>((resolve, reject) => {
@@ -350,11 +379,29 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
 
     // Utility handlers
     const handleBulkImportSuccess = useCallback((importedAccounts: ParsedAccountData[]) => {
-        // Invalidate queries to refetch fresh data
-        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
-        triggerBalanceRefresh();
-        setIsImportModalOpen(false);
-    }, [queryClient]);
+        // Convert ParsedAccountData to AccountInterface format
+        const accountsToCreate = importedAccounts.map(account => ({
+            holderName: account.holderName,
+            accountNumber: account.accountNumber,
+            branchCode: account.branchCode || '',
+            bankName: account.bankName,
+            branchName: account.branchName || '',
+            bankAddress: account.bankAddress || '',
+            accountType: account.accountType || '',
+            mobileNumbers: account.mobileNumbers || [],
+            branchContacts: account.branchContacts || [],
+            swift: account.swift || '',
+            bankEmail: account.bankEmail || '',
+            accountOpeningDate: account.accountOpeningDate,
+            securityQuestion: account.securityQuestion || [],
+            balance: account.balance,
+            appUsername: account.appUsername,
+            notes: account.notes,
+            nickname: account.nickname
+        }));
+
+        bulkCreateMutation.mutate(accountsToCreate);
+    }, [bulkCreateMutation]);
 
     const handleExportToCSV = useCallback(() => {
         exportAccountsToCSV(filteredAccounts);
@@ -437,6 +484,9 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         openViewModal,
         openDeleteModal,
         openShareModal,
+
+        // Import status
+        isImporting: bulkCreateMutation.isPending,
 
         // Query invalidation helper
         invalidateQueries,

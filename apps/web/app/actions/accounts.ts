@@ -292,3 +292,122 @@ export async function bulkDeleteAccounts(accountIds: number[]) {
         throw error;
     }
 }
+
+export async function bulkCreateAccounts(accounts: Omit<AccountInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>[]) {
+    try {
+        const session = await getAuthenticatedSession();
+        const userId = getUserIdFromSession(session.user.id);
+        
+        const user = await prisma.user.findUnique({
+            where: {
+                id: userId,
+            },
+        });
+
+        if (!user) {
+            console.error(`User not found when creating accounts for user ID: ${userId}`);
+            throw new Error("User not found");
+        }
+
+        // Use transaction to handle bulk account creation with uniqueness validation
+        const result = await prisma.$transaction(async (tx) => {
+            const createdAccounts: any[] = [];
+            const errors: string[] = [];
+            let successCount = 0;
+
+            for (let i = 0; i < accounts.length; i++) {
+                const account = accounts[i];
+                if (!account) {
+                    errors.push(`Account ${i + 1}: Invalid account data`);
+                    continue;
+                }
+
+                try {
+                    // Check for account number uniqueness inside transaction
+                    if (account.accountNumber) {
+                        const existingAccount = await tx.account.findUnique({
+                            where: {
+                                accountNumber: account.accountNumber,
+                            },
+                        });
+
+                        if (existingAccount) {
+                            errors.push(`Account ${i + 1}: Account number ${account.accountNumber} is already in use`);
+                            continue;
+                        }
+                    }
+
+                    // Ensure required fields are present
+                    if (!account.holderName || !account.bankName) {
+                        errors.push(`Account ${i + 1}: Missing required fields (holder name or bank name)`);
+                        continue;
+                    }
+
+                    // Create the account
+                    const newAccount = await tx.account.create({
+                        data: {
+                            holderName: account.holderName,
+                            accountNumber: account.accountNumber || '',
+                            branchCode: account.branchCode || '',
+                            bankName: account.bankName,
+                            branchName: account.branchName || '',
+                            bankAddress: account.bankAddress || '',
+                            accountType: account.accountType || '',
+                            mobileNumbers: account.mobileNumbers || [],
+                            branchContacts: account.branchContacts || [],
+                            swift: account.swift || '',
+                            bankEmail: account.bankEmail || '',
+                            accountOpeningDate: account.accountOpeningDate,
+                            securityQuestion: account.securityQuestion || [],
+                            balance: account.balance || 0,
+                            appUsername: account.appUsername || null,
+                            appPassword: null, // Not imported for security
+                            appPin: null, // Not imported for security
+                            notes: account.notes || null,
+                            nickname: account.nickname || null,
+                            userId: user.id,
+                        },
+                    });
+
+                    createdAccounts.push({
+                        ...newAccount,
+                        balance: newAccount.balance ? decimalToNumber(newAccount.balance, 'balance') : undefined,
+                        accountOpeningDate: new Date(newAccount.accountOpeningDate),
+                        createdAt: new Date(newAccount.createdAt),
+                        updatedAt: new Date(newAccount.updatedAt),
+                        // Convert null values to undefined for compatibility with AccountInterface
+                        appUsername: newAccount.appUsername || undefined,
+                        appPassword: newAccount.appPassword || undefined,
+                        appPin: newAccount.appPin || undefined,
+                        notes: newAccount.notes || undefined,
+                        nickname: newAccount.nickname || undefined,
+                    });
+                    successCount++;
+                } catch (error: any) {
+                    console.error(`Failed to create account ${i + 1}:`, error);
+                    // Handle Prisma unique constraint errors
+                    if (error.code === 'P2002' && error.meta?.target?.includes('accountNumber')) {
+                        errors.push(`Account ${i + 1}: Account number ${account?.accountNumber || 'unknown'} is already in use`);
+                    } else {
+                        errors.push(`Account ${i + 1}: ${error.message}`);
+                    }
+                }
+            }
+
+            return { createdAccounts, errors, successCount };
+        });
+        
+        console.info(`Bulk account creation completed for user ${userId}: ${result.successCount} successful, ${result.errors.length} errors`);
+        
+        return {
+            success: result.successCount > 0,
+            data: result.createdAccounts as AccountInterface[],
+            errors: result.errors,
+            successCount: result.successCount,
+            totalAttempted: accounts.length
+        };
+    } catch (error: any) {
+        console.error(`Failed to bulk create accounts for user: ${error.message}`);
+        throw error;
+    }
+}

@@ -119,6 +119,7 @@ export default function Accounts() {
         openViewModal,
         openDeleteModal,
         openShareModal,
+        isImporting,
     } = useOptimizedAccounts();
 
     // The accounts from the hook are already filtered
@@ -426,6 +427,7 @@ export default function Accounts() {
                 isOpen={isImportModalOpen}
                 onClose={() => setIsImportModalOpen(false)}
                 onImport={handleBulkImportSuccess}
+                isImporting={isImporting}
             />
         </div>
     );

@@ -8,9 +8,10 @@ interface ImportAccountModalProps {
     isOpen: boolean;
     onClose: () => void;
     onImport: (accounts: ParsedAccountData[]) => void;
+    isImporting?: boolean;
 }
 
-export function ImportAccountModal({ isOpen, onClose, onImport }: ImportAccountModalProps) {
+export function ImportAccountModal({ isOpen, onClose, onImport, isImporting: serverImporting = false }: ImportAccountModalProps) {
     const [file, setFile] = useState<File | null>(null);
     const [importing, setImporting] = useState(false);
     const [result, setResult] = useState<ImportResult | null>(null);
@@ -62,9 +63,11 @@ export function ImportAccountModal({ isOpen, onClose, onImport }: ImportAccountM
             const importResult = parseAccountsCSV(csvContent);
             setResult(importResult);
             
-            if (importResult.success && importResult.errors.length === 0) {
+            // Only call onImport if we have valid data - this will trigger the actual save
+            if (importResult.success && importResult.data.length > 0) {
                 onImport(importResult.data);
-                resetModal();
+                // Don't reset modal immediately - let the user see the result
+                // Modal will be closed by the hook after successful save
             }
         } catch (error) {
             setResult({
@@ -152,10 +155,10 @@ export function ImportAccountModal({ isOpen, onClose, onImport }: ImportAccountM
                     <div className="flex justify-end">
                         <button
                             onClick={handleImport}
-                            disabled={!file || importing}
+                            disabled={!file || importing || serverImporting}
                             className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                         >
-                            {importing ? 'Importing...' : 'Import Accounts'}
+                            {importing ? 'Parsing CSV...' : serverImporting ? 'Saving Accounts...' : 'Import Accounts'}
                         </button>
                     </div>
 
