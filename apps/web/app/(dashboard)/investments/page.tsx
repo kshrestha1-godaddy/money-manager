@@ -27,6 +27,7 @@ import {
 } from "../../config/colorConfig";
 import { ChartAnimationProvider } from "../../hooks/useChartAnimationContext";
 import { InvestmentTypePolarChart } from "../../components/investments/InvestmentTypePolarChart";
+import { InvestmentTargetProgressChart } from "../../components/investments/InvestmentTargetProgressChart";
 // Extract color variables for better readability
 const pageContainer = CONTAINER_COLORS.page;
 const errorContainer = CONTAINER_COLORS.error;
@@ -221,11 +222,8 @@ export default function Investments() {
     const polarChartProps = useMemo(() => ({
         investments: stableInvestments,
         currency: userCurrency,
-        title: "Portfolio Distribution by Investment Type",
-        targets: stableTargetProgress,
-        onEditTarget: openEditTargetModal,
-        onAddTarget: openAddTargetModal
-    }), [stableInvestments, userCurrency, stableTargetProgress, openEditTargetModal, openAddTargetModal]);
+        title: "Portfolio Distribution by Investment Type"
+    }), [stableInvestments, userCurrency]);
 
     const targetChartProps = useMemo(() => ({
         targets: stableTargetProgress,
@@ -480,10 +478,17 @@ export default function Investments() {
                 </div>
             </div>
 
-            {/* Polar Chart: Portfolio distribution by investment type */}
-            <div className="mt-6">
-                {/* Use filtered data so filters affect chart */}
-                <InvestmentTypePolarChart {...polarChartProps} investments={filteredInvestments} />
+            {/* Charts Section */}
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left: Polar Chart - Portfolio distribution by investment type */}
+                <div>
+                    <InvestmentTypePolarChart {...polarChartProps} investments={filteredInvestments} />
+                </div>
+                
+                {/* Right: Investment Target Progress Chart */}
+                <div>
+                    <InvestmentTargetProgressChart {...targetChartProps} />
+                </div>
             </div>
 
 

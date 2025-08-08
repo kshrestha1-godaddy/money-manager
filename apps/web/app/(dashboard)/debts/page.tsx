@@ -324,7 +324,13 @@ export default function Debts() {
 
             {/* Debts Waterfall Chart */}
             <div className="mb-6">
-                <DebtStatusWaterfallChart debts={filteredDebts} currency={userCurrency} />
+                <DebtStatusWaterfallChart 
+                    debts={filteredDebts} 
+                    currency={userCurrency} 
+                    hasPageFilters={hasActiveFilters}
+                    pageStartDate={startDate}
+                    pageEndDate={endDate}
+                />
             </div>
 
 

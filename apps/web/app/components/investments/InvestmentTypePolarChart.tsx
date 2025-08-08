@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef } from "react";
+import React, { useMemo, useRef, useCallback } from "react";
 import { PolarArea } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -11,11 +11,10 @@ import {
 } from "chart.js";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import { formatCurrency } from "../../utils/currency";
-import { InvestmentInterface, InvestmentTargetProgress } from "../../types/investments";
+import { InvestmentInterface } from "../../types/investments";
 import { ChartControls } from "../ChartControls";
 import { useChartExpansion } from "../../utils/chartUtils";
 import { useChartAnimationState } from "../../hooks/useChartAnimationContext";
-import { InvestmentTargetProgressChart } from "./InvestmentTargetProgressChart";
 
 ChartJS.register(RadialLinearScale, ArcElement, ChartTooltip, ChartLegend, ChartDataLabels);
 
@@ -23,9 +22,6 @@ interface InvestmentTypePolarChartProps {
   investments: InvestmentInterface[];
   currency?: string;
   title?: string;
-  targets?: InvestmentTargetProgress[];
-  onEditTarget?: (investmentType: string) => void;
-  onAddTarget?: () => void;
 }
 
 interface TypeDatum {
@@ -62,7 +58,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export const InvestmentTypePolarChart = React.memo<InvestmentTypePolarChartProps>(
-  ({ investments, currency = "USD", title = "Portfolio Distribution by Investment Type", targets = [], onEditTarget, onAddTarget }) => {
+  ({ investments, currency = "USD", title = "Portfolio Distribution by Investment Type" }) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
 
@@ -115,15 +111,109 @@ export const InvestmentTypePolarChart = React.memo<InvestmentTypePolarChartProps
       investments.reduce((s, inv) => s + inv.id + inv.quantity + inv.purchasePrice, 0),
     ]);
 
-    const csvData = [
-      ["Investment Type", "Invested Amount", "Percentage", "Positions"],
-      ...data.map((d) => [
-        d.name,
-        d.value.toString(),
-        totalInvested > 0 ? ((d.value / totalInvested) * 100).toFixed(1) + "%" : "0.0%",
-        d.count.toString(),
-      ]),
-    ];
+    // Download functions for Chart.js (Canvas-based)
+    const downloadPNG = useCallback(async (): Promise<void> => {
+      const element = chartRef.current;
+      if (!element) return;
+
+      try {
+        // Chart.js creates canvas elements, not SVG
+        const canvas = element.querySelector('canvas');
+        if (!canvas) {
+          console.error('No canvas element found');
+          return;
+        }
+
+        // Get the chart data URL from the canvas
+        const dataURL = canvas.toDataURL('image/png', 1.0);
+        
+        // Create download link
+        const link = document.createElement('a');
+        link.download = 'investment-type-polar-chart.png';
+        link.href = dataURL;
+        link.click();
+      } catch (error) {
+        console.error('Error downloading PNG:', error);
+      }
+    }, []);
+
+    const downloadSVG = useCallback((): void => {
+      const element = chartRef.current;
+      if (!element) return;
+
+      try {
+        // Chart.js doesn't generate SVG, so we convert canvas to SVG
+        const canvas = element.querySelector('canvas');
+        if (!canvas) {
+          console.error('No canvas element found');
+          return;
+        }
+
+        // Get canvas dimensions
+        const { width, height } = canvas;
+        
+        // Create SVG with embedded image
+        const svgData = `
+          <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+            <rect width="100%" height="100%" fill="white"/>
+            <image href="${canvas.toDataURL('image/png')}" width="${width}" height="${height}"/>
+          </svg>
+        `;
+
+        const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+        const link = document.createElement('a');
+        link.download = 'investment-type-polar-chart.svg';
+        link.href = URL.createObjectURL(blob);
+        link.click();
+        URL.revokeObjectURL(link.href);
+      } catch (error) {
+        console.error('Error downloading SVG:', error);
+      }
+    }, []);
+
+    // Memoize CSV data preparation to avoid duplication and improve performance
+    const csvData = useMemo(() => {
+      const csvDataArray = [
+        ["Investment Type", "Invested Amount", "Percentage", "Positions"],
+        ...data.map((d) => [
+          d.name,
+          d.value.toString(),
+          totalInvested > 0 ? ((d.value / totalInvested) * 100).toFixed(1) + "%" : "0.0%",
+          d.count.toString(),
+        ]),
+      ];
+
+      // Add detailed breakdown for all types if "Others" category exists
+      const hasOthers = data.some(d => d.name === 'Others');
+      if (hasOthers) {
+        csvDataArray.push(['', '', '', '']); // Empty row for separation
+        csvDataArray.push(['--- Detailed Breakdown ---', '', '', '']);
+        csvDataArray.push(['All Types (including < 2%)', '', '', '']);
+        
+        // Get all original types from investments
+        const allTypes = new Map<string, { invested: number; count: number }>();
+        investments.forEach((inv) => {
+          const key = inv.type || "OTHER";
+          const prev = allTypes.get(key) || { invested: 0, count: 0 };
+          const invested = (Number(inv.quantity) || 0) * (Number(inv.purchasePrice) || 0);
+          allTypes.set(key, { invested: prev.invested + invested, count: prev.count + 1 });
+        });
+
+        Array.from(allTypes.entries())
+          .map(([type, agg]) => ({
+            name: TYPE_LABELS[type] || type,
+            value: agg.invested,
+            count: agg.count,
+          }))
+          .sort((a, b) => b.value - a.value)
+          .forEach(item => {
+            const percentage = totalInvested > 0 ? ((item.value / totalInvested) * 100).toFixed(1) + '%' : '0.0%';
+            csvDataArray.push([item.name, item.value.toString(), percentage, item.count.toString()]);
+          });
+      }
+
+      return csvDataArray;
+    }, [data, totalInvested, investments]);
 
     if (!data.length) {
       return (
@@ -209,9 +299,6 @@ export const InvestmentTypePolarChart = React.memo<InvestmentTypePolarChartProps
               const item = data.find((d) => d.name === labelName);
               const count = item?.count ?? 0;
               
-              // Debug: log the context to understand structure
-              console.log('Tooltip context:', { ctx, value, labelName, item });
-              
               return [
                 `Amount: ${formatCurrency(value, currency)}`,
                 `Percentage: ${pct}%`,
@@ -252,23 +339,22 @@ export const InvestmentTypePolarChart = React.memo<InvestmentTypePolarChartProps
     };
 
     const ChartContent = () => (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Side - Polar Chart */}
-        <div className="space-y-4">
-          <div className="flex justify-start items-center">
-            <div className="text-left">
-              <p className="text-xs text-gray-600">Total Invested</p>
-              <p className="text-base font-semibold text-blue-600">
-                {formatCurrency(totalInvested, currency)}
-              </p>
-              <p className="text-xs text-gray-500">{data.reduce((s, d) => s + d.count, 0)} positions</p>
-            </div>
+      <div>
+        <div className="flex justify-start items-center mb-4">
+          <div className="text-left">
+            <p className="text-xs text-gray-600">Total Invested</p>
+            <p className="text-base font-semibold text-blue-600">
+              {formatCurrency(totalInvested, currency)}
+            </p>
+            <p className="text-xs text-gray-500">{data.reduce((s, d) => s + d.count, 0)} positions</p>
           </div>
+        </div>
 
-          {/* Larger Polar chart */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Polar chart - takes up 2/3 of the width */}
           <div
             ref={chartRef}
-            className={`${isExpanded ? "h-[50rem]" : "h-[28rem] sm:h-[32rem] md:h-[36rem]"}`}
+            className={`${isExpanded ? "h-[50rem]" : "h-[28rem] sm:h-[32rem] md:h-[36rem]"} lg:col-span-2`}
             role="img"
             aria-label={`Investment portfolio distribution polar chart showing ${formatCurrency(
               totalInvested,
@@ -278,17 +364,17 @@ export const InvestmentTypePolarChart = React.memo<InvestmentTypePolarChartProps
             <PolarArea data={chartData} options={chartOptions} />
           </div>
 
-          {/* Legend below chart */}
-          <div className="space-y-2">
+          {/* Legend - takes up 1/3 of the width */}
+          <div className="space-y-3">
             <h4 className="text-sm font-medium text-gray-900">Type Breakdown</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="space-y-2 max-h-96 overflow-y-auto">
               {data.map((d) => {
                 const pct = totalInvested > 0 ? ((d.value / totalInvested) * 100).toFixed(1) : "0.0";
                 return (
-                  <div key={d.name} className="flex items-center justify-between gap-2 p-2 bg-gray-50 rounded">
+                  <div key={d.name} className="flex items-center justify-between gap-2 p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
-                      <span className="text-xs sm:text-sm text-gray-700 truncate">{d.name}</span>
+                      <span className="text-xs sm:text-sm text-gray-700 truncate font-medium">{d.name}</span>
                       <span className="text-xs text-gray-500">({d.count})</span>
                     </div>
                     <div className="text-right flex-shrink-0">
@@ -302,17 +388,6 @@ export const InvestmentTypePolarChart = React.memo<InvestmentTypePolarChartProps
               })}
             </div>
           </div>
-        </div>
-
-        {/* Right Side - Investment Target Progress Chart */}
-        <div className="space-y-4">
-          <InvestmentTargetProgressChart
-            targets={targets}
-            currency={currency}
-            title="Investment Target Progress"
-            onEditTarget={onEditTarget}
-            onAddTarget={onAddTarget}
-          />
         </div>
       </div>
     );
@@ -329,6 +404,8 @@ export const InvestmentTypePolarChart = React.memo<InvestmentTypePolarChartProps
             csvFileName="investment-type-polar-data"
             title={title}
             tooltipText="Distribution of your portfolio across investment types (based on invested amount)"
+            customDownloadPNG={downloadPNG}
+            customDownloadSVG={downloadSVG}
           />
           <ChartContent />
         </div>
