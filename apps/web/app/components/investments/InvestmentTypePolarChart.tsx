@@ -1,533 +1,364 @@
 "use client";
 
 import React, { useMemo, useRef } from "react";
+import { PolarArea } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   RadialLinearScale,
   ArcElement,
-  Tooltip,
-  Legend,
-} from 'chart.js';
-import ChartDataLabels from 'chartjs-plugin-datalabels';
-import { PolarArea } from 'react-chartjs-2';
+  Tooltip as ChartTooltip,
+  Legend as ChartLegend,
+} from "chart.js";
+import ChartDataLabels from "chartjs-plugin-datalabels";
 import { formatCurrency } from "../../utils/currency";
-import { InvestmentInterface } from "../../types/investments";
+import { InvestmentInterface, InvestmentTargetProgress } from "../../types/investments";
 import { ChartControls } from "../ChartControls";
 import { useChartExpansion } from "../../utils/chartUtils";
 import { useChartAnimationState } from "../../hooks/useChartAnimationContext";
+import { InvestmentTargetProgressChart } from "./InvestmentTargetProgressChart";
 
-ChartJS.register(RadialLinearScale, ArcElement, Tooltip, Legend, ChartDataLabels);
+ChartJS.register(RadialLinearScale, ArcElement, ChartTooltip, ChartLegend, ChartDataLabels);
 
 interface InvestmentTypePolarChartProps {
-    investments: InvestmentInterface[];
-    currency?: string;
-    title?: string;
+  investments: InvestmentInterface[];
+  currency?: string;
+  title?: string;
+  targets?: InvestmentTargetProgress[];
+  onEditTarget?: (investmentType: string) => void;
+  onAddTarget?: () => void;
 }
 
-const INVESTMENT_TYPE_COLORS = {
-    STOCKS: '#0088FE',
-    CRYPTO: '#00C49F', 
-    MUTUAL_FUNDS: '#FFBB28',
-    BONDS: '#FF8042',
-    REAL_ESTATE: '#8884D8',
-    GOLD: '#82CA9D',
-    FIXED_DEPOSIT: '#FFC658',
-    PROVIDENT_FUNDS: '#FF7C7C',
-    SAFE_KEEPINGS: '#8DD1E1',
-    OTHER: '#D084D0'
+interface TypeDatum {
+  name: string;
+  value: number;
+  count: number;
+  color: string;
+}
+
+const TYPE_COLORS: Record<string, string> = {
+  STOCKS: "#3b82f6",
+  CRYPTO: "#10b981",
+  MUTUAL_FUNDS: "#f59e0b",
+  BONDS: "#f97316",
+  REAL_ESTATE: "#8b5cf6",
+  GOLD: "#22c55e",
+  FIXED_DEPOSIT: "#fde047",
+  PROVIDENT_FUNDS: "#fb7185",
+  SAFE_KEEPINGS: "#60a5fa",
+  OTHER: "#a78bfa",
 };
 
-const TYPE_LABELS = {
-    STOCKS: 'Stocks',
-    CRYPTO: 'Cryptocurrency',
-    MUTUAL_FUNDS: 'Mutual Funds',
-    BONDS: 'Bonds',
-    REAL_ESTATE: 'Real Estate',
-    GOLD: 'Gold',
-    FIXED_DEPOSIT: 'Fixed Deposits',
-    PROVIDENT_FUNDS: 'Provident Funds',
-    SAFE_KEEPINGS: 'Safe Keepings',
-    OTHER: 'Other'
+const TYPE_LABELS: Record<string, string> = {
+  STOCKS: "Stocks",
+  CRYPTO: "Cryptocurrency",
+  MUTUAL_FUNDS: "Mutual Funds",
+  BONDS: "Bonds",
+  REAL_ESTATE: "Real Estate",
+  GOLD: "Gold",
+  FIXED_DEPOSIT: "Fixed Deposit",
+  PROVIDENT_FUNDS: "Provident Funds",
+  SAFE_KEEPINGS: "Safe Keepings",
+  OTHER: "Other",
 };
 
-export const InvestmentTypePolarChart = React.memo<InvestmentTypePolarChartProps>(({ investments, currency = "USD", title }) => {
+export const InvestmentTypePolarChart = React.memo<InvestmentTypePolarChartProps>(
+  ({ investments, currency = "USD", title = "Portfolio Distribution by Investment Type", targets = [], onEditTarget, onAddTarget }) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
-    
-    // Animation control - allow animations but prevent excessive re-renders
-    const chartId = "investment-type-polar";
-    const { hasAnimated } = useChartAnimationState(chartId);
-    
-    // Process data - group by investment type
-    const processedData = useMemo(() => {
-        const typeMap = new Map<string, { totalValue: number; count: number }>();
-        
-        investments.forEach(investment => {
-            const type = investment.type || 'OTHER';
-            const currentData = typeMap.get(type) || { totalValue: 0, count: 0 };
-            
-            const quantity = Number(investment.quantity) || 0;
-            const purchasePrice = Number(investment.purchasePrice) || 0;
-            const investedAmount = quantity * purchasePrice;
-            
-            typeMap.set(type, {
-                totalValue: currentData.totalValue + investedAmount,
-                count: currentData.count + 1
-            });
+
+    const { animationDuration, isAnimationActive } = useChartAnimationState(
+      "investment-type-polar"
+    );
+
+    const { data, totalInvested } = useMemo(() => {
+      const typeToAgg = new Map<string, { invested: number; count: number }>();
+
+      investments.forEach((inv) => {
+        const key = inv.type || "OTHER";
+        const prev = typeToAgg.get(key) || { invested: 0, count: 0 };
+        const invested = (Number(inv.quantity) || 0) * (Number(inv.purchasePrice) || 0);
+        typeToAgg.set(key, { invested: prev.invested + invested, count: prev.count + 1 });
+      });
+
+      const entries: TypeDatum[] = Array.from(typeToAgg.entries())
+        .map(([type, agg]) => ({
+          name: TYPE_LABELS[type] || type,
+          value: agg.invested,
+          count: agg.count,
+          color: TYPE_COLORS[type] || "#9ca3af",
+        }))
+        .sort((a, b) => b.value - a.value);
+
+      const total = entries.reduce((s, e) => s + e.value, 0);
+
+      // Keep categories <2% grouped as Others (for clarity)
+      const major: TypeDatum[] = [];
+      const minor: TypeDatum[] = [];
+      entries.forEach((e) => {
+        const pct = total > 0 ? (e.value / total) * 100 : 0;
+        (pct >= 2 ? major : minor).push(e);
+      });
+
+      const finalData: TypeDatum[] = [...major];
+      if (minor.length) {
+        finalData.push({
+          name: "Others",
+          value: minor.reduce((s, e) => s + e.value, 0),
+          count: minor.reduce((s, e) => s + e.count, 0),
+          color: "#9ca3af",
         });
+      }
 
-        // Convert to structured data with additional info
-        const typeData = Array.from(typeMap.entries())
-            .sort(([, a], [, b]) => b.totalValue - a.totalValue)
-            .map(([type, data]) => ({
-                type,
-                label: TYPE_LABELS[type as keyof typeof TYPE_LABELS] || type,
-                value: data.totalValue,
-                count: data.count,
-                color: INVESTMENT_TYPE_COLORS[type as keyof typeof INVESTMENT_TYPE_COLORS] || '#9CA3AF'
-            }));
-
-        const totalInvested = typeData.reduce((sum, item) => sum + item.value, 0);
-
-        return {
-            typeData,
-            totalInvested,
-            chartData: {
-                labels: typeData.map(item => {
-                    const percentage = totalInvested > 0 ? ((item.value / totalInvested) * 100).toFixed(1) : '0.0';
-                    return `${item.label} [${percentage}%]`;
-                }),
-                datasets: [{
-                    label: 'Investment Distribution',
-                    data: typeData.map(item => item.value),
-                    backgroundColor: typeData.map(item => item.color),
-                    borderColor: '#fff',
-                    borderWidth: 2,
-                }]
-            }
-        };
+      return { data: finalData, totalInvested: total };
     }, [
-        investments.length,
-        // Add checksum to detect actual data changes, not just reference changes
-        investments.reduce((sum, inv) => sum + inv.id + inv.quantity + inv.purchasePrice, 0)
+      investments.length,
+      investments.reduce((s, inv) => s + inv.id + inv.quantity + inv.purchasePrice, 0),
     ]);
 
-    const { typeData, totalInvested, chartData } = processedData;
-
-    // Custom download function for Chart.js canvas with white background, margins, and legends
-    const downloadChartAsPNG = () => {
-        if (!chartRef.current) return;
-        
-        const canvas = chartRef.current.querySelector('canvas');
-        if (!canvas) return;
-        
-        try {
-            const padding = 60;
-            const legendWidth = 280;
-            const titleHeight = 80;
-            const chartWidth = canvas.width;
-            const chartHeight = canvas.height;
-            
-            // Create a new canvas with extra space for margins and legends
-            const newCanvas = document.createElement('canvas');
-            const ctx = newCanvas.getContext('2d');
-            
-            newCanvas.width = chartWidth + legendWidth + (padding * 3); // Left, middle, right padding
-            newCanvas.height = chartHeight + titleHeight + (padding * 2); // Top and bottom padding
-            
-            if (ctx) {
-                // Fill with white background
-                ctx.fillStyle = 'white';
-                ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
-                
-                // Draw title
-                ctx.fillStyle = '#1f2937';
-                ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-                ctx.textAlign = 'center';
-                const chartTitle = title || 'Investment Portfolio by Type';
-                ctx.fillText(chartTitle, newCanvas.width / 2, padding + 25);
-                
-                // Draw subtitle
-                ctx.fillStyle = '#6b7280';
-                ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-                ctx.fillText(`Total Invested: ${formatCurrency(totalInvested, currency)}`, newCanvas.width / 2, padding + 50);
-                
-                // Draw the original chart canvas
-                const chartX = padding;
-                const chartY = titleHeight + padding;
-                ctx.drawImage(canvas, chartX, chartY);
-                
-                // Draw legend
-                const legendX = chartWidth + padding * 2;
-                const legendY = titleHeight + padding + 10;
-                
-                // Legend title
-                ctx.fillStyle = '#1f2937';
-                ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-                ctx.textAlign = 'left';
-                ctx.fillText('Investment Breakdown', legendX, legendY);
-                
-                // Draw legend items
-                let currentY = legendY + 30;
-                typeData.forEach((item, index) => {
-                    const percentage = totalInvested > 0 ? ((item.value / totalInvested) * 100).toFixed(1) : '0.0';
-                    
-                    // Draw color circle (smaller)
-                    ctx.fillStyle = item.color;
-                    ctx.beginPath();
-                    ctx.arc(legendX + 8, currentY - 4, 6, 0, 2 * Math.PI);
-                    ctx.fill();
-                    
-                    // Draw white border around circle
-                    ctx.strokeStyle = 'white';
-                    ctx.lineWidth = 1;
-                    ctx.stroke();
-                    
-                    // Draw investment type name and count on same line
-                    ctx.fillStyle = '#374151';
-                    ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-                    ctx.textAlign = 'left';
-                    const labelText = `${item.label} (${item.count})`;
-                    ctx.fillText(labelText, legendX + 22, currentY);
-                    
-                    // Draw amount and percentage on same line
-                    ctx.fillStyle = '#1f2937';
-                    ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-                    const valueText = `${formatCurrency(item.value, currency)} • ${percentage}%`;
-                    ctx.fillText(valueText, legendX + 22, currentY + 16);
-                    
-                    currentY += 42;
-                });
-                
-                // Create download link
-                const link = document.createElement('a');
-                link.download = 'investment-portfolio-polar-chart.png';
-                link.href = newCanvas.toDataURL('image/png', 1.0);
-                link.click();
-            }
-        } catch (error) {
-            console.error('Error exporting chart as PNG:', error);
-        }
-    };
-
-    const downloadChartAsSVG = () => {
-        if (!chartRef.current) return;
-        
-        const canvas = chartRef.current.querySelector('canvas');
-        if (!canvas) return;
-        
-        try {
-            const padding = 60;
-            const legendWidth = 280;
-            const titleHeight = 80;
-            const chartWidth = canvas.width;
-            const chartHeight = canvas.height;
-            
-            const svgWidth = chartWidth + legendWidth + (padding * 3);
-            const svgHeight = chartHeight + titleHeight + (padding * 2);
-            
-            // Create a comprehensive canvas for SVG embedding
-            const newCanvas = document.createElement('canvas');
-            const ctx = newCanvas.getContext('2d');
-            
-            newCanvas.width = svgWidth;
-            newCanvas.height = svgHeight;
-            
-            if (ctx) {
-                // Fill with white background
-                ctx.fillStyle = 'white';
-                ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
-                
-                // Draw title
-                ctx.fillStyle = '#1f2937';
-                ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-                ctx.textAlign = 'center';
-                const chartTitle = title || 'Investment Portfolio by Type';
-                ctx.fillText(chartTitle, newCanvas.width / 2, padding + 25);
-                
-                // Draw subtitle
-                ctx.fillStyle = '#6b7280';
-                ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-                ctx.fillText(`Total Invested: ${formatCurrency(totalInvested, currency)}`, newCanvas.width / 2, padding + 50);
-                
-                // Draw the original chart canvas
-                const chartX = padding;
-                const chartY = titleHeight + padding;
-                ctx.drawImage(canvas, chartX, chartY);
-                
-                // Draw legend
-                const legendX = chartWidth + padding * 2;
-                const legendY = titleHeight + padding + 10;
-                
-                // Legend title
-                ctx.fillStyle = '#1f2937';
-                ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-                ctx.textAlign = 'left';
-                ctx.fillText('Investment Breakdown', legendX, legendY);
-                
-                // Draw legend items
-                let currentY = legendY + 30;
-                typeData.forEach((item, index) => {
-                    const percentage = totalInvested > 0 ? ((item.value / totalInvested) * 100).toFixed(1) : '0.0';
-                    
-                    // Draw color circle (smaller)
-                    ctx.fillStyle = item.color;
-                    ctx.beginPath();
-                    ctx.arc(legendX + 8, currentY - 4, 6, 0, 2 * Math.PI);
-                    ctx.fill();
-                    
-                    // Draw white border around circle
-                    ctx.strokeStyle = 'white';
-                    ctx.lineWidth = 1;
-                    ctx.stroke();
-                    
-                    // Draw investment type name and count on same line
-                    ctx.fillStyle = '#374151';
-                    ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-                    ctx.textAlign = 'left';
-                    const labelText = `${item.label} (${item.count})`;
-                    ctx.fillText(labelText, legendX + 22, currentY);
-                    
-                    // Draw amount and percentage on same line
-                    ctx.fillStyle = '#1f2937';
-                    ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-                    const valueText = `${formatCurrency(item.value, currency)} • ${percentage}%`;
-                    ctx.fillText(valueText, legendX + 22, currentY + 16);
-                    
-                    currentY += 42;
-                });
-                
-                // Create SVG with embedded comprehensive image
-                const dataURL = newCanvas.toDataURL('image/png', 1.0);
-                const svgContent = `
-                    <svg xmlns="http://www.w3.org/2000/svg" 
-                         xmlns:xlink="http://www.w3.org/1999/xlink" 
-                         width="${svgWidth}" 
-                         height="${svgHeight}" 
-                         viewBox="0 0 ${svgWidth} ${svgHeight}">
-                        <rect width="100%" height="100%" fill="white"/>
-                        <image href="${dataURL}" width="${svgWidth}" height="${svgHeight}"/>
-                    </svg>
-                `;
-                
-                // Create and download SVG file
-                const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.download = 'investment-portfolio-polar-chart.svg';
-                link.href = url;
-                link.click();
-                URL.revokeObjectURL(url);
-            }
-        } catch (error) {
-            console.error('Error exporting chart as SVG:', error);
-        }
-    };
-
-    // Prepare CSV data for export
     const csvData = [
-        ['Investment Type', 'Amount', 'Count', 'Percentage'],
-        ...typeData.map(item => {
-            const percentage = totalInvested > 0 ? ((item.value / totalInvested) * 100).toFixed(1) : '0.0';
-            return [item.label, item.value.toString(), item.count.toString(), `${percentage}%`];
-        })
+      ["Investment Type", "Invested Amount", "Percentage", "Positions"],
+      ...data.map((d) => [
+        d.name,
+        d.value.toString(),
+        totalInvested > 0 ? ((d.value / totalInvested) * 100).toFixed(1) + "%" : "0.0%",
+        d.count.toString(),
+      ]),
     ];
 
-    // Chart options
-    const options = useMemo(() => ({
-        responsive: true,
-        maintainAspectRatio: false,
-        resizeDelay: 0,
-        animation: {
-            animateRotate: true,
-            animateScale: true,
-            duration: isExpanded ? 0 : 1500, // Animate on initial load, disable when expanded for performance
-        },
-        plugins: {
-            legend: {
-                display: false,
-            },
-            tooltip: {
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                titleColor: '#1f2937',
-                bodyColor: '#374151',
-                borderColor: '#e5e7eb',
-                borderWidth: 1,
-                cornerRadius: 6,
-                padding: 12,
-                callbacks: {
-                    title: function(tooltipItems: any[]) {
-                        return tooltipItems[0]?.label || '';
-                    },
-                    label: function(context: any) {
-                        const dataIndex = context.dataIndex;
-                        const typeInfo = typeData[dataIndex];
-                        if (!typeInfo) return '';
+    if (!data.length) {
+      return (
+        <div className="bg-white rounded-lg shadow p-4" data-chart-type="investment-type-polar">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+          </div>
+          <div className="flex items-center justify-center h-64 text-gray-500">
+            No investment data available
+          </div>
+        </div>
+      );
+    }
 
-                        const percentage = totalInvested > 0 ? ((typeInfo.value / totalInvested) * 100).toFixed(1) : '0.0';
-                        const lines = [
-                            `Amount: ${formatCurrency(typeInfo.value, currency)}`,
-                            `Percentage: ${percentage}%`,
-                            `Positions: ${typeInfo.count}`
-                        ];
-                        return lines;
-                    }
-                }
-            },
-            datalabels: {
-                display: true,
-                color: '#ffffff',
-                font: {
-                    size: 10,
+    const labels = data.map((d) => d.name);
+    const values = data.map((d) => d.value);
+    const backgroundColor = data.map((d) => d.color);
 
-                },
-                formatter: function(value: number, context: any) {
-                    const dataIndex = context.dataIndex;
-                    const typeInfo = typeData[dataIndex];
-                    if (!typeInfo) return '';
-                    
-                    const percentage = totalInvested > 0 ? ((typeInfo.value / totalInvested) * 100).toFixed(1) : '0.0';
-                    // Only show labels for segments >= 5%
-                    if (parseFloat(percentage) >= 10) {
-                        return `${typeInfo.label}\n${percentage}%`;
-                    } else {
-                        return '';
-                    }
-                },
-                textAlign: 'center' as const,
-                anchor: 'center' as const,
-                align: 'center' as const,
-                offset: 0,
-                padding: 4,
-            } as any
+    const chartData: any = {
+      labels,
+      datasets: [
+        {
+          label: "Invested",
+          data: values,
+          backgroundColor,
+          borderColor: "#ffffff",
+          borderWidth: 2,
         },
-        scales: {
-            r: {
-                beginAtZero: true,
-                grid: {
-                    color: 'rgba(0, 0, 0, 0.1)',
-                },
-                angleLines: {
-                    color: 'rgba(0, 0, 0, 0.1)',
-                },
-                pointLabels: {
-                    color: '#374151',
-                    font: {
-                        size: 12,
-                    }
-                },
-                ticks: {
-                    display: false,
-                }
-            }
+      ],
+    };
+
+    const chartOptions: any = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: {
+        animateRotate: true,
+        animateScale: true,
+        duration: isAnimationActive ? animationDuration : 0,
+        easing: 'easeInOutQuart',
+      },
+      interaction: {
+        intersect: false,
+        mode: 'index',
+      },
+      scales: {
+        r: {
+          angleLines: { 
+            color: "#e5e7eb",
+            lineWidth: 1,
+          },
+          grid: { 
+            color: "#f3f4f6",
+            lineWidth: 1,
+          },
+          pointLabels: { display: false },
+          ticks: {
+            display: false,
+            backdropColor: "transparent",
+          },
+          beginAtZero: true,
         },
-    }), [currency, typeData, totalInvested, isExpanded]);
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleColor: '#ffffff',
+          bodyColor: '#ffffff',
+          borderColor: '#374151',
+          borderWidth: 1,
+          cornerRadius: 8,
+          padding: 12,
+          displayColors: true,
+          callbacks: {
+            title: (tooltipItems: any[]) => {
+              return tooltipItems[0]?.label || '';
+            },
+            label: (ctx: any) => {
+              // For polar area chart, the value is in ctx.raw
+              const value = Number(ctx.raw) || 0;
+              const pct = totalInvested > 0 ? ((value / totalInvested) * 100).toFixed(1) : "0.0";
+              const labelName = ctx.label;
+              const item = data.find((d) => d.name === labelName);
+              const count = item?.count ?? 0;
+              
+              // Debug: log the context to understand structure
+              console.log('Tooltip context:', { ctx, value, labelName, item });
+              
+              return [
+                `Amount: ${formatCurrency(value, currency)}`,
+                `Percentage: ${pct}%`,
+                `Positions: ${count}`
+              ];
+            },
+            labelColor: (ctx: any) => {
+              return {
+                borderColor: ctx.dataset.backgroundColor[ctx.dataIndex],
+                backgroundColor: ctx.dataset.backgroundColor[ctx.dataIndex],
+                borderWidth: 2,
+                borderRadius: 2,
+              };
+            },
+          },
+        },
+        datalabels: {
+          display: true,
+          color: "#ffffff",
+          font: {
+            size: 10,
+            weight: "bold",
+          },
+          formatter: (value: number, ctx: any) => {
+            const pct = totalInvested > 0 ? ((value / totalInvested) * 100).toFixed(0) : "0";
+            const label = ctx.chart.data.labels[ctx.dataIndex];
+            // Only show label if percentage is > 5% to avoid clutter
+            if (parseFloat(pct) < 5) return '';
+            return `${label}\n(${pct}%)`;
+          },
+          anchor: "center",
+          align: "center",
+          textAlign: "center",
+          textStrokeColor: "#000000",
+          textStrokeWidth: 1,
+        },
+      },
+    };
 
     const ChartContent = () => (
-        <div>
-            {!investments.length ? (
-                <div className="flex items-center justify-center h-64 text-gray-500">
-                    No investment data available
-                </div>
-            ) : (
-                <>
-                    {/* Chart */}
-                    <div 
-                        ref={chartRef}
-                        className={`${isExpanded ? 'h-[60vh] w-full' : 'h-[24rem] sm:h-[38rem] w-full'} mb-4`}
-                        role="img"
-                        aria-label={`Polar chart showing investment portfolio distribution with total invested of ${formatCurrency(totalInvested, currency)}`}
-                    >
-                        <div className={`grid ${isExpanded ? 'grid-cols-1 xl:grid-cols-5 gap-4 h-full' : 'grid-cols-1 lg:grid-cols-6 gap-3 h-full'}`}>
-                            <div className={`${isExpanded ? 'xl:col-span-4 h-full' : 'lg:col-span-5 h-full'} relative`}>
-                                <PolarArea 
-                                    key={`polar-chart-${isExpanded ? 'expanded' : 'normal'}`}
-                                    data={chartData} 
-                                    options={options} 
-                                />
-                            </div>
-                            
-                            <div className={`space-y-3 ${isExpanded ? 'xl:col-span-1' : 'lg:col-span-1'}`} style={{ margin: '20px' }}>
-                                <div className="space-y-2 max-h-full overflow-y-auto">
-                                    {typeData.map((item, index) => {
-                                        const percentage = totalInvested > 0 ? ((item.value / totalInvested) * 100).toFixed(1) : '0.0';
-                                        return (
-                                            <div key={item.type} className="p-2 rounded-lg transition-colors">
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <div className="flex items-center space-x-2">
-                                                        <div
-                                                            className="w-4 h-4 rounded-full border border-white shadow-sm"
-                                                            style={{ backgroundColor: item.color }}
-                                                        />
-                                                        <span className="text-sm font-medium text-gray-800">{item.label}</span>
-                                                    </div>
-                                                    <span className="text-xs text-gray-500">({item.count})</span>
-                                                </div>
-                                                <div className="ml-6">
-                                                    <div className="text-sm font-semibold text-gray-900">
-                                                        {formatCurrency(item.value, currency)}
-                                                    </div>
-                                                    <div className="text-xs text-gray-600">
-                                                        {percentage}% of portfolio
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Side - Polar Chart */}
+        <div className="space-y-4">
+          <div className="flex justify-start items-center">
+            <div className="text-left">
+              <p className="text-xs text-gray-600">Total Invested</p>
+              <p className="text-base font-semibold text-blue-600">
+                {formatCurrency(totalInvested, currency)}
+              </p>
+              <p className="text-xs text-gray-500">{data.reduce((s, d) => s + d.count, 0)} positions</p>
+            </div>
+          </div>
+
+          {/* Larger Polar chart */}
+          <div
+            ref={chartRef}
+            className={`${isExpanded ? "h-[50rem]" : "h-[28rem] sm:h-[32rem] md:h-[36rem]"}`}
+            role="img"
+            aria-label={`Investment portfolio distribution polar chart showing ${formatCurrency(
+              totalInvested,
+              currency
+            )} across different investment types`}
+          >
+            <PolarArea data={chartData} options={chartOptions} />
+          </div>
+
+          {/* Legend below chart */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium text-gray-900">Type Breakdown</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {data.map((d) => {
+                const pct = totalInvested > 0 ? ((d.value / totalInvested) * 100).toFixed(1) : "0.0";
+                return (
+                  <div key={d.name} className="flex items-center justify-between gap-2 p-2 bg-gray-50 rounded">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
+                      <span className="text-xs sm:text-sm text-gray-700 truncate">{d.name}</span>
+                      <span className="text-xs text-gray-500">({d.count})</span>
                     </div>
-                </>
-            )}
+                    <div className="text-right flex-shrink-0">
+                      <div className="text-xs sm:text-sm font-medium text-gray-900">
+                        {formatCurrency(d.value, currency)}
+                      </div>
+                      <div className="text-xs text-gray-500">{pct}%</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
+
+        {/* Right Side - Investment Target Progress Chart */}
+        <div className="space-y-4">
+          <InvestmentTargetProgressChart
+            targets={targets}
+            currency={currency}
+            title="Investment Target Progress"
+            onEditTarget={onEditTarget}
+            onAddTarget={onAddTarget}
+          />
+        </div>
+      </div>
     );
 
     return (
-        <>
-            <div 
-                className="bg-white rounded-lg shadow p-3 sm:p-6"
-                role="region"
-                aria-label="Investment Portfolio Polar Chart"
-                data-chart-type="polar-area"
-            >
-                <ChartControls
-                    chartRef={chartRef}
-                    isExpanded={isExpanded}
-                    onToggleExpanded={toggleExpanded}
-                    fileName="investment-portfolio-polar-chart"
-                    csvData={csvData}
-                    csvFileName="investment-portfolio-data"
-                    title={title || 'Investment Portfolio by Type'}
-                    tooltipText={`Total Invested: ${formatCurrency(totalInvested, currency)}`}
-                    customDownloadPNG={downloadChartAsPNG}
-                    customDownloadSVG={downloadChartAsSVG}
-                />
-                <ChartContent />
-            </div>
+      <>
+        <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-5" data-chart-type="investment-type-polar">
+          <ChartControls
+            chartRef={chartRef}
+            isExpanded={isExpanded}
+            onToggleExpanded={toggleExpanded}
+            fileName="investment-type-polar-chart"
+            csvData={csvData}
+            csvFileName="investment-type-polar-data"
+            title={title}
+            tooltipText="Distribution of your portfolio across investment types (based on invested amount)"
+          />
+          <ChartContent />
+        </div>
 
-            {/* Full screen modal */}
-            {isExpanded && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-                    <div className="bg-white rounded-lg p-3 sm:p-6 max-w-7xl w-full max-h-full overflow-auto">
-                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 gap-2 sm:gap-0">
-                            <div>
-                                <h2 className="text-lg sm:text-2xl font-semibold">{title || 'Investment Portfolio by Type'}</h2>
-                                <p className="text-sm text-gray-500">Total Invested: {formatCurrency(totalInvested, currency)}</p>
-                            </div>
-                            <button
-                                onClick={toggleExpanded}
-                                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm sm:text-base"
-                            >
-                                Close
-                            </button>
-                        </div>
-                        <ChartContent />
-                    </div>
+        {isExpanded && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
+            <div className="bg-white rounded-lg p-4 sm:p-6 max-w-7xl w-full max-h-full overflow-auto">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 gap-2 sm:gap-0">
+                <div>
+                  <h2 className="text-lg sm:text-2xl font-semibold truncate">{title}</h2>
+                  <p className="text-sm text-gray-500">
+                    Distribution of your portfolio across investment types (based on invested amount)
+                  </p>
                 </div>
-            )}
-        </>
+                <button
+                  onClick={toggleExpanded}
+                  className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm sm:text-base"
+                >
+                  Close
+                </button>
+              </div>
+              <ChartContent />
+            </div>
+          </div>
+        )}
+      </>
     );
-});
+  }
+);
 
-InvestmentTypePolarChart.displayName = 'InvestmentTypePolarChart';
+InvestmentTypePolarChart.displayName = "InvestmentTypePolarChart";
+
+

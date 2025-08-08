@@ -145,7 +145,7 @@ export function DebtStatusWaterfallChart({ debts, currency }: DebtStatusWaterfal
                   const percent = metrics.totalWithInterest
                     ? ((v / metrics.totalWithInterest) * 100).toFixed(1)
                     : "0.0";
-                  return `${formatCurrency(v, currency)}\n${percent}%`;
+                  return `${formatCurrency(v, currency)}\n(${percent}%)`;
                 }}
                 className="fill-white text-[10px] leading-tight"
               />

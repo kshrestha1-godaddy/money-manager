@@ -25,9 +25,8 @@ import {
     ICON_COLORS,
     UI_STYLES,
 } from "../../config/colorConfig";
-import { InvestmentTypePolarChart } from "../../components/investments/InvestmentTypePolarChart";
-import { InvestmentTargetProgressChart } from "../../components/investments/InvestmentTargetProgressChart";
 import { ChartAnimationProvider } from "../../hooks/useChartAnimationContext";
+import { InvestmentTypePolarChart } from "../../components/investments/InvestmentTypePolarChart";
 // Extract color variables for better readability
 const pageContainer = CONTAINER_COLORS.page;
 const errorContainer = CONTAINER_COLORS.error;
@@ -62,25 +61,7 @@ const purpleIcon = ICON_COLORS.purple;
 const greenPositiveIcon = ICON_COLORS.greenPositive;
 const redNegativeIcon = ICON_COLORS.redNegative;
 
-// Memoized Charts Section to prevent unnecessary re-renders
-const ChartsSection = React.memo<{
-    polarChartProps: any;
-    targetChartProps: any;
-}>(({ polarChartProps, targetChartProps }) => {
-    return (
-        <ChartAnimationProvider>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Investment Type Distribution Polar Chart */}
-                <InvestmentTypePolarChart {...polarChartProps} />
-                
-                {/* Investment Target Progress Chart */}
-                <InvestmentTargetProgressChart {...targetChartProps} />
-            </div>
-        </ChartAnimationProvider>
-    );
-});
 
-ChartsSection.displayName = 'ChartsSection';
 
 export default function Investments() {
     const { currency: userCurrency } = useCurrency();
@@ -240,8 +221,11 @@ export default function Investments() {
     const polarChartProps = useMemo(() => ({
         investments: stableInvestments,
         currency: userCurrency,
-        title: "Portfolio Distribution by Investment Type"
-    }), [stableInvestments, userCurrency]);
+        title: "Portfolio Distribution by Investment Type",
+        targets: stableTargetProgress,
+        onEditTarget: openEditTargetModal,
+        onAddTarget: openAddTargetModal
+    }), [stableInvestments, userCurrency, stableTargetProgress, openEditTargetModal, openAddTargetModal]);
 
     const targetChartProps = useMemo(() => ({
         targets: stableTargetProgress,
@@ -342,35 +326,36 @@ export default function Investments() {
     }
 
     return (
-        <div className={pageContainer}>
-            {/* Header */}
-            <div className={UI_STYLES.header.container}>
-                <div>
-                    <h1 className={pageTitle}>Investment</h1>
-                    <p className={pageSubtitle}>Track your investment portfolio and performance</p>
+        <ChartAnimationProvider>
+            <div className={pageContainer}>
+                {/* Header */}
+                <div className={UI_STYLES.header.container}>
+                    <div>
+                        <h1 className={pageTitle}>Investment</h1>
+                        <p className={pageSubtitle}>Track your investment portfolio and performance</p>
+                    </div>
+                    <div className={UI_STYLES.header.buttonGroup}>
+                        <button
+                            onClick={() => openModal('add')}
+                            className={primaryButton}
+                        >
+                            Add Investment
+                        </button>
+                        <button
+                            onClick={() => openModal('import')}
+                            className={secondaryBlueButton}
+                        >
+                            Import CSV
+                        </button>
+                        <button
+                            onClick={handleExportToCSV}
+                            className={secondaryGreenButton}
+                            disabled={filteredInvestments.length === 0}
+                        >
+                            Export CSV
+                        </button>
+                    </div>
                 </div>
-                <div className={UI_STYLES.header.buttonGroup}>
-                    <button
-                        onClick={() => openModal('add')}
-                        className={primaryButton}
-                    >
-                        Add Investment
-                    </button>
-                    <button
-                        onClick={() => openModal('import')}
-                        className={secondaryBlueButton}
-                    >
-                        Import CSV
-                    </button>
-                    <button
-                        onClick={handleExportToCSV}
-                        className={secondaryGreenButton}
-                        disabled={filteredInvestments.length === 0}
-                    >
-                        Export CSV
-                    </button>
-                </div>
-            </div>
 
             {/* Summary Cards */}
             <div className="grid grid-cols-6 gap-6">
@@ -495,11 +480,12 @@ export default function Investments() {
                 </div>
             </div>
 
-            {/* Charts Section - Wrapped with ChartAnimationProvider for optimal performance */}
-            <ChartsSection 
-                polarChartProps={polarChartProps}
-                targetChartProps={targetChartProps}
-            />
+            {/* Polar Chart: Portfolio distribution by investment type */}
+            <div className="mt-6">
+                {/* Use filtered data so filters affect chart */}
+                <InvestmentTypePolarChart {...polarChartProps} investments={filteredInvestments} />
+            </div>
+
 
             {/* Filters and Actions */}
             <div className={UI_STYLES.filters.containerWithMargin}>
@@ -710,6 +696,7 @@ export default function Investments() {
                 existingTargetTypes={actualTargets.map(t => t.investmentType)}
                 currency={userCurrency}
             />
-        </div>
+            </div>
+        </ChartAnimationProvider>
     );
 }
