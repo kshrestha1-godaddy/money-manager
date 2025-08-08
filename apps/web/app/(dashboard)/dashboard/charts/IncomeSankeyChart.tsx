@@ -17,6 +17,7 @@ declare global {
 interface IncomeSankeyChartProps {
     currency?: string;
     title?: string;
+    heightClass?: string;
 }
 
 interface SankeyData {
@@ -25,7 +26,7 @@ interface SankeyData {
     size: number;
 }
 
-export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency = "USD", title }) => {
+export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency = "USD", title, heightClass }) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { filteredIncomes, formatTimePeriod } = useChartData();
@@ -144,7 +145,7 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
 
                 // Validate and get container dimensions
                 const width = Math.max(Math.floor(containerRect.width) || 600, 400);
-                const height = isExpanded ? 600 : 400;
+                const height = isExpanded ? 600 : undefined;
 
                 // console.log('Drawing chart with dimensions:', { width, height });
 
@@ -289,10 +290,10 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
             ) : (
                 <div 
                     ref={chartRef}
-                    className="w-full overflow-hidden" 
+                    className={`w-full overflow-hidden ${isExpanded ? '' : (heightClass ?? '')}`}
                     style={{ 
-                        height: isExpanded ? '600px' : '400px',
-                        minHeight: '400px',
+                        height: isExpanded ? '600px' : undefined,
+                        minHeight: isExpanded ? '600px' : undefined,
                         minWidth: '400px',
                         width: '100%',
                         display: 'block',

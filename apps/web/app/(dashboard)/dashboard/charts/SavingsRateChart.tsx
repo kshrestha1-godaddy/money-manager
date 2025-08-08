@@ -8,6 +8,7 @@ import { ChartControls } from "../../../components/ChartControls";
 
 interface SavingsRateChartProps {
     currency: string;
+    heightClass?: string;
 }
 
 interface MonthlyData {
@@ -18,7 +19,7 @@ interface MonthlyData {
     savings: number;
 }
 
-export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency }) => {
+export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, heightClass }) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { monthlyData, formatTimePeriod } = useChartData();
@@ -141,7 +142,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency })
 
             <div 
                 ref={chartRef}
-                className={`${isExpanded ? 'h-[60vh] w-full' : 'h-[24rem] sm:h-[32rem] w-full'}`}
+                className={`${isExpanded ? 'h-[60vh]' : (heightClass ?? 'h-[28rem] sm:h-[36rem]')} w-full`}
             >
                 <ResponsiveContainer width="100%" height="100%">
                     <LineChart

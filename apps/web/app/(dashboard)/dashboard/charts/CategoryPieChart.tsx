@@ -12,6 +12,7 @@ interface CategoryPieChartProps {
     type: 'income' | 'expense';
     currency?: string;
     title?: string;
+    heightClass?: string;
 }
 
 interface CategoryData {
@@ -27,7 +28,7 @@ const COLORS = [
     '#FFB6C1', '#20B2AA', '#F4A460', '#9370DB'
 ];
 
-export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, currency = "USD", title }) => {
+export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, currency = "USD", title, heightClass }) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { categoryData, formatTimePeriod } = useChartData();
@@ -227,7 +228,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                 {/* Pie Chart */}
                 <div 
                     ref={chartRef} 
-                    className={`${isExpanded ? "h-[45rem]" : "h-[20rem] sm:h-[24rem] md:h-[32rem]"} lg:col-span-2`}
+                    className={`${isExpanded ? "h-[45rem]" : (heightClass ?? "h-[20rem] sm:h-[24rem] md:h-[32rem]")} lg:col-span-2`}
                     role="img"
                     aria-label={`${type === 'income' ? 'Income' : 'Expense'} categories pie chart showing distribution of ${formatCurrency(total, currency)} across different categories`}
                 >

@@ -10,6 +10,7 @@ import { ChartControls } from "../../../components/ChartControls";
 
 interface WaterfallChartProps {
     currency?: string;
+    heightClass?: string;
 }
 
 interface WaterfallData {
@@ -20,7 +21,7 @@ interface WaterfallData {
     type: "income" | "expenses" | "savings" | "loss";
 }
 
-export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency = "USD" }) => {
+export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency = "USD", heightClass }) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { totals, formatTimePeriod } = useChartData();
@@ -156,7 +157,7 @@ export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency = "USD
             {/* Chart */}
             <div 
                 ref={chartRef}
-                className={`${isExpanded ? 'h-[60vh] w-full' : 'h-[24rem] sm:h-[32rem] w-full'}`}
+                className={`${isExpanded ? 'h-[60vh]' : (heightClass ?? 'h-[24rem] sm:h-[32rem]')} w-full`}
                 role="img"
                 aria-label={`Waterfall chart showing income of ${formatCurrency(totalIncome, currency)}, expenses of ${formatCurrency(totalExpenses, currency)}, and net savings of ${formatCurrency(totalSavings, currency)}`}
             >
