@@ -151,6 +151,16 @@ export function parseTags(tagsString: string): string[] {
         .filter(Boolean);
 }
 
+// Parse locations from comma-separated string
+export function parseLocations(locationsString: string): string[] {
+    if (!locationsString || typeof locationsString !== 'string') return [];
+    
+    return locationsString
+        .split(',')
+        .map(location => location?.trim() || '')
+        .filter(Boolean);
+}
+
 // Map CSV row to object based on headers
 export function mapRowToObject(row: string[], headers: string[]): Record<string, string> {
     const rowData: Record<string, string> = {};

@@ -22,6 +22,7 @@ export function convertExpensesToCSV(expenses: Expense[]): string {
         'Account Type',
         'Account Number',
         'Tags',
+        'Location',
         'Receipt',
         'Notes',
         'Is Recurring',
@@ -44,6 +45,7 @@ export function convertExpensesToCSV(expenses: Expense[]): string {
         expense.account?.accountType || '',
         expense.account?.accountNumber || '',
         expense.tags.join('; '), // Join multiple tags with semicolon
+        expense.location.join('; '), // Join multiple locations with semicolon
         expense.receipt || '',
         expense.notes || '',
         expense.isRecurring ? 'Yes' : 'No',

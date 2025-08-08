@@ -22,6 +22,7 @@ export function convertIncomesToCSV(incomes: Income[]): string {
         'Account Type',
         'Account Number',
         'Tags',
+        'Location',
         'Notes',
         'Is Recurring',
         'Recurring Frequency',
@@ -43,6 +44,7 @@ export function convertIncomesToCSV(incomes: Income[]): string {
         income.account?.accountType || '',
         income.account?.accountNumber || '',
         income.tags.join('; '), // Join multiple tags with semicolon
+        income.location.join('; '), // Join multiple locations with semicolon
         income.notes || '',
         income.isRecurring ? 'Yes' : 'No',
         income.recurringFrequency || '',

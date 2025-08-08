@@ -7,6 +7,7 @@ export type FinancialItem = {
   description?: string | null;
   notes?: string | null;
   tags?: string[] | null;
+  location?: string[] | null;
   amount: number;
   date: Date;
   category: Category;
@@ -46,6 +47,7 @@ export interface Expense {
   accountId?: number | null;
   userId: number;
   tags: string[];
+  location: string[];
   receipt?: string;
   notes?: string;
   isRecurring: boolean;
@@ -67,6 +69,7 @@ export interface Income {
   accountId?: number | null;
   userId: number;
   tags: string[];
+  location: string[];
   notes?: string;
   isRecurring: boolean;
   recurringFrequency?: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
@@ -135,6 +138,7 @@ export interface Transaction {
   description?: string;
   notes?: string;
   tags?: string[];
+  location?: string[];
   isBookmarked?: boolean;
 }
 

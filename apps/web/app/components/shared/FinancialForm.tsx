@@ -4,6 +4,7 @@ import React from "react";
 import { Category } from "../../types/financial";
 import { AccountInterface } from "../../types/accounts";
 import { EnhancedTagsInput } from "./EnhancedTagsInput";
+import { EnhancedLocationInput } from "./EnhancedLocationInput";
 import { DUAL_CURRENCIES, formatDualCurrency, convertDualCurrency } from "../../utils/currency";
 import { 
     BaseFormData, 
@@ -169,6 +170,15 @@ export function FinancialForm({
                 <EnhancedTagsInput
                     value={formData.tags}
                     onChange={(value) => handleInputChange('tags', value)}
+                    transactionType={transactionType}
+                    disabled={disabled}
+                />
+            </div>
+
+            <div>
+                <EnhancedLocationInput
+                    value={formData.location}
+                    onChange={(value) => handleInputChange('location', value)}
                     transactionType={transactionType}
                     disabled={disabled}
                 />
