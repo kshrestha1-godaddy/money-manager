@@ -155,8 +155,8 @@ export function validateCSVHeaders(
     };
 }
 
-// Parse date from various formats with optional day adjustment for legacy CSV files
-export function parseDate(dateString: string, addOneDay: boolean = false): Date {
+// Parse date from various formats
+export function parseDate(dateString: string): Date {
     if (!dateString || typeof dateString !== 'string') {
         throw new Error('Date is required');
     }
@@ -182,11 +182,6 @@ export function parseDate(dateString: string, addOneDay: boolean = false): Date 
         
         if (isNaN(parsedDate.getTime())) {
             throw new Error('Invalid date');
-        }
-        
-        // Temporary fix: Add one day if requested (for legacy CSV files with timezone issues)
-        if (addOneDay) {
-            parsedDate.setDate(parsedDate.getDate() + 1);
         }
     } catch (error) {
         throw new Error(`Invalid date format: ${dateString}`);

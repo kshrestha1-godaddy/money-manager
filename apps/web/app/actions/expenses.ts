@@ -474,8 +474,7 @@ async function validateAndTransformRow(
 
     // Parse and validate using utilities
     const amount = parseAmount(rowData.amount || '');
-    // Temporary fix: Add one day to compensate for legacy CSV timezone issues
-    const parsedDate = parseDate(rowData.date || '', true);
+    const parsedDate = parseDate(rowData.date || '');
     const tags = parseTags(rowData.tags || '');
 
     // Find or validate category
