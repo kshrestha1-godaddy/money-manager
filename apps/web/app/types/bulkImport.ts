@@ -22,6 +22,7 @@ export interface EditableError {
     error: string;
     isEditing: boolean;
     editedData: string[];
+    mappedData?: Record<string, string>;
 }
 
 // Import expense row interface

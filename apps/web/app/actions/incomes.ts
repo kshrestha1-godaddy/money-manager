@@ -6,6 +6,7 @@ import prisma from "@repo/db/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../lib/auth";
 import { getUserIdFromSession } from "../utils/auth";
+import { parseCSV, parseTags } from "../utils/csvUtils";
 
 // Helper function to revalidate all income-related paths
 const revalidateIncomePaths = () => {
@@ -359,33 +360,18 @@ export async function bulkImportIncomes(file: File, defaultAccountId: string, tr
 }
 
 export async function parseCSVForUI(csvText: string): Promise<string[][]> {
-    const lines = csvText.split('\n').filter(line => line.trim() !== '');
-    return lines.map(line => {
-        const cells: string[] = [];
-        let current = '';
-        let inQuotes = false;
-        
-        for (let i = 0; i < line.length; i++) {
-            const char = line[i];
-            
-            if (char === '"') {
-                if (inQuotes && line[i + 1] === '"') {
-                    current += '"';
-                    i++;
-                } else {
-                    inQuotes = !inQuotes;
-                }
-            } else if (char === ',' && !inQuotes) {
-                cells.push(current.trim());
-                current = '';
-            } else {
-                current += char;
-            }
+    try {
+        if (!csvText || typeof csvText !== 'string') {
+            return [];
         }
         
-        cells.push(current.trim());
-        return cells;
-    });
+        // Use the improved parseCSV function that handles multi-line fields
+        const result = parseCSV(csvText);
+        return Array.isArray(result) ? result : [];
+    } catch (error) {
+        console.error('Error parsing CSV for UI:', error);
+        return [];
+    }
 }
 
 export async function importCorrectedRow(rowData: string[], headers: string[], transactionType?: string): Promise<any> {
@@ -503,7 +489,7 @@ async function processIncomeRow(
     }
 
     const tagsString = rowObj.tags || '';
-    const tags = tagsString ? tagsString.split(',').map(tag => tag.trim()).filter(Boolean) : [];
+    const tags = parseTags(tagsString);
 
     const recurringString = rowObj.recurring || '';
     const isRecurring = recurringString.toLowerCase() === 'true' || recurringString.toLowerCase() === 'yes';

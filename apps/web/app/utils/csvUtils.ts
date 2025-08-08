@@ -3,38 +3,100 @@
  * Centralized CSV parsing and generation utilities
  */
 
-// Helper function to parse CSV with proper quote handling
+// Helper function to parse CSV with proper quote handling and multi-line support
 export function parseCSV(csvText: string): string[][] {
     if (!csvText || typeof csvText !== 'string') {
         return [];
     }
     
     const rows: string[][] = [];
-    const lines = csvText.split('\n');
+    let i = 0;
+    const chars = csvText.split('');
     
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]?.trim();
-        if (!line) continue;
+    while (i < chars.length) {
+        const row: string[] = [];
         
-        // Simple CSV parsing - handles basic cases with quotes
-        const cells: string[] = [];
-        let current = '';
-        let inQuotes = false;
-        
-        for (let j = 0; j < line.length; j++) {
-            const char = line[j];
+        // Parse each cell in the row
+        while (i < chars.length) {
+            let cell = '';
+            let inQuotes = false;
+            let startedWithQuote = false;
             
-            if (char === '"') {
-                inQuotes = !inQuotes;
-            } else if (char === ',' && !inQuotes) {
-                cells.push(current.trim());
-                current = '';
+            // Skip leading whitespace
+            while (i < chars.length && (chars[i] === ' ' || chars[i] === '\t')) {
+                i++;
+            }
+            
+            // Check if cell starts with quote
+            if (i < chars.length && chars[i] === '"') {
+                startedWithQuote = true;
+                inQuotes = true;
+                i++; // Skip opening quote
+            }
+            
+            // Parse cell content
+            while (i < chars.length) {
+                const char = chars[i];
+                
+                if (inQuotes) {
+                    if (char === '"') {
+                        // Check for escaped quote (double quote)
+                        if (i + 1 < chars.length && chars[i + 1] === '"') {
+                            cell += '"'; // Add single quote to cell
+                            i += 2; // Skip both quotes
+                        } else {
+                            // End of quoted field
+                            inQuotes = false;
+                            i++; // Skip closing quote
+                            break;
+                        }
+                    } else {
+                        // Add character to cell (including newlines)
+                        cell += char;
+                        i++;
+                    }
+                } else {
+                    if (char === ',' && !inQuotes) {
+                        // End of cell
+                        break;
+                    } else if ((char === '\n' || char === '\r') && !startedWithQuote) {
+                        // End of row (only if not in quotes)
+                        break;
+                    } else if (char === '"' && !startedWithQuote) {
+                        // Quote in middle of unquoted field - treat as regular character
+                        cell += char;
+                        i++;
+                    } else if (char === '\r') {
+                        // Skip carriage return
+                        i++;
+                    } else {
+                        cell += char;
+                        i++;
+                    }
+                }
+            }
+            
+            // Clean up cell content
+            row.push(cell.trim());
+            
+            // Skip comma if present
+            if (i < chars.length && chars[i] === ',') {
+                i++;
             } else {
-                current += char;
+                // End of row
+                break;
             }
         }
-        cells.push(current.trim());
-        rows.push(cells);
+        
+        // Skip end-of-line characters
+        while (i < chars.length && (chars[i] === '\n' || chars[i] === '\r')) {
+            i++;
+        }
+        
+        // Only add non-empty rows
+        if (row.length > 0 && row.some(cell => cell.length > 0)) {
+            rows.push(row);
+        }
     }
     
     return rows;
@@ -141,22 +203,28 @@ export function parseAmount(amountString: string): number {
     return amount;
 }
 
-// Parse tags from comma-separated string
+// Parse tags from comma or semicolon-separated string
 export function parseTags(tagsString: string): string[] {
     if (!tagsString || typeof tagsString !== 'string') return [];
     
+    // Determine separator - prefer semicolon if found, otherwise use comma
+    const separator = tagsString.includes(';') ? ';' : ',';
+    
     return tagsString
-        .split(',')
+        .split(separator)
         .map(tag => tag?.trim() || '')
         .filter(Boolean);
 }
 
-// Parse locations from comma-separated string
+// Parse locations from comma or semicolon-separated string
 export function parseLocations(locationsString: string): string[] {
     if (!locationsString || typeof locationsString !== 'string') return [];
     
+    // Determine separator - prefer semicolon if found, otherwise use comma
+    const separator = locationsString.includes(';') ? ';' : ',';
+    
     return locationsString
-        .split(',')
+        .split(separator)
         .map(location => location?.trim() || '')
         .filter(Boolean);
 }
