@@ -250,7 +250,7 @@ export default function Accounts() {
             )}
 
             {/* Filters and Actions */}
-            <div className={UI_STYLES.filters.container}>
+            {/* <div className={UI_STYLES.filters.container}>
                 <div className={UI_STYLES.filters.gridSix}>
                     <div>
                         <label className={labelText}>
@@ -330,7 +330,7 @@ export default function Accounts() {
                         </button>
                     </div>
                 </div>
-            </div>
+            </div> */}
 
             {/* Accounts List/Table */}
             {filteredAccounts.length === 0 ? (
