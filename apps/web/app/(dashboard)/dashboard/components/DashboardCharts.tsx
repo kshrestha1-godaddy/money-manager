@@ -74,7 +74,7 @@ export function DashboardCharts({
       </div>
 
       {/* Fifth Row: Calendar Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-[500px]">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-[400px]">
         <div key="expense-calendar-chart" className="flex flex-col h-full">
           <CustomCalendarChart type="expense" currency={currency} />
         </div>
