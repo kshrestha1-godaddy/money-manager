@@ -157,10 +157,10 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(({
   const ChartContent = useCallback(() => (
     <div>
       {/* Category selector and summary */}
-      <div className="mb-4 space-y-4">
+      <div className="space-y-4">
         {/* Dropdown for category selection */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <label htmlFor="category-select" className="text-sm font-medium text-gray-700">
               Select Category:
             </label>
@@ -206,13 +206,19 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(({
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={chartData}
-            margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+            margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <CartesianGrid 
+              strokeDasharray="3 3" 
+              stroke="#e5e7eb" 
+              strokeWidth={2}
+              horizontal={true}
+              vertical={true}
+            />
             <XAxis 
               dataKey="formattedMonth"
               tick={{ fontSize: 12 }}
-              angle={-45}
+              angle={-30}
               textAnchor="end"
               height={60}
               stroke="#666"
