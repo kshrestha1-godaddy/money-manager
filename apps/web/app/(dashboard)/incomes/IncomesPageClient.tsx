@@ -123,7 +123,18 @@ export default function IncomesPageClient() {
 
   useEffect(() => {
     if (searchParams.get('action') === 'add') setIsAddModalOpen(true);
-  }, [searchParams, setIsAddModalOpen]);
+    
+    // Handle date filter URL parameters
+    const urlStartDate = searchParams.get('startDate');
+    const urlEndDate = searchParams.get('endDate');
+    
+    if (urlStartDate) {
+      setStartDate(urlStartDate);
+    }
+    if (urlEndDate) {
+      setEndDate(urlEndDate);
+    }
+  }, [searchParams, setIsAddModalOpen, setStartDate, setEndDate]);
 
   const now = new Date();
   const currentMonth = now.getMonth();

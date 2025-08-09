@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Income, Expense } from "../../../types/financial";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { ChartControls } from "../../../components/ChartControls";
@@ -34,6 +35,7 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
     currency = "USD", 
     title
 }) => {
+    const router = useRouter();
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { filteredIncomes, filteredExpenses, formatTimePeriod } = useChartData();
@@ -173,6 +175,33 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
 
     const chartTitle = title || `${type === 'income' ? 'Income' : 'Expense'} Transaction Frequency - ${timePeriodText}`;
     const tooltipText = `Calendar view showing the frequency of ${type} transactions per day`;
+
+    // Handle calendar cell click to navigate with date filter
+    const handleCellClick = (cellData: DayData, monthIndex: number, dayOfMonth: number) => {
+        // Only navigate if the cell has data and is a valid day
+        if (!cellData.isCurrentMonth || cellData.count === 0) return;
+
+        // Create date range: d-1, d, d+1
+        const clickedDate = new Date(cellData.date);
+        const startDate = new Date(clickedDate);
+        startDate.setDate(clickedDate.getDate() - 1);
+        const endDate = new Date(clickedDate);
+        endDate.setDate(clickedDate.getDate() + 1);
+
+        // Format dates for URL parameters (YYYY-MM-DD format)
+        const formatDateForURL = (date: Date): string => {
+            return date.toISOString().split('T')[0];
+        };
+
+        const startDateStr = formatDateForURL(startDate);
+        const endDateStr = formatDateForURL(endDate);
+
+        // Navigate to the appropriate page with date filters
+        const targetPath = type === 'income' ? '/incomes' : '/expenses';
+        const url = `${targetPath}?startDate=${startDateStr}&endDate=${endDateStr}`;
+        
+        router.push(url);
+    };
 
     // Prepare CSV data for chart controls
     const csvDataForControls = [
@@ -473,9 +502,9 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                 <div
                                     key={colIndex}
                                     className={`
-                                        relative group flex-1 h-6 border border-gray-200 rounded-sm cursor-pointer mx-0.5
+                                        relative group flex-1 h-6 border border-gray-200 rounded-sm mx-0.5
                                         ${cellData.isToday ? 'ring-2 ring-blue-500' : ''}
-                                        ${cellData.isCurrentMonth ? 'hover:ring-2 hover:ring-gray-400' : 'opacity-30'}
+                                        ${cellData.isCurrentMonth && cellData.count > 0 ? 'cursor-pointer hover:ring-2 hover:ring-blue-400 hover:shadow-sm' : cellData.isCurrentMonth ? 'hover:ring-2 hover:ring-gray-400' : 'opacity-30'}
                                         transition-all
                                         min-w-[50px]
                                     `}
@@ -483,9 +512,12 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                         backgroundColor: cellData.isCurrentMonth ? getColorIntensity(cellData.amount) : '#f9fafb'
                                     }}
                                     title={cellData.isCurrentMonth ? 
-                                        `${calendarData.monthNames[colIndex]} ${rowIndex + 1}: ${cellData.count} transactions` :
-                                        `${calendarData.monthNames[colIndex]} ${rowIndex + 1} does not exist`
+                                        cellData.count > 0 
+                                            ? `${calendarData.monthNames[colIndex]} ${rowIndex + 1}: ${cellData.count} transactions - Click to view details`
+                                            : `${calendarData.monthNames[colIndex]} ${rowIndex + 1}: No transactions`
+                                        : `${calendarData.monthNames[colIndex]} ${rowIndex + 1} does not exist`
                                     }
+                                    onClick={() => handleCellClick(cellData, colIndex, rowIndex + 1)}
                                 >
                                     {/* Transaction count display */}
                                     {cellData.count > 0 && cellData.isCurrentMonth && (
@@ -514,6 +546,11 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                             <div>{cellData.count} transaction{cellData.count !== 1 ? 's' : ''}</div>
                                             {cellData.amount > 0 && (
                                                 <div>{currency} {cellData.amount.toLocaleString()}</div>
+                                            )}
+                                            {cellData.count > 0 && (
+                                                <div className="text-xs text-gray-300 mt-1">
+                                                    Click to view {type} details ±1 day
+                                                </div>
                                             )}
                                             {/* Tooltip Arrow */}
                                             <div className={`
