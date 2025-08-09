@@ -212,8 +212,8 @@ export function parseAmount(amountString: string): number {
 export function parseTags(tagsString: string): string[] {
     if (!tagsString || typeof tagsString !== 'string') return [];
     
-    // Determine separator - prefer semicolon if found, otherwise use comma
-    const separator = tagsString.includes(';') ? ';' : ',';
+    // Determine separator - prefer comma if found, otherwise use semicolon for backward compatibility
+    const separator = tagsString.includes(',') ? ',' : ';';
     
     return tagsString
         .split(separator)
@@ -225,8 +225,8 @@ export function parseTags(tagsString: string): string[] {
 export function parseLocations(locationsString: string): string[] {
     if (!locationsString || typeof locationsString !== 'string') return [];
     
-    // Determine separator - prefer semicolon if found, otherwise use comma
-    const separator = locationsString.includes(';') ? ';' : ',';
+    // Determine separator - prefer comma if found, otherwise use semicolon for backward compatibility
+    const separator = locationsString.includes(',') ? ',' : ';';
     
     return locationsString
         .split(separator)

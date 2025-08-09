@@ -42,8 +42,8 @@ function parseTags(tagsString: string): string[] {
         return [];
     }
     
-    // Determine separator - prefer semicolon if found, otherwise use comma
-    const separator = tagsString.includes(';') ? ';' : ',';
+    // Determine separator - prefer comma if found, otherwise use semicolon for backward compatibility
+    const separator = tagsString.includes(',') ? ',' : ';';
     
     return tagsString.split(separator)
         .map(tag => tag.trim())
