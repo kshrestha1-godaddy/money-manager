@@ -8,7 +8,8 @@ import { ExpenseList } from './components/ExpenseList';
 import { AddExpenseModal } from './components/AddExpenseModal';
 import { EditExpenseModal } from './components/EditExpenseModal';
 import { ViewExpenseModal } from './components/ViewExpenseModal';
-import { BulkImportModal } from './components/BulkImportModal';
+import { UnifiedBulkImportModal } from '../../components/shared/UnifiedBulkImportModal';
+import { expenseImportConfig } from '../../config/bulkImportConfig';
 import { DeleteConfirmationModal } from '../../components/DeleteConfirmationModal';
 import { AddCategoryModal } from '../../components/category/AddCategoryModal';
 import { FinancialAreaChart } from '../../components/FinancialAreaChart';
@@ -305,7 +306,12 @@ export default function ExpensesPageClient() {
       <ViewExpenseModal isOpen={isViewModalOpen} onClose={() => { setIsViewModalOpen(false); setItemToView(null); }} onEdit={openEditModal} expense={itemToView} />
       <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setItemToDelete(null); }} onConfirm={handleDeleteItem} />
       <AddCategoryModal isOpen={isAddCategoryModalOpen} onClose={() => setIsAddCategoryModalOpen(false)} onAdd={handleAddCategory} onDelete={handleDeleteCategory} type="EXPENSE" categories={categories} />
-      <BulkImportModal isOpen={isBulkImportModalOpen} onClose={() => setIsBulkImportModalOpen(false)} onSuccess={handleBulkImportSuccess} />
+      <UnifiedBulkImportModal 
+        isOpen={isBulkImportModalOpen} 
+        onClose={() => setIsBulkImportModalOpen(false)} 
+        onSuccess={handleBulkImportSuccess}
+        config={expenseImportConfig}
+      />
     </div>
   );
 }

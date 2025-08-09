@@ -4,7 +4,9 @@ import { Suspense, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Info } from 'lucide-react';
 import { useOptimizedFinancialData } from '../../hooks/useOptimizedFinancialData';
-import { IncomeList, AddIncomeModal, EditIncomeModal, ViewIncomeModal, BulkImportModal } from './components';
+import { IncomeList, AddIncomeModal, EditIncomeModal, ViewIncomeModal } from './components';
+import { UnifiedBulkImportModal } from '../../components/shared/UnifiedBulkImportModal';
+import { incomeImportConfig } from '../../config/bulkImportConfig';
 import { DeleteConfirmationModal } from '../../components/DeleteConfirmationModal';
 import { AddCategoryModal } from '../../components/category/AddCategoryModal';
 import { FinancialAreaChart } from '../../components/FinancialAreaChart';
@@ -295,7 +297,12 @@ export default function IncomesPageClient() {
       <ViewIncomeModal isOpen={isViewModalOpen} onClose={() => { setIsViewModalOpen(false); setItemToView(null); }} onEdit={openEditModal} income={itemToView} />
       <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setItemToDelete(null); }} onConfirm={handleDeleteItem} />
       <AddCategoryModal isOpen={isAddCategoryModalOpen} onClose={() => setIsAddCategoryModalOpen(false)} onAdd={handleAddCategory} onDelete={handleDeleteCategory} type="INCOME" categories={categories} />
-      <BulkImportModal isOpen={isBulkImportModalOpen} onClose={() => setIsBulkImportModalOpen(false)} onSuccess={handleBulkImportSuccess} />
+      <UnifiedBulkImportModal 
+        isOpen={isBulkImportModalOpen} 
+        onClose={() => setIsBulkImportModalOpen(false)} 
+        onSuccess={handleBulkImportSuccess}
+        config={incomeImportConfig}
+      />
     </div>
   );
 }

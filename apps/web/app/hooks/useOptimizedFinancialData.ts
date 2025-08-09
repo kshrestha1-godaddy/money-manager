@@ -5,6 +5,7 @@ import { AccountInterface } from "../types/accounts";
 import { getCategories, createCategory, deleteCategory } from "../actions/categories";
 import { getUserAccounts } from "../(dashboard)/accounts/actions/accounts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
+import { exportCategoriesByType } from "../utils/csvExportCategories";
 
 
 export interface UseOptimizedFinancialDataOptions {
@@ -332,8 +333,24 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
       alert(`No ${categoryType.toLowerCase()}s to export`);
       return;
     }
-    actions.exportToCSV(filteredItems);
-  }, [filteredItems, categoryType, actions]);
+    
+    try {
+      // Export the main financial data
+      actions.exportToCSV(filteredItems);
+      
+      // Also export categories for this type in a separate file
+      if (categories && categories.length > 0) {
+        // Filter categories by the current type (EXPENSE or INCOME)
+        const relevantCategories = categories.filter(category => category.type === categoryType);
+        if (relevantCategories.length > 0) {
+          exportCategoriesByType(categories, categoryType);
+        }
+      }
+    } catch (error) {
+      console.error(`Error exporting ${categoryType.toLowerCase()}s:`, error);
+      alert(`Failed to export ${categoryType.toLowerCase()}s. Please try again.`);
+    }
+  }, [filteredItems, categoryType, categories, actions]);
 
   const clearFilters = useCallback(() => {
     setSearchTerm("");

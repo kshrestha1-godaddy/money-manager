@@ -7,6 +7,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
 import { getUserIdFromSession } from "../../../utils/auth";
 import { parseCSV, parseTags } from "../../../utils/csvUtils";
+import { parseCategoriesCSV, type ParsedCategoryData } from "../../../utils/csvImportCategories";
 
 // Helper function to revalidate all income-related paths
 const revalidateIncomePaths = () => {
@@ -514,4 +515,145 @@ async function processIncomeRow(
     }
 
     return await createIncome(incomeData as any);
+}
+
+/**
+ * Import categories from CSV data
+ */
+export async function importCategories(categoryData: ParsedCategoryData[]): Promise<{
+    success: number;
+    errors: Array<{ error: string; data: ParsedCategoryData }>;
+}> {
+    const session = await getServerSession(authOptions);
+    if (!session) throw new Error("Unauthorized");
+
+    const userId = getUserIdFromSession(session.user.id);
+    let successCount = 0;
+    const errors: Array<{ error: string; data: ParsedCategoryData }> = [];
+
+    for (const category of categoryData) {
+        try {
+            // Check if category already exists
+            const existingCategory = await prisma.category.findFirst({
+                where: {
+                    name: category.name,
+                    type: category.type,
+                    userId: userId
+                }
+            });
+
+            if (existingCategory) {
+                // Update existing category with new data
+                await prisma.category.update({
+                    where: { id: existingCategory.id },
+                    data: {
+                        color: category.color,
+                        icon: category.icon
+                    }
+                });
+                successCount++;
+            } else {
+                // Create new category
+                await prisma.category.create({
+                    data: {
+                        name: category.name,
+                        type: category.type,
+                        color: category.color,
+                        icon: category.icon,
+                        userId: userId
+                    }
+                });
+                successCount++;
+            }
+        } catch (error) {
+            errors.push({
+                error: error instanceof Error ? error.message : 'Unknown error',
+                data: category
+            });
+        }
+    }
+
+    return {
+        success: successCount,
+        errors
+    };
+}
+
+/**
+ * Import categories from CSV file
+ */
+export async function bulkImportCategories(file: File): Promise<{
+    success: number;
+    errors: Array<{ row: number; error: string }>;
+    importedCount: number;
+}> {
+    const text = await file.text();
+    const parseResult = parseCategoriesCSV(text);
+
+    if (!parseResult.success || !parseResult.categories) {
+        return {
+            success: 0,
+            errors: parseResult.errors,
+            importedCount: 0
+        };
+    }
+
+    const importResult = await importCategories(parseResult.categories);
+
+    // Transform import errors to include row numbers (estimate based on order)
+    const transformedErrors = importResult.errors.map((error, index) => ({
+        row: index + 2, // Estimate row number (header + data rows)
+        error: error.error
+    }));
+
+    // Combine parse errors and import errors
+    const allErrors = [...parseResult.errors, ...transformedErrors];
+
+    return {
+        success: importResult.success,
+        errors: allErrors,
+        importedCount: importResult.success
+    };
+}
+
+/**
+ * Combined import: Import categories first, then incomes
+ */
+export async function bulkImportIncomesWithCategories(
+    incomeFile: File, 
+    categoriesFile?: File, 
+    defaultAccountId?: string
+): Promise<{
+    incomeImport: {
+        success: number;
+        errors: Array<{ row: number; message: string }>;
+    };
+    categoryImport?: {
+        success: number;
+        errors: Array<{ row: number; error: string }>;
+        importedCount: number;
+    };
+}> {
+    let categoryImportResult;
+
+    // Import categories first if provided
+    if (categoriesFile) {
+        try {
+            categoryImportResult = await bulkImportCategories(categoriesFile);
+        } catch (error) {
+            categoryImportResult = {
+                success: 0,
+                errors: [{ row: 0, error: error instanceof Error ? error.message : 'Failed to import categories' }],
+                importedCount: 0
+            };
+        }
+    }
+
+    // Import incomes
+    const incomeImportResult = await bulkImportIncomes(incomeFile, defaultAccountId || "");
+
+    return {
+        incomeImport: incomeImportResult,
+        categoryImport: categoryImportResult
+    };
 } 
