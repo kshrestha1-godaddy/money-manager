@@ -7,9 +7,15 @@ import { getUserAccounts } from "../(dashboard)/accounts/actions/accounts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
 
 
+export interface UseOptimizedFinancialDataOptions {
+  fetchCategories?: boolean;
+  fetchAccounts?: boolean;
+}
+
 export function useOptimizedFinancialData<T extends FinancialItem>(
   categoryType: "INCOME" | "EXPENSE",
-  actions: FinancialDataActions<T>
+  actions: FinancialDataActions<T>,
+  options: UseOptimizedFinancialDataOptions = {}
 ) {
   const queryClient = useQueryClient();
   
@@ -55,6 +61,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     queryFn: () => getCategories(categoryType),
     staleTime: 5 * 60 * 1000, // 5 minutes (categories change less frequently)
     gcTime: 15 * 60 * 1000, // 15 minutes
+    enabled: options.fetchCategories !== false,
   });
 
   const { data: accounts = [], isLoading: accountsLoading } = useQuery({
@@ -65,6 +72,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 15 * 60 * 1000, // 15 minutes
+    enabled: options.fetchAccounts !== false,
   });
 
   const loading = itemsLoading || categoriesLoading || accountsLoading;

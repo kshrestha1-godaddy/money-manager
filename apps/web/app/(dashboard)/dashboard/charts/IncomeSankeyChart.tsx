@@ -8,11 +8,8 @@ import { useChartExpansion } from "../../../utils/chartUtils";
 import { useChartAnimationState } from "../../../hooks/useChartAnimationContext";
 
 // Declare Google Charts types
-declare global {
-    interface Window {
-        google: any;
-    }
-}
+// Google Charts loader helper
+import { loadGoogleCharts } from "../../../utils/googleCharts";
 
 interface IncomeSankeyChartProps {
     currency?: string;
@@ -91,39 +88,6 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
         if (sankeyData.length === 0 || !chartRef.current) return;
 
         let isMounted = true;
-
-        const loadGoogleChartsScript = (): Promise<void> => {
-            return new Promise((resolve, reject) => {
-                // Check if script is already loaded
-                if (window.google?.charts) {
-                    resolve();
-                    return;
-                }
-
-                // Check if script is already in DOM
-                const existingScript = document.querySelector('script[src*="gstatic.com/charts"]');
-                if (existingScript) {
-                    existingScript.addEventListener('load', () => resolve());
-                    existingScript.addEventListener('error', reject);
-                    return;
-                }
-
-                // Load new script
-                const script = document.createElement('script');
-                script.src = 'https://www.gstatic.com/charts/loader.js';
-                script.async = true;
-                script.onload = () => resolve();
-                script.onerror = reject;
-                document.head.appendChild(script);
-            });
-        };
-
-        const loadSankeyPackage = (): Promise<void> => {
-            return new Promise((resolve) => {
-                window.google.charts.load('current', { packages: ['sankey'] });
-                window.google.charts.setOnLoadCallback(() => resolve());
-            });
-        };
 
         let currentChart: any = null;
 
@@ -233,10 +197,7 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
 
         const initChart = async () => {
             try {
-                await loadGoogleChartsScript();
-                if (!isMounted) return;
-                
-                await loadSankeyPackage();
+                await loadGoogleCharts(['sankey']);
                 if (!isMounted) return;
 
                 // Longer delay to ensure container is ready and styled
@@ -270,7 +231,7 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
             window.removeEventListener('resize', handleResize);
             currentChart = null;
         };
-    }, [sankeyData, total, isExpanded, COLORS, hasAnimated]);
+        }, [sankeyData, total, isExpanded, COLORS, hasAnimated]);
 
     const timePeriodText = formatTimePeriod();
     const chartTitle = title || `Income Distribution ${timePeriodText}`;

@@ -6,12 +6,7 @@ import { Income, Expense } from "../types/financial";
 import { ChartControls } from "./ChartControls";
 import { useChartExpansion } from "../utils/chartUtils";
 
-// Declare Google Charts types
-declare global {
-    interface Window {
-        google: any;
-    }
-}
+import { loadGoogleCharts } from "../../../utils/googleCharts";
 
 interface TransactionCalendarChartProps {
     data: (Income | Expense)[];
@@ -93,44 +88,13 @@ export function TransactionCalendarChart({
     useEffect(() => {
         let mounted = true;
         
-        const loadGoogleCharts = () => {
+        const loadCharts = () => {
             if (typeof window !== 'undefined') {
-                // Check if Google Charts is already loaded
-                if (window.google && window.google.charts && window.google.visualization) {
-                    // If calendar package is available, draw immediately
-                    if (window.google.visualization.Calendar) {
-                        drawChart();
-                        return;
-                    }
-                    // Otherwise, load the calendar package
-                    window.google.charts.load('current', { packages: ['calendar'] });
-                    window.google.charts.setOnLoadCallback(() => {
-                        if (mounted) {
-                            drawChart();
-                        }
-                    });
-                    return;
-                }
-
-                // Load Google Charts script if not already loaded
-                const script = document.createElement('script');
-                script.src = 'https://www.gstatic.com/charts/loader.js';
-                script.async = true;
-                script.onload = () => {
-                    if (window.google && mounted) {
-                        window.google.charts.load('current', { packages: ['calendar'] });
-                        window.google.charts.setOnLoadCallback(() => {
-                            if (mounted) {
-                                drawChart();
-                            }
-                        });
-                    }
-                };
-                
-                // Only add script if it's not already loaded
-                if (!document.querySelector('script[src="https://www.gstatic.com/charts/loader.js"]')) {
-                    document.head.appendChild(script);
-                }
+                loadGoogleCharts(['calendar']).then(() => {
+                    if (mounted) drawChart();
+                }).catch(() => {
+                    // handled silently; drawChart will guard
+                });
             }
         };
 
@@ -222,7 +186,7 @@ export function TransactionCalendarChart({
         };
 
         if (calendarData.length > 0) {
-            loadGoogleCharts();
+            loadCharts();
         }
 
         // Handle window resize

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useMemo, useCallback } from "react";
+import React, { useRef, useMemo, useCallback } from "react";
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from "recharts";
 import { Info } from "lucide-react";
 import { formatCurrency } from "../../../utils/currency";
@@ -238,89 +238,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
     }), [timePeriodText]);
 
     // Optimized download functions with better error handling
-    const downloadPNG = useCallback(async (): Promise<void> => {
-        const element = chartRef.current;
-        if (!element) return;
-
-        try {
-            const svgElement = element.querySelector('svg');
-            if (!svgElement) {
-                console.error('No SVG element found');
-                return;
-            }
-
-            const svgData = new XMLSerializer().serializeToString(svgElement);
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-
-            const img = new Image();
-            const svg = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-            const url = URL.createObjectURL(svg);
-
-            const cleanup = () => URL.revokeObjectURL(url);
-
-            img.onload = () => {
-                try {
-                    canvas.width = img.width * 2;
-                    canvas.height = img.height * 2;
-                    ctx.scale(2, 2);
-                    ctx.fillStyle = 'white';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    ctx.drawImage(img, 0, 0);
-
-                    canvas.toBlob((blob) => {
-                        if (blob) {
-                            const link = document.createElement('a');
-                            link.download = 'monthly-trend-chart.png';
-                            link.href = URL.createObjectURL(blob);
-                            link.click();
-                            URL.revokeObjectURL(link.href);
-                        }
-                    }, 'image/png');
-                } finally {
-                    cleanup();
-                }
-            };
-
-            img.onerror = () => {
-                console.error('Failed to load SVG image');
-                cleanup();
-                downloadSVG();
-            };
-
-            img.src = url;
-        } catch (error) {
-            console.error('Error downloading PNG:', error);
-            downloadSVG();
-        }
-    }, []);
-
-    const downloadSVG = useCallback((): void => {
-        const element = chartRef.current;
-        if (!element) return;
-
-        const svgElement = element.querySelector('svg');
-        if (!svgElement) return;
-
-        const svgData = new XMLSerializer().serializeToString(svgElement);
-        const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-        const link = document.createElement('a');
-        link.download = 'monthly-trend-chart.svg';
-        link.href = URL.createObjectURL(blob);
-        link.click();
-        URL.revokeObjectURL(link.href);
-    }, []);
-
-    const downloadCSV = useCallback((): void => {
-        const csvString = csvData.map(row => row.join(',')).join('\n');
-        const blob = new Blob([csvString], { type: 'text/csv' });
-        const link = document.createElement('a');
-        link.download = 'monthly-trend-data.csv';
-        link.href = URL.createObjectURL(blob);
-        link.click();
-        URL.revokeObjectURL(link.href);
-    }, [csvData]);
+    // Removed unused custom download functions; ChartControls handles downloads
 
     // Optimized tooltip component with better performance
     const CustomTooltip = useCallback(({ active, payload, label }: {

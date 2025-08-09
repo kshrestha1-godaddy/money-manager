@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { useEffect } from "react";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { ChartDataProvider } from "../../hooks/useChartDataContext";
 import { ChartAnimationProvider } from "../../hooks/useChartAnimationContext";
@@ -27,7 +27,7 @@ export default function DashboardPageClient() {
     updateItem: updateIncome,
     deleteItem: deleteIncome,
     exportToCSV: () => {},
-  });
+  }, { fetchAccounts: false, fetchCategories: false });
 
   const expensesData = useOptimizedFinancialData<Expense>("EXPENSE", {
     getItems: getExpenses,
@@ -35,7 +35,7 @@ export default function DashboardPageClient() {
     updateItem: updateExpense,
     deleteItem: deleteExpense,
     exportToCSV: () => {},
-  });
+  }, { fetchAccounts: false, fetchCategories: false });
   // Tutorial flag: set if user has any data
   useEffect(() => {
     if (incomesData.items.length > 0 || expensesData.items.length > 0) {
@@ -77,16 +77,14 @@ export default function DashboardPageClient() {
       >
         <div className={pageContainer}>
           <DashboardHeader startDate={startDate} endDate={endDate} />
-          <Suspense fallback={null}>
-            <DashboardCharts
-              currency={currency}
-              startDate={startDate}
-              endDate={endDate}
-              onDateChange={handleDateChange}
-              onClearFilters={clearFilters}
-              onSetAllTime={setAllTime}
-            />
-          </Suspense>
+          <DashboardCharts
+            currency={currency}
+            startDate={startDate}
+            endDate={endDate}
+            onDateChange={handleDateChange}
+            onClearFilters={clearFilters}
+            onSetAllTime={setAllTime}
+          />
         </div>
       </ChartDataProvider>
     </ChartAnimationProvider>

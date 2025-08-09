@@ -84,10 +84,40 @@ export const downloadChart = (config: ChartUtilsConfig): void => {
                 img.src = svgUrl;
                 
             } catch (error) {
-                console.error('Error converting to PNG:', error);
+                console.error('Error converting SVG to PNG:', error);
                 // Fallback: download as SVG
                 downloadAsSvg(config);
             }
+        } else {
+            // Fallback for non-SVG charts: rasterize DOM via html2canvas
+            (async () => {
+                try {
+                    const html2canvas = (await import('html2canvas')).default;
+                    const element = chartRef.current as HTMLDivElement;
+                    const canvas = await html2canvas(element, {
+                        backgroundColor: '#ffffff',
+                        scale: 2,
+                        useCORS: true,
+                        allowTaint: true,
+                        width: element.scrollWidth,
+                        height: element.scrollHeight
+                    });
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            const url = URL.createObjectURL(blob);
+                            const downloadLink = document.createElement('a');
+                            downloadLink.download = `${fileName}.png`;
+                            downloadLink.href = url;
+                            document.body.appendChild(downloadLink);
+                            downloadLink.click();
+                            document.body.removeChild(downloadLink);
+                            URL.revokeObjectURL(url);
+                        }
+                    }, 'image/png', 1.0);
+                } catch (err) {
+                    console.error('Error downloading chart as PNG via html2canvas:', err);
+                }
+            })();
         }
     }
 };
@@ -111,6 +141,8 @@ export const downloadAsSvg = (config: ChartUtilsConfig): void => {
             downloadLink.click();
             document.body.removeChild(downloadLink);
             URL.revokeObjectURL(url);
+        } else {
+            console.warn('No SVG element found in chart container for SVG download');
         }
     }
 };

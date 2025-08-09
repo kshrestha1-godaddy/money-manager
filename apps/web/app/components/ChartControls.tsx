@@ -13,9 +13,11 @@ export interface ChartControlsProps {
     csvFileName?: string;
     showDownloadButtons?: boolean;
     showExpandButton?: boolean;
+    supportsSvg?: boolean;
     title?: string;
     subtitle?: string;
     tooltipText?: string;
+    // Deprecated: custom download hooks; centralized download is used for consistency
     customDownloadPNG?: () => void;
     customDownloadSVG?: () => void;
 }
@@ -32,6 +34,7 @@ export const ChartControls: React.FC<ChartControlsProps> = ({
     csvFileName = 'chart-data',
     showDownloadButtons = true,
     showExpandButton = true,
+    supportsSvg = true,
     title,
     subtitle,
     tooltipText,
@@ -69,7 +72,7 @@ export const ChartControls: React.FC<ChartControlsProps> = ({
                     <>
                         {/* Download Chart as PNG Button */}
                         <button
-                            onClick={() => customDownloadPNG ? customDownloadPNG() : downloadChart(config)}
+                            onClick={() => downloadChart(config)}
                             className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
                             title="Download Chart as PNG (fallback to SVG)"
                             aria-label="Download chart as PNG image"
@@ -80,16 +83,18 @@ export const ChartControls: React.FC<ChartControlsProps> = ({
                         </button>
                         
                         {/* Download Chart as SVG Button */}
-                        <button
-                            onClick={() => customDownloadSVG ? customDownloadSVG() : downloadAsSvg(config)}
-                            className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
-                            title="Download Chart as SVG"
-                            aria-label="Download chart as SVG image"
-                        >
-                            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                            </svg>
-                        </button>
+                        {supportsSvg !== false && (
+                            <button
+                                onClick={() => downloadAsSvg(config)}
+                                className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
+                                title="Download Chart as SVG"
+                                aria-label="Download chart as SVG image"
+                            >
+                                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                                </svg>
+                            </button>
+                        )}
                         
                         {/* Download Data Button */}
                         {csvData && (
