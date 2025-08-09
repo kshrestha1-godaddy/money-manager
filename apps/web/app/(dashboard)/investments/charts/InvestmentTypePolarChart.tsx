@@ -255,22 +255,22 @@ export const InvestmentTypePolarChart = React.memo<InvestmentTypePolarChartProps
         easing: 'easeInOutQuart',
       },
       interaction: {
-        intersect: false,
+        intersect: true,
         mode: 'index',
       },
       scales: {
         r: {
           angleLines: { 
-            color: "#e5e7eb",
-            lineWidth: 1,
+            color: "#d1d5db",
+            lineWidth: 2,
           },
           grid: { 
-            color: "#f3f4f6",
-            lineWidth: 1,
+            color: "#d1d5db",
+            lineWidth: 0.5,
           },
-          pointLabels: { display: false },
+          pointLabels: { display: true, color: "rgb(107, 114, 128)", font: { size: 10 }   },
           ticks: {
-            display: false,
+            display: true,
             backdropColor: "transparent",
           },
           beginAtZero: true,
@@ -283,9 +283,9 @@ export const InvestmentTypePolarChart = React.memo<InvestmentTypePolarChartProps
           titleColor: '#ffffff',
           bodyColor: '#ffffff',
           borderColor: '#374151',
-          borderWidth: 1,
+          borderWidth: 0.8,
           cornerRadius: 8,
-          padding: 12,
+          padding: 10,
           displayColors: true,
           callbacks: {
             title: (tooltipItems: any[]) => {
@@ -320,7 +320,6 @@ export const InvestmentTypePolarChart = React.memo<InvestmentTypePolarChartProps
           color: "#ffffff",
           font: {
             size: 10,
-            weight: "bold",
           },
           formatter: (value: number, ctx: any) => {
             const pct = totalInvested > 0 ? ((value / totalInvested) * 100).toFixed(0) : "0";
