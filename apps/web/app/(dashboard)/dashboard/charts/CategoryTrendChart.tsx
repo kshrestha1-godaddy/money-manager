@@ -56,10 +56,14 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(({
     return categoriesWithData.map(cat => cat.name);
   }, [categoryData, getCategoryList, type]);
 
-  // Auto-select first category if none selected and categories are available
+  // Auto-select random category if none selected and categories are available
   React.useEffect(() => {
-    if (!selectedCategory && availableCategories.length > 0 && availableCategories[0]) {
-      setSelectedCategory(availableCategories[0]);
+    if (!selectedCategory && availableCategories.length > 0) {
+      const randomIndex = Math.floor(Math.random() * availableCategories.length);
+      const randomCategory = availableCategories[randomIndex];
+      if (randomCategory) {
+        setSelectedCategory(randomCategory);
+      }
     }
   }, [availableCategories, selectedCategory]);
 
