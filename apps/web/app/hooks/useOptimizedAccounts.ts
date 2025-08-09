@@ -10,8 +10,8 @@ import {
     bulkCreateAccounts 
 } from "../(dashboard)/accounts/actions/accounts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
-import { exportAccountsToCSV } from "../utils/csvExport";
-import { ParsedAccountData } from "../utils/csvImport";
+import { exportAccountsToCSV } from "../utils/csv";
+import { ParsedAccountData } from "../utils/csv";
 
 interface UseOptimizedAccountsReturn {
     // Data
@@ -279,7 +279,8 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
                 });
                 triggerBalanceRefresh();
             }
-            setIsImportModalOpen(false);
+            // Don't automatically close modal - let the ImportAccountModal handle this
+            // setIsImportModalOpen(false);
             setError(null);
             
             // Show success/error summary
@@ -404,7 +405,10 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
     }, [bulkCreateMutation]);
 
     const handleExportToCSV = useCallback(() => {
-        exportAccountsToCSV(filteredAccounts);
+        const result = exportAccountsToCSV(filteredAccounts);
+        if (!result.success) {
+            setError(result.error || 'Failed to export accounts');
+        }
     }, [filteredAccounts]);
 
     const clearFilters = useCallback(() => {

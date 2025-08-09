@@ -1,8 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Upload, AlertCircle, CheckCircle, X } from "lucide-react";
-import { parseAccountsCSV, readFileAsText, ParsedAccountData, ImportResult } from "../../../utils/csvImport";
+import { Upload, AlertCircle, CheckCircle, X, Download } from "lucide-react";
+import { processAccountImport, ParsedAccountData, createAccountImportTemplate } from "../../../utils/csv";
+
+interface ImportResult {
+    success: boolean;
+    data: ParsedAccountData[];
+    errors: string[];
+    warnings: string[];
+    totalRows: number;
+    validRows: number;
+}
 
 interface ImportAccountModalProps {
     isOpen: boolean;
@@ -16,12 +25,14 @@ export function ImportAccountModal({ isOpen, onClose, onImport, isImporting: ser
     const [importing, setImporting] = useState(false);
     const [result, setResult] = useState<ImportResult | null>(null);
     const [dragActive, setDragActive] = useState(false);
+    const [showSuccessResult, setShowSuccessResult] = useState(false);
 
     const resetModal = () => {
         setFile(null);
         setResult(null);
         setImporting(false);
         setDragActive(false);
+        setShowSuccessResult(false);
         onClose();
     };
 
@@ -29,6 +40,7 @@ export function ImportAccountModal({ isOpen, onClose, onImport, isImporting: ser
         if (selectedFile.type === 'text/csv' || selectedFile.name.endsWith('.csv')) {
             setFile(selectedFile);
             setResult(null);
+            setShowSuccessResult(false);
         } else {
             alert('Please select a CSV file');
         }
@@ -59,129 +71,192 @@ export function ImportAccountModal({ isOpen, onClose, onImport, isImporting: ser
 
         setImporting(true);
         try {
-            const csvContent = await readFileAsText(file);
-            const importResult = parseAccountsCSV(csvContent);
+            const importResult = await processAccountImport(file);
             setResult(importResult);
             
             // Only call onImport if we have valid data - this will trigger the actual save
-            if (importResult.success && importResult.data.length > 0) {
-                onImport(importResult.data);
-                // Don't reset modal immediately - let the user see the result
-                // Modal will be closed by the hook after successful save
+            if (importResult.success && importResult.validatedData && importResult.validatedData.length > 0) {
+                // Don't close modal automatically - let user see warnings first
+                setShowSuccessResult(true);
+                onImport(importResult.validatedData);
             }
         } catch (error) {
             setResult({
                 success: false,
                 data: [],
                 errors: [error instanceof Error ? error.message : 'Unknown error'],
+                warnings: [],
                 totalRows: 0,
                 validRows: 0
             });
+            setShowSuccessResult(false);
         } finally {
             setImporting(false);
         }
+    };
+    
+    const handleCompleteImport = () => {
+        // This will be called when user clicks "Done" after seeing warnings
+        resetModal();
     };
 
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-lg p-6 max-w-5xl w-full mx-4 max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold">Import Accounts</h2>
+                    <h2 className="text-xl font-semibold text-gray-900">Bulk Import Accounts</h2>
                     <button 
                         onClick={resetModal}
-                        className="text-gray-500 hover:text-gray-700"
+                        className="text-gray-400 hover:text-gray-500"
                     >
                         <X size={24} />
                     </button>
                 </div>
                 
-                <div className="space-y-6">
-                    {/* CSV Format Info */}
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                        <h4 className="font-medium text-blue-900 mb-2">CSV Format Requirements:</h4>
-                        <p className="text-sm text-blue-700 mb-2">
-                            Your CSV should include these columns: <strong>Holder Name, Account Number, Branch Code, Bank Name, Branch Name, Bank Address, Account Type, SWIFT Code, Account Opening Date</strong>
-                        </p>
-                        <p className="text-sm text-blue-700 mb-2">
-                            Optional columns: Mobile Numbers, Branch Contacts, Bank Email, Security Questions, Balance, App Username, Notes, Nickname
-                        </p>
-                        <div className="text-xs text-blue-600 space-y-1">
-                            <p>• Date format: YYYY-MM-DD (e.g., 2024-01-15)</p>
-                            <p>• Multiple values separated by semicolons (e.g., "123456789;987654321")</p>
-                            <p>• Account numbers must be unique</p>
-                            <p>• Balance should be a number (if provided)</p>
-                            <p>• Empty cells are allowed for optional fields</p>
-                        </div>
-                    </div>
-
-                    {/* File Upload Area */}
-                    <div
-                        className={`relative border-2 border-dashed rounded-lg p-6 transition-colors ${
-                            dragActive ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
-                        }`}
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                    >
-                        <div className="text-center">
-                            <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                            <div className="mt-4">
-                                <label htmlFor="file-upload" className="cursor-pointer">
-                                    <span className="mt-2 block text-sm font-medium text-gray-900">
-                                        {file ? file.name : 'Choose CSV file or drag and drop'}
-                                    </span>
-                                    <span className="text-xs text-gray-500 block mt-1">
-                                        CSV files only
-                                    </span>
-                                </label>
-                                <input
-                                    id="file-upload"
-                                    name="file-upload"
-                                    type="file"
-                                    accept=".csv"
-                                    className="sr-only"
-                                    onChange={(e) => {
-                                        const selectedFile = e.target.files?.[0];
-                                        if (selectedFile) handleFileSelect(selectedFile);
-                                    }}
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Import Button */}
-                    <div className="flex justify-end">
-                        <button
-                            onClick={handleImport}
-                            disabled={!file || importing || serverImporting}
-                            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                <p className="text-sm text-gray-600 mb-6">
+                    Import accounts from CSV files. Account names from the CSV will be automatically matched with your existing accounts.
+                </p>
+                
+                <div className="grid grid-cols-1 gap-6">
+                    {/* Account CSV Upload Section */}
+                    <div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-4">Account CSV File (Required)</h3>
+                        
+                        {/* Upload Area */}
+                        <div
+                            className={`relative border-2 border-dashed rounded-lg p-8 transition-colors ${
+                                dragActive ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+                            }`}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
                         >
-                            {importing ? 'Parsing CSV...' : serverImporting ? 'Saving Accounts...' : 'Import Accounts'}
-                        </button>
-                    </div>
-
-                    {/* Import Results */}
-                    {result && (
-                        <div className="space-y-4">
-                            <div className="flex items-center space-x-4">
-                                {result.validRows > 0 && (
-                                    <div className="flex items-center text-green-600">
-                                        <CheckCircle className="h-5 w-5 mr-2" />
-                                        <span>{result.validRows} accounts imported successfully</span>
-                                    </div>
-                                )}
-                                {result.errors.length > 0 && (
-                                    <div className="flex items-center text-red-600">
-                                        <AlertCircle className="h-5 w-5 mr-2" />
-                                        <span>{result.errors.length} errors found</span>
-                                    </div>
-                                )}
+                            <div className="text-center">
+                                <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                                <div className="mt-4">
+                                    <label htmlFor="file-upload" className="cursor-pointer">
+                                        <span className="mt-2 block text-sm font-medium text-gray-900">
+                                            {file ? file.name : 'Drop accounts CSV here'}
+                                        </span>
+                                        <span className="text-xs text-gray-500 block mt-1">
+                                            or click to browse
+                                        </span>
+                                    </label>
+                                    <input
+                                        id="file-upload"
+                                        name="file-upload"
+                                        type="file"
+                                        accept=".csv"
+                                        className="sr-only"
+                                        onChange={(e) => {
+                                            const selectedFile = e.target.files?.[0];
+                                            if (selectedFile) handleFileSelect(selectedFile);
+                                        }}
+                                    />
+                                </div>
+                                
+                                <div className="mt-6 flex justify-center space-x-4">
+                                    <button
+                                        onClick={() => {
+                                            const input = document.getElementById('file-upload') as HTMLInputElement;
+                                            input?.click();
+                                        }}
+                                        className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                                    >
+                                        Browse Files
+                                    </button>
+                                    <button
+                                        onClick={() => createAccountImportTemplate()}
+                                        className="px-4 py-2 bg-gray-600 text-white text-sm rounded-md hover:bg-gray-700 transition-colors flex items-center space-x-2"
+                                    >
+                                        <Download size={16} />
+                                        <span>Download Template</span>
+                                    </button>
+                                </div>
                             </div>
+                        </div>
+                        
+                        {/* Format Information */}
+                        <div className="mt-4 bg-blue-50 rounded-lg p-4">
+                            <h4 className="text-sm font-medium text-blue-900 mb-2">ACCOUNT CSV Format:</h4>
+                            <div className="text-sm text-blue-800 space-y-1">
+                                <div><strong>Required:</strong> Holder Name, Account Number, Bank Name, Branch Name</div>
+                                <div><strong>Optional:</strong> Branch Code, Bank Address, Account Type, Mobile Numbers, Branch Contacts, SWIFT Code, Bank Email, Account Opening Date, Security Questions, Balance, App Username, Notes, Nickname</div>
+                                <div><strong>Date format:</strong> YYYY-MM-DD, MM/DD/YYYY, or DD/MM/YYYY</div>
+                                <div><strong>Multiple values:</strong> Separate with semicolons (e.g., "555-1234; 555-5678")</div>
+                                <div><strong>Account numbers:</strong> Must be unique</div>
+                                <div><strong>Balance:</strong> Numbers with or without currency symbols</div>
+                                <div><strong>Notes:</strong> Can contain line breaks (will be preserved)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-                            {/* Preview of Valid Accounts */}
-                            {result.validRows > 0 && result.data.length > 0 && (
+                {/* Import Results */}
+                {result && (
+                    <div className="mt-6 space-y-4">
+                        <div className={`flex items-center justify-center space-x-6 py-4 rounded-lg ${
+                            showSuccessResult && result.success 
+                                ? 'bg-green-50 border border-green-200' 
+                                : 'bg-gray-50'
+                        }`}>
+                            {result.validRows > 0 && (
+                                <div className="flex items-center text-green-600">
+                                    <CheckCircle className="h-5 w-5 mr-2" />
+                                    <span className="font-medium">
+                                        {showSuccessResult 
+                                            ? `${result.validRows} accounts imported successfully!` 
+                                            : `${result.validRows} accounts ready to import`
+                                        }
+                                    </span>
+                                </div>
+                            )}
+                            {result.errors.length > 0 && (
+                                <div className="flex items-center text-red-600">
+                                    <AlertCircle className="h-5 w-5 mr-2" />
+                                    <span className="font-medium">{result.errors.length} errors found</span>
+                                </div>
+                            )}
+                            {result.warnings && result.warnings.length > 0 && (
+                                <div className="flex items-center text-yellow-600">
+                                    <AlertCircle className="h-5 w-5 mr-2" />
+                                    <span className="font-medium">{result.warnings.length} warnings</span>
+                                </div>
+                            )}
+                        </div>
+                        
+                        {showSuccessResult && result.warnings && result.warnings.length > 0 && (
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                <div className="flex items-start">
+                                    <AlertCircle className="h-5 w-5 text-yellow-400 mt-0.5" />
+                                    <div className="ml-3">
+                                        <h3 className="text-sm font-medium text-yellow-800">
+                                            Import completed with {result.warnings.length} warning{result.warnings.length !== 1 ? 's' : ''}
+                                        </h3>
+                                        <div className="mt-2 text-sm text-yellow-700">
+                                            <p className="mb-2">Your accounts were imported successfully, but please review these warnings:</p>
+                                            <ul className="list-disc pl-5 space-y-1 max-h-32 overflow-y-auto">
+                                                {result.warnings.slice(0, 10).map((warning, index) => (
+                                                    <li key={index}>
+                                                        {warning}
+                                                    </li>
+                                                ))}
+                                                {result.warnings.length > 10 && (
+                                                    <li className="text-yellow-600 font-medium">
+                                                        ... and {result.warnings.length - 10} more warnings
+                                                    </li>
+                                                )}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                            {/* Preview of Valid Accounts - only show before import */}
+                            {!showSuccessResult && result.validRows > 0 && result.data.length > 0 && (
                                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                                     <h3 className="font-medium text-green-900 mb-2">
                                         Preview of Valid Accounts ({result.validRows} accounts):
@@ -218,6 +293,34 @@ export function ImportAccountModal({ isOpen, onClose, onImport, isImporting: ser
                                 </div>
                             )}
 
+                            {/* Warning Details - only show before import */}
+                            {!showSuccessResult && result.warnings && result.warnings.length > 0 && (
+                                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                    <div className="flex">
+                                        <AlertCircle className="h-5 w-5 text-yellow-400" />
+                                        <div className="ml-3">
+                                            <h3 className="text-sm font-medium text-yellow-800">
+                                                {result.warnings.length} warning{result.warnings.length !== 1 ? 's' : ''}
+                                            </h3>
+                                            <div className="mt-2 text-sm text-yellow-700">
+                                                <ul className="list-disc pl-5 space-y-1 max-h-40 overflow-y-auto">
+                                                    {result.warnings.slice(0, 10).map((warning, index) => (
+                                                        <li key={index}>
+                                                            {warning}
+                                                        </li>
+                                                    ))}
+                                                    {result.warnings.length > 10 && (
+                                                        <li className="text-yellow-600 font-medium">
+                                                            ... and {result.warnings.length - 10} more warnings
+                                                        </li>
+                                                    )}
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Error Details */}
                             {result.errors.length > 0 && (
                                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -246,33 +349,38 @@ export function ImportAccountModal({ isOpen, onClose, onImport, isImporting: ser
                                 </div>
                             )}
 
-                            {/* Action Buttons */}
-                            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                                <button
-                                    onClick={() => {
-                                        setFile(null);
-                                        setResult(null);
-                                        onClose();
-                                    }}
-                                    className="px-4 py-2 bg-gray-300 text-gray-700 hover:bg-gray-400 rounded-md transition-colors"
-                                >
-                                    Close
-                                </button>
-                                {result.validRows > 0 && (
-                                    <button
-                                        onClick={() => {
-                                            onImport(result.data);
-                                            setFile(null);
-                                            setResult(null);
-                                            onClose();
-                                        }}
-                                        className="px-4 py-2 bg-green-600 text-white hover:bg-green-700 rounded-md transition-colors"
-                                    >
-                                        Done
-                                    </button>
-                                )}
-                            </div>
-                        </div>
+                    </div>
+                )}
+
+                {/* Import Button */}
+                <div className="mt-8 flex justify-end space-x-3">
+                    {showSuccessResult && result?.success ? (
+                        <>
+                            <button
+                                onClick={() => {
+                                    setFile(null);
+                                    setResult(null);
+                                    setShowSuccessResult(false);
+                                }}
+                                className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+                            >
+                                Import More
+                            </button>
+                            <button
+                                onClick={handleCompleteImport}
+                                className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                            >
+                                Done
+                            </button>
+                        </>
+                    ) : (
+                        <button
+                            onClick={handleImport}
+                            disabled={!file || importing || serverImporting}
+                            className="px-6 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                        >
+                            {importing ? 'Processing...' : serverImporting ? 'Importing Accounts...' : 'Import Accounts'}
+                        </button>
                     )}
                 </div>
             </div>
