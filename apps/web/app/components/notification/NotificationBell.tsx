@@ -238,7 +238,7 @@ export function NotificationBell({ className = "" }: NotificationBellProps) {
             {/* Bell Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="relative p-2 text-gray-600 hover:text-gray-900 transition-colors"
+                className="relative h-10 w-10 my-3 inline-flex items-center justify-center text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-100 transition-colors"
                 aria-label="Notifications"
             >
                 <Bell size={22} />

@@ -63,12 +63,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             title="Net Worth" 
                         />
 
-                        {/* Calendar - open in new tab */}
-                        <SidebarItem 
-                            href="/calendar" 
-                            icon={<CalendarIcon />} 
-                            title="Calendar" 
-                        />
 
                         {/* Additional items - Moved to profile dropdown */}
                         {/* <SidebarItem

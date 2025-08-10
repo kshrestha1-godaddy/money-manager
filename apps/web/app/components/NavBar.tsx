@@ -7,11 +7,13 @@ import { useCurrency } from "../providers/CurrencyProvider";
 import { useTotalBalance } from "../hooks/useTotalBalance";
 import { useModals } from "../providers/ModalsProvider";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { NotificationBell } from "./notification/NotificationBell";
 
 export default function NavBar() {
   const { data: session, status } = useSession();
+  const pathname = usePathname();
   const { currency: selectedCurrency, updateCurrency } = useCurrency();
   const { totalBalance, loading: balanceLoading } = useTotalBalance();
   const { openExpenseModal, openIncomeModal } = useModals();
@@ -113,8 +115,9 @@ export default function NavBar() {
           </div>
         )}
 
-        {/* Right side: Quick Actions, Currency, Logout and Profile Icon */}
+        {/* Right side: Calendar, Quick Actions, Currency, Logout and Profile Icon */}
         <div className="flex items-center space-x-4 flex-shrink-0 pr-4">
+
           {/* Quick Action Buttons - Only shown for authenticated users */}
           {status === "authenticated" && (
             <div className="flex items-center space-x-2 mr-2">
@@ -136,6 +139,7 @@ export default function NavBar() {
                 </svg>
                 <span>Income</span>
               </button>
+
             </div>
           )}
           
@@ -144,6 +148,14 @@ export default function NavBar() {
           {/* Auth buttons */}
           {status === "authenticated" ? (
             <>
+              {/* Calendar icon link */}
+              {status === "authenticated" && (
+                <Link href="/calendar" className="p-2 rounded-full hover:bg-gray-100 transition-colors" aria-label="Calendar">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={`w-8 h-8 ${pathname?.startsWith('/calendar') ? 'text-blue-600' : 'text-gray-500'}`}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 9.75h18M4.5 7.5h15a1.5 1.5 0 0 1 1.5 1.5v9.75A1.5 1.5 0 0 1 19.5 21h-15A1.5 1.5 0 0 1 3 18.75V9A1.5 1.5 0 0 1 4.5 7.5Z" />
+                  </svg>
+                </Link>
+              )}
               {/* Notification Bell */}
               <NotificationBell className="mr-2" />
               
