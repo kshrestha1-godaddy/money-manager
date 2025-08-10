@@ -9,6 +9,7 @@ export const SidebarItem = ({
   showSeparator = false,
   onItemClick,
   id,
+  openInNewTab = false,
 }: {
   href: string;
   title: string;
@@ -16,13 +17,18 @@ export const SidebarItem = ({
   showSeparator?: boolean;
   onItemClick?: () => void;
   id?: string;
+  openInNewTab?: boolean;
 }) => {
   const router = useRouter();
   const pathname = usePathname();
   const selected = pathname === href;
 
   const handleClick = () => {
-    router.push(href);
+    if (openInNewTab && typeof window !== "undefined") {
+      window.open(href, "_blank", "noopener,noreferrer");
+    } else {
+      router.push(href);
+    }
     onItemClick?.();
   };
 
