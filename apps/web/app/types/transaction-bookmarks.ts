@@ -55,4 +55,16 @@ export interface CalendarBookmarkEvent {
   notes?: string;
   transactionId: number;
   bookmarkId: number;
+}
+
+export interface CalendarDebtEvent {
+  id: string;
+  date: string; // YYYY-MM-DD in local timezone
+  title: string;
+  type: "DEBT_DUE";
+  borrowerName: string;
+  amount: number;
+  status: string;
+  debtId: number;
+  isOverdue: boolean;
 } 

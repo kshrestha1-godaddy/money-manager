@@ -11,7 +11,8 @@ import {
   getDaysInMonth
 } from "../../utils/calendarDateUtils";
 import { getBookmarkedTransactionsForCalendar } from "./actions/calendar-bookmarks";
-import { CalendarBookmarkEvent } from "../../types/transaction-bookmarks";
+import { getActiveDebtsWithDueDates } from "./actions/calendar-debts";
+import { CalendarBookmarkEvent, CalendarDebtEvent } from "../../types/transaction-bookmarks";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 
@@ -19,9 +20,12 @@ interface CalendarEvent {
   id: string;
   date: string; // YYYY-MM-DD in local timezone
   title: string;
-  type?: "INCOME" | "EXPENSE";
+  type?: "INCOME" | "EXPENSE" | "DEBT_DUE";
   amount?: number;
   category?: string;
+  borrowerName?: string;
+  status?: string;
+  isOverdue?: boolean;
 }
 
 export default function CalendarPage() {
@@ -30,6 +34,7 @@ export default function CalendarPage() {
   const [viewMonth, setViewMonth] = useState(now.getMonth());
   const [selectedDay, setSelectedDay] = useState(now.getDate());
   const [bookmarkedEvents, setBookmarkedEvents] = useState<CalendarBookmarkEvent[]>([]);
+  const [debtEvents, setDebtEvents] = useState<CalendarDebtEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const { currency: userCurrency } = useCurrency();
 
@@ -49,28 +54,37 @@ export default function CalendarPage() {
     }
   }, [viewYear, viewMonth]);
 
-  // Load bookmarked transactions
-  const refreshBookmarkedTransactions = async () => {
+  // Load bookmarked transactions and debt due dates
+  const refreshCalendarData = async () => {
     try {
       setLoading(true);
-      const events = await getBookmarkedTransactionsForCalendar();
-      setBookmarkedEvents(events);
+      
+      // Fetch both bookmarked transactions and debt due dates in parallel
+      const [bookmarkedTransactions, debtsWithDueDates] = await Promise.all([
+        getBookmarkedTransactionsForCalendar(),
+        getActiveDebtsWithDueDates()
+      ]);
+      
+      setBookmarkedEvents(bookmarkedTransactions);
+      setDebtEvents(debtsWithDueDates);
     } catch (error) {
-      console.error("Error loading bookmarked transactions:", error);
+      console.error("Error loading calendar data:", error);
       setBookmarkedEvents([]);
+      setDebtEvents([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    refreshBookmarkedTransactions();
+    refreshCalendarData();
   }, []);
 
-  // Convert bookmarked events to calendar events and group by date
+  // Convert bookmarked events and debt events to calendar events and group by date
   const eventsByDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
     
+    // Add bookmarked transactions
     bookmarkedEvents.forEach((event) => {
       const calendarEvent: CalendarEvent = {
         id: event.id,
@@ -86,8 +100,26 @@ export default function CalendarPage() {
       map.set(event.date, arr);
     });
     
+    // Add debt due dates
+    debtEvents.forEach((event) => {
+      const calendarEvent: CalendarEvent = {
+        id: event.id,
+        date: event.date,
+        title: event.title,
+        type: event.type,
+        amount: event.amount,
+        borrowerName: event.borrowerName,
+        status: event.status,
+        isOverdue: event.isOverdue
+      };
+      
+      const arr = map.get(event.date) ?? [];
+      arr.push(calendarEvent);
+      map.set(event.date, arr);
+    });
+    
     return map;
-  }, [bookmarkedEvents]);
+  }, [bookmarkedEvents, debtEvents]);
 
   function prevMonth() {
     const { year, monthIndex } = getPreviousMonth(viewYear, viewMonth);
@@ -96,8 +128,8 @@ export default function CalendarPage() {
     // Adjust selected day if it doesn't exist in the new month
     const maxDayInNewMonth = getDaysInMonth(year, monthIndex);
     setSelectedDay(prev => Math.min(prev, maxDayInNewMonth));
-    // Refresh bookmarked transactions for the new month
-    refreshBookmarkedTransactions();
+    // Refresh calendar data for the new month
+    refreshCalendarData();
   }
 
   function nextMonth() {
@@ -107,8 +139,8 @@ export default function CalendarPage() {
     // Adjust selected day if it doesn't exist in the new month
     const maxDayInNewMonth = getDaysInMonth(year, monthIndex);
     setSelectedDay(prev => Math.min(prev, maxDayInNewMonth));
-    // Refresh bookmarked transactions for the new month
-    refreshBookmarkedTransactions();
+    // Refresh calendar data for the new month
+    refreshCalendarData();
   }
 
   const monthFormatter = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" });
@@ -142,15 +174,15 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={prevMonth} className="px-3 py-0.5 rounded-md border bg-white hover:bg-gray-50">Prev</button>
-          <button onClick={() => { setViewYear(now.getFullYear()); setViewMonth(now.getMonth()); setSelectedDay(now.getDate()); refreshBookmarkedTransactions(); }} className="px-3 py-0.5 rounded-md border bg-white hover:bg-gray-50">Today</button>
+          <button onClick={() => { setViewYear(now.getFullYear()); setViewMonth(now.getMonth()); setSelectedDay(now.getDate()); refreshCalendarData(); }} className="px-3 py-0.5 rounded-md border bg-white hover:bg-gray-50">Today</button>
           <button onClick={nextMonth} className="px-3 py-0.5 rounded-md border bg-white hover:bg-gray-50">Next</button>
         </div>
                   <div className="text-center">
             <h1 className="text-xl font-semibold">{monthFormatter.format(new Date(viewYear, viewMonth, 1))}</h1>
             <p className="text-sm text-gray-500 mt-1">
-              {bookmarkedEvents.length === 0 
-                ? "No bookmarked transactions to display"
-                : `${bookmarkedEvents.length} bookmarked transaction${bookmarkedEvents.length !== 1 ? 's' : ''}`
+              {bookmarkedEvents.length === 0 && debtEvents.length === 0
+                ? "No events to display"
+                : `${bookmarkedEvents.length} bookmarked transaction${bookmarkedEvents.length !== 1 ? 's' : ''}, ${debtEvents.length} debt due date${debtEvents.length !== 1 ? 's' : ''}`
               }
             </p>
           </div>
@@ -200,18 +232,18 @@ export default function CalendarPage() {
       </div>
 
       <div className="bg-white rounded-lg border shadow-sm w-full flex-1 flex flex-col">
-        {bookmarkedEvents.length === 0 && (
+        {bookmarkedEvents.length === 0 && debtEvents.length === 0 && (
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="text-center">
               <div className="text-gray-400 text-6xl mb-4">📅</div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No Bookmarked Transactions</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Calendar Events</h3>
               <p className="text-gray-500 max-w-sm">
-                Bookmark important transactions from your expenses or incomes to see them displayed here on the calendar.
+                Bookmark important transactions and create debts with due dates to see them displayed here on the calendar.
               </p>
             </div>
           </div>
         )}
-        {bookmarkedEvents.length > 0 && (
+        {(bookmarkedEvents.length > 0 || debtEvents.length > 0) && (
           <>
         
         <div className="grid grid-cols-7 text-xs font-medium text-slate-500 border-b w-full">
@@ -240,22 +272,61 @@ export default function CalendarPage() {
                 <div className="text-xs font-medium mb-1">{day.getDate()}</div>
                 <div className="flex flex-col gap-1">
                   {events.map((ev) => {
-                    const isIncome = ev.type === "INCOME";
-                    const bgColor = isIncome ? "bg-green-50" : "bg-red-50";
-                    const textColor = isIncome ? "text-green-700" : "text-red-700";
-                    const borderColor = isIncome ? "border-green-200" : "border-red-200";
+                    // Handle different event types
+                    let bgColor, textColor, borderColor, displayIcon;
+                    
+                    if (ev.type === "INCOME") {
+                      bgColor = "bg-green-50";
+                      textColor = "text-green-700";
+                      borderColor = "border-green-200";
+                      displayIcon = "💰";
+                    } else if (ev.type === "EXPENSE") {
+                      bgColor = "bg-red-50";
+                      textColor = "text-red-700";
+                      borderColor = "border-red-200";
+                      displayIcon = "💸";
+                    } else if (ev.type === "DEBT_DUE") {
+                      // Special styling for debt due dates
+                      if (ev.isOverdue) {
+                        bgColor = "bg-red-100";
+                        textColor = "text-red-800";
+                        borderColor = "border-red-400";
+                        displayIcon = "🚨";
+                      } else {
+                        bgColor = "bg-orange-50";
+                        textColor = "text-orange-700";
+                        borderColor = "border-orange-200";
+                        displayIcon = "⏰";
+                      }
+                    } else {
+                      // Default styling
+                      bgColor = "bg-blue-50";
+                      textColor = "text-blue-700";
+                      borderColor = "border-blue-200";
+                      displayIcon = "📅";
+                    }
+                    
+                    const tooltip = ev.type === "DEBT_DUE" 
+                      ? `${ev.borrowerName} - ${ev.amount ? formatCurrency(ev.amount, userCurrency) : ''} (${ev.status}${ev.isOverdue ? ' - OVERDUE' : ''})`
+                      : `${ev.category || 'Event'} - ${ev.amount ? formatCurrency(ev.amount, userCurrency) : ''}`;
                     
                     return (
                       <div 
                         key={ev.id} 
-                        className={`text-xs rounded px-2 py-1 border ${bgColor} ${textColor} ${borderColor}`}
-                        title={`${ev.category} - ${ev.amount ? formatCurrency(ev.amount, userCurrency) : ''}`}
+                        className={`text-xs rounded px-2 py-1 border ${bgColor} ${textColor} ${borderColor} relative`}
+                        title={tooltip}
                       >
-                        <div className="truncate font-medium">{ev.title}</div>
+                        <div className="truncate font-medium flex items-center gap-1">
+                          <span className="text-xs opacity-75">{displayIcon}</span>
+                          <span className="flex-1 truncate">{ev.title}</span>
+                        </div>
                         {ev.amount && (
                           <div className="truncate text-xs opacity-75">
                             {formatCurrency(ev.amount, userCurrency)}
                           </div>
+                        )}
+                        {ev.type === "DEBT_DUE" && ev.isOverdue && (
+                          <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
                         )}
                       </div>
                     );
