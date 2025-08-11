@@ -43,4 +43,16 @@ export type BookmarkedTransaction = {
       accountType: string;
     } | null;
   };
-}; 
+};
+
+export interface CalendarBookmarkEvent {
+  id: string;
+  date: string; // YYYY-MM-DD in local timezone
+  title: string;
+  type: "INCOME" | "EXPENSE";
+  amount: number;
+  category: string;
+  notes?: string;
+  transactionId: number;
+  bookmarkId: number;
+} 
