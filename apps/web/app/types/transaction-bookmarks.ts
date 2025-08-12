@@ -47,7 +47,7 @@ export type BookmarkedTransaction = {
 
 export interface CalendarBookmarkEvent {
   id: string;
-  date: string; // YYYY-MM-DD in local timezone
+  date: string; // Human-readable format like "January 15, 2024" (same as ExpenseList)
   title: string;
   type: "INCOME" | "EXPENSE";
   amount: number;

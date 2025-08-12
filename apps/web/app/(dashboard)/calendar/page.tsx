@@ -10,6 +10,7 @@ import {
   getNextMonth,
   getDaysInMonth
 } from "../../utils/calendarDateUtils";
+import { formatDate } from "../../utils/date";
 import { getBookmarkedTransactionsForCalendar } from "./actions/calendar-bookmarks";
 import { getActiveDebtsWithDueDates } from "./actions/calendar-debts";
 import { CalendarBookmarkEvent, CalendarDebtEvent } from "../../types/transaction-bookmarks";
@@ -18,7 +19,7 @@ import { useCurrency } from "../../providers/CurrencyProvider";
 
 interface CalendarEvent {
   id: string;
-  date: string; // YYYY-MM-DD in local timezone
+  date: string; // Human-readable format like "January 15, 2024"
   title: string;
   type?: "INCOME" | "EXPENSE" | "DEBT_DUE";
   amount?: number;
@@ -84,6 +85,16 @@ export default function CalendarPage() {
   const eventsByDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
     
+    // Helper function to convert human-readable date back to calendar key
+    const getDateKeyFromHumanDate = (humanDate: string): string => {
+      // Parse common human-readable formats like "January 15, 2024"
+      const parsedDate = new Date(humanDate);
+      if (!isNaN(parsedDate.getTime())) {
+        return formatLocalDateKey(parsedDate);
+      }
+      return humanDate; // Fallback if parsing fails
+    };
+    
     // Add bookmarked transactions
     bookmarkedEvents.forEach((event) => {
       const calendarEvent: CalendarEvent = {
@@ -95,9 +106,10 @@ export default function CalendarPage() {
         category: event.category
       };
       
-      const arr = map.get(event.date) ?? [];
+      const dateKey = getDateKeyFromHumanDate(event.date);
+      const arr = map.get(dateKey) ?? [];
       arr.push(calendarEvent);
-      map.set(event.date, arr);
+      map.set(dateKey, arr);
     });
     
     // Add debt due dates
@@ -113,9 +125,10 @@ export default function CalendarPage() {
         isOverdue: event.isOverdue
       };
       
-      const arr = map.get(event.date) ?? [];
+      const dateKey = getDateKeyFromHumanDate(event.date);
+      const arr = map.get(dateKey) ?? [];
       arr.push(calendarEvent);
-      map.set(event.date, arr);
+      map.set(dateKey, arr);
     });
     
     return map;

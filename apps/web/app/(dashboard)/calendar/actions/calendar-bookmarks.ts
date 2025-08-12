@@ -2,7 +2,7 @@
 
 import prisma from "@repo/db/client";
 import { getAuthenticatedSession, getUserIdFromSession } from "../../../utils/auth";
-import { formatLocalDateKey } from "../../../utils/calendarDateUtils";
+import { formatDate } from "../../../utils/date";
 import { CalendarBookmarkEvent } from "../../../types/transaction-bookmarks";
 
 export async function getBookmarkedTransactionsForCalendar(): Promise<CalendarBookmarkEvent[]> {
@@ -43,9 +43,9 @@ export async function getBookmarkedTransactionsForCalendar(): Promise<CalendarBo
       }
 
       if (transaction) {
-        // Format the transaction date to local date string
+        // Format the transaction date using the same format as ExpenseList
         const transactionDate = new Date(transaction.date);
-        const dateKey = formatLocalDateKey(transactionDate);
+        const dateKey = formatDate(transactionDate);
         
         calendarEvents.push({
           id: `${bookmark.transactionType.toLowerCase()}-${bookmark.transactionId}-${bookmark.id}`,
@@ -129,9 +129,9 @@ export async function getBookmarkedTransactionsForDateRange(
       }
 
       if (transaction) {
-        // Format the transaction date to local date string
+        // Format the transaction date using the same format as ExpenseList
         const transactionDate = new Date(transaction.date);
-        const dateKey = formatLocalDateKey(transactionDate);
+        const dateKey = formatDate(transactionDate);
         
         calendarEvents.push({
           id: `${bookmark.transactionType.toLowerCase()}-${bookmark.transactionId}-${bookmark.id}`,
