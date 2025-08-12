@@ -17,7 +17,7 @@ interface Account {
     holderName: string;
     bankName: string;
     accountNumber: string;
-    balance: number;
+    balance?: number;
 }
 
 export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModalProps) {
@@ -51,13 +51,23 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
     const loadAccounts = async () => {
         try {
             const result = await getUserAccounts();
-            if (result.data) {
-                setAccounts(result.data);
+            if (Array.isArray(result)) {
+                // Successfully got accounts array
+                setAccounts(result);
+                setError(null);
+            } else if (result.error) {
+                // Got error response
+                setError(result.error);
+                setAccounts([]);
             } else {
-                setError(result.error || "Failed to load accounts");
+                // Unexpected response format
+                setError("Failed to load accounts");
+                setAccounts([]);
             }
         } catch (err) {
+            console.error("Error loading accounts:", err);
             setError("Failed to load accounts");
+            setAccounts([]);
         }
     };
 
@@ -134,7 +144,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                     totalInvestmentAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice || "0");
                 }
                 
-                if (selectedAccount && selectedAccount.balance !== undefined) {
+                if (selectedAccount && selectedAccount.balance !== undefined && selectedAccount.balance !== null) {
                     if (totalInvestmentAmount > selectedAccount.balance) {
                         setError(`Insufficient balance. Investment total of ${formatCurrency(totalInvestmentAmount, userCurrency)} exceeds account balance of ${formatCurrency(selectedAccount.balance, userCurrency)}.`);
                         return;
@@ -487,7 +497,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                             <option value="">{formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' ? 'No account selected' : 'Select an account'}</option>
                             {accounts.map(account => (
                                 <option key={account.id} value={account.id}>
-                                    {account.bankName} - {account.accountNumber} ({formatCurrency(account.balance, userCurrency)})
+                                    {account.bankName} - {account.accountNumber} ({formatCurrency(account.balance || 0, userCurrency)})
                                 </option>
                             ))}
                         </select>
@@ -499,7 +509,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                             } else {
                                 totalAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice);
                             }
-                            if (selectedAccount && selectedAccount.balance !== undefined && totalAmount > selectedAccount.balance) {
+                            if (selectedAccount && selectedAccount.balance !== undefined && selectedAccount.balance !== null && totalAmount > selectedAccount.balance) {
                                 return (
                                     <p className="text-sm text-red-600 mt-1">
                                         Insufficient balance. Available: {formatCurrency(selectedAccount.balance, userCurrency)}
@@ -544,7 +554,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                                     } else {
                                         totalAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice);
                                     }
-                                    return selectedAccount && selectedAccount.balance !== undefined && totalAmount > selectedAccount.balance;
+                                    return selectedAccount && selectedAccount.balance !== undefined && selectedAccount.balance !== null && totalAmount > selectedAccount.balance;
                                 }
                                 return false;
                             })()}
@@ -558,7 +568,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                                         } else {
                                             totalAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice);
                                         }
-                                        if (selectedAccount && selectedAccount.balance !== undefined && totalAmount > selectedAccount.balance) {
+                                        if (selectedAccount && selectedAccount.balance !== undefined && selectedAccount.balance !== null && totalAmount > selectedAccount.balance) {
                                             return 'bg-gray-400 text-white cursor-not-allowed';
                                         }
                                     }

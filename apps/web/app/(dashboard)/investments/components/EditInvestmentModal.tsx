@@ -18,7 +18,7 @@ interface Account {
     holderName: string;
     bankName: string;
     accountNumber: string;
-    balance: number;
+    balance?: number;
 }
 
 export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: EditInvestmentModalProps) {
@@ -73,13 +73,23 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
     const loadAccounts = async () => {
         try {
             const result = await getUserAccounts();
-            if (result.data) {
-                setAccounts(result.data);
+            if (Array.isArray(result)) {
+                // Successfully got accounts array
+                setAccounts(result);
+                setError(null);
+            } else if (result.error) {
+                // Got error response
+                setError(result.error);
+                setAccounts([]);
             } else {
-                setError(result.error || "Failed to load accounts");
+                // Unexpected response format
+                setError("Failed to load accounts");
+                setAccounts([]);
             }
         } catch (err) {
+            console.error("Error loading accounts:", err);
             setError("Failed to load accounts");
+            setAccounts([]);
         }
     };
 
@@ -161,7 +171,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                         investment.purchasePrice : investment.quantity * investment.purchasePrice;
                 }
                 
-                if (selectedAccount && selectedAccount.balance !== undefined) {
+                if (selectedAccount && selectedAccount.balance !== undefined && selectedAccount.balance !== null) {
                     // If changing to a different account, check if the new account has sufficient balance
                     if (parseInt(formData.accountId) !== (investment.accountId || 0) && newTotalAmount > selectedAccount.balance) {
                         setError(`Cannot move investment of ${formatCurrency(newTotalAmount, userCurrency)} to this account. Account balance is only ${formatCurrency(selectedAccount.balance, userCurrency)}.`);

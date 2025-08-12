@@ -73,7 +73,7 @@ export async function getUserAccounts() {
         });
         
         // Convert Decimal balance to number to prevent serialization issues
-        return accounts.map(account => ({
+        const formattedAccounts = accounts.map(account => ({
             ...account,
             balance: account.balance ? decimalToNumber(account.balance, 'balance') : undefined,
             accountOpeningDate: new Date(account.accountOpeningDate),
@@ -86,9 +86,11 @@ export async function getUserAccounts() {
             notes: account.notes || undefined,
             nickname: account.nickname || undefined,
         })) as AccountInterface[];
+
+        return formattedAccounts;
     } catch (error) {
         console.error("Failed to fetch user accounts:", error);
-        return createErrorResponse("Unauthorized");
+        return createErrorResponse("Failed to load accounts. Please try again.");
     }
 }
 
