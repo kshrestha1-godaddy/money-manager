@@ -525,13 +525,13 @@ function FinancialRow({
                         onClick={handleBookmark}
                         className={`inline-flex items-center justify-center w-6 h-6 rounded transition-colors ${
                             transaction.isBookmarked
-                                ? 'text-yellow-600 hover:bg-yellow-50'
+                                ? 'text-blue-600 hover:bg-blue-50'
                                 : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
                         }`}
                         title={transaction.isBookmarked ? 'Remove bookmark' : 'Add bookmark'}
                     >
                         {transaction.isBookmarked ? (
-                            <BookmarkCheck className="w-4 h-4" />
+                            <Bookmark className="w-4 h-4 fill-current" />
                         ) : (
                             <Bookmark className="w-4 h-4" />
                         )}
