@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bookmark, BookmarkCheck } from "lucide-react";
+import { Bookmark } from "lucide-react";
 import { Transaction } from "../../types/financial";
 import { formatDate } from "../../utils/date";
 import { formatCurrency } from "../../utils/currency";
@@ -282,7 +282,7 @@ export default function TransactionsPage() {
                             onClick={() => setShowBookmarkedOnly(!showBookmarkedOnly)}
                             className={`w-full h-10 px-3 py-2 text-left text-sm border rounded-md transition-colors ${
                                 showBookmarkedOnly
-                                    ? 'bg-yellow-50 border-yellow-300 text-yellow-800'
+                                    ? 'bg-blue-50 border-blue-300 text-blue-800'
                                     : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
                             }`}
                         >
@@ -375,13 +375,13 @@ export default function TransactionsPage() {
                                                     onClick={() => handleBookmarkToggle(transaction)}
                                                     className={`inline-flex items-center justify-center w-6 h-6 rounded transition-colors ${
                                                         transaction.isBookmarked
-                                                            ? 'text-yellow-600 hover:bg-yellow-50'
+                                                            ? 'text-blue-600 hover:bg-blue-50'
                                                             : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
                                                     }`}
                                                     title={transaction.isBookmarked ? 'Remove bookmark' : 'Add bookmark'}
                                                 >
                                                     {transaction.isBookmarked ? (
-                                                        <BookmarkCheck className="w-4 h-4" />
+                                                        <Bookmark className="w-4 h-4 fill-current" />
                                                     ) : (
                                                         <Bookmark className="w-4 h-4" />
                                                     )}
