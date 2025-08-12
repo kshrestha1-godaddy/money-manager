@@ -31,6 +31,8 @@ interface DebtStatusWaterfallChartProps {
 interface ChartRow {
   name: string;
   value: number;
+  cumulative: number;
+  start: number;
   key: "TOTAL" | "ACTIVE" | "PARTIAL" | "FULL";
 }
 
@@ -89,8 +91,8 @@ export function DebtStatusWaterfallChart({
 
   const metrics = useMemo(() => {
     let totalWithInterest = 0;
-    let activeOutstanding = 0;
-    let partialOutstanding = 0;
+    let activeAmount = 0;
+    let partialAmount = 0;
     let fullyPaidAmount = 0;
 
     filteredDebts.forEach((debt) => {
@@ -108,23 +110,49 @@ export function DebtStatusWaterfallChart({
       totalWithInterest += total;
 
       if (debt.status === "FULLY_PAID") {
-        // For fully paid, the repaid amount equals total with interest
+        // For fully paid, show the full amount with interest
         fullyPaidAmount += total;
       } else if (debt.status === "PARTIALLY_PAID") {
-        partialOutstanding += result.remainingAmount;
+        // For partially paid, show the full amount with interest
+        partialAmount += total;
       } else {
-        // Treat ACTIVE/OVERDUE/DEFAULTED as active bucket for visualization
-        activeOutstanding += result.remainingAmount;
+        // Treat ACTIVE/OVERDUE/DEFAULTED as active bucket, show full amount with interest
+        activeAmount += total;
       }
     });
 
     const safeTotal = totalWithInterest || 1; // avoid divide-by-zero
 
+    // Create waterfall chart data with cumulative stacking
     const rows: ChartRow[] = [
-      { name: "Total Lendings", value: totalWithInterest, key: "TOTAL" },
-      { name: "Active", value: activeOutstanding, key: "ACTIVE" },
-      { name: "Partially Paid", value: partialOutstanding, key: "PARTIAL" },
-      { name: "Fully Paid", value: fullyPaidAmount, key: "FULL" },
+      { 
+        name: "Total Lendings", 
+        value: totalWithInterest, 
+        cumulative: totalWithInterest,
+        start: 0,
+        key: "TOTAL" 
+      },
+      { 
+        name: "Active", 
+        value: activeAmount, 
+        cumulative: activeAmount,
+        start: 0,
+        key: "ACTIVE" 
+      },
+      { 
+        name: "Partially Paid", 
+        value: partialAmount, 
+        cumulative: activeAmount + partialAmount,
+        start: activeAmount,
+        key: "PARTIAL" 
+      },
+      { 
+        name: "Fully Paid", 
+        value: fullyPaidAmount, 
+        cumulative: activeAmount + partialAmount + fullyPaidAmount,
+        start: activeAmount + partialAmount,
+        key: "FULL" 
+      },
     ];
 
     const csvData: (string | number)[][] = [
@@ -139,15 +167,31 @@ export function DebtStatusWaterfallChart({
 
   const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
     if (!active || !payload || payload.length === 0) return null;
-    const value = payload[0]?.value as number;
+    
+    // Find the actual value (not the transparent spacer)
+    const valuePayload = payload.find(p => p.dataKey === 'value');
+    const value = valuePayload?.value as number || 0;
+    
     const percent = metrics.totalWithInterest
       ? ((value / metrics.totalWithInterest) * 100).toFixed(1)
       : "0.0";
 
+    // Find the corresponding row data for cumulative information
+    const rowData = metrics.rows.find(r => r.name === label);
+    const cumulative = rowData?.cumulative || 0;
+    const cumulativePercent = metrics.totalWithInterest
+      ? ((cumulative / metrics.totalWithInterest) * 100).toFixed(1)
+      : "0.0";
+
     return (
-      <div className="bg-white border border-gray-200 shadow-md rounded-md p-2 text-xs">
-        <div className="font-medium text-gray-800">{label}</div>
-        <div className="text-gray-600 mt-1">{formatCurrency(value, currency)} ({percent}%)</div>
+      <div className="bg-white border border-gray-200 shadow-md rounded-md p-3 text-xs">
+        <div className="font-medium text-gray-800 mb-2">{label}</div>
+        <div className="text-gray-600 space-y-1">
+          <div>Amount: {formatCurrency(value, currency)} ({percent}%)</div>
+          {rowData?.key !== "TOTAL" && (
+            <div className="text-blue-600">Cumulative: {formatCurrency(cumulative, currency)} ({cumulativePercent}%)</div>
+          )}
+        </div>
       </div>
     );
   };
@@ -248,7 +292,7 @@ export function DebtStatusWaterfallChart({
       subtitleElement.setAttribute('font-size', '14');
       subtitleElement.setAttribute('fill', '#6b7280');
       subtitleElement.setAttribute('text-anchor', 'middle');
-      subtitleElement.textContent = 'Distribution of lendings by status';
+      subtitleElement.textContent = 'Cumulative breakdown of lendings by repayment status';
       
       // Insert after the background rect (which is the first child)
       if (clonedSvg.children.length > 1 && clonedSvg.children[1]) {
@@ -374,7 +418,7 @@ export function DebtStatusWaterfallChart({
       subtitleElement.setAttribute('font-size', '14');
       subtitleElement.setAttribute('fill', '#6b7280');
       subtitleElement.setAttribute('text-anchor', 'middle');
-      subtitleElement.textContent = 'Distribution of lendings by status';
+      subtitleElement.textContent = 'Cumulative breakdown of lendings by repayment status';
       
       // Insert after the background rect (which is the first child)
       if (clonedSvg.children.length > 1 && clonedSvg.children[1]) {
@@ -413,11 +457,11 @@ export function DebtStatusWaterfallChart({
           isExpanded={isExpanded}
           onToggleExpanded={toggleExpanded}
           title="Debts Waterfall"
-          subtitle="Distribution of lendings by status"
+          subtitle="Cumulative breakdown of lendings by repayment status"
           fileName="debts-waterfall"
           csvData={[["Category", "Amount", "Percent"]]}
           csvFileName="debts-waterfall-data"
-          tooltipText="Shows total lendings split across Active, Partially Paid, and Fully Paid (with interest)."
+          tooltipText="Waterfall chart showing cumulative breakdown of total lendings across repayment statuses (with interest)."
           customDownloadPNG={downloadCustomPNG}
           customDownloadSVG={downloadCustomSVG}
         />
@@ -511,11 +555,11 @@ export function DebtStatusWaterfallChart({
         isExpanded={isExpanded}
         onToggleExpanded={toggleExpanded}
         title="Debts Waterfall"
-        subtitle="Distribution of lendings by status"
+        subtitle="Cumulative breakdown of lendings by repayment status"
         fileName="debts-waterfall"
         csvData={metrics.csvData}
         csvFileName="debts-waterfall-data"
-        tooltipText="Shows total lendings split across Active, Partially Paid, and Fully Paid (with interest)."
+                  tooltipText="Waterfall chart showing cumulative breakdown of total lendings across repayment statuses (with interest)."
         customDownloadPNG={downloadCustomPNG}
         customDownloadSVG={downloadCustomSVG}
       />
@@ -605,21 +649,26 @@ export function DebtStatusWaterfallChart({
             <YAxis tickFormatter={(v) => formatCurrency(Number(v), currency)} tick={{ fontSize: isExpanded ? 12 : 10 }} />
             <Tooltip content={<CustomTooltip />} />
 
-            {/* Reference lines per category to emulate dashed levels */}
+            {/* Reference lines for waterfall levels */}
             {metrics.rows.slice(1).map((r) => (
-              <ReferenceLine key={r.key} y={r.value} stroke={getColor(r.key)} strokeDasharray="4 4" />
+              <ReferenceLine key={r.key} y={r.cumulative} stroke={getColor(r.key)} strokeDasharray="4 4" opacity={0.6} />
             ))}
 
-            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+            {/* Invisible/transparent bars for spacing in waterfall */}
+            <Bar dataKey="start" fill="transparent" stackId="waterfall" />
+            
+            {/* Main bars for waterfall effect */}
+            <Bar dataKey="value" stackId="waterfall" radius={[4, 4, 0, 0]}>
               <LabelList
-                position="insideTop"
+                position="center"
                 formatter={(v: number, _n: any, entry: any) => {
                   const percent = metrics.totalWithInterest
                     ? ((v / metrics.totalWithInterest) * 100).toFixed(1)
                     : "0.0";
                   return `${formatCurrency(v, currency)}\n(${percent}%)`;
                 }}
-                className="fill-white text-[10px] leading-tight"
+                className="fill-white text-[10px] leading-tight font-medium"
+                style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.7)' }}
               />
               {metrics.rows.map((row, index) => (
                 <Cell key={row.key} fill={getColor(row.key)} />
