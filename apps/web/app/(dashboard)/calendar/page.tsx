@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { 
   formatLocalDateKey, 
   generateCalendarMatrix, 
@@ -13,9 +14,11 @@ import {
 import { formatDate } from "../../utils/date";
 import { getBookmarkedTransactionsForCalendar } from "./actions/calendar-bookmarks";
 import { getActiveDebtsWithDueDates } from "./actions/calendar-debts";
+
 import { CalendarBookmarkEvent, CalendarDebtEvent } from "../../types/transaction-bookmarks";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
+import { LOADING_COLORS } from "../../config/colorConfig";
 
 interface CalendarEvent {
   id: string;
@@ -29,7 +32,12 @@ interface CalendarEvent {
   isOverdue?: boolean;
 }
 
+const loadingContainer = LOADING_COLORS.container;
+const loadingSpinner = LOADING_COLORS.spinner;
+const loadingText = LOADING_COLORS.text;
+
 export default function CalendarPage() {
+  const router = useRouter();
   const now = new Date();
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
@@ -80,6 +88,29 @@ export default function CalendarPage() {
   useEffect(() => {
     refreshCalendarData();
   }, []);
+
+  // Navigation function for events
+  const handleEventClick = (event: CalendarEvent, eventDate: Date) => {
+    if (event.type === "DEBT_DUE") {
+      // Navigate to debts page
+      router.push("/debts");
+    } else if (event.type === "EXPENSE" || event.type === "INCOME") {
+      // Calculate d-1, d, d+1 date range
+      const eventDateCopy = new Date(eventDate);
+      const startDate = new Date(eventDateCopy);
+      startDate.setDate(startDate.getDate() - 1);
+      const endDate = new Date(eventDateCopy);
+      endDate.setDate(endDate.getDate() + 1);
+
+      // Format dates as YYYY-MM-DD for URL parameters
+      const startDateStr = formatLocalDateKey(startDate);
+      const endDateStr = formatLocalDateKey(endDate);
+
+      // Navigate to respective page with date filtering
+      const page = event.type === "EXPENSE" ? "/expenses" : "/incomes";
+      router.push(`${page}?startDate=${startDateStr}&endDate=${endDateStr}`);
+    }
+  };
 
   // Convert bookmarked events and debt events to calendar events and group by date
   const eventsByDay = useMemo(() => {
@@ -168,16 +199,9 @@ export default function CalendarPage() {
 
   if (loading) {
     return (
-      <div className="w-full min-h-[calc(100vh-12rem)] flex flex-col space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Calendar</h1>
-        </div>
-        <div className="bg-white rounded-lg border shadow-sm w-full flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-gray-400 text-4xl mb-4">📅</div>
-            <p className="text-gray-500">Loading bookmarked transactions...</p>
-          </div>
-        </div>
+      <div className={loadingContainer}>
+        <div className={loadingSpinner}></div>
+        <p className={loadingText}>Loading calendar events...</p>
       </div>
     );
   }
@@ -286,37 +310,32 @@ export default function CalendarPage() {
                 <div className="flex flex-col gap-1">
                   {events.map((ev) => {
                     // Handle different event types
-                    let bgColor, textColor, borderColor, displayIcon;
+                    let bgColor, textColor, borderColor;
                     
                     if (ev.type === "INCOME") {
                       bgColor = "bg-green-50";
                       textColor = "text-green-700";
                       borderColor = "border-green-200";
-                      displayIcon = "💰";
                     } else if (ev.type === "EXPENSE") {
                       bgColor = "bg-red-50";
                       textColor = "text-red-700";
                       borderColor = "border-red-200";
-                      displayIcon = "💸";
                     } else if (ev.type === "DEBT_DUE") {
                       // Special styling for debt due dates
                       if (ev.isOverdue) {
                         bgColor = "bg-red-100";
                         textColor = "text-red-800";
                         borderColor = "border-red-400";
-                        displayIcon = "🚨";
                       } else {
                         bgColor = "bg-orange-50";
                         textColor = "text-orange-700";
                         borderColor = "border-orange-200";
-                        displayIcon = "⏰";
                       }
                     } else {
                       // Default styling
                       bgColor = "bg-blue-50";
                       textColor = "text-blue-700";
                       borderColor = "border-blue-200";
-                      displayIcon = "📅";
                     }
                     
                     const tooltip = ev.type === "DEBT_DUE" 
@@ -326,18 +345,19 @@ export default function CalendarPage() {
                     return (
                       <div 
                         key={ev.id} 
-                        className={`text-xs rounded px-2 py-1 border ${bgColor} ${textColor} ${borderColor} relative`}
+                        className={`text-xs rounded px-2 py-1 border ${bgColor} ${textColor} ${borderColor} relative cursor-pointer hover:opacity-80 transition-opacity group`}
                         title={tooltip}
+                        onClick={() => handleEventClick(ev, day)}
                       >
-                        <div className="truncate font-medium flex items-center gap-1">
-                          <span className="text-xs opacity-75">{displayIcon}</span>
-                          <span className="flex-1 truncate">{ev.title}</span>
+                        <div className="truncate font-medium">
+                          <span className="truncate">{ev.title}</span>
                         </div>
                         {ev.amount && (
                           <div className="truncate text-xs opacity-75">
                             {formatCurrency(ev.amount, userCurrency)}
                           </div>
                         )}
+
                         {ev.type === "DEBT_DUE" && ev.isOverdue && (
                           <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
                         )}
