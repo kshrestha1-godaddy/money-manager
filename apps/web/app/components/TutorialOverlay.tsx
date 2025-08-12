@@ -33,13 +33,14 @@ export function TutorialOverlay({}: TutorialOverlayProps) {
   const [tooltipPosition, setTooltipPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const overlayRef = useRef<HTMLDivElement>(null);
 
-  // Optimized target finding with minimal retries and delays
+  // Optimized target finding with efficient element tracking
   useEffect(() => {
     if (!isActive || !currentStepData) return;
 
     let retryCount = 0;
-    const maxRetries = 15; // Reduced from 50
+    const maxRetries = 10; // Further reduced retries
     let intervalId: NodeJS.Timeout;
+    let cachedElement: Element | null = null;
 
     const updateTargetPosition = (element: Element) => {
       const rect = element.getBoundingClientRect();
@@ -56,24 +57,37 @@ export function TutorialOverlay({}: TutorialOverlayProps) {
     };
 
     const findTargetElement = () => {
+      // Use cached element if available and still in DOM
+      if (cachedElement && document.contains(cachedElement)) {
+        updateTargetPosition(cachedElement);
+        return;
+      }
+
       const targetElement = document.querySelector(currentStepData.target);
       
       if (targetElement) {
+        cachedElement = targetElement;
         updateTargetPosition(targetElement);
         
-        // Start efficient monitoring with less frequent updates
+        // Reduce monitoring frequency and use cached element
         if (intervalId) clearInterval(intervalId);
         intervalId = setInterval(() => {
-          const currentElement = document.querySelector(currentStepData.target);
-          if (currentElement) {
-            updateTargetPosition(currentElement);
+          if (cachedElement && document.contains(cachedElement)) {
+            updateTargetPosition(cachedElement);
+          } else {
+            // Re-cache if element changed
+            const newElement = document.querySelector(currentStepData.target);
+            if (newElement) {
+              cachedElement = newElement;
+              updateTargetPosition(newElement);
+            }
           }
-        }, 1000); // Reduced frequency to 1 second
+        }, 2000); // Reduced frequency to 2 seconds
         
       } else {
         retryCount++;
         if (retryCount < maxRetries) {
-          setTimeout(findTargetElement, 50); // Faster retries
+          setTimeout(findTargetElement, 100); // Slightly slower retries
         } else {
           // Fallback: center position
           setTargetPosition(null);
@@ -85,19 +99,18 @@ export function TutorialOverlay({}: TutorialOverlayProps) {
       }
     };
 
-    // Immediate attempt, then minimal delay
+    // Immediate attempt
     findTargetElement();
 
-    // Lightweight scroll handler with throttling
+    // Optimized scroll handler with better throttling
     let scrollTimeout: NodeJS.Timeout;
     const handleScroll = () => {
       if (scrollTimeout) clearTimeout(scrollTimeout);
       scrollTimeout = setTimeout(() => {
-        const targetElement = document.querySelector(currentStepData.target);
-        if (targetElement) {
-          updateTargetPosition(targetElement);
+        if (cachedElement && document.contains(cachedElement)) {
+          updateTargetPosition(cachedElement);
         }
-      }, 100); // Throttled to 100ms
+      }, 150); // Slightly increased throttle for better performance
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -109,6 +122,7 @@ export function TutorialOverlay({}: TutorialOverlayProps) {
       if (scrollTimeout) clearTimeout(scrollTimeout);
       window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', handleScroll);
+      cachedElement = null; // Clear cache
     };
   }, [isActive, currentStepData]);
 
@@ -153,20 +167,37 @@ export function TutorialOverlay({}: TutorialOverlayProps) {
   };
 
   const handleNext = useCallback(() => {
-    if (currentStepData?.action === 'navigate' && currentStepData.actionTarget) {
-      router.push(currentStepData.actionTarget);
-      // Reduced delay for smoother experience
-      setTimeout(() => {
+    if (!currentStepData) {
+      nextStep();
+      return;
+    }
+
+    const { action, actionTarget } = currentStepData;
+
+    switch (action) {
+      case 'navigate':
+        if (actionTarget) {
+          router.push(actionTarget);
+          // Optimized delay for better UX
+          setTimeout(nextStep, 350);
+        } else {
+          nextStep();
+        }
+        break;
+      
+      case 'click':
+        if (actionTarget) {
+          const targetElement = document.querySelector(actionTarget);
+          if (targetElement) {
+            (targetElement as HTMLElement).click();
+          }
+        }
         nextStep();
-      }, 400);
-    } else if (currentStepData?.action === 'click' && currentStepData.actionTarget) {
-      const targetElement = document.querySelector(currentStepData.actionTarget);
-      if (targetElement) {
-        (targetElement as HTMLElement).click();
-      }
-      nextStep();
-    } else {
-      nextStep();
+        break;
+      
+      default:
+        nextStep();
+        break;
     }
   }, [currentStepData, router, nextStep]);
 

@@ -79,6 +79,25 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     skippable: false
   },
   {
+    id: 'bookmark-feature',
+    title: 'Step 4: Bookmark Important Transactions 🔖',
+    content: 'You can bookmark important transactions by clicking the blue bookmark icon next to any income or expense. This helps you track recurring payments, salary deposits, or other significant transactions.',
+    target: 'button[title*="bookmark"]',
+    position: 'left',
+    action: 'none',
+    skippable: false
+  },
+  {
+    id: 'calendar-view',
+    title: 'Step 5: View in Calendar 📅',
+    content: 'Your bookmarked transactions will appear in the calendar view, making it easy to see when important payments occur. Click on Calendar to see your bookmarked transactions displayed by date.',
+    target: '#calendar-nav-item',
+    position: 'right',
+    action: 'navigate',
+    actionTarget: '/calendar',
+    skippable: false
+  },
+  {
     id: 'dashboard-overview',
     title: 'Your Financial Dashboard 📊',
     content: 'The dashboard gives you a complete overview of your financial health. Here you can see your income vs expenses, savings rate, and financial trends.',
@@ -100,7 +119,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'tutorial-complete',
     title: 'You\'re All Set! ✅',
-    content: 'Congratulations! You\'ve completed the tutorial. Start by adding your accounts, then record your income and expenses to get the most out of your money manager.',
+    content: 'Congratulations! You\'ve completed the tutorial. Start by adding your accounts, then record your income and expenses. Don\'t forget to bookmark important transactions to see them in your calendar!',
     target: '#dashboard-content',
     position: 'top',
     action: 'none',
@@ -117,43 +136,42 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [steps] = useState<TutorialStep[]>(TUTORIAL_STEPS);
 
-  // Fast user data check - prioritize localStorage and avoid heavy API calls
+  // Optimized user data check with memoized localStorage access
   const checkIfUserHasData = (): boolean => {
-    // Primary check: localStorage flag
-    const hasAccountsFlag = localStorage.getItem('user-has-accounts');
-    if (hasAccountsFlag === 'true') {
-      return true;
-    }
+    // Cache localStorage reads to avoid repeated access
+    const storageCache = {
+      hasAccounts: localStorage.getItem('user-has-accounts') === 'true',
+      tutorialCompleted: localStorage.getItem('tutorial-completed') === 'true'
+    };
 
-    // Secondary check: tutorial completion status
-    const tutorialCompleted = localStorage.getItem('tutorial-completed');
-    if (tutorialCompleted === 'true') {
-      return true;
-    }
-
-    // For now, rely on localStorage flags set by other pages
-    // This avoids expensive API calls during tutorial initialization
-    return false;
+    return storageCache.hasAccounts || storageCache.tutorialCompleted;
   };
 
-  // Fast tutorial initialization
+  // Optimized tutorial initialization with single localStorage check
   useEffect(() => {
     const initializeTutorial = () => {
-      const tutorialCompleted = localStorage.getItem('tutorial-completed');
-      const hasUserData = checkIfUserHasData();
+      // Single batch localStorage check to avoid multiple reads
+      const storageData = {
+        tutorialCompleted: localStorage.getItem('tutorial-completed') === 'true',
+        hasAccounts: localStorage.getItem('user-has-accounts') === 'true'
+      };
       
-      // Quick exit conditions
-      if (tutorialCompleted === 'true' || hasUserData) {
+      // Quick exit if user has completed tutorial or has data
+      if (storageData.tutorialCompleted || storageData.hasAccounts) {
         return;
       }
       
-      // Show tutorial for new users - minimal delay for smooth experience
-      setTimeout(() => {
+      // Show tutorial for new users with minimal delay
+      const timeoutId = setTimeout(() => {
         setIsActive(true);
       }, 300);
+
+      // Cleanup timeout to prevent memory leaks
+      return () => clearTimeout(timeoutId);
     };
 
-    initializeTutorial();
+    const cleanup = initializeTutorial();
+    return cleanup;
   }, []);
 
   const startTutorial = () => {
