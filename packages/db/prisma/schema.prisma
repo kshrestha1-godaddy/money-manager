@@ -22,6 +22,7 @@ model User {
   password String
   profilePictureUrl String?
   currency String @default("USD") // User's preferred currency
+  timezone String @default("UTC") // User's preferred timezone
   accounts Account[]
   categories Category[]
   expenses Expense[]

@@ -1,7 +1,10 @@
 /**
  * Calendar Date Utilities
  * Minimal, independent functions for calendar operations with consistent local date handling
+ * Extended with timezone support for calendar operations
  */
+
+import { formatDateInTimezone, convertDateTimezone, createDateInTimezone } from './timezone';
 
 /**
  * Format date as YYYY-MM-DD string in local timezone (not UTC)
@@ -243,6 +246,170 @@ export function validateCalendarForMonth(year: number, monthIndex: number): {
         lastDayOfWeek: 'Unknown',
         weeksRequired: 0
       }
+    };
+  }
+}
+
+// ===== TIMEZONE-AWARE CALENDAR UTILITIES =====
+
+/**
+ * Format date as YYYY-MM-DD string in a specific timezone
+ */
+export function formatDateKeyInTimezone(date: Date, timezone: string): string {
+  if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+    return '';
+  }
+  
+  try {
+    // Get the date components in the specified timezone
+    const formatted = formatDateInTimezone(date, timezone, {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    
+    // Parse the MM/DD/YYYY format and convert to YYYY-MM-DD
+    const parts = formatted.split('/');
+    if (parts.length === 3) {
+      return `${parts[2]}-${parts[0]}-${parts[1]}`;
+    }
+    
+    // Fallback to local date key
+    return formatLocalDateKey(date);
+  } catch (error) {
+    console.warn('Timezone date formatting failed:', error);
+    return formatLocalDateKey(date);
+  }
+}
+
+/**
+ * Get today's date with time set to midnight in a specific timezone
+ */
+export function getTodayAtMidnightInTimezone(timezone: string): Date {
+  try {
+    const now = new Date();
+    const today = formatDateInTimezone(now, timezone, {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    
+    // Parse MM/DD/YYYY format
+    const parts = today.split('/');
+    if (parts.length === 3) {
+      const year = parseInt(parts[2]);
+      const month = parseInt(parts[0]) - 1; // JavaScript months are 0-based
+      const day = parseInt(parts[1]);
+      
+      return createDateInTimezone(year, month, day, timezone);
+    }
+    
+    // Fallback to local today
+    return getTodayAtMidnight();
+  } catch (error) {
+    console.warn('Failed to get today in timezone:', error);
+    return getTodayAtMidnight();
+  }
+}
+
+/**
+ * Generate calendar matrix with timezone support
+ */
+export function generateCalendarMatrixInTimezone(
+  year: number, 
+  monthIndex: number, 
+  timezone: string
+): {
+  weeks: Date[][];
+  firstDay: Date;
+  lastDay: Date;
+  daysInMonth: number;
+  allDaysIncluded: Date[];
+} {
+  try {
+    // Create first and last day of month in the specified timezone
+    const firstDay = createDateInTimezone(year, monthIndex, 1, timezone);
+    const daysInMonth = getDaysInMonth(year, monthIndex);
+    const lastDay = createDateInTimezone(year, monthIndex, daysInMonth, timezone);
+    
+    // Calculate grid boundaries (Monday-first grid)
+    const startGrid = new Date(firstDay);
+    const firstDayOfWeek = (firstDay.getDay() + 6) % 7; // Monday = 0, Sunday = 6
+    startGrid.setDate(firstDay.getDate() - firstDayOfWeek);
+    
+    const endGrid = new Date(lastDay);
+    const lastDayOfWeek = (lastDay.getDay() + 6) % 7;
+    const daysToAdd = lastDayOfWeek === 6 ? 0 : 6 - lastDayOfWeek;
+    endGrid.setDate(lastDay.getDate() + daysToAdd);
+    
+    // Generate all days in the grid
+    const allDays: Date[] = [];
+    const current = new Date(startGrid);
+    
+    while (current <= endGrid) {
+      allDays.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
+    
+    // Split into weeks
+    const weeks: Date[][] = [];
+    for (let i = 0; i < allDays.length; i += 7) {
+      weeks.push(allDays.slice(i, i + 7));
+    }
+    
+    // Validate all days of the month are included
+    const monthDays = allDays.filter(day => day.getMonth() === monthIndex);
+    if (monthDays.length !== daysInMonth) {
+      throw new Error(`Calendar generation error: Expected ${daysInMonth} days, got ${monthDays.length}`);
+    }
+    
+    return {
+      weeks,
+      firstDay,
+      lastDay,
+      daysInMonth,
+      allDaysIncluded: monthDays
+    };
+  } catch (error) {
+    console.warn('Timezone calendar generation failed, falling back to local:', error);
+    return generateCalendarMatrix(year, monthIndex);
+  }
+}
+
+/**
+ * Check if two dates are the same day in a specific timezone
+ */
+export function isSameDayInTimezone(date1: Date, date2: Date, timezone: string): boolean {
+  if (!date1 || !date2) return false;
+  
+  try {
+    const date1Key = formatDateKeyInTimezone(date1, timezone);
+    const date2Key = formatDateKeyInTimezone(date2, timezone);
+    return date1Key === date2Key;
+  } catch (error) {
+    console.warn('Timezone date comparison failed, falling back to local:', error);
+    return isSameDay(date1, date2);
+  }
+}
+
+/**
+ * Convert date range to timezone and return formatted keys
+ */
+export function getDateRangeInTimezone(
+  startDate: Date, 
+  endDate: Date, 
+  timezone: string
+): { startKey: string; endKey: string } {
+  try {
+    return {
+      startKey: formatDateKeyInTimezone(startDate, timezone),
+      endKey: formatDateKeyInTimezone(endDate, timezone)
+    };
+  } catch (error) {
+    console.warn('Timezone date range conversion failed:', error);
+    return {
+      startKey: formatLocalDateKey(startDate),
+      endKey: formatLocalDateKey(endDate)
     };
   }
 }

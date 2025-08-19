@@ -9,11 +9,18 @@ import {
   getTodayAtMidnight,
   getPreviousMonth,
   getNextMonth,
-  getDaysInMonth
+  getDaysInMonth,
+  formatDateKeyInTimezone,
+  generateCalendarMatrixInTimezone,
+  isSameDayInTimezone,
+  getTodayAtMidnightInTimezone,
+  getDateRangeInTimezone
 } from "../../utils/calendarDateUtils";
 import { formatDate } from "../../utils/date";
-import { getBookmarkedTransactionsForCalendar } from "./actions/calendar-bookmarks";
-import { getActiveDebtsWithDueDates } from "./actions/calendar-debts";
+import { getBookmarkedTransactionsForCalendar, getBookmarkedTransactionsForCalendarInTimezone } from "./actions/calendar-bookmarks";
+import { getActiveDebtsWithDueDates, getActiveDebtsWithDueDatesInTimezone } from "./actions/calendar-debts";
+import { useTimezone } from "../../providers/TimezoneProvider";
+import { TimezoneSelector } from "../../components/shared/TimezoneSelector";
 
 import { CalendarBookmarkEvent, CalendarDebtEvent } from "../../types/transaction-bookmarks";
 import { formatCurrency } from "../../utils/currency";
@@ -38,6 +45,7 @@ const loadingText = LOADING_COLORS.text;
 
 export default function CalendarPage() {
   const router = useRouter();
+  const { timezone, isLoading: timezoneLoading } = useTimezone();
   const now = new Date();
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
@@ -49,6 +57,10 @@ export default function CalendarPage() {
 
   const monthData = useMemo(() => {
     try {
+      // Use timezone-aware calendar generation when timezone is available
+      if (timezone && !timezoneLoading) {
+        return generateCalendarMatrixInTimezone(viewYear, viewMonth, timezone);
+      }
       return generateCalendarMatrix(viewYear, viewMonth);
     } catch (error) {
       console.error('Error generating calendar matrix:', error);
@@ -61,21 +73,33 @@ export default function CalendarPage() {
         allDaysIncluded: []
       };
     }
-  }, [viewYear, viewMonth]);
+  }, [viewYear, viewMonth, timezone, timezoneLoading]);
 
   // Load bookmarked transactions and debt due dates
   const refreshCalendarData = async () => {
     try {
       setLoading(true);
       
-      // Fetch both bookmarked transactions and debt due dates in parallel
-      const [bookmarkedTransactions, debtsWithDueDates] = await Promise.all([
-        getBookmarkedTransactionsForCalendar(),
-        getActiveDebtsWithDueDates()
-      ]);
-      
-      setBookmarkedEvents(bookmarkedTransactions);
-      setDebtEvents(debtsWithDueDates);
+      // Use timezone-aware functions when timezone is available
+      if (timezone && !timezoneLoading) {
+        // Fetch both bookmarked transactions and debt due dates in parallel with timezone
+        const [bookmarkedTransactions, debtsWithDueDates] = await Promise.all([
+          getBookmarkedTransactionsForCalendarInTimezone(timezone),
+          getActiveDebtsWithDueDatesInTimezone(timezone)
+        ]);
+        
+        setBookmarkedEvents(bookmarkedTransactions);
+        setDebtEvents(debtsWithDueDates);
+      } else {
+        // Fallback to timezone-unaware functions
+        const [bookmarkedTransactions, debtsWithDueDates] = await Promise.all([
+          getBookmarkedTransactionsForCalendar(),
+          getActiveDebtsWithDueDates()
+        ]);
+        
+        setBookmarkedEvents(bookmarkedTransactions);
+        setDebtEvents(debtsWithDueDates);
+      }
     } catch (error) {
       console.error("Error loading calendar data:", error);
       setBookmarkedEvents([]);
@@ -86,8 +110,10 @@ export default function CalendarPage() {
   };
 
   useEffect(() => {
-    refreshCalendarData();
-  }, []);
+    if (!timezoneLoading) {
+      refreshCalendarData();
+    }
+  }, [timezone, timezoneLoading]);
 
   // Navigation function for events
   const handleEventClick = (event: CalendarEvent, eventDate: Date) => {
@@ -102,9 +128,16 @@ export default function CalendarPage() {
       const endDate = new Date(eventDateCopy);
       endDate.setDate(endDate.getDate() + 1);
 
-      // Format dates as YYYY-MM-DD for URL parameters
-      const startDateStr = formatLocalDateKey(startDate);
-      const endDateStr = formatLocalDateKey(endDate);
+      // Format dates as YYYY-MM-DD for URL parameters using timezone-aware functions
+      let startDateStr, endDateStr;
+      if (timezone && !timezoneLoading) {
+        const { startKey, endKey } = getDateRangeInTimezone(startDate, endDate, timezone);
+        startDateStr = startKey;
+        endDateStr = endKey;
+      } else {
+        startDateStr = formatLocalDateKey(startDate);
+        endDateStr = formatLocalDateKey(endDate);
+      }
 
       // Navigate to respective page with date filtering
       const page = event.type === "EXPENSE" ? "/expenses" : "/incomes";
@@ -121,6 +154,10 @@ export default function CalendarPage() {
       // Parse common human-readable formats like "January 15, 2024"
       const parsedDate = new Date(humanDate);
       if (!isNaN(parsedDate.getTime())) {
+        // Use timezone-aware formatting when timezone is available
+        if (timezone && !timezoneLoading) {
+          return formatDateKeyInTimezone(parsedDate, timezone);
+        }
         return formatLocalDateKey(parsedDate);
       }
       return humanDate; // Fallback if parsing fails
@@ -163,7 +200,7 @@ export default function CalendarPage() {
     });
     
     return map;
-  }, [bookmarkedEvents, debtEvents]);
+  }, [bookmarkedEvents, debtEvents, timezone, timezoneLoading]);
 
   function prevMonth() {
     const { year, monthIndex } = getPreviousMonth(viewYear, viewMonth);
@@ -195,7 +232,14 @@ export default function CalendarPage() {
   const baseYear = now.getFullYear();
   const yearOptions = useMemo(() => Array.from({ length: 11 }).map((_, i) => baseYear - 5 + i), [baseYear]);
   const daysInCurrentMonth = getDaysInMonth(viewYear, viewMonth);
-  const today = getTodayAtMidnight();
+  
+  // Use timezone-aware today calculation when timezone is available
+  const today = useMemo(() => {
+    if (timezone && !timezoneLoading) {
+      return getTodayAtMidnightInTimezone(timezone);
+    }
+    return getTodayAtMidnight();
+  }, [timezone, timezoneLoading]);
 
   if (loading) {
     return (
@@ -223,7 +267,10 @@ export default function CalendarPage() {
               }
             </p>
           </div>
-        <div className="flex items-center gap-2 justify-end">
+        <div className="flex items-center gap-2 justify-end flex-wrap">
+          {/* Timezone selector */}
+          <TimezoneSelector compact={true} showAutoDetect={false} className="min-w-[140px]" />
+          
           {/* Year / Month / Day selectors */}
           <select
             aria-label="Select year"
@@ -295,8 +342,17 @@ export default function CalendarPage() {
         <div className="grid grid-cols-7 gap-px bg-gray-200 w-full flex-1 auto-rows-fr h-full">
           {monthData.weeks.flat().map((day: Date, idx: number) => {
             const isCurrentMonth = day.getMonth() === viewMonth;
-            const isToday = isSameDay(day, today);
-            const events = eventsByDay.get(formatLocalDateKey(day)) ?? [];
+            
+            // Use timezone-aware comparison when timezone is available
+            const isToday = timezone && !timezoneLoading 
+              ? isSameDayInTimezone(day, today, timezone)
+              : isSameDay(day, today);
+            
+            // Use timezone-aware date key for event lookup
+            const dateKey = timezone && !timezoneLoading
+              ? formatDateKeyInTimezone(day, timezone)
+              : formatLocalDateKey(day);
+            const events = eventsByDay.get(dateKey) ?? [];
             return (
               <div
                 key={idx}
