@@ -74,7 +74,13 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
         branchContacts: [""],
         swift: "",
         bankEmail: "",
-        accountOpeningDate: new Date().toISOString().split('T')[0],
+        accountOpeningDate: (() => {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        })(),
         securityQuestion: [""],
         balance: 0,
         // Mobile App Details
@@ -134,7 +140,13 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
             branchContacts: formData.branchContacts.filter(contact => contact.trim() !== ""),
             securityQuestion: formData.securityQuestion.filter(q => q.trim() !== ""),
             //@ts-ignore
-            accountOpeningDate: new Date(formData.accountOpeningDate || new Date().toISOString().split('T')[0]),
+            accountOpeningDate: new Date(formData.accountOpeningDate || (() => {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            })()),
         };
 
         onAdd(processedData);
@@ -154,7 +166,13 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
             branchContacts: [""],
             swift: "",
             bankEmail: "",
-            accountOpeningDate: new Date().toISOString().split('T')[0],
+            accountOpeningDate: (() => {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            })(),
             securityQuestion: [""],
             balance: 0,
             // Mobile App Details

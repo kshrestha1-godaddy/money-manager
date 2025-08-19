@@ -34,7 +34,13 @@ export function AddRepaymentModal({
 
     const [formData, setFormData] = useState({
         amount: "",
-        repaymentDate: new Date().toISOString().split('T')[0], // Today's date
+        repaymentDate: (() => {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        })(), // Today's date
         notes: "",
         accountId: "",
     });
@@ -49,7 +55,13 @@ export function AddRepaymentModal({
             // Reset form when modal closes
             setFormData({
                 amount: "",
-                repaymentDate: new Date().toISOString().split('T')[0],
+                repaymentDate: (() => {
+                    const now = new Date();
+                    const year = now.getFullYear();
+                    const month = String(now.getMonth() + 1).padStart(2, '0');
+                    const day = String(now.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                })(),
                 notes: "",
                 accountId: "",
             });
@@ -157,7 +169,13 @@ export function AddRepaymentModal({
             // Reset form
             setFormData({
                 amount: "",
-                repaymentDate: new Date().toISOString().split('T')[0],
+                repaymentDate: (() => {
+                    const now = new Date();
+                    const year = now.getFullYear();
+                    const month = String(now.getMonth() + 1).padStart(2, '0');
+                    const day = String(now.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                })(),
                 notes: "",
                 accountId: "",
             });

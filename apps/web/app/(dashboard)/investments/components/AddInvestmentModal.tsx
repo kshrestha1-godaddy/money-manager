@@ -5,6 +5,7 @@ import { InvestmentInterface } from "../../../types/investments";
 import { getUserAccounts } from "../../accounts/actions/accounts";
 import { formatCurrency } from "../../../utils/currency";
 import { useCurrency } from "../../../providers/CurrencyProvider";
+import { getLocalDateString } from "../../../utils/formUtils";
 
 interface AddInvestmentModalProps {
     isOpen: boolean;
@@ -188,7 +189,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                 quantity: "",
                 purchasePrice: "",
                 currentPrice: "",
-                purchaseDate: new Date().toISOString().split('T')[0],
+                        purchaseDate: getLocalDateString(),
                 accountId: "",
                 notes: "",
                 // Fixed Deposit specific fields

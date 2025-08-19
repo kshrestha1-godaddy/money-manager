@@ -26,6 +26,15 @@ export interface BaseFormData {
 // Transaction type for generic operations
 export type TransactionType = 'EXPENSE' | 'INCOME';
 
+// Utility function to get local date string without timezone conversion
+export function getLocalDateString(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 // Initialize form data with default values
 export function initializeFormData(defaultDate: boolean = true, defaultCurrency: DualCurrency = 'INR'): BaseFormData {
     return {
@@ -33,7 +42,7 @@ export function initializeFormData(defaultDate: boolean = true, defaultCurrency:
         description: '',
         amount: '',
         amountCurrency: defaultCurrency,
-        date: defaultDate ? (new Date().toISOString().split('T')[0] || '') : '',
+        date: defaultDate ? getLocalDateString() : '',
         categoryId: '',
         accountId: '',
         tags: '',
