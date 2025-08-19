@@ -177,3 +177,29 @@ export function getCurrentTimeInTimezone(timezone: string): Date {
     return new Date();
   }
 }
+
+/**
+ * Get today's date info in a specific timezone
+ */
+export function getTodayInTimezone(timezone: string): { year: number; month: number; day: number; dateString: string } {
+  try {
+    const now = new Date();
+    const todayInTz = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+    
+    return {
+      year: todayInTz.getFullYear(),
+      month: todayInTz.getMonth(), // 0-based
+      day: todayInTz.getDate(),
+      dateString: `${todayInTz.getFullYear()}-${(todayInTz.getMonth() + 1).toString().padStart(2, '0')}-${todayInTz.getDate().toString().padStart(2, '0')}`
+    };
+  } catch (error) {
+    console.warn('Failed to get today in timezone:', error);
+    const now = new Date();
+    return {
+      year: now.getFullYear(),
+      month: now.getMonth(),
+      day: now.getDate(),
+      dateString: `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`
+    };
+  }
+}

@@ -17,6 +17,7 @@ import {
   getDateRangeInTimezone
 } from "../../utils/calendarDateUtils";
 import { formatDate } from "../../utils/date";
+import { getTodayInTimezone } from "../../utils/timezone";
 import { getBookmarkedTransactionsForCalendar, getBookmarkedTransactionsForCalendarInTimezone } from "./actions/calendar-bookmarks";
 import { getActiveDebtsWithDueDates, getActiveDebtsWithDueDatesInTimezone } from "./actions/calendar-debts";
 import { useTimezone } from "../../providers/TimezoneProvider";
@@ -236,7 +237,9 @@ export default function CalendarPage() {
   // Use timezone-aware today calculation when timezone is available
   const today = useMemo(() => {
     if (timezone && !timezoneLoading) {
-      return getTodayAtMidnightInTimezone(timezone);
+      const todayInfo = getTodayInTimezone(timezone);
+      // Create a date object representing today in the selected timezone
+      return new Date(todayInfo.year, todayInfo.month, todayInfo.day);
     }
     return getTodayAtMidnight();
   }, [timezone, timezoneLoading]);
@@ -266,6 +269,11 @@ export default function CalendarPage() {
                 : `${bookmarkedEvents.length} bookmarked transaction${bookmarkedEvents.length !== 1 ? 's' : ''}, ${debtEvents.length} debt due date${debtEvents.length !== 1 ? 's' : ''}`
               }
             </p>
+            {timezone && !timezoneLoading && (
+              <p className="text-xs text-blue-600 mt-1">
+                Today in {timezone}: {today.getFullYear()}-{(today.getMonth() + 1).toString().padStart(2, '0')}-{today.getDate().toString().padStart(2, '0')}
+              </p>
+            )}
           </div>
         <div className="flex items-center gap-2 justify-end flex-wrap">
           {/* Timezone selector */}
@@ -343,10 +351,10 @@ export default function CalendarPage() {
           {monthData.weeks.flat().map((day: Date, idx: number) => {
             const isCurrentMonth = day.getMonth() === viewMonth;
             
-            // Use timezone-aware comparison when timezone is available
-            const isToday = timezone && !timezoneLoading 
-              ? isSameDayInTimezone(day, today, timezone)
-              : isSameDay(day, today);
+            // Simplified today comparison - compare year, month, day directly
+            const isToday = day.getFullYear() === today.getFullYear() &&
+                           day.getMonth() === today.getMonth() &&
+                           day.getDate() === today.getDate();
             
             // Use timezone-aware date key for event lookup
             const dateKey = timezone && !timezoneLoading

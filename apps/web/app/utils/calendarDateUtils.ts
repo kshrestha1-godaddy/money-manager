@@ -288,24 +288,18 @@ export function formatDateKeyInTimezone(date: Date, timezone: string): string {
 export function getTodayAtMidnightInTimezone(timezone: string): Date {
   try {
     const now = new Date();
-    const today = formatDateInTimezone(now, timezone, {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    });
     
-    // Parse MM/DD/YYYY format
-    const parts = today.split('/');
-    if (parts.length === 3) {
-      const year = parseInt(parts[2]);
-      const month = parseInt(parts[0]) - 1; // JavaScript months are 0-based
-      const day = parseInt(parts[1]);
-      
-      return createDateInTimezone(year, month, day, timezone);
-    }
+    // Get current date in the specified timezone
+    const todayInTimezone = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
     
-    // Fallback to local today
-    return getTodayAtMidnight();
+    // Create a date object for today at midnight in local time
+    // but representing the date as it appears in the target timezone
+    return new Date(
+      todayInTimezone.getFullYear(),
+      todayInTimezone.getMonth(),
+      todayInTimezone.getDate(),
+      0, 0, 0, 0
+    );
   } catch (error) {
     console.warn('Failed to get today in timezone:', error);
     return getTodayAtMidnight();
@@ -383,9 +377,13 @@ export function isSameDayInTimezone(date1: Date, date2: Date, timezone: string):
   if (!date1 || !date2) return false;
   
   try {
-    const date1Key = formatDateKeyInTimezone(date1, timezone);
-    const date2Key = formatDateKeyInTimezone(date2, timezone);
-    return date1Key === date2Key;
+    // Convert both dates to the target timezone and compare their date components
+    const date1InTz = new Date(date1.toLocaleString('en-US', { timeZone: timezone }));
+    const date2InTz = new Date(date2.toLocaleString('en-US', { timeZone: timezone }));
+    
+    return date1InTz.getFullYear() === date2InTz.getFullYear() &&
+           date1InTz.getMonth() === date2InTz.getMonth() &&
+           date1InTz.getDate() === date2InTz.getDate();
   } catch (error) {
     console.warn('Timezone date comparison failed, falling back to local:', error);
     return isSameDay(date1, date2);
