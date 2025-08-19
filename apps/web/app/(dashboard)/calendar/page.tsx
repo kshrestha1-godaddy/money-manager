@@ -57,12 +57,12 @@ export default function CalendarPage() {
   const [isInitialized, setIsInitialized] = useState(false);
   const { currency: userCurrency } = useCurrency();
 
-  // Overall loading state - true until both timezone and calendar data are ready
-  const loading = timezoneLoading || calendarDataLoading || !isInitialized;
+  // Overall loading state - show loading during initial load or timezone changes
+  const loading = timezoneLoading || calendarDataLoading || (!isInitialized && !timezoneLoading);
 
   const monthData = useMemo(() => {
-    // Don't generate calendar matrix until timezone is ready
-    if (timezoneLoading || !isInitialized) {
+    // Don't generate calendar matrix while timezone is loading
+    if (timezoneLoading) {
       return {
         weeks: [],
         firstDay: new Date(viewYear, viewMonth, 1),
@@ -89,7 +89,7 @@ export default function CalendarPage() {
         allDaysIncluded: []
       };
     }
-  }, [viewYear, viewMonth, timezone, timezoneLoading, isInitialized]);
+  }, [viewYear, viewMonth, timezone, timezoneLoading]);
 
   // Load bookmarked transactions and debt due dates
   const refreshCalendarData = async () => {
@@ -126,12 +126,12 @@ export default function CalendarPage() {
     }
   };
 
-  // Only load calendar data once timezone is ready
+  // Load calendar data when timezone is ready or when timezone changes
   useEffect(() => {
-    if (!timezoneLoading && !isInitialized) {
+    if (!timezoneLoading) {
       refreshCalendarData();
     }
-  }, [timezone, timezoneLoading, isInitialized]);
+  }, [timezone, timezoneLoading]);
 
   // Navigation function for events
   const handleEventClick = (event: CalendarEvent, eventDate: Date) => {
@@ -165,8 +165,8 @@ export default function CalendarPage() {
 
   // Convert bookmarked events and debt events to calendar events and group by date
   const eventsByDay = useMemo(() => {
-    // Don't process events until we're properly initialized
-    if (timezoneLoading || !isInitialized) {
+    // Don't process events while timezone is loading
+    if (timezoneLoading) {
       return new Map<string, CalendarEvent[]>();
     }
 
@@ -223,7 +223,7 @@ export default function CalendarPage() {
     });
     
     return map;
-  }, [bookmarkedEvents, debtEvents, timezone, timezoneLoading, isInitialized]);
+  }, [bookmarkedEvents, debtEvents, timezone, timezoneLoading]);
 
   function prevMonth() {
     const { year, monthIndex } = getPreviousMonth(viewYear, viewMonth);
@@ -262,8 +262,8 @@ export default function CalendarPage() {
   
   // Use timezone-aware today calculation when timezone is available
   const today = useMemo(() => {
-    // Don't calculate today until timezone is ready
-    if (timezoneLoading || !isInitialized) {
+    // Don't calculate today while timezone is loading
+    if (timezoneLoading) {
       return new Date(); // Temporary date, won't be used for rendering
     }
 
@@ -273,14 +273,14 @@ export default function CalendarPage() {
       return new Date(todayInfo.year, todayInfo.month, todayInfo.day);
     }
     return getTodayAtMidnight();
-  }, [timezone, timezoneLoading, isInitialized]);
+  }, [timezone, timezoneLoading]);
 
   if (loading) {
     let loadingMessage = "Loading calendar...";
     if (timezoneLoading) {
-      loadingMessage = "Loading timezone settings...";
+      loadingMessage = isInitialized ? "Updating timezone..." : "Loading timezone settings...";
     } else if (calendarDataLoading) {
-      loadingMessage = "Loading calendar events...";
+      loadingMessage = isInitialized ? "Refreshing calendar..." : "Loading calendar events...";
     } else if (!isInitialized) {
       loadingMessage = "Initializing calendar...";
     }
