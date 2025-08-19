@@ -53,10 +53,25 @@ export default function CalendarPage() {
   const [selectedDay, setSelectedDay] = useState(now.getDate());
   const [bookmarkedEvents, setBookmarkedEvents] = useState<CalendarBookmarkEvent[]>([]);
   const [debtEvents, setDebtEvents] = useState<CalendarDebtEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [calendarDataLoading, setCalendarDataLoading] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const { currency: userCurrency } = useCurrency();
 
+  // Overall loading state - true until both timezone and calendar data are ready
+  const loading = timezoneLoading || calendarDataLoading || !isInitialized;
+
   const monthData = useMemo(() => {
+    // Don't generate calendar matrix until timezone is ready
+    if (timezoneLoading || !isInitialized) {
+      return {
+        weeks: [],
+        firstDay: new Date(viewYear, viewMonth, 1),
+        lastDay: new Date(viewYear, viewMonth + 1, 0),
+        daysInMonth: getDaysInMonth(viewYear, viewMonth),
+        allDaysIncluded: []
+      };
+    }
+
     try {
       // Use timezone-aware calendar generation when timezone is available
       if (timezone && !timezoneLoading) {
@@ -74,12 +89,12 @@ export default function CalendarPage() {
         allDaysIncluded: []
       };
     }
-  }, [viewYear, viewMonth, timezone, timezoneLoading]);
+  }, [viewYear, viewMonth, timezone, timezoneLoading, isInitialized]);
 
   // Load bookmarked transactions and debt due dates
   const refreshCalendarData = async () => {
     try {
-      setLoading(true);
+      setCalendarDataLoading(true);
       
       // Use timezone-aware functions when timezone is available
       if (timezone && !timezoneLoading) {
@@ -106,15 +121,17 @@ export default function CalendarPage() {
       setBookmarkedEvents([]);
       setDebtEvents([]);
     } finally {
-      setLoading(false);
+      setCalendarDataLoading(false);
+      setIsInitialized(true);
     }
   };
 
+  // Only load calendar data once timezone is ready
   useEffect(() => {
-    if (!timezoneLoading) {
+    if (!timezoneLoading && !isInitialized) {
       refreshCalendarData();
     }
-  }, [timezone, timezoneLoading]);
+  }, [timezone, timezoneLoading, isInitialized]);
 
   // Navigation function for events
   const handleEventClick = (event: CalendarEvent, eventDate: Date) => {
@@ -148,6 +165,11 @@ export default function CalendarPage() {
 
   // Convert bookmarked events and debt events to calendar events and group by date
   const eventsByDay = useMemo(() => {
+    // Don't process events until we're properly initialized
+    if (timezoneLoading || !isInitialized) {
+      return new Map<string, CalendarEvent[]>();
+    }
+
     const map = new Map<string, CalendarEvent[]>();
     
     // Helper function to convert human-readable date back to calendar key
@@ -201,7 +223,7 @@ export default function CalendarPage() {
     });
     
     return map;
-  }, [bookmarkedEvents, debtEvents, timezone, timezoneLoading]);
+  }, [bookmarkedEvents, debtEvents, timezone, timezoneLoading, isInitialized]);
 
   function prevMonth() {
     const { year, monthIndex } = getPreviousMonth(viewYear, viewMonth);
@@ -210,8 +232,10 @@ export default function CalendarPage() {
     // Adjust selected day if it doesn't exist in the new month
     const maxDayInNewMonth = getDaysInMonth(year, monthIndex);
     setSelectedDay(prev => Math.min(prev, maxDayInNewMonth));
-    // Refresh calendar data for the new month
-    refreshCalendarData();
+    // Refresh calendar data for the new month (only if already initialized)
+    if (isInitialized) {
+      refreshCalendarData();
+    }
   }
 
   function nextMonth() {
@@ -221,8 +245,10 @@ export default function CalendarPage() {
     // Adjust selected day if it doesn't exist in the new month
     const maxDayInNewMonth = getDaysInMonth(year, monthIndex);
     setSelectedDay(prev => Math.min(prev, maxDayInNewMonth));
-    // Refresh calendar data for the new month
-    refreshCalendarData();
+    // Refresh calendar data for the new month (only if already initialized)
+    if (isInitialized) {
+      refreshCalendarData();
+    }
   }
 
   const monthFormatter = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" });
@@ -236,19 +262,33 @@ export default function CalendarPage() {
   
   // Use timezone-aware today calculation when timezone is available
   const today = useMemo(() => {
+    // Don't calculate today until timezone is ready
+    if (timezoneLoading || !isInitialized) {
+      return new Date(); // Temporary date, won't be used for rendering
+    }
+
     if (timezone && !timezoneLoading) {
       const todayInfo = getTodayInTimezone(timezone);
       // Create a date object representing today in the selected timezone
       return new Date(todayInfo.year, todayInfo.month, todayInfo.day);
     }
     return getTodayAtMidnight();
-  }, [timezone, timezoneLoading]);
+  }, [timezone, timezoneLoading, isInitialized]);
 
   if (loading) {
+    let loadingMessage = "Loading calendar...";
+    if (timezoneLoading) {
+      loadingMessage = "Loading timezone settings...";
+    } else if (calendarDataLoading) {
+      loadingMessage = "Loading calendar events...";
+    } else if (!isInitialized) {
+      loadingMessage = "Initializing calendar...";
+    }
+
     return (
       <div className={loadingContainer}>
         <div className={loadingSpinner}></div>
-        <p className={loadingText}>Loading calendar events...</p>
+        <p className={loadingText}>{loadingMessage}</p>
       </div>
     );
   }
@@ -258,7 +298,14 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={prevMonth} className="px-3 py-0.5 rounded-md border bg-white hover:bg-gray-50">Prev</button>
-          <button onClick={() => { setViewYear(now.getFullYear()); setViewMonth(now.getMonth()); setSelectedDay(now.getDate()); refreshCalendarData(); }} className="px-3 py-0.5 rounded-md border bg-white hover:bg-gray-50">Today</button>
+          <button onClick={() => { 
+            setViewYear(now.getFullYear()); 
+            setViewMonth(now.getMonth()); 
+            setSelectedDay(now.getDate()); 
+            if (isInitialized) {
+              refreshCalendarData();
+            }
+          }} className="px-3 py-0.5 rounded-md border bg-white hover:bg-gray-50">Today</button>
           <button onClick={nextMonth} className="px-3 py-0.5 rounded-md border bg-white hover:bg-gray-50">Next</button>
         </div>
                   <div className="text-center">
