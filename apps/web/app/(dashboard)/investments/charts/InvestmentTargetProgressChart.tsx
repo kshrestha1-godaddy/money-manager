@@ -77,8 +77,8 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
     }
 
     return (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+            <div className="flex items-center justify-between">
                 <div className="flex items-center">
                     <Target className="w-5 h-5 text-blue-600 mr-2" />
                     <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
