@@ -268,13 +268,18 @@ export const InvestmentTypePolarChart = React.memo<InvestmentTypePolarChartProps
         r: {
           angleLines: { 
             color: "#d1d5db",
-            lineWidth: 2,
+            lineWidth: 1.5,
           },
           grid: { 
             color: "#d1d5db",
-            lineWidth: 0.5,
+            lineWidth: 0.8,
+            borderDash: [4, 4],
+            borderDashOffset: 2,
+            borderWidth: 1,
+            borderRadius: 2,
+            borderJoinStyle: 'round',
           },
-          pointLabels: { display: true, color: "rgb(107, 114, 128)", font: { size: 10 }   },
+          pointLabels: { display: true, color: "rgb(107, 114, 128)", font: { size: 8 }   },
           ticks: {
             display: true,
             backdropColor: "transparent",

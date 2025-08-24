@@ -644,7 +644,7 @@ export function DebtStatusWaterfallChart({
             left: 8, 
             bottom: 8 
           }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <CartesianGrid strokeDasharray="4 4" stroke="#e5e7eb" strokeWidth={4} horizontal={true} vertical={true} />
             <XAxis dataKey="name" tick={{ fontSize: isExpanded ? 12 : 10 }} interval={0} />
             <YAxis tickFormatter={(v) => formatCurrency(Number(v), currency)} tick={{ fontSize: isExpanded ? 12 : 10 }} />
             <Tooltip content={<CustomTooltip />} />

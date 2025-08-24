@@ -381,9 +381,9 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                             <CartesianGrid
                                 strokeDasharray="3 3"
                                 stroke="#e5e7eb"
-                                strokeWidth={1}
+                                strokeWidth={2}
                                 horizontal={true}
-                                vertical={false}
+                                vertical={true}
                             />
 
                             {/* Current date reference line */}
