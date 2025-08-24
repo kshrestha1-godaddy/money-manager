@@ -7,7 +7,7 @@ import { formatCurrency } from "../../../utils/currency";
 import { Income, Expense } from "../../../types/financial";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { ChartControls } from "../../../components/ChartControls";
-import { useChartExpansion } from "../../../utils/chartUtils";
+
 
 interface MonthlyTrendChartProps {
     currency?: string;
@@ -137,7 +137,6 @@ const CHART_MARGINS = {
 export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({ 
     currency = "USD"
 }) => {
-    const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { monthlyData, formatTimePeriod } = useChartData();
     
@@ -309,7 +308,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
     const Chart = useMemo(() => (
         <div 
             ref={chartRef} 
-            className={isExpanded ? "h-[60vh] w-full" : "h-[30rem] sm:h-[40rem] w-full"}
+            className="h-[30rem] sm:h-[40rem] w-full"
             role="img"
             aria-label={`Monthly trend chart showing income, expenses, and savings ${timePeriodText.toLowerCase()}`}
         >
@@ -405,15 +404,8 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                 </ComposedChart>
             </ResponsiveContainer>
         </div>
-    ), [chartData, calculations, isExpanded, timePeriodText, optimalInterval, CustomXAxisTick, formatYAxisTick, CustomTooltip]);
+    ), [chartData, calculations, timePeriodText, optimalInterval, CustomXAxisTick, formatYAxisTick, CustomTooltip]);
 
-    const ChartContent = useCallback(() => (
-        <div>
-            <SummaryStats calculations={calculations} currency={currency} />
-            {Chart}
-            <ChartLegend />
-        </div>
-    ), [calculations, currency, Chart]);
 
     if (chartData.length === 0) {
         return (
@@ -431,46 +423,22 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
     }
 
     return (
-        <>
-            <div className="bg-white rounded-lg shadow p-3 sm:p-6" data-chart-type="monthly-trend">
-                <ChartControls
-                    chartRef={chartRef}
-                    isExpanded={isExpanded}
-                    onToggleExpanded={toggleExpanded}
-                    fileName="monthly-trend-chart"
-                    csvData={csvData}
-                    csvFileName="monthly-trend-data"
-                    title={chartTitle}
-                    tooltipText={tooltipText}
-                />
-                <ChartContent />
+        <div className="bg-white rounded-lg shadow p-3 sm:p-6" data-chart-type="monthly-trend">
+            <ChartControls
+                chartRef={chartRef}
+                fileName="monthly-trend-chart"
+                csvData={csvData}
+                csvFileName="monthly-trend-data"
+                title={chartTitle}
+                tooltipText={tooltipText}
+                showExpandButton={false}
+            />
+            <div>
+                <SummaryStats calculations={calculations} currency={currency} />
+                {Chart}
+                <ChartLegend />
             </div>
-
-            {/* Full screen modal */}
-            {isExpanded && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg p-6 max-w-[95%] w-full max-h-[95%] overflow-auto">
-                        <div className="flex justify-between items-center mb-4">
-                            <div>
-                                <h2 className="text-2xl font-semibold">{chartTitle}</h2>
-                                <p className="text-sm text-gray-500">{tooltipText}</p>
-                            </div>
-                            <button
-                                onClick={toggleExpanded}
-                                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
-                            >
-                                Close
-                            </button>
-                        </div>
-                        <div className="flex flex-col items-center">
-                            <div className="w-full">
-                                <ChartContent />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </>
+        </div>
     );
 });
 
