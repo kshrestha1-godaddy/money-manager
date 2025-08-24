@@ -6,7 +6,7 @@ import { Calendar, Target, TrendingUp } from "lucide-react";
 import { formatCurrency } from "../../../utils/currency";
 import { InvestmentTargetProgress } from "../../../types/investments";
 import { ChartControls } from "../../../components/ChartControls";
-import { useChartExpansion } from "../../../utils/chartUtils";
+
 import { useChartAnimationState } from "../../../hooks/useChartAnimationContext";
 
 interface InvestmentTargetTimelineChartProps {
@@ -70,7 +70,6 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
     currency = "USD", 
     title = "Investment Target Timeline" 
 }) => {
-    const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const chartId = "investment-target-timeline";
     const { animationDuration, isAnimationActive } = useChartAnimationState(chartId);
@@ -223,13 +222,6 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
         );
     }, []);
 
-    const formatXAxisTick = useCallback((value: string) => {
-        const date = new Date(value);
-        return date.toLocaleDateString('en-US', { 
-            month: 'short',
-            day: 'numeric'
-        });
-    }, []);
 
     const formatYAxisTick = useCallback((value: number) => {
         if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
@@ -296,170 +288,16 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
 
     const currentDate = new Date().toISOString().split('T')[0];
 
-    const ChartContent = () => (
-        <div>
-            {/* Summary Statistics */}
-            <div className="mb-6 pb-4 border-b border-gray-200">
-                <div className="flex justify-between items-center gap-2 sm:gap-4">
-                    <div className="flex-1 text-center min-w-0">
-                        <Target className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mx-auto mb-1" />
-                        <p className="text-xs sm:text-sm text-gray-600 truncate">Total Targets</p>
-                        <p className="text-sm sm:text-lg font-semibold text-gray-900">{timelineData.length}</p>
-                    </div>
-                    <div className="flex-1 text-center min-w-0">
-                        <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 mx-auto mb-1" />
-                        <p className="text-xs sm:text-sm text-gray-600 truncate">Completed</p>
-                        <p className="text-sm sm:text-lg font-semibold text-green-600">
-                            {timelineData.filter(t => t.isComplete).length}
-                        </p>
-                    </div>
-                    <div className="flex-1 text-center min-w-0">
-                        <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 mx-auto mb-1" />
-                        <p className="text-xs sm:text-sm text-gray-600 truncate">Overdue</p>
-                        <p className="text-sm sm:text-lg font-semibold text-red-600">
-                            {timelineData.filter(t => t.isOverdue && !t.isComplete).length}
-                        </p>
-                    </div>
-                    <div className="flex-1 text-center min-w-0">
-                        <div className="w-4 h-4 sm:w-5 sm:h-5 bg-blue-600 rounded mx-auto mb-1"></div>
-                        <p className="text-xs sm:text-sm text-gray-600 truncate">Total Target Value</p>
-                        <p className="text-sm sm:text-lg font-semibold text-gray-900 truncate">
-                            {formatCurrency(timelineData.reduce((sum, t) => sum + t.targetAmount, 0), currency)}
-                        </p>
-                    </div>
-                    <div className="flex-1 text-center min-w-0">
-                        <div className="w-4 h-4 sm:w-5 sm:h-5 bg-green-600 rounded mx-auto mb-1"></div>
-                        <p className="text-xs sm:text-sm text-gray-600 truncate">Total Progress</p>
-                        <p className="text-sm sm:text-lg font-semibold text-green-600 truncate">
-                            {formatCurrency(timelineData.reduce((sum, t) => sum + t.currentAmount, 0), currency)}
-                        </p>
-                    </div>
-                    <div className="flex-1 text-center min-w-0">
-                        <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 mx-auto mb-1" />
-                        <p className="text-xs sm:text-sm text-gray-600 truncate">Overall Progress</p>
-                        <p className="text-sm sm:text-lg font-semibold text-purple-600">
-                            {timelineData.length > 0 
-                                ? ((timelineData.reduce((sum, t) => sum + t.progress, 0) / timelineData.length)).toFixed(1)
-                                : '0.0'
-                            }%
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Chart */}
-            <div 
-                ref={chartRef}
-                className={`w-full ${isExpanded ? "h-[60vh]" : "h-[28rem] sm:h-[32rem]"}`}
-                role="img"
-                aria-label={`Investment targets timeline chart showing ${timelineData.length} targets`}
-            >
-                <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart
-                        data={timelineData}
-                        margin={{ top: 20, right: 30, left: 40, bottom: 70 }}
-                    >
-                        <CartesianGrid 
-                            strokeDasharray="3 3" 
-                            stroke="#e5e7eb" 
-                            strokeWidth={1}
-                            horizontal={true}
-                            vertical={false}
-                        />
-                        
-                        {/* Current date reference line */}
-                        <ReferenceLine 
-                            x={currentDate} 
-                            stroke="#ef4444" 
-                            strokeWidth={2}
-                            strokeDasharray="5 5"
-                            label={{ value: "Today", position: "top" }}
-                        />
-                        
-                        <XAxis 
-                            dataKey="displayLabel"
-                            tick={<CustomXAxisTick />}
-                            stroke="#666"
-                            height={100}
-                            interval="preserveStartEnd"
-                        />
-                        <YAxis 
-                            tickFormatter={formatYAxisTick}
-                            tick={{ fontSize: 12 }}
-                            stroke="#666"
-                            domain={[0, maxAmount * 1.1]}
-                        />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Legend 
-                            verticalAlign="bottom"
-                            height={10}
-                            iconType="line"
-                            wrapperStyle={{
-                                paddingBottom: '5px',
-                                fontSize: '14px',
-                                color: '#374151'
-                            }}
-                        />
-                        
-                        {/* Stacked bars for progress visualization */}
-                        <Bar 
-                            dataKey="completedBar" 
-                            stackId="progress"
-                            fill="#10b981"
-                            fillOpacity={0.4}
-                            stroke="none"
-                            name="Completed Progress"
-                            barSize={60}
-                        />
-                        <Bar 
-                            dataKey="remainingBar" 
-                            stackId="progress"
-                            fill="#f59e0b"
-                            fillOpacity={0.4}
-                            stroke="none"
-                            name="Remaining Progress"
-                            barSize={60}
-                        />
-                        
-                        {/* Target amounts line */}
-                        <Line
-                            type="monotone"
-                            dataKey="targetAmount"
-                            stroke="#3b82f6"
-                            strokeWidth={3}
-                            dot={<CustomDot />}
-                            activeDot={{ r: 8, strokeWidth: 2 }}
-                            connectNulls={false}
-                            animationDuration={isAnimationActive ? animationDuration : 0}
-                            name="Target Amount"
-                        />
-                        
-                        {/* Current progress line */}
-                        <Line
-                            type="monotone"
-                            dataKey="currentAmount"
-                            stroke="#10b981"
-                            strokeWidth={2}
-                            strokeDasharray="8 4"
-                            dot={{ fill: "#10b981", strokeWidth: 2, r: 4 }}
-                            activeDot={{ r: 6, strokeWidth: 2, fill: "#10b981" }}
-                            connectNulls={false}
-                            animationDuration={isAnimationActive ? animationDuration : 0}
-                            name="Current Amount"
-                        />
-                    </ComposedChart>
-                </ResponsiveContainer>
-            </div>
-        </div>
-    );
 
     return (
-        <>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center">
+                    <Calendar className="w-5 h-5 text-blue-600 mr-2" />
+                    <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+                </div>
                 <ChartControls
                     chartRef={chartRef}
-                    isExpanded={isExpanded}
-                    onToggleExpanded={toggleExpanded}
                     fileName="investment-targets-timeline"
                     csvData={[
                         ['Target Type', 'Nickname', 'Target Date', 'Target Amount', 'Current Amount', 'Progress (%)', 'Days Remaining', 'Status'],
@@ -475,34 +313,164 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                         ])
                     ]}
                     csvFileName={`investment-targets-timeline-${new Date().toISOString().split('T')[0]}`}
-                    title={title}
-                    tooltipText="Timeline view of your investment targets showing progress and completion dates"
+                    showExpandButton={false}
                 />
-                <ChartContent />
             </div>
-
-            {isExpanded && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-                    <div className="bg-white rounded-lg p-4 sm:p-6 max-w-[95vw] w-full max-h-full overflow-auto">
-                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 gap-2 sm:gap-0">
-                            <div>
-                                <h2 className="text-lg sm:text-2xl font-semibold truncate">{title}</h2>
-                                <p className="text-sm text-gray-500">
-                                    Timeline view of your investment targets showing progress and completion dates
-                                </p>
-                            </div>
-                            <button
-                                onClick={toggleExpanded}
-                                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm sm:text-base"
-                            >
-                                Close
-                            </button>
+            <div>
+                {/* Summary Statistics */}
+                <div className="mb-6 pb-4 border-b border-gray-200">
+                    <div className="flex justify-between items-center gap-2 sm:gap-4">
+                        <div className="flex-1 text-center min-w-0">
+                            <Target className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mx-auto mb-1" />
+                            <p className="text-xs sm:text-sm text-gray-600 truncate">Total Targets</p>
+                            <p className="text-sm sm:text-lg font-semibold text-gray-900">{timelineData.length}</p>
                         </div>
-                        <ChartContent />
+                        <div className="flex-1 text-center min-w-0">
+                            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 mx-auto mb-1" />
+                            <p className="text-xs sm:text-sm text-gray-600 truncate">Completed</p>
+                            <p className="text-sm sm:text-lg font-semibold text-green-600">
+                                {timelineData.filter(t => t.isComplete).length}
+                            </p>
+                        </div>
+                        <div className="flex-1 text-center min-w-0">
+                            <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 mx-auto mb-1" />
+                            <p className="text-xs sm:text-sm text-gray-600 truncate">Overdue</p>
+                            <p className="text-sm sm:text-lg font-semibold text-red-600">
+                                {timelineData.filter(t => t.isOverdue && !t.isComplete).length}
+                            </p>
+                        </div>
+                        <div className="flex-1 text-center min-w-0">
+                            <div className="w-4 h-4 sm:w-5 sm:h-5 bg-blue-600 rounded mx-auto mb-1"></div>
+                            <p className="text-xs sm:text-sm text-gray-600 truncate">Total Target Value</p>
+                            <p className="text-sm sm:text-lg font-semibold text-gray-900 truncate">
+                                {formatCurrency(timelineData.reduce((sum, t) => sum + t.targetAmount, 0), currency)}
+                            </p>
+                        </div>
+                        <div className="flex-1 text-center min-w-0">
+                            <div className="w-4 h-4 sm:w-5 sm:h-5 bg-green-600 rounded mx-auto mb-1"></div>
+                            <p className="text-xs sm:text-sm text-gray-600 truncate">Total Progress</p>
+                            <p className="text-sm sm:text-lg font-semibold text-green-600 truncate">
+                                {formatCurrency(timelineData.reduce((sum, t) => sum + t.currentAmount, 0), currency)}
+                            </p>
+                        </div>
+                        <div className="flex-1 text-center min-w-0">
+                            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 mx-auto mb-1" />
+                            <p className="text-xs sm:text-sm text-gray-600 truncate">Overall Progress</p>
+                            <p className="text-sm sm:text-lg font-semibold text-purple-600">
+                                {timelineData.length > 0
+                                    ? ((timelineData.reduce((sum, t) => sum + t.progress, 0) / timelineData.length)).toFixed(1)
+                                    : '0.0'
+                                }%
+                            </p>
+                        </div>
                     </div>
                 </div>
-            )}
-        </>
+
+                {/* Chart */}
+                <div
+                    ref={chartRef}
+                    className="w-full h-[28rem] sm:h-[32rem]"
+                    role="img"
+                    aria-label={`Investment targets timeline chart showing ${timelineData.length} targets`}
+                >
+                    <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart
+                            data={timelineData}
+                            margin={{ top: 20, right: 30, left: 40, bottom: 30 }}
+                        >
+                            <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="#e5e7eb"
+                                strokeWidth={1}
+                                horizontal={true}
+                                vertical={false}
+                            />
+
+                            {/* Current date reference line */}
+                            <ReferenceLine
+                                x={currentDate}
+                                stroke="#ef4444"
+                                strokeWidth={2}
+                                strokeDasharray="5 5"
+                                label={{ value: "Today", position: "top" }}
+                            />
+
+                            <XAxis
+                                dataKey="displayLabel"
+                                tick={<CustomXAxisTick />}
+                                stroke="#666"
+                                height={100}
+                                interval="preserveStartEnd"
+                            />
+                            <YAxis
+                                tickFormatter={formatYAxisTick}
+                                tick={{ fontSize: 12 }}
+                                stroke="#666"
+                                domain={[0, maxAmount * 1.1]}
+                            />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Legend
+                                verticalAlign="bottom"
+                                height={10}
+                                iconType="line"
+                                wrapperStyle={{
+                                    paddingBottom: '5px',
+                                    fontSize: '14px',
+                                    color: '#374151'
+                                }}
+                            />
+
+                            {/* Stacked bars for progress visualization */}
+                            <Bar
+                                dataKey="completedBar"
+                                stackId="progress"
+                                fill="#10b981"
+                                fillOpacity={0.4}
+                                stroke="none"
+                                name="Completed Progress"
+                                barSize={60}
+                            />
+                            <Bar
+                                dataKey="remainingBar"
+                                stackId="progress"
+                                fill="#f59e0b"
+                                fillOpacity={0.4}
+                                stroke="none"
+                                name="Remaining Progress"
+                                barSize={60}
+                            />
+
+                            {/* Target amounts line */}
+                            <Line
+                                type="monotone"
+                                dataKey="targetAmount"
+                                stroke="#3b82f6"
+                                strokeWidth={3}
+                                dot={<CustomDot />}
+                                activeDot={{ r: 8, strokeWidth: 2 }}
+                                connectNulls={false}
+                                animationDuration={isAnimationActive ? animationDuration : 0}
+                                name="Target Amount"
+                            />
+
+                            {/* Current progress line */}
+                            <Line
+                                type="monotone"
+                                dataKey="currentAmount"
+                                stroke="#10b981"
+                                strokeWidth={2}
+                                strokeDasharray="8 4"
+                                dot={{ fill: "#10b981", strokeWidth: 2, r: 4 }}
+                                activeDot={{ r: 6, strokeWidth: 2, fill: "#10b981" }}
+                                connectNulls={false}
+                                animationDuration={isAnimationActive ? animationDuration : 0}
+                                name="Current Amount"
+                            />
+                        </ComposedChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+        </div>
     );
 });
 
