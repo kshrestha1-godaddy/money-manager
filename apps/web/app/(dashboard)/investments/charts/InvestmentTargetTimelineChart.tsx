@@ -254,35 +254,8 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
 
     const currentDate = new Date().toISOString().split('T')[0];
 
-    return (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center">
-                    <Calendar className="w-5 h-5 text-blue-600 mr-2" />
-                    <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-                </div>
-                <ChartControls
-                    chartRef={chartRef}
-                    isExpanded={isExpanded}
-                    onToggleExpanded={toggleExpanded}
-                    fileName="investment-targets-timeline"
-                    csvData={[
-                        ['Target Type', 'Nickname', 'Target Date', 'Target Amount', 'Current Amount', 'Progress (%)', 'Days Remaining', 'Status'],
-                        ...timelineData.map(item => [
-                            TYPE_LABELS[item.investmentType] || item.investmentType,
-                            item.nickname || '-',
-                            item.formattedDate,
-                            item.targetAmount,
-                            item.currentAmount,
-                            item.progress.toFixed(1),
-                            item.daysRemaining?.toString() || '-',
-                            item.isComplete ? 'Complete' : item.isOverdue ? 'Overdue' : 'In Progress'
-                        ])
-                    ]}
-                    csvFileName={`investment-targets-timeline-${new Date().toISOString().split('T')[0]}`}
-                />
-            </div>
-
+    const ChartContent = () => (
+        <div>
             {/* Summary Statistics */}
             <div className="mb-6 pb-4 border-b border-gray-200">
                 <div className="flex justify-between items-center gap-2 sm:gap-4">
@@ -342,7 +315,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                 <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart
                         data={timelineData}
-                        margin={{ top: 20, right: 30, left: 40, bottom: 80 }}
+                        margin={{ top: 20, right: 30, left: 40, bottom: 30 }}
                     >
                         <CartesianGrid 
                             strokeDasharray="3 3" 
@@ -382,7 +355,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                             height={10}
                             iconType="line"
                             wrapperStyle={{
-                                paddingBottom: '10px',
+                                paddingBottom: '5px',
                                 fontSize: '14px',
                                 color: '#374151'
                             }}
@@ -438,6 +411,58 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                 </ResponsiveContainer>
             </div>
         </div>
+    );
+
+    return (
+        <>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <ChartControls
+                    chartRef={chartRef}
+                    isExpanded={isExpanded}
+                    onToggleExpanded={toggleExpanded}
+                    fileName="investment-targets-timeline"
+                    csvData={[
+                        ['Target Type', 'Nickname', 'Target Date', 'Target Amount', 'Current Amount', 'Progress (%)', 'Days Remaining', 'Status'],
+                        ...timelineData.map(item => [
+                            TYPE_LABELS[item.investmentType] || item.investmentType,
+                            item.nickname || '-',
+                            item.formattedDate,
+                            item.targetAmount,
+                            item.currentAmount,
+                            item.progress.toFixed(1),
+                            item.daysRemaining?.toString() || '-',
+                            item.isComplete ? 'Complete' : item.isOverdue ? 'Overdue' : 'In Progress'
+                        ])
+                    ]}
+                    csvFileName={`investment-targets-timeline-${new Date().toISOString().split('T')[0]}`}
+                    title={title}
+                    tooltipText="Timeline view of your investment targets showing progress and completion dates"
+                />
+                <ChartContent />
+            </div>
+
+            {isExpanded && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
+                    <div className="bg-white rounded-lg p-4 sm:p-6 max-w-[95vw] w-full max-h-full overflow-auto">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 gap-2 sm:gap-0">
+                            <div>
+                                <h2 className="text-lg sm:text-2xl font-semibold truncate">{title}</h2>
+                                <p className="text-sm text-gray-500">
+                                    Timeline view of your investment targets showing progress and completion dates
+                                </p>
+                            </div>
+                            <button
+                                onClick={toggleExpanded}
+                                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm sm:text-base"
+                            >
+                                Close
+                            </button>
+                        </div>
+                        <ChartContent />
+                    </div>
+                </div>
+            )}
+        </>
     );
 });
 
