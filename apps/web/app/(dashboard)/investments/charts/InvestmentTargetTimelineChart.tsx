@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useRef, useCallback } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Dot } from "recharts";
+import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Dot, Legend } from "recharts";
 import { Calendar, Target, TrendingUp } from "lucide-react";
 import { formatCurrency } from "../../../utils/currency";
 import { InvestmentTargetProgress } from "../../../types/investments";
@@ -27,6 +27,9 @@ interface TimelineDataPoint {
     currentAmount: number;
     isComplete: boolean;
     sortDate: Date;
+    // For stacked bar chart - showing progress as percentage of max amount
+    completedBar: number;
+    remainingBar: number;
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -81,10 +84,17 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
             target.targetCompletionDate !== undefined && target.targetCompletionDate !== null
         );
         
+        // Calculate max amount first
+        const maxAmount = Math.max(...targetsWithDates.map(t => Math.max(t.targetAmount, t.currentAmount)), 0);
+        
         const data: TimelineDataPoint[] = targetsWithDates.map(target => {
             const targetDate = new Date(target.targetCompletionDate!);
             const isOverdue = targetDate < new Date() && !target.isComplete;
             
+            // Calculate bar values in actual currency amounts for proper scaling
+            const completedBar = target.currentAmount;
+            const remainingBar = Math.max(0, target.targetAmount - target.currentAmount);
+
             return {
                 date: targetDate.toISOString().split('T')[0] || targetDate.toISOString(),
                 formattedDate: targetDate.toLocaleDateString('en-US', { 
@@ -100,11 +110,11 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                 progress: target.progress,
                 currentAmount: target.currentAmount,
                 isComplete: target.isComplete,
-                sortDate: targetDate
+                sortDate: targetDate,
+                completedBar: completedBar,
+                remainingBar: remainingBar
             };
         }).sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime());
-
-        const maxAmount = Math.max(...data.map(d => d.targetAmount), 0);
 
         return { 
             timelineData: data, 
@@ -137,20 +147,38 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                         </p>
                         <p>
                             <span className="text-gray-600">Current Amount:</span>{' '}
-                            <span className="font-medium text-blue-600">
+                            <span className="font-medium text-green-600">
                                 {formatCurrency(data.currentAmount, currency)}
                             </span>
                         </p>
                         <p>
-                            <span className="text-gray-600">Progress:</span>{' '}
-                            <span className={`font-medium ${
-                                data.isComplete ? 'text-green-600' : 
-                                data.progress >= 75 ? 'text-blue-600' :
-                                data.progress >= 50 ? 'text-yellow-600' : 'text-orange-600'
-                            }`}>
-                                {data.progress.toFixed(1)}%
+                            <span className="text-gray-600">Remaining:</span>{' '}
+                            <span className="font-medium text-orange-600">
+                                {formatCurrency(Math.max(0, data.targetAmount - data.currentAmount), currency)}
                             </span>
                         </p>
+                        <div className="border-t border-gray-100 pt-2 mt-2">
+                            <p>
+                                <span className="text-gray-600">Progress:</span>{' '}
+                                <span className={`font-medium ${
+                                    data.isComplete ? 'text-green-600' : 
+                                    data.progress >= 75 ? 'text-blue-600' :
+                                    data.progress >= 50 ? 'text-yellow-600' : 'text-orange-600'
+                                }`}>
+                                    {data.progress.toFixed(1)}%
+                                </span>
+                            </p>
+                            <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                <div 
+                                    className={`h-2 rounded-full ${
+                                        data.isComplete ? 'bg-green-500' :
+                                        data.progress >= 75 ? 'bg-blue-500' :
+                                        data.progress >= 50 ? 'bg-yellow-500' : 'bg-orange-500'
+                                    }`}
+                                    style={{ width: `${Math.min(100, data.progress)}%` }}
+                                />
+                            </div>
+                        </div>
                         {data.daysRemaining !== undefined && (
                             <p>
                                 <span className="text-gray-600">Days Remaining:</span>{' '}
@@ -257,31 +285,48 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
 
             {/* Summary Statistics */}
             <div className="mb-6 pb-4 border-b border-gray-200">
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                    <div className="text-center">
-                        <Target className="w-5 h-5 text-blue-600 mx-auto mb-1" />
-                        <p className="text-sm text-gray-600">Total Targets</p>
-                        <p className="text-lg font-semibold text-gray-900">{timelineData.length}</p>
+                <div className="flex justify-between items-center gap-2 sm:gap-4">
+                    <div className="flex-1 text-center min-w-0">
+                        <Target className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mx-auto mb-1" />
+                        <p className="text-xs sm:text-sm text-gray-600 truncate">Total Targets</p>
+                        <p className="text-sm sm:text-lg font-semibold text-gray-900">{timelineData.length}</p>
                     </div>
-                    <div className="text-center">
-                        <TrendingUp className="w-5 h-5 text-green-600 mx-auto mb-1" />
-                        <p className="text-sm text-gray-600">Completed</p>
-                        <p className="text-lg font-semibold text-green-600">
+                    <div className="flex-1 text-center min-w-0">
+                        <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 mx-auto mb-1" />
+                        <p className="text-xs sm:text-sm text-gray-600 truncate">Completed</p>
+                        <p className="text-sm sm:text-lg font-semibold text-green-600">
                             {timelineData.filter(t => t.isComplete).length}
                         </p>
                     </div>
-                    <div className="text-center">
-                        <Calendar className="w-5 h-5 text-orange-600 mx-auto mb-1" />
-                        <p className="text-sm text-gray-600">Overdue</p>
-                        <p className="text-lg font-semibold text-red-600">
+                    <div className="flex-1 text-center min-w-0">
+                        <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 mx-auto mb-1" />
+                        <p className="text-xs sm:text-sm text-gray-600 truncate">Overdue</p>
+                        <p className="text-sm sm:text-lg font-semibold text-red-600">
                             {timelineData.filter(t => t.isOverdue && !t.isComplete).length}
                         </p>
                     </div>
-                    <div className="text-center">
-                        <div className="w-5 h-5 bg-blue-600 rounded mx-auto mb-1"></div>
-                        <p className="text-sm text-gray-600">Total Target Value</p>
-                        <p className="text-lg font-semibold text-gray-900">
+                    <div className="flex-1 text-center min-w-0">
+                        <div className="w-4 h-4 sm:w-5 sm:h-5 bg-blue-600 rounded mx-auto mb-1"></div>
+                        <p className="text-xs sm:text-sm text-gray-600 truncate">Total Target Value</p>
+                        <p className="text-sm sm:text-lg font-semibold text-gray-900 truncate">
                             {formatCurrency(timelineData.reduce((sum, t) => sum + t.targetAmount, 0), currency)}
+                        </p>
+                    </div>
+                    <div className="flex-1 text-center min-w-0">
+                        <div className="w-4 h-4 sm:w-5 sm:h-5 bg-green-600 rounded mx-auto mb-1"></div>
+                        <p className="text-xs sm:text-sm text-gray-600 truncate">Total Progress</p>
+                        <p className="text-sm sm:text-lg font-semibold text-green-600 truncate">
+                            {formatCurrency(timelineData.reduce((sum, t) => sum + t.currentAmount, 0), currency)}
+                        </p>
+                    </div>
+                    <div className="flex-1 text-center min-w-0">
+                        <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 mx-auto mb-1" />
+                        <p className="text-xs sm:text-sm text-gray-600 truncate">Overall Progress</p>
+                        <p className="text-sm sm:text-lg font-semibold text-purple-600">
+                            {timelineData.length > 0 
+                                ? ((timelineData.reduce((sum, t) => sum + t.progress, 0) / timelineData.length)).toFixed(1)
+                                : '0.0'
+                            }%
                         </p>
                     </div>
                 </div>
@@ -295,9 +340,9 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                 aria-label={`Investment targets timeline chart showing ${timelineData.length} targets`}
             >
                 <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
+                    <ComposedChart
                         data={timelineData}
-                        margin={{ top: 20, right: 30, left: 40, bottom: 60 }}
+                        margin={{ top: 20, right: 30, left: 40, bottom: 50 }}
                     >
                         <CartesianGrid 
                             strokeDasharray="3 3" 
@@ -321,8 +366,8 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                             tickFormatter={formatXAxisTick}
                             tick={{ fontSize: 12 }}
                             stroke="#666"
-                            angle={-45}
-                            textAnchor="end"
+                            angle={0}
+                            textAnchor="middle"
                             height={60}
                             interval="preserveStartEnd"
                         />
@@ -333,8 +378,38 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                             domain={[0, maxAmount * 1.1]}
                         />
                         <Tooltip content={<CustomTooltip />} />
+                        <Legend 
+                            verticalAlign="bottom"
+                            height={10}
+                            iconType="line"
+                            wrapperStyle={{
+                                paddingBottom: '10px',
+                                fontSize: '14px',
+                                color: '#374151'
+                            }}
+                        />
                         
-                        {/* Main timeline line */}
+                        {/* Stacked bars for progress visualization */}
+                        <Bar 
+                            dataKey="completedBar" 
+                            stackId="progress"
+                            fill="#10b981"
+                            fillOpacity={0.4}
+                            stroke="none"
+                            name="Completed Progress"
+                            barSize={60}
+                        />
+                        <Bar 
+                            dataKey="remainingBar" 
+                            stackId="progress"
+                            fill="#f59e0b"
+                            fillOpacity={0.4}
+                            stroke="none"
+                            name="Remaining Progress"
+                            barSize={60}
+                        />
+                        
+                        {/* Target amounts line */}
                         <Line
                             type="monotone"
                             dataKey="targetAmount"
@@ -344,29 +419,24 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                             activeDot={{ r: 8, strokeWidth: 2 }}
                             connectNulls={false}
                             animationDuration={isAnimationActive ? animationDuration : 0}
+                            name="Target Amount"
                         />
-                    </LineChart>
+                        
+                        {/* Current progress line */}
+                        <Line
+                            type="monotone"
+                            dataKey="currentAmount"
+                            stroke="#10b981"
+                            strokeWidth={2}
+                            strokeDasharray="8 4"
+                            dot={{ fill: "#10b981", strokeWidth: 2, r: 4 }}
+                            activeDot={{ r: 6, strokeWidth: 2, fill: "#10b981" }}
+                            connectNulls={false}
+                            animationDuration={isAnimationActive ? animationDuration : 0}
+                            name="Current Amount"
+                        />
+                    </ComposedChart>
                 </ResponsiveContainer>
-            </div>
-
-            {/* Legend */}
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-6 text-sm">
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-blue-600"></div>
-                    <span className="text-gray-700">In Progress</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-green-600 border-2 border-green-600"></div>
-                    <span className="text-gray-700">Completed</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-red-600"></div>
-                    <span className="text-gray-700">Overdue</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-0.5 bg-red-600 opacity-60" style={{ borderTop: "2px dashed #ef4444" }}></div>
-                    <span className="text-gray-700">Today</span>
-                </div>
             </div>
         </div>
     );
