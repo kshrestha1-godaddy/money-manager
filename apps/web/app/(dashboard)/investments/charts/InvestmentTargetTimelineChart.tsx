@@ -18,6 +18,7 @@ interface InvestmentTargetTimelineChartProps {
 interface TimelineDataPoint {
     date: string;
     formattedDate: string;
+    displayLabel: string;
     targetAmount: number;
     investmentType: string;
     nickname?: string;
@@ -102,6 +103,11 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                     day: 'numeric',
                     year: 'numeric'
                 }),
+                displayLabel: `${targetDate.toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric',
+                    year: 'numeric'
+                })}${target.nickname ? `\n${target.nickname}` : `\n${TYPE_LABELS[target.investmentType] || target.investmentType}`}`,
                 targetAmount: target.targetAmount,
                 investmentType: target.investmentType,
                 nickname: target.nickname,
@@ -231,6 +237,42 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
         return value.toString();
     }, []);
 
+    const CustomXAxisTick = useCallback((props: any) => {
+        const { x, y, payload } = props;
+        if (!payload?.value) return null;
+        
+        const lines = payload.value.split('\n');
+        const dateText = lines[0] || '';
+        const nicknameText = lines[1] || '';
+        
+        return (
+            <g transform={`translate(${x},${y})`}>
+                <text 
+                    x={0} 
+                    y={0} 
+                    dy={16} 
+                    textAnchor="middle" 
+                    fill="#666" 
+                    fontSize="10"
+                    fontWeight="500"
+                >
+                    {nicknameText}
+                </text>
+                <text 
+                    x={0} 
+                    y={0} 
+                    dy={30} 
+                    textAnchor="middle" 
+                    fill="#888" 
+                    fontSize="9"
+                    fontWeight="400"
+                >
+                    {dateText}
+                </text>
+            </g>
+        );
+    }, []);
+
     if (!hasTargets) {
         return (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -315,7 +357,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                 <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart
                         data={timelineData}
-                        margin={{ top: 20, right: 30, left: 40, bottom: 30 }}
+                        margin={{ top: 20, right: 30, left: 40, bottom: 70 }}
                     >
                         <CartesianGrid 
                             strokeDasharray="3 3" 
@@ -335,12 +377,10 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                         />
                         
                         <XAxis 
-                            dataKey="formattedDate"
-                            tick={{ fontSize: 11 }}
+                            dataKey="displayLabel"
+                            tick={<CustomXAxisTick />}
                             stroke="#666"
-                            angle={0}
-                            textAnchor="middle"
-                            height={80}
+                            height={100}
                             interval="preserveStartEnd"
                         />
                         <YAxis 
