@@ -314,10 +314,9 @@ export default function NetWorthPage() {
             {chartData.length > 0 && (
                 <>
                     <div className={whiteContainer}>
-                        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                        <div className="flex items-center justify-between p-2 border-b border-gray-200">
                             <div>
                                 <h3 className={chartTitle}>Asset Breakdown</h3>
-                                <p className={cardSubtitle}>Distribution of your total assets</p>
                             </div>
                             <ChartControls
                                 chartRef={chartRef}
@@ -329,15 +328,15 @@ export default function NetWorthPage() {
                                 tooltipText="Distribution of your total assets"
                             />
                         </div>
-                        <div className="p-6">
+                        <div className="p-2">
                             <div 
                                 ref={chartRef}
-                                className="h-[32rem] w-full"
+                                className="h-[38rem] w-full"
                             >
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart
                                         data={chartData}
-                                        margin={{ top: 40, right: 30, left: 20, bottom: 20 }}
+                                        margin={{ top: 40, right: 30, left: 20, bottom: 10 }}
                                     >
                                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                                         <XAxis 
