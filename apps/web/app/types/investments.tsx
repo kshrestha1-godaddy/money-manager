@@ -46,6 +46,7 @@ export interface InvestmentTarget {
     userId: number;
     investmentType: 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'OTHER';
     targetAmount: number;
+    targetCompletionDate?: Date;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -53,6 +54,7 @@ export interface InvestmentTarget {
 export type InvestmentTargetFormData = {
     investmentType: 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'OTHER';
     targetAmount: number;
+    targetCompletionDate?: Date;
 };
 
 export interface InvestmentTargetProgress {
@@ -61,4 +63,7 @@ export interface InvestmentTargetProgress {
     currentAmount: number;
     progress: number; // percentage
     isComplete: boolean;
+    targetCompletionDate?: Date;
+    daysRemaining?: number; // calculated field for days until target date
+    isOverdue?: boolean; // calculated field if current date is past target date
 } 

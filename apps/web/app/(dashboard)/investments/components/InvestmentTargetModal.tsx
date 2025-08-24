@@ -2,8 +2,20 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { InvestmentTarget, InvestmentTargetFormData } from "../../../types/investments";
-import { X, Target } from "lucide-react";
+import { X, Target, Calendar } from "lucide-react";
 import { getCurrencySymbol } from "../../../utils/currency";
+
+// Utility function to format date for input field (yyyy-mm-dd)
+const formatDateForInput = (date: Date | undefined | null): string => {
+    if (!date) return "";
+    return new Date(date).toISOString().split('T')[0];
+};
+
+// Utility function to parse date from input field
+const parseDateFromInput = (dateString: string): Date | undefined => {
+    if (!dateString) return undefined;
+    return new Date(dateString);
+};
 
 // Shared constants for investment components
 export const INVESTMENT_TYPES = [
@@ -68,6 +80,7 @@ export function InvestmentTargetModal({
     const [formData, setFormData] = useState<InvestmentTargetFormData>({
         investmentType: 'STOCKS',
         targetAmount: 0,
+        targetCompletionDate: undefined,
     });
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string>("");
@@ -87,6 +100,7 @@ export function InvestmentTargetModal({
                 setFormData({
                     investmentType: existingTarget.investmentType,
                     targetAmount: parseFloat(existingTarget.targetAmount.toString()),
+                    targetCompletionDate: existingTarget.targetCompletionDate || undefined,
                 });
             } else {
                 // For create mode, find the first available type
@@ -95,6 +109,7 @@ export function InvestmentTargetModal({
                 setFormData({
                     investmentType: defaultType as any,
                     targetAmount: 0,
+                    targetCompletionDate: undefined,
                 });
             }
             setError("");
@@ -226,6 +241,30 @@ export function InvestmentTargetModal({
                                     required
                                 />
                             </div>
+                        </div>
+
+                        {/* Target Completion Date */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Target Completion Date (Optional)
+                            </label>
+                            <div className="relative">
+                                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <input
+                                    type="date"
+                                    value={formatDateForInput(formData.targetCompletionDate)}
+                                    onChange={(e) => setFormData(prev => ({
+                                        ...prev,
+                                        targetCompletionDate: parseDateFromInput(e.target.value)
+                                    }))}
+                                    disabled={isLoading}
+                                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                    min={new Date().toISOString().split('T')[0]} // Prevent past dates
+                                />
+                            </div>
+                            <p className="mt-1 text-xs text-gray-500">
+                                Set a target date to track your progress and get deadline reminders
+                            </p>
                         </div>
                     </div>
 

@@ -3,7 +3,7 @@
 import React from "react";
 import { InvestmentTargetProgress } from "../../../types/investments";
 import { formatCurrency } from "../../../utils/currency";
-import { TrendingUp, Edit } from "lucide-react";
+import { TrendingUp, Edit, Calendar, AlertCircle, Clock } from "lucide-react";
 
 // Shared constants for investment components
 export const INVESTMENT_TYPES = [
@@ -65,14 +65,85 @@ const getProgressColor = (progress: number): string => {
     return "bg-blue-50";
 };
 
-const getProgressBgColor = (progress: number, isComplete: boolean): string => {
+const getProgressBgColor = (progress: number, isComplete: boolean, isOverdue?: boolean): string => {
     if (isComplete) return "bg-green-50 border-green-200";
+    if (isOverdue) return "bg-red-50 border-red-200";
     return "bg-blue-50/30 border-blue-100";
 };
 
+// Utility function to format target date
+const formatTargetDate = (date: Date): string => {
+    return new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    }).format(date);
+};
+
+// Utility function to get date status display
+const getDateStatusDisplay = (target: InvestmentTargetProgress) => {
+    if (!target.targetCompletionDate) return null;
+    
+    const formattedDate = formatTargetDate(target.targetCompletionDate);
+    
+    if (target.isComplete) {
+        return {
+            icon: TrendingUp,
+            text: `Target achieved by ${formattedDate}`,
+            className: "text-green-600"
+        };
+    }
+    
+    if (target.isOverdue) {
+        return {
+            icon: AlertCircle,
+            text: `Overdue since ${formattedDate}`,
+            className: "text-red-600"
+        };
+    }
+    
+    if (typeof target.daysRemaining === 'number') {
+        const daysText = target.daysRemaining === 1 ? 'day' : 'days';
+        return {
+            icon: Clock,
+            text: `${target.daysRemaining} ${daysText} remaining (${formattedDate})`,
+            className: target.daysRemaining <= 30 ? "text-red-600" : "text-gray-900"
+        };
+    }
+    
+    return {
+        icon: Calendar,
+        text: `Target: ${formattedDate}`,
+        className: "text-gray-900"
+    };
+};
+
+// Utility function to get target date display for the main UI
+const getTargetDateDisplay = (target: InvestmentTargetProgress) => {
+    if (!target.targetCompletionDate) return null;
+    
+    const formattedDate = formatTargetDate(target.targetCompletionDate);
+    
+    // Determine color based on days remaining
+    let dateClassName = "text-gray-900"; // default black
+    if (typeof target.daysRemaining === 'number' && target.daysRemaining <= 30 && target.daysRemaining >= 0) {
+        dateClassName = "text-red-600"; // red for less than one month
+    } else if (target.isOverdue) {
+        dateClassName = "text-red-600"; // red for overdue
+    }
+    
+    return {
+        date: formattedDate,
+        className: dateClassName
+    };
+};
+
 export function TargetProgressItem({ target, currency, onEditTarget }: TargetProgressItemProps) {
+    const dateStatus = getDateStatusDisplay(target);
+    const targetDateDisplay = getTargetDateDisplay(target);
+    
     return (
-        <div className={`p-4 rounded-lg border ${getProgressBgColor(target.progress, target.isComplete)}`}>
+        <div className={`p-4 rounded-lg border ${getProgressBgColor(target.progress, target.isComplete, target.isOverdue)}`}>
             <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center">
                     <h4 className="font-medium text-gray-900">
@@ -107,26 +178,54 @@ export function TargetProgressItem({ target, currency, onEditTarget }: TargetPro
             </div>
 
             {/* Progress Details */}
-            <div className="flex justify-between items-center text-sm">
-                <div className="flex items-center space-x-4">
-                    <span className="text-gray-600">
-                        Current: <span className="font-medium text-gray-900">{formatCurrency(target.currentAmount, currency)}</span>
-                    </span>
-                    <span className="text-gray-600">
-                        Target: <span className="font-medium text-gray-900">{formatCurrency(target.targetAmount, currency)}</span>
-                    </span>
-                </div>
-                <div className="text-right">
-                    {target.isComplete ? (
-                        <span className="text-green-600 font-medium">Target Achieved! 🎉</span>
-                    ) : (
+            <div className="space-y-3">
+                <div className="flex justify-between items-center text-sm">
+                    <div className="flex items-center space-x-4">
                         <span className="text-gray-600">
-                            Remaining: <span className="font-medium text-gray-900">
-                                {formatCurrency(Math.max(0, target.targetAmount - target.currentAmount), currency)}
-                            </span>
+                            Current: <span className="font-medium text-gray-900">{formatCurrency(target.currentAmount, currency)}</span>
                         </span>
-                    )}
+                        <span className="text-gray-600">
+                            Target: <span className="font-medium text-gray-900">{formatCurrency(target.targetAmount, currency)}</span>
+                        </span>
+                    </div>
+                    <div className="text-right">
+                        {target.isComplete ? (
+                            <span className="text-green-600 font-medium">Target Achieved! 🎉</span>
+                        ) : (
+                            <span className="text-gray-600">
+                                Remaining: <span className="font-medium text-gray-900">
+                                    {formatCurrency(Math.max(0, target.targetAmount - target.currentAmount), currency)}
+                                </span>
+                            </span>
+                        )}
+                    </div>
                 </div>
+                
+                {/* Target Date Information */}
+                {(dateStatus || targetDateDisplay) && (
+                    <div className="flex justify-between items-center text-sm">
+                        {/* Target Date Display - Left Side */}
+                        <div>
+                            {targetDateDisplay && (
+                                <span className="text-gray-600">
+                                    Target Date: <span className={`font-medium ${targetDateDisplay.className}`}>
+                                        {targetDateDisplay.date}
+                                    </span>
+                                </span>
+                            )}
+                        </div>
+                        
+                        {/* Days Remaining Status - Right Side */}
+                        <div>
+                            {dateStatus && (
+                                <div className="flex items-center">
+                                    <dateStatus.icon className="w-4 h-4 mr-2" />
+                                    <span className={dateStatus.className}>{dateStatus.text}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -33,6 +33,7 @@ export async function getInvestmentTargets(): Promise<{ data?: InvestmentTarget[
         const serializedTargets = targets.map(target => ({
             ...target,
             targetAmount: parseFloat(target.targetAmount.toString()),
+            targetCompletionDate: target.targetCompletionDate || undefined,
         })) as InvestmentTarget[];
 
         return { data: serializedTargets };
@@ -97,6 +98,7 @@ export async function createInvestmentTarget(data: InvestmentTargetFormData): Pr
         return {
             ...target,
             targetAmount: parseFloat(target.targetAmount.toString()),
+            targetCompletionDate: target.targetCompletionDate || undefined,
         } as InvestmentTarget;
     } catch (error) {
         console.error("Error creating investment target:", error);
@@ -136,6 +138,7 @@ export async function updateInvestmentTarget(id: number, data: Partial<Investmen
         return {
             ...updatedTarget,
             targetAmount: parseFloat(updatedTarget.targetAmount.toString()),
+            targetCompletionDate: updatedTarget.targetCompletionDate || undefined,
         } as InvestmentTarget;
     } catch (error) {
         console.error("Error updating investment target:", error);
@@ -218,12 +221,27 @@ export async function getInvestmentTargetProgress(): Promise<{ data?: Investment
             const targetAmount = parseFloat(target.targetAmount.toString());
             const progress = targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
             
+            // Calculate date-related fields
+            let daysRemaining: number | undefined;
+            let isOverdue: boolean | undefined;
+            
+            if (target.targetCompletionDate) {
+                const targetDate = new Date(target.targetCompletionDate);
+                const currentDate = new Date();
+                const timeDifference = targetDate.getTime() - currentDate.getTime();
+                daysRemaining = Math.ceil(timeDifference / (1000 * 3600 * 24));
+                isOverdue = daysRemaining < 0;
+            }
+            
             return {
                 investmentType: target.investmentType,
                 targetAmount: targetAmount,
                 currentAmount,
                 progress: Math.min(progress, 100), // Cap at 100%
                 isComplete: progress >= 100,
+                targetCompletionDate: target.targetCompletionDate || undefined,
+                daysRemaining,
+                isOverdue,
             };
         });
 
