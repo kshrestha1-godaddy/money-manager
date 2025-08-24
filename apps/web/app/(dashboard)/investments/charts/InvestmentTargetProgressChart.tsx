@@ -5,6 +5,7 @@ import { InvestmentTargetProgress } from "../../../types/investments";
 import { Target } from "lucide-react";
 import { TargetProgressItem } from "../components/TargetProgressItem";
 import { ProgressLegend } from "../components/ProgressLegend";
+import { formatCurrency } from "../../../utils/currency";
 
 interface InvestmentTargetProgressChartProps {
     targets: InvestmentTargetProgress[];
@@ -26,21 +27,26 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
     // Memoize summary calculations
     const summary = React.useMemo(() => {
         if (!targets?.length) {
-            return { total: 0, completed: 0, averageProgress: 0 };
+            return { total: 0, completed: 0, averageProgress: 0, totalRemaining: 0 };
         }
         
         const completed = targets.filter(t => t.isComplete).length;
         const averageProgress = targets.reduce((sum, t) => sum + t.progress, 0) / targets.length;
+        const totalRemaining = targets.reduce((sum, t) => {
+            const remaining = Math.max(0, t.targetAmount - t.currentAmount);
+            return sum + remaining;
+        }, 0);
         
         return {
             total: targets.length,
             completed,
-            averageProgress: Number(averageProgress.toFixed(1))
+            averageProgress: Number(averageProgress.toFixed(1)),
+            totalRemaining: Number(totalRemaining.toFixed(2))
         };
     }, [
         targets?.length,
         // Add checksum to detect actual data changes, not just reference changes
-        targets?.reduce((sum, target) => sum + target.progress + (target.isComplete ? 1 : 0), 0) ?? 0
+        targets?.reduce((sum, target) => sum + target.progress + (target.isComplete ? 1 : 0) + target.targetAmount + target.currentAmount, 0) ?? 0
     ]);
 
     if (!targets?.length) {
@@ -78,7 +84,7 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
 
     return (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
                     <Target className="w-5 h-5 text-blue-600 mr-2" />
                     <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
@@ -95,7 +101,7 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
 
             {/* Summary */}
             <div className="mb-6 pb-4 border-b border-gray-200">
-                <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                     <div>
                         <p className="text-sm text-gray-600">Total Targets</p>
                         <p className="text-lg font-semibold text-gray-900">{summary.total}</p>
@@ -107,6 +113,10 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
                     <div>
                         <p className="text-sm text-gray-600">Average Progress</p>
                         <p className="text-lg font-semibold text-blue-600">{summary.averageProgress}%</p>
+                    </div>
+                    <div>
+                        <p className="text-sm text-gray-600">Total Remaining</p>
+                        <p className="text-lg font-semibold text-orange-600">{formatCurrency(summary.totalRemaining, currency)}</p>
                     </div>
                 </div>
             </div>
