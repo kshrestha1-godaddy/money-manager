@@ -342,7 +342,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                 <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart
                         data={timelineData}
-                        margin={{ top: 20, right: 30, left: 40, bottom: 50 }}
+                        margin={{ top: 20, right: 30, left: 40, bottom: 80 }}
                     >
                         <CartesianGrid 
                             strokeDasharray="3 3" 
@@ -362,13 +362,12 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                         />
                         
                         <XAxis 
-                            dataKey="date"
-                            tickFormatter={formatXAxisTick}
-                            tick={{ fontSize: 12 }}
+                            dataKey="formattedDate"
+                            tick={{ fontSize: 11 }}
                             stroke="#666"
                             angle={0}
                             textAnchor="middle"
-                            height={60}
+                            height={80}
                             interval="preserveStartEnd"
                         />
                         <YAxis 
