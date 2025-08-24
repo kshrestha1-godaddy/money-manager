@@ -6,7 +6,7 @@ import { ImportResult } from '../types/bulkImport';
  */
 export interface ParsedInvestmentData {
     name: string;
-    type: 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'OTHER';
+    type: 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'EMERGENCY_FUND' | 'MARRIAGE' | 'VACATION' | 'OTHER';
     symbol?: string;
     quantity: number;
     purchasePrice: number;
@@ -104,10 +104,10 @@ function parseDate(dateStr: string): Date {
 /**
  * Parse investment type
  */
-function parseInvestmentType(typeStr: string): 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'OTHER' {
+function parseInvestmentType(typeStr: string): 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'EMERGENCY_FUND' | 'MARRIAGE' | 'VACATION' | 'OTHER' {
     const normalizedType = typeStr.toUpperCase().replace(/[\s\-_]/g, '');
     
-    const typeMap: Record<string, 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'OTHER'> = {
+    const typeMap: Record<string, 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'EMERGENCY_FUND' | 'MARRIAGE' | 'VACATION' | 'OTHER'> = {
         'STOCKS': 'STOCKS',
         'STOCK': 'STOCKS',
         'EQUITY': 'STOCKS',
@@ -133,6 +133,16 @@ function parseInvestmentType(typeStr: string): 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUN
         'SAFEKEEPING': 'SAFE_KEEPINGS',
         'SAFETY': 'SAFE_KEEPINGS',
         'VAULT': 'SAFE_KEEPINGS',
+        'EMERGENCYFUND': 'EMERGENCY_FUND',
+        'EMERGENCY': 'EMERGENCY_FUND',
+        'EMERGENCYF': 'EMERGENCY_FUND',
+        'MARRIAGE': 'MARRIAGE',
+        'MARRIAGEFUND': 'MARRIAGE',
+        'WEDDING': 'MARRIAGE',
+        'VACATION': 'VACATION',
+        'VACATIONFUND': 'VACATION',
+        'HOLIDAY': 'VACATION',
+        'TRAVEL': 'VACATION',
         'OTHER': 'OTHER'
     };
     
@@ -229,7 +239,7 @@ function validateAndConvertRow(
     }
 
     // Parse investment type
-    let investmentType: 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'OTHER';
+    let investmentType: 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'EMERGENCY_FUND' | 'MARRIAGE' | 'VACATION' | 'OTHER';
     try {
         investmentType = parseInvestmentType(rowData.type);
     } catch {

@@ -86,7 +86,7 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
                         <div className="bg-gray-50 rounded-lg p-4">
                             <h3 className="text-lg font-semibold text-gray-900 mb-4">Investment Details</h3>
                             <div className="space-y-3">
-                                {(investment.type !== 'FIXED_DEPOSIT' && investment.type !== 'PROVIDENT_FUNDS' && investment.type !== 'SAFE_KEEPINGS') && (
+                                {(investment.type !== 'FIXED_DEPOSIT' && investment.type !== 'PROVIDENT_FUNDS' && investment.type !== 'SAFE_KEEPINGS' && investment.type !== 'EMERGENCY_FUND' && investment.type !== 'MARRIAGE' && investment.type !== 'VACATION') && (
                                     <div className="flex justify-between">
                                         <span className="text-gray-600">Quantity:</span>
                                         <span className="font-medium text-gray-900">{investment.quantity}</span>
@@ -94,7 +94,7 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
                                 )}
                                 <div className="flex justify-between">
                                     <span className="text-gray-600">
-                                        {investment.type === 'FIXED_DEPOSIT' ? 'Principal Amount:' : 
+                                        {(investment.type === 'FIXED_DEPOSIT' || investment.type === 'EMERGENCY_FUND' || investment.type === 'MARRIAGE' || investment.type === 'VACATION') ? 'Principal Amount:' : 
                                          investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' ? 'Investment Amount:' : 
                                          'Purchase Price:'}
                                     </span>
@@ -108,13 +108,13 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
                                         {formatCurrency(investment.currentPrice, userCurrency)}
                                     </span>
                                 </div>
-                                {(investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS') && investment.interestRate && (
+                                {(investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' || investment.type === 'EMERGENCY_FUND' || investment.type === 'MARRIAGE' || investment.type === 'VACATION') && investment.interestRate && (
                                     <div className="flex justify-between">
                                         <span className="text-gray-600">Interest Rate:</span>
                                         <span className="font-medium text-gray-900">{investment.interestRate}% per annum</span>
                                     </div>
                                 )}
-                                {(investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS') && investment.maturityDate && (
+                                {(investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' || investment.type === 'EMERGENCY_FUND' || investment.type === 'MARRIAGE' || investment.type === 'VACATION') && investment.maturityDate && (
                                     <div className="flex justify-between">
                                         <span className="text-gray-600">Maturity Date:</span>
                                         <span className="font-medium text-gray-900">
@@ -124,7 +124,7 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
                                 )}
                                 <div className="flex justify-between">
                                     <span className="text-gray-600">
-                                        {investment.type === 'FIXED_DEPOSIT' ? 'Deposit Date:' : 
+                                        {(investment.type === 'FIXED_DEPOSIT' || investment.type === 'EMERGENCY_FUND' || investment.type === 'MARRIAGE' || investment.type === 'VACATION') ? 'Deposit Date:' : 
                                          investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' ? 'Investment Date:' : 
                                          'Purchase Date:'}
                                     </span>

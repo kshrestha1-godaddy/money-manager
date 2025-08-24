@@ -26,9 +26,9 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
     
     const [formData, setFormData] = useState({
         name: "",
-        type: "STOCKS" as 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'OTHER',
+        type: "STOCKS" as 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'EMERGENCY_FUND' | 'MARRIAGE' | 'VACATION' | 'OTHER',
         symbol: "",
-        quantity: "",
+        quantity: "1", // Initialize with 1 to avoid validation issues
         purchasePrice: "",
         currentPrice: "",
         purchaseDate: new Date().toISOString().split('T')[0],
@@ -48,6 +48,13 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
             loadAccounts();
         }
     }, [isOpen]);
+
+    // Auto-set quantity to 1 for deposit-like investment types
+    useEffect(() => {
+        if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') {
+            setFormData(prev => ({ ...prev, quantity: "1" }));
+        }
+    }, [formData.type]);
 
     const loadAccounts = async () => {
         try {
@@ -84,22 +91,23 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                 return;
             }
             
-            if (formData.type === 'FIXED_DEPOSIT') {
-                // Fixed Deposit specific validation
+            if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') {
+                // Fixed Deposit and similar investment types validation
                 if (!formData.purchasePrice || parseFloat(formData.purchasePrice) <= 0) {
                     setError("Principal amount must be greater than 0");
                     return;
                 }
-                if (formData.interestRate === "" || parseFloat(formData.interestRate) < 0) {
+                if (formData.interestRate && parseFloat(formData.interestRate) < 0) {
                     setError("Interest rate must be 0 or greater");
                     return;
                 }
-                if (!formData.maturityDate) {
+                // Only require maturity date for Fixed Deposits, make it optional for other types
+                if (formData.type === 'FIXED_DEPOSIT' && !formData.maturityDate) {
                     setError("Maturity date is required for Fixed Deposits");
                     return;
                 }
                 if (formData.maturityDate && formData.purchaseDate && new Date(formData.maturityDate) <= new Date(formData.purchaseDate)) {
-                    setError("Maturity date must be after the purchase date");
+                    setError("Maturity date must be after the deposit date");
                     return;
                 }
             } else if (formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') {
@@ -127,7 +135,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
             }
             
             // Account selection validation - optional for Provident Funds and Safe Keepings
-            if (!formData.accountId && formData.type !== 'PROVIDENT_FUNDS' && formData.type !== 'SAFE_KEEPINGS') {
+            if (!formData.accountId && formData.type !== 'PROVIDENT_FUNDS' && formData.type !== 'SAFE_KEEPINGS' && formData.type !== 'EMERGENCY_FUND' && formData.type !== 'MARRIAGE' && formData.type !== 'VACATION') {
                 setError("Please select an account");
                 return;
             }
@@ -157,9 +165,9 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                 name: formData.name.trim(),
                 type: formData.type,
                 symbol: formData.symbol.trim() || undefined,
-                quantity: (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') ? 1 : parseFloat(formData.quantity || "0"),
+                quantity: (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') ? 1 : parseFloat(formData.quantity || "0"),
                 purchasePrice: parseFloat(formData.purchasePrice || "0"),
-                currentPrice: (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') ? parseFloat(formData.purchasePrice || "0") : parseFloat(formData.currentPrice || "0"),
+                currentPrice: (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') ? parseFloat(formData.purchasePrice || "0") : parseFloat(formData.currentPrice || "0"),
                 purchaseDate: new Date(formData.purchaseDate + 'T00:00:00'),
                 accountId: formData.accountId ? parseInt(formData.accountId) : undefined,
                 notes: formData.notes.trim() || undefined,
@@ -169,7 +177,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
             if (formData.type === 'FIXED_DEPOSIT') {
                 investmentData.interestRate = parseFloat(formData.interestRate || "0");
                 investmentData.maturityDate = formData.maturityDate ? new Date(formData.maturityDate + 'T00:00:00') : undefined;
-            } else if (formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') {
+            } else if (formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') {
                 // Optional interest rate and maturity date for these types
                 if (formData.interestRate) {
                     investmentData.interestRate = parseFloat(formData.interestRate);
@@ -186,16 +194,19 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                 name: "",
                 type: "STOCKS",
                 symbol: "",
-                quantity: "",
+                quantity: "1", // Start with 1 to avoid validation issues
                 purchasePrice: "",
                 currentPrice: "",
-                        purchaseDate: getLocalDateString(),
+                purchaseDate: getLocalDateString(),
                 accountId: "",
                 notes: "",
                 // Fixed Deposit specific fields
                 interestRate: "",
                 maturityDate: "",
             });
+            
+            // Close modal on success
+            onClose();
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to add investment");
         } finally {
@@ -210,6 +221,9 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
 
     const investmentTypes = [
         { value: 'FIXED_DEPOSIT', label: 'Fixed Deposit' },
+        { value: 'EMERGENCY_FUND', label: 'Emergency Fund' },
+        { value: 'MARRIAGE', label: 'Marriage' },
+        { value: 'VACATION', label: 'Vacation' },
         { value: 'STOCKS', label: 'Stocks' },
         { value: 'CRYPTO', label: 'Cryptocurrency' },
         { value: 'MUTUAL_FUNDS', label: 'Mutual Funds' },
@@ -277,7 +291,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                         </select>
                     </div>
 
-                    {formData.type !== 'FIXED_DEPOSIT' && formData.type !== 'PROVIDENT_FUNDS' && formData.type !== 'SAFE_KEEPINGS' && (
+                    {formData.type !== 'FIXED_DEPOSIT' && formData.type !== 'PROVIDENT_FUNDS' && formData.type !== 'SAFE_KEEPINGS' && formData.type !== 'EMERGENCY_FUND' && formData.type !== 'MARRIAGE' && formData.type !== 'VACATION' && (
                         <div>
                             <label htmlFor="symbol" className="block text-sm font-medium text-gray-700 mb-1">
                                 Symbol (Optional)
@@ -293,7 +307,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                         </div>
                     )}
 
-                    {formData.type === 'FIXED_DEPOSIT' ? (
+                    {(formData.type === 'FIXED_DEPOSIT' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') ? (
                         <>
                             <div>
                                 <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 mb-1">
@@ -456,7 +470,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
 
                     <div>
                         <label htmlFor="purchaseDate" className="block text-sm font-medium text-gray-700 mb-1">
-                            {formData.type === 'FIXED_DEPOSIT' ? 'Deposit Date *' : 'Purchase Date *'}
+                            {(formData.type === 'FIXED_DEPOSIT' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') ? 'Deposit Date *' : 'Purchase Date *'}
                         </label>
                         <input
                             type="date"
@@ -473,7 +487,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                             Account {formData.type !== 'PROVIDENT_FUNDS' && formData.type !== 'SAFE_KEEPINGS' ? '*' : '(Optional)'} {formData.accountId && (() => {
                                 const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
                                 let totalAmount: number;
-                                if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') {
+                                if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') {
                                     totalAmount = parseFloat(formData.purchasePrice || "0");
                                 } else {
                                     totalAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice || "0");
@@ -502,10 +516,10 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                                 </option>
                             ))}
                         </select>
-                        {formData.accountId && formData.purchasePrice && (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.quantity) && (() => {
+                        {formData.accountId && formData.purchasePrice && (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION' || formData.quantity) && (() => {
                             const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
                             let totalAmount: number;
-                            if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') {
+                            if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') {
                                 totalAmount = parseFloat(formData.purchasePrice);
                             } else {
                                 totalAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice);
@@ -547,10 +561,10 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                         <button
                             type="submit"
                             disabled={loading || (() => {
-                                if (formData.accountId && formData.purchasePrice && (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.quantity)) {
+                                if (formData.accountId && formData.purchasePrice && (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION' || formData.quantity)) {
                                     const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
                                     let totalAmount: number;
-                                    if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') {
+                                    if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') {
                                         totalAmount = parseFloat(formData.purchasePrice);
                                     } else {
                                         totalAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice);
@@ -561,10 +575,10 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                             })()}
                             className={`flex-1 px-4 py-2 rounded-md disabled:opacity-50 ${
                                 (() => {
-                                    if (formData.accountId && formData.purchasePrice && (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.quantity)) {
+                                    if (formData.accountId && formData.purchasePrice && (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION' || formData.quantity)) {
                                         const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
                                         let totalAmount: number;
-                                        if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') {
+                                        if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') {
                                             totalAmount = parseFloat(formData.purchasePrice);
                                         } else {
                                             totalAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice);

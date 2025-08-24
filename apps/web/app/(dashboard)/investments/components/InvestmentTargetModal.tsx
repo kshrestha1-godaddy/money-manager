@@ -26,6 +26,9 @@ export const INVESTMENT_TYPES = [
     { value: 'REAL_ESTATE', label: 'Real Estate' },
     { value: 'GOLD', label: 'Gold' },
     { value: 'FIXED_DEPOSIT', label: 'Fixed Deposit' },
+    { value: 'EMERGENCY_FUND', label: 'Emergency Fund' },
+    { value: 'MARRIAGE', label: 'Marriage' },
+    { value: 'VACATION', label: 'Vacation' },
     { value: 'PROVIDENT_FUNDS', label: 'Provident Funds' },
     { value: 'SAFE_KEEPINGS', label: 'Safe Keepings' },
     { value: 'OTHER', label: 'Other' },
@@ -40,6 +43,9 @@ export const formatInvestmentType = (type: string): string => {
         case 'REAL_ESTATE': return 'Real Estate';
         case 'GOLD': return 'Gold';
         case 'FIXED_DEPOSIT': return 'Fixed Deposit';
+        case 'EMERGENCY_FUND': return 'Emergency Fund';
+        case 'MARRIAGE': return 'Marriage';
+        case 'VACATION': return 'Vacation';
         case 'PROVIDENT_FUNDS': return 'Provident Funds';
         case 'SAFE_KEEPINGS': return 'Safe Keepings';
         case 'OTHER': return 'Other';

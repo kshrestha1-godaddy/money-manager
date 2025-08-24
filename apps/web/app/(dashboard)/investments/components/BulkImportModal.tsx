@@ -106,7 +106,7 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImportModalP
                         </p>
                         <div className="text-xs text-blue-600 space-y-1">
                             <p>• Date format: YYYY-MM-DD, MM/DD/YYYY, or DD-MM-YYYY</p>
-                            <p>• Investment types: STOCKS, CRYPTO, MUTUAL_FUNDS, BONDS, REAL_ESTATE, GOLD, FIXED_DEPOSIT, OTHER</p>
+                            <p>• Investment types: STOCKS, CRYPTO, MUTUAL_FUNDS, BONDS, REAL_ESTATE, GOLD, FIXED_DEPOSIT, EMERGENCY_FUND, MARRIAGE, VACATION, PROVIDENT_FUNDS, SAFE_KEEPINGS, OTHER</p>
                             <p>• Account names from CSV will be automatically matched with existing accounts</p>
                         </div>
                     </div>

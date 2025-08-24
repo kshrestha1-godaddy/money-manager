@@ -178,7 +178,7 @@ export async function createInvestment(investment: Omit<InvestmentInterface, 'id
                     throw new Error("Selected account not found");
                 }
 
-                const totalInvestmentAmount = (investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS') ? 
+                const totalInvestmentAmount = (investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' || investment.type === 'EMERGENCY_FUND' || investment.type === 'MARRIAGE' || investment.type === 'VACATION') ? 
                     investment.purchasePrice : investment.quantity * investment.purchasePrice;
                 const currentBalance = parseFloat(account.balance.toString());
                 
@@ -200,7 +200,7 @@ export async function createInvestment(investment: Omit<InvestmentInterface, 'id
 
             // Update the account balance (decrease by investment amount) only if account is provided
             if (investment.accountId && account) {
-                const totalInvestmentAmount = (investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS') ? 
+                const totalInvestmentAmount = (investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' || investment.type === 'EMERGENCY_FUND' || investment.type === 'MARRIAGE' || investment.type === 'VACATION') ? 
                     investment.purchasePrice : investment.quantity * investment.purchasePrice;
                 
                 await tx.account.update({
@@ -373,7 +373,7 @@ export async function deleteInvestment(id: number) {
 
             // Restore the account balance only if investment was linked to an account
             if (existingInvestment.accountId) {
-                const totalInvestmentAmount = (existingInvestment.type === 'FIXED_DEPOSIT' || existingInvestment.type === 'PROVIDENT_FUNDS' || existingInvestment.type === 'SAFE_KEEPINGS') ? 
+                const totalInvestmentAmount = (existingInvestment.type === 'FIXED_DEPOSIT' || existingInvestment.type === 'PROVIDENT_FUNDS' || existingInvestment.type === 'SAFE_KEEPINGS' || existingInvestment.type === 'EMERGENCY_FUND' || existingInvestment.type === 'MARRIAGE' || existingInvestment.type === 'VACATION') ? 
                     parseFloat(existingInvestment.purchasePrice.toString()) : 
                     parseFloat(existingInvestment.quantity.toString()) * parseFloat(existingInvestment.purchasePrice.toString());
                 
@@ -498,7 +498,7 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
                                 continue;
                             }
 
-                            const totalInvestmentAmount = (investmentData.type === 'FIXED_DEPOSIT' || investmentData.type === 'PROVIDENT_FUNDS' || investmentData.type === 'SAFE_KEEPINGS') ? 
+                            const totalInvestmentAmount = (investmentData.type === 'FIXED_DEPOSIT' || investmentData.type === 'PROVIDENT_FUNDS' || investmentData.type === 'SAFE_KEEPINGS' || investmentData.type === 'EMERGENCY_FUND' || investmentData.type === 'MARRIAGE' || investmentData.type === 'VACATION') ? 
                                 investmentData.purchasePrice : 
                                 investmentData.quantity * investmentData.purchasePrice;
 

@@ -418,7 +418,7 @@ function InvestmentRow({
                 </span>
             </td>
             <td className="px-6 py-4 text-sm text-gray-900" style={{ width: `${columnWidths.quantityInterest}px` }}>
-                {investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' ? (
+                {investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' || investment.type === 'EMERGENCY_FUND' || investment.type === 'MARRIAGE' || investment.type === 'VACATION' ? (
                     <div className="space-y-1">
                         {investment.interestRate && (
                             <div className="font-medium">{investment.interestRate}% p.a.</div>
@@ -451,7 +451,7 @@ function InvestmentRow({
                 </div>
             </td>
             <td className="px-6 py-4 text-sm text-gray-900" style={{ width: `${columnWidths.currentValue}px` }}>
-                {investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' ? (
+                {investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' || investment.type === 'EMERGENCY_FUND' || investment.type === 'MARRIAGE' || investment.type === 'VACATION' ? (
                     <div className="space-y-1">
                         <div className="break-words font-medium">{formatCurrency(investment.currentPrice, currency)}</div>
                         <div className="text-xs text-gray-500">Current Value</div>

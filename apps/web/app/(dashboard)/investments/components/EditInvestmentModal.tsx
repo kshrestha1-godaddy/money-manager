@@ -107,17 +107,18 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                 return;
             }
             
-            if (formData.type === 'FIXED_DEPOSIT') {
-                // Fixed Deposit specific validation
+            if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') {
+                // Fixed Deposit and similar investment types validation
                 if (!formData.purchasePrice || parseFloat(formData.purchasePrice) <= 0) {
                     setError("Principal amount must be greater than 0");
                     return;
                 }
-                if (formData.interestRate === "" || parseFloat(formData.interestRate) < 0) {
+                if (formData.interestRate && parseFloat(formData.interestRate) < 0) {
                     setError("Interest rate must be 0 or greater");
                     return;
                 }
-                if (!formData.maturityDate) {
+                // Only require maturity date for Fixed Deposits, make it optional for other types
+                if (formData.type === 'FIXED_DEPOSIT' && !formData.maturityDate) {
                     setError("Maturity date is required for Fixed Deposits");
                     return;
                 }
@@ -161,7 +162,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                 let newTotalAmount: number;
                 let oldTotalAmount: number;
                 
-                if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') {
+                if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') {
                     newTotalAmount = parseFloat(formData.purchasePrice);
                     oldTotalAmount = (investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS') ? 
                         investment.purchasePrice : investment.quantity * investment.purchasePrice;
@@ -190,11 +191,11 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
 
             const investmentData: any = {
                 name: formData.name.trim(),
-                type: formData.type as 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'OTHER',
+                type: formData.type as 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'EMERGENCY_FUND' | 'MARRIAGE' | 'VACATION' | 'OTHER',
                 symbol: formData.symbol.trim() || undefined,
-                quantity: (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') ? 1 : parseFloat(formData.quantity),
+                quantity: (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') ? 1 : parseFloat(formData.quantity),
                 purchasePrice: parseFloat(formData.purchasePrice),
-                currentPrice: (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') ? parseFloat(formData.purchasePrice) : parseFloat(formData.currentPrice),
+                currentPrice: (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') ? parseFloat(formData.purchasePrice) : parseFloat(formData.currentPrice),
                 purchaseDate: new Date(formData.purchaseDate + 'T00:00:00'),
                 accountId: formData.accountId ? parseInt(formData.accountId) : undefined,
                 notes: formData.notes.trim() || undefined,
@@ -204,7 +205,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
             if (formData.type === 'FIXED_DEPOSIT') {
                 investmentData.interestRate = parseFloat(formData.interestRate || "0");
                 investmentData.maturityDate = formData.maturityDate ? new Date(formData.maturityDate + 'T00:00:00') : undefined;
-            } else if (formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') {
+            } else if (formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') {
                 // Optional interest rate and maturity date for these types
                 if (formData.interestRate) {
                     investmentData.interestRate = parseFloat(formData.interestRate);
@@ -235,6 +236,9 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
         { value: 'REAL_ESTATE', label: 'Real Estate' },
         { value: 'GOLD', label: 'Gold' },
         { value: 'FIXED_DEPOSIT', label: 'Fixed Deposit' },
+        { value: 'EMERGENCY_FUND', label: 'Emergency Fund' },
+        { value: 'MARRIAGE', label: 'Marriage' },
+        { value: 'VACATION', label: 'Vacation' },
         { value: 'PROVIDENT_FUNDS', label: 'Provident Funds' },
         { value: 'SAFE_KEEPINGS', label: 'Safe Keepings' },
         { value: 'OTHER', label: 'Other' },
@@ -312,7 +316,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                         </div>
                     )}
 
-                    {formData.type === 'FIXED_DEPOSIT' ? (
+                    {(formData.type === 'FIXED_DEPOSIT' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') ? (
                         <>
                             <div>
                                 <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 mb-1">
@@ -475,7 +479,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
 
                     <div>
                         <label htmlFor="purchaseDate" className="block text-sm font-medium text-gray-700 mb-1">
-                            {formData.type === 'FIXED_DEPOSIT' ? 'Deposit Date *' : 'Purchase Date *'}
+                            {(formData.type === 'FIXED_DEPOSIT' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') ? 'Deposit Date *' : 'Purchase Date *'}
                         </label>
                         <input
                             type="date"
