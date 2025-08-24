@@ -19,6 +19,7 @@ import { getGainLossClasses, BUTTON_COLORS, TEXT_COLORS, CONTAINER_COLORS, INPUT
 import { ChartAnimationProvider } from "../../hooks/useChartAnimationContext";
 import { InvestmentTypePolarChart } from "./charts/InvestmentTypePolarChart";
 import { InvestmentTargetProgressChart } from "./charts/InvestmentTargetProgressChart";
+import { InvestmentTargetTimelineChart } from "./charts/InvestmentTargetTimelineChart";
 // import { InvestmentTypePieChart } from "./charts/InvestmentTypePieChart";
 
 const pageContainer = CONTAINER_COLORS.page;
@@ -279,6 +280,15 @@ export default function InvestmentsPageClient() {
           <div>
             <InvestmentTargetProgressChart {...targetChartProps} />
           </div>
+        </div>
+
+        {/* Investment Target Timeline Chart - Full Width */}
+        <div className="mt-6">
+          <InvestmentTargetTimelineChart 
+            targets={stableTargetProgress} 
+            currency={userCurrency} 
+            title="Investment Target Timeline" 
+          />
         </div>
 
         <div className={UI_STYLES.filters.containerWithMargin}>
