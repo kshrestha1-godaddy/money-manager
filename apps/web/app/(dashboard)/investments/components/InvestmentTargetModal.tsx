@@ -81,6 +81,7 @@ export function InvestmentTargetModal({
         investmentType: 'STOCKS',
         targetAmount: 0,
         targetCompletionDate: undefined,
+        nickname: '',
     });
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string>("");
@@ -101,6 +102,7 @@ export function InvestmentTargetModal({
                     investmentType: existingTarget.investmentType,
                     targetAmount: parseFloat(existingTarget.targetAmount.toString()),
                     targetCompletionDate: existingTarget.targetCompletionDate || undefined,
+                    nickname: existingTarget.nickname || '',
                 });
             } else {
                 // For create mode, find the first available type
@@ -110,6 +112,7 @@ export function InvestmentTargetModal({
                     investmentType: defaultType as any,
                     targetAmount: 0,
                     targetCompletionDate: undefined,
+                    nickname: '',
                 });
             }
             setError("");
@@ -215,6 +218,28 @@ export function InvestmentTargetModal({
                                     All investment types already have targets set.
                                 </p>
                             )}
+                        </div>
+
+                        {/* Nickname */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Nickname (Optional)
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.nickname || ''}
+                                onChange={(e) => setFormData(prev => ({ 
+                                    ...prev, 
+                                    nickname: e.target.value 
+                                }))}
+                                disabled={isLoading}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                placeholder="e.g., Retirement Fund, Emergency Savings"
+                                maxLength={50}
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                                Give your investment target a memorable name
+                            </p>
                         </div>
 
                         {/* Target Amount */}

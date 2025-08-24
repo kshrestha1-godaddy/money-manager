@@ -240,6 +240,7 @@ export async function getInvestmentTargetProgress(): Promise<{ data?: Investment
                 progress: Math.min(progress, 100), // Cap at 100%
                 isComplete: progress >= 100,
                 targetCompletionDate: target.targetCompletionDate || undefined,
+                nickname: target.nickname || undefined,
                 daysRemaining,
                 isOverdue,
             };

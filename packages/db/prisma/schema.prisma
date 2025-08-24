@@ -163,6 +163,7 @@ model InvestmentTarget {
   investmentType InvestmentType
   targetAmount Decimal
   targetCompletionDate DateTime? // Target date for completing the investment goal
+  nickname String? // Optional nickname for the investment target
   user User @relation(fields: [userId], references: [id])
   userId Int
   createdAt DateTime @default(now())

@@ -146,9 +146,16 @@ export function TargetProgressItem({ target, currency, onEditTarget }: TargetPro
         <div className={`p-4 rounded-lg border ${getProgressBgColor(target.progress, target.isComplete, target.isOverdue)}`}>
             <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center">
-                    <h4 className="font-medium text-gray-900">
-                        {formatInvestmentType(target.investmentType)}
-                    </h4>
+                    <div>
+                        <h4 className="font-medium text-gray-900">
+                            {target.nickname || formatInvestmentType(target.investmentType)}
+                        </h4>
+                        {target.nickname && (
+                            <p className="text-xs text-gray-500 mt-0.5">
+                                {formatInvestmentType(target.investmentType)}
+                            </p>
+                        )}
+                    </div>
                     {target.isComplete && (
                         <TrendingUp className="w-4 h-4 text-green-600 ml-2" />
                     )}
