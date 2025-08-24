@@ -7,6 +7,7 @@ import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency, getCurrencySymbol } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
 import { useChartExpansion } from "../../utils/chartUtils";
+import { calculateRemainingWithInterest } from "../../utils/interestCalculation";
 import { ChartControls } from "../../components/ChartControls";
 import { useOptimizedWorth } from "../../hooks/useOptimizedWorth";
 import { TrendingUp, TrendingDown, DollarSign, Target, PiggyBank, BarChart3, RefreshCw, Download, Info } from "lucide-react";
@@ -500,9 +501,24 @@ export default function NetWorthPage() {
                             ) : (
                                 <div className="space-y-3">
                                     {section.items.map((item: any, index: number) => {
-                                        const itemValue = section.key === 'investments' 
-                                            ? item.quantity * item.currentPrice
-                                            : item.balance || item.amount || 0;
+                                        let itemValue: number;
+                                        if (section.key === 'investments') {
+                                            itemValue = item.quantity * item.currentPrice;
+                                        } else if (section.key === 'debts') {
+                                            // For debts, calculate the remaining amount after partial payments
+                                            const remainingWithInterest = calculateRemainingWithInterest(
+                                                item.amount,
+                                                item.interestRate,
+                                                item.lentDate,
+                                                item.dueDate,
+                                                item.repayments || [],
+                                                new Date(),
+                                                item.status
+                                            );
+                                            itemValue = Math.max(0, remainingWithInterest.remainingAmount);
+                                        } else {
+                                            itemValue = item.balance || item.amount || 0;
+                                        }
                                         const itemPercentage = calculateItemPercentage(itemValue, section.value);
                                         
                                         return (
