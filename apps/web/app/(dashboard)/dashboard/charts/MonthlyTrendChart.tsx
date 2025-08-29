@@ -97,18 +97,20 @@ SummaryStats.displayName = 'SummaryStats';
 
 // Memoized Chart Legend Component
 const ChartLegend = React.memo(() => (
-    <div className="flex justify-center items-center gap-3 sm:gap-6 pb-2">
-        <div className="flex items-center gap-2">
-            <div className="w-3 h-3 sm:w-4 sm:h-4 bg-green-500 rounded"></div>
-            <span className="text-xs sm:text-sm text-gray-700">Income</span>
-        </div>
-        <div className="flex items-center gap-2">
-            <div className="w-3 h-3 sm:w-4 sm:h-4 bg-red-500 rounded"></div>
-            <span className="text-xs sm:text-sm text-gray-700">Expenses</span>
-        </div>
-        <div className="flex items-center gap-2">
-            <div className="w-3 h-3 sm:w-4 sm:h-4 bg-blue-500 rounded"></div>
-            <span className="text-xs sm:text-sm text-gray-700">Savings</span>
+    <div className="w-full flex justify-center pb-2">
+        <div className="flex justify-between items-center w-full max-w-sm">
+            <div className="flex items-center gap-2">
+                <div className="w-3 h-3 sm:w-4 sm:h-4 bg-green-500 rounded"></div>
+                <span className="text-xs sm:text-sm text-gray-700">Income</span>
+            </div>
+            <div className="flex items-center gap-2">
+                <div className="w-3 h-3 sm:w-4 sm:h-4 bg-red-500 rounded"></div>
+                <span className="text-xs sm:text-sm text-gray-700">Expenses</span>
+            </div>
+            <div className="flex items-center gap-2">
+                <div className="w-3 h-3 sm:w-4 sm:h-4 bg-blue-500 rounded"></div>
+                <span className="text-xs sm:text-sm text-gray-700">Savings</span>
+            </div>
         </div>
     </div>
 ));
@@ -436,8 +438,9 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
             <div>
                 <SummaryStats calculations={calculations} currency={currency} />
                 {Chart}
-                <ChartLegend />
+                
             </div>
+            <ChartLegend />
         </div>
     );
 });
