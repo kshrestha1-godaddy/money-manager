@@ -214,7 +214,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
     }, [chartData, total, smallCategories, rawChartData]);
 
     const ChartContent = () => (
-        <div>
+        <div className="px-2 py-6">
             <div className="flex justify-start items-center mb-3 sm:mb-4">
                 <div className="text-left">
                     <p className="text-xs sm:text-sm text-gray-600">{totalLabel}</p>
@@ -228,7 +228,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                 {/* Pie Chart */}
                 <div 
                     ref={chartRef} 
-                    className={`${isExpanded ? "h-[45rem]" : (heightClass ?? "h-[20rem] sm:h-[24rem] md:h-[32rem]")} lg:col-span-2`}
+                    className={`w-full max-w-5xl mx-auto ${isExpanded ? "h-[45rem]" : (heightClass ?? "h-[28rem] sm:h-[32rem]")} lg:col-span-2`}
                     role="img"
                     aria-label={`${type === 'income' ? 'Income' : 'Expense'} categories pie chart showing distribution of ${formatCurrency(total, currency)} across different categories`}
                 >
@@ -241,8 +241,8 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                                 cy="50%"
                                 labelLine={false}
                                 label={renderCustomizedLabel}
-                                outerRadius={isExpanded ? 200 : 110}
-                                innerRadius={isExpanded ? 70 : 60}
+                                outerRadius={isExpanded ? 200 : 160}
+                                innerRadius={isExpanded ? 70 : 100}
                                 fill="#8884d8"
                                 dataKey="value"
                                 stroke="#ffffff"
@@ -275,7 +275,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                 </div>
 
                 {/* Legend and breakdown */}
-                <div className="space-y-2 sm:space-y-3">
+                <div className="space-y-2 sm:space-y-3 pr-10">
                     <h4 className="text-sm sm:text-base font-medium text-gray-900">Category Breakdown</h4>
                     <div className="space-y-1 sm:space-y-2 max-h-60 sm:max-h-80 overflow-y-auto">
                         {chartData.map((entry, index) => {
