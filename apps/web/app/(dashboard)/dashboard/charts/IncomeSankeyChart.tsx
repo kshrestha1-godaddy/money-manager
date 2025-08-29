@@ -238,7 +238,7 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
                 chartRef={chartRef}
                 showExpandButton={false}
             />
-            <div className="px-2 py-6">
+            <div className="px-8 py-6">
                 {sankeyData.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-16 text-gray-500">
                         <h3 className="text-lg font-medium mb-2">No Income Data</h3>
@@ -250,7 +250,7 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
                 ) : (
                     <div
                         ref={chartRef}
-                        className={`w-full max-w-7xl mx-auto overflow-hidden ${heightClass ?? 'h-[28rem] sm:h-[32rem]'}`}
+                        className={`w-full max-w-8xl mx-auto overflow-hidden ${heightClass ?? 'h-[28rem] sm:h-[32rem]'}`}
                         style={{
                             minWidth: '400px',
                             width: '100%',
