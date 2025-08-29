@@ -97,7 +97,7 @@ SummaryStats.displayName = 'SummaryStats';
 
 // Memoized Chart Legend Component
 const ChartLegend = React.memo(() => (
-    <div className="flex justify-center items-center gap-3 sm:gap-6 mt-4">
+    <div className="flex justify-center items-center gap-3 sm:gap-6 pb-2">
         <div className="flex items-center gap-2">
             <div className="w-3 h-3 sm:w-4 sm:h-4 bg-green-500 rounded"></div>
             <span className="text-xs sm:text-sm text-gray-700">Income</span>
