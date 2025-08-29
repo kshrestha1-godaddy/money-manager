@@ -75,8 +75,8 @@ export function FinancialList({
     const [columnWidths, setColumnWidths] = useState({
         checkbox: 20,
         bookmark: 20,
-        title: 200,
-        category: 120,
+        title: 180,
+        category: 130,
         account: 192,
         date: 112,
         tags: 110,
