@@ -187,14 +187,14 @@ export function extractFormData(item: any): BaseFormData {
     return {
         title: item.title || '',
         description: item.description || '',
-        amount: item.amount?.toString() || '',
+        amount: item.originalAmount?.toString() || item.amount?.toString() || '',
         amountCurrency: item.originalCurrency || 'INR',
         date: item.date ? formatDateForInput(item.date) : '',
         categoryId: item.categoryId?.toString() || '',
         accountId: !item.accountId ? '0' : item.accountId.toString(),
-        tags: Array.isArray(item.tags) ? item.tags.join(', ') : '',
-        location: Array.isArray(item.location) ? item.location.join(', ') : '',
-        notes: item.notes || '',
+        tags: Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || ''),
+        location: Array.isArray(item.location) ? item.location.join(', ') : (item.location || ''),
+        notes: item.notes !== null && item.notes !== undefined ? String(item.notes) : '',
         isRecurring: item.isRecurring || false,
         recurringFrequency: (item.recurringFrequency || 'MONTHLY') as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY'
     };

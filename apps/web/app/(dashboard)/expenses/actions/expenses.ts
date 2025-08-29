@@ -64,6 +64,10 @@ export async function getExpenses() {
             createdAt: new Date(expense.createdAt),
             updatedAt: new Date(expense.updatedAt),
             isBookmarked: bookmarkedExpenseIds.has(expense.id),
+            // Ensure tags, location, and notes are properly handled
+            tags: expense.tags || [],
+            location: expense.location || [],
+            notes: expense.notes || null, // Explicitly handle notes
             // Convert account balance from Decimal to number
             account: expense.account ? {
                 ...expense.account,
@@ -103,6 +107,7 @@ export async function createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'up
                     connect: { id: userId }
                 },
                 tags: data.tags,
+                location: data.location,
                 receipt: data.receipt,
                 notes: data.notes,
                 isRecurring: data.isRecurring,
@@ -213,6 +218,7 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
             updateData.account = (data.accountId === null) ? { disconnect: true } : { connect: { id: data.accountId } };
         }
         if (data.tags !== undefined) updateData.tags = data.tags;
+        if (data.location !== undefined) updateData.location = data.location;
         if (data.receipt !== undefined) updateData.receipt = data.receipt;
         if (data.notes !== undefined) updateData.notes = data.notes;
         if (data.isRecurring !== undefined) updateData.isRecurring = data.isRecurring;

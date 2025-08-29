@@ -22,6 +22,9 @@ const getDisplayIncome = (prismaIncome: any): Income => ({
     date: new Date(prismaIncome.date),
     createdAt: new Date(prismaIncome.createdAt),
     updatedAt: new Date(prismaIncome.updatedAt),
+    // Ensure tags and location are arrays
+    tags: prismaIncome.tags || [],
+    location: prismaIncome.location || [],
     account: prismaIncome.account ? {
         ...prismaIncome.account,
         balance: parseFloat(prismaIncome.account.balance.toString()),
@@ -87,6 +90,7 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
                 category: { connect: { id: data.categoryId } },
                 user: { connect: { id: userId } },
                 tags: data.tags,
+                location: data.location,
                 notes: data.notes,
                 isRecurring: data.isRecurring,
                 recurringFrequency: data.recurringFrequency
@@ -163,6 +167,7 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
             updateData.account = data.accountId === null ? { disconnect: true } : { connect: { id: data.accountId } };
         }
         if (data.tags !== undefined) updateData.tags = data.tags;
+        if (data.location !== undefined) updateData.location = data.location;
         if (data.notes !== undefined) updateData.notes = data.notes;
         if (data.isRecurring !== undefined) updateData.isRecurring = data.isRecurring;
         if (data.recurringFrequency !== undefined) updateData.recurringFrequency = data.recurringFrequency;
