@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { Button } from "@repo/ui/button";
 import { BookmarkInterface } from "../../types/bookmarks";
 import { getBookmarks, createBookmark, deleteBookmark } from "../../actions/bookmarks";
 import { BookmarkGrid } from "./components/BookmarkCard";
