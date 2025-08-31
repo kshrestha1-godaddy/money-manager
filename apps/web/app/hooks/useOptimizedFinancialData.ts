@@ -7,12 +7,14 @@ import { getUserAccounts } from "../(dashboard)/accounts/actions/accounts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
 import { exportCategoriesByType } from "../utils/csvExportCategories";
 import { NotificationData } from "../components/DisappearingNotification";
+import { formatCurrency } from "../utils/currency";
 
 
 export interface UseOptimizedFinancialDataOptions {
   fetchCategories?: boolean;
   fetchAccounts?: boolean;
   onNotification?: (notification: NotificationData) => void;
+  userCurrency?: string;
 }
 
 export function useOptimizedFinancialData<T extends FinancialItem>(
@@ -87,9 +89,12 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
       // Show success notification if callback provided
       if (options.onNotification) {
         const isExpense = categoryType === "EXPENSE";
+        const currency = options.userCurrency || "USD";
+        const formattedAmount = formatCurrency(newItem.amount, currency);
+        
         options.onNotification({
           title: `${isExpense ? 'Expense' : 'Income'} Added Successfully!`,
-          message: `${newItem.title} - $${newItem.amount.toFixed(2)} has been recorded`,
+          message: `${newItem.title} - ${formattedAmount} has been recorded`,
           type: isExpense ? "warning" : "success",
           duration: 3000
         });

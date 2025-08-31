@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Info } from 'lucide-react';
 import { useOptimizedFinancialData } from '../../hooks/useOptimizedFinancialData';
@@ -17,6 +17,7 @@ import { exportIncomesToCSV } from '../../utils/csvExportIncomes';
 import { createTransactionBookmark, deleteTransactionBookmarkByTransaction } from '../transactions/actions/transaction-bookmarks';
 import { Income } from '../../types/financial';
 import { useCurrency } from '../../providers/CurrencyProvider';
+import { DisappearingNotification, NotificationData } from '../../components/DisappearingNotification';
 import { BUTTON_COLORS, TEXT_COLORS, CONTAINER_COLORS, LOADING_COLORS, UI_STYLES } from '../../config/colorConfig';
 
 const pageContainer = CONTAINER_COLORS.page;
@@ -36,6 +37,7 @@ const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
 export default function IncomesPageClient() {
   const { currency: userCurrency } = useCurrency();
   const searchParams = useSearchParams();
+  const [notification, setNotification] = useState<NotificationData | null>(null);
 
   const {
     items: incomes,
@@ -100,6 +102,9 @@ export default function IncomesPageClient() {
     deleteItem: deleteIncome,
     bulkDeleteItems: bulkDeleteIncomes,
     exportToCSV: exportIncomesToCSV,
+  }, {
+    onNotification: setNotification,
+    userCurrency: userCurrency
   });
 
   const handleBookmarkToggle = async (income: Income) => {
@@ -303,6 +308,7 @@ export default function IncomesPageClient() {
         onSuccess={handleBulkImportSuccess}
         config={incomeImportConfig}
       />
+      <DisappearingNotification notification={notification} onHide={() => setNotification(null)} />
     </div>
   );
 }
