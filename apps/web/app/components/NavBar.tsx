@@ -10,6 +10,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { NotificationBell } from "./notification/NotificationBell";
+import { CheckinButton } from "./CheckinButton";
 
 export default function NavBar() {
   const { data: session, status } = useSession();
@@ -121,6 +122,7 @@ export default function NavBar() {
           {/* Quick Action Buttons - Only shown for authenticated users */}
           {status === "authenticated" && (
             <div className="flex items-center space-x-2 mr-2">
+              <CheckinButton />
               <button 
                 onClick={openExpenseModal}
                 className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-md text-xs font-medium border border-red-100 shadow-sm flex items-center gap-1.5 transition-colors"
@@ -290,6 +292,16 @@ export default function NavBar() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                           </svg>
                           Passwords
+                        </Link>
+                        <Link
+                          href="/settings/emergency-emails"
+                          onClick={() => setIsProfileDropdownOpen(false)}
+                          className="flex items-center w-full px-6 py-3 mx-2 mt-1 text-sm text-gray-700 hover:bg-gray-50/80 rounded-lg transition-colors"
+                        >
+                          <svg className="w-4 h-4 mr-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                          </svg>
+                          Emergency Contacts
                         </Link>
                         <Link
                           href="/bookmarks"

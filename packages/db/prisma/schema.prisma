@@ -39,6 +39,9 @@ model User {
   dismissedNotifications DismissedNotification[]
   notificationSettings NotificationSettings?
   accountThresholds AccountThreshold[]
+  userCheckins UserCheckin[]
+  emergencyEmails EmergencyEmail[]
+  passwordShares PasswordShare[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -449,6 +452,7 @@ enum NotificationType {
   LOAN_REMINDER
   PASSWORD_EXPIRY
   MONTHLY_SUMMARY
+  PASSWORD_SHARED
 }
 
 enum NotificationPriority {
@@ -472,5 +476,50 @@ model TransactionBookmark {
   updatedAt DateTime @updatedAt
 
   @@unique([transactionType, transactionId, userId])
+}
+
+model UserCheckin {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  checkinAt DateTime @default(now())
+  ipAddress String?
+  userAgent String?
+  
+  @@index([userId, checkinAt])
+}
+
+model EmergencyEmail {
+  id        Int      @id @default(autoincrement())
+  email     String
+  label     String?  // Optional label like "Family", "Spouse", etc.
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([userId, email])
+  @@index([userId])
+}
+
+model PasswordShare {
+  id             Int      @id @default(autoincrement())
+  user           User     @relation(fields: [userId], references: [id])
+  userId         Int
+  recipientEmail String
+  sentAt         DateTime @default(now())
+  passwordCount  Int      // Number of passwords shared
+  shareReason    PasswordShareReason @default(INACTIVITY)
+  secretKey      String?  // Optional: encrypted key used for sharing
+  expiresAt      DateTime? // Optional: when the shared passwords expire
+  
+  @@index([userId, sentAt])
+}
+
+enum PasswordShareReason {
+  INACTIVITY    // Sent due to user inactivity
+  MANUAL        // Manually triggered by user
+  EMERGENCY     // Emergency share
 }
 

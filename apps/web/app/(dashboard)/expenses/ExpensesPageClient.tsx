@@ -20,6 +20,8 @@ import { exportExpensesToCSV } from '../../utils/csvExportExpenses';
 import { createTransactionBookmark, deleteTransactionBookmarkByTransaction } from '../transactions/actions/transaction-bookmarks';
 import { Expense } from '../../types/financial';
 import { useCurrency } from '../../providers/CurrencyProvider';
+import { DisappearingNotification, NotificationData } from '../../components/DisappearingNotification';
+import { useState } from 'react';
 import {
   BUTTON_COLORS,
   TEXT_COLORS,
@@ -45,6 +47,7 @@ const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
 export default function ExpensesPageClient() {
   const { currency: userCurrency } = useCurrency();
   const searchParams = useSearchParams();
+  const [notification, setNotification] = useState<NotificationData | null>(null);
 
   const {
     items: expenses,
@@ -109,6 +112,8 @@ export default function ExpensesPageClient() {
     deleteItem: deleteExpense,
     bulkDeleteItems: bulkDeleteExpenses,
     exportToCSV: exportExpensesToCSV,
+  }, {
+    onNotification: setNotification
   });
 
   const handleBookmarkToggle = async (expense: Expense) => {
@@ -311,6 +316,12 @@ export default function ExpensesPageClient() {
         onClose={() => setIsBulkImportModalOpen(false)} 
         onSuccess={handleBulkImportSuccess}
         config={expenseImportConfig}
+      />
+      
+      {/* Disappearing Notification */}
+      <DisappearingNotification 
+        notification={notification} 
+        onHide={() => setNotification(null)} 
       />
     </div>
   );

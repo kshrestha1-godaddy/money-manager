@@ -8,6 +8,9 @@ import { AddPasswordModal } from "./components/AddPasswordModal";
 import { DeleteConfirmationModal } from "../../components/DeleteConfirmationModal";
 import { exportPasswordsToCSV } from "../../utils/csvExportPasswords";
 import { BulkImportModal } from "./components/BulkImportModal";
+import { SharePasswordsModal } from "./components/SharePasswordsModal";
+import { PasswordShareResult } from "../../actions/password-sharing";
+import { PasswordShareSuccessDialog } from "../../components/PasswordShareSuccessDialog";
 
 export default function PasswordsPage() {
     const [passwords, setPasswords] = useState<PasswordInterface[]>([]);
@@ -16,6 +19,9 @@ export default function PasswordsPage() {
     // Modal states
     const [showAddModal, setShowAddModal] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
+    const [showShareModal, setShowShareModal] = useState(false);
+    const [showShareSuccessDialog, setShowShareSuccessDialog] = useState(false);
+    const [shareResult, setShareResult] = useState<PasswordShareResult | null>(null);
     const [editingPassword, setEditingPassword] = useState<PasswordInterface | null>(null);
     const [deletingPassword, setDeletingPassword] = useState<PasswordInterface | null>(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -128,6 +134,12 @@ export default function PasswordsPage() {
         setShowImportModal(false);
     };
 
+    // Handle password sharing success
+    const handleShareSuccess = (result: PasswordShareResult) => {
+        setShareResult(result);
+        setShowShareSuccessDialog(true);
+    };
+
     if (loading) {
         return (
             <div className="space-y-6">
@@ -149,7 +161,28 @@ export default function PasswordsPage() {
                     <h1 className="text-3xl font-bold text-gray-900">Passwords</h1>
                     <p className="text-gray-600 mt-1">Securely manage your website passwords</p>
                 </div>
-                <div className="flex items-center">
+                <div className="flex items-center space-x-2">
+                    <button
+                        onClick={() => setShowShareModal(true)}
+                        className="h-10 px-4 text-sm font-medium text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 rounded-md disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200 disabled:cursor-not-allowed"
+                        disabled={passwords.length === 0}
+                        title="Share all passwords with emergency contacts"
+                    >
+                        Share Passwords
+                    </button>
+                    <button
+                        onClick={handleExportToCSV}
+                        className="h-10 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-md"
+                        disabled={passwords.length === 0}
+                    >
+                        Export CSV
+                    </button>
+                    <button
+                        onClick={() => setShowImportModal(true)}
+                        className="h-10 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-md"
+                    >
+                        Import CSV
+                    </button>
                     <button
                         onClick={() => {
                             setEditingPassword(null);
@@ -159,20 +192,6 @@ export default function PasswordsPage() {
                     >
                         Add Password
                     </button>
-                    <button
-                        onClick={() => setShowImportModal(true)}
-                        className="h-10 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-md mr-2"
-                    >
-                        Import CSV
-                    </button>
-                    <button
-                        onClick={handleExportToCSV}
-                        className="h-10 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-md mr-2"
-                        disabled={passwords.length === 0}
-                    >
-                        Export CSV
-                    </button>
-
                 </div>
             </div>
 
@@ -198,12 +217,15 @@ export default function PasswordsPage() {
                         Start by adding your first password
                     </p>
                     <div className="flex justify-center space-x-4">
-                        <Button onClick={() => { 
-                            setEditingPassword(null); 
-                            setShowAddModal(true); 
-                        }}>
+                        <button
+                            onClick={() => { 
+                                setEditingPassword(null); 
+                                setShowAddModal(true); 
+                            }}
+                            className="text-white bg-brand-600 hover:bg-brand-700 font-medium rounded-lg text-sm px-5 py-2.5"
+                        >
                             Add Your First Password
-                        </Button>
+                        </button>
                         <button 
                             onClick={() => setShowImportModal(true)}
                             className="text-gray-800 bg-white border border-gray-300 hover:bg-gray-100 font-medium rounded-lg text-sm px-5 py-2.5"
@@ -289,6 +311,23 @@ export default function PasswordsPage() {
                 isOpen={showImportModal}
                 onClose={() => setShowImportModal(false)}
                 onSuccess={handleBulkImportSuccess}
+            />
+
+            {/* Share Passwords Modal */}
+            <SharePasswordsModal
+                isOpen={showShareModal}
+                onClose={() => setShowShareModal(false)}
+                onSuccess={handleShareSuccess}
+            />
+
+            {/* Password Share Success Dialog */}
+            <PasswordShareSuccessDialog
+                isOpen={showShareSuccessDialog}
+                onClose={() => {
+                    setShowShareSuccessDialog(false);
+                    setShareResult(null);
+                }}
+                result={shareResult}
             />
         </div>
     );

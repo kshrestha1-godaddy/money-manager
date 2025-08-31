@@ -6,11 +6,13 @@ import { getCategories, createCategory, deleteCategory } from "../actions/catego
 import { getUserAccounts } from "../(dashboard)/accounts/actions/accounts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
 import { exportCategoriesByType } from "../utils/csvExportCategories";
+import { NotificationData } from "../components/DisappearingNotification";
 
 
 export interface UseOptimizedFinancialDataOptions {
   fetchCategories?: boolean;
   fetchAccounts?: boolean;
+  onNotification?: (notification: NotificationData) => void;
 }
 
 export function useOptimizedFinancialData<T extends FinancialItem>(
@@ -82,6 +84,17 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   const createItemMutation = useMutation({
     mutationFn: actions.createItem,
     onSuccess: (newItem: T) => {
+      // Show success notification if callback provided
+      if (options.onNotification) {
+        const isExpense = categoryType === "EXPENSE";
+        options.onNotification({
+          title: `${isExpense ? 'Expense' : 'Income'} Added Successfully!`,
+          message: `${newItem.title} - $${newItem.amount.toFixed(2)} has been recorded`,
+          type: isExpense ? "warning" : "success",
+          duration: 3000
+        });
+      }
+      
       // Optimistically update the cache
       queryClient.setQueryData(QUERY_KEYS.items, (oldItems: T[] = []) => {
         return [newItem, ...oldItems];
@@ -93,7 +106,18 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     },
     onError: (error: Error) => {
       console.error("Error adding item:", error);
-      alert("Failed to add item. Please try again.");
+      
+      // Show error notification if callback provided
+      if (options.onNotification) {
+        options.onNotification({
+          title: `Failed to Add ${categoryType === "EXPENSE" ? 'Expense' : 'Income'}`,
+          message: "Please try again or contact support if the issue persists",
+          type: "error",
+          duration: 4000
+        });
+      } else {
+        alert("Failed to add item. Please try again.");
+      }
     },
   });
 

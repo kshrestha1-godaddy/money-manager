@@ -3,6 +3,7 @@
 import { SidebarItem } from "../components/sidebar/SidebarItem";
 import { TutorialOverlay } from "../components/TutorialOverlay";
 import { TutorialButton } from "../components/TutorialButton";
+import { InactivityWarning } from "../components/InactivityWarning";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
     return (
@@ -93,6 +94,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             
             {/* Tutorial Button */}
             <TutorialButton />
+            
+            {/* Inactivity Warning - shows warnings when users are approaching password sharing threshold */}
+            <InactivityWarning />
         </div>
     );
 }

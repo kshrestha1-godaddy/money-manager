@@ -356,4 +356,223 @@ export async function sendAccessApprovalEmail(email: string) {
     text,
     html
   });
+}
+
+export interface PasswordShareEmailData {
+  passwords: {
+    websiteName: string;
+    description: string;
+    username: string;
+    password: string;
+    transactionPin?: string;
+    notes?: string;
+    category?: string;
+    validity?: Date;
+  }[];
+  userName?: string;
+  shareReason: 'INACTIVITY' | 'MANUAL' | 'EMERGENCY';
+  lastCheckinDate?: Date;
+}
+
+export async function sendPasswordShareEmail(email: string, data: PasswordShareEmailData) {
+  const { passwords, userName, shareReason, lastCheckinDate } = data;
+  const firstName = userName?.split(' ')[0] || 'there';
+  
+  let subject: string;
+  let reasonText: string;
+  let headerColor: string;
+  
+  switch (shareReason) {
+    case 'INACTIVITY':
+      subject = "🔐 Emergency Password Share - Account Inactivity Detected";
+      reasonText = `We noticed you haven't checked into your MoneyManager account for over 15 days${lastCheckinDate ? ` (last seen: ${lastCheckinDate.toLocaleDateString()})` : ''}. As per your emergency settings, we're sharing your passwords with your trusted contacts.`;
+      headerColor = "#f59e0b";
+      break;
+    case 'MANUAL':
+      subject = "🔐 Password Share - Requested by User";
+      reasonText = "You have manually requested to share your passwords with this email address.";
+      headerColor = "#10b981";
+      break;
+    case 'EMERGENCY':
+      subject = "🚨 Emergency Password Share - Immediate Action Required";
+      reasonText = "This is an emergency password share as requested.";
+      headerColor = "#ef4444";
+      break;
+  }
+  
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; background-color: #f9fafb; padding: 20px;">
+      <div style="background-color: white; border-radius: 16px; padding: 40px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+        <!-- Header -->
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: ${headerColor}; margin: 0; font-size: 28px; font-weight: bold;">
+            🔐 Password Share Notification
+          </h1>
+          <p style="color: #6b7280; margin: 10px 0 0 0; font-size: 16px;">
+            MoneyManager Security Alert
+          </p>
+        </div>
+
+        <!-- Alert Banner -->
+        <div style="background-color: #fef3c7; border-left: 4px solid ${headerColor}; padding: 16px; margin-bottom: 25px;">
+          <h3 style="color: #92400e; margin: 0 0 8px 0; font-size: 16px; font-weight: bold;">
+            Important Security Notice
+          </h3>
+          <p style="color: #92400e; margin: 0; font-size: 14px;">
+            ${reasonText}
+          </p>
+        </div>
+
+        <!-- Main Content -->
+        <div style="margin-bottom: 30px;">
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+            Hi ${firstName}! 👋
+          </p>
+          
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+            Below are the password details that have been shared with you. Please handle this information with utmost care and security.
+          </p>
+
+          <!-- Password Count -->
+          <div style="background-color: #f3f4f6; border-radius: 8px; padding: 16px; margin-bottom: 25px; text-align: center;">
+            <h3 style="color: #1f2937; margin: 0 0 4px 0; font-size: 20px; font-weight: bold;">
+              ${passwords.length} Password${passwords.length !== 1 ? 's' : ''} Shared
+            </h3>
+            <p style="color: #6b7280; margin: 0; font-size: 14px;">
+              Please store these securely
+            </p>
+          </div>
+
+          <!-- Passwords List -->
+          <div style="margin-bottom: 25px;">
+            ${passwords.map((password, index) => `
+              <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 16px; background-color: #fefefe;">
+                <div style="border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 12px;">
+                  <h4 style="color: #1f2937; margin: 0 0 4px 0; font-size: 18px; font-weight: bold;">
+                    ${password.websiteName}
+                  </h4>
+                  <p style="color: #6b7280; margin: 0; font-size: 14px;">
+                    ${password.description}
+                  </p>
+                </div>
+                
+                <div style="display: grid; gap: 12px;">
+                  <div>
+                    <strong style="color: #374151; font-size: 14px;">Username:</strong>
+                    <span style="color: #1f2937; font-family: monospace; background-color: #f9fafb; padding: 4px 8px; border-radius: 4px; margin-left: 8px; font-size: 14px;">
+                      ${password.username}
+                    </span>
+                  </div>
+                  
+                  <div>
+                    <strong style="color: #374151; font-size: 14px;">Password:</strong>
+                    <span style="color: #1f2937; font-family: monospace; background-color: #f9fafb; padding: 4px 8px; border-radius: 4px; margin-left: 8px; font-size: 14px;">
+                      ${password.password}
+                    </span>
+                  </div>
+                  
+                  ${password.transactionPin ? `
+                    <div>
+                      <strong style="color: #374151; font-size: 14px;">Transaction PIN:</strong>
+                      <span style="color: #1f2937; font-family: monospace; background-color: #f9fafb; padding: 4px 8px; border-radius: 4px; margin-left: 8px; font-size: 14px;">
+                        ${password.transactionPin}
+                      </span>
+                    </div>
+                  ` : ''}
+                  
+                  ${password.category ? `
+                    <div>
+                      <strong style="color: #374151; font-size: 14px;">Category:</strong>
+                      <span style="color: #6b7280; margin-left: 8px; font-size: 14px;">
+                        ${password.category}
+                      </span>
+                    </div>
+                  ` : ''}
+                  
+                  ${password.validity ? `
+                    <div>
+                      <strong style="color: #374151; font-size: 14px;">Valid Until:</strong>
+                      <span style="color: #6b7280; margin-left: 8px; font-size: 14px;">
+                        ${password.validity.toLocaleDateString()}
+                      </span>
+                    </div>
+                  ` : ''}
+                  
+                  ${password.notes ? `
+                    <div>
+                      <strong style="color: #374151; font-size: 14px;">Notes:</strong>
+                      <p style="color: #6b7280; margin: 4px 0 0 0; font-size: 14px; font-style: italic;">
+                        ${password.notes}
+                      </p>
+                    </div>
+                  ` : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- Security Warning -->
+          <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin-bottom: 25px;">
+            <h3 style="color: #dc2626; margin: 0 0 8px 0; font-size: 16px; font-weight: bold;">
+              🚨 Security Reminders
+            </h3>
+            <ul style="color: #dc2626; margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.6;">
+              <li style="margin-bottom: 4px;">Store these passwords in a secure location</li>
+              <li style="margin-bottom: 4px;">Do not share this information with unauthorized persons</li>
+              <li style="margin-bottom: 4px;">Consider changing passwords if they've been compromised</li>
+              <li>Delete this email after saving the information securely</li>
+            </ul>
+          </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; text-align: center;">
+          <p style="color: #9ca3af; font-size: 14px; margin-bottom: 10px;">
+            This email was sent to ${email} as part of MoneyManager's emergency password sharing feature.
+          </p>
+          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+            If you received this email in error, please delete it immediately and contact support.
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const text = `
+    🔐 Password Share Notification - MoneyManager
+
+    Hi ${firstName}!
+
+    ${reasonText}
+
+    Below are the ${passwords.length} password${passwords.length !== 1 ? 's' : ''} that have been shared with you:
+
+    ${passwords.map((password, index) => `
+    ${index + 1}. ${password.websiteName}
+       Description: ${password.description}
+       Username: ${password.username}
+       Password: ${password.password}
+       ${password.transactionPin ? `Transaction PIN: ${password.transactionPin}` : ''}
+       ${password.category ? `Category: ${password.category}` : ''}
+       ${password.validity ? `Valid Until: ${password.validity.toLocaleDateString()}` : ''}
+       ${password.notes ? `Notes: ${password.notes}` : ''}
+    `).join('\n')}
+
+    🚨 SECURITY REMINDERS:
+    • Store these passwords in a secure location
+    • Do not share this information with unauthorized persons
+    • Consider changing passwords if they've been compromised
+    • Delete this email after saving the information securely
+
+    This email was sent to ${email} as part of MoneyManager's emergency password sharing feature.
+    If you received this email in error, please delete it immediately and contact support.
+  `;
+
+  return await sendEmail({
+    to: email,
+    subject,
+    text,
+    html
+  });
 } 
