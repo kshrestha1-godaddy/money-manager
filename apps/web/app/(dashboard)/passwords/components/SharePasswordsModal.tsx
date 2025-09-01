@@ -12,7 +12,7 @@ interface SharePasswordsModalProps {
 
 export function SharePasswordsModal({ isOpen, onClose, onSuccess }: SharePasswordsModalProps) {
   const [secretKey, setSecretKey] = useState('');
-  const [shareReason, setShareReason] = useState<'MANUAL' | 'EMERGENCY'>('MANUAL');
+  const [shareReason, setShareReason] = useState<'MANUAL'>('MANUAL');
   const [emergencyEmails, setEmergencyEmails] = useState<EmergencyEmailData[]>([]);
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -121,27 +121,15 @@ export function SharePasswordsModal({ isOpen, onClose, onSuccess }: SharePasswor
               <div className="text-sm">
                 <p className="text-yellow-700 font-medium">Security Warning</p>
                 <p className="text-yellow-600 mt-1">
-                  This will share all your passwords in plain text via email. Only proceed if this is an emergency or you fully trust all recipients.
+                  This will share all your passwords in plain text via email. Only proceed if you fully trust all recipients.
                 </p>
               </div>
             </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Share Reason */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Share Reason
-              </label>
-              <select
-                value={shareReason}
-                onChange={(e) => setShareReason(e.target.value as 'MANUAL' | 'EMERGENCY')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="MANUAL">Manual Share</option>
-                <option value="EMERGENCY">Emergency Share</option>
-              </select>
-            </div>
+            {/* Share Reason - Hidden since only MANUAL is available */}
+            <input type="hidden" value={shareReason} />
 
             {/* Emergency Emails */}
             <div>
@@ -236,12 +224,10 @@ export function SharePasswordsModal({ isOpen, onClose, onSuccess }: SharePasswor
               <button
                 type="submit"
                 disabled={isLoading || emergencyEmails.length === 0 || selectedEmails.length === 0}
-                className={`px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                className={`px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   isLoading || emergencyEmails.length === 0 || selectedEmails.length === 0
                     ? 'bg-gray-400 cursor-not-allowed'
-                    : shareReason === 'EMERGENCY'
-                      ? 'bg-red-600 hover:bg-red-700'
-                      : 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-blue-600 hover:bg-blue-700'
                 }`}
               >
                 {isLoading ? 'Sharing...' : 'Share Passwords'}

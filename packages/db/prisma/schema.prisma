@@ -520,6 +520,5 @@ model PasswordShare {
 enum PasswordShareReason {
   INACTIVITY    // Sent due to user inactivity
   MANUAL        // Manually triggered by user
-  EMERGENCY     // Emergency share
 }
 

@@ -132,7 +132,7 @@ export default function EmergencyEmailsPage() {
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No emergency contacts configured</h3>
             <p className="text-gray-600 mb-6">
-              Add trusted contacts who should receive your passwords in case of emergency
+              Add trusted contacts who should receive your passwords if you become inactive
             </p>
             <button
               onClick={() => {

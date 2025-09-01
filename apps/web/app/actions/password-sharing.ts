@@ -17,7 +17,7 @@ export interface PasswordShareResult {
 
 export interface SharePasswordsData {
   secretKey: string;
-  reason?: 'MANUAL' | 'EMERGENCY';
+  reason?: 'MANUAL' | 'INACTIVITY';
   specificEmails?: string[]; // Optional: share to specific emails instead of all emergency emails
 }
 
@@ -92,8 +92,8 @@ export async function sharePasswordsWithEmergencyContacts(data: SharePasswordsDa
           username: password.username,
           password: decryptedPassword,
           transactionPin: decryptedPin,
-          notes: password.notes,
-          category: password.category,
+          notes: password.notes || undefined,
+          category: password.category || undefined,
           validity: password.validity || undefined,
         });
       } catch (error) {
@@ -161,7 +161,7 @@ export async function sharePasswordsWithEmergencyContacts(data: SharePasswordsDa
       await createNotification(
         userId,
         "🔐 Passwords Shared",
-        `Your ${decryptedPasswords.length} passwords have been shared with ${successCount} emergency contact${successCount > 1 ? 's' : ''}. Reason: ${reason === 'MANUAL' ? 'Manual request' : 'Emergency share'}.`,
+        `Your ${decryptedPasswords.length} passwords have been shared with ${successCount} emergency contact${successCount > 1 ? 's' : ''}. Reason: ${reason === 'MANUAL' ? 'Manual request' : 'Inactivity share'}.`,
         "PASSWORD_SHARED",
         "HIGH",
         undefined,
@@ -236,26 +236,131 @@ export async function processInactiveUsersPasswordSharing(): Promise<{
           continue;
         }
 
-        // Get user's passwords (this requires being authenticated as the user, which we can't do here)
-        // For now, we'll need a different approach - maybe store a master key or handle this differently
-        // This is a security consideration that needs to be addressed
-        
-        console.log(`Would process password sharing for user ${user.userId}, but we need to handle authentication differently`);
-        processedUsers++;
-        
-        // For now, create a notification for the user about inactivity
-        await createNotification(
-          user.userId,
-          "⚠️ Account Inactivity Detected",
-          `You haven't checked into your MoneyManager account for more than 15 days. Please log in to prevent automatic password sharing to your emergency contacts.`,
-          "PASSWORD_EXPIRY", // Using existing type for now
-          "HIGH",
-          "/passwords",
-          {
-            lastCheckin: user.lastCheckin?.toISOString(),
-            inactiveDays: Math.floor((Date.now() - (user.lastCheckin?.getTime() || 0)) / (1000 * 60 * 60 * 24)),
+        // Get user's passwords using the PASSWORD_ENCRYPTER from environment
+        const passwordEncrypter = process.env.PASSWORD_ENCRYPTER;
+        if (!passwordEncrypter) {
+          console.error("PASSWORD_ENCRYPTER not found in environment variables");
+          errors.push(`User ${user.userId}: PASSWORD_ENCRYPTER not configured`);
+          continue;
+        }
+
+        // Get passwords for the inactive user directly from database
+        const userPasswords = await prisma.password.findMany({
+          where: {
+            userId: user.userId
+          },
+          orderBy: {
+            createdAt: 'desc'
           }
-        );
+        });
+
+        if (userPasswords.length === 0) {
+          console.log(`User ${user.userId} has no passwords to share, skipping...`);
+          continue;
+        }
+
+        // Decrypt and prepare passwords for sharing
+        const decryptedPasswords = [];
+        for (const password of userPasswords) {
+          try {
+            // Use the decryptPasswordValue function with PASSWORD_ENCRYPTER
+            const { decryptPasswordValue } = await import('../(dashboard)/passwords/actions/passwords');
+            const decryptedPassword = await decryptPasswordValue({
+              passwordHash: password.passwordHash,
+              secretKey: passwordEncrypter
+            });
+
+            let decryptedPin = undefined;
+            if (password.transactionPin) {
+              try {
+                decryptedPin = await decryptPasswordValue({
+                  passwordHash: password.transactionPin,
+                  secretKey: passwordEncrypter
+                });
+              } catch (error) {
+                console.warn(`Failed to decrypt PIN for password ${password.id}:`, error);
+              }
+            }
+
+            decryptedPasswords.push({
+              websiteName: password.websiteName,
+              description: password.description,
+              username: password.username,
+              password: decryptedPassword,
+              transactionPin: decryptedPin,
+              validity: password.validity || undefined,
+              notes: password.notes || undefined,
+              category: password.category || undefined
+            });
+          } catch (error) {
+            console.error(`Failed to decrypt password ${password.id} for user ${user.userId}:`, error);
+            errors.push(`User ${user.userId}, Password ${password.id}: Failed to decrypt`);
+          }
+        }
+
+        if (decryptedPasswords.length === 0) {
+          console.log(`No passwords could be decrypted for user ${user.userId}, skipping...`);
+          continue;
+        }
+
+        // Send passwords to each emergency contact
+        let emailsSentForUser = 0;
+        for (const emergencyEmail of emergencyEmails) {
+          try {
+            const emailData: PasswordShareEmailData = {
+              passwords: decryptedPasswords,
+              userName: user.name || user.email || 'Unknown User',
+              shareReason: 'INACTIVITY',
+              lastCheckinDate: user.lastCheckin || undefined
+            };
+
+            const emailResult = await sendPasswordShareEmail(emergencyEmail.email, emailData);
+            
+            if (emailResult.success) {
+              emailsSentForUser++;
+              console.log(`Password share email sent to ${emergencyEmail.email} for user ${user.userId}`);
+            } else {
+              errors.push(`Failed to send email to ${emergencyEmail.email}: ${emailResult.error}`);
+            }
+          } catch (error) {
+            console.error(`Error sending password share email to ${emergencyEmail.email}:`, error);
+            errors.push(`Email to ${emergencyEmail.email}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          }
+        }
+
+        if (emailsSentForUser > 0) {
+          // Record the password share in database
+          await prisma.passwordShare.create({
+            data: {
+              userId: user.userId,
+              recipientEmail: emergencyEmails.map(e => e.email).join(', '),
+              passwordCount: decryptedPasswords.length,
+              shareReason: 'INACTIVITY',
+              sentAt: new Date()
+            }
+          });
+
+          successfulShares++;
+          console.log(`Successfully shared ${decryptedPasswords.length} passwords for user ${user.userId} to ${emailsSentForUser} emergency contacts`);
+
+          // Create notification for the user
+          await createNotification(
+            user.userId,
+            "🔐 Passwords Shared Due to Inactivity",
+            `Your ${decryptedPasswords.length} passwords have been automatically shared with your emergency contacts due to 15+ days of inactivity. If this was unexpected, please check in immediately and review your emergency contacts.`,
+            "PASSWORD_EXPIRY",
+            "HIGH",
+            "/passwords",
+            {
+              lastCheckin: user.lastCheckin?.toISOString(),
+              inactiveDays: Math.floor((Date.now() - (user.lastCheckin?.getTime() || 0)) / (1000 * 60 * 60 * 24)),
+              passwordsShared: decryptedPasswords.length,
+              emergencyContactsNotified: emailsSentForUser
+            }
+          );
+        }
+
+        processedUsers++;
 
       } catch (error) {
         console.error(`Error processing inactive user ${user.userId}:`, error);

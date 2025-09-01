@@ -166,7 +166,7 @@ export default function PasswordsPage() {
                         onClick={() => setShowShareModal(true)}
                         className="h-10 px-4 text-sm font-medium text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 rounded-md disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200 disabled:cursor-not-allowed"
                         disabled={passwords.length === 0}
-                        title="Share all passwords with emergency contacts"
+                        title="Share all passwords with trusted contacts"
                     >
                         Share Passwords
                     </button>

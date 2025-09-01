@@ -370,7 +370,7 @@ export interface PasswordShareEmailData {
     validity?: Date;
   }[];
   userName?: string;
-  shareReason: 'INACTIVITY' | 'MANUAL' | 'EMERGENCY';
+  shareReason: 'INACTIVITY' | 'MANUAL';
   lastCheckinDate?: Date;
 }
 
@@ -392,11 +392,6 @@ export async function sendPasswordShareEmail(email: string, data: PasswordShareE
       subject = "🔐 Password Share - Requested by User";
       reasonText = "You have manually requested to share your passwords with this email address.";
       headerColor = "#10b981";
-      break;
-    case 'EMERGENCY':
-      subject = "🚨 Emergency Password Share - Immediate Action Required";
-      reasonText = "This is an emergency password share as requested.";
-      headerColor = "#ef4444";
       break;
   }
   
