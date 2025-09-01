@@ -113,7 +113,8 @@ export default function ExpensesPageClient() {
     bulkDeleteItems: bulkDeleteExpenses,
     exportToCSV: exportExpensesToCSV,
   }, {
-    onNotification: setNotification
+    onNotification: setNotification,
+    userCurrency: userCurrency
   });
 
   const handleBookmarkToggle = async (expense: Expense) => {
