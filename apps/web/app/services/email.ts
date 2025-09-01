@@ -575,4 +575,159 @@ export async function sendPasswordShareEmail(email: string, data: PasswordShareE
     text,
     html
   });
+}
+
+export async function sendInactivityReminderEmail(email: string, name?: string, daysSinceLastCheckin?: number) {
+  const firstName = name?.split(' ')[0] || 'there';
+  const daysText = daysSinceLastCheckin ? `${daysSinceLastCheckin} days` : 'several days';
+  
+  const subject = "💰 Time to Get Back on Track - Your Financial Journey Awaits!";
+  
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9fafb; padding: 20px;">
+      <div style="background-color: white; border-radius: 16px; padding: 40px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+        <!-- Header -->
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #f59e0b; margin: 0; font-size: 28px; font-weight: bold;">
+            💰 We Miss You!
+          </h1>
+          <p style="color: #6b7280; margin: 10px 0 0 0; font-size: 16px;">
+            Your financial journey is waiting for you
+          </p>
+        </div>
+
+        <!-- Alert Banner -->
+        <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; margin-bottom: 25px;">
+          <h3 style="color: #92400e; margin: 0 0 8px 0; font-size: 16px; font-weight: bold;">
+            📊 Inactivity Notice
+          </h3>
+          <p style="color: #92400e; margin: 0; font-size: 14px;">
+            You haven't checked into your MoneyManager account for ${daysText}. It's time to get back on track with your finances!
+          </p>
+        </div>
+
+        <!-- Main Content -->
+        <div style="margin-bottom: 30px;">
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+            Hi ${firstName}! 👋
+          </p>
+          
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+            We noticed you haven't been active on MoneyManager recently. Your financial goals are important, 
+            and consistent tracking is key to achieving them!
+          </p>
+
+          <!-- Motivation Section -->
+          <div style="background-color: #f0f9ff; border-radius: 12px; padding: 24px; margin-bottom: 25px;">
+            <h3 style="color: #0369a1; margin: 0 0 16px 0; font-size: 18px; font-weight: bold;">
+              🎯 Why Regular Tracking Matters:
+            </h3>
+            <ul style="color: #0369a1; margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.8;">
+              <li style="margin-bottom: 8px;">📈 Stay aware of your spending patterns</li>
+              <li style="margin-bottom: 8px;">💡 Make informed financial decisions</li>
+              <li style="margin-bottom: 8px;">🎯 Keep your financial goals on track</li>
+              <li style="margin-bottom: 8px;">💰 Identify opportunities to save more</li>
+              <li>📊 Build better financial habits</li>
+            </ul>
+          </div>
+
+          <!-- CTA Button -->
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="https://mymoneylog.vercel.app/signin" 
+               style="background-color: #10b981; color: white; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 18px; display: inline-block; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); transition: all 0.2s;">
+              🚀 Continue Your Journey
+            </a>
+          </div>
+
+          <!-- Quick Actions -->
+          <div style="background-color: #f8fafc; border-radius: 12px; padding: 24px; margin-bottom: 25px;">
+            <h3 style="color: #1f2937; margin: 0 0 16px 0; font-size: 18px; font-weight: bold;">
+              🚀 Quick Actions to Get Started:
+            </h3>
+            <div style="display: grid; gap: 12px;">
+              <div style="display: flex; align-items: center;">
+                <span style="color: #10b981; font-size: 18px; margin-right: 12px;">💸</span>
+                <span style="color: #4b5563; font-size: 14px;">Add your recent expenses</span>
+              </div>
+              <div style="display: flex; align-items: center;">
+                <span style="color: #10b981; font-size: 18px; margin-right: 12px;">💰</span>
+                <span style="color: #4b5563; font-size: 14px;">Record your latest income</span>
+              </div>
+              <div style="display: flex; align-items: center;">
+                <span style="color: #10b981; font-size: 18px; margin-right: 12px;">📊</span>
+                <span style="color: #4b5563; font-size: 14px;">Review your financial dashboard</span>
+              </div>
+              <div style="display: flex; align-items: center;">
+                <span style="color: #10b981; font-size: 18px; margin-right: 12px;">🎯</span>
+                <span style="color: #4b5563; font-size: 14px;">Check your budget progress</span>
+              </div>
+            </div>
+          </div>
+
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+            Remember, even small steps count! Just 5 minutes a day can make a huge difference in your financial awareness and success.
+          </p>
+
+          <!-- Encouragement -->
+          <div style="background-color: #ecfdf5; border: 2px solid #10b981; border-radius: 12px; padding: 20px; margin-bottom: 25px; text-align: center;">
+            <div style="color: #10b981; font-size: 32px; margin-bottom: 8px;">💪</div>
+            <h3 style="color: #059669; margin: 0 0 8px 0; font-size: 18px; font-weight: bold;">
+              You've Got This!
+            </h3>
+            <p style="color: #047857; margin: 0; font-size: 14px;">
+              Every financial expert started with a single transaction. Your future self will thank you!
+            </p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; text-align: center;">
+          <p style="color: #9ca3af; font-size: 14px; margin-bottom: 10px;">
+            This email was sent to ${email} because you haven't been active on MoneyManager recently.
+          </p>
+          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+            We're here to help you succeed! Visit <a href="https://mymoneylog.vercel.app" style="color: #10b981;">mymoneylog.vercel.app</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const text = `
+    💰 Time to Get Back on Track - Your Financial Journey Awaits!
+
+    Hi ${firstName}!
+
+    We noticed you haven't been active on MoneyManager for ${daysText}. It's time to get back on track with your finances!
+
+    🎯 Why Regular Tracking Matters:
+    📈 Stay aware of your spending patterns
+    💡 Make informed financial decisions  
+    🎯 Keep your financial goals on track
+    💰 Identify opportunities to save more
+    📊 Build better financial habits
+
+    🚀 Quick Actions to Get Started:
+    💸 Add your recent expenses
+    💰 Record your latest income
+    📊 Review your financial dashboard
+    🎯 Check your budget progress
+
+    Continue your journey: https://mymoneylog.vercel.app/signin
+
+    💪 You've Got This!
+    Every financial expert started with a single transaction. Your future self will thank you!
+
+    Remember, even small steps count! Just 5 minutes a day can make a huge difference in your financial awareness and success.
+
+    This email was sent to ${email} because you haven't been active on MoneyManager recently.
+    We're here to help you succeed! Visit mymoneylog.vercel.app
+  `;
+
+  return await sendEmail({
+    to: email,
+    subject,
+    text,
+    html
+  });
 } 

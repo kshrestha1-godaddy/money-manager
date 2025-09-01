@@ -1,5 +1,15 @@
 {
   "buildCommand": "cd ../.. && npm install && npm run build",
   "installCommand": "npm install",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/cron/check-inactive-users",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/check-inactive-users-email",
+      "schedule": "0 10 * * *"
+    }
+  ]
 } 
