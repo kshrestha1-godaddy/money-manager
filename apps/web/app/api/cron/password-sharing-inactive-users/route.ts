@@ -11,20 +11,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    console.log('Starting inactive users check...');
+    console.log('Starting password sharing for inactive users...');
     
     const result = await processInactiveUsersPasswordSharing();
     
-    console.log('Inactive users check completed:', result);
+    console.log('Password sharing for inactive users completed:', result);
     
     return NextResponse.json({
       success: true,
-      message: 'Inactive users check completed',
+      message: 'Password sharing for inactive users completed',
       result
     }, { status: 200 });
 
   } catch (error) {
-    console.error('Error in inactive users cron job:', error);
+    console.error('Error in password sharing for inactive users cron job:', error);
     
     return NextResponse.json({
       success: false,
