@@ -12,6 +12,8 @@ import {
 import { triggerBalanceRefresh } from "./useTotalBalance";
 import { exportDebtsToCSV } from "../utils/csvExportDebts";
 import { calculateRemainingWithInterest } from "../utils/interestCalculation";
+import { NotificationData } from "../components/DisappearingNotification";
+import { formatCurrency } from "../utils/currency";
 
 
 type ModalType = 'add' | 'edit' | 'delete' | 'view' | 'repayment' | 'import' | null;
@@ -29,6 +31,11 @@ interface FinancialSummary {
     totalInterestAccrued: number;
     totalRepaid: number;
     totalOutstanding: number;
+}
+
+interface UseOptimizedDebtsOptions {
+    onNotification?: (notification: NotificationData) => void;
+    userCurrency?: string;
 }
 
 interface UseOptimizedDebtsReturn {
@@ -99,7 +106,7 @@ const DEBT_SECTIONS = [
     { key: 'FULLY_PAID', title: 'Fully Paid Lendings', statuses: ['FULLY_PAID'] }
 ];
 
-export function useOptimizedDebts(): UseOptimizedDebtsReturn {
+export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOptimizedDebtsReturn {
     const queryClient = useQueryClient();
     const [error, setError] = useState<string | null>(null);
 
@@ -284,10 +291,34 @@ export function useOptimizedDebts(): UseOptimizedDebtsReturn {
             triggerBalanceRefresh();
             setError(null);
             closeModal();
+            
+            // Show success notification if callback provided
+            if (options.onNotification) {
+                const currency = options.userCurrency || "USD";
+                const formattedAmount = formatCurrency(newDebt.amount, currency);
+                const interestRate = newDebt.interestRate || 0;
+                
+                options.onNotification({
+                    title: 'Lending Added Successfully!',
+                    message: `${newDebt.borrowerName} - ${formattedAmount} at ${interestRate}% interest has been recorded`,
+                    type: "success", // Using red color for debt notifications
+                    duration: 3000
+                });
+            }
         },
         onError: (error: Error) => {
             console.error("Error adding debt:", error);
             setError(`Failed to add debt: ${error.message}`);
+            
+            // Show error notification if callback provided
+            if (options.onNotification) {
+                options.onNotification({
+                    title: 'Failed to Add Lending',
+                    message: "Please try again or contact support if the issue persists",
+                    type: "error",
+                    duration: 4000
+                });
+            }
         },
     });
 
@@ -343,17 +374,40 @@ export function useOptimizedDebts(): UseOptimizedDebtsReturn {
     const addRepaymentMutation = useMutation({
         mutationFn: ({ debtId, amount, notes, accountId }: { debtId: number; amount: number; notes?: string; accountId?: number }) => 
             addRepayment(debtId, amount, notes, accountId),
-        onSuccess: () => {
+        onSuccess: (_, { amount }) => {
             // After adding repayment, we need to refresh the debt data to get the updated debt with new repayment
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.debts });
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
             triggerBalanceRefresh();
             setError(null);
             closeModal();
+            
+            // Show success notification if callback provided
+            if (options.onNotification) {
+                const currency = options.userCurrency || "USD";
+                const formattedAmount = formatCurrency(amount, currency);
+                
+                options.onNotification({
+                    title: 'Repayment Added Successfully!',
+                    message: `Repayment of ${formattedAmount} has been recorded`,
+                    type: "success",
+                    duration: 3000
+                });
+            }
         },
         onError: (error: Error) => {
             console.error("Error adding repayment:", error);
             setError(`Failed to add repayment: ${error.message}`);
+            
+            // Show error notification if callback provided
+            if (options.onNotification) {
+                options.onNotification({
+                    title: 'Failed to Add Repayment',
+                    message: "Please try again or contact support if the issue persists",
+                    type: "error",
+                    duration: 4000
+                });
+            }
         },
     });
 

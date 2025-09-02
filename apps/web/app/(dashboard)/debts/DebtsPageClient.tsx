@@ -15,6 +15,7 @@ import DebtStatusWaterfallChart from './charts/DebtStatusWaterfallChart';
 import { useCurrency } from '../../providers/CurrencyProvider';
 import { useOptimizedDebts } from './hooks/useOptimizedDebts';
 import { getSummaryCardClasses, BUTTON_COLORS, TEXT_COLORS, CONTAINER_COLORS, INPUT_COLORS, LOADING_COLORS, UI_STYLES } from '../../config/colorConfig';
+import { DisappearingNotification, NotificationData } from '../../components/DisappearingNotification';
 
 const pageContainer = CONTAINER_COLORS.page;
 const errorContainer = CONTAINER_COLORS.error;
@@ -41,6 +42,7 @@ const standardInput = INPUT_COLORS.standard;
 export default function DebtsPageClient() {
   const { currency: userCurrency } = useCurrency();
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ FULLY_PAID: false });
+  const [notification, setNotification] = useState<NotificationData | null>(null);
 
   const {
     debts,
@@ -78,7 +80,10 @@ export default function DebtsPageClient() {
     handleExportToCSV,
     clearFilters,
     clearError,
-  } = useOptimizedDebts();
+  } = useOptimizedDebts({
+    onNotification: setNotification,
+    userCurrency: userCurrency
+  });
 
   const uniqueStatuses = Array.from(new Set(debts.map(debt => debt.status))).sort();
 
@@ -276,6 +281,12 @@ export default function DebtsPageClient() {
       <AddRepaymentModal debt={modal.debt || null} isOpen={modal.type === 'repayment'} onClose={closeModal} onAdd={data => handleModalAction('addRepayment', data)} />
       <BulkImportModal isOpen={modal.type === 'import'} onClose={closeModal} onSuccess={() => { closeModal(); }} />
       <BulkDeleteDebtModal isOpen={isBulkDeleteModalOpen} onClose={() => setIsBulkDeleteModalOpen(false)} onConfirm={handleBulkDeleteConfirm} debts={bulkDeleteDebts} />
+      
+      {/* Disappearing Notification */}
+      <DisappearingNotification 
+        notification={notification} 
+        onHide={() => setNotification(null)} 
+      />
     </div>
   );
 
