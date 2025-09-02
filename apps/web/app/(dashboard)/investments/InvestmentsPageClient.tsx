@@ -20,6 +20,7 @@ import { ChartAnimationProvider } from "../../hooks/useChartAnimationContext";
 import { InvestmentTypePolarChart } from "./charts/InvestmentTypePolarChart";
 import { InvestmentTargetProgressChart } from "./charts/InvestmentTargetProgressChart";
 import { InvestmentTargetTimelineChart } from "./charts/InvestmentTargetTimelineChart";
+import { DisappearingNotification, NotificationData } from "../../components/DisappearingNotification";
 // import { InvestmentTypePieChart } from "./charts/InvestmentTypePieChart";
 
 const pageContainer = CONTAINER_COLORS.page;
@@ -59,6 +60,7 @@ export default function InvestmentsPageClient() {
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
   const [bulkDeleteInvestments, setBulkDeleteInvestments] = useState<InvestmentInterface[]>([]);
+  const [notification, setNotification] = useState<NotificationData | null>(null);
 
   const {
     targets: actualTargets,
@@ -381,6 +383,12 @@ export default function InvestmentsPageClient() {
         <BulkImportModal isOpen={modal.type === 'import'} onClose={closeModal} onSuccess={() => { closeModal(); }} />
         <BulkDeleteInvestmentModal isOpen={isBulkDeleteModalOpen} onClose={() => setIsBulkDeleteModalOpen(false)} onConfirm={handleBulkDeleteConfirm} investments={bulkDeleteInvestments} />
         <InvestmentTargetModal isOpen={targetModal.type !== null} onClose={closeModalTarget} onSave={async (data) => { await handleCreateTarget(data); }} onUpdate={async (id, data) => { await handleUpdateTarget(id, data); }} onDelete={async (id) => { await handleDeleteTarget(id); }} existingTarget={targetModal.target} mode={targetModal.type || 'create'} existingTargetTypes={actualTargets.map(t => t.investmentType)} currency={userCurrency} />
+        
+        {/* Disappearing Notification */}
+        <DisappearingNotification 
+          notification={notification} 
+          onHide={() => setNotification(null)} 
+        />
       </div>
     </ChartAnimationProvider>
   );
@@ -388,11 +396,43 @@ export default function InvestmentsPageClient() {
   function handleModalAction(action: string, data?: any) {
     switch (action) {
       case 'add':
-        return handleAddInvestment(data);
+        return handleAddInvestmentWithNotification(data);
       case 'edit':
         return modal.investment ? handleEditInvestment(modal.investment.id, data) : undefined;
       case 'delete':
         return modal.investment ? handleDeleteInvestment(modal.investment) : undefined;
+    }
+  }
+  
+  // Custom wrapper to handle notifications without causing re-renders
+  async function handleAddInvestmentWithNotification(data: any) {
+    try {
+      const result = await handleAddInvestment(data);
+      
+      // Show success notification
+      const totalValue = data.quantity * data.purchasePrice;
+      const formattedAmount = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: userCurrency || 'USD'
+      }).format(totalValue);
+      
+      setNotification({
+        title: 'Investment Added Successfully!',
+        message: `${data.name} (${data.symbol || 'N/A'}) - ${formattedAmount} has been added to your portfolio`,
+        type: "success",
+        duration: 3000
+      });
+      
+      return result;
+    } catch (error) {
+      // Show error notification
+      setNotification({
+        title: 'Failed to Add Investment',
+        message: "Please try again or contact support if the issue persists",
+        type: "error",
+        duration: 4000
+      });
+      throw error;
     }
   }
 
