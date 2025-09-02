@@ -63,8 +63,7 @@ const TYPE_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
-export const InvestmentTypePolarChart = React.memo<InvestmentTypePolarChartProps>(
-  ({ investments, currency = "USD", title = "Portfolio Distribution by Investment Type" }) => {
+const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", title = "Portfolio Distribution by Investment Type" }: InvestmentTypePolarChartProps) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
 
@@ -112,10 +111,7 @@ export const InvestmentTypePolarChart = React.memo<InvestmentTypePolarChartProps
       }
 
       return { data: finalData, totalInvested: total };
-    }, [
-      investments.length,
-      investments.reduce((s, inv) => s + inv.id + inv.quantity + inv.purchasePrice, 0),
-    ]);
+    }, [investments]);
 
     // Download functions for Chart.js (Canvas-based)
     const downloadPNG = useCallback(async (): Promise<void> => {
@@ -443,8 +439,41 @@ export const InvestmentTypePolarChart = React.memo<InvestmentTypePolarChartProps
         )}
       </>
     );
+};
+
+// Custom comparison function to prevent unnecessary re-renders
+const arePropsEqual = (prevProps: InvestmentTypePolarChartProps, nextProps: InvestmentTypePolarChartProps) => {
+  // Check if currency or title changed
+  if (prevProps.currency !== nextProps.currency || prevProps.title !== nextProps.title) {
+    return false;
   }
-);
+  
+  // Check if investments array length changed
+  if (prevProps.investments.length !== nextProps.investments.length) {
+    return false;
+  }
+  
+  // Check if any investment data actually changed (deep comparison of relevant fields)
+  for (let i = 0; i < prevProps.investments.length; i++) {
+    const prev = prevProps.investments[i];
+    const next = nextProps.investments[i];
+    
+    if (
+      prev.id !== next.id ||
+      prev.type !== next.type ||
+      prev.quantity !== next.quantity ||
+      prev.purchasePrice !== next.purchasePrice ||
+      prev.name !== next.name ||
+      prev.symbol !== next.symbol
+    ) {
+      return false;
+    }
+  }
+  
+  return true;
+};
+
+export const InvestmentTypePolarChart = React.memo(InvestmentTypePolarChartComponent, arePropsEqual);
 
 InvestmentTypePolarChart.displayName = "InvestmentTypePolarChart";
 

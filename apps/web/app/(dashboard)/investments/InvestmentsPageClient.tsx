@@ -151,9 +151,10 @@ export default function InvestmentsPageClient() {
   }, [actualTargets, openTargetModal]);
 
   const stableInvestments = useMemo(() => investments, [investments?.length, investments?.reduce((sum, inv) => sum + inv.id + (inv.currentPrice || 0), 0) ?? 0]);
+  const stableFilteredInvestments = useMemo(() => filteredInvestments, [filteredInvestments?.length, filteredInvestments?.reduce((sum, inv) => sum + inv.id + (inv.currentPrice || 0), 0) ?? 0]);
   const stableTargetProgress = useMemo(() => targetProgress, [targetProgress?.length, targetProgress?.reduce((sum, target) => sum + target.progress + (target.isComplete ? 1 : 0), 0) ?? 0]);
 
-  const polarChartProps = useMemo(() => ({ investments: stableInvestments, currency: userCurrency, title: "Portfolio Distribution by Investment Type" }), [stableInvestments, userCurrency]);
+  const polarChartProps = useMemo(() => ({ investments: stableFilteredInvestments, currency: userCurrency, title: "Portfolio Distribution by Investment Type" }), [stableFilteredInvestments, userCurrency]);
   const targetChartProps = useMemo(() => ({ targets: stableTargetProgress, currency: userCurrency, title: "Investment Target Progress", onEditTarget: openEditTargetModal, onAddTarget: openAddTargetModal }), [stableTargetProgress, userCurrency, openEditTargetModal, openAddTargetModal]);
 
   const handleSectionBulkDelete = (sectionInvestments: InvestmentInterface[]) => {
@@ -277,7 +278,7 @@ export default function InvestmentsPageClient() {
 
         <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div>
-            <InvestmentTypePolarChart {...polarChartProps} investments={filteredInvestments} />
+            <InvestmentTypePolarChart {...polarChartProps} />
           </div>
           <div>
             <InvestmentTargetProgressChart {...targetChartProps} />
