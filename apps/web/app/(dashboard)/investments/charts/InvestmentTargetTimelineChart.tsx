@@ -74,9 +74,9 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
     const chartId = "investment-target-timeline";
     const { animationDuration, isAnimationActive } = useChartAnimationState(chartId);
 
-    const { timelineData, maxAmount, hasTargets, todayData } = useMemo(() => {
+    const { timelineData, maxAmount, hasTargets, todayData, thirtyDaysData, sixtyDaysData } = useMemo(() => {
         if (!targets?.length) {
-            return { timelineData: [], maxAmount: 0, hasTargets: false, todayData: null };
+            return { timelineData: [], maxAmount: 0, hasTargets: false, todayData: null, thirtyDaysData: null, sixtyDaysData: null };
         }
 
         // Filter targets that have completion dates and sort by date
@@ -121,7 +121,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
             };
         }).sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime());
 
-        // Create today's data point for reference line
+        // Create reference date points for timeline
         const today = new Date();
         const todayFormatted = today.toLocaleDateString('en-US', { 
             month: 'short', 
@@ -129,7 +129,23 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
             year: 'numeric'
         });
 
-        // Add today as a data point if it's within the range of our targets
+        const thirtyDaysFromNow = new Date(today);
+        thirtyDaysFromNow.setDate(today.getDate() + 30);
+        const thirtyDaysFormatted = thirtyDaysFromNow.toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric',
+            year: 'numeric'
+        });
+
+        const sixtyDaysFromNow = new Date(today);
+        sixtyDaysFromNow.setDate(today.getDate() + 60);
+        const sixtyDaysFormatted = sixtyDaysFromNow.toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric',
+            year: 'numeric'
+        });
+
+        // Create reference data points
         const todayData: TimelineDataPoint = {
             date: today.toISOString().split('T')[0] || today.toISOString(),
             formattedDate: todayFormatted,
@@ -145,20 +161,56 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
             remainingBar: 0
         };
 
-        // Insert today's data point in the correct chronological position
+        const thirtyDaysData: TimelineDataPoint = {
+            date: thirtyDaysFromNow.toISOString().split('T')[0] || thirtyDaysFromNow.toISOString(),
+            formattedDate: thirtyDaysFormatted,
+            displayLabel: `${thirtyDaysFormatted}\n+30 Days`,
+            targetAmount: 0,
+            investmentType: 'THIRTY_DAYS',
+            isOverdue: false,
+            progress: 0,
+            currentAmount: 0,
+            isComplete: false,
+            sortDate: thirtyDaysFromNow,
+            completedBar: 0,
+            remainingBar: 0
+        };
+
+        const sixtyDaysData: TimelineDataPoint = {
+            date: sixtyDaysFromNow.toISOString().split('T')[0] || sixtyDaysFromNow.toISOString(),
+            formattedDate: sixtyDaysFormatted,
+            displayLabel: `${sixtyDaysFormatted}\n+60 Days`,
+            targetAmount: 0,
+            investmentType: 'SIXTY_DAYS',
+            isOverdue: false,
+            progress: 0,
+            currentAmount: 0,
+            isComplete: false,
+            sortDate: sixtyDaysFromNow,
+            completedBar: 0,
+            remainingBar: 0
+        };
+
+        // Insert reference data points in the correct chronological positions
         const allData = [...data];
-        const todayIndex = allData.findIndex(item => item.sortDate > today);
-        if (todayIndex === -1) {
-            allData.push(todayData);
-        } else {
-            allData.splice(todayIndex, 0, todayData);
-        }
+        const referencePoints = [todayData, thirtyDaysData, sixtyDaysData];
+        
+        referencePoints.forEach(refPoint => {
+            const insertIndex = allData.findIndex(item => item.sortDate > refPoint.sortDate);
+            if (insertIndex === -1) {
+                allData.push(refPoint);
+            } else {
+                allData.splice(insertIndex, 0, refPoint);
+            }
+        });
 
         return { 
             timelineData: allData, 
             maxAmount,
             hasTargets: data.length > 0,
-            todayData
+            todayData,
+            thirtyDaysData,
+            sixtyDaysData
         };
     }, [targets]);
 
@@ -166,7 +218,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
         if (active && payload && payload.length) {
             const data = payload[0].payload as TimelineDataPoint;
             
-            // Special handling for "Today" data point
+            // Special handling for reference data points
             if (data.investmentType === 'TODAY') {
                 return (
                     <div className="bg-white border border-red-200 rounded-lg shadow-lg p-4 max-w-xs">
@@ -182,6 +234,48 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                             </p>
                             <p className="text-gray-500 text-xs mt-2">
                                 This line shows today's position on the timeline
+                            </p>
+                        </div>
+                    </div>
+                );
+            }
+            
+            if (data.investmentType === 'THIRTY_DAYS') {
+                return (
+                    <div className="bg-white border border-orange-200 rounded-lg shadow-lg p-4 max-w-xs">
+                        <h4 className="font-semibold text-orange-600 mb-2">
+                            30 Days From Today
+                        </h4>
+                        <div className="space-y-1 text-sm">
+                            <p>
+                                <span className="text-gray-600">Date:</span>{' '}
+                                <span className="font-medium text-gray-900">
+                                    {data.formattedDate}
+                                </span>
+                            </p>
+                            <p className="text-gray-500 text-xs mt-2">
+                                Reference line for 30-day planning horizon
+                            </p>
+                        </div>
+                    </div>
+                );
+            }
+            
+            if (data.investmentType === 'SIXTY_DAYS') {
+                return (
+                    <div className="bg-white border border-blue-200 rounded-lg shadow-lg p-4 max-w-xs">
+                        <h4 className="font-semibold text-blue-600 mb-2">
+                            60 Days From Today
+                        </h4>
+                        <div className="space-y-1 text-sm">
+                            <p>
+                                <span className="text-gray-600">Date:</span>{' '}
+                                <span className="font-medium text-gray-900">
+                                    {data.formattedDate}
+                                </span>
+                            </p>
+                            <p className="text-gray-500 text-xs mt-2">
+                                Reference line for 60-day planning horizon
                             </p>
                         </div>
                     </div>
@@ -265,8 +359,8 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
         
         const data = payload as TimelineDataPoint;
         
-        // Don't render dots for the "Today" marker
-        if (data.investmentType === 'TODAY') {
+        // Don't render dots for reference markers
+        if (data.investmentType === 'TODAY' || data.investmentType === 'THIRTY_DAYS' || data.investmentType === 'SIXTY_DAYS') {
             return null;
         }
         
@@ -362,7 +456,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                     fileName="investment-targets-timeline"
                     csvData={[
                         ['Target Type', 'Nickname', 'Target Date', 'Target Amount', 'Current Amount', 'Progress (%)', 'Days Remaining', 'Status'],
-                        ...timelineData.filter(item => item.investmentType !== 'TODAY').map(item => [
+                        ...timelineData.filter(item => !['TODAY', 'THIRTY_DAYS', 'SIXTY_DAYS'].includes(item.investmentType)).map(item => [
                             TYPE_LABELS[item.investmentType] || item.investmentType,
                             item.nickname || '-',
                             item.formattedDate,
@@ -384,42 +478,42 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                         <div className="flex-1 text-center min-w-0">
                             <Target className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mx-auto mb-1" />
                             <p className="text-xs sm:text-sm text-gray-600 truncate">Total Targets</p>
-                            <p className="text-sm sm:text-lg font-semibold text-gray-900">{timelineData.filter(t => t.investmentType !== 'TODAY').length}</p>
+                            <p className="text-sm sm:text-lg font-semibold text-gray-900">{timelineData.filter(t => !['TODAY', 'THIRTY_DAYS', 'SIXTY_DAYS'].includes(t.investmentType)).length}</p>
                         </div>
                         <div className="flex-1 text-center min-w-0">
                             <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 mx-auto mb-1" />
                             <p className="text-xs sm:text-sm text-gray-600 truncate">Completed</p>
                             <p className="text-sm sm:text-lg font-semibold text-green-600">
-                                {timelineData.filter(t => t.isComplete && t.investmentType !== 'TODAY').length}
+                                {timelineData.filter(t => t.isComplete && !['TODAY', 'THIRTY_DAYS', 'SIXTY_DAYS'].includes(t.investmentType)).length}
                             </p>
                         </div>
                         <div className="flex-1 text-center min-w-0">
                             <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 mx-auto mb-1" />
                             <p className="text-xs sm:text-sm text-gray-600 truncate">Overdue</p>
                             <p className="text-sm sm:text-lg font-semibold text-red-600">
-                                {timelineData.filter(t => t.isOverdue && !t.isComplete && t.investmentType !== 'TODAY').length}
+                                {timelineData.filter(t => t.isOverdue && !t.isComplete && !['TODAY', 'THIRTY_DAYS', 'SIXTY_DAYS'].includes(t.investmentType)).length}
                             </p>
                         </div>
                         <div className="flex-1 text-center min-w-0">
                             <div className="w-4 h-4 sm:w-5 sm:h-5 bg-blue-600 rounded mx-auto mb-1"></div>
                             <p className="text-xs sm:text-sm text-gray-600 truncate">Total Target Value</p>
                             <p className="text-sm sm:text-lg font-semibold text-gray-900 truncate">
-                                {formatCurrency(timelineData.filter(t => t.investmentType !== 'TODAY').reduce((sum, t) => sum + t.targetAmount, 0), currency)}
+                                {formatCurrency(timelineData.filter(t => !['TODAY', 'THIRTY_DAYS', 'SIXTY_DAYS'].includes(t.investmentType)).reduce((sum, t) => sum + t.targetAmount, 0), currency)}
                             </p>
                         </div>
                         <div className="flex-1 text-center min-w-0">
                             <div className="w-4 h-4 sm:w-5 sm:h-5 bg-green-600 rounded mx-auto mb-1"></div>
                             <p className="text-xs sm:text-sm text-gray-600 truncate">Total Progress</p>
                             <p className="text-sm sm:text-lg font-semibold text-green-600 truncate">
-                                {formatCurrency(timelineData.filter(t => t.investmentType !== 'TODAY').reduce((sum, t) => sum + t.currentAmount, 0), currency)}
+                                {formatCurrency(timelineData.filter(t => !['TODAY', 'THIRTY_DAYS', 'SIXTY_DAYS'].includes(t.investmentType)).reduce((sum, t) => sum + t.currentAmount, 0), currency)}
                             </p>
                         </div>
                         <div className="flex-1 text-center min-w-0">
                             <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 mx-auto mb-1" />
                             <p className="text-xs sm:text-sm text-gray-600 truncate">Overall Progress</p>
                             <p className="text-sm sm:text-lg font-semibold text-purple-600">
-                                {timelineData.filter(t => t.investmentType !== 'TODAY').length > 0
-                                    ? ((timelineData.filter(t => t.investmentType !== 'TODAY').reduce((sum, t) => sum + t.progress, 0) / timelineData.filter(t => t.investmentType !== 'TODAY').length)).toFixed(1)
+                                {timelineData.filter(t => !['TODAY', 'THIRTY_DAYS', 'SIXTY_DAYS'].includes(t.investmentType)).length > 0
+                                    ? ((timelineData.filter(t => !['TODAY', 'THIRTY_DAYS', 'SIXTY_DAYS'].includes(t.investmentType)).reduce((sum, t) => sum + t.progress, 0) / timelineData.filter(t => !['TODAY', 'THIRTY_DAYS', 'SIXTY_DAYS'].includes(t.investmentType)).length)).toFixed(1)
                                     : '0.0'
                                 }%
                             </p>
@@ -447,7 +541,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                                 vertical={true}
                             />
 
-                            {/* Current date reference line */}
+                            {/* Reference lines */}
                             {todayData && (
                                 <ReferenceLine
                                     x={todayData.displayLabel}
@@ -460,6 +554,40 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                                             fill: "#ef4444",
                                             fontWeight: "600",
                                             fontSize: "12px"
+                                        }
+                                    }}
+                                />
+                            )}
+                            
+                            {thirtyDaysData && (
+                                <ReferenceLine
+                                    x={thirtyDaysData.displayLabel}
+                                    stroke="#f97316"
+                                    strokeWidth={2}
+                                    strokeDasharray="12 6"
+                                    label={{ 
+                                        position: "top",
+                                        style: {
+                                            fill: "#ef4444",
+                                            fontWeight: "500",
+                                            fontSize: "11px"
+                                        }
+                                    }}
+                                />
+                            )}
+                            
+                            {sixtyDaysData && (
+                                <ReferenceLine
+                                    x={sixtyDaysData.displayLabel}
+                                    stroke="#3b82f6"
+                                    strokeWidth={2}
+                                    strokeDasharray="16 8"
+                                    label={{ 
+                                        position: "top",
+                                        style: {
+                                            fill: "#ef4444",
+                                            fontWeight: "500",
+                                            fontSize: "11px"
                                         }
                                     }}
                                 />
