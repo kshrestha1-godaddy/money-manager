@@ -22,7 +22,7 @@ export function WelcomeBackNotification({ onHide }: WelcomeBackNotificationProps
 
   const duration = 5000; // 5 seconds for welcome message
 
-  console.log('WelcomeBack: Component rendered', { status, isVisible, welcomeData });
+  // console.log('WelcomeBack: Component rendered', { status, isVisible, welcomeData });
 
 
 

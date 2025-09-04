@@ -74,9 +74,9 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
     const chartId = "investment-target-timeline";
     const { animationDuration, isAnimationActive } = useChartAnimationState(chartId);
 
-    const { timelineData, maxAmount, hasTargets } = useMemo(() => {
+    const { timelineData, maxAmount, hasTargets, todayData } = useMemo(() => {
         if (!targets?.length) {
-            return { timelineData: [], maxAmount: 0, hasTargets: false };
+            return { timelineData: [], maxAmount: 0, hasTargets: false, todayData: null };
         }
 
         // Filter targets that have completion dates and sort by date
@@ -121,16 +121,73 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
             };
         }).sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime());
 
+        // Create today's data point for reference line
+        const today = new Date();
+        const todayFormatted = today.toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric',
+            year: 'numeric'
+        });
+
+        // Add today as a data point if it's within the range of our targets
+        const todayData: TimelineDataPoint = {
+            date: today.toISOString().split('T')[0] || today.toISOString(),
+            formattedDate: todayFormatted,
+            displayLabel: `${todayFormatted}\nToday`,
+            targetAmount: 0,
+            investmentType: 'TODAY',
+            isOverdue: false,
+            progress: 0,
+            currentAmount: 0,
+            isComplete: false,
+            sortDate: today,
+            completedBar: 0,
+            remainingBar: 0
+        };
+
+        // Insert today's data point in the correct chronological position
+        const allData = [...data];
+        const todayIndex = allData.findIndex(item => item.sortDate > today);
+        if (todayIndex === -1) {
+            allData.push(todayData);
+        } else {
+            allData.splice(todayIndex, 0, todayData);
+        }
+
         return { 
-            timelineData: data, 
+            timelineData: allData, 
             maxAmount,
-            hasTargets: data.length > 0
+            hasTargets: data.length > 0,
+            todayData
         };
     }, [targets]);
 
     const CustomTooltip = useCallback(({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
             const data = payload[0].payload as TimelineDataPoint;
+            
+            // Special handling for "Today" data point
+            if (data.investmentType === 'TODAY') {
+                return (
+                    <div className="bg-white border border-red-200 rounded-lg shadow-lg p-4 max-w-xs">
+                        <h4 className="font-semibold text-red-600 mb-2">
+                            Today's Date
+                        </h4>
+                        <div className="space-y-1 text-sm">
+                            <p>
+                                <span className="text-gray-600">Current Date:</span>{' '}
+                                <span className="font-medium text-gray-900">
+                                    {data.formattedDate}
+                                </span>
+                            </p>
+                            <p className="text-gray-500 text-xs mt-2">
+                                This line shows today's position on the timeline
+                            </p>
+                        </div>
+                    </div>
+                );
+            }
+            
             return (
                 <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-xs">
                     <h4 className="font-semibold text-gray-900 mb-2">
@@ -207,6 +264,12 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
         if (!payload) return null;
         
         const data = payload as TimelineDataPoint;
+        
+        // Don't render dots for the "Today" marker
+        if (data.investmentType === 'TODAY') {
+            return null;
+        }
+        
         const color = TYPE_COLORS[data.investmentType] || "#6b7280";
         
         return (
@@ -286,8 +349,6 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
         );
     }
 
-    const currentDate = new Date().toISOString().split('T')[0];
-
 
     return (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -301,7 +362,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                     fileName="investment-targets-timeline"
                     csvData={[
                         ['Target Type', 'Nickname', 'Target Date', 'Target Amount', 'Current Amount', 'Progress (%)', 'Days Remaining', 'Status'],
-                        ...timelineData.map(item => [
+                        ...timelineData.filter(item => item.investmentType !== 'TODAY').map(item => [
                             TYPE_LABELS[item.investmentType] || item.investmentType,
                             item.nickname || '-',
                             item.formattedDate,
@@ -323,42 +384,42 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                         <div className="flex-1 text-center min-w-0">
                             <Target className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mx-auto mb-1" />
                             <p className="text-xs sm:text-sm text-gray-600 truncate">Total Targets</p>
-                            <p className="text-sm sm:text-lg font-semibold text-gray-900">{timelineData.length}</p>
+                            <p className="text-sm sm:text-lg font-semibold text-gray-900">{timelineData.filter(t => t.investmentType !== 'TODAY').length}</p>
                         </div>
                         <div className="flex-1 text-center min-w-0">
                             <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 mx-auto mb-1" />
                             <p className="text-xs sm:text-sm text-gray-600 truncate">Completed</p>
                             <p className="text-sm sm:text-lg font-semibold text-green-600">
-                                {timelineData.filter(t => t.isComplete).length}
+                                {timelineData.filter(t => t.isComplete && t.investmentType !== 'TODAY').length}
                             </p>
                         </div>
                         <div className="flex-1 text-center min-w-0">
                             <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 mx-auto mb-1" />
                             <p className="text-xs sm:text-sm text-gray-600 truncate">Overdue</p>
                             <p className="text-sm sm:text-lg font-semibold text-red-600">
-                                {timelineData.filter(t => t.isOverdue && !t.isComplete).length}
+                                {timelineData.filter(t => t.isOverdue && !t.isComplete && t.investmentType !== 'TODAY').length}
                             </p>
                         </div>
                         <div className="flex-1 text-center min-w-0">
                             <div className="w-4 h-4 sm:w-5 sm:h-5 bg-blue-600 rounded mx-auto mb-1"></div>
                             <p className="text-xs sm:text-sm text-gray-600 truncate">Total Target Value</p>
                             <p className="text-sm sm:text-lg font-semibold text-gray-900 truncate">
-                                {formatCurrency(timelineData.reduce((sum, t) => sum + t.targetAmount, 0), currency)}
+                                {formatCurrency(timelineData.filter(t => t.investmentType !== 'TODAY').reduce((sum, t) => sum + t.targetAmount, 0), currency)}
                             </p>
                         </div>
                         <div className="flex-1 text-center min-w-0">
                             <div className="w-4 h-4 sm:w-5 sm:h-5 bg-green-600 rounded mx-auto mb-1"></div>
                             <p className="text-xs sm:text-sm text-gray-600 truncate">Total Progress</p>
                             <p className="text-sm sm:text-lg font-semibold text-green-600 truncate">
-                                {formatCurrency(timelineData.reduce((sum, t) => sum + t.currentAmount, 0), currency)}
+                                {formatCurrency(timelineData.filter(t => t.investmentType !== 'TODAY').reduce((sum, t) => sum + t.currentAmount, 0), currency)}
                             </p>
                         </div>
                         <div className="flex-1 text-center min-w-0">
                             <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 mx-auto mb-1" />
                             <p className="text-xs sm:text-sm text-gray-600 truncate">Overall Progress</p>
                             <p className="text-sm sm:text-lg font-semibold text-purple-600">
-                                {timelineData.length > 0
-                                    ? ((timelineData.reduce((sum, t) => sum + t.progress, 0) / timelineData.length)).toFixed(1)
+                                {timelineData.filter(t => t.investmentType !== 'TODAY').length > 0
+                                    ? ((timelineData.filter(t => t.investmentType !== 'TODAY').reduce((sum, t) => sum + t.progress, 0) / timelineData.filter(t => t.investmentType !== 'TODAY').length)).toFixed(1)
                                     : '0.0'
                                 }%
                             </p>
@@ -387,13 +448,22 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                             />
 
                             {/* Current date reference line */}
-                            <ReferenceLine
-                                x={currentDate}
-                                stroke="#ef4444"
-                                strokeWidth={2}
-                                strokeDasharray="5 5"
-                                label={{ value: "Today", position: "top" }}
-                            />
+                            {todayData && (
+                                <ReferenceLine
+                                    x={todayData.displayLabel}
+                                    stroke="#ef4444"
+                                    strokeWidth={2}
+                                    strokeDasharray="8 4"
+                                    label={{ 
+                                        position: "top",
+                                        style: {
+                                            fill: "#ef4444",
+                                            fontWeight: "600",
+                                            fontSize: "12px"
+                                        }
+                                    }}
+                                />
+                            )}
 
                             <XAxis
                                 dataKey="displayLabel"
