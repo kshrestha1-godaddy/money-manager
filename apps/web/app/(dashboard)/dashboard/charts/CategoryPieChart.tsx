@@ -19,13 +19,23 @@ interface CategoryData {
     name: string;
     value: number;
     color: string;
+    solidColor?: string;
 }
 
-// Beautiful soft color palette inspired by design palettes
-const COLORS = [
-    '#77BEF0', '#FFCB61', '#FF894F', '#EA5B6F',
-    '#87CEEB', '#F0E68C', '#DDA0DD',
-    '#FFB6C1', '#20B2AA', '#F4A460', '#9370DB'
+// Color palette with bright pie colors and dark legend colors
+const COLOR_PALETTE = [
+    { pie: '#3b82f6', legend: '#1e3a8a' },    // bright blue / dark blue
+    { pie: '#ef4444', legend: '#dc2626' },    // bright red / dark red
+    { pie: '#10b981', legend: '#059669' },    // bright emerald / dark emerald
+    { pie: '#f97316', legend: '#ea580c' },    // bright orange / dark orange
+    { pie: '#a16207', legend: '#7c2d12' },    // bright amber / dark brown
+    { pie: '#ec4899', legend: '#be123c' },    // bright pink / dark rose
+    { pie: '#14b8a6', legend: '#0f766e' },    // bright teal / dark teal
+    { pie: '#eab308', legend: '#a16207' },    // bright yellow / dark amber
+    { pie: '#8b5cf6', legend: '#4c1d95' },    // bright violet / dark violet
+    { pie: '#f43f5e', legend: '#991b1b' },    // bright rose / dark red
+    { pie: '#22c55e', legend: '#065f46' },    // bright green / dark green
+    { pie: '#f59e0b', legend: '#92400e' }     // bright amber / dark amber
 ];
 
 export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, currency = "USD", title, heightClass }) => {
@@ -47,11 +57,15 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
 
         // Convert to array and add colors
         const rawChartData: CategoryData[] = Array.from(categoryMap.entries())
-            .map(([name, value], index) => ({
-                name,
-                value,
-                color: COLORS[index % COLORS.length] || '#8884d8'
-            }))
+            .map(([name, value], index) => {
+                const colorConfig = COLOR_PALETTE[index % COLOR_PALETTE.length];
+                return {
+                    name,
+                    value,
+                    color: colorConfig?.pie || '#8884d8',
+                    solidColor: colorConfig?.legend || '#6b7280'
+                };
+            })
             .sort((a, b) => b.value - a.value); // Sort by value descending
 
         const total = rawChartData.reduce((sum, item) => sum + item.value, 0);
@@ -74,7 +88,8 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
             chartData.push({
                 name: 'Others',
                 value: othersValue,
-                color: '#64748b' // Neutral gray for Others category
+                color: '#94a3b8', // Light gray for Others category pie
+                solidColor: '#64748b' // Dark gray for Others category legend
             });
         }
 
@@ -245,13 +260,17 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                                 innerRadius={isExpanded ? 70 : 100}
                                 fill="#8884d8"
                                 dataKey="value"
+                                paddingAngle={0.5}
+                                cornerRadius={8}
                                 stroke="#ffffff"
-                                strokeWidth={2}
+                                strokeWidth={3}
                             >
                                 {chartData.map((entry, index) => (
                                     <Cell 
                                         key={`cell-${index}`} 
                                         fill={entry.color}
+                                        stroke="#ffffff"
+                                        strokeWidth={3}
                                     />
                                 ))}
                             </Pie>
@@ -289,7 +308,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                                             <div
                                                 className="w-3 h-3 sm:w-4 sm:h-4 rounded-full flex-shrink-0 border border-white"
                                                 style={{ 
-                                                    backgroundColor: entry.color,
+                                                    backgroundColor: entry.solidColor || entry.color,
                                                     boxShadow: `0 1px 3px rgba(0, 0, 0, 0.1)`
                                                 }}
                                             />
