@@ -7,18 +7,22 @@ import { downloadCategoryImportTemplate } from "../../utils/csvImportCategories"
 
 // Configuration interface for different transaction types
 export interface BulkImportConfig {
-    type: 'INCOME' | 'EXPENSE';
+    type: 'INCOME' | 'EXPENSE' | 'INVESTMENT';
     title: string;
     description: string;
     requiredFields: string[];
     optionalFields: string[];
     supportsCategoriesImport: boolean;
+    supportsTargetsImport?: boolean;
     bulkImportFunction: (file: File, categoryFile?: File, defaultAccountId?: string) => Promise<any>;
     parseCSVFunction: (csvText: string) => Promise<string[][]>;
     importCorrectedRowFunction: (rowData: string[], headers: string[]) => Promise<any>;
+    targetsParseCSVFunction?: (csvText: string) => Promise<string[][]>;
+    targetsImportCorrectedRowFunction?: (rowData: string[], headers: string[]) => Promise<any>;
+    targetsTemplateDownload?: () => void;
     formDataHook: () => {
         accounts: any[];
-        categories: any[];
+        categories?: any[];
         loading: boolean;
         error: any;
     };
@@ -40,6 +44,7 @@ export function UnifiedBulkImportModal({
     // File upload states
     const [mainFile, setMainFile] = useState<File | null>(null);
     const [categoryFile, setCategoryFile] = useState<File | null>(null);
+    const [targetFile, setTargetFile] = useState<File | null>(null);
     
     // Import process states
     const [importing, setImporting] = useState(false);
@@ -79,6 +84,15 @@ export function UnifiedBulkImportModal({
         }
     };
 
+    const handleTargetFileSelect = (selectedFile: File) => {
+        if (selectedFile.type === 'text/csv' || selectedFile.name.endsWith('.csv')) {
+            setTargetFile(selectedFile);
+            setCategoryResult(null); // Reuse categoryResult for targets
+        } else {
+            alert('Please select a CSV file');
+        }
+    };
+
     // Drag and drop handlers
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
@@ -110,6 +124,16 @@ export function UnifiedBulkImportModal({
         }
     };
 
+    const handleTargetDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setDragActive(false);
+        
+        const droppedFile = e.dataTransfer.files[0];
+        if (droppedFile) {
+            handleTargetFileSelect(droppedFile);
+        }
+    };
+
     // Import processing
     const handleImport = async () => {
         if (!mainFile) return;
@@ -125,7 +149,7 @@ export function UnifiedBulkImportModal({
                 setCsvHeaders(rows[0] || []);
             }
             
-            // Use combined import if categories file is provided, otherwise just import main data
+            // Use combined import if categories or targets file is provided, otherwise just import main data
             let importResult;
             if (config.supportsCategoriesImport && categoryFile) {
                 const combinedResult = await config.bulkImportFunction(mainFile, categoryFile, "");
@@ -137,6 +161,16 @@ export function UnifiedBulkImportModal({
                 } else if (combinedResult.expenseImport) {
                     importResult = combinedResult.expenseImport;
                     setCategoryResult(combinedResult.categoryImport);
+                } else {
+                    importResult = combinedResult;
+                }
+            } else if (config.supportsTargetsImport && targetFile) {
+                const combinedResult = await config.bulkImportFunction(mainFile, targetFile, "");
+                
+                // Handle investment import with targets
+                if (combinedResult.investmentImport) {
+                    importResult = combinedResult.investmentImport;
+                    setCategoryResult(combinedResult.targetImport);
                 } else {
                     importResult = combinedResult;
                 }
@@ -238,6 +272,7 @@ export function UnifiedBulkImportModal({
     const resetModal = () => {
         setMainFile(null);
         setCategoryFile(null);
+        setTargetFile(null);
         setResult(null);
         setCategoryResult(null);
         setEditableErrors([]);
@@ -278,9 +313,9 @@ export function UnifiedBulkImportModal({
                     {!result && (
                         <>
                             {/* File Upload Areas */}
-                            <div className={`grid grid-cols-1 ${config.supportsCategoriesImport ? 'md:grid-cols-2' : ''} gap-4`}>
+                            <div className={`grid grid-cols-1 ${(config.supportsCategoriesImport || config.supportsTargetsImport) ? 'md:grid-cols-2' : ''} gap-4`}>
                                 {/* Main File Upload */}
-                                <div className={config.supportsCategoriesImport ? '' : 'max-w-md mx-auto'}>
+                                <div className={(config.supportsCategoriesImport || config.supportsTargetsImport) ? '' : 'max-w-md mx-auto'}>
                                     <h3 className="text-lg font-medium text-gray-900 mb-3">
                                         {typeTitle} CSV File (Required)
                                     </h3>
@@ -317,6 +352,28 @@ export function UnifiedBulkImportModal({
                                         />
                                     </div>
                                 )}
+
+                                {/* Targets File Upload */}
+                                {config.supportsTargetsImport && (
+                                    <div>
+                                        <h3 className="text-lg font-medium text-gray-900 mb-3">
+                                            Targets CSV File (Optional)
+                                        </h3>
+                                        <FileUploadArea
+                                            file={targetFile}
+                                            onFileSelect={handleTargetFileSelect}
+                                            onDrop={handleTargetDrop}
+                                            onDragOver={handleDragOver}
+                                            onDragLeave={handleDragLeave}
+                                            dragActive={dragActive}
+                                            placeholder="Drop targets CSV here"
+                                            inputId="targets-file-upload"
+                                            buttonColor="bg-purple-600 hover:bg-purple-700"
+                                            showTemplate={true}
+                                            customTemplateDownload={config.targetsTemplateDownload}
+                                        />
+                                    </div>
+                                )}
                             </div>
 
                             {/* Format Information */}
@@ -334,8 +391,8 @@ export function UnifiedBulkImportModal({
                                     }`}
                                 >
                                     {importing 
-                                        ? (categoryFile ? `Importing Categories & ${typeTitle}s...` : `Importing ${typeTitle}s...`) 
-                                        : (categoryFile ? `Import Categories & ${typeTitle}s` : `Import ${typeTitle}s`)
+                                        ? (categoryFile ? `Importing Categories & ${typeTitle}s...` : targetFile ? `Importing Targets & ${typeTitle}s...` : `Importing ${typeTitle}s...`) 
+                                        : (categoryFile ? `Import Categories & ${typeTitle}s` : targetFile ? `Import Targets & ${typeTitle}s` : `Import ${typeTitle}s`)
                                     }
                                 </button>
                             </div>
@@ -384,6 +441,7 @@ interface FileUploadAreaProps {
     inputId: string;
     buttonColor: string;
     showTemplate?: boolean;
+    customTemplateDownload?: () => void;
 }
 
 function FileUploadArea({
@@ -396,7 +454,8 @@ function FileUploadArea({
     placeholder,
     inputId,
     buttonColor,
-    showTemplate = false
+    showTemplate = false,
+    customTemplateDownload
 }: FileUploadAreaProps) {
     return (
         <div
@@ -426,7 +485,7 @@ function FileUploadArea({
                         </button>
                         {showTemplate && (
                             <button
-                                onClick={downloadCategoryImportTemplate}
+                                onClick={customTemplateDownload || downloadCategoryImportTemplate}
                                 className="inline-flex items-center px-3 py-1.5 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm"
                                 type="button"
                             >
@@ -458,7 +517,7 @@ function FormatInfo({ config }: FormatInfoProps) {
     const typeLabel = config.type.toLowerCase();
     
     return (
-        <div className={`grid grid-cols-1 ${config.supportsCategoriesImport ? 'md:grid-cols-2' : ''} gap-4`}>
+        <div className={`grid grid-cols-1 ${(config.supportsCategoriesImport || config.supportsTargetsImport) ? 'md:grid-cols-2' : ''} gap-4`}>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 className="font-medium text-blue-900 mb-2">{config.type} CSV Format:</h4>
                 <div className="text-sm text-blue-800 space-y-1">
@@ -482,6 +541,20 @@ function FormatInfo({ config }: FormatInfoProps) {
                         <p>• <strong>Color:</strong> Hex code (#RGB or #RRGGBB) or CSS color name</p>
                         <p>• <strong>Icon:</strong> Icon name (optional)</p>
                         <p className="italic">Categories are imported first and updated if they exist</p>
+                    </div>
+                </div>
+            )}
+            
+            {config.supportsTargetsImport && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <h4 className="font-medium text-purple-900 mb-2">Targets CSV Format:</h4>
+                    <div className="text-sm text-purple-800 space-y-1">
+                        <p>• <strong>Required:</strong> Investment Type, Target Amount</p>
+                        <p>• <strong>Optional:</strong> Target Completion Date, Nickname</p>
+                        <p>• <strong>Investment Type:</strong> STOCKS, CRYPTO, BONDS, etc.</p>
+                        <p>• <strong>Date format:</strong> YYYY-MM-DD</p>
+                        <p>• <strong>Target Amount:</strong> Numeric value</p>
+                        <p className="italic">Targets are imported first and updated if they exist for the same investment type</p>
                     </div>
                 </div>
             )}

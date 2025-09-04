@@ -1,12 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useQueryClient } from '@tanstack/react-query';
 import { InvestmentTable } from "./components/InvestmentTable";
 import { AddInvestmentModal } from "./components/AddInvestmentModal";
 import { EditInvestmentModal } from "./components/EditInvestmentModal";
 import { DeleteInvestmentModal } from "./components/DeleteInvestmentModal";
 import { ViewInvestmentModal } from "./components/ViewInvestmentModal";
-import { BulkImportModal } from "./components/BulkImportModal";
+import { UnifiedBulkImportModal } from "../../components/shared/UnifiedBulkImportModal";
+import { investmentImportConfig } from "../../config/bulkImportConfig";
 import { BulkDeleteInvestmentModal } from "./components/BulkDeleteInvestmentModal";
 import { InvestmentTargetModal } from "./components/InvestmentTargetModal";
 import { formatCurrency } from "../../utils/currency";
@@ -21,6 +23,7 @@ import { InvestmentTypePolarChart } from "./charts/InvestmentTypePolarChart";
 import { InvestmentTargetProgressChart } from "./charts/InvestmentTargetProgressChart";
 import { InvestmentTargetTimelineChart } from "./charts/InvestmentTargetTimelineChart";
 import { DisappearingNotification, NotificationData } from "../../components/DisappearingNotification";
+import { exportInvestmentTargetsToCSV } from "../../utils/csvExportInvestmentTargets";
 // import { InvestmentTypePieChart } from "./charts/InvestmentTypePieChart";
 
 const pageContainer = CONTAINER_COLORS.page;
@@ -57,6 +60,7 @@ const redNegativeIcon = ICON_COLORS.redNegative;
 
 export default function InvestmentsPageClient() {
   const { currency: userCurrency } = useCurrency();
+  const queryClient = useQueryClient();
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
   const [bulkDeleteInvestments, setBulkDeleteInvestments] = useState<InvestmentInterface[]>([]);
@@ -182,6 +186,46 @@ export default function InvestmentsPageClient() {
     }
   };
 
+  // Combined export handler for both investments and targets
+  const handleCombinedExportToCSV = useCallback(() => {
+    let hasData = false;
+    
+    // Export investments if available
+    if (filteredInvestments.length > 0) {
+      handleExportToCSV();
+      hasData = true;
+    }
+    
+    // Export investment targets if available
+    if (targetProgress && targetProgress.length > 0) {
+      exportInvestmentTargetsToCSV(targetProgress);
+      hasData = true;
+    }
+    
+    if (!hasData) {
+      alert("No data to export. Please add some investments or set investment targets first.");
+    }
+  }, [filteredInvestments, targetProgress, handleExportToCSV]);
+
+  // Import success handler - refreshes both investments and targets data
+  const handleImportSuccess = useCallback(() => {
+    // Invalidate investments data
+    queryClient.invalidateQueries({ queryKey: ['investments'] });
+    
+    // Invalidate investment targets data
+    queryClient.invalidateQueries({ queryKey: ['investment-targets'] });
+    queryClient.invalidateQueries({ queryKey: ['investment-target-progress'] });
+    
+    // Close the modal
+    closeModal();
+    
+    // Show success notification
+    setNotification({
+      type: 'success',
+      message: 'Import completed successfully!'
+    });
+  }, [queryClient, closeModal]);
+
   if (error) {
     return (
       <div className="p-8 text-center">
@@ -217,7 +261,7 @@ export default function InvestmentsPageClient() {
           <div className={UI_STYLES.header.buttonGroup}>
             <button onClick={() => openModal('add')} className={primaryButton}>Add Investment</button>
             <button onClick={() => openModal('import')} className={secondaryBlueButton}>Import CSV</button>
-            <button onClick={handleExportToCSV} className={secondaryGreenButton} disabled={filteredInvestments.length === 0}>Export CSV</button>
+            <button onClick={handleCombinedExportToCSV} className={secondaryGreenButton} disabled={filteredInvestments.length === 0 && (!targetProgress || targetProgress.length === 0)}>Export CSV</button>
           </div>
         </div>
 
@@ -381,7 +425,12 @@ export default function InvestmentsPageClient() {
         <EditInvestmentModal investment={modal.investment || null} isOpen={modal.type === 'edit'} onClose={closeModal} onEdit={(id, data) => handleModalAction('edit', data)} />
         <DeleteInvestmentModal investment={modal.investment || null} isOpen={modal.type === 'delete'} onClose={closeModal} onConfirm={() => handleModalAction('delete')} />
         <ViewInvestmentModal investment={modal.investment || null} isOpen={modal.type === 'view'} onClose={closeModal} onEdit={(investment) => openModal('edit', investment)} />
-        <BulkImportModal isOpen={modal.type === 'import'} onClose={closeModal} onSuccess={() => { closeModal(); }} />
+        <UnifiedBulkImportModal 
+          isOpen={modal.type === 'import'} 
+          onClose={closeModal} 
+          onSuccess={handleImportSuccess}
+          config={investmentImportConfig}
+        />
         <BulkDeleteInvestmentModal isOpen={isBulkDeleteModalOpen} onClose={() => setIsBulkDeleteModalOpen(false)} onConfirm={handleBulkDeleteConfirm} investments={bulkDeleteInvestments} />
         <InvestmentTargetModal isOpen={targetModal.type !== null} onClose={closeModalTarget} onSave={async (data) => { await handleCreateTarget(data); }} onUpdate={async (id, data) => { await handleUpdateTarget(id, data); }} onDelete={async (id) => { await handleDeleteTarget(id); }} existingTarget={targetModal.target} mode={targetModal.type || 'create'} existingTargetTypes={actualTargets.map(t => t.investmentType)} currency={userCurrency} />
         

@@ -13,6 +13,7 @@ import {
 } from '../actions/investments';
 import { triggerBalanceRefresh } from '../../../hooks/useTotalBalance';
 import { exportInvestmentsToCSV } from '../../../utils/csvExportInvestments';
+import { exportInvestmentTargetsToCSV } from '../../../utils/csvExportInvestmentTargets';
 
 interface Modal {
     type: 'add' | 'edit' | 'delete' | 'view' | 'import' | null;
@@ -299,6 +300,8 @@ export function useOptimizedInvestments() {
                     investment.id === context?.tempInvestment.id ? data : investment
                 )
             );
+            // Invalidate investment target progress since current amounts changed
+            queryClient.invalidateQueries({ queryKey: ['investment-target-progress'] });
             triggerBalanceRefresh();
             closeModal();
             setError(null);
@@ -342,6 +345,8 @@ export function useOptimizedInvestments() {
             queryClient.setQueryData<InvestmentInterface[]>(['investments'], (old = []) =>
                 old.map(investment => investment.id === data.id ? data : investment)
             );
+            // Invalidate investment target progress since current amounts changed
+            queryClient.invalidateQueries({ queryKey: ['investment-target-progress'] });
             triggerBalanceRefresh();
             closeModal();
             setError(null);
@@ -378,6 +383,8 @@ export function useOptimizedInvestments() {
             return { previousInvestments };
         },
         onSuccess: () => {
+            // Invalidate investment target progress since current amounts changed
+            queryClient.invalidateQueries({ queryKey: ['investment-target-progress'] });
             triggerBalanceRefresh();
             closeModal();
             setError(null);
@@ -414,6 +421,8 @@ export function useOptimizedInvestments() {
             return { previousInvestments };
         },
         onSuccess: () => {
+            // Invalidate investment target progress since current amounts changed
+            queryClient.invalidateQueries({ queryKey: ['investment-target-progress'] });
             triggerBalanceRefresh();
             setSelectedInvestments(new Set());
             setError(null);

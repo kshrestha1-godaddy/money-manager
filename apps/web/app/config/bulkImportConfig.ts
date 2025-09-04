@@ -18,6 +18,18 @@ import {
 } from '../(dashboard)/expenses/actions/expenses';
 import { useFinancialFormData } from '../hooks/useFinancialFormData';
 import { useExpenseFormData } from '../hooks/useExpenseFormData';
+import { 
+    bulkImportInvestments,
+    bulkImportInvestmentsWithTargets,
+    parseCSVForUI as parseInvestmentsCSV, 
+    importCorrectedRow as importCorrectedInvestmentRow 
+} from '../(dashboard)/investments/actions/investments';
+import { 
+    parseInvestmentTargetsCSVForUI,
+    importCorrectedInvestmentTargetRow
+} from '../(dashboard)/investments/actions/investment-targets';
+import { downloadInvestmentTargetsImportTemplate } from '../utils/csvImportInvestmentTargets';
+import { useOptimizedAccounts } from '../hooks/useOptimizedAccounts';
 
 // Income bulk import configuration
 export const incomeImportConfig: BulkImportConfig = {
@@ -72,6 +84,39 @@ export const expenseImportConfig: BulkImportConfig = {
         return {
             accounts: result.accounts || [],
             categories: result.categories || [],
+            loading: result.loading || false,
+            error: result.error || null
+        };
+    }
+};
+
+// Investment bulk import configuration
+export const investmentImportConfig: BulkImportConfig = {
+    type: 'INVESTMENT',
+    title: 'Bulk Import Investments & Targets',
+    description: 'Import investments and investment targets from CSV files. Targets will be imported first if provided, then investments. Account names from the CSV will be automatically matched with your existing accounts.',
+    requiredFields: ['name', 'type', 'quantity', 'purchase price', 'current price', 'purchase date'],
+    optionalFields: ['symbol', 'account', 'notes', 'interest rate', 'maturity date'],
+    supportsCategoriesImport: false,
+    supportsTargetsImport: true,
+    bulkImportFunction: async (file: File, targetFile?: File, defaultAccountId?: string) => {
+        if (targetFile) {
+            return await bulkImportInvestmentsWithTargets(file, targetFile, defaultAccountId);
+        } else {
+            const fileText = await file.text();
+            return await bulkImportInvestments(fileText);
+        }
+    },
+    parseCSVFunction: parseInvestmentsCSV,
+    importCorrectedRowFunction: importCorrectedInvestmentRow,
+    targetsParseCSVFunction: parseInvestmentTargetsCSVForUI,
+    targetsImportCorrectedRowFunction: importCorrectedInvestmentTargetRow,
+    targetsTemplateDownload: downloadInvestmentTargetsImportTemplate,
+    formDataHook: () => {
+        const result = useOptimizedAccounts();
+        
+        return {
+            accounts: result.accounts || [],
             loading: result.loading || false,
             error: result.error || null
         };

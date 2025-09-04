@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { getUserIdFromSession } from "../../../utils/auth";
 import { parseInvestmentsCSV, ParsedInvestmentData } from "../../../utils/csvImportInvestments";
 import { ImportResult } from "../../../types/bulkImport";
+import { bulkImportInvestmentTargets } from "./investment-targets";
 
 export async function getUserInvestments(): Promise<{ data?: InvestmentInterface[], error?: string }> {
     try {
@@ -635,4 +636,122 @@ export async function bulkDeleteInvestments(investmentIds: number[]) {
         console.error(`Failed to bulk delete investments:`, error);
         throw error;
     }
+}
+
+/**
+ * Combined import: Import investments and targets
+ */
+export async function bulkImportInvestmentsWithTargets(
+    investmentFile: File, 
+    targetFile?: File, 
+    defaultAccountId?: string
+): Promise<{
+    investmentImport: {
+        success: number;
+        errors: Array<{ row: number; message: string }>;
+    };
+    targetImport?: {
+        success: number;
+        errors: Array<{ row: number; error: string }>;
+        importedCount: number;
+    };
+}> {
+    let targetImportResult;
+
+    // Import targets first if provided
+    if (targetFile) {
+        try {
+            targetImportResult = await bulkImportInvestmentTargets(targetFile);
+        } catch (error) {
+            targetImportResult = {
+                success: 0,
+                errors: [{ row: 0, error: error instanceof Error ? error.message : 'Failed to import targets' }],
+                importedCount: 0
+            };
+        }
+    }
+
+    // Import investments
+    const investmentText = await investmentFile.text();
+    const investmentImportResult = await bulkImportInvestments(investmentText);
+
+    return {
+        investmentImport: investmentImportResult,
+        targetImport: targetImportResult
+    };
+}
+
+/**
+ * Parse CSV for UI preview (compatible with unified modal)
+ */
+export async function parseCSVForUI(csvText: string): Promise<string[][]> {
+    try {
+        const lines = csvText.split('\n');
+        return lines.map(line => {
+            const cells: string[] = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    cells.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            
+            cells.push(current.trim());
+            return cells;
+        }).filter(row => row.some(cell => cell.length > 0));
+    } catch (error) {
+        console.error("Error parsing CSV for UI:", error);
+        return [];
+    }
+}
+
+/**
+ * Import a corrected investment row (compatible with unified modal)
+ */
+export async function importCorrectedRow(rowData: string[], headers: string[]): Promise<any> {
+    const session = await getServerSession(authOptions);
+    if (!session) throw new Error("Unauthorized");
+
+    const userId = getUserIdFromSession(session.user.id);
+
+    // Get user accounts for validation
+    const accounts = await prisma.account.findMany({
+        where: { userId: userId }
+    });
+
+    // Create a temporary CSV string from the corrected row data
+    const csvString = [headers, rowData]
+        .map(row => row.map(cell => `"${cell}"`).join(','))
+        .join('\n');
+    
+    const parseResult = parseInvestmentsCSV(csvString, accounts);
+    
+    if (!parseResult.success || !parseResult.data || parseResult.data.length === 0) {
+        throw new Error("Failed to parse corrected row data");
+    }
+
+    const investmentData = parseResult.data[0];
+
+    // Create the investment
+    const newInvestment = await prisma.investment.create({
+        data: {
+            ...investmentData,
+            userId: userId,
+        },
+        include: {
+            account: true,
+        },
+    });
+    
+    revalidatePath("/(dashboard)/investments");
+    return newInvestment;
 } 

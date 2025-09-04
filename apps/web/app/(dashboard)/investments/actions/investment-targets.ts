@@ -6,6 +6,7 @@ import { authOptions } from "../../../lib/auth";
 import { InvestmentTarget, InvestmentTargetFormData, InvestmentTargetProgress } from "../../../types/investments";
 import { revalidatePath } from "next/cache";
 import { getUserIdFromSession } from "../../../utils/auth";
+import { parseInvestmentTargetsCSV, ParsedInvestmentTargetData } from "../../../utils/csvImportInvestmentTargets";
 
 export async function getInvestmentTargets(): Promise<{ data?: InvestmentTarget[], error?: string }> {
     try {
@@ -257,4 +258,176 @@ export async function getInvestmentTargetProgress(): Promise<{ data?: Investment
         console.error("Error calculating investment target progress:", error);
         return { error: "Failed to calculate investment target progress" };
     }
+}
+
+/**
+ * Bulk import investment targets from CSV
+ */
+export async function bulkImportInvestmentTargets(file: File): Promise<{
+    success: number;
+    errors: Array<{ row: number; error: string }>;
+    importedCount: number;
+}> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+
+        const csvContent = await file.text();
+        const parseResult = parseInvestmentTargetsCSV(csvContent);
+        
+        if (!parseResult.success || !parseResult.data) {
+            return {
+                success: 0,
+                errors: parseResult.errors,
+                importedCount: 0
+            };
+        }
+
+        const validTargets = parseResult.data;
+        let importedCount = 0;
+        const errors: Array<{ row: number; error: string }> = [...parseResult.errors];
+
+        // Process targets in batches to avoid timeout
+        for (const targetData of validTargets) {
+            try {
+                // Check if target already exists for this investment type
+                const existingTarget = await prisma.investmentTarget.findFirst({
+                    where: {
+                        userId: userId,
+                        investmentType: targetData.investmentType,
+                    },
+                });
+
+                if (existingTarget) {
+                    // Update existing target instead of creating new one
+                    await prisma.investmentTarget.update({
+                        where: { id: existingTarget.id },
+                        data: {
+                            targetAmount: targetData.targetAmount,
+                            targetCompletionDate: targetData.targetCompletionDate,
+                            nickname: targetData.nickname,
+                        },
+                    });
+                } else {
+                    // Create new target
+                    await prisma.investmentTarget.create({
+                        data: {
+                            ...targetData,
+                            userId: userId,
+                        },
+                    });
+                }
+                
+                importedCount++;
+            } catch (error) {
+                errors.push({
+                    row: validTargets.indexOf(targetData) + 2, // Account for header row
+                    error: error instanceof Error ? error.message : 'Unknown error'
+                });
+            }
+        }
+
+        revalidatePath("/(dashboard)/investments");
+
+        return {
+            success: importedCount,
+            errors,
+            importedCount
+        };
+    } catch (error) {
+        console.error("Error importing investment targets:", error);
+        throw error;
+    }
+}
+
+/**
+ * Parse CSV for UI preview (compatible with unified modal)
+ */
+export async function parseInvestmentTargetsCSVForUI(csvText: string): Promise<string[][]> {
+    try {
+        const lines = csvText.split('\n');
+        return lines.map(line => {
+            const cells: string[] = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    cells.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            
+            cells.push(current.trim());
+            return cells;
+        }).filter(row => row.some(cell => cell.length > 0));
+    } catch (error) {
+        console.error("Error parsing CSV for UI:", error);
+        return [];
+    }
+}
+
+/**
+ * Import a corrected target row (compatible with unified modal)
+ */
+export async function importCorrectedInvestmentTargetRow(rowData: string[], headers: string[]): Promise<any> {
+    const session = await getServerSession(authOptions);
+    if (!session) throw new Error("Unauthorized");
+
+    const userId = getUserIdFromSession(session.user.id);
+
+    // Create a temporary CSV string from the corrected row data
+    const csvString = [headers, rowData]
+        .map(row => row.map(cell => `"${cell}"`).join(','))
+        .join('\n');
+    
+    const parseResult = parseInvestmentTargetsCSV(csvString);
+    
+    if (!parseResult.success || !parseResult.data || parseResult.data.length === 0) {
+        throw new Error("Failed to parse corrected row data");
+    }
+
+    const targetData = parseResult.data[0];
+
+    // Check if target already exists for this investment type
+    const existingTarget = await prisma.investmentTarget.findFirst({
+        where: {
+            userId: userId,
+            investmentType: targetData.investmentType,
+        },
+    });
+
+    let result;
+    if (existingTarget) {
+        // Update existing target
+        result = await prisma.investmentTarget.update({
+            where: { id: existingTarget.id },
+            data: {
+                targetAmount: targetData.targetAmount,
+                targetCompletionDate: targetData.targetCompletionDate,
+                nickname: targetData.nickname,
+            },
+        });
+    } else {
+        // Create new target
+        result = await prisma.investmentTarget.create({
+            data: {
+                ...targetData,
+                userId: userId,
+            },
+        });
+    }
+    
+    revalidatePath("/(dashboard)/investments");
+    return result;
 }
