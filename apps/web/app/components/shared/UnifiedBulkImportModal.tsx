@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Upload, AlertCircle, CheckCircle, Edit, Trash2, Save } from "lucide-react";
 import { ImportResult, EditableError } from "../../types/bulkImport";
 import { downloadCategoryImportTemplate } from "../../utils/csvImportCategories";
@@ -63,6 +63,13 @@ export function UnifiedBulkImportModal({
     
     // Get form data using the provided hook
     const { accounts, categories, loading: dataLoading, error: dataError } = config.formDataHook();
+
+    // Reset modal state when opened
+    useEffect(() => {
+        if (isOpen) {
+            resetModal();
+        }
+    }, [isOpen]);
 
     // File handling functions
     const handleMainFileSelect = (selectedFile: File) => {

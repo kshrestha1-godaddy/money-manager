@@ -398,6 +398,9 @@ export async function importCorrectedInvestmentTargetRow(rowData: string[], head
     }
 
     const targetData = parseResult.data[0];
+    if (!targetData) {
+        throw new Error("No valid target data found in corrected row");
+    }
 
     // Check if target already exists for this investment type
     const existingTarget = await prisma.investmentTarget.findFirst({
@@ -422,7 +425,10 @@ export async function importCorrectedInvestmentTargetRow(rowData: string[], head
         // Create new target
         result = await prisma.investmentTarget.create({
             data: {
-                ...targetData,
+                investmentType: targetData.investmentType,
+                targetAmount: targetData.targetAmount,
+                targetCompletionDate: targetData.targetCompletionDate,
+                nickname: targetData.nickname,
                 userId: userId,
             },
         });
@@ -430,4 +436,32 @@ export async function importCorrectedInvestmentTargetRow(rowData: string[], head
     
     revalidatePath("/(dashboard)/investments");
     return result;
+}
+
+/**
+ * Bulk delete all investment targets for the current user
+ */
+export async function bulkDeleteAllInvestmentTargets(): Promise<{ deletedCount: number }> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Delete all targets for this user
+        const deleteResult = await prisma.investmentTarget.deleteMany({
+            where: {
+                userId: userId,
+            },
+        });
+
+        revalidatePath("/(dashboard)/investments");
+
+        return { deletedCount: deleteResult.count };
+    } catch (error) {
+        console.error("Error bulk deleting investment targets:", error);
+        throw error;
+    }
 }

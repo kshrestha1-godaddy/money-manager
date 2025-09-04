@@ -8,11 +8,12 @@ import {
     InvestmentTargetFormData 
 } from '../../../types/investments';
 import { 
-    getInvestmentTargets,
-    getInvestmentTargetProgress,
-    createInvestmentTarget,
-    updateInvestmentTarget,
-    deleteInvestmentTarget
+    getInvestmentTargets, 
+    getInvestmentTargetProgress, 
+    createInvestmentTarget, 
+    updateInvestmentTarget, 
+    deleteInvestmentTarget,
+    bulkDeleteAllInvestmentTargets
 } from '../actions/investment-targets';
 
 interface Modal {
@@ -133,6 +134,20 @@ export function useOptimizedInvestmentTargets() {
         }
     });
 
+    // Bulk delete all targets mutation
+    const bulkDeleteMutation = useMutation({
+        mutationFn: bulkDeleteAllInvestmentTargets,
+        onSuccess: (result) => {
+            // Invalidate both targets and progress data
+            queryClient.invalidateQueries({ queryKey: ['investment-targets'] });
+            queryClient.invalidateQueries({ queryKey: ['investment-target-progress'] });
+            console.log(`Successfully deleted ${result.deletedCount} targets`);
+        },
+        onError: (error) => {
+            console.error('Error bulk deleting targets:', error);
+        }
+    });
+
     // ==================== ACTION HANDLERS ====================
     
     const handleCreateTarget = useCallback(async (data: InvestmentTargetFormData) => {
@@ -146,6 +161,10 @@ export function useOptimizedInvestmentTargets() {
     const handleDeleteTarget = useCallback(async (id: number) => {
         return deleteMutation.mutateAsync(id);
     }, [deleteMutation]);
+
+    const handleBulkDeleteAllTargets = useCallback(async () => {
+        return bulkDeleteMutation.mutateAsync();
+    }, [bulkDeleteMutation]);
 
     // ==================== COMPUTED DATA ====================
     
@@ -191,6 +210,7 @@ export function useOptimizedInvestmentTargets() {
     const isCreating = createMutation.isPending;
     const isUpdating = updateMutation.isPending;
     const isDeleting = deleteMutation.isPending;
+    const isBulkDeleting = bulkDeleteMutation.isPending;
 
     // ==================== RETURN ====================
     
@@ -211,11 +231,13 @@ export function useOptimizedInvestmentTargets() {
         handleCreateTarget,
         handleUpdateTarget,
         handleDeleteTarget,
+        handleBulkDeleteAllTargets,
 
         // Loading states
         isCreating,
         isUpdating,
         isDeleting,
+        isBulkDeleting,
 
         // Error handling
         clearError,

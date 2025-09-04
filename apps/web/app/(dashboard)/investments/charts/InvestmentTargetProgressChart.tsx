@@ -13,6 +13,7 @@ interface InvestmentTargetProgressChartProps {
     title?: string;
     onEditTarget?: (investmentType: string) => void;
     onAddTarget?: () => void;
+    onBulkDelete?: () => void;
 }
 
 
@@ -22,7 +23,8 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
     currency = "USD", 
     title = "Investment Target Progress",
     onEditTarget,
-    onAddTarget
+    onAddTarget,
+    onBulkDelete
 }) => {
     // Memoize summary calculations
     const summary = React.useMemo(() => {
@@ -91,14 +93,24 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
                 </div>
                 {/* Progress Legend */}
                 <ProgressLegend className="mb-4" />
-                {onAddTarget && (
-                    <button
-                        onClick={onAddTarget}
-                        className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
-                    >
-                        + Add Target
-                    </button>
-                )}
+                <div className="flex items-center gap-3">
+                    {onAddTarget && (
+                        <button
+                            onClick={onAddTarget}
+                            className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                        >
+                            + Add Target
+                        </button>
+                    )}
+                    {onBulkDelete && targets.length > 0 && (
+                        <button
+                            onClick={onBulkDelete}
+                            className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors"
+                        >
+                            Delete All
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Summary */}

@@ -11,6 +11,7 @@ import { UnifiedBulkImportModal } from "../../components/shared/UnifiedBulkImpor
 import { investmentImportConfig } from "../../config/bulkImportConfig";
 import { BulkDeleteInvestmentModal } from "./components/BulkDeleteInvestmentModal";
 import { InvestmentTargetModal } from "./components/InvestmentTargetModal";
+import { BulkDeleteTargetsModal } from "./components/BulkDeleteTargetsModal";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { useOptimizedInvestments } from "./hooks/useOptimizedInvestments";
@@ -64,6 +65,7 @@ export default function InvestmentsPageClient() {
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
   const [bulkDeleteInvestments, setBulkDeleteInvestments] = useState<InvestmentInterface[]>([]);
+  const [isBulkDeleteTargetsModalOpen, setIsBulkDeleteTargetsModalOpen] = useState(false);
   const [notification, setNotification] = useState<NotificationData | null>(null);
 
   const {
@@ -77,9 +79,11 @@ export default function InvestmentsPageClient() {
     handleCreateTarget,
     handleUpdateTarget,
     handleDeleteTarget,
+    handleBulkDeleteAllTargets,
     isCreating: isCreatingTarget,
     isUpdating: isUpdatingTarget,
     isDeleting: isDeletingTarget,
+    isBulkDeleting: isBulkDeletingTargets,
   } = useOptimizedInvestmentTargets();
 
   const {
@@ -159,7 +163,19 @@ export default function InvestmentsPageClient() {
   const stableTargetProgress = useMemo(() => targetProgress, [targetProgress?.length, targetProgress?.reduce((sum, target) => sum + target.progress + (target.isComplete ? 1 : 0), 0) ?? 0]);
 
   const polarChartProps = useMemo(() => ({ investments: stableFilteredInvestments, currency: userCurrency, title: "Portfolio Distribution by Investment Type" }), [stableFilteredInvestments, userCurrency]);
-  const targetChartProps = useMemo(() => ({ targets: stableTargetProgress, currency: userCurrency, title: "Investment Target Progress", onEditTarget: openEditTargetModal, onAddTarget: openAddTargetModal }), [stableTargetProgress, userCurrency, openEditTargetModal, openAddTargetModal]);
+  // Bulk delete targets handlers
+  const handleBulkDeleteTargetsClick = useCallback(() => {
+    setIsBulkDeleteTargetsModalOpen(true);
+  }, []);
+
+  const targetChartProps = useMemo(() => ({ 
+    targets: stableTargetProgress, 
+    currency: userCurrency, 
+    title: "Investment Target Progress", 
+    onEditTarget: openEditTargetModal, 
+    onAddTarget: openAddTargetModal,
+    onBulkDelete: handleBulkDeleteTargetsClick
+  }), [stableTargetProgress, userCurrency, openEditTargetModal, openAddTargetModal, handleBulkDeleteTargetsClick]);
 
   const handleSectionBulkDelete = (sectionInvestments: InvestmentInterface[]) => {
     const selectedIds = sectionInvestments.filter(inv => selectedInvestments.has(inv.id));
@@ -222,9 +238,29 @@ export default function InvestmentsPageClient() {
     // Show success notification
     setNotification({
       type: 'success',
+      title: 'Import Successful',
       message: 'Import completed successfully!'
     });
   }, [queryClient, closeModal]);
+
+  const handleBulkDeleteTargetsConfirm = useCallback(async () => {
+    try {
+      const result = await handleBulkDeleteAllTargets();
+      setIsBulkDeleteTargetsModalOpen(false);
+      setNotification({
+        type: 'success',
+        title: 'Targets Deleted',
+        message: `Successfully deleted ${result?.deletedCount || 0} investment targets`
+      });
+    } catch (error) {
+      console.error('Error bulk deleting targets:', error);
+      setNotification({
+        type: 'error',
+        title: 'Delete Failed',
+        message: 'Failed to delete investment targets. Please try again.'
+      });
+    }
+  }, [handleBulkDeleteAllTargets]);
 
   if (error) {
     return (
@@ -433,6 +469,13 @@ export default function InvestmentsPageClient() {
         />
         <BulkDeleteInvestmentModal isOpen={isBulkDeleteModalOpen} onClose={() => setIsBulkDeleteModalOpen(false)} onConfirm={handleBulkDeleteConfirm} investments={bulkDeleteInvestments} />
         <InvestmentTargetModal isOpen={targetModal.type !== null} onClose={closeModalTarget} onSave={async (data) => { await handleCreateTarget(data); }} onUpdate={async (id, data) => { await handleUpdateTarget(id, data); }} onDelete={async (id) => { await handleDeleteTarget(id); }} existingTarget={targetModal.target} mode={targetModal.type || 'create'} existingTargetTypes={actualTargets.map(t => t.investmentType)} currency={userCurrency} />
+        <BulkDeleteTargetsModal 
+          isOpen={isBulkDeleteTargetsModalOpen} 
+          onClose={() => setIsBulkDeleteTargetsModalOpen(false)} 
+          onConfirm={handleBulkDeleteTargetsConfirm}
+          targetCount={actualTargets.length}
+          isDeleting={isBulkDeletingTargets}
+        />
         
         {/* Disappearing Notification */}
         <DisappearingNotification 

@@ -15,6 +15,7 @@ import { InvestmentInterface } from "../../../types/investments";
 import { ChartControls } from "../../../components/ChartControls";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import { useChartAnimationState } from "../../../hooks/useChartAnimationContext";
+import { PieChart } from "lucide-react";
 
 ChartJS.register(RadialLinearScale, ArcElement, ChartTooltip, ChartLegend, ChartDataLabels);
 
@@ -219,12 +220,27 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
 
     if (!data.length) {
       return (
-        <div className="bg-white rounded-lg shadow p-4" data-chart-type="investment-type-polar">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8" data-chart-type="investment-type-polar">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center">
+              <PieChart className="w-5 h-5 text-blue-600 mr-2" />
+              <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+            </div>
           </div>
-          <div className="flex items-center justify-center h-64 text-gray-500">
-            No investment data available
+          
+          <div className="text-center py-12">
+            <PieChart className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h4 className="text-lg font-medium text-gray-900 mb-2">No Investment Data Available</h4>
+            <p className="text-gray-500 mb-6">
+              Add investments to see your portfolio distribution across different investment types.
+            </p>
+          </div>
+          
+          {/* Empty state legend */}
+          <div className="mt-6 pt-4 border-t border-gray-200">
+            <p className="text-sm text-gray-500 text-center">
+              Chart will display when investments are added
+            </p>
           </div>
         </div>
       );
