@@ -126,24 +126,44 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
         const chartDataEntry = chartData.find(item => item.name === entry.name);
         const labelColor = chartDataEntry?.solidColor || entry.fill || "#374151";
         
-        // Calculate better positioning to avoid overlap with label lines
+        // Calculate positioning for elbow-shaped connector lines
         const RADIAN = Math.PI / 180;
-        const radius = entry.outerRadius + 30; // Position labels further out
-        const x = entry.cx + radius * Math.cos(-entry.midAngle * RADIAN);
-        const y = entry.cy + radius * Math.sin(-entry.midAngle * RADIAN);
+        const radius = entry.outerRadius + 15; // First segment of line
+        const x1 = entry.cx + radius * Math.cos(-entry.midAngle * RADIAN);
+        const y1 = entry.cy + radius * Math.sin(-entry.midAngle * RADIAN);
+        
+        // Horizontal line segment
+        const horizontalLength = 20;
+        const isRightSide = x1 > entry.cx;
+        const x2 = isRightSide ? x1 + horizontalLength : x1 - horizontalLength;
+        const y2 = y1;
+        
+        // Text position
+        const textX = isRightSide ? x2 + 5 : x2 - 5;
+        const textY = y2;
         
         return (
-            <text 
-                x={x} 
-                y={y} 
-                fill={labelColor} 
-                textAnchor={x > entry.cx ? 'start' : 'end'} 
-                dominantBaseline="central"
-                fontSize="10"
-                fontWeight="300"
-            >
-                {`${entry.name} [${percentage}%]`}
-            </text>
+            <g>
+                {/* Elbow-shaped connector line */}
+                <polyline
+                    points={`${entry.cx + entry.outerRadius * Math.cos(-entry.midAngle * RADIAN)},${entry.cy + entry.outerRadius * Math.sin(-entry.midAngle * RADIAN)} ${x1},${y1} ${x2},${y2}`}
+                    stroke="#9ca3af"
+                    strokeWidth="1.5"
+                    fill="none"
+                />
+                {/* Label text */}
+                <text 
+                    x={textX} 
+                    y={textY} 
+                    fill={labelColor} 
+                    textAnchor={isRightSide ? 'start' : 'end'} 
+                    dominantBaseline="central"
+                    fontSize="10"
+                    fontWeight="500"
+                >
+                    {`${entry.name} [${percentage}%]`}
+                </text>
+            </g>
         );
     }, [total, chartData]);
 
@@ -277,10 +297,10 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                                 data={chartData}
                                 cx="50%"
                                 cy="50%"
-                                labelLine={true}
+                                labelLine={false}
                                 label={renderCustomizedLabel}
                                 outerRadius={isExpanded ? 200 : 160}
-                                innerRadius={isExpanded ? 70 : 100}
+                                innerRadius={isExpanded ? 70 : 90}
                                 fill="#8884d8"
                                 dataKey="value"
                                 paddingAngle={0.1}
