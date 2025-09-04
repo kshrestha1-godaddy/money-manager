@@ -38,7 +38,11 @@ export function formatCurrency(amount: number, currencyCode: string): string {
   }
 } 
 
-// INR/NPR Conversion Utilities
+// Supported currencies for income/expense forms
+export const SUPPORTED_CURRENCIES = ['INR', 'NPR', 'USD'] as const;
+export type SupportedCurrency = typeof SUPPORTED_CURRENCIES[number];
+
+// INR/NPR Conversion Utilities (legacy support)
 export const DUAL_CURRENCIES = ['INR', 'NPR'] as const;
 export type DualCurrency = typeof DUAL_CURRENCIES[number];
 
@@ -132,5 +136,14 @@ export function formatDualCurrency(amount: number, currency: DualCurrency): stri
 export function getUserDualCurrency(userCurrency: string): DualCurrency {
     return DUAL_CURRENCIES.includes(userCurrency as DualCurrency) 
         ? userCurrency as DualCurrency 
+        : 'INR';
+}
+
+/**
+ * Convert user currency to SupportedCurrency type safely
+ */
+export function getUserSupportedCurrency(userCurrency: string): SupportedCurrency {
+    return SUPPORTED_CURRENCIES.includes(userCurrency as SupportedCurrency) 
+        ? userCurrency as SupportedCurrency 
         : 'INR';
 } 

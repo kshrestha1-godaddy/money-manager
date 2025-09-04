@@ -9,6 +9,7 @@ export type FinancialItem = {
   tags?: string[] | null;
   location?: string[] | null;
   amount: number;
+  currency: string;
   date: Date;
   category: Category;
   account?: AccountInterface | null;
@@ -40,6 +41,7 @@ export interface Expense {
   title: string;
   description?: string;
   amount: number;
+  currency: string;
   date: Date;
   category: Category;
   categoryId: number;
@@ -62,6 +64,7 @@ export interface Income {
   title: string;
   description?: string;
   amount: number;
+  currency: string;
   date: Date;
   category: Category;
   categoryId: number;

@@ -5,7 +5,7 @@ import { Category } from "../../types/financial";
 import { AccountInterface } from "../../types/accounts";
 import { EnhancedTagsInput } from "./EnhancedTagsInput";
 import { EnhancedLocationInput } from "./EnhancedLocationInput";
-import { DUAL_CURRENCIES, formatDualCurrency, convertDualCurrency } from "../../utils/currency";
+import { DUAL_CURRENCIES, formatDualCurrency, convertDualCurrency, SUPPORTED_CURRENCIES } from "../../utils/currency";
 import { 
     BaseFormData, 
     TransactionType,
@@ -93,7 +93,7 @@ export function FinancialForm({
                                 className={`${selectClasses} text-center font-medium`}
                                 disabled={disabled}
                             >
-                                {DUAL_CURRENCIES.map(currency => (
+                                {SUPPORTED_CURRENCIES.map(currency => (
                                     <option key={currency} value={currency}>
                                         {currency}
                                     </option>
@@ -107,8 +107,10 @@ export function FinancialForm({
                             <div className="text-xs text-blue-700 font-medium">
                                 {formData.amountCurrency === 'INR' ? (
                                     <span>≈ {formatDualCurrency(convertDualCurrency(parseFloat(formData.amount), 'INR', 'NPR'), 'NPR')}</span>
-                                ) : (
+                                ) : formData.amountCurrency === 'NPR' ? (
                                     <span>≈ {formatDualCurrency(convertDualCurrency(parseFloat(formData.amount), 'NPR', 'INR'), 'INR')}</span>
+                                ) : (
+                                    <span>Real-time conversion rates will be applied for USD</span>
                                 )}
                                 <span className="ml-1 text-blue-500">(approx.)</span>
                             </div>

@@ -7,12 +7,14 @@ import { formatDate } from "../../utils/date";
 import { TransactionType } from "../../utils/formUtils";
 import { Pagination } from "./Pagination";
 import { CompactPagination } from "./CompactPagination";
+import { CurrencyAmount } from "./CurrencyAmount";
 
 interface FinancialTransaction {
     id: number;
     title: string;
     description?: string;
     amount: number;
+    currency: string;
     date: Date;
     category: {
         id: number;
@@ -605,7 +607,12 @@ function FinancialRow({
                 )}
             </td>
             <td className={`px-6 py-4 text-sm font-medium text-right ${amountColorClass}`} style={{ width: `${columnWidths.amount}px` }}>
-                {formatCurrency(transaction.amount, currency)}
+                <CurrencyAmount
+                    amount={transaction.amount}
+                    storedCurrency={transaction.currency}
+                    userCurrency={currency || 'USD'}
+                    showOriginal={false}
+                />
             </td>
             <td className="px-6 py-4 text-right text-sm font-medium" style={{ width: `${columnWidths.actions}px` }}>
                 <div className="flex justify-end space-x-2">

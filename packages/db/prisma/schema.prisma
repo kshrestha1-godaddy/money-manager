@@ -21,7 +21,7 @@ model User {
   number String @unique
   password String
   profilePictureUrl String?
-  currency String @default("USD") // User's preferred currency
+  currency String @default("INR") // User's preferred currency
   timezone String @default("UTC") // User's preferred timezone
   accounts Account[]
   categories Category[]
@@ -102,6 +102,7 @@ model Expense {
   title String
   description String?
   amount Decimal
+  currency String @default("INR") // Currency for the expense amount
   date DateTime @default(now())
   category Category @relation(fields: [categoryId], references: [id])
   categoryId Int
@@ -124,6 +125,7 @@ model Income {
   title String
   description String?
   amount Decimal
+  currency String @default("INR") // Currency for the income amount
   date DateTime @default(now())
   category Category @relation(fields: [categoryId], references: [id])
   categoryId Int

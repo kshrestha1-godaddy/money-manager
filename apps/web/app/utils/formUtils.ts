@@ -5,14 +5,14 @@
 
 import { Category } from '../types/financial';
 import { AccountInterface } from '../types/accounts';
-import { DualCurrency, convertToAccountCurrency } from './currency';
+import { DualCurrency, SupportedCurrency, convertToAccountCurrency, getUserSupportedCurrency } from './currency';
 
 // Common form data interface for expenses/incomes
 export interface BaseFormData {
     title: string;
     description: string;
     amount: string;
-    amountCurrency: DualCurrency;
+    amountCurrency: SupportedCurrency;
     date: string;
     categoryId: string;
     accountId: string;
@@ -36,7 +36,7 @@ export function getLocalDateString(): string {
 }
 
 // Initialize form data with default values
-export function initializeFormData(defaultDate: boolean = true, defaultCurrency: DualCurrency = 'INR'): BaseFormData {
+export function initializeFormData(defaultDate: boolean = true, defaultCurrency: SupportedCurrency = 'INR'): BaseFormData {
     return {
         title: '',
         description: '',
@@ -132,11 +132,9 @@ export function transformFormData(
 
     // Convert amount to user's account currency
     const inputAmount = parseFloat(formData.amount);
-    const convertedAmount = convertToAccountCurrency(
-        inputAmount,
-        formData.amountCurrency,
-        userAccountCurrency
-    );
+    // For now, store the amount in its original currency
+    // Currency conversion will be handled during display
+    const convertedAmount = inputAmount;
 
     // Helper function to create date without timezone conversion
     const createLocalDate = (dateString: string): Date => {
@@ -154,6 +152,7 @@ export function transformFormData(
         title: formData.title,
         description: formData.description || undefined,
         amount: convertedAmount,
+        currency: formData.amountCurrency,
         originalAmount: inputAmount,
         originalCurrency: formData.amountCurrency,
         date: createLocalDate(formData.date),
@@ -188,7 +187,7 @@ export function extractFormData(item: any): BaseFormData {
         title: item.title || '',
         description: item.description || '',
         amount: item.originalAmount?.toString() || item.amount?.toString() || '',
-        amountCurrency: item.originalCurrency || 'INR',
+        amountCurrency: getUserSupportedCurrency(item.originalCurrency || item.currency || 'INR'),
         date: item.date ? formatDateForInput(item.date) : '',
         categoryId: item.categoryId?.toString() || '',
         accountId: !item.accountId ? '0' : item.accountId.toString(),

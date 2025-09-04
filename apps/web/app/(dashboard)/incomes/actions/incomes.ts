@@ -19,6 +19,7 @@ const revalidateIncomePaths = () => {
 const getDisplayIncome = (prismaIncome: any): Income => ({
     ...prismaIncome,
     amount: parseFloat(prismaIncome.amount.toString()),
+    currency: prismaIncome.currency,
     date: new Date(prismaIncome.date),
     createdAt: new Date(prismaIncome.createdAt),
     updatedAt: new Date(prismaIncome.updatedAt),
@@ -80,12 +81,19 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
 
         const userId = getUserIdFromSession(session.user.id);
 
+        // Get user's preferred currency
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { currency: true }
+        });
+
         const result = await prisma.$transaction(async (tx) => {
 
             const createData: any = {
                 title: data.title,
                 description: data.description,
                 amount: data.amount,
+                currency: data.currency || user?.currency || 'USD',
                 date: data.date,
                 category: { connect: { id: data.categoryId } },
                 user: { connect: { id: userId } },
@@ -161,6 +169,7 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
         if (data.title !== undefined) updateData.title = data.title;
         if (data.description !== undefined) updateData.description = data.description;
         if (data.amount !== undefined) updateData.amount = data.amount;
+        if (data.currency !== undefined) updateData.currency = data.currency;
         if (data.date !== undefined) updateData.date = data.date;
         if (data.categoryId !== undefined) updateData.category = { connect: { id: data.categoryId } };
         if (data.accountId !== undefined) {
@@ -327,7 +336,11 @@ export async function bulkImportIncomes(file: File, defaultAccountId: string, tr
     let successCount = 0;
     const errors: { row: number; message: string }[] = [];
 
-    const [categories, accounts] = await Promise.all([
+    const [user, categories, accounts] = await Promise.all([
+        prisma.user.findUnique({
+            where: { id: userId },
+            select: { currency: true }
+        }),
         prisma.category.findMany({ where: { type: "INCOME", userId } }),
         prisma.account.findMany({ where: { userId } })
     ]);
@@ -344,7 +357,7 @@ export async function bulkImportIncomes(file: File, defaultAccountId: string, tr
         const rowNumber = i + 2;
 
         try {
-            const income = await processIncomeRow(rowData, headers, categories, accounts, defaultAccountId, userId);
+            const income = await processIncomeRow(rowData, headers, categories, accounts, defaultAccountId, userId, user?.currency);
             if (income) successCount++;
         } catch (error) {
             errors.push({
@@ -386,12 +399,16 @@ export async function importCorrectedRow(rowData: string[], headers: string[], t
 
     const userId = getUserIdFromSession(session.user.id);
 
-    const [categories, accounts] = await Promise.all([
+    const [user, categories, accounts] = await Promise.all([
+        prisma.user.findUnique({
+            where: { id: userId },
+            select: { currency: true }
+        }),
         prisma.category.findMany({ where: { type: "INCOME", userId } }),
         prisma.account.findMany({ where: { userId } })
     ]);
 
-    const income = await processIncomeRow(rowData, headers, categories, accounts, '', userId);
+    const income = await processIncomeRow(rowData, headers, categories, accounts, '', userId, user?.currency);
     
     revalidateIncomePaths();
     return income;
@@ -444,7 +461,8 @@ async function processIncomeRow(
     categories: any[], 
     accounts: any[], 
     defaultAccountId: string, 
-    userId: number
+    userId: number,
+    userCurrency?: string
 ): Promise<any> {
     const rowObj: Record<string, string> = {};
     headers.forEach((header, index) => {
@@ -504,6 +522,7 @@ async function processIncomeRow(
         title: rowObj.title,
         description: rowObj.description || undefined,
         amount: parseFloat(rowObj.amount),
+        currency: rowObj.currency || userCurrency || 'USD', // Default to user's currency if not specified in CSV
         date: date,
         categoryId: category.id,
         tags: tags,

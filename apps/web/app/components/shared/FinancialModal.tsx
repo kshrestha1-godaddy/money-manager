@@ -5,7 +5,7 @@ import { Category } from "../../types/financial";
 import { AccountInterface } from "../../types/accounts";
 import { FinancialForm } from "./FinancialForm";
 import { useCurrency } from "../../providers/CurrencyProvider";
-import { getUserDualCurrency } from "../../utils/currency";
+import { getUserSupportedCurrency } from "../../utils/currency";
 import { 
     BaseFormData, 
     TransactionType,
@@ -42,7 +42,7 @@ export function FinancialModal({
     mode 
 }: FinancialModalProps) {
     const { currency: userCurrency } = useCurrency();
-    const defaultCurrency = getUserDualCurrency(userCurrency);
+    const defaultCurrency = getUserSupportedCurrency(userCurrency);
     const [formData, setFormData] = useState<BaseFormData>(initializeFormData(true, defaultCurrency));
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -52,7 +52,7 @@ export function FinancialModal({
         if (mode === 'edit' && transaction) {
             setFormData(extractFormData(transaction));
         } else if (mode === 'add') {
-            const currentDefaultCurrency = getUserDualCurrency(userCurrency);
+            const currentDefaultCurrency = getUserSupportedCurrency(userCurrency);
             setFormData(initializeFormData(true, currentDefaultCurrency));
         }
     }, [transaction, mode, isOpen, userCurrency]);
@@ -60,7 +60,7 @@ export function FinancialModal({
     // Additional effect to update currency when user changes it in navbar
     useEffect(() => {
         if (isOpen && mode === 'add') {
-            const currentDefaultCurrency = getUserDualCurrency(userCurrency);
+            const currentDefaultCurrency = getUserSupportedCurrency(userCurrency);
             setFormData(prev => ({
                 ...prev,
                 amountCurrency: currentDefaultCurrency
@@ -102,7 +102,7 @@ export function FinancialModal({
         if (mode === 'edit' && transaction) {
             setFormData(extractFormData(transaction));
         } else {
-            const currentDefaultCurrency = getUserDualCurrency(userCurrency);
+            const currentDefaultCurrency = getUserSupportedCurrency(userCurrency);
             setFormData(initializeFormData(true, currentDefaultCurrency));
         }
         onClose();

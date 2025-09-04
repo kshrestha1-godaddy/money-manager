@@ -30,6 +30,7 @@ export interface ImportExpenseRow {
     title: string;
     description?: string;
     amount: number;
+    currency: string;
     date: Date;
     categoryName: string;
     categoryId: number;

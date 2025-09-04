@@ -60,6 +60,7 @@ export async function getExpenses() {
         return expenses.map(expense => ({
             ...expense,
             amount: parseFloat(expense.amount.toString()),
+            currency: expense.currency,
             date: new Date(expense.date),
             createdAt: new Date(expense.createdAt),
             updatedAt: new Date(expense.updatedAt),
@@ -92,6 +93,12 @@ export async function createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'up
 
         const userId = getUserIdFromSession(session.user.id);
 
+        // Get user's preferred currency
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { currency: true }
+        });
+
         // Use a transaction to ensure both expense and account balance are updated atomically
         const result = await prisma.$transaction(async (tx) => {
             // Create the expense
@@ -99,6 +106,7 @@ export async function createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'up
                 title: data.title,
                 description: data.description,
                 amount: data.amount,
+                currency: data.currency || user?.currency || 'USD',
                 date: data.date,
                 category: {
                     connect: { id: data.categoryId }
@@ -167,6 +175,7 @@ export async function createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'up
         return {
             ...result,
             amount: parseFloat(result.amount.toString()),
+            currency: result.currency,
             date: new Date(result.date),
             createdAt: new Date(result.createdAt),
             updatedAt: new Date(result.updatedAt),
@@ -212,6 +221,7 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
         if (data.title !== undefined) updateData.title = data.title;
         if (data.description !== undefined) updateData.description = data.description;
         if (data.amount !== undefined) updateData.amount = data.amount;
+        if (data.currency !== undefined) updateData.currency = data.currency;
         if (data.date !== undefined) updateData.date = data.date;
         if (data.categoryId !== undefined) updateData.category = { connect: { id: data.categoryId } };
         if (data.accountId !== undefined) {
@@ -294,6 +304,7 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
         return {
             ...result,
             amount: parseFloat(result.amount.toString()),
+            currency: result.currency,
             date: new Date(result.date),
             createdAt: new Date(result.createdAt),
             updatedAt: new Date(result.updatedAt),
@@ -392,6 +403,7 @@ export async function getExpensesByCategory(categoryId: number) {
         return expenses.map(expense => ({
             ...expense,
             amount: parseFloat(expense.amount.toString()),
+            currency: expense.currency,
             date: new Date(expense.date),
             createdAt: new Date(expense.createdAt),
             updatedAt: new Date(expense.updatedAt),
@@ -441,6 +453,7 @@ export async function getExpensesByDateRange(startDate: Date, endDate: Date) {
         return expenses.map(expense => ({
             ...expense,
             amount: parseFloat(expense.amount.toString()),
+            currency: expense.currency,
             date: new Date(expense.date),
             createdAt: new Date(expense.createdAt),
             updatedAt: new Date(expense.updatedAt),
@@ -468,7 +481,8 @@ async function validateAndTransformRow(
     userId: number,
     categories: any[],
     accounts: any[],
-    defaultAccountId?: number
+    defaultAccountId?: number,
+    userCurrency?: string
 ): Promise<ImportExpenseRow> {
     // Map CSV columns to object using utility
     const rowData = mapRowToObject(row, headers);
@@ -532,6 +546,7 @@ async function validateAndTransformRow(
         title: rowData.title,
         description: rowData.description || '',
         amount,
+        currency: rowData.currency || userCurrency || 'USD', // Default to user's currency if not specified in CSV
         date: parsedDate,
         categoryName: category.name,
         categoryId: category.id,
@@ -562,8 +577,12 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
         const headers = rows[0]?.map((h: string) => h?.toLowerCase().replace(/\s+/g, '') || '') || [];
         const dataRows = rows.slice(1);
 
-        // Get categories and accounts for validation
-        const [categories, accounts] = await Promise.all([
+        // Get user's preferred currency, categories and accounts for validation
+        const [user, categories, accounts] = await Promise.all([
+            prisma.user.findUnique({
+                where: { id: userId },
+                select: { currency: true }
+            }),
             prisma.category.findMany({
                 where: { 
                     type: 'EXPENSE',
@@ -610,7 +629,8 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
                     userId, 
                     categories, 
                     accounts,
-                    defaultAccountId
+                    defaultAccountId,
+                    user?.currency
                 );
 
                 validatedRows.push({
@@ -646,6 +666,7 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
                             title: validatedRow.data.title,
                             description: validatedRow.data.description,
                             amount: validatedRow.data.amount,
+                            currency: validatedRow.data.currency,
                             date: validatedRow.data.date,
                             category: {
                                 connect: { id: validatedRow.data.categoryId }
@@ -795,8 +816,12 @@ export async function importCorrectedRow(
 
         const userId = getUserIdFromSession(session.user.id);
 
-        // Get categories and accounts for validation
-        const [categories, accounts] = await Promise.all([
+        // Get user's preferred currency, categories and accounts for validation
+        const [user, categories, accounts] = await Promise.all([
+            prisma.user.findUnique({
+                where: { id: userId },
+                select: { currency: true }
+            }),
             prisma.category.findMany({
                 where: { 
                     type: 'EXPENSE',
@@ -817,7 +842,8 @@ export async function importCorrectedRow(
                 userId, 
                 categories, 
                 accounts,
-                defaultAccountId
+                defaultAccountId,
+                user?.currency
             );
 
             // Create expense using relational approach to match the include statement
@@ -825,6 +851,7 @@ export async function importCorrectedRow(
                 title: expenseData.title,
                 description: expenseData.description,
                 amount: expenseData.amount,
+                currency: expenseData.currency,
                 date: expenseData.date,
                 category: {
                     connect: { id: expenseData.categoryId }
@@ -879,6 +906,7 @@ export async function importCorrectedRow(
             expense: {
                 ...result,
                 amount: parseFloat(result.amount.toString()),
+                currency: result.currency,
                 date: new Date(result.date),
                 createdAt: new Date(result.createdAt),
                 updatedAt: new Date(result.updatedAt),

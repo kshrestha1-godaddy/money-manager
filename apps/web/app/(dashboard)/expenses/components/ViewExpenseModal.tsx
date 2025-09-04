@@ -2,9 +2,9 @@
 
 import { Expense } from "../../../types/financial";
 import { formatCurrency } from "../../../utils/currency";
-import { getDualCurrencyDisplay, formatDualCurrency } from "../../../utils/currency";
 import { formatDate } from "../../../utils/date";
 import { useCurrency } from "../../../providers/CurrencyProvider";
+import { CurrencyAmount } from "../../../components/shared/CurrencyAmount";
 
 interface ViewExpenseModalProps {
     expense: Expense | null;
@@ -17,9 +17,6 @@ export function ViewExpenseModal({ expense, isOpen, onClose, onEdit }: ViewExpen
     const { currency: userCurrency } = useCurrency();
 
     if (!isOpen || !expense) return null;
-
-    // Get both currency values for display
-    const dualCurrencyValues = getDualCurrencyDisplay(expense.amount, userCurrency);
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -57,16 +54,20 @@ export function ViewExpenseModal({ expense, isOpen, onClose, onEdit }: ViewExpen
                         <div className="flex items-start justify-between">
                             <div>
                                 <p className="text-4xl font-bold text-red-900">
-                                    {userCurrency === 'INR' 
-                                        ? formatDualCurrency(dualCurrencyValues.inr, 'INR')
-                                        : formatDualCurrency(dualCurrencyValues.npr, 'NPR')
-                                    }
+                                    <CurrencyAmount
+                                        amount={expense.amount}
+                                        storedCurrency={expense.currency}
+                                        userCurrency={userCurrency}
+                                        showOriginal={false}
+                                    />
                                 </p>
-                                <p className="text-lg text-red-700 mt-1">
-                                    {userCurrency === 'INR' 
-                                        ? formatDualCurrency(dualCurrencyValues.npr, 'NPR')
-                                        : formatDualCurrency(dualCurrencyValues.inr, 'INR')
-                                    }
+                                {expense.currency !== userCurrency && (
+                                    <p className="text-lg text-red-700 mt-1">
+                                        Original: {formatCurrency(expense.amount, expense.currency)}
+                                    </p>
+                                )}
+                                <p className="text-sm text-red-600 mt-2">
+                                    Stored in: {expense.currency}
                                 </p>
                             </div>
                         </div>
