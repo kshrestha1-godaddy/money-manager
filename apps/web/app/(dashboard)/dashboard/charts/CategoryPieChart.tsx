@@ -119,10 +119,33 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
         value: number;
     }
 
-    const renderCustomizedLabel = useCallback((entry: any): string => {
+    const renderCustomizedLabel = useCallback((entry: any) => {
         const percentage = total > 0 ? ((entry.value / total) * 100).toFixed(1) : '0.0';
-        return `${entry.name} [${percentage}%]`;
-    }, [total]);
+        
+        // Find the corresponding chart data to get the solid color
+        const chartDataEntry = chartData.find(item => item.name === entry.name);
+        const labelColor = chartDataEntry?.solidColor || entry.fill || "#374151";
+        
+        // Calculate better positioning to avoid overlap with label lines
+        const RADIAN = Math.PI / 180;
+        const radius = entry.outerRadius + 30; // Position labels further out
+        const x = entry.cx + radius * Math.cos(-entry.midAngle * RADIAN);
+        const y = entry.cy + radius * Math.sin(-entry.midAngle * RADIAN);
+        
+        return (
+            <text 
+                x={x} 
+                y={y} 
+                fill={labelColor} 
+                textAnchor={x > entry.cx ? 'start' : 'end'} 
+                dominantBaseline="central"
+                fontSize="10"
+                fontWeight="300"
+            >
+                {`${entry.name} [${percentage}%]`}
+            </text>
+        );
+    }, [total, chartData]);
 
     // Memoize computed text values
     const timePeriodText = useMemo(() => formatTimePeriod(), [formatTimePeriod]);
@@ -254,13 +277,13 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                                 data={chartData}
                                 cx="50%"
                                 cy="50%"
-                                labelLine={false}
+                                labelLine={true}
                                 label={renderCustomizedLabel}
                                 outerRadius={isExpanded ? 200 : 160}
                                 innerRadius={isExpanded ? 70 : 100}
                                 fill="#8884d8"
                                 dataKey="value"
-                                paddingAngle={0.5}
+                                paddingAngle={0.1}
                                 cornerRadius={8}
                                 stroke="#ffffff"
                                 strokeWidth={3}
@@ -270,7 +293,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                                         key={`cell-${index}`} 
                                         fill={entry.color}
                                         stroke="#ffffff"
-                                        strokeWidth={3}
+                                        strokeWidth={2}
                                     />
                                 ))}
                             </Pie>
@@ -308,7 +331,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                                             <div
                                                 className="w-3 h-3 sm:w-4 sm:h-4 rounded-full flex-shrink-0 border border-white"
                                                 style={{ 
-                                                    backgroundColor: entry.solidColor || entry.color,
+                                                    backgroundColor: entry.color,
                                                     boxShadow: `0 1px 3px rgba(0, 0, 0, 0.1)`
                                                 }}
                                             />
