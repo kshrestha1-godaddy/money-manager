@@ -475,12 +475,12 @@ const arePropsEqual = (prevProps: InvestmentTypePolarChartProps, nextProps: Inve
     const next = nextProps.investments[i];
     
     if (
-      prev.id !== next.id ||
-      prev.type !== next.type ||
-      prev.quantity !== next.quantity ||
-      prev.purchasePrice !== next.purchasePrice ||
-      prev.name !== next.name ||
-      prev.symbol !== next.symbol
+      prev?.id !== next?.id ||
+      prev?.type !== next?.type ||
+      prev?.quantity !== next?.quantity ||
+      prev?.purchasePrice !== next?.purchasePrice ||
+      prev?.name !== next?.name ||
+      prev?.symbol !== next?.symbol
     ) {
       return false;
     }
