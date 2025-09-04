@@ -6,16 +6,23 @@ import { exportDebtsToCSV } from '../../../utils/csvExportDebts';
 import { exportExpensesToCSV } from '../../../utils/csvExportExpenses';
 import { exportIncomesToCSV } from '../../../utils/csvExportIncomes';
 import { exportInvestmentsToCSV } from '../../../utils/csvExportInvestments';
+import { exportInvestmentTargetsToCSV } from '../../../utils/csvExportInvestmentTargets';
 import { exportPasswordsToCSV } from '../../../utils/csvExportPasswords';
+import { exportCategoriesToCsv } from '../../../utils/csvExportCategories';
+import { exportNetWorthToCSV } from '../../../utils/csvExportNetworth';
 import { getUserAccounts } from '../../accounts/actions/accounts';
 import { getUserDebts } from '../../debts/actions/debts';
 import { getExpenses } from '../../expenses/actions/expenses';
 import { getIncomes } from '../../incomes/actions/incomes';
 import { getUserInvestments } from '../../investments/actions/investments';
+import { getInvestmentTargetProgress } from '../../investments/actions/investment-targets';
 import { getPasswords } from '../../passwords/actions/passwords';
+import { getCategories } from '../../../actions/categories';
+import { useOptimizedWorth } from '../../../hooks/useOptimizedWorth';
 
 export function ExportAllButton() {
     const [isExporting, setIsExporting] = useState(false);
+    const { netWorthStats } = useOptimizedWorth();
 
     const handleExportAll = async () => {
         try {
@@ -28,11 +35,16 @@ export function ExportAllButton() {
             const expenses = await getExpenses();
             const incomes = await getIncomes();
             const investmentsResponse = await getUserInvestments();
+            const investmentTargetsResponse = await getInvestmentTargetProgress();
             const passwords = await getPasswords();
+            const allCategories = await getCategories();
+            const incomeCategories = await getCategories('INCOME');
+            const expenseCategories = await getCategories('EXPENSE');
 
             // Extract data from responses
             const debts = debtsResponse.data || [];
             const investments = investmentsResponse.data || [];
+            const investmentTargets = investmentTargetsResponse.data || [];
 
             // Generate date string for filenames
             const dateStr = new Date().toISOString().split('T')[0];
@@ -53,12 +65,33 @@ export function ExportAllButton() {
             if (investments.length > 0) {
                 exportInvestmentsToCSV(investments, `investments_${dateStr}.csv`);
             }
+            if (investmentTargets.length > 0) {
+                exportInvestmentTargetsToCSV(investmentTargets, `investment_targets_${dateStr}.csv`);
+            }
             if (passwords.length > 0) {
                 exportPasswordsToCSV(passwords, `passwords_${dateStr}.csv`);
             }
+            if (allCategories.length > 0) {
+                exportCategoriesToCsv(allCategories, `all_categories_${dateStr}.csv`);
+            }
+            if (incomeCategories.length > 0) {
+                exportCategoriesToCsv(incomeCategories, `income_categories_${dateStr}.csv`);
+            }
+            if (expenseCategories.length > 0) {
+                exportCategoriesToCsv(expenseCategories, `expense_categories_${dateStr}.csv`);
+            }
+            
+            // Export net worth data
+            if (netWorthStats) {
+                const netWorthData = {
+                    ...netWorthStats,
+                    exportDate: new Date()
+                };
+                exportNetWorthToCSV(netWorthData, `networth_${dateStr}.csv`);
+            }
         } catch (error) {
             console.error('Error exporting data:', error);
-            alert('Failed to export some data. Please try again.');
+            alert('Failed to export some data. Please check the console for details and try again.');
         } finally {
             setIsExporting(false);
         }
