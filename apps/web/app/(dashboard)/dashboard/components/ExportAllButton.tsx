@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { exportAccountsToCSV } from '../../../utils/csvExport';
-import { exportDebtsToCSV } from '../../../utils/csvExportDebts';
+import { exportDebtsToCSV, exportDebtRepaymentsToCSV } from '../../../utils/csvExportDebts';
 import { exportExpensesToCSV } from '../../../utils/csvExportExpenses';
 import { exportIncomesToCSV } from '../../../utils/csvExportIncomes';
 import { exportInvestmentsToCSV } from '../../../utils/csvExportInvestments';
@@ -11,7 +11,7 @@ import { exportPasswordsToCSV } from '../../../utils/csvExportPasswords';
 import { exportCategoriesToCsv } from '../../../utils/csvExportCategories';
 import { exportNetWorthToCSV } from '../../../utils/csvExportNetworth';
 import { getUserAccounts } from '../../accounts/actions/accounts';
-import { getUserDebts } from '../../debts/actions/debts';
+import { getUserDebts, getUserDebtRepayments } from '../../debts/actions/debts';
 import { getExpenses } from '../../expenses/actions/expenses';
 import { getIncomes } from '../../incomes/actions/incomes';
 import { getUserInvestments } from '../../investments/actions/investments';
@@ -32,6 +32,7 @@ export function ExportAllButton() {
             const accountsResponse = await getUserAccounts();
             const accounts = Array.isArray(accountsResponse) ? accountsResponse : [];
             const debtsResponse = await getUserDebts();
+            const debtRepayments = await getUserDebtRepayments();
             const expenses = await getExpenses();
             const incomes = await getIncomes();
             const investmentsResponse = await getUserInvestments();
@@ -55,6 +56,9 @@ export function ExportAllButton() {
             }
             if (debts.length > 0) {
                 exportDebtsToCSV(debts, `debts_${dateStr}.csv`);
+            }
+            if (debtRepayments.length > 0) {
+                exportDebtRepaymentsToCSV(debtRepayments, `debt_repayments_${dateStr}.csv`);
             }
             if (expenses.length > 0) {
                 exportExpensesToCSV(expenses, `expenses_${dateStr}.csv`);

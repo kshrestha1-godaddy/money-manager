@@ -826,6 +826,50 @@ export async function bulkImportRepayments(csvContent: string, debtIdMapping?: R
 }
 
 /**
+ * Get all debt repayments for the authenticated user
+ */
+export async function getUserDebtRepayments() {
+    try {
+        const session = await getAuthenticatedSession();
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Get all repayments for user's debts
+        const repayments = await prisma.debtRepayment.findMany({
+            where: {
+                debt: {
+                    userId: userId
+                }
+            },
+            include: {
+                debt: {
+                    select: {
+                        id: true,
+                        borrowerName: true
+                    }
+                }
+            },
+            orderBy: {
+                repaymentDate: 'desc'
+            }
+        });
+
+        // Transform the data to match the interface
+        const transformedRepayments = repayments.map(repayment => ({
+            ...repayment,
+            amount: decimalToNumber(repayment.amount, 'repayment amount'),
+            repaymentDate: new Date(repayment.repaymentDate),
+            createdAt: new Date(repayment.createdAt),
+            updatedAt: new Date(repayment.updatedAt),
+        }));
+
+        return transformedRepayments;
+    } catch (error) {
+        console.error('Failed to get user debt repayments:', error);
+        throw error;
+    }
+}
+
+/**
  * Bulk delete debts
  */
 export async function bulkDeleteDebts(debtIds: number[]) {

@@ -187,6 +187,50 @@ export function exportDebtsToCSV(debts: DebtInterface[], filename?: string): voi
 }
 
 /**
+ * Export debt repayments as a standalone CSV file
+ */
+export function exportDebtRepaymentsToCSV(repayments: any[], filename?: string): void {
+    if (repayments.length === 0) {
+        alert('No debt repayment data to export');
+        return;
+    }
+
+    // Create a mapping of debt ID to borrower name
+    const debtIdToBorrowerMap: Record<number, string> = {};
+    repayments.forEach(repayment => {
+        if (repayment.debt) {
+            debtIdToBorrowerMap[repayment.debtId] = repayment.debt.borrowerName;
+        }
+    });
+
+    const csvContent = convertRepaymentsToCSV(repayments, debtIdToBorrowerMap);
+    
+    if (!csvContent) {
+        alert('No debt repayment data to export');
+        return;
+    }
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    
+    if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename || `debt_repayments_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    } else {
+        // Fallback for older browsers
+        const csvData = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent);
+        window.open(csvData);
+    }
+}
+
+/**
  * Get export statistics
  */
 export function getDebtExportStats(debts: DebtInterface[]): {
