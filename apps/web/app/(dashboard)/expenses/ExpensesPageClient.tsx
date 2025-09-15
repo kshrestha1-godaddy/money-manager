@@ -22,6 +22,7 @@ import { Expense } from '../../types/financial';
 import { useCurrency } from '../../providers/CurrencyProvider';
 import { DisappearingNotification, NotificationData } from '../../components/DisappearingNotification';
 import { useState } from 'react';
+import { convertForDisplaySync } from '../../utils/currencyDisplay';
 import {
   BUTTON_COLORS,
   TEXT_COLORS,
@@ -165,14 +166,14 @@ export default function ExpensesPageClient() {
       const expenseDate = new Date(expense.date);
       return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
     })
-    .reduce((sum: number, expense: Expense) => sum + expense.amount, 0);
+    .reduce((sum: number, expense: Expense) => sum + convertForDisplaySync(expense.amount, expense.currency, userCurrency), 0);
 
   const lastMonthExpenses = allExpenses
     .filter(expense => {
       const expenseDate = new Date(expense.date);
       return expenseDate.getMonth() === lastMonth && expenseDate.getFullYear() === lastMonthYear;
     })
-    .reduce((sum: number, expense: Expense) => sum + expense.amount, 0);
+    .reduce((sum: number, expense: Expense) => sum + convertForDisplaySync(expense.amount, expense.currency, userCurrency), 0);
 
   const currentQuarterExpenses = allExpenses
     .filter(expense => {
@@ -180,7 +181,7 @@ export default function ExpensesPageClient() {
       const expenseQuarter = Math.floor(expenseDate.getMonth() / 3);
       return expenseQuarter === currentQuarter && expenseDate.getFullYear() === currentYear;
     })
-    .reduce((sum: number, expense: Expense) => sum + expense.amount, 0);
+    .reduce((sum: number, expense: Expense) => sum + convertForDisplaySync(expense.amount, expense.currency, userCurrency), 0);
 
   const lastQuarterExpenses = allExpenses
     .filter(expense => {
@@ -190,11 +191,11 @@ export default function ExpensesPageClient() {
       const expenseQuarter = Math.floor(expenseDate.getMonth() / 3);
       return expenseQuarter === lastQuarter && expenseDate.getFullYear() === lastQuarterYear;
     })
-    .reduce((sum: number, expense: Expense) => sum + expense.amount, 0);
+    .reduce((sum: number, expense: Expense) => sum + convertForDisplaySync(expense.amount, expense.currency, userCurrency), 0);
 
   const monthlyChange = lastMonthExpenses > 0 ? ((currentMonthExpenses - lastMonthExpenses) / lastMonthExpenses) * 100 : 0;
   const quarterlyChange = lastQuarterExpenses > 0 ? ((currentQuarterExpenses - lastQuarterExpenses) / lastQuarterExpenses) * 100 : 0;
-  const averagePerExpense = allExpenses.length > 0 ? allExpenses.reduce((sum: number, expense: Expense) => sum + expense.amount, 0) / allExpenses.length : 0;
+  const averagePerExpense = allExpenses.length > 0 ? allExpenses.reduce((sum: number, expense: Expense) => sum + convertForDisplaySync(expense.amount, expense.currency, userCurrency), 0) / allExpenses.length : 0;
 
   const chartProps = useMemo(
     () => ({

@@ -8,6 +8,7 @@ import { triggerBalanceRefresh } from "./useTotalBalance";
 import { exportCategoriesByType } from "../utils/csvExportCategories";
 import { NotificationData } from "../components/DisappearingNotification";
 import { formatCurrency } from "../utils/currency";
+import { convertForDisplaySync } from "../utils/currencyDisplay";
 
 
 export interface UseOptimizedFinancialDataOptions {
@@ -263,10 +264,10 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     });
   }, [items, searchTerm, selectedCategory, selectedBank, startDate, endDate, showBookmarkedOnly]);
 
-  // Memoized calculations
+  // Memoized calculations with currency conversion
   const totalAmount = useMemo(() => 
-    filteredItems.reduce((sum, item) => sum + item.amount, 0), 
-    [filteredItems]
+    filteredItems.reduce((sum, item) => sum + convertForDisplaySync(item.amount, item.currency, options.userCurrency || 'USD'), 0), 
+    [filteredItems, options.userCurrency]
   );
 
   const uniqueBankNames = useMemo(() => 

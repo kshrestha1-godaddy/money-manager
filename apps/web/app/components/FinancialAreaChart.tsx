@@ -6,6 +6,7 @@ import { Income, Expense } from "../types/financial";
 import { formatCurrency } from "../utils/currency";
 import { useChartExpansion } from "../utils/chartUtils";
 import { ChartControls } from "./ChartControls";
+import { convertForDisplaySync } from "../utils/currencyDisplay";
 
 type FinancialTransaction = Income | Expense;
 
@@ -105,7 +106,7 @@ export function FinancialAreaChart({
 
         // console.log(`${type} chart filtered result:`, filtered.length, 'items');
         return filtered;
-    }, [data, startDate, endDate, pageStartDate, pageEndDate, hasPageFilters, type]);
+    }, [data, startDate, endDate, pageStartDate, pageEndDate, hasPageFilters, type, currency]);
 
     const chartData = useMemo(() => {
         if (!data) return [];
@@ -144,7 +145,7 @@ export function FinancialAreaChart({
         //     appliedDefaultFilter: !effectiveStartDate && !effectiveEndDate && !hasPageFilters
         // });
 
-        // Group data by date and sum amounts for each date
+        // Group data by date and sum amounts for each date (with currency conversion)
         const dateMap = new Map<string, number>();
 
         if (recentData) {
@@ -157,8 +158,11 @@ export function FinancialAreaChart({
                 const dateStr = `${year}-${month}-${day}`;
 
                 if (!dateStr) return;
+                
+                // Convert amount to user's currency before adding to chart data
+                const convertedAmount = convertForDisplaySync(item.amount, item.currency, currency);
                 const current = dateMap.get(dateStr) || 0;
-                dateMap.set(dateStr, current + item.amount);
+                dateMap.set(dateStr, current + convertedAmount);
             });
         }
 
@@ -226,7 +230,7 @@ export function FinancialAreaChart({
         // console.log(`${chartConfig.label} chart final data:`, chartDataPoints.length, 'points');
 
         return chartDataPoints;
-    }, [filteredData, startDate, endDate, pageStartDate, pageEndDate, chartConfig.label, hasPageFilters, data]);
+    }, [filteredData, startDate, endDate, pageStartDate, pageEndDate, chartConfig.label, hasPageFilters, data, currency]);
 
     const formatTooltip = (value: number) => {
         return [formatCurrency(value, currency), chartConfig.label];

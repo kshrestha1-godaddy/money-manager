@@ -19,6 +19,7 @@ import { Income } from '../../types/financial';
 import { useCurrency } from '../../providers/CurrencyProvider';
 import { DisappearingNotification, NotificationData } from '../../components/DisappearingNotification';
 import { BUTTON_COLORS, TEXT_COLORS, CONTAINER_COLORS, LOADING_COLORS, UI_STYLES } from '../../config/colorConfig';
+import { convertForDisplaySync } from '../../utils/currencyDisplay';
 
 const pageContainer = CONTAINER_COLORS.page;
 const loadingContainer = LOADING_COLORS.container;
@@ -155,14 +156,14 @@ export default function IncomesPageClient() {
       const incomeDate = new Date(income.date);
       return incomeDate.getMonth() === currentMonth && incomeDate.getFullYear() === currentYear;
     })
-    .reduce((sum: number, income: Income) => sum + income.amount, 0);
+    .reduce((sum: number, income: Income) => sum + convertForDisplaySync(income.amount, income.currency, userCurrency), 0);
 
   const lastMonthIncomes = allIncomes
     .filter(income => {
       const incomeDate = new Date(income.date);
       return incomeDate.getMonth() === lastMonth && incomeDate.getFullYear() === lastMonthYear;
     })
-    .reduce((sum: number, income: Income) => sum + income.amount, 0);
+    .reduce((sum: number, income: Income) => sum + convertForDisplaySync(income.amount, income.currency, userCurrency), 0);
 
   const currentQuarterIncomes = allIncomes
     .filter(income => {
@@ -170,7 +171,7 @@ export default function IncomesPageClient() {
       const incomeQuarter = Math.floor(incomeDate.getMonth() / 3);
       return incomeQuarter === currentQuarter && incomeDate.getFullYear() === currentYear;
     })
-    .reduce((sum: number, income: Income) => sum + income.amount, 0);
+    .reduce((sum: number, income: Income) => sum + convertForDisplaySync(income.amount, income.currency, userCurrency), 0);
 
   const lastQuarterIncomes = allIncomes
     .filter(income => {
@@ -180,11 +181,11 @@ export default function IncomesPageClient() {
       const incomeQuarter = Math.floor(incomeDate.getMonth() / 3);
       return incomeQuarter === lastQuarter && incomeDate.getFullYear() === lastQuarterYear;
     })
-    .reduce((sum: number, income: Income) => sum + income.amount, 0);
+    .reduce((sum: number, income: Income) => sum + convertForDisplaySync(income.amount, income.currency, userCurrency), 0);
 
   const monthlyChange = lastMonthIncomes > 0 ? ((currentMonthIncomes - lastMonthIncomes) / lastMonthIncomes) * 100 : 0;
   const quarterlyChange = lastQuarterIncomes > 0 ? ((currentQuarterIncomes - lastQuarterIncomes) / lastQuarterIncomes) * 100 : 0;
-  const averagePerIncome = allIncomes.length > 0 ? allIncomes.reduce((sum: number, income: Income) => sum + income.amount, 0) / allIncomes.length : 0;
+  const averagePerIncome = allIncomes.length > 0 ? allIncomes.reduce((sum: number, income: Income) => sum + convertForDisplaySync(income.amount, income.currency, userCurrency), 0) / allIncomes.length : 0;
 
   const chartProps = useMemo(
     () => ({

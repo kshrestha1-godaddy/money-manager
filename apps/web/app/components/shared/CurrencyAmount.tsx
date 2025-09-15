@@ -6,6 +6,7 @@
 import React from 'react';
 import { useFormattedCurrency } from '../../hooks/useCurrencyConversion';
 import { formatCurrency } from '../../utils/currency';
+import { convertForDisplaySync } from '../../utils/currencyDisplay';
 
 interface CurrencyAmountProps {
     amount: number;
@@ -26,7 +27,9 @@ export function CurrencyAmount({
     prefix = '',
     suffix = ''
 }: CurrencyAmountProps) {
-    const formattedAmount = useFormattedCurrency(amount, storedCurrency, userCurrency);
+    // Use the same synchronous conversion method as the chart
+    const convertedAmount = convertForDisplaySync(amount, storedCurrency, userCurrency);
+    const formattedAmount = formatCurrency(convertedAmount, userCurrency);
     
     // If currencies are the same, just show the amount
     if (storedCurrency.toLowerCase() === userCurrency.toLowerCase()) {
