@@ -21,6 +21,7 @@ interface BaseFinancialItem {
     title: string;
     description?: string | null;
     amount: number;
+    currency: string;
     date: Date;
     category: {
         id: number;
@@ -64,6 +65,7 @@ const STANDARD_HEADERS = [
     'Title', 
     'Description',
     'Amount',
+    'Currency',
     'Date',
     'Category',
     'Category Color',
@@ -81,9 +83,9 @@ const STANDARD_HEADERS = [
 ];
 
 const EXPENSE_HEADERS = [
-    ...STANDARD_HEADERS.slice(0, 12), // Up to Location
+    ...STANDARD_HEADERS.slice(0, 13), // Up to Location (now includes Currency)
     'Receipt', // Add receipt field for expenses
-    ...STANDARD_HEADERS.slice(12) // Notes and onwards
+    ...STANDARD_HEADERS.slice(13) // Notes and onwards
 ];
 
 /**
@@ -95,6 +97,7 @@ function convertItemToRow(item: BaseFinancialItem | ExpenseItem, includeReceipt:
         safeStringify(item.title),
         safeStringify(item.description || ''),
         safeStringify(item.amount),
+        safeStringify(item.currency || 'INR'),
         formatDateForExport(item.date),
         safeStringify(item.category?.name || ''),
         safeStringify(item.category?.color || ''),

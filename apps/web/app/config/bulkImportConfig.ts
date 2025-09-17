@@ -37,7 +37,7 @@ export const incomeImportConfig: BulkImportConfig = {
     title: 'Bulk Import Incomes & Categories',
     description: 'Import categories and incomes from CSV files. Categories will be imported first, then incomes. Account names from the CSV will be automatically matched with your existing accounts.',
     requiredFields: ['title', 'amount', 'date', 'category'],
-    optionalFields: ['description', 'account', 'tags', 'notes', 'recurring'],
+    optionalFields: ['description', 'currency', 'account', 'tags', 'notes', 'recurring'],
     supportsCategoriesImport: true,
     bulkImportFunction: async (file: File, categoryFile?: File, defaultAccountId?: string) => {
         if (categoryFile) {
@@ -66,7 +66,7 @@ export const expenseImportConfig: BulkImportConfig = {
     title: 'Bulk Import Expenses & Categories',
     description: 'Import categories and expenses from CSV files. Categories will be imported first, then expenses. Account names from the CSV will be automatically matched with your existing accounts.',
     requiredFields: ['title', 'amount', 'date', 'category'],
-    optionalFields: ['description', 'account', 'tags', 'notes', 'recurring', 'location', 'receipt'],
+    optionalFields: ['description', 'currency', 'account', 'tags', 'notes', 'recurring', 'location', 'receipt'],
     supportsCategoriesImport: true,
     bulkImportFunction: async (file: File, categoryFile?: File, defaultAccountId?: string) => {
         if (categoryFile) {
