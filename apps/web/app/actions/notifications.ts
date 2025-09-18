@@ -632,27 +632,31 @@ export async function checkSpendingAlerts(userId: number): Promise<void> {
         const monthlyLimit = decimalToNumber(settings.monthlySpendingLimit, 'limit');
         const currency = await getUserCurrency();
         const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
         
-        // Get individual expenses with their currencies for proper conversion
+        // Get ALL expenses for the user (we'll filter in memory like the UI does)
         const expenses = await prisma.expense.findMany({
             where: {
-                userId,
-                date: {
-                    gte: startOfMonth,
-                    lte: endOfMonth
-                }
+                userId
             },
             select: {
                 amount: true,
-                currency: true
+                currency: true,
+                date: true
             }
+        });
+        
+        // Filter expenses using EXACT same logic as UI components
+        // This ensures identical results by using month/year comparison instead of date ranges
+        const currentMonthExpenses = expenses.filter(expense => {
+            const expenseDate = new Date(expense.date);
+            return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
         });
         
         // Calculate total spent with currency conversion (using EXACT same method as UI)
         // Note: expense.amount is Decimal from DB, convert to number like getExpenses() does
-        const totalSpent = expenses.reduce((sum: number, expense) => {
+        const totalSpent = currentMonthExpenses.reduce((sum: number, expense) => {
             const amount = parseFloat(expense.amount.toString());
             return sum + convertForDisplaySync(amount, expense.currency, currency);
         }, 0);
