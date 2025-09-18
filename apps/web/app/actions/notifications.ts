@@ -9,6 +9,7 @@ import {
 } from "../utils/auth";
 import { getUserCurrency } from "../actions/currency";
 import { formatCurrency } from "../utils/currency";
+import { convertForDisplaySync } from "../utils/currencyDisplay";
 
 // Types for notifications
 export interface NotificationData {
@@ -440,8 +441,12 @@ export async function checkLowBalanceAlerts(userId: number): Promise<void> {
                 ? decimalToNumber(accountSpecificThreshold.lowBalanceThreshold, 'accountThreshold')
                 : defaultThreshold;
             
-            // Check if balance is below threshold
-            if (accountBalance < threshold) {
+                // Balance and threshold are already in user's currency, no conversion needed for comparison
+                const convertedBalance = accountBalance;
+                const convertedThreshold = threshold;
+                
+                // Check if balance is below threshold
+                if (convertedBalance < convertedThreshold) {
                 // Check if we already sent a notification in the last 24 hours
                 const recentNotification = await prisma.notification.findFirst({
                     where: {
@@ -461,14 +466,14 @@ export async function checkLowBalanceAlerts(userId: number): Promise<void> {
                     await createNotification(
                         userId,
                         'Low Account Balance',
-                        `Your <strong>${account.bankName}</strong> account balance <strong>${formatCurrency(accountBalance, userCurrency)}</strong> is below your threshold of <strong>${formatCurrency(threshold, userCurrency)}</strong>.`,
+                        `Your <strong>${account.bankName}</strong> account balance <strong>${formatCurrency(convertedBalance, userCurrency)}</strong> is below your threshold of <strong>${formatCurrency(convertedThreshold, userCurrency)}</strong>.`,
                         'LOW_BALANCE',
                         'HIGH',
                         '/accounts',
                         {
                             accountId: account.id,
-                            balance: accountBalance,
-                            threshold,
+                            balance: convertedBalance,
+                            threshold: convertedThreshold,
                             entityId: `low-balance-${account.id}`,
                             accountName: account.holderName,
                             bankName: account.bankName
@@ -629,7 +634,9 @@ export async function checkSpendingAlerts(userId: number): Promise<void> {
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        const expenses = await prisma.expense.aggregate({
+        
+        // Get individual expenses with their currencies for proper conversion
+        const expenses = await prisma.expense.findMany({
             where: {
                 userId,
                 date: {
@@ -637,11 +644,21 @@ export async function checkSpendingAlerts(userId: number): Promise<void> {
                     lte: endOfMonth
                 }
             },
-            _sum: {
-                amount: true
+            select: {
+                amount: true,
+                currency: true
             }
         });
-        const totalSpent = expenses._sum.amount ? decimalToNumber(expenses._sum.amount, 'totalSpent') : 0;
+        
+        // Calculate total spent with currency conversion (using same method as UI)
+        let totalSpent = 0;
+        for (const expense of expenses) {
+            const expenseAmount = parseFloat(expense.amount.toString());
+            // Use the same synchronous conversion method as the UI (CurrencyAmount component)
+            const convertedAmount = convertForDisplaySync(expenseAmount, expense.currency, currency);
+            totalSpent += convertedAmount;
+        }
+        
         const percentageSpent = (totalSpent / monthlyLimit) * 100;
         if (percentageSpent >= 90) {
             const thresholdType = percentageSpent >= 100 ? 'exceeded' : 'approaching';
