@@ -9,8 +9,28 @@ import Footer from "./components/Footer";
 import { GlobalModals } from "./components/GlobalModals";
 const inter = Inter({ subsets: ["latin"] });
 
+// Generate environment-specific title
+function getEnvironmentTitle(): string {
+  const baseTitle = "My Money Manager";
+  
+  // Check for custom ENVIRONMENT variable first, then fall back to NODE_ENV
+  const environment = process.env.ENVIRONMENT || process.env.NODE_ENV;
+  
+  switch (environment) {
+    case 'local':
+      return `${baseTitle} [LOCAL]`;
+    case 'development':
+    case 'dev':
+      return `${baseTitle} [DEV]`;
+    case 'production':
+    case 'prod':
+    default:
+      return baseTitle; // No tag for production
+  }
+}
+
 export const metadata: Metadata = {
-  title: "My Money Manager",
+  title: getEnvironmentTitle(),
   description: "Simple financial tracker - track your income and expenses",
   icons: {
     icon: {
