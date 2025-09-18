@@ -19,10 +19,8 @@ function getEnvironmentTitle(): string {
   switch (environment) {
     case 'local':
       return `${baseTitle} [LOCAL]`;
-    case 'development':
     case 'dev':
       return `${baseTitle} [DEV]`;
-    case 'production':
     case 'prod':
     default:
       return baseTitle; // No tag for production
