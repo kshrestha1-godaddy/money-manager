@@ -650,14 +650,12 @@ export async function checkSpendingAlerts(userId: number): Promise<void> {
             }
         });
         
-        // Calculate total spent with currency conversion (using same method as UI)
-        let totalSpent = 0;
-        for (const expense of expenses) {
-            const expenseAmount = parseFloat(expense.amount.toString());
-            // Use the same synchronous conversion method as the UI (CurrencyAmount component)
-            const convertedAmount = convertForDisplaySync(expenseAmount, expense.currency, currency);
-            totalSpent += convertedAmount;
-        }
+        // Calculate total spent with currency conversion (using EXACT same method as UI)
+        // Note: expense.amount is Decimal from DB, convert to number like getExpenses() does
+        const totalSpent = expenses.reduce((sum: number, expense) => {
+            const amount = parseFloat(expense.amount.toString());
+            return sum + convertForDisplaySync(amount, expense.currency, currency);
+        }, 0);
         
         const percentageSpent = (totalSpent / monthlyLimit) * 100;
         if (percentageSpent >= 90) {
