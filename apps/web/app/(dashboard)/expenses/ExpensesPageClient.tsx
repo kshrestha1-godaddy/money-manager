@@ -20,6 +20,7 @@ import { exportExpensesToCSV } from '../../utils/csvExportExpenses';
 import { createTransactionBookmark, deleteTransactionBookmarkByTransaction } from '../transactions/actions/transaction-bookmarks';
 import { Expense } from '../../types/financial';
 import { useCurrency } from '../../providers/CurrencyProvider';
+import { useTimezone } from '../../providers/TimezoneProvider';
 import { DisappearingNotification, NotificationData } from '../../components/DisappearingNotification';
 import { useState } from 'react';
 import { convertForDisplaySync } from '../../utils/currencyDisplay';
@@ -47,6 +48,7 @@ const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
 
 export default function ExpensesPageClient() {
   const { currency: userCurrency } = useCurrency();
+  const { timezone: userTimezone } = useTimezone();
   const searchParams = useSearchParams();
   const [notification, setNotification] = useState<NotificationData | null>(null);
 
@@ -154,9 +156,11 @@ export default function ExpensesPageClient() {
     }
   }, [searchParams, setIsAddModalOpen, setStartDate, setEndDate]);
 
+  // Use timezone-aware date calculations to match notification system
   const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
+  const nowInUserTimezone = new Date(now.toLocaleString("en-US", { timeZone: userTimezone }));
+  const currentMonth = nowInUserTimezone.getMonth();
+  const currentYear = nowInUserTimezone.getFullYear();
   const currentQuarter = Math.floor(currentMonth / 3);
   const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
   const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
@@ -164,32 +168,36 @@ export default function ExpensesPageClient() {
   const currentMonthExpenses = allExpenses
     .filter(expense => {
       const expenseDate = new Date(expense.date);
-      return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
+      const expenseDateInUserTimezone = new Date(expenseDate.toLocaleString("en-US", { timeZone: userTimezone }));
+      return expenseDateInUserTimezone.getMonth() === currentMonth && expenseDateInUserTimezone.getFullYear() === currentYear;
     })
     .reduce((sum: number, expense: Expense) => sum + convertForDisplaySync(expense.amount, expense.currency, userCurrency), 0);
 
   const lastMonthExpenses = allExpenses
     .filter(expense => {
       const expenseDate = new Date(expense.date);
-      return expenseDate.getMonth() === lastMonth && expenseDate.getFullYear() === lastMonthYear;
+      const expenseDateInUserTimezone = new Date(expenseDate.toLocaleString("en-US", { timeZone: userTimezone }));
+      return expenseDateInUserTimezone.getMonth() === lastMonth && expenseDateInUserTimezone.getFullYear() === lastMonthYear;
     })
     .reduce((sum: number, expense: Expense) => sum + convertForDisplaySync(expense.amount, expense.currency, userCurrency), 0);
 
   const currentQuarterExpenses = allExpenses
     .filter(expense => {
       const expenseDate = new Date(expense.date);
-      const expenseQuarter = Math.floor(expenseDate.getMonth() / 3);
-      return expenseQuarter === currentQuarter && expenseDate.getFullYear() === currentYear;
+      const expenseDateInUserTimezone = new Date(expenseDate.toLocaleString("en-US", { timeZone: userTimezone }));
+      const expenseQuarter = Math.floor(expenseDateInUserTimezone.getMonth() / 3);
+      return expenseQuarter === currentQuarter && expenseDateInUserTimezone.getFullYear() === currentYear;
     })
     .reduce((sum: number, expense: Expense) => sum + convertForDisplaySync(expense.amount, expense.currency, userCurrency), 0);
 
   const lastQuarterExpenses = allExpenses
     .filter(expense => {
       const expenseDate = new Date(expense.date);
+      const expenseDateInUserTimezone = new Date(expenseDate.toLocaleString("en-US", { timeZone: userTimezone }));
       const lastQuarter = currentQuarter === 0 ? 3 : currentQuarter - 1;
       const lastQuarterYear = currentQuarter === 0 ? currentYear - 1 : currentYear;
-      const expenseQuarter = Math.floor(expenseDate.getMonth() / 3);
-      return expenseQuarter === lastQuarter && expenseDate.getFullYear() === lastQuarterYear;
+      const expenseQuarter = Math.floor(expenseDateInUserTimezone.getMonth() / 3);
+      return expenseQuarter === lastQuarter && expenseDateInUserTimezone.getFullYear() === lastQuarterYear;
     })
     .reduce((sum: number, expense: Expense) => sum + convertForDisplaySync(expense.amount, expense.currency, userCurrency), 0);
 

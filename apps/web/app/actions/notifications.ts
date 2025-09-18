@@ -8,8 +8,10 @@ import {
     decimalToNumber 
 } from "../utils/auth";
 import { getUserCurrency } from "../actions/currency";
+import { getUserTimezone } from "../actions/timezone";
 import { formatCurrency } from "../utils/currency";
 import { convertForDisplaySync } from "../utils/currencyDisplay";
+import { formatDateInTimezone } from "../utils/timezone";
 
 // Types for notifications
 export interface NotificationData {
@@ -631,9 +633,13 @@ export async function checkSpendingAlerts(userId: number): Promise<void> {
         if (!settings?.spendingAlertsEnabled) return;
         const monthlyLimit = decimalToNumber(settings.monthlySpendingLimit, 'limit');
         const currency = await getUserCurrency();
+        const userTimezone = await getUserTimezone();
+        
+        // Get current date in user's timezone
         const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
+        const nowInUserTimezone = new Date(now.toLocaleString("en-US", { timeZone: userTimezone }));
+        const currentMonth = nowInUserTimezone.getMonth();
+        const currentYear = nowInUserTimezone.getFullYear();
         
         // Get ALL expenses for the user (we'll filter in memory like the UI does)
         const expenses = await prisma.expense.findMany({
@@ -647,11 +653,12 @@ export async function checkSpendingAlerts(userId: number): Promise<void> {
             }
         });
         
-        // Filter expenses using EXACT same logic as UI components
-        // This ensures identical results by using month/year comparison instead of date ranges
+        // Filter expenses using timezone-aware date comparison
+        // Convert each expense date to user's timezone before comparing month/year
         const currentMonthExpenses = expenses.filter(expense => {
             const expenseDate = new Date(expense.date);
-            return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
+            const expenseDateInUserTimezone = new Date(expenseDate.toLocaleString("en-US", { timeZone: userTimezone }));
+            return expenseDateInUserTimezone.getMonth() === currentMonth && expenseDateInUserTimezone.getFullYear() === currentYear;
         });
         
         // Calculate total spent with currency conversion (using EXACT same method as UI)
