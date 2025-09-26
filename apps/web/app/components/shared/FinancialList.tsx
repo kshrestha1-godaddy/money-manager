@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { Bookmark, BookmarkCheck } from "lucide-react";
 import { formatCurrency } from "../../utils/currency";
+import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { formatDate } from "../../utils/date";
 import { TransactionType } from "../../utils/formUtils";
 import { Pagination } from "./Pagination";
@@ -167,8 +168,8 @@ export function FinancialList({
                     bValue = new Date(b.date);
                     break;
                 case 'amount':
-                    aValue = a.amount;
-                    bValue = b.amount;
+                    aValue = convertForDisplaySync(a.amount, a.currency, currency);
+                    bValue = convertForDisplaySync(b.amount, b.currency, currency);
                     break;
                 default:
                     return 0;
@@ -182,7 +183,7 @@ export function FinancialList({
             }
             return 0;
         });
-    }, [transactions, sortField, sortDirection]);
+    }, [transactions, sortField, sortDirection, currency]);
 
     // Paginated transactions
     const paginatedTransactions = useMemo(() => {
