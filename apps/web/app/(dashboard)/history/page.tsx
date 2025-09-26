@@ -211,10 +211,10 @@ const COMPARISON_PERIODS: ComparisonPeriod[] = [
         value: "3months_vs_last_year",
         getPeriods: () => {
             const now = new Date();
-            const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+            const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
             const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
             
-            const lastYearThreeMonthsAgo = new Date(now.getFullYear() - 1, now.getMonth() - 2, 1);
+            const lastYearThreeMonthsAgo = new Date(now.getFullYear() - 1, now.getMonth() - 3, 1);
             const lastYearLastMonthEnd = new Date(now.getFullYear() - 1, now.getMonth(), 0);
             
             return {
@@ -236,10 +236,10 @@ const COMPARISON_PERIODS: ComparisonPeriod[] = [
         value: "6months_vs_last_year",
         getPeriods: () => {
             const now = new Date();
-            const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+            const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
             const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
             
-            const lastYearSixMonthsAgo = new Date(now.getFullYear() - 1, now.getMonth() - 5, 1);
+            const lastYearSixMonthsAgo = new Date(now.getFullYear() - 1, now.getMonth() - 6, 1);
             const lastYearLastMonthEnd = new Date(now.getFullYear() - 1, now.getMonth(), 0);
             
             return {
@@ -261,10 +261,10 @@ const COMPARISON_PERIODS: ComparisonPeriod[] = [
         value: "12months_vs_prev_12months",
         getPeriods: () => {
             const now = new Date();
-            const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+            const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 12, 1);
             const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
             
-            const twentyFourMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 23, 1);
+            const twentyFourMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 24, 1);
             const thirteenMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 12, 0);
             
             return {
