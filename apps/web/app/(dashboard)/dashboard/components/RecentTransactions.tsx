@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Transaction } from "../../../types/financial";
 import { formatDate } from "../../../utils/date";
 import { formatCurrency } from "../../../utils/currency";
+import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { useCurrency } from "../../../providers/CurrencyProvider";
 import { getRecentTransactions } from "../../transactions/actions/transactions";
 
@@ -104,7 +105,7 @@ export function RecentTransactions() {
                                 <div className={`text-sm font-medium ml-2 ${
                                     transaction.type === 'INCOME' ? 'text-green-600' : 'text-red-600'
                                 }`}>
-                                    {transaction.type === 'INCOME' ? '+' : '-'}{formatCurrency(transaction.amount, userCurrency)}
+                                    {transaction.type === 'INCOME' ? '+' : '-'}{formatCurrency(convertForDisplaySync(transaction.amount, transaction.currency, userCurrency), userCurrency)}
                                 </div>
                             </div>
                         </div>
@@ -162,7 +163,7 @@ export function RecentTransactions() {
                                     <td className={`px-4 py-3 whitespace-nowrap text-sm font-medium text-right ${
                                         transaction.type === 'INCOME' ? 'text-green-600' : 'text-red-600'
                                     }`}>
-                                        {transaction.type === 'INCOME' ? '+' : '-'}{formatCurrency(transaction.amount, userCurrency)}
+                                        {transaction.type === 'INCOME' ? '+' : '-'}{formatCurrency(convertForDisplaySync(transaction.amount, transaction.currency, userCurrency), userCurrency)}
                                     </td>
                                 </tr>
                             ))}

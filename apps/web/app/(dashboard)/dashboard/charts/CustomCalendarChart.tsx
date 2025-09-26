@@ -7,6 +7,7 @@ import { useChartData } from "../../../hooks/useChartDataContext";
 import { ChartControls } from "../../../components/ChartControls";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import { useChartAnimationState } from "../../../hooks/useChartAnimationContext";
+import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 
 interface CustomCalendarChartProps {
     type: "income" | "expense";
@@ -62,12 +63,15 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
             
             const current = dateMap.get(dateKey)!;
             current.count += 1;
-            current.amount += transaction.amount;
+            // Convert transaction amount to display currency
+            const convertedAmount = convertForDisplaySync(transaction.amount, transaction.currency, currency || "USD");
+            current.amount += convertedAmount;
         });
 
         return dateMap;
     }, [
         data.length,
+        currency,
         // Add checksum to detect actual data changes, not just reference changes
         data.reduce((sum, item) => sum + item.amount + item.id, 0)
     ]);
@@ -190,7 +194,7 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
 
         // Format dates for URL parameters (YYYY-MM-DD format)
         const formatDateForURL = (date: Date): string => {
-            return date.toISOString().split('T')[0];
+            return date.toISOString().split('T')[0] || '';
         };
 
         const startDateStr = formatDateForURL(startDate);

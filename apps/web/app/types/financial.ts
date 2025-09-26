@@ -135,6 +135,7 @@ export interface Transaction {
   type: 'EXPENSE' | 'INCOME';
   title: string;
   amount: number;
+  currency: string;
   date: Date;
   category: string;
   account: string;

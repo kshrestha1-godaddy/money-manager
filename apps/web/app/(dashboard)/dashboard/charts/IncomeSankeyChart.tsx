@@ -4,6 +4,7 @@ import React, { useRef, useEffect, useMemo } from "react";
 import { formatCurrency } from "../../../utils/currency";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { ChartControls } from "../../../components/ChartControls";
+import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 
 import { useChartAnimationState } from "../../../hooks/useChartAnimationContext";
 
@@ -42,11 +43,13 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
     const { sankeyData, total, csvData } = useMemo(() => {
         const categoryMap = new Map<string, number>();
         
-        // Group data by category
+        // Group data by category (with currency conversion)
         filteredIncomes.forEach(item => {
             const categoryName = item.category?.name || 'Unknown Category';
             const currentAmount = categoryMap.get(categoryName) || 0;
-            categoryMap.set(categoryName, currentAmount + item.amount);
+            // Convert individual transaction amount to display currency
+            const convertedAmount = convertForDisplaySync(item.amount, item.currency, currency);
+            categoryMap.set(categoryName, currentAmount + convertedAmount);
         });
 
         // Convert to Sankey data format
@@ -78,6 +81,7 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
         return { sankeyData, total, csvData };
     }, [
         filteredIncomes.length,
+        currency,
         // Add checksum to detect actual data changes, not just reference changes
         filteredIncomes.reduce((sum, income) => sum + income.amount + income.id, 0)
     ]);

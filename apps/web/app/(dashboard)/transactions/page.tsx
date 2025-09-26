@@ -5,6 +5,7 @@ import { Bookmark } from "lucide-react";
 import { Transaction } from "../../types/financial";
 import { formatDate } from "../../utils/date";
 import { formatCurrency } from "../../utils/currency";
+import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { getAllTransactions } from "./actions/transactions";
 import { createTransactionBookmark, deleteTransactionBookmarkByTransaction } from "./actions/transaction-bookmarks";
@@ -95,16 +96,23 @@ export default function TransactionsPage() {
 
     // Calculate totals (for all filtered transactions, not just current page)
     const totalAmount = filteredTransactions.reduce((sum, t) => {
-        return t.type === 'INCOME' ? sum + t.amount : sum - t.amount;
+        const convertedAmount = convertForDisplaySync(t.amount, t.currency, userCurrency);
+        return t.type === 'INCOME' ? sum + convertedAmount : sum - convertedAmount;
     }, 0);
     
     const totalIncome = filteredTransactions
         .filter(t => t.type === 'INCOME')
-        .reduce((sum, t) => sum + t.amount, 0);
+        .reduce((sum, t) => {
+            const convertedAmount = convertForDisplaySync(t.amount, t.currency, userCurrency);
+            return sum + convertedAmount;
+        }, 0);
     
     const totalExpenses = filteredTransactions
         .filter(t => t.type === 'EXPENSE')
-        .reduce((sum, t) => sum + t.amount, 0);
+        .reduce((sum, t) => {
+            const convertedAmount = convertForDisplaySync(t.amount, t.currency, userCurrency);
+            return sum + convertedAmount;
+        }, 0);
 
     const handlePageChange = (page: number) => {
         setCurrentPage(page);
@@ -443,7 +451,7 @@ export default function TransactionsPage() {
                                             <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-right ${
                                                 transaction.type === 'INCOME' ? 'text-green-600' : 'text-red-600'
                                             }`}>
-                                                {transaction.type === 'INCOME' ? '+' : '-'}{formatCurrency(transaction.amount, userCurrency)}
+                                                {transaction.type === 'INCOME' ? '+' : '-'}{formatCurrency(convertForDisplaySync(transaction.amount, transaction.currency, userCurrency), userCurrency)}
                                             </td>
                                         </tr>
                                     ))}
