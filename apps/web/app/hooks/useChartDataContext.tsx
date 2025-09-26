@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useMemo, ReactNode } from 'react';
 import { Income, Expense } from '../types/financial';
+import { convertForDisplaySync } from '../utils/currencyDisplay';
 
 interface MonthlyAggregatedData {
   monthKey: string;
@@ -118,7 +119,8 @@ const processChartData = (
   expenses: Expense[],
   startDate?: string,
   endDate?: string,
-  isAllTime?: boolean
+  isAllTime?: boolean,
+  userCurrency: string = 'USD'
 ): ProcessedChartData => {
   // Calculate date range
   let timeRange: TimeRangeData;
@@ -214,7 +216,8 @@ const processChartData = (
     }
     
     const monthData = monthlyMap.get(monthKey)!;
-    monthData.income += income.amount;
+    const convertedAmount = convertForDisplaySync(income.amount, income.currency, userCurrency);
+    monthData.income += convertedAmount;
     monthData.incomeCount += 1;
   }
 
@@ -237,7 +240,8 @@ const processChartData = (
     }
     
     const monthData = monthlyMap.get(monthKey)!;
-    monthData.expenses += expense.amount;
+    const convertedAmount = convertForDisplaySync(expense.amount, expense.currency, userCurrency);
+    monthData.expenses += convertedAmount;
     monthData.expenseCount += 1;
   }
 
@@ -263,7 +267,8 @@ const processChartData = (
         items: []
       };
     }
-    categoryData[categoryName].income += income.amount;
+    const convertedAmount = convertForDisplaySync(income.amount, income.currency, userCurrency);
+    categoryData[categoryName].income += convertedAmount;
     categoryData[categoryName].count += 1;
     categoryData[categoryName].items.push(income);
   }
@@ -279,7 +284,8 @@ const processChartData = (
         items: []
       };
     }
-    categoryData[categoryName].expenses += expense.amount;
+    const convertedAmount = convertForDisplaySync(expense.amount, expense.currency, userCurrency);
+    categoryData[categoryName].expenses += convertedAmount;
     categoryData[categoryName].count += 1;
     categoryData[categoryName].items.push(expense);
   }
@@ -343,6 +349,7 @@ interface ChartDataProviderProps {
   startDate?: string;
   endDate?: string;
   isAllTime?: boolean;
+  userCurrency: string;
 }
 
 export function ChartDataProvider({ 
@@ -351,13 +358,14 @@ export function ChartDataProvider({
   expenses, 
   startDate, 
   endDate,
-  isAllTime = false
+  isAllTime = false,
+  userCurrency
 }: ChartDataProviderProps) {
   // Use useMemo with stable dependencies and deep comparison for arrays
   const processedData = useMemo(
     () => {
       // Only recalculate if data actually changed, not just reference
-      return processChartData(incomes, expenses, startDate, endDate, isAllTime);
+      return processChartData(incomes, expenses, startDate, endDate, isAllTime, userCurrency);
     },
     [
       incomes.length, 
@@ -365,6 +373,7 @@ export function ChartDataProvider({
       startDate, 
       endDate,
       isAllTime,
+      userCurrency,
       // Add checksums to detect actual data changes
       incomes.reduce((sum, income) => sum + income.amount + income.id, 0),
       expenses.reduce((sum, expense) => sum + expense.amount + expense.id, 0)
@@ -416,11 +425,12 @@ export function ChartDataProvider({
         }
         
         const monthData = monthlyMap.get(monthKey)!;
+        const convertedAmount = convertForDisplaySync(item.amount, item.currency, userCurrency);
         if (type === 'income') {
-          monthData.income += item.amount;
+          monthData.income += convertedAmount;
           monthData.incomeCount += 1;
         } else {
-          monthData.expenses += item.amount;
+          monthData.expenses += convertedAmount;
           monthData.expenseCount += 1;
         }
       }
@@ -432,7 +442,7 @@ export function ChartDataProvider({
         }))
         .sort((a, b) => a.monthKey.localeCompare(b.monthKey));
     }
-  }), [processedData]);
+  }), [processedData, userCurrency]);
 
   return (
     <ChartDataContext.Provider value={contextValue}>

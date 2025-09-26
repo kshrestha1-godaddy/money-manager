@@ -8,6 +8,7 @@ import { authOptions } from "../../../lib/auth";
 import { getUserIdFromSession } from "../../../utils/auth";
 import { parseCSV, parseTags } from "../../../utils/csvUtils";
 import { parseCategoriesCSV, type ParsedCategoryData } from "../../../utils/csvImportCategories";
+import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 
 // Helper function to revalidate all income-related paths
 const revalidateIncomePaths = () => {
@@ -117,11 +118,15 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
                 }
             });
 
-            // adding the amount to the account balance
+            // adding the amount to the account balance (convert to user's currency)
             if (data.accountId) {
+                const userCurrency = user?.currency || 'USD';
+                const transactionCurrency = data.currency || userCurrency;
+                const convertedAmount = convertForDisplaySync(data.amount, transactionCurrency, userCurrency);
+                
                 await tx.account.update({
                     where: { id: data.accountId },
-                    data: { balance: { increment: data.amount } }
+                    data: { balance: { increment: convertedAmount } }
                 });
             }
 
@@ -165,6 +170,12 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
             throw new Error("Income not found or unauthorized");
         }
 
+        // Get user's preferred currency
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { currency: true }
+        });
+
         const updateData: any = {};
         if (data.title !== undefined) updateData.title = data.title;
         if (data.description !== undefined) updateData.description = data.description;
@@ -192,13 +203,20 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
                 }
             });
 
+            const userCurrency = user?.currency || 'USD';
             const oldAmount = parseFloat(existingIncome.amount.toString());
+            const oldCurrency = existingIncome.currency;
             const newAmount = data.amount !== undefined ? data.amount : oldAmount;
+            const newCurrency = data.currency !== undefined ? data.currency : oldCurrency;
             const oldAccountId = existingIncome.accountId;
             const newAccountId = data.accountId !== undefined ? data.accountId : oldAccountId;
 
+            // Convert amounts to user's currency for account balance updates
+            const oldAmountConverted = convertForDisplaySync(oldAmount, oldCurrency, userCurrency);
+            const newAmountConverted = convertForDisplaySync(newAmount, newCurrency, userCurrency);
+
             if (data.amount !== undefined && oldAccountId === newAccountId && oldAccountId) {
-                const amountDifference = newAmount - oldAmount;
+                const amountDifference = newAmountConverted - oldAmountConverted;
                 await tx.account.update({
                     where: { id: oldAccountId },
                     data: { balance: { increment: amountDifference } }
@@ -207,13 +225,13 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
                 if (oldAccountId) {
                     await tx.account.update({
                         where: { id: oldAccountId },
-                        data: { balance: { decrement: oldAmount } }
+                        data: { balance: { decrement: oldAmountConverted } }
                     });
                 }
                 if (newAccountId) {
                     await tx.account.update({
                         where: { id: newAccountId },
-                        data: { balance: { increment: newAmount } }
+                        data: { balance: { increment: newAmountConverted } }
                     });
                 }
             }
@@ -246,13 +264,23 @@ export async function deleteIncome(id: number) {
             throw new Error("Income not found or unauthorized");
         }
 
+        // Get user's preferred currency
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { currency: true }
+        });
+
         await prisma.$transaction(async (tx) => {
             await tx.income.delete({ where: { id } });
 
             if (existingIncome.accountId) {
+                const userCurrency = user?.currency || 'USD';
+                const incomeAmount = parseFloat(existingIncome.amount.toString());
+                const convertedAmount = convertForDisplaySync(incomeAmount, existingIncome.currency, userCurrency);
+                
                 await tx.account.update({
                     where: { id: existingIncome.accountId },
-                    data: { balance: { decrement: parseFloat(existingIncome.amount.toString()) } }
+                    data: { balance: { decrement: convertedAmount } }
                 });
             }
         });

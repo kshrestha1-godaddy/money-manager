@@ -27,7 +27,7 @@ export default function DashboardPageClient() {
     updateItem: updateIncome,
     deleteItem: deleteIncome,
     exportToCSV: () => {},
-  }, { fetchAccounts: false, fetchCategories: false });
+  }, { fetchAccounts: false, fetchCategories: false, userCurrency: currency });
 
   const expensesData = useOptimizedFinancialData<Expense>("EXPENSE", {
     getItems: getExpenses,
@@ -35,7 +35,7 @@ export default function DashboardPageClient() {
     updateItem: updateExpense,
     deleteItem: deleteExpense,
     exportToCSV: () => {},
-  }, { fetchAccounts: false, fetchCategories: false });
+  }, { fetchAccounts: false, fetchCategories: false, userCurrency: currency });
   // Tutorial flag: set if user has any data
   useEffect(() => {
     if (incomesData.items.length > 0 || expensesData.items.length > 0) {
@@ -74,6 +74,7 @@ export default function DashboardPageClient() {
         startDate={startDate}
         endDate={endDate}
         isAllTime={isAllTime}
+        userCurrency={currency}
       >
         <div className={pageContainer}>
           <DashboardHeader startDate={startDate} endDate={endDate} />

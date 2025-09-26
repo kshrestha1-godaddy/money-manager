@@ -8,6 +8,8 @@ import { useOptimizedInvestments } from '../(dashboard)/investments/hooks/useOpt
 import { getIncomes } from '../(dashboard)/incomes/actions/incomes';
 import { getExpenses } from '../(dashboard)/expenses/actions/expenses';
 import { calculateRemainingWithInterest } from '../utils/interestCalculation';
+import { convertForDisplaySync } from '../utils/currencyDisplay';
+import { useCurrency } from '../providers/CurrencyProvider';
 
 interface NetWorthStats {
     // Asset breakdown
@@ -67,6 +69,7 @@ const CHART_COLORS = {
 
 export function useOptimizedWorth() {
     const queryClient = useQueryClient();
+    const { currency } = useCurrency();
 
     // ==================== DATA SOURCES ====================
     
@@ -125,7 +128,7 @@ export function useOptimizedWorth() {
 
     // ==================== COMPUTED VALUES ====================
 
-    // Monthly cash flow analysis
+    // Monthly cash flow analysis (with currency conversion)
     const monthlyCashFlow = useMemo(() => {
         const currentMonth = new Date().getMonth();
         const currentYear = new Date().getFullYear();
@@ -135,14 +138,20 @@ export function useOptimizedWorth() {
                 const incomeDate = income.date instanceof Date ? income.date : new Date(income.date);
                 return incomeDate.getMonth() === currentMonth && incomeDate.getFullYear() === currentYear;
             })
-            .reduce((sum, income) => sum + income.amount, 0);
+            .reduce((sum, income) => {
+                const convertedAmount = convertForDisplaySync(income.amount, income.currency, currency);
+                return sum + convertedAmount;
+            }, 0);
 
         const thisMonthExpenses = expenses
             .filter(expense => {
                 const expenseDate = expense.date instanceof Date ? expense.date : new Date(expense.date);
                 return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
             })
-            .reduce((sum, expense) => sum + expense.amount, 0);
+            .reduce((sum, expense) => {
+                const convertedAmount = convertForDisplaySync(expense.amount, expense.currency, currency);
+                return sum + convertedAmount;
+            }, 0);
 
         const thisMonthNetIncome = thisMonthIncome - thisMonthExpenses;
 
@@ -151,7 +160,7 @@ export function useOptimizedWorth() {
             thisMonthExpenses,
             thisMonthNetIncome
         };
-    }, [incomes, expenses]);
+    }, [incomes, expenses, currency]);
 
     // Money lent calculations using debt data
     const moneyLentStats = useMemo(() => {

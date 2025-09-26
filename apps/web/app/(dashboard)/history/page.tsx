@@ -9,6 +9,7 @@ import { getExpenses } from "../expenses/actions/expenses";
 import { getCategories } from "../../actions/categories";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency } from "../../utils/currency";
+import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { formatDate } from "../../utils/date";
 import { 
     getSummaryCardClasses,
@@ -635,10 +636,18 @@ export default function History() {
         });
     };
 
-    // Calculate period data from filtered arrays
+    // Calculate period data from filtered arrays (with currency conversion)
     const calculatePeriodDataFromArrays = (incomes: Income[], expenses: Expense[]): PeriodData => {
-        const totalIncome = incomes.reduce((sum, income) => sum + income.amount, 0);
-        const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+        const totalIncome = incomes.reduce((sum, income) => {
+            const convertedAmount = convertForDisplaySync(income.amount, income.currency, currency);
+            return sum + convertedAmount;
+        }, 0);
+
+        const totalExpenses = expenses.reduce((sum, expense) => {
+            const convertedAmount = convertForDisplaySync(expense.amount, expense.currency, currency);
+            return sum + convertedAmount;
+        }, 0);
+
         const totalSavings = totalIncome - totalExpenses;
         const savingsRate = totalIncome > 0 ? (totalSavings / totalIncome) * 100 : 0;
 
@@ -647,12 +656,14 @@ export default function History() {
 
         incomes.forEach(income => {
             const categoryName = income.category.name;
-            incomeByCategory[categoryName] = (incomeByCategory[categoryName] || 0) + income.amount;
+            const convertedAmount = convertForDisplaySync(income.amount, income.currency, currency);
+            incomeByCategory[categoryName] = (incomeByCategory[categoryName] || 0) + convertedAmount;
         });
 
         expenses.forEach(expense => {
             const categoryName = expense.category.name;
-            expensesByCategory[categoryName] = (expensesByCategory[categoryName] || 0) + expense.amount;
+            const convertedAmount = convertForDisplaySync(expense.amount, expense.currency, currency);
+            expensesByCategory[categoryName] = (expensesByCategory[categoryName] || 0) + convertedAmount;
         });
 
         return {

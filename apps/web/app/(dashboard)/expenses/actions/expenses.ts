@@ -22,6 +22,7 @@ import {
     BulkOperationResult 
 } from "../../../types/bulkImport";
 import { getUserIdFromSession } from "../../../utils/auth";
+import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 
 export async function getExpenses() {
     try {
@@ -137,13 +138,17 @@ export async function createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'up
                 }
             });
 
-            // Update the account balance (decrease by expense amount)
+            // Update the account balance (decrease by expense amount, convert to user's currency)
             if (data.accountId) {
+                const userCurrency = user?.currency || 'USD';
+                const transactionCurrency = data.currency || userCurrency;
+                const convertedAmount = convertForDisplaySync(data.amount, transactionCurrency, userCurrency);
+                
                 await tx.account.update({
                     where: { id: data.accountId },
                     data: {
                         balance: {
-                            decrement: data.amount
+                            decrement: convertedAmount
                         }
                     }
                 });
@@ -216,6 +221,12 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
             throw new Error("Expense not found or unauthorized");
         }
 
+        // Get user's preferred currency
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { currency: true }
+        });
+
         const updateData: any = {};
         
         if (data.title !== undefined) updateData.title = data.title;
@@ -247,15 +258,22 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
                 }
             });
 
-            // Handle account balance changes
+            // Handle account balance changes (convert currencies)
+            const userCurrency = user?.currency || 'USD';
             const oldAmount = parseFloat(existingExpense.amount.toString());
+            const oldCurrency = existingExpense.currency;
             const newAmount = data.amount !== undefined ? data.amount : oldAmount;
+            const newCurrency = data.currency !== undefined ? data.currency : oldCurrency;
             const oldAccountId = existingExpense.accountId;
             const newAccountId = data.accountId !== undefined ? data.accountId : oldAccountId;
 
+            // Convert amounts to user's currency for account balance updates
+            const oldAmountConverted = convertForDisplaySync(oldAmount, oldCurrency, userCurrency);
+            const newAmountConverted = convertForDisplaySync(newAmount, newCurrency, userCurrency);
+
             // If amount changed and same account
             if (data.amount !== undefined && oldAccountId === newAccountId && oldAccountId) {
-                const amountDifference = newAmount - oldAmount;
+                const amountDifference = newAmountConverted - oldAmountConverted;
                 // For expenses: if amount increased, decrease balance more; if decreased, increase balance
                 await tx.account.update({
                     where: { id: oldAccountId },
@@ -274,7 +292,7 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
                         where: { id: oldAccountId },
                         data: {
                             balance: {
-                                increment: oldAmount
+                                increment: oldAmountConverted
                             }
                         }
                     });
@@ -285,7 +303,7 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
                         where: { id: newAccountId },
                         data: {
                             balance: {
-                                decrement: newAmount
+                                decrement: newAmountConverted
                             }
                         }
                     });
@@ -332,6 +350,12 @@ export async function deleteExpense(id: number) {
 
         const userId = getUserIdFromSession(session.user.id);
 
+        // Get user's preferred currency
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { currency: true }
+        });
+
         // Use a transaction to handle expense deletion and account balance restoration
         await prisma.$transaction(async (tx) => {
             // Verify the expense belongs to the user and get its details
@@ -351,13 +375,17 @@ export async function deleteExpense(id: number) {
                 where: { id },
             });
 
-            // Restore the account balance if there was an account associated
+            // Restore the account balance if there was an account associated (convert to user's currency)
             if (existingExpense.accountId) {
+                const userCurrency = user?.currency || 'USD';
+                const expenseAmount = parseFloat(existingExpense.amount.toString());
+                const convertedAmount = convertForDisplaySync(expenseAmount, existingExpense.currency, userCurrency);
+                
                 await tx.account.update({
                     where: { id: existingExpense.accountId },
                     data: {
                         balance: {
-                            increment: parseFloat(existingExpense.amount.toString())
+                            increment: convertedAmount
                         }
                     }
                 });
@@ -693,13 +721,17 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
                             data: createData
                         });
 
-                        // Update account balance if account is specified
+                        // Update account balance if account is specified (convert to user's currency)
                         if (validatedRow.data.accountId) {
+                            const userCurrency = user?.currency || 'USD';
+                            const transactionCurrency = validatedRow.data.currency || userCurrency;
+                            const convertedAmount = convertForDisplaySync(validatedRow.data.amount, transactionCurrency, userCurrency);
+                            
                             await tx.account.update({
                                 where: { id: validatedRow.data.accountId },
                                 data: {
                                     balance: {
-                                        decrement: validatedRow.data.amount
+                                        decrement: convertedAmount
                                     }
                                 }
                             });
@@ -743,6 +775,12 @@ export async function bulkDeleteExpenses(expenseIds: number[]) {
 
         const userId = getUserIdFromSession(session.user.id);
 
+        // Get user's preferred currency
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { currency: true }
+        });
+
         // Verify all expenses belong to the user and get expense details for account balance updates
         const existingExpenses = await prisma.expense.findMany({
             where: {
@@ -768,13 +806,16 @@ export async function bulkDeleteExpenses(expenseIds: number[]) {
                 }
             });
 
-            // Update account balances (increase by expense amounts since expenses are removed)
+            // Update account balances (increase by expense amounts since expenses are removed, convert to user's currency)
             const accountUpdates = new Map<number, number>();
+            const userCurrency = user?.currency || 'USD';
             
             existingExpenses.forEach(expense => {
                 if (expense.accountId) {
+                    const expenseAmount = parseFloat(expense.amount.toString());
+                    const convertedAmount = convertForDisplaySync(expenseAmount, expense.currency, userCurrency);
                     const currentTotal = accountUpdates.get(expense.accountId) || 0;
-                    accountUpdates.set(expense.accountId, currentTotal + parseFloat(expense.amount.toString()));
+                    accountUpdates.set(expense.accountId, currentTotal + convertedAmount);
                 }
             });
 
@@ -883,13 +924,17 @@ export async function importCorrectedRow(
                 }
             });
 
-            // Update account balance if account is specified
+            // Update account balance if account is specified (convert to user's currency)
             if (expenseData.accountId) {
+                const userCurrency = user?.currency || 'USD';
+                const transactionCurrency = expenseData.currency || userCurrency;
+                const convertedAmount = convertForDisplaySync(expenseData.amount, transactionCurrency, userCurrency);
+                
                 await tx.account.update({
                     where: { id: expenseData.accountId },
                     data: {
                         balance: {
-                            decrement: expenseData.amount
+                            decrement: convertedAmount
                         }
                     }
                 });
