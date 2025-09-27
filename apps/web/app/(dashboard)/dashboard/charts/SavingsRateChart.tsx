@@ -291,7 +291,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                             dataKey="month" 
                             tickFormatter={formatMonth}
                             tick={{ fontSize: 12 }}
-                            interval={1}
+                            interval={0}
                             dy={10}
                         />
                         <YAxis
@@ -308,7 +308,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                             <ReferenceLine 
                                 key={value}
                                 y={value} 
-                                stroke="#ef4444" 
+                                stroke="grey" 
                                 strokeDasharray="2 2"
                                 strokeWidth={1}
                                 opacity={0.6}
@@ -319,21 +319,21 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                         <ReferenceLine 
                             y={0} 
                             stroke="#374151" 
-                            strokeWidth={2}
+                            strokeWidth={1}
                         />
 
                         {/* Average savings rate reference line */}
                         <ReferenceLine 
                             y={averageSavingsRate} 
-                            stroke="#6b7280" 
-                            strokeDasharray="3 3"
-                            strokeWidth={2}
+                            stroke="red" 
+                            strokeDasharray="4 4"
+                            strokeWidth={1}
                         >
                             <Label 
                                 value={`Avg: ${averageSavingsRate.toFixed(1)}%`} 
                                 position="insideLeft"
-                                fill="#6b7280"
-                                fontSize={8}
+                                fill="red"
+                                fontSize={10}
                                 dy={10}
                             />
                         </ReferenceLine>
