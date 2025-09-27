@@ -205,12 +205,12 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
                     const formattedMin = formatCurrency(item.minAmount, currency);
                     const formattedMax = formatCurrency(item.maxAmount, currency);
                     
-                    const tooltip = `<div style="padding: 8px; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.4;">
-<div style="font-weight: bold; margin-bottom: 4px; color: #333;">${item.from.replace(/ \(\d+x\)$/, '')}</div>
-<div style="margin-bottom: 2px;"><strong>Total:</strong> ${formattedTotal} (${percentage}%)</div>
-<div style="margin-bottom: 2px;"><strong>Transactions:</strong> ${item.count}</div>
-<div style="margin-bottom: 2px;"><strong>Average:</strong> ${formattedAverage}</div>
-<div style="margin-bottom: 2px;"><strong>Range:</strong> ${formattedMin} - ${formattedMax}</div>
+                    const tooltip = `<div style="padding: 12px; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.5; min-width: 280px; max-width: 350px;">
+<div style="font-weight: bold; margin-bottom: 6px; color: #333; font-size: 14px;">${item.from.replace(/ \(\d+x\)$/, '')}</div>
+<div style="margin-bottom: 3px;"><strong>Total:</strong> ${formattedTotal} (${percentage}%)</div>
+<div style="margin-bottom: 3px;"><strong>Transactions:</strong> ${item.count}</div>
+<div style="margin-bottom: 3px;"><strong>Average:</strong> ${formattedAverage}</div>
+<div style="margin-bottom: 3px;"><strong>Range:</strong> ${formattedMin} - ${formattedMax}</div>
 <div><strong>Period:</strong> ${item.dateRange}</div>
 </div>`;
                     
