@@ -17,6 +17,11 @@ interface MonthlyData {
     totalIncome: number;
     totalExpenses: number;
     savings: number;
+    incomeCount: number;
+    expenseCount: number;
+    averageIncome: number;
+    averageExpense: number;
+    formattedMonth: string;
 }
 
 export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, heightClass }) => {
@@ -27,16 +32,29 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
     const timePeriodText = formatTimePeriod();
 
     const data = useMemo(() => {
-        // Transform monthly data to savings rate format
-        const monthlyData_ = monthlyData.map(month => ({
-            month: month.monthKey,
-            totalIncome: month.income,
-            totalExpenses: month.expenses,
-            savings: month.savings,
-            savingsRate: month.income > 0 
+        // Transform monthly data to savings rate format with enhanced statistics
+        const monthlyData_ = monthlyData.map(month => {
+            const incomeCount = month.incomeCount || 0;
+            const expenseCount = month.expenseCount || 0;
+            const averageIncome = incomeCount > 0 ? month.income / incomeCount : 0;
+            const averageExpense = expenseCount > 0 ? month.expenses / expenseCount : 0;
+            const savingsRate = month.income > 0 
                 ? Math.max(-100, (month.savings / month.income) * 100)
-                : -100
-        }));
+                : -100;
+
+            return {
+                month: month.monthKey,
+                totalIncome: month.income,
+                totalExpenses: month.expenses,
+                savings: month.savings,
+                savingsRate,
+                incomeCount,
+                expenseCount,
+                averageIncome,
+                averageExpense,
+                formattedMonth: month.formattedMonth
+            };
+        });
 
         return monthlyData_.map(data => ({
             ...data,
@@ -58,15 +76,121 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
         return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
     };
 
-    // Format tooltip
-    const formatTooltip = (value: number, name: string) => {
-        if (name === "savingsRate") {
-            if (value <= -100) {
-                return ["<-100%", "Savings Rate"];
-            }
-            return [`${value}%`, "Savings Rate"];
-        }
-        return [value, name];
+    // Enhanced custom tooltip component
+    const CustomTooltip = ({ active, payload, label }: any) => {
+        if (!active || !payload || !payload.length) return null;
+
+        const data = payload[0]?.payload as MonthlyData;
+        if (!data) return null;
+
+        const totalTransactions = data.incomeCount + data.expenseCount;
+
+        return (
+            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-lg max-w-sm">
+                <div className="font-bold text-gray-900 mb-3 text-base">{data.formattedMonth}</div>
+                
+                {/* Savings Rate - Main Metric */}
+                <div className="flex items-center justify-between mb-3">
+                    <span className="font-medium text-blue-600">Savings Rate:</span>
+                    <span className={`font-bold text-lg ${
+                        data.savingsRate >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                        {data.savingsRate <= -100 ? '<-100%' : `${data.savingsRate.toFixed(1)}%`}
+                    </span>
+                </div>
+
+                {/* Financial Summary */}
+                <div className="space-y-2 mb-3 text-sm">
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">Total Income:</span>
+                        <span className="font-medium text-green-600">
+                            {new Intl.NumberFormat('en-US', {
+                                style: 'currency',
+                                currency: currency === 'INR' ? 'INR' : 'USD',
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0
+                            }).format(data.totalIncome)}
+                        </span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">Total Expenses:</span>
+                        <span className="font-medium text-red-600">
+                            {new Intl.NumberFormat('en-US', {
+                                style: 'currency',
+                                currency: currency === 'INR' ? 'INR' : 'USD',
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0
+                            }).format(data.totalExpenses)}
+                        </span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">Net Savings:</span>
+                        <span className={`font-medium ${
+                            data.savings >= 0 ? 'text-blue-600' : 'text-orange-600'
+                        }`}>
+                            {new Intl.NumberFormat('en-US', {
+                                style: 'currency',
+                                currency: currency === 'INR' ? 'INR' : 'USD',
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0
+                            }).format(data.savings)}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Transaction Statistics */}
+                <div className="border-t border-gray-200 pt-3 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">Total Transactions:</span>
+                        <span className="font-medium">{totalTransactions}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">Income Transactions:</span>
+                        <span className="font-medium">{data.incomeCount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">Expense Transactions:</span>
+                        <span className="font-medium">{data.expenseCount}</span>
+                    </div>
+                    {data.incomeCount > 0 && (
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Avg Income:</span>
+                            <span className="font-medium">
+                                {new Intl.NumberFormat('en-US', {
+                                    style: 'currency',
+                                    currency: currency === 'INR' ? 'INR' : 'USD',
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 0
+                                }).format(data.averageIncome)}
+                            </span>
+                        </div>
+                    )}
+                    {data.expenseCount > 0 && (
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Avg Expense:</span>
+                            <span className="font-medium">
+                                {new Intl.NumberFormat('en-US', {
+                                    style: 'currency',
+                                    currency: currency === 'INR' ? 'INR' : 'USD',
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 0
+                                }).format(data.averageExpense)}
+                            </span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Contextual Message */}
+                <div className="mt-3 pt-2 border-t border-gray-100">
+                    <div className="text-xs text-gray-500">
+                        {data.savingsRate >= 50 && "Excellent savings rate! Keep it up!"}
+                        {data.savingsRate >= 20 && data.savingsRate < 50 && "Good savings rate. You're on track!"}
+                        {data.savingsRate >= 0 && data.savingsRate < 20 && "Positive savings, but room for improvement."}
+                        {data.savingsRate < 0 && "Expenses exceeded income this month."}
+                    </div>
+                </div>
+            </div>
+        );
     };
 
     // Format data label
@@ -77,15 +201,23 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
         return `${value.toFixed(1)}%`;
     };
 
-    // Prepare CSV data for export
+    // Calculate total transactions for display
+    const totalTransactions = data.reduce((sum, item) => sum + item.incomeCount + item.expenseCount, 0);
+
+    // Enhanced CSV data for export
     const csvData = [
-        ['Month', 'Savings Rate (%)', 'Total Income', 'Total Expenses', 'Net Savings'],
+        ['Month', 'Savings Rate (%)', 'Total Income', 'Total Expenses', 'Net Savings', 'Income Transactions', 'Expense Transactions', 'Total Transactions', 'Avg Income', 'Avg Expense'],
         ...data.map(item => [
-            item.month,
+            item.formattedMonth,
             item.savingsRate.toFixed(1),
             item.totalIncome.toString(),
             item.totalExpenses.toString(),
-            item.savings.toString()
+            item.savings.toString(),
+            item.incomeCount.toString(),
+            item.expenseCount.toString(),
+            (item.incomeCount + item.expenseCount).toString(),
+            item.averageIncome.toFixed(2),
+            item.averageExpense.toFixed(2)
         ])
     ];
 
@@ -154,7 +286,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                             bottom: 30,
                         }}
                     >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={true} horizontal={true} strokeWidth={3} />
                         <XAxis 
                             dataKey="month" 
                             tickFormatter={formatMonth}
@@ -169,13 +301,25 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                             ticks={[-100, -75, -50, -25, 0, 25, 50, 75, 100]}
                             dx={-10}
                         />
-                        <Tooltip formatter={formatTooltip} />
+                        <Tooltip content={<CustomTooltip />} />
                         
-                        {/* Zero reference line */}
+                        {/* Red reference lines at 25% intervals */}
+                        {[-75, -50, -25, 25, 50, 75].map((value) => (
+                            <ReferenceLine 
+                                key={value}
+                                y={value} 
+                                stroke="#ef4444" 
+                                strokeDasharray="2 2"
+                                strokeWidth={1}
+                                opacity={0.6}
+                            />
+                        ))}
+
+                        {/* Zero reference line - more prominent */}
                         <ReferenceLine 
                             y={0} 
-                            stroke="#94a3b8" 
-                            strokeWidth={1}
+                            stroke="#374151" 
+                            strokeWidth={2}
                         />
 
                         {/* Average savings rate reference line */}
@@ -232,8 +376,8 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                     fileName="savings-rate-chart"
                     csvData={csvData}
                     csvFileName="savings-rate-data"
-                    title={`Monthly Savings Rate Trend ${timePeriodText}`}
-                    tooltipText="Tracks your monthly savings as a percentage of income over time"
+                    title={totalTransactions > 0 ? `Monthly Savings Rate Trend ${timePeriodText} • ${totalTransactions} transaction${totalTransactions !== 1 ? 's' : ''}` : `Monthly Savings Rate Trend ${timePeriodText}`}
+                    tooltipText="Tracks your monthly savings as a percentage of income over time with detailed statistics including transaction counts, averages, and financial breakdowns. Hover over data points for detailed information."
                 />
                 <ChartContent />
             </div>
@@ -244,8 +388,10 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                     <div className="bg-white rounded-lg p-6 max-w-[95%] w-full max-h-[95%] overflow-auto">
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-2 sm:gap-0">
                             <div>
-                                <h2 className="text-lg sm:text-2xl font-semibold">Monthly Savings Rate Trend {timePeriodText}</h2>
-                                <p className="text-sm text-gray-500">Tracks your monthly savings as a percentage of income over time</p>
+                                <h2 className="text-lg sm:text-2xl font-semibold">
+                                    {totalTransactions > 0 ? `Monthly Savings Rate Trend ${timePeriodText} • ${totalTransactions} transaction${totalTransactions !== 1 ? 's' : ''}` : `Monthly Savings Rate Trend ${timePeriodText}`}
+                                </h2>
+                                <p className="text-sm text-gray-500">Tracks your monthly savings as a percentage of income over time with detailed statistics</p>
                             </div>
                             <button
                                 onClick={toggleExpanded}
