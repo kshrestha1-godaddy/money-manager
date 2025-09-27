@@ -155,41 +155,43 @@ export default function IncomesPageClient() {
   const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
   const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
 
-  const currentMonthIncomes = allIncomes
-    .filter(income => {
-      const incomeDate = new Date(income.date);
-      const incomeDateInUserTimezone = new Date(incomeDate.toLocaleString("en-US", { timeZone: userTimezone }));
-      return incomeDateInUserTimezone.getMonth() === currentMonth && incomeDateInUserTimezone.getFullYear() === currentYear;
-    })
-    .reduce((sum: number, income: Income) => sum + convertForDisplaySync(income.amount, income.currency, userCurrency), 0);
+  // Current month incomes and count
+  const currentMonthIncomesData = allIncomes.filter(income => {
+    const incomeDate = new Date(income.date);
+    const incomeDateInUserTimezone = new Date(incomeDate.toLocaleString("en-US", { timeZone: userTimezone }));
+    return incomeDateInUserTimezone.getMonth() === currentMonth && incomeDateInUserTimezone.getFullYear() === currentYear;
+  });
+  const currentMonthIncomes = currentMonthIncomesData.reduce((sum: number, income: Income) => sum + convertForDisplaySync(income.amount, income.currency, userCurrency), 0);
+  const currentMonthIncomesCount = currentMonthIncomesData.length;
 
-  const lastMonthIncomes = allIncomes
-    .filter(income => {
-      const incomeDate = new Date(income.date);
-      const incomeDateInUserTimezone = new Date(incomeDate.toLocaleString("en-US", { timeZone: userTimezone }));
-      return incomeDateInUserTimezone.getMonth() === lastMonth && incomeDateInUserTimezone.getFullYear() === lastMonthYear;
-    })
-    .reduce((sum: number, income: Income) => sum + convertForDisplaySync(income.amount, income.currency, userCurrency), 0);
+  // Last month incomes and count
+  const lastMonthIncomesData = allIncomes.filter(income => {
+    const incomeDate = new Date(income.date);
+    const incomeDateInUserTimezone = new Date(incomeDate.toLocaleString("en-US", { timeZone: userTimezone }));
+    return incomeDateInUserTimezone.getMonth() === lastMonth && incomeDateInUserTimezone.getFullYear() === lastMonthYear;
+  });
+  const lastMonthIncomes = lastMonthIncomesData.reduce((sum: number, income: Income) => sum + convertForDisplaySync(income.amount, income.currency, userCurrency), 0);
 
-  const currentQuarterIncomes = allIncomes
-    .filter(income => {
-      const incomeDate = new Date(income.date);
-      const incomeDateInUserTimezone = new Date(incomeDate.toLocaleString("en-US", { timeZone: userTimezone }));
-      const incomeQuarter = Math.floor(incomeDateInUserTimezone.getMonth() / 3);
-      return incomeQuarter === currentQuarter && incomeDateInUserTimezone.getFullYear() === currentYear;
-    })
-    .reduce((sum: number, income: Income) => sum + convertForDisplaySync(income.amount, income.currency, userCurrency), 0);
+  // Current quarter incomes and count
+  const currentQuarterIncomesData = allIncomes.filter(income => {
+    const incomeDate = new Date(income.date);
+    const incomeDateInUserTimezone = new Date(incomeDate.toLocaleString("en-US", { timeZone: userTimezone }));
+    const incomeQuarter = Math.floor(incomeDateInUserTimezone.getMonth() / 3);
+    return incomeQuarter === currentQuarter && incomeDateInUserTimezone.getFullYear() === currentYear;
+  });
+  const currentQuarterIncomes = currentQuarterIncomesData.reduce((sum: number, income: Income) => sum + convertForDisplaySync(income.amount, income.currency, userCurrency), 0);
+  const currentQuarterIncomesCount = currentQuarterIncomesData.length;
 
-  const lastQuarterIncomes = allIncomes
-    .filter(income => {
-      const incomeDate = new Date(income.date);
-      const incomeDateInUserTimezone = new Date(incomeDate.toLocaleString("en-US", { timeZone: userTimezone }));
-      const lastQuarter = currentQuarter === 0 ? 3 : currentQuarter - 1;
-      const lastQuarterYear = currentQuarter === 0 ? currentYear - 1 : currentYear;
-      const incomeQuarter = Math.floor(incomeDateInUserTimezone.getMonth() / 3);
-      return incomeQuarter === lastQuarter && incomeDateInUserTimezone.getFullYear() === lastQuarterYear;
-    })
-    .reduce((sum: number, income: Income) => sum + convertForDisplaySync(income.amount, income.currency, userCurrency), 0);
+  // Last quarter incomes and count
+  const lastQuarterIncomesData = allIncomes.filter(income => {
+    const incomeDate = new Date(income.date);
+    const incomeDateInUserTimezone = new Date(incomeDate.toLocaleString("en-US", { timeZone: userTimezone }));
+    const lastQuarter = currentQuarter === 0 ? 3 : currentQuarter - 1;
+    const lastQuarterYear = currentQuarter === 0 ? currentYear - 1 : currentYear;
+    const incomeQuarter = Math.floor(incomeDateInUserTimezone.getMonth() / 3);
+    return incomeQuarter === lastQuarter && incomeDateInUserTimezone.getFullYear() === lastQuarterYear;
+  });
+  const lastQuarterIncomes = lastQuarterIncomesData.reduce((sum: number, income: Income) => sum + convertForDisplaySync(income.amount, income.currency, userCurrency), 0);
 
   const monthlyChange = lastMonthIncomes > 0 ? ((currentMonthIncomes - lastMonthIncomes) / lastMonthIncomes) * 100 : 0;
   const quarterlyChange = lastQuarterIncomes > 0 ? ((currentQuarterIncomes - lastQuarterIncomes) / lastQuarterIncomes) * 100 : 0;
@@ -213,10 +215,38 @@ export default function IncomesPageClient() {
   const currentQuarterName = quarterNames[currentQuarter];
 
   const summaryCards = [
-    { title: 'Total Incomes', value: formatCurrency(totalAmount, userCurrency), subtitle: `${allIncomes.length} income records`, dotColor: 'bg-green-500' },
-    { title: `This Month (${currentMonthName})`, value: formatCurrency(currentMonthIncomes, userCurrency), subtitle: `${monthlyChange >= 0 ? '+' : ''}${monthlyChange.toFixed(1)}%`, subtitleColor: monthlyChange >= 0 ? 'text-green-600' : 'text-red-600', dotColor: monthlyChange >= 0 ? 'bg-green-500' : 'bg-red-500', hasPercentage: true, tooltipText: `Compared to last month (${monthNames[lastMonth]}): ${formatCurrency(lastMonthIncomes, userCurrency)}` },
-    { title: `${currentQuarterName} (${currentQuarterName === 'Q1' ? 'Jan-Mar' : currentQuarterName === 'Q2' ? 'Apr-Jun' : currentQuarterName === 'Q3' ? 'Jul-Sep' : 'Oct-Dec'})`, value: formatCurrency(currentQuarterIncomes, userCurrency), subtitle: `${quarterlyChange >= 0 ? '+' : ''}${quarterlyChange.toFixed(1)}%`, subtitleColor: quarterlyChange >= 0 ? 'text-green-600' : 'text-red-600', dotColor: quarterlyChange >= 0 ? 'bg-green-500' : 'bg-red-500', hasPercentage: true, tooltipText: `Compared to last quarter (${quarterNames[currentQuarter === 0 ? 3 : currentQuarter - 1]}): ${formatCurrency(lastQuarterIncomes, userCurrency)}` },
-    { title: 'Average per Transaction', value: formatCurrency(averagePerIncome, userCurrency), subtitle: `across ${allIncomes.length} records`, dotColor: 'bg-purple-500', hasPercentage: true, tooltipText: 'Average amount of income per transaction' },
+    { 
+      title: 'Total Incomes', 
+      value: formatCurrency(totalAmount, userCurrency), 
+      subtitle: `${allIncomes.length} transaction${allIncomes.length !== 1 ? 's' : ''}`, 
+      dotColor: 'bg-green-500' 
+    },
+    { 
+      title: `This Month (${currentMonthName})`, 
+      value: formatCurrency(currentMonthIncomes, userCurrency), 
+      subtitle: `${currentMonthIncomesCount} transaction${currentMonthIncomesCount !== 1 ? 's' : ''} • ${monthlyChange >= 0 ? '+' : ''}${monthlyChange.toFixed(1)}%`, 
+      subtitleColor: monthlyChange >= 0 ? 'text-green-600' : 'text-red-600', 
+      dotColor: monthlyChange >= 0 ? 'bg-green-500' : 'bg-red-500', 
+      hasPercentage: true, 
+      tooltipText: `Compared to last month (${monthNames[lastMonth]}): ${formatCurrency(lastMonthIncomes, userCurrency)} (${lastMonthIncomesData.length} transaction${lastMonthIncomesData.length !== 1 ? 's' : ''})` 
+    },
+    { 
+      title: `${currentQuarterName} (${currentQuarterName === 'Q1' ? 'Jan-Mar' : currentQuarterName === 'Q2' ? 'Apr-Jun' : currentQuarterName === 'Q3' ? 'Jul-Sep' : 'Oct-Dec'})`, 
+      value: formatCurrency(currentQuarterIncomes, userCurrency), 
+      subtitle: `${currentQuarterIncomesCount} transaction${currentQuarterIncomesCount !== 1 ? 's' : ''} • ${quarterlyChange >= 0 ? '+' : ''}${quarterlyChange.toFixed(1)}%`, 
+      subtitleColor: quarterlyChange >= 0 ? 'text-green-600' : 'text-red-600', 
+      dotColor: quarterlyChange >= 0 ? 'bg-green-500' : 'bg-red-500', 
+      hasPercentage: true, 
+      tooltipText: `Compared to last quarter (${quarterNames[currentQuarter === 0 ? 3 : currentQuarter - 1]}): ${formatCurrency(lastQuarterIncomes, userCurrency)} (${lastQuarterIncomesData.length} transaction${lastQuarterIncomesData.length !== 1 ? 's' : ''})` 
+    },
+    { 
+      title: 'Average per Transaction', 
+      value: formatCurrency(averagePerIncome, userCurrency), 
+      subtitle: `across ${allIncomes.length} transaction${allIncomes.length !== 1 ? 's' : ''}`, 
+      dotColor: 'bg-purple-500', 
+      hasPercentage: true, 
+      tooltipText: 'Average amount of income per transaction' 
+    },
   ];
 
   if (isLoading) {

@@ -305,6 +305,26 @@ export function FinancialAreaChart({
         setEndDate(end);
     };
 
+    // Check if current selection matches a quick filter option
+    const isActiveQuickFilter = (months: number) => {
+        const { start, end } = getDateRange(months);
+        return startDate === start && endDate === end;
+    };
+
+    // Check if no filters are applied (default state)
+    const isDefaultState = !startDate && !endDate && !hasPageFilters;
+
+    // Get button styling based on active state
+    const getButtonStyle = (months: number, isDefault = false) => {
+        const isActive = isActiveQuickFilter(months) || (isDefault && isDefaultState);
+        
+        if (isActive) {
+            return "px-2 sm:px-3 py-1 text-xs border-2 border-blue-500 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium shadow-sm whitespace-nowrap";
+        }
+        
+        return "px-2 sm:px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap";
+    };
+
     // Prepare CSV data for chart controls
     const csvData = [
         ['Date', 'Amount'],
@@ -329,25 +349,25 @@ export function FinancialAreaChart({
                         <div className="flex flex-wrap items-center gap-2">
                             <button
                                 onClick={() => handleQuickFilter(1)}
-                                className="px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className={getButtonStyle(1, true)} // true indicates this is the default
                             >
                                 Last Month
                             </button>
                             <button
                                 onClick={() => handleQuickFilter(3)}
-                                className="px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className={getButtonStyle(3)}
                             >
                                 Last 3 Months
                             </button>
                             <button
                                 onClick={() => handleQuickFilter(6)}
-                                className="px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className={getButtonStyle(6)}
                             >
                                 Last 6 Months
                             </button>
                             <button
                                 onClick={() => handleQuickFilter(12)}
-                                className="px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className={getButtonStyle(12)}
                             >
                                 Last 12 Months
                             </button>
@@ -419,25 +439,25 @@ export function FinancialAreaChart({
                     <div className="flex flex-wrap items-center gap-1 sm:gap-2">
                         <button
                             onClick={() => handleQuickFilter(1)}
-                            className="px-2 sm:px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap"
+                            className={getButtonStyle(1, true)} // true indicates this is the default
                         >
                             1M
                         </button>
                         <button
                             onClick={() => handleQuickFilter(3)}
-                            className="px-2 sm:px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap"
+                            className={getButtonStyle(3)}
                         >
                             3M
                         </button>
                         <button
                             onClick={() => handleQuickFilter(6)}
-                            className="px-2 sm:px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap"
+                            className={getButtonStyle(6)}
                         >
                             6M
                         </button>
                         <button
                             onClick={() => handleQuickFilter(12)}
-                            className="px-2 sm:px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap"
+                            className={getButtonStyle(12)}
                         >
                             1Y
                         </button>

@@ -165,41 +165,43 @@ export default function ExpensesPageClient() {
   const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
   const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
 
-  const currentMonthExpenses = allExpenses
-    .filter(expense => {
-      const expenseDate = new Date(expense.date);
-      const expenseDateInUserTimezone = new Date(expenseDate.toLocaleString("en-US", { timeZone: userTimezone }));
-      return expenseDateInUserTimezone.getMonth() === currentMonth && expenseDateInUserTimezone.getFullYear() === currentYear;
-    })
-    .reduce((sum: number, expense: Expense) => sum + convertForDisplaySync(expense.amount, expense.currency, userCurrency), 0);
+  // Current month expenses and count
+  const currentMonthExpensesData = allExpenses.filter(expense => {
+    const expenseDate = new Date(expense.date);
+    const expenseDateInUserTimezone = new Date(expenseDate.toLocaleString("en-US", { timeZone: userTimezone }));
+    return expenseDateInUserTimezone.getMonth() === currentMonth && expenseDateInUserTimezone.getFullYear() === currentYear;
+  });
+  const currentMonthExpenses = currentMonthExpensesData.reduce((sum: number, expense: Expense) => sum + convertForDisplaySync(expense.amount, expense.currency, userCurrency), 0);
+  const currentMonthExpensesCount = currentMonthExpensesData.length;
 
-  const lastMonthExpenses = allExpenses
-    .filter(expense => {
-      const expenseDate = new Date(expense.date);
-      const expenseDateInUserTimezone = new Date(expenseDate.toLocaleString("en-US", { timeZone: userTimezone }));
-      return expenseDateInUserTimezone.getMonth() === lastMonth && expenseDateInUserTimezone.getFullYear() === lastMonthYear;
-    })
-    .reduce((sum: number, expense: Expense) => sum + convertForDisplaySync(expense.amount, expense.currency, userCurrency), 0);
+  // Last month expenses and count
+  const lastMonthExpensesData = allExpenses.filter(expense => {
+    const expenseDate = new Date(expense.date);
+    const expenseDateInUserTimezone = new Date(expenseDate.toLocaleString("en-US", { timeZone: userTimezone }));
+    return expenseDateInUserTimezone.getMonth() === lastMonth && expenseDateInUserTimezone.getFullYear() === lastMonthYear;
+  });
+  const lastMonthExpenses = lastMonthExpensesData.reduce((sum: number, expense: Expense) => sum + convertForDisplaySync(expense.amount, expense.currency, userCurrency), 0);
 
-  const currentQuarterExpenses = allExpenses
-    .filter(expense => {
-      const expenseDate = new Date(expense.date);
-      const expenseDateInUserTimezone = new Date(expenseDate.toLocaleString("en-US", { timeZone: userTimezone }));
-      const expenseQuarter = Math.floor(expenseDateInUserTimezone.getMonth() / 3);
-      return expenseQuarter === currentQuarter && expenseDateInUserTimezone.getFullYear() === currentYear;
-    })
-    .reduce((sum: number, expense: Expense) => sum + convertForDisplaySync(expense.amount, expense.currency, userCurrency), 0);
+  // Current quarter expenses and count
+  const currentQuarterExpensesData = allExpenses.filter(expense => {
+    const expenseDate = new Date(expense.date);
+    const expenseDateInUserTimezone = new Date(expenseDate.toLocaleString("en-US", { timeZone: userTimezone }));
+    const expenseQuarter = Math.floor(expenseDateInUserTimezone.getMonth() / 3);
+    return expenseQuarter === currentQuarter && expenseDateInUserTimezone.getFullYear() === currentYear;
+  });
+  const currentQuarterExpenses = currentQuarterExpensesData.reduce((sum: number, expense: Expense) => sum + convertForDisplaySync(expense.amount, expense.currency, userCurrency), 0);
+  const currentQuarterExpensesCount = currentQuarterExpensesData.length;
 
-  const lastQuarterExpenses = allExpenses
-    .filter(expense => {
-      const expenseDate = new Date(expense.date);
-      const expenseDateInUserTimezone = new Date(expenseDate.toLocaleString("en-US", { timeZone: userTimezone }));
-      const lastQuarter = currentQuarter === 0 ? 3 : currentQuarter - 1;
-      const lastQuarterYear = currentQuarter === 0 ? currentYear - 1 : currentYear;
-      const expenseQuarter = Math.floor(expenseDateInUserTimezone.getMonth() / 3);
-      return expenseQuarter === lastQuarter && expenseDateInUserTimezone.getFullYear() === lastQuarterYear;
-    })
-    .reduce((sum: number, expense: Expense) => sum + convertForDisplaySync(expense.amount, expense.currency, userCurrency), 0);
+  // Last quarter expenses and count
+  const lastQuarterExpensesData = allExpenses.filter(expense => {
+    const expenseDate = new Date(expense.date);
+    const expenseDateInUserTimezone = new Date(expenseDate.toLocaleString("en-US", { timeZone: userTimezone }));
+    const lastQuarter = currentQuarter === 0 ? 3 : currentQuarter - 1;
+    const lastQuarterYear = currentQuarter === 0 ? currentYear - 1 : currentYear;
+    const expenseQuarter = Math.floor(expenseDateInUserTimezone.getMonth() / 3);
+    return expenseQuarter === lastQuarter && expenseDateInUserTimezone.getFullYear() === lastQuarterYear;
+  });
+  const lastQuarterExpenses = lastQuarterExpensesData.reduce((sum: number, expense: Expense) => sum + convertForDisplaySync(expense.amount, expense.currency, userCurrency), 0);
 
   const monthlyChange = lastMonthExpenses > 0 ? ((currentMonthExpenses - lastMonthExpenses) / lastMonthExpenses) * 100 : 0;
   const quarterlyChange = lastQuarterExpenses > 0 ? ((currentQuarterExpenses - lastQuarterExpenses) / lastQuarterExpenses) * 100 : 0;
@@ -223,10 +225,38 @@ export default function ExpensesPageClient() {
   const currentQuarterName = quarterNames[currentQuarter];
 
   const summaryCards = [
-    { title: 'Total Expenses', value: formatCurrency(totalExpenseAmount, userCurrency), subtitle: `${allExpenses.length} expense records`, dotColor: 'bg-red-500' },
-    { title: `This Month (${currentMonthName})`, value: formatCurrency(currentMonthExpenses, userCurrency), subtitle: `${monthlyChange >= 0 ? '+' : ''}${monthlyChange.toFixed(1)}%`, subtitleColor: monthlyChange >= 0 ? 'text-red-600' : 'text-green-600', dotColor: monthlyChange >= 0 ? 'bg-red-500' : 'bg-green-500', hasPercentage: true, tooltipText: `Compared to last month (${monthNames[lastMonth]}): ${formatCurrency(lastMonthExpenses, userCurrency)}` },
-    { title: `${currentQuarterName} (${currentQuarterName === 'Q1' ? 'Jan-Mar' : currentQuarterName === 'Q2' ? 'Apr-Jun' : currentQuarterName === 'Q3' ? 'Jul-Sep' : 'Oct-Dec'})`, value: formatCurrency(currentQuarterExpenses, userCurrency), subtitle: `${quarterlyChange >= 0 ? '+' : ''}${quarterlyChange.toFixed(1)}%`, subtitleColor: quarterlyChange >= 0 ? 'text-red-600' : 'text-green-600', dotColor: quarterlyChange >= 0 ? 'bg-red-500' : 'bg-green-500', hasPercentage: true, tooltipText: `Compared to last quarter (${quarterNames[currentQuarter === 0 ? 3 : currentQuarter - 1]}): ${formatCurrency(lastQuarterExpenses, userCurrency)}` },
-    { title: 'Average per Transaction', value: formatCurrency(averagePerExpense, userCurrency), subtitle: `across ${allExpenses.length} records`, dotColor: 'bg-orange-500', hasPercentage: true, tooltipText: 'Average amount of income per transaction' },
+    { 
+      title: 'Total Expenses', 
+      value: formatCurrency(totalExpenseAmount, userCurrency), 
+      subtitle: `${allExpenses.length} transaction${allExpenses.length !== 1 ? 's' : ''}`, 
+      dotColor: 'bg-red-500' 
+    },
+    { 
+      title: `This Month (${currentMonthName})`, 
+      value: formatCurrency(currentMonthExpenses, userCurrency), 
+      subtitle: `${currentMonthExpensesCount} transaction${currentMonthExpensesCount !== 1 ? 's' : ''} • ${monthlyChange >= 0 ? '+' : ''}${monthlyChange.toFixed(1)}%`, 
+      subtitleColor: monthlyChange >= 0 ? 'text-red-600' : 'text-green-600', 
+      dotColor: monthlyChange >= 0 ? 'bg-red-500' : 'bg-green-500', 
+      hasPercentage: true, 
+      tooltipText: `Compared to last month (${monthNames[lastMonth]}): ${formatCurrency(lastMonthExpenses, userCurrency)} (${lastMonthExpensesData.length} transaction${lastMonthExpensesData.length !== 1 ? 's' : ''})` 
+    },
+    { 
+      title: `${currentQuarterName} (${currentQuarterName === 'Q1' ? 'Jan-Mar' : currentQuarterName === 'Q2' ? 'Apr-Jun' : currentQuarterName === 'Q3' ? 'Jul-Sep' : 'Oct-Dec'})`, 
+      value: formatCurrency(currentQuarterExpenses, userCurrency), 
+      subtitle: `${currentQuarterExpensesCount} transaction${currentQuarterExpensesCount !== 1 ? 's' : ''} • ${quarterlyChange >= 0 ? '+' : ''}${quarterlyChange.toFixed(1)}%`, 
+      subtitleColor: quarterlyChange >= 0 ? 'text-red-600' : 'text-green-600', 
+      dotColor: quarterlyChange >= 0 ? 'bg-red-500' : 'bg-green-500', 
+      hasPercentage: true, 
+      tooltipText: `Compared to last quarter (${quarterNames[currentQuarter === 0 ? 3 : currentQuarter - 1]}): ${formatCurrency(lastQuarterExpenses, userCurrency)} (${lastQuarterExpensesData.length} transaction${lastQuarterExpensesData.length !== 1 ? 's' : ''})` 
+    },
+    { 
+      title: 'Average per Transaction', 
+      value: formatCurrency(averagePerExpense, userCurrency), 
+      subtitle: `across ${allExpenses.length} transaction${allExpenses.length !== 1 ? 's' : ''}`, 
+      dotColor: 'bg-orange-500', 
+      hasPercentage: true, 
+      tooltipText: 'Average amount of expense per transaction' 
+    },
   ];
 
   if (isLoading) {

@@ -286,7 +286,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                             bottom: 30,
                         }}
                     >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={true} horizontal={true} strokeWidth={3} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={true} horizontal={true} strokeWidth={2} />
                         <XAxis 
                             dataKey="month" 
                             tickFormatter={formatMonth}
