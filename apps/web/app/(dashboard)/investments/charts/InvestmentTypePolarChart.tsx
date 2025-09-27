@@ -30,6 +30,12 @@ interface TypeDatum {
   value: number;
   count: number;
   color: string;
+  averageAmount: number;
+  minAmount: number;
+  maxAmount: number;
+  description: string;
+  percentageOfTotal: number;
+  investments: Array<{name: string; amount: number; symbol?: string}>;
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -64,6 +70,22 @@ const TYPE_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
+const TYPE_DESCRIPTIONS: Record<string, string> = {
+  STOCKS: "Equity investments in publicly traded companies. Offers potential for capital appreciation and dividends but carries market risk.",
+  CRYPTO: "Digital assets and cryptocurrencies. High volatility investments with potential for significant gains or losses.",
+  MUTUAL_FUNDS: "Professionally managed investment funds that pool money from multiple investors. Provides diversification across various assets.",
+  BONDS: "Fixed-income securities representing loans to corporations or governments. Generally lower risk with steady income potential.",
+  REAL_ESTATE: "Property investments including residential, commercial, or REITs. Provides potential rental income and capital appreciation.",
+  GOLD: "Precious metal investments as a hedge against inflation and economic uncertainty. Traditional store of value.",
+  FIXED_DEPOSIT: "Low-risk bank deposits with guaranteed returns. Capital preservation with modest interest income.",
+  EMERGENCY_FUND: "Liquid savings reserved for unexpected expenses. Prioritizes accessibility over returns for financial security.",
+  MARRIAGE: "Savings allocated for wedding expenses and related costs. Goal-based investment with specific timeline.",
+  VACATION: "Travel and leisure fund for planned trips and experiences. Short to medium-term savings goal.",
+  PROVIDENT_FUNDS: "Retirement savings through employer-sponsored programs. Long-term wealth building with tax benefits.",
+  SAFE_KEEPINGS: "Conservative investments prioritizing capital preservation. Low-risk options for stable value maintenance.",
+  OTHER: "Miscellaneous investments not categorized elsewhere. Various alternative investment vehicles and strategies.",
+};
+
 const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", title = "Portfolio Distribution by Investment Type" }: InvestmentTypePolarChartProps) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
@@ -73,25 +95,57 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
     );
 
     const { data, totalInvested } = useMemo(() => {
-      const typeToAgg = new Map<string, { invested: number; count: number }>();
+      const typeToAgg = new Map<string, { 
+        invested: number; 
+        count: number; 
+        amounts: number[];
+        investments: Array<{name: string; amount: number; symbol?: string}>;
+      }>();
 
       investments.forEach((inv) => {
         const key = inv.type || "OTHER";
-        const prev = typeToAgg.get(key) || { invested: 0, count: 0 };
         const invested = (Number(inv.quantity) || 0) * (Number(inv.purchasePrice) || 0);
-        typeToAgg.set(key, { invested: prev.invested + invested, count: prev.count + 1 });
+        const prev = typeToAgg.get(key) || { invested: 0, count: 0, amounts: [], investments: [] };
+        
+        typeToAgg.set(key, { 
+          invested: prev.invested + invested, 
+          count: prev.count + 1,
+          amounts: [...prev.amounts, invested],
+          investments: [...prev.investments, {
+            name: inv.name || 'Unnamed Investment',
+            amount: invested,
+            symbol: inv.symbol
+          }]
+        });
       });
 
       const entries: TypeDatum[] = Array.from(typeToAgg.entries())
-        .map(([type, agg]) => ({
-          name: TYPE_LABELS[type] || type,
-          value: agg.invested,
-          count: agg.count,
-          color: TYPE_COLORS[type] || "#9ca3af",
-        }))
+        .map(([type, agg]) => {
+          const averageAmount = agg.count > 0 ? agg.invested / agg.count : 0;
+          const minAmount = agg.amounts.length > 0 ? Math.min(...agg.amounts) : 0;
+          const maxAmount = agg.amounts.length > 0 ? Math.max(...agg.amounts) : 0;
+          
+          return {
+            name: TYPE_LABELS[type] || type,
+            value: agg.invested,
+            count: agg.count,
+            color: TYPE_COLORS[type] || "#9ca3af",
+            averageAmount,
+            minAmount,
+            maxAmount,
+            description: TYPE_DESCRIPTIONS[type] || "Investment category with various financial instruments.",
+            percentageOfTotal: 0, // Will be calculated after total is known
+            investments: agg.investments.sort((a, b) => b.amount - a.amount)
+          };
+        })
         .sort((a, b) => b.value - a.value);
 
       const total = entries.reduce((s, e) => s + e.value, 0);
+
+      // Update percentages
+      entries.forEach(entry => {
+        entry.percentageOfTotal = total > 0 ? (entry.value / total) * 100 : 0;
+      });
 
       // Keep categories <2% grouped as Others (for clarity)
       const major: TypeDatum[] = [];
@@ -103,11 +157,22 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
 
       const finalData: TypeDatum[] = [...major];
       if (minor.length) {
+        const minorInvestments = minor.flatMap(m => m.investments);
+        const minorAmounts = minor.flatMap(m => m.investments.map(inv => inv.amount));
+        const minorTotal = minor.reduce((s, e) => s + e.value, 0);
+        const minorCount = minor.reduce((s, e) => s + e.count, 0);
+        
         finalData.push({
           name: "Others",
-          value: minor.reduce((s, e) => s + e.value, 0),
-          count: minor.reduce((s, e) => s + e.count, 0),
+          value: minorTotal,
+          count: minorCount,
           color: "#9ca3af",
+          averageAmount: minorCount > 0 ? minorTotal / minorCount : 0,
+          minAmount: minorAmounts.length > 0 ? Math.min(...minorAmounts) : 0,
+          maxAmount: minorAmounts.length > 0 ? Math.max(...minorAmounts) : 0,
+          description: `Combined smaller investment categories (${minor.map(m => m.name).join(', ')}). Each category represents less than 2% of total portfolio.`,
+          percentageOfTotal: total > 0 ? (minorTotal / total) * 100 : 0,
+          investments: minorInvestments.sort((a, b) => b.amount - a.amount)
         });
       }
 
@@ -174,44 +239,89 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
       }
     }, []);
 
-    // Memoize CSV data preparation to avoid duplication and improve performance
+    // Enhanced CSV data preparation with detailed statistics
     const csvData = useMemo(() => {
       const csvDataArray = [
-        ["Investment Type", "Invested Amount", "Percentage", "Positions"],
-        ...data.map((d) => [
-          d.name,
-          d.value.toString(),
-          totalInvested > 0 ? ((d.value / totalInvested) * 100).toFixed(1) + "%" : "0.0%",
-          d.count.toString(),
-        ]),
+        ["Investment Type", "Invested Amount", "Percentage", "Positions", "Average per Position", "Min Amount", "Max Amount", "Risk Level", "Description"],
+        ...data.map((d) => {
+          const riskLevel = d.name === 'Cryptocurrency' ? 'High Risk' :
+                           d.name === 'Stocks' ? 'Medium-High Risk' :
+                           d.name === 'Mutual Funds' ? 'Medium Risk' :
+                           d.name === 'Bonds' ? 'Low-Medium Risk' :
+                           d.name === 'Fixed Deposit' || d.name === 'Emergency Fund' ? 'Low Risk' :
+                           'Variable Risk';
+          
+          return [
+            d.name,
+            d.value.toString(),
+            totalInvested > 0 ? ((d.value / totalInvested) * 100).toFixed(1) + "%" : "0.0%",
+            d.count.toString(),
+            d.averageAmount.toFixed(2),
+            d.minAmount.toFixed(2),
+            d.maxAmount.toFixed(2),
+            riskLevel,
+            d.description
+          ];
+        }),
       ];
 
       // Add detailed breakdown for all types if "Others" category exists
       const hasOthers = data.some(d => d.name === 'Others');
       if (hasOthers) {
-        csvDataArray.push(['', '', '', '']); // Empty row for separation
-        csvDataArray.push(['--- Detailed Breakdown ---', '', '', '']);
-        csvDataArray.push(['All Types (including < 2%)', '', '', '']);
+        csvDataArray.push(['', '', '', '', '', '', '', '', '']); // Empty row for separation
+        csvDataArray.push(['--- Detailed Breakdown ---', '', '', '', '', '', '', '', '']);
+        csvDataArray.push(['All Types (including < 2%)', '', '', '', '', '', '', '', '']);
         
-        // Get all original types from investments
-        const allTypes = new Map<string, { invested: number; count: number }>();
+        // Get all original types from investments with enhanced stats
+        const allTypes = new Map<string, { invested: number; count: number; amounts: number[] }>();
         investments.forEach((inv) => {
           const key = inv.type || "OTHER";
-          const prev = allTypes.get(key) || { invested: 0, count: 0 };
           const invested = (Number(inv.quantity) || 0) * (Number(inv.purchasePrice) || 0);
-          allTypes.set(key, { invested: prev.invested + invested, count: prev.count + 1 });
+          const prev = allTypes.get(key) || { invested: 0, count: 0, amounts: [] };
+          allTypes.set(key, { 
+            invested: prev.invested + invested, 
+            count: prev.count + 1,
+            amounts: [...prev.amounts, invested]
+          });
         });
 
         Array.from(allTypes.entries())
-          .map(([type, agg]) => ({
-            name: TYPE_LABELS[type] || type,
-            value: agg.invested,
-            count: agg.count,
-          }))
+          .map(([type, agg]) => {
+            const averageAmount = agg.count > 0 ? agg.invested / agg.count : 0;
+            const minAmount = agg.amounts.length > 0 ? Math.min(...agg.amounts) : 0;
+            const maxAmount = agg.amounts.length > 0 ? Math.max(...agg.amounts) : 0;
+            const riskLevel = type === 'CRYPTO' ? 'High Risk' :
+                             type === 'STOCKS' ? 'Medium-High Risk' :
+                             type === 'MUTUAL_FUNDS' ? 'Medium Risk' :
+                             type === 'BONDS' ? 'Low-Medium Risk' :
+                             type === 'FIXED_DEPOSIT' || type === 'EMERGENCY_FUND' ? 'Low Risk' :
+                             'Variable Risk';
+            
+            return {
+              name: TYPE_LABELS[type] || type,
+              value: agg.invested,
+              count: agg.count,
+              averageAmount,
+              minAmount,
+              maxAmount,
+              riskLevel,
+              description: TYPE_DESCRIPTIONS[type] || "Investment category with various financial instruments."
+            };
+          })
           .sort((a, b) => b.value - a.value)
           .forEach(item => {
             const percentage = totalInvested > 0 ? ((item.value / totalInvested) * 100).toFixed(1) + '%' : '0.0%';
-            csvDataArray.push([item.name, item.value.toString(), percentage, item.count.toString()]);
+            csvDataArray.push([
+              item.name, 
+              item.value.toString(), 
+              percentage, 
+              item.count.toString(),
+              item.averageAmount.toFixed(2),
+              item.minAmount.toFixed(2),
+              item.maxAmount.toFixed(2),
+              item.riskLevel,
+              item.description
+            ]);
           });
       }
 
@@ -302,41 +412,153 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          titleColor: '#ffffff',
-          bodyColor: '#ffffff',
-          borderColor: '#374151',
-          borderWidth: 0.8,
-          cornerRadius: 8,
-          padding: 10,
-          displayColors: true,
-          callbacks: {
-            title: (tooltipItems: any[]) => {
-              return tooltipItems[0]?.label || '';
-            },
-            label: (ctx: any) => {
-              // For polar area chart, the value is in ctx.raw
-              const value = Number(ctx.raw) || 0;
-              const pct = totalInvested > 0 ? ((value / totalInvested) * 100).toFixed(1) : "0.0";
-              const labelName = ctx.label;
+          enabled: false, // Disable default tooltip
+          external: (context: any) => {
+            // Custom HTML tooltip
+            const { chart, tooltip } = context;
+            
+            // Get or create tooltip element
+            let tooltipEl = chart.canvas.parentNode.querySelector('#chartjs-tooltip');
+            if (!tooltipEl) {
+              tooltipEl = document.createElement('div');
+              tooltipEl.id = 'chartjs-tooltip';
+              tooltipEl.style.position = 'absolute';
+              tooltipEl.style.pointerEvents = 'none';
+              tooltipEl.style.zIndex = '1000';
+              chart.canvas.parentNode.appendChild(tooltipEl);
+            }
+
+            // Hide if no tooltip
+            if (tooltip.opacity === 0) {
+              tooltipEl.style.opacity = '0';
+              return;
+            }
+
+            // Get the data for this tooltip
+            if (tooltip.dataPoints && tooltip.dataPoints.length > 0) {
+              const dataPoint = tooltip.dataPoints[0];
+              const labelName = dataPoint.label;
               const item = data.find((d) => d.name === labelName);
-              const count = item?.count ?? 0;
               
-              return [
-                `Amount: ${formatCurrency(value, currency)}`,
-                `Percentage: ${pct}%`,
-                `Positions: ${count}`
-              ];
-            },
-            labelColor: (ctx: any) => {
-              return {
-                borderColor: ctx.dataset.backgroundColor[ctx.dataIndex],
-                backgroundColor: ctx.dataset.backgroundColor[ctx.dataIndex],
-                borderWidth: 2,
-                borderRadius: 2,
-              };
-            },
-          },
+              if (item) {
+                const riskLevel = item.name === 'Cryptocurrency' ? 'High Risk' :
+                               item.name === 'Stocks' ? 'Medium-High Risk' :
+                               item.name === 'Mutual Funds' ? 'Medium Risk' :
+                               item.name === 'Bonds' ? 'Low-Medium Risk' :
+                               item.name === 'Fixed Deposit' || item.name === 'Emergency Fund' ? 'Low Risk' :
+                               'Variable Risk';
+
+                const riskColor = riskLevel.includes('High') ? 'text-red-600' :
+                                riskLevel.includes('Medium') ? 'text-yellow-600' : 'text-green-600';
+
+                tooltipEl.innerHTML = `
+                  <div class="bg-white border border-gray-200 rounded-lg shadow-lg p-4 min-w-80 max-w-md">
+                    <div class="font-bold text-gray-900 mb-3 text-base">${item.name}</div>
+                    
+                    <!-- Main Amount -->
+                    <div class="flex items-center justify-between mb-3">
+                      <span class="font-medium text-gray-700">Total Invested:</span>
+                      <span class="font-bold text-lg text-blue-600">
+                        ${formatCurrency(item.value, currency)}
+                      </span>
+                    </div>
+
+                    <!-- Portfolio Statistics -->
+                    <div class="space-y-2 mb-3 text-sm">
+                      <div class="flex justify-between">
+                        <span class="text-gray-600">Portfolio Share:</span>
+                        <span class="font-medium">${item.percentageOfTotal.toFixed(1)}%</span>
+                      </div>
+                      
+                      <div class="flex justify-between">
+                        <span class="text-gray-600">Number of Positions:</span>
+                        <span class="font-medium">${item.count}</span>
+                      </div>
+                      
+                      ${item.count > 0 ? `
+                        <div class="flex justify-between">
+                          <span class="text-gray-600">Average per Position:</span>
+                          <span class="font-medium">${formatCurrency(item.averageAmount, currency)}</span>
+                        </div>
+                        
+                        ${item.count > 1 ? `
+                          <div class="flex justify-between">
+                            <span class="text-gray-600">Range:</span>
+                            <span class="font-medium">
+                              ${formatCurrency(item.minAmount, currency)} - ${formatCurrency(item.maxAmount, currency)}
+                            </span>
+                          </div>
+                        ` : ''}
+                      ` : ''}
+                    </div>
+
+                    <!-- Risk Assessment -->
+                    <div class="border-t border-gray-200 pt-3 mb-3">
+                      <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Risk Level:</span>
+                        <span class="font-medium ${riskColor}">${riskLevel}</span>
+                      </div>
+                    </div>
+
+                    <!-- Top Investments Preview -->
+                    ${item.investments.length > 0 ? `
+                      <div class="border-t border-gray-200 pt-3 mb-3">
+                        <div class="text-xs text-gray-600 mb-2">
+                          ${item.investments.length > 3 ? 'Top 3 Investments:' : 'Investments:'}
+                        </div>
+                        <div class="space-y-1">
+                          ${item.investments.slice(0, 3).map(investment => `
+                            <div class="flex justify-between text-xs">
+                              <span class="text-gray-600 truncate max-w-32">
+                                ${investment.name}${investment.symbol ? ` (${investment.symbol})` : ''}
+                              </span>
+                              <span class="font-medium ml-2">
+                                ${formatCurrency(investment.amount, currency)}
+                              </span>
+                            </div>
+                          `).join('')}
+                          ${item.investments.length > 3 ? `
+                            <div class="text-xs text-gray-400 text-center pt-1">
+                              +${item.investments.length - 3} more position${item.investments.length - 3 !== 1 ? 's' : ''}
+                            </div>
+                          ` : ''}
+                        </div>
+                      </div>
+                    ` : ''}
+
+                    <!-- Description -->
+                    <div class="border-t border-gray-200 pt-3">
+                      <div class="text-xs text-gray-600 leading-relaxed">
+                        <div class="font-medium text-gray-700 mb-1">About this investment type:</div>
+                        ${item.description}
+                      </div>
+                    </div>
+
+                    <!-- Action Context -->
+                    ${item.percentageOfTotal > 50 ? `
+                      <div class="border-t border-gray-200 pt-2 mt-2">
+                        <div class="text-xs text-orange-600 text-center">
+                          ⚠️ High concentration - Consider diversification
+                        </div>
+                      </div>
+                    ` : item.percentageOfTotal < 5 && item.name !== 'Others' ? `
+                      <div class="border-t border-gray-200 pt-2 mt-2">
+                        <div class="text-xs text-blue-600 text-center">
+                          💡 Small allocation - Consider increasing if aligned with goals
+                        </div>
+                      </div>
+                    ` : ''}
+                  </div>
+                `;
+              }
+            }
+
+            // Position tooltip
+            const position = chart.canvas.getBoundingClientRect();
+            tooltipEl.style.opacity = '1';
+            tooltipEl.style.left = position.left + window.pageXOffset + tooltip.caretX + 'px';
+            tooltipEl.style.top = position.top + window.pageYOffset + tooltip.caretY + 'px';
+          }
         },
         datalabels: {
           display: true,
@@ -424,8 +646,8 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
             fileName="investment-type-polar-chart"
             csvData={csvData}
             csvFileName="investment-type-polar-data"
-            title={title}
-            tooltipText="Distribution of your portfolio across investment types (based on invested amount)"
+            title={`${title}${data.reduce((s, d) => s + d.count, 0) > 0 ? ` • ${data.reduce((s, d) => s + d.count, 0)} position${data.reduce((s, d) => s + d.count, 0) !== 1 ? 's' : ''}` : ''}`}
+            tooltipText="Distribution of your portfolio across investment types with detailed statistics including position counts, averages, ranges, risk assessments, and investment insights. Hover over segments for comprehensive portfolio analytics."
             customDownloadPNG={downloadPNG}
             customDownloadSVG={downloadSVG}
           />

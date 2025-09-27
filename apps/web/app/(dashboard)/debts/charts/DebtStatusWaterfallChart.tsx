@@ -34,6 +34,12 @@ interface ChartRow {
   cumulative: number;
   start: number;
   key: "TOTAL" | "ACTIVE" | "PARTIAL" | "FULL";
+  count: number;
+  averageAmount: number;
+  minAmount: number;
+  maxAmount: number;
+  description: string;
+  percentageOfTotal: number;
 }
 
 function getColor(key: ChartRow["key"]): string {
@@ -95,6 +101,14 @@ export function DebtStatusWaterfallChart({
     let partialAmount = 0;
     let fullyPaidAmount = 0;
 
+    // Track detailed statistics for each category
+    const categoryStats = {
+      total: { count: 0, amounts: [] as number[] },
+      active: { count: 0, amounts: [] as number[] },
+      partial: { count: 0, amounts: [] as number[] },
+      full: { count: 0, amounts: [] as number[] }
+    };
+
     filteredDebts.forEach((debt) => {
       const result = calculateRemainingWithInterest(
         debt.amount,
@@ -108,61 +122,112 @@ export function DebtStatusWaterfallChart({
 
       const total = result.totalWithInterest;
       totalWithInterest += total;
+      categoryStats.total.count += 1;
+      categoryStats.total.amounts.push(total);
 
       if (debt.status === "FULLY_PAID") {
         // For fully paid, show the full amount with interest
         fullyPaidAmount += total;
+        categoryStats.full.count += 1;
+        categoryStats.full.amounts.push(total);
       } else if (debt.status === "PARTIALLY_PAID") {
         // For partially paid, show the full amount with interest
         partialAmount += total;
+        categoryStats.partial.count += 1;
+        categoryStats.partial.amounts.push(total);
       } else {
         // Treat ACTIVE/OVERDUE/DEFAULTED as active bucket, show full amount with interest
         activeAmount += total;
+        categoryStats.active.count += 1;
+        categoryStats.active.amounts.push(total);
       }
     });
 
     const safeTotal = totalWithInterest || 1; // avoid divide-by-zero
 
-    // Create waterfall chart data with cumulative stacking
+    // Helper function to calculate stats
+    const calculateStats = (amounts: number[]) => ({
+      average: amounts.length > 0 ? amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length : 0,
+      min: amounts.length > 0 ? Math.min(...amounts) : 0,
+      max: amounts.length > 0 ? Math.max(...amounts) : 0
+    });
+
+    const totalStats = calculateStats(categoryStats.total.amounts);
+    const activeStats = calculateStats(categoryStats.active.amounts);
+    const partialStats = calculateStats(categoryStats.partial.amounts);
+    const fullStats = calculateStats(categoryStats.full.amounts);
+
+    // Create waterfall chart data with enhanced statistics
     const rows: ChartRow[] = [
       { 
         name: "Total Lendings", 
         value: totalWithInterest, 
         cumulative: totalWithInterest,
         start: 0,
-        key: "TOTAL" 
+        key: "TOTAL",
+        count: categoryStats.total.count,
+        averageAmount: totalStats.average,
+        minAmount: totalStats.min,
+        maxAmount: totalStats.max,
+        description: `All lendings including interest calculations. This represents the complete portfolio of debt instruments.`,
+        percentageOfTotal: 100
       },
       { 
         name: "Active", 
         value: activeAmount, 
         cumulative: activeAmount,
         start: 0,
-        key: "ACTIVE" 
+        key: "ACTIVE",
+        count: categoryStats.active.count,
+        averageAmount: activeStats.average,
+        minAmount: activeStats.min,
+        maxAmount: activeStats.max,
+        description: `Outstanding debts requiring attention. Includes active, overdue, and defaulted loans with no repayments yet.`,
+        percentageOfTotal: (activeAmount / safeTotal) * 100
       },
       { 
         name: "Partially Paid", 
         value: partialAmount, 
         cumulative: activeAmount + partialAmount,
         start: activeAmount,
-        key: "PARTIAL" 
+        key: "PARTIAL",
+        count: categoryStats.partial.count,
+        averageAmount: partialStats.average,
+        minAmount: partialStats.min,
+        maxAmount: partialStats.max,
+        description: `Debts with some repayments received but not fully settled. Progress made but balance remains.`,
+        percentageOfTotal: (partialAmount / safeTotal) * 100
       },
       { 
         name: "Fully Paid", 
         value: fullyPaidAmount, 
         cumulative: activeAmount + partialAmount + fullyPaidAmount,
         start: activeAmount + partialAmount,
-        key: "FULL" 
+        key: "FULL",
+        count: categoryStats.full.count,
+        averageAmount: fullStats.average,
+        minAmount: fullStats.min,
+        maxAmount: fullStats.max,
+        description: `Successfully completed debt agreements. All principal and interest have been repaid in full.`,
+        percentageOfTotal: (fullyPaidAmount / safeTotal) * 100
       },
     ];
 
     const csvData: (string | number)[][] = [
-      ["Category", "Amount", "Percent"],
-      ...rows.map((r) => [r.name, r.value, Number(((r.value / safeTotal) * 100).toFixed(2))]),
+      ["Category", "Amount", "Percent", "Count", "Average Amount", "Min Amount", "Max Amount", "Description"],
+      ...rows.map((r) => [
+        r.name, 
+        r.value, 
+        Number(((r.value / safeTotal) * 100).toFixed(2)),
+        r.count,
+        r.averageAmount.toFixed(2),
+        r.minAmount.toFixed(2),
+        r.maxAmount.toFixed(2),
+        r.description
+      ]),
     ];
 
-
-
-    return { rows, totalWithInterest, csvData };
+    return { rows, totalWithInterest, csvData, totalDebts: categoryStats.total.count };
   }, [filteredDebts]);
 
   const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
@@ -172,26 +237,135 @@ export function DebtStatusWaterfallChart({
     const valuePayload = payload.find(p => p.dataKey === 'value');
     const value = valuePayload?.value as number || 0;
     
+    // Find the corresponding row data for detailed information
+    const rowData = metrics.rows.find(r => r.name === label);
+    if (!rowData) return null;
+
     const percent = metrics.totalWithInterest
       ? ((value / metrics.totalWithInterest) * 100).toFixed(1)
       : "0.0";
 
-    // Find the corresponding row data for cumulative information
-    const rowData = metrics.rows.find(r => r.name === label);
-    const cumulative = rowData?.cumulative || 0;
+    const cumulative = rowData.cumulative || 0;
     const cumulativePercent = metrics.totalWithInterest
       ? ((cumulative / metrics.totalWithInterest) * 100).toFixed(1)
       : "0.0";
 
     return (
-      <div className="bg-white border border-gray-200 shadow-md rounded-md p-3 text-xs">
-        <div className="font-medium text-gray-800 mb-2">{label}</div>
-        <div className="text-gray-600 space-y-1">
-          <div>Amount: {formatCurrency(value, currency)} ({percent}%)</div>
-          {rowData?.key !== "TOTAL" && (
-            <div className="text-blue-600">Cumulative: {formatCurrency(cumulative, currency)} ({cumulativePercent}%)</div>
+      <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-4 min-w-80 max-w-md">
+        <div className="font-bold text-gray-900 mb-3 text-base">{label}</div>
+        
+        {/* Main Amount */}
+        <div className="flex items-center justify-between mb-3">
+          <span className="font-medium text-gray-700">Total Amount:</span>
+          <span className={`font-bold text-lg ${
+            rowData.key === 'ACTIVE' ? 'text-red-600' :
+            rowData.key === 'PARTIAL' ? 'text-yellow-600' :
+            rowData.key === 'FULL' ? 'text-green-600' : 'text-gray-700'
+          }`}>
+            {formatCurrency(value, currency)}
+          </span>
+        </div>
+
+        {/* Percentage and Cumulative */}
+        <div className="space-y-2 mb-3 text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Percentage of Total:</span>
+            <span className="font-medium">{percent}%</span>
+          </div>
+          
+          {rowData.key !== "TOTAL" && (
+            <div className="flex justify-between">
+              <span className="text-gray-600">Cumulative Amount:</span>
+              <span className="font-medium text-blue-600">{formatCurrency(cumulative, currency)} ({cumulativePercent}%)</span>
+            </div>
           )}
         </div>
+
+        {/* Debt Statistics */}
+        {rowData.count > 0 && (
+          <div className="border-t border-gray-200 pt-3 mb-3">
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Number of Debts:</span>
+                <span className="font-medium">{rowData.count}</span>
+              </div>
+              
+              <div className="flex justify-between">
+                <span className="text-gray-600">Average per Debt:</span>
+                <span className="font-medium">{formatCurrency(rowData.averageAmount, currency)}</span>
+              </div>
+              
+              {rowData.count > 1 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Range:</span>
+                  <span className="font-medium">
+                    {formatCurrency(rowData.minAmount, currency)} - {formatCurrency(rowData.maxAmount, currency)}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Portfolio Context */}
+        {rowData.key !== "TOTAL" && metrics.totalDebts > 0 && (
+          <div className="border-t border-gray-200 pt-3 mb-3">
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Portfolio Share:</span>
+                <span className="font-medium">
+                  {rowData.count} of {metrics.totalDebts} debt{metrics.totalDebts !== 1 ? 's' : ''} ({((rowData.count / metrics.totalDebts) * 100).toFixed(1)}%)
+                </span>
+              </div>
+              
+              {rowData.count > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Status Health:</span>
+                  <span className={`font-medium ${
+                    rowData.key === 'FULL' ? 'text-green-600' :
+                    rowData.key === 'PARTIAL' ? 'text-yellow-600' : 'text-red-600'
+                  }`}>
+                    {rowData.key === 'FULL' ? 'Excellent' :
+                     rowData.key === 'PARTIAL' ? 'In Progress' : 'Needs Attention'}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Description */}
+        <div className="border-t border-gray-200 pt-3">
+          <div className="text-xs text-gray-600 leading-relaxed">
+            <div className="font-medium text-gray-700 mb-1">About this category:</div>
+            {rowData.description}
+          </div>
+        </div>
+
+        {/* Action Context */}
+        {rowData.key === 'ACTIVE' && rowData.count > 0 && (
+          <div className="border-t border-gray-200 pt-2 mt-2">
+            <div className="text-xs text-orange-600 text-center">
+              ⚠️ {rowData.count} debt{rowData.count !== 1 ? 's' : ''} requiring immediate attention
+            </div>
+          </div>
+        )}
+        
+        {rowData.key === 'PARTIAL' && rowData.count > 0 && (
+          <div className="border-t border-gray-200 pt-2 mt-2">
+            <div className="text-xs text-blue-600 text-center">
+              📈 {rowData.count} debt{rowData.count !== 1 ? 's' : ''} showing repayment progress
+            </div>
+          </div>
+        )}
+        
+        {rowData.key === 'FULL' && rowData.count > 0 && (
+          <div className="border-t border-gray-200 pt-2 mt-2">
+            <div className="text-xs text-green-600 text-center">
+              ✅ {rowData.count} debt{rowData.count !== 1 ? 's' : ''} successfully completed
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -461,7 +635,7 @@ export function DebtStatusWaterfallChart({
           fileName="debts-waterfall"
           csvData={[["Category", "Amount", "Percent"]]}
           csvFileName="debts-waterfall-data"
-          tooltipText="Waterfall chart showing cumulative breakdown of total lendings across repayment statuses (with interest)."
+          tooltipText="Waterfall chart showing cumulative breakdown of total lendings across repayment statuses with detailed statistics including debt counts, averages, ranges, and portfolio health indicators."
           customDownloadPNG={downloadCustomPNG}
           customDownloadSVG={downloadCustomSVG}
         />
@@ -554,12 +728,12 @@ export function DebtStatusWaterfallChart({
         chartRef={chartRef}
         isExpanded={isExpanded}
         onToggleExpanded={toggleExpanded}
-        title="Debts Waterfall"
-        subtitle="Cumulative breakdown of lendings by repayment status"
+        title={`Debts Waterfall${metrics.totalDebts > 0 ? ` • ${metrics.totalDebts} debt${metrics.totalDebts !== 1 ? 's' : ''}` : ''}`}
+        subtitle="Cumulative breakdown of lendings by repayment status with detailed portfolio analytics"
         fileName="debts-waterfall"
         csvData={metrics.csvData}
         csvFileName="debts-waterfall-data"
-                  tooltipText="Waterfall chart showing cumulative breakdown of total lendings across repayment statuses (with interest)."
+        tooltipText="Waterfall chart showing cumulative breakdown of total lendings across repayment statuses with detailed statistics including debt counts, averages, ranges, portfolio health indicators, and actionable insights for debt management."
         customDownloadPNG={downloadCustomPNG}
         customDownloadSVG={downloadCustomSVG}
       />

@@ -221,19 +221,19 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
             // Special handling for reference data points
             if (data.investmentType === 'TODAY') {
                 return (
-                    <div className="bg-white border border-red-200 rounded-lg shadow-lg p-4 max-w-xs">
-                        <h4 className="font-semibold text-red-600 mb-2">
+                    <div className="bg-white border border-red-200 rounded-lg shadow-lg p-5 min-w-80 max-w-md min-h-32">
+                        <h4 className="font-semibold text-red-600 mb-3 text-base">
                             Today's Date
                         </h4>
-                        <div className="space-y-1 text-sm">
+                        <div className="space-y-2 text-sm">
                             <p>
                                 <span className="text-gray-600">Current Date:</span>{' '}
                                 <span className="font-medium text-gray-900">
                                     {data.formattedDate}
                                 </span>
                             </p>
-                            <p className="text-gray-500 text-xs mt-2">
-                                This line shows today's position on the timeline
+                            <p className="text-gray-500 text-xs mt-3 leading-relaxed">
+                                This line shows today's position on the timeline for reference when planning your investment targets.
                             </p>
                         </div>
                     </div>
@@ -242,19 +242,19 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
             
             if (data.investmentType === 'THIRTY_DAYS') {
                 return (
-                    <div className="bg-white border border-orange-200 rounded-lg shadow-lg p-4 max-w-xs">
-                        <h4 className="font-semibold text-orange-600 mb-2">
+                    <div className="bg-white border border-orange-200 rounded-lg shadow-lg p-5 min-w-80 max-w-md min-h-32">
+                        <h4 className="font-semibold text-orange-600 mb-3 text-base">
                             30 Days From Today
                         </h4>
-                        <div className="space-y-1 text-sm">
+                        <div className="space-y-2 text-sm">
                             <p>
                                 <span className="text-gray-600">Date:</span>{' '}
                                 <span className="font-medium text-gray-900">
                                     {data.formattedDate}
                                 </span>
                             </p>
-                            <p className="text-gray-500 text-xs mt-2">
-                                Reference line for 30-day planning horizon
+                            <p className="text-gray-500 text-xs mt-3 leading-relaxed">
+                                Reference line for 30-day planning horizon. Use this to identify targets approaching in the next month.
                             </p>
                         </div>
                     </div>
@@ -263,19 +263,19 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
             
             if (data.investmentType === 'SIXTY_DAYS') {
                 return (
-                    <div className="bg-white border border-blue-200 rounded-lg shadow-lg p-4 max-w-xs">
-                        <h4 className="font-semibold text-blue-600 mb-2">
+                    <div className="bg-white border border-blue-200 rounded-lg shadow-lg p-5 min-w-80 max-w-md min-h-32">
+                        <h4 className="font-semibold text-blue-600 mb-3 text-base">
                             60 Days From Today
                         </h4>
-                        <div className="space-y-1 text-sm">
+                        <div className="space-y-2 text-sm">
                             <p>
                                 <span className="text-gray-600">Date:</span>{' '}
                                 <span className="font-medium text-gray-900">
                                     {data.formattedDate}
                                 </span>
                             </p>
-                            <p className="text-gray-500 text-xs mt-2">
-                                Reference line for 60-day planning horizon
+                            <p className="text-gray-500 text-xs mt-3 leading-relaxed">
+                                Reference line for 60-day planning horizon. Use this for medium-term target planning and preparation.
                             </p>
                         </div>
                     </div>
@@ -283,39 +283,39 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
             }
             
             return (
-                <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-xs">
-                    <h4 className="font-semibold text-gray-900 mb-2">
+                <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-5 min-w-96 max-w-lg min-h-48">
+                    <h4 className="font-semibold text-gray-900 mb-3 text-base">
                         {data.nickname || TYPE_LABELS[data.investmentType] || data.investmentType}
                     </h4>
-                    <div className="space-y-1 text-sm">
-                        <p>
-                            <span className="text-gray-600">Target Date:</span>{' '}
-                            <span className={data.isOverdue ? 'text-red-600 font-medium' : 'text-gray-900'}>
+                    <div className="space-y-2 text-sm">
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Target Date:</span>
+                            <span className={data.isOverdue ? 'text-red-600 font-medium' : 'text-gray-900 font-medium'}>
                                 {data.formattedDate}
                                 {data.isOverdue && ' (Overdue)'}
                             </span>
-                        </p>
-                        <p>
-                            <span className="text-gray-600">Target Amount:</span>{' '}
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Target Amount:</span>
                             <span className="font-medium text-gray-900">
                                 {formatCurrency(data.targetAmount, currency)}
                             </span>
-                        </p>
-                        <p>
-                            <span className="text-gray-600">Current Amount:</span>{' '}
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Current Amount:</span>
                             <span className="font-medium text-green-600">
                                 {formatCurrency(data.currentAmount, currency)}
                             </span>
-                        </p>
-                        <p>
-                            <span className="text-gray-600">Remaining:</span>{' '}
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Remaining:</span>
                             <span className="font-medium text-orange-600">
                                 {formatCurrency(Math.max(0, data.targetAmount - data.currentAmount), currency)}
                             </span>
-                        </p>
-                        <div className="border-t border-gray-100 pt-2 mt-2">
-                            <p>
-                                <span className="text-gray-600">Progress:</span>{' '}
+                        </div>
+                        <div className="border-t border-gray-100 pt-3 mt-3">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-gray-600">Progress:</span>
                                 <span className={`font-medium ${
                                     data.isComplete ? 'text-green-600' : 
                                     data.progress >= 75 ? 'text-blue-600' :
@@ -323,10 +323,10 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                                 }`}>
                                     {data.progress.toFixed(1)}%
                                 </span>
-                            </p>
-                            <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-3 mt-2">
                                 <div 
-                                    className={`h-2 rounded-full ${
+                                    className={`h-3 rounded-full transition-all duration-300 ${
                                         data.isComplete ? 'bg-green-500' :
                                         data.progress >= 75 ? 'bg-blue-500' :
                                         data.progress >= 50 ? 'bg-yellow-500' : 'bg-orange-500'
@@ -336,16 +336,45 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                             </div>
                         </div>
                         {data.daysRemaining !== undefined && (
-                            <p>
-                                <span className="text-gray-600">Days Remaining:</span>{' '}
-                                <span className={`font-medium ${
-                                    data.daysRemaining < 0 ? 'text-red-600' :
-                                    data.daysRemaining < 30 ? 'text-orange-600' : 'text-green-600'
-                                }`}>
-                                    {data.daysRemaining < 0 ? 'Overdue' : data.daysRemaining}
-                                </span>
-                            </p>
+                            <div className="border-t border-gray-100 pt-3 mt-3">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-600">Days Remaining:</span>
+                                    <span className={`font-medium ${
+                                        data.daysRemaining < 0 ? 'text-red-600' :
+                                        data.daysRemaining < 30 ? 'text-orange-600' : 'text-green-600'
+                                    }`}>
+                                        {data.daysRemaining < 0 ? 'Overdue' : `${data.daysRemaining} days`}
+                                    </span>
+                                </div>
+                                {data.daysRemaining >= 0 && (
+                                    <div className="text-xs text-gray-500 mt-1">
+                                        {data.daysRemaining < 7 ? '⚠️ Target approaching soon' :
+                                         data.daysRemaining < 30 ? '📅 Target due this month' :
+                                         data.daysRemaining < 90 ? '📈 Good time to accelerate progress' :
+                                         '🎯 Long-term target - stay consistent'}
+                                    </div>
+                                )}
+                            </div>
                         )}
+                        
+                        {/* Status indicator */}
+                        <div className="border-t border-gray-100 pt-3 mt-3">
+                            <div className="flex items-center justify-center">
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                    data.isComplete ? 'bg-green-100 text-green-800' :
+                                    data.isOverdue ? 'bg-red-100 text-red-800' :
+                                    data.progress >= 75 ? 'bg-blue-100 text-blue-800' :
+                                    data.progress >= 50 ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-orange-100 text-orange-800'
+                                }`}>
+                                    {data.isComplete ? '✅ Target Achieved' :
+                                     data.isOverdue ? '🚨 Overdue' :
+                                     data.progress >= 75 ? '🎯 Nearly There' :
+                                     data.progress >= 50 ? '📈 Good Progress' :
+                                     '🚀 Getting Started'}
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             );
