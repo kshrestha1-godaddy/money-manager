@@ -24,6 +24,11 @@ interface ChartDataPoint {
     date: string;
     amount: number;
     formattedDate: string;
+    transactionCount: number;
+    averageAmount: number;
+    minAmount: number;
+    maxAmount: number;
+    transactions: Array<{title: string; amount: number; category?: string}>;
 }
 
 export function FinancialAreaChart({
@@ -145,8 +150,13 @@ export function FinancialAreaChart({
         //     appliedDefaultFilter: !effectiveStartDate && !effectiveEndDate && !hasPageFilters
         // });
 
-        // Group data by date and sum amounts for each date (with currency conversion)
-        const dateMap = new Map<string, number>();
+        // Group data by date with enhanced statistics
+        const dateMap = new Map<string, {
+            amount: number;
+            count: number;
+            transactions: Array<{title: string; amount: number; category?: string}>;
+            amounts: number[];
+        }>();
 
         if (recentData) {
             recentData.forEach(item => {
@@ -161,8 +171,25 @@ export function FinancialAreaChart({
                 
                 // Convert amount to user's currency before adding to chart data
                 const convertedAmount = convertForDisplaySync(item.amount, item.currency, currency);
-                const current = dateMap.get(dateStr) || 0;
-                dateMap.set(dateStr, current + convertedAmount);
+                
+                if (!dateMap.has(dateStr)) {
+                    dateMap.set(dateStr, {
+                        amount: 0,
+                        count: 0,
+                        transactions: [],
+                        amounts: []
+                    });
+                }
+                
+                const current = dateMap.get(dateStr)!;
+                current.amount += convertedAmount;
+                current.count += 1;
+                current.amounts.push(convertedAmount);
+                current.transactions.push({
+                    title: item.title || 'Untitled',
+                    amount: convertedAmount,
+                    category: item.category?.name
+                });
             });
         }
 
@@ -180,23 +207,39 @@ export function FinancialAreaChart({
         //     }) || []
         // });
 
-        // Convert to array and sort by date
+        // Convert to array and sort by date with enhanced statistics
         const chartDataPoints: ChartDataPoint[] = Array.from(dateMap.entries())
-            .map(([date, amount]) => {
+            .map(([date, dayData]) => {
                 const dateObj = new Date(date);
                 const month = dateObj.toLocaleDateString('en', { month: 'short' });
                 const day = dateObj.getDate().toString();
+                
+                const averageAmount = dayData.count > 0 ? dayData.amount / dayData.count : 0;
+                const minAmount = dayData.amounts.length > 0 ? Math.min(...dayData.amounts) : 0;
+                const maxAmount = dayData.amounts.length > 0 ? Math.max(...dayData.amounts) : 0;
+                
                 return {
                     date,
-                    amount,
-                    formattedDate: `${month} ${day}`
+                    amount: dayData.amount,
+                    formattedDate: `${month} ${day}`,
+                    transactionCount: dayData.count,
+                    averageAmount,
+                    minAmount,
+                    maxAmount,
+                    transactions: dayData.transactions
                 };
             })
             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
         // If there are more than 30 data points, aggregate by week
         if (chartDataPoints.length > 30) {
-            const weekMap = new Map<string, number>();
+            const weekMap = new Map<string, {
+                amount: number;
+                count: number;
+                transactions: Array<{title: string; amount: number; category?: string}>;
+                amounts: number[];
+            }>();
+            
             chartDataPoints.forEach(item => {
                 const date = new Date(item.date);
                 const weekStart = new Date(date);
@@ -209,19 +252,42 @@ export function FinancialAreaChart({
                 const weekKey = `${year}-${month}-${day}`;
 
                 if (!weekKey) return;
-                const current = weekMap.get(weekKey) || 0;
-                weekMap.set(weekKey, current + item.amount);
+                
+                if (!weekMap.has(weekKey)) {
+                    weekMap.set(weekKey, {
+                        amount: 0,
+                        count: 0,
+                        transactions: [],
+                        amounts: []
+                    });
+                }
+                
+                const current = weekMap.get(weekKey)!;
+                current.amount += item.amount;
+                current.count += item.transactionCount;
+                current.transactions.push(...item.transactions);
+                current.amounts.push(...item.transactions.map(t => t.amount));
             });
 
             return Array.from(weekMap.entries())
-                .map(([date, amount]) => {
+                .map(([date, weekData]) => {
                     const dateObj = new Date(date);
                     const month = dateObj.toLocaleDateString('en', { month: 'short' });
                     const day = dateObj.getDate().toString();
+                    
+                    const averageAmount = weekData.count > 0 ? weekData.amount / weekData.count : 0;
+                    const minAmount = weekData.amounts.length > 0 ? Math.min(...weekData.amounts) : 0;
+                    const maxAmount = weekData.amounts.length > 0 ? Math.max(...weekData.amounts) : 0;
+                    
                     return {
                         date,
-                        amount,
-                        formattedDate: `${month} ${day}`
+                        amount: weekData.amount,
+                        formattedDate: `${month} ${day}`,
+                        transactionCount: weekData.count,
+                        averageAmount,
+                        minAmount,
+                        maxAmount,
+                        transactions: weekData.transactions
                     };
                 })
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -325,10 +391,26 @@ export function FinancialAreaChart({
         return "px-2 sm:px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap";
     };
 
-    // Prepare CSV data for chart controls
+    // Enhanced CSV data for chart controls with detailed statistics
     const csvData = [
-        ['Date', 'Amount'],
-        ...chartData.map(item => [item.date, item.amount])
+        ['Date', 'Formatted Date', 'Total Amount', 'Transaction Count', 'Average Amount', 'Min Amount', 'Max Amount', 'Activity Level'],
+        ...chartData.map(item => {
+            const activityLevel = item.transactionCount === 0 ? 'None' :
+                               item.transactionCount === 1 ? 'Single' :
+                               item.transactionCount <= 3 ? 'Low' :
+                               item.transactionCount <= 6 ? 'Moderate' : 'High';
+            
+            return [
+                item.date,
+                item.formattedDate,
+                item.amount.toString(),
+                item.transactionCount.toString(),
+                item.averageAmount.toFixed(2),
+                item.minAmount.toFixed(2),
+                item.maxAmount.toFixed(2),
+                activityLevel
+            ];
+        })
     ];
 
     if (chartData.length === 0) {
@@ -543,13 +625,98 @@ export function FinancialAreaChart({
                                         const day = date.getDate();
                                         const year = date.getFullYear();
                                         const formattedDate = `${weekday}, ${month} ${day}, ${year}`;
+                                        const isWeekly = chartData.length <= 30 ? false : true;
 
                                         return (
-                                            <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-2 sm:p-3 max-w-xs">
-                                                <p className="text-xs sm:text-sm text-gray-600 mb-1">{formattedDate}</p>
-                                                <p className={`text-xs sm:text-sm font-medium ${type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                                                    {formatCurrency(dataPoint.amount, currency)}
-                                                </p>
+                                            <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-4 min-w-80 max-w-md">
+                                                <div className="font-bold text-gray-900 mb-3 text-base">
+                                                    {formattedDate} {isWeekly && <span className="text-xs text-gray-500">(Week)</span>}
+                                                </div>
+                                                
+                                                {/* Main Amount */}
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <span className="font-medium text-gray-700">
+                                                        Total {type === 'income' ? 'Income' : 'Expenses'}:
+                                                    </span>
+                                                    <span className={`font-bold text-lg ${type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                                                        {formatCurrency(dataPoint.amount, currency)}
+                                                    </span>
+                                                </div>
+
+                                                {/* Transaction Statistics */}
+                                                <div className="space-y-2 mb-3 text-sm">
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600">Transactions:</span>
+                                                        <span className="font-medium">{dataPoint.transactionCount}</span>
+                                                    </div>
+                                                    
+                                                    {dataPoint.transactionCount > 0 && (
+                                                        <>
+                                                            <div className="flex justify-between">
+                                                                <span className="text-gray-600">Average per Transaction:</span>
+                                                                <span className="font-medium">{formatCurrency(dataPoint.averageAmount, currency)}</span>
+                                                            </div>
+                                                            
+                                                            <div className="flex justify-between">
+                                                                <span className="text-gray-600">Range:</span>
+                                                                <span className="font-medium">
+                                                                    {formatCurrency(dataPoint.minAmount, currency)} - {formatCurrency(dataPoint.maxAmount, currency)}
+                                                                </span>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
+
+                                                {/* Activity Level */}
+                                                {dataPoint.transactionCount > 0 && (
+                                                    <div className="border-t border-gray-200 pt-3 mb-3">
+                                                        <div className="flex justify-between text-sm">
+                                                            <span className="text-gray-600">Activity Level:</span>
+                                                            <span className={`font-medium ${
+                                                                dataPoint.transactionCount === 1 ? 'text-blue-600' :
+                                                                dataPoint.transactionCount <= 3 ? 'text-green-600' :
+                                                                dataPoint.transactionCount <= 6 ? 'text-yellow-600' : 'text-red-600'
+                                                            }`}>
+                                                                {dataPoint.transactionCount === 1 ? 'Single' :
+                                                                 dataPoint.transactionCount <= 3 ? 'Low' :
+                                                                 dataPoint.transactionCount <= 6 ? 'Moderate' : 'High'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Top Transactions Preview */}
+                                                {dataPoint.transactions.length > 0 && (
+                                                    <div className="border-t border-gray-200 pt-3">
+                                                        <div className="text-xs text-gray-600 mb-2">
+                                                            {dataPoint.transactions.length > 3 ? 'Top 3 Transactions:' : 'Transactions:'}
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            {dataPoint.transactions
+                                                                .sort((a, b) => b.amount - a.amount)
+                                                                .slice(0, 3)
+                                                                .map((transaction, index) => (
+                                                                    <div key={index} className="flex justify-between text-xs">
+                                                                        <span className="text-gray-600 truncate max-w-32">
+                                                                            {transaction.title}
+                                                                            {transaction.category && (
+                                                                                <span className="text-gray-400 ml-1">({transaction.category})</span>
+                                                                            )}
+                                                                        </span>
+                                                                        <span className="font-medium ml-2">
+                                                                            {formatCurrency(transaction.amount, currency)}
+                                                                        </span>
+                                                                    </div>
+                                                                ))
+                                                            }
+                                                            {dataPoint.transactions.length > 3 && (
+                                                                <div className="text-xs text-gray-400 text-center pt-1">
+                                                                    +{dataPoint.transactions.length - 3} more transaction{dataPoint.transactions.length - 3 !== 1 ? 's' : ''}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     }
