@@ -177,8 +177,13 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
         return `rgba(${baseColors.r}, ${baseColors.g}, ${baseColors.b}, ${opacity})`;
     };
 
-    const chartTitle = title || `${type === 'income' ? 'Income' : 'Expense'} Transaction Frequency - ${timePeriodText}`;
-    const tooltipText = `Calendar view showing the frequency of ${type} transactions per day`;
+    // Calculate total transactions for display
+    const totalTransactions = Array.from(processedData.values()).reduce((sum, d) => sum + d.count, 0);
+    
+    const chartTitle = title || (totalTransactions > 0 
+        ? `${type === 'income' ? 'Income' : 'Expense'} Transaction Frequency - ${timePeriodText} • ${totalTransactions} transaction${totalTransactions !== 1 ? 's' : ''}`
+        : `${type === 'income' ? 'Income' : 'Expense'} Transaction Frequency - ${timePeriodText}`);
+    const tooltipText = `Calendar heatmap showing daily ${type} transaction frequency and amounts with detailed statistics. Hover over dates for comprehensive insights including transaction counts, totals, averages, and activity levels.`;
 
     // Handle calendar cell click to navigate with date filter
     const handleCellClick = (cellData: DayData, monthIndex: number, dayOfMonth: number) => {
@@ -207,16 +212,30 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
         router.push(url);
     };
 
-    // Prepare CSV data for chart controls
+    // Enhanced CSV data for chart controls with detailed statistics
     const csvDataForControls = [
-        ['Day of Month', 'Month', 'Transaction Count', 'Total Amount'],
+        ['Day of Month', 'Month', 'Date', 'Transaction Count', 'Total Amount', 'Average per Transaction', 'Activity Level', 'Valid Day'],
         ...calendarData.grid.flatMap((row, rowIndex) => 
-            row.map((cellData, colIndex) => [
-                (rowIndex + 1).toString(),
-                calendarData.monthNames[colIndex] || '',
-                cellData.isCurrentMonth ? cellData.count.toString() : 'N/A',
-                cellData.isCurrentMonth ? cellData.amount.toFixed(2) : 'N/A'
-            ])
+            row.map((cellData, colIndex) => {
+                const averageAmount = cellData.count > 0 ? cellData.amount / cellData.count : 0;
+                const activityLevel = cellData.count === 0 ? 'None' :
+                                   cellData.count === 1 ? 'Single' :
+                                   cellData.count <= 3 ? 'Low' :
+                                   cellData.count <= 6 ? 'Moderate' : 'High';
+                const dateString = cellData.isCurrentMonth ? 
+                    `${calendarData.monthNames[colIndex]} ${rowIndex + 1}` : 'Invalid';
+                
+                return [
+                    (rowIndex + 1).toString(),
+                    calendarData.monthNames[colIndex] || '',
+                    dateString,
+                    cellData.isCurrentMonth ? cellData.count.toString() : '0',
+                    cellData.isCurrentMonth ? cellData.amount.toFixed(2) : '0.00',
+                    cellData.isCurrentMonth ? averageAmount.toFixed(2) : '0.00',
+                    cellData.isCurrentMonth ? activityLevel : 'N/A',
+                    cellData.isCurrentMonth ? 'Yes' : 'No'
+                ];
+            })
         )
     ];
 
@@ -530,38 +549,102 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                         </span>
                                     )}
                                     
-                                    {/* Tooltip - only show for valid days */}
+                                    {/* Enhanced Tooltip - only show for valid days */}
                                     {cellData.isCurrentMonth && (
                                         <div className={`
-                                            absolute left-1/2 transform -translate-x-1/2 px-3 py-2 
-                                            bg-gray-900 text-white text-xs rounded shadow-lg 
+                                            absolute left-1/2 transform -translate-x-1/2 px-4 py-3 
+                                            bg-white border border-gray-200 rounded-lg shadow-lg 
                                             opacity-0 group-hover:opacity-100 transition-opacity z-20 
-                                            whitespace-nowrap pointer-events-none
+                                            pointer-events-none min-w-72 max-w-80
                                             ${rowIndex < 15 ? 'top-full mt-2' : 'bottom-full mb-2'}
                                         `}>
-                                            <div className="font-semibold">
+                                            {/* Date Header */}
+                                            <div className="font-bold text-gray-900 mb-2 text-sm">
                                                 {calendarData.monthNames[colIndex]} {rowIndex + 1}
                                                 {displayYears.length > 1 && (
-                                                    <span className="text-xs font-normal text-gray-300 ml-1">
-                                                        ({displayYears.length} years)
+                                                    <span className="text-xs font-normal text-gray-500 ml-1">
+                                                        (Across {displayYears.length} year{displayYears.length !== 1 ? 's' : ''}: {displayYears.join(', ')})
                                                     </span>
                                                 )}
                                             </div>
-                                            <div>{cellData.count} transaction{cellData.count !== 1 ? 's' : ''}</div>
-                                            {cellData.amount > 0 && (
-                                                <div>{currency} {cellData.amount.toLocaleString()}</div>
+
+                                            {cellData.count > 0 ? (
+                                                <>
+                                                    {/* Transaction Summary */}
+                                                    <div className="space-y-2 mb-3 text-sm">
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-600">Total Transactions:</span>
+                                                            <span className="font-medium text-gray-900">{cellData.count}</span>
+                                                        </div>
+                                                        
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-600">Total Amount:</span>
+                                                            <span className={`font-medium ${type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                                                                {currency} {cellData.amount.toLocaleString()}
+                                                            </span>
+                                                        </div>
+                                                        
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-600">Average per Transaction:</span>
+                                                            <span className="font-medium text-gray-900">
+                                                                {currency} {(cellData.amount / cellData.count).toLocaleString()}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Activity Context */}
+                                                    <div className="border-t border-gray-200 pt-2 space-y-1 text-xs">
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-500">Activity Level:</span>
+                                                            <span className={`font-medium ${
+                                                                cellData.count === 1 ? 'text-blue-600' :
+                                                                cellData.count <= 3 ? 'text-green-600' :
+                                                                cellData.count <= 6 ? 'text-yellow-600' : 'text-red-600'
+                                                            }`}>
+                                                                {cellData.count === 1 ? 'Single' :
+                                                                 cellData.count <= 3 ? 'Low' :
+                                                                 cellData.count <= 6 ? 'Moderate' : 'High'}
+                                                            </span>
+                                                        </div>
+                                                        
+                                                        {displayYears.length > 1 && (
+                                                            <div className="flex justify-between">
+                                                                <span className="text-gray-500">Avg per Year:</span>
+                                                                <span className="font-medium text-gray-700">
+                                                                    {(cellData.count / displayYears.length).toFixed(1)} transactions
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Action Hint */}
+                                                    <div className="border-t border-gray-200 pt-2 mt-2">
+                                                        <div className="text-xs text-gray-500 text-center">
+                                                            💡 Click to view {type} details (±1 day range)
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    {/* No Activity State */}
+                                                    <div className="text-sm text-gray-500 text-center py-2">
+                                                        <div className="mb-1">No {type} transactions</div>
+                                                        <div className="text-xs text-gray-400">
+                                                            {displayYears.length > 1 
+                                                                ? `Across ${displayYears.length} years (${displayYears.join(', ')})`
+                                                                : `In ${displayYears[0] || new Date().getFullYear()}`
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                </>
                                             )}
-                                            {cellData.count > 0 && (
-                                                <div className="text-xs text-gray-300 mt-1">
-                                                    Click to view {type} details ±1 day
-                                                </div>
-                                            )}
+
                                             {/* Tooltip Arrow */}
                                             <div className={`
                                                 absolute left-1/2 transform -translate-x-1/2 w-0 h-0 
                                                 ${rowIndex < 15 
-                                                    ? 'top-0 -mt-1 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900' 
-                                                    : 'bottom-0 -mb-1 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900'
+                                                    ? 'top-0 -mt-1 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-200' 
+                                                    : 'bottom-0 -mb-1 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-200'
                                                 }
                                             `} />
                                         </div>

@@ -18,6 +18,11 @@ interface CategoryTrendData {
   month: string;
   formattedMonth: string;
   value: number;
+  transactionCount: number;
+  averageAmount: number;
+  minAmount: number;
+  maxAmount: number;
+  percentageOfTotal: number;
 }
 
 // Colors for different chart types
@@ -34,7 +39,7 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(({
 }) => {
   const { isExpanded, toggleExpanded } = useChartExpansion();
   const chartRef = useRef<HTMLDivElement>(null);
-  const { categoryData, getCategoryList, getMonthlyDataForCategory, formatTimePeriod } = useChartData();
+  const { categoryData, getCategoryList, getMonthlyDataForCategory, formatTimePeriod, filteredIncomes, filteredExpenses, totals } = useChartData();
   
   // State for selected category
   const [selectedCategory, setSelectedCategory] = useState<string>("");
@@ -67,19 +72,48 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(({
     }
   }, [availableCategories, selectedCategory]);
 
-  // Prepare chart data for selected category
+  // Prepare chart data for selected category with enhanced statistics
   const chartData = useMemo((): CategoryTrendData[] => {
     if (!selectedCategory) return [];
 
     // Get monthly data for the selected category
     const monthlyData = getMonthlyDataForCategory(selectedCategory, type);
+    const transactions = type === 'income' ? filteredIncomes : filteredExpenses;
+    const totalAmount = type === 'income' ? totals.income : totals.expenses;
 
-    return monthlyData.map(month => ({
-      month: month.monthKey,
-      formattedMonth: month.formattedMonth,
-      value: type === 'income' ? month.income : month.expenses
-    }));
-  }, [selectedCategory, getMonthlyDataForCategory, type]);
+    return monthlyData.map(month => {
+      const monthValue = type === 'income' ? month.income : month.expenses;
+      
+      // Get transactions for this month and category
+      const monthStart = new Date(month.date);
+      const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+      
+      const monthTransactions = transactions.filter(transaction => {
+        const transactionDate = new Date(transaction.date);
+        const categoryMatch = transaction.category?.name === selectedCategory;
+        const dateMatch = transactionDate >= monthStart && transactionDate <= monthEnd;
+        return categoryMatch && dateMatch;
+      });
+
+      const transactionCount = monthTransactions.length;
+      const amounts = monthTransactions.map(t => t.amount);
+      const averageAmount = transactionCount > 0 ? monthValue / transactionCount : 0;
+      const minAmount = amounts.length > 0 ? Math.min(...amounts) : 0;
+      const maxAmount = amounts.length > 0 ? Math.max(...amounts) : 0;
+      const percentageOfTotal = totalAmount > 0 ? (monthValue / totalAmount) * 100 : 0;
+
+      return {
+        month: month.monthKey,
+        formattedMonth: month.formattedMonth,
+        value: monthValue,
+        transactionCount,
+        averageAmount,
+        minAmount,
+        maxAmount,
+        percentageOfTotal
+      };
+    });
+  }, [selectedCategory, getMonthlyDataForCategory, type, filteredIncomes, filteredExpenses, totals]);
 
   // Memoize calculations
   const { maxValue, totalValue } = useMemo(() => {
@@ -94,33 +128,94 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(({
     return { maxValue, totalValue };
   }, [chartData]);
 
-  // Custom tooltip
+  // Enhanced custom tooltip with detailed statistics
   const CustomTooltip = useCallback(({ active, payload, label }: {
     active?: boolean;
-    payload?: Array<{ dataKey: string; value: number; color: string }>;
+    payload?: Array<{ dataKey: string; value: number; color: string; payload?: CategoryTrendData }>;
     label?: string;
   }) => {
     if (!active || !payload?.length || !selectedCategory) return null;
 
-    const value = payload[0]?.value;
-    if (!value) return null;
+    const data = payload[0]?.payload;
+    if (!data) return null;
+
+    const totalTransactions = chartData.reduce((sum, item) => sum + item.transactionCount, 0);
 
     return (
-      <div className="bg-white border border-gray-300 rounded p-3 shadow-lg">
-        <p className="text-gray-900 font-medium mb-2">{label}</p>
-        <div className="flex items-center gap-2">
-          <div 
-            className="w-3 h-3 rounded-full"
-            style={{ backgroundColor: CHART_COLORS[type] }}
-          />
-          <span className="text-sm text-gray-700">{selectedCategory}</span>
-          <span className="text-sm font-medium text-gray-900 ml-auto">
-            {formatCurrency(value, currency || "USD")}
+      <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-lg min-w-96 max-w-lg">
+        <div className="font-bold text-gray-900 mb-3 text-base">{label}</div>
+        
+        {/* Category and Main Amount */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div 
+              className="w-3 h-3 rounded-full"
+              style={{ backgroundColor: CHART_COLORS[type] }}
+            />
+            <span className="font-medium text-gray-700">{selectedCategory}:</span>
+          </div>
+          <span className="font-bold text-lg">
+            {formatCurrency(data.value, currency || "USD")}
           </span>
+        </div>
+
+        {/* Monthly Statistics */}
+        <div className="space-y-2 mb-3 text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Transactions this month:</span>
+            <span className="font-medium">{data.transactionCount}</span>
+          </div>
+          
+          {data.transactionCount > 0 && (
+            <>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Average per transaction:</span>
+                <span className="font-medium">{formatCurrency(data.averageAmount, currency || "USD")}</span>
+              </div>
+              
+              <div className="flex justify-between">
+                <span className="text-gray-600">Range:</span>
+                <span className="font-medium">
+                  {formatCurrency(data.minAmount, currency || "USD")} - {formatCurrency(data.maxAmount, currency || "USD")}
+                </span>
+              </div>
+            </>
+          )}
+          
+          <div className="flex justify-between">
+            <span className="text-gray-600">% of total {type}:</span>
+            <span className={`font-medium ${type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+              {data.percentageOfTotal.toFixed(1)}%
+            </span>
+          </div>
+        </div>
+
+        {/* Period Context */}
+        <div className="border-t border-gray-200 pt-3 space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Total period transactions:</span>
+            <span className="font-medium">{totalTransactions}</span>
+          </div>
+          
+          <div className="flex justify-between">
+            <span className="text-gray-600">Category total:</span>
+            <span className="font-medium">{formatCurrency(totalValue, currency || "USD")}</span>
+          </div>
+        </div>
+
+        {/* Contextual Message */}
+        <div className="mt-3 pt-2 border-t border-gray-100">
+          <div className="text-xs text-gray-500">
+            {data.transactionCount === 0 && `No ${type} transactions in ${selectedCategory} this month`}
+            {data.transactionCount === 1 && `Single ${type} transaction this month`}
+            {data.transactionCount > 1 && data.transactionCount <= 5 && `Low activity month for ${selectedCategory}`}
+            {data.transactionCount > 5 && data.transactionCount <= 15 && `Moderate activity in ${selectedCategory}`}
+            {data.transactionCount > 15 && `High activity month for ${selectedCategory}`}
+          </div>
         </div>
       </div>
     );
-  }, [currency, selectedCategory, type]);
+  }, [currency, selectedCategory, type, chartData, totalValue]);
 
   // Format Y axis ticks
   const formatYAxisTick = useCallback((value: number) => {
@@ -132,14 +227,27 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(({
     return formatCurrency(value, currency || "USD").replace(/\$/, '');
   }, [currency]);
 
-  // CSV data for export
+  // Enhanced CSV data for export with detailed statistics
   const csvData = useMemo(() => {
     if (chartData.length === 0 || !selectedCategory) return [];
     
-    const headers = ['Month', selectedCategory];
+    const headers = [
+      'Month', 
+      `${selectedCategory} Amount`, 
+      'Transactions', 
+      'Average per Transaction', 
+      'Min Amount', 
+      'Max Amount', 
+      '% of Total'
+    ];
     const rows = chartData.map(dataPoint => [
       dataPoint.formattedMonth,
-      dataPoint.value
+      dataPoint.value.toString(),
+      dataPoint.transactionCount.toString(),
+      dataPoint.averageAmount.toFixed(2),
+      dataPoint.minAmount.toFixed(2),
+      dataPoint.maxAmount.toFixed(2),
+      dataPoint.percentageOfTotal.toFixed(1) + '%'
     ]);
     
     return [headers, ...rows];
@@ -148,10 +256,15 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(({
   // Chart titles and text
   const timePeriodText = formatTimePeriod();
   const defaultTitle = type === 'income' ? 'Income Category Trends' : 'Expense Category Trends';
-  const chartTitle = `${title || defaultTitle} ${timePeriodText}`;
+  // Calculate total transactions for display
+  const totalTransactions = chartData.reduce((sum, item) => sum + item.transactionCount, 0);
+  
+  const chartTitle = totalTransactions > 0 
+    ? `${title || defaultTitle} ${timePeriodText} • ${totalTransactions} transaction${totalTransactions !== 1 ? 's' : ''}`
+    : `${title || defaultTitle} ${timePeriodText}`;
   const tooltipText = type === 'income' 
-    ? 'Track how your income categories change over time'
-    : 'Monitor spending patterns across different expense categories';
+    ? 'Track how your income categories change over time with detailed statistics including transaction counts, averages, ranges, and percentages. Hover over data points for comprehensive insights.'
+    : 'Monitor spending patterns across different expense categories with detailed statistics including transaction counts, averages, ranges, and percentages. Hover over data points for comprehensive insights.';
 
   // Chart content
   const ChartContent = useCallback(() => (
@@ -178,7 +291,7 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(({
             </select>
           </div>
           
-          {/* Selected category summary */}
+          {/* Enhanced selected category summary */}
           {selectedCategory && (
             <div className="flex items-center gap-3 bg-gray-50 px-4 py-2 rounded-lg">
               <div 
@@ -186,10 +299,17 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(({
                 style={{ backgroundColor: CHART_COLORS[type] }}
               />
               <div>
-                <p className="text-xs text-gray-600">Total for {selectedCategory}</p>
+                <p className="text-xs text-gray-600">
+                  {selectedCategory} • {totalTransactions} transaction{totalTransactions !== 1 ? 's' : ''}
+                </p>
                 <p className={`text-sm font-semibold ${type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
                   {formatCurrency(totalValue, currency || "USD")}
                 </p>
+                {totalTransactions > 0 && (
+                  <p className="text-xs text-gray-500">
+                    Avg: {formatCurrency(totalValue / totalTransactions, currency || "USD")} per transaction
+                  </p>
+                )}
               </div>
             </div>
           )}
