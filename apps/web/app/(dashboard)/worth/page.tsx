@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 import { useCurrency } from "../../providers/CurrencyProvider";
@@ -118,6 +118,171 @@ export default function NetWorthPage() {
             [section]: !prev[section]
         }));
     };
+
+    // Enhanced custom tooltip for assets chart
+    const CustomAssetTooltip = useCallback(({ active, payload, label }: any) => {
+        if (!active || !payload || payload.length === 0) return null;
+        
+        const data = payload[0].payload;
+        const value = payload[0].value;
+        const percentage = typeof data.percentage === 'number' ? data.percentage : parseFloat(data.percentage) || 0;
+        
+        // Get asset type descriptions and insights
+        const getAssetDescription = (assetName: string) => {
+            switch (assetName.toLowerCase()) {
+                case 'bank accounts':
+                    return {
+                        description: "Liquid cash holdings in bank accounts. Provides immediate accessibility for expenses and emergencies but typically offers lower returns.",
+                        insights: netWorthStats.liquidityRatio > 70 ? "High liquidity - consider investing some cash for better returns" :
+                                netWorthStats.liquidityRatio < 30 ? "Low liquidity - ensure adequate emergency funds" :
+                                "Good liquidity balance for financial flexibility",
+                        riskLevel: "Very Low Risk",
+                        riskColor: "text-green-600"
+                    };
+                case 'investments':
+                    return {
+                        description: "Portfolio of stocks, bonds, mutual funds, and other investment vehicles. Offers potential for growth but carries market risk.",
+                        insights: netWorthStats.investmentAllocation > 30 ? "Strong investment allocation - diversification is key" :
+                                netWorthStats.investmentAllocation < 10 ? "Low investment allocation - consider increasing for long-term growth" :
+                                "Moderate investment allocation - room for growth-focused expansion",
+                        riskLevel: "Medium-High Risk",
+                        riskColor: "text-yellow-600"
+                    };
+                case 'money lent':
+                    return {
+                        description: "Outstanding loans to individuals or entities. Represents money owed to you with potential interest income.",
+                        insights: value > netWorthStats.totalAssets * 0.2 ? "High lending exposure - monitor repayment schedules closely" :
+                                value > 0 ? "Active lending portfolio - track due dates and payments" :
+                                "No outstanding loans - consider peer-to-peer lending for additional income",
+                        riskLevel: "Medium Risk",
+                        riskColor: "text-orange-600"
+                    };
+                default:
+                    return {
+                        description: "Asset category contributing to your overall net worth and financial position.",
+                        insights: "Monitor this asset class for optimal portfolio balance",
+                        riskLevel: "Variable Risk",
+                        riskColor: "text-gray-600"
+                    };
+            }
+        };
+
+        const assetInfo = getAssetDescription(label);
+        const totalAssets = netWorthStats.totalAssets || 1; // Prevent division by zero
+        
+        // Calculate additional metrics with safety checks
+        const averageAssetValue = chartData.length > 0 ? totalAssets / chartData.length : 0;
+        const isAboveAverage = value > averageAssetValue;
+        const contributionLevel = percentage > 50 ? "Dominant" :
+                                percentage > 30 ? "Major" :
+                                percentage > 15 ? "Significant" :
+                                percentage > 5 ? "Minor" : "Minimal";
+        
+        // Ensure netWorthStats.netWorth is not zero for percentage calculations
+        const netWorth = netWorthStats.netWorth || 1;
+
+        return (
+            <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-5 min-w-96 max-w-lg">
+                <div className="font-bold text-gray-900 mb-3 text-base">{label}</div>
+                
+                {/* Main Amount and Percentage */}
+                <div className="flex items-center justify-between mb-3">
+                    <span className="font-medium text-gray-700">Asset Value:</span>
+                    <span className="font-bold text-lg text-blue-600">
+                        {formatCurrency(value, currency)}
+                    </span>
+                </div>
+
+                {/* Asset Statistics */}
+                <div className="space-y-2 mb-3 text-sm">
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">Portfolio Share:</span>
+                        <span className="font-medium">{percentage.toFixed(1)}%</span>
+                    </div>
+                    
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">Contribution Level:</span>
+                        <span className={`font-medium ${
+                            contributionLevel === 'Dominant' ? 'text-red-600' :
+                            contributionLevel === 'Major' ? 'text-orange-600' :
+                            contributionLevel === 'Significant' ? 'text-blue-600' :
+                            contributionLevel === 'Minor' ? 'text-green-600' : 'text-gray-600'
+                        }`}>
+                            {contributionLevel}
+                        </span>
+                    </div>
+                    
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">vs Average Asset:</span>
+                            <span className={`font-medium ${isAboveAverage ? 'text-green-600' : 'text-orange-600'}`}>
+                                {averageAssetValue > 0 ? 
+                                    `${isAboveAverage ? '+' : ''}${((value / averageAssetValue - 1) * 100).toFixed(1)}%` :
+                                    'N/A'
+                                }
+                            </span>
+                        </div>
+                </div>
+
+                {/* Risk Assessment */}
+                <div className="border-t border-gray-200 pt-3 mb-3">
+                    <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Risk Level:</span>
+                        <span className={`font-medium ${assetInfo.riskColor}`}>{assetInfo.riskLevel}</span>
+                    </div>
+                </div>
+
+                {/* Portfolio Context */}
+                <div className="border-t border-gray-200 pt-3 mb-3">
+                    <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Total Assets:</span>
+                            <span className="font-medium">{formatCurrency(totalAssets, currency)}</span>
+                        </div>
+                        
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Net Worth Impact:</span>
+                            <span className="font-medium text-purple-600">
+                                {((value / netWorth) * 100).toFixed(1)}% of net worth
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Description */}
+                <div className="border-t border-gray-200 pt-3 mb-3">
+                    <div className="text-xs text-gray-600 leading-relaxed">
+                        <div className="font-medium text-gray-700 mb-1">About this asset class:</div>
+                        {assetInfo.description}
+                    </div>
+                </div>
+
+                {/* Insights and Recommendations */}
+                <div className="border-t border-gray-200 pt-3">
+                    <div className="text-xs leading-relaxed">
+                        <div className="font-medium text-gray-700 mb-1">💡 Financial Insight:</div>
+                        <div className="text-gray-600">{assetInfo.insights}</div>
+                    </div>
+                </div>
+
+                {/* Action Context */}
+                {percentage > 60 && (
+                    <div className="border-t border-gray-200 pt-2 mt-2">
+                        <div className="text-xs text-orange-600 text-center">
+                            ⚠️ High concentration - Consider diversification across asset classes
+                        </div>
+                    </div>
+                )}
+                
+                {percentage < 5 && label.toLowerCase() !== 'money lent' && (
+                    <div className="border-t border-gray-200 pt-2 mt-2">
+                        <div className="text-xs text-blue-600 text-center">
+                            📈 Small allocation - Consider increasing if aligned with financial goals
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }, [currency, netWorthStats, chartData]);
 
     // Display error if there's one
     if (error) {
@@ -325,7 +490,7 @@ export default function NetWorthPage() {
                                 csvData={exportData}
                                 fileName="net_worth_breakdown"
                                 title=""
-                                tooltipText="Distribution of your total assets"
+                                tooltipText="Distribution of your total assets with detailed analytics including risk assessments, portfolio insights, and personalized financial recommendations. Hover over bars for comprehensive asset analysis."
                             />
                         </div>
                         <div className="p-2">
@@ -348,15 +513,7 @@ export default function NetWorthPage() {
                                             tick={{ fontSize: 12 }}
                                             tickFormatter={formatCurrencyAbbreviated}
                                         />
-                                        <Tooltip 
-                                            formatter={(value: number) => [formatCurrency(value, currency), 'Amount']}
-                                            labelStyle={{ fontWeight: 'bold' }}
-                                            contentStyle={{ 
-                                                backgroundColor: '#f9fafb', 
-                                                border: '1px solid #e5e7eb',
-                                                borderRadius: '8px' 
-                                            }}
-                                        />
+                                        <Tooltip content={<CustomAssetTooltip />} />
                                         <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                                             {chartData.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={entry.color} />
@@ -424,15 +581,7 @@ export default function NetWorthPage() {
                                                 tick={{ fontSize: 12 }}
                                                 tickFormatter={formatCurrencyAbbreviated}
                                             />
-                                            <Tooltip 
-                                                formatter={(value: number) => [formatCurrency(value, currency), 'Amount']}
-                                                labelStyle={{ fontWeight: 'bold' }}
-                                                contentStyle={{ 
-                                                    backgroundColor: '#f9fafb', 
-                                                    border: '1px solid #e5e7eb',
-                                                    borderRadius: '8px' 
-                                                }}
-                                            />
+                                            <Tooltip content={<CustomAssetTooltip />} />
                                             <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                                                 {chartData.map((entry, index) => (
                                                     <Cell key={`cell-${index}`} fill={entry.color} />
