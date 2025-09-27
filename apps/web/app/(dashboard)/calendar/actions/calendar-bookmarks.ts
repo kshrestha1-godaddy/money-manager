@@ -5,11 +5,24 @@ import { getAuthenticatedSession, getUserIdFromSession } from "../../../utils/au
 import { formatDate } from "../../../utils/date";
 import { formatDateInTimezone } from "../../../utils/timezone";
 import { CalendarBookmarkEvent } from "../../../types/transaction-bookmarks";
+import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 
 export async function getBookmarkedTransactionsForCalendar(): Promise<CalendarBookmarkEvent[]> {
   try {
     const session = await getAuthenticatedSession();
     const userId = getUserIdFromSession(session.user.id);
+    
+    // Get user's preferred currency
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { currency: true }
+    });
+    
+    if (!user) {
+      throw new Error("User not found");
+    }
+    
+    const userCurrency = user.currency;
     
     const bookmarks = await prisma.transactionBookmark.findMany({
       where: {
@@ -48,12 +61,19 @@ export async function getBookmarkedTransactionsForCalendar(): Promise<CalendarBo
         const transactionDate = new Date(transaction.date);
         const dateKey = formatDate(transactionDate);
         
+        // Convert amount to user's preferred currency
+        const convertedAmount = convertForDisplaySync(
+          Number(transaction.amount),
+          transaction.currency,
+          userCurrency
+        );
+        
         calendarEvents.push({
           id: `${bookmark.transactionType.toLowerCase()}-${bookmark.transactionId}-${bookmark.id}`,
           date: dateKey,
           title: bookmark.title || transaction.title,
           type: bookmark.transactionType as "INCOME" | "EXPENSE",
-          amount: Number(transaction.amount),
+          amount: convertedAmount,
           category: transaction.category.name,
           notes: bookmark.notes || transaction.notes || undefined,
           transactionId: bookmark.transactionId,
@@ -76,6 +96,18 @@ export async function getBookmarkedTransactionsForDateRange(
   try {
     const session = await getAuthenticatedSession();
     const userId = getUserIdFromSession(session.user.id);
+    
+    // Get user's preferred currency
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { currency: true }
+    });
+    
+    if (!user) {
+      throw new Error("User not found");
+    }
+    
+    const userCurrency = user.currency;
     
     // Parse the date range
     const start = new Date(startDate);
@@ -134,12 +166,19 @@ export async function getBookmarkedTransactionsForDateRange(
         const transactionDate = new Date(transaction.date);
         const dateKey = formatDate(transactionDate);
         
+        // Convert amount to user's preferred currency
+        const convertedAmount = convertForDisplaySync(
+          Number(transaction.amount),
+          transaction.currency,
+          userCurrency
+        );
+        
         calendarEvents.push({
           id: `${bookmark.transactionType.toLowerCase()}-${bookmark.transactionId}-${bookmark.id}`,
           date: dateKey,
           title: bookmark.title || transaction.title,
           type: bookmark.transactionType as "INCOME" | "EXPENSE",
-          amount: Number(transaction.amount),
+          amount: convertedAmount,
           category: transaction.category.name,
           notes: bookmark.notes || transaction.notes || undefined,
           transactionId: bookmark.transactionId,
@@ -161,6 +200,18 @@ export async function getBookmarkedTransactionsForCalendarInTimezone(timezone: s
   try {
     const session = await getAuthenticatedSession();
     const userId = getUserIdFromSession(session.user.id);
+    
+    // Get user's preferred currency
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { currency: true }
+    });
+    
+    if (!user) {
+      throw new Error("User not found");
+    }
+    
+    const userCurrency = user.currency;
     
     const bookmarks = await prisma.transactionBookmark.findMany({
       where: {
@@ -203,12 +254,19 @@ export async function getBookmarkedTransactionsForCalendarInTimezone(timezone: s
           year: 'numeric'
         });
         
+        // Convert amount to user's preferred currency
+        const convertedAmount = convertForDisplaySync(
+          Number(transaction.amount),
+          transaction.currency,
+          userCurrency
+        );
+        
         calendarEvents.push({
           id: `${bookmark.transactionType.toLowerCase()}-${bookmark.transactionId}-${bookmark.id}`,
           date: dateKey,
           title: bookmark.title || transaction.title,
           type: bookmark.transactionType as "INCOME" | "EXPENSE",
-          amount: Number(transaction.amount),
+          amount: convertedAmount,
           category: transaction.category.name,
           notes: bookmark.notes || transaction.notes || undefined,
           transactionId: bookmark.transactionId,
@@ -233,6 +291,18 @@ export async function getBookmarkedTransactionsForDateRangeInTimezone(
     const session = await getAuthenticatedSession();
     const userId = getUserIdFromSession(session.user.id);
     
+    // Get user's preferred currency
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { currency: true }
+    });
+    
+    if (!user) {
+      throw new Error("User not found");
+    }
+    
+    const userCurrency = user.currency;
+    
     // Parse the date range
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -294,12 +364,19 @@ export async function getBookmarkedTransactionsForDateRangeInTimezone(
           year: 'numeric'
         });
         
+        // Convert amount to user's preferred currency
+        const convertedAmount = convertForDisplaySync(
+          Number(transaction.amount),
+          transaction.currency,
+          userCurrency
+        );
+        
         calendarEvents.push({
           id: `${bookmark.transactionType.toLowerCase()}-${bookmark.transactionId}-${bookmark.id}`,
           date: dateKey,
           title: bookmark.title || transaction.title,
           type: bookmark.transactionType as "INCOME" | "EXPENSE",
-          amount: Number(transaction.amount),
+          amount: convertedAmount,
           category: transaction.category.name,
           notes: bookmark.notes || transaction.notes || undefined,
           transactionId: bookmark.transactionId,

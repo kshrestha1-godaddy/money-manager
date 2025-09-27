@@ -83,12 +83,6 @@ export function DashboardCharts({
         </div>
       </div>
 
-      {/* Sixth Row: Recent Transactions (Full Width) */}
-      <div className="w-full min-h-[500px]">
-        <div className="h-full">
-          <RecentTransactions />
-        </div>
-      </div>
     </div>
   );
 }

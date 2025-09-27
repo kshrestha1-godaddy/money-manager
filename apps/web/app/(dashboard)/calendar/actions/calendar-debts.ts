@@ -5,11 +5,24 @@ import { getAuthenticatedSession, getUserIdFromSession, decimalToNumber } from "
 import { formatLocalDateKey, formatDateKeyInTimezone } from "../../../utils/calendarDateUtils";
 import { formatDateInTimezone } from "../../../utils/timezone";
 import { CalendarDebtEvent } from "../../../types/transaction-bookmarks";
+import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 
 export async function getActiveDebtsWithDueDates(): Promise<CalendarDebtEvent[]> {
   try {
     const session = await getAuthenticatedSession();
     const userId = getUserIdFromSession(session.user.id);
+    
+    // Get user's preferred currency
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { currency: true }
+    });
+    
+    if (!user) {
+      throw new Error("User not found");
+    }
+    
+    const userCurrency = user.currency;
     
     // Fetch active debts with due dates
     const debts = await prisma.debt.findMany({
@@ -70,6 +83,18 @@ export async function getDebtsForDateRange(
   try {
     const session = await getAuthenticatedSession();
     const userId = getUserIdFromSession(session.user.id);
+    
+    // Get user's preferred currency
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { currency: true }
+    });
+    
+    if (!user) {
+      throw new Error("User not found");
+    }
+    
+    const userCurrency = user.currency;
     
     // Parse the date range
     const start = new Date(startDate);
@@ -139,6 +164,18 @@ export async function getActiveDebtsWithDueDatesInTimezone(timezone: string): Pr
     const session = await getAuthenticatedSession();
     const userId = getUserIdFromSession(session.user.id);
     
+    // Get user's preferred currency
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { currency: true }
+    });
+    
+    if (!user) {
+      throw new Error("User not found");
+    }
+    
+    const userCurrency = user.currency;
+    
     // Fetch active debts with due dates
     const debts = await prisma.debt.findMany({
       where: {
@@ -203,6 +240,18 @@ export async function getDebtsForDateRangeInTimezone(
   try {
     const session = await getAuthenticatedSession();
     const userId = getUserIdFromSession(session.user.id);
+    
+    // Get user's preferred currency
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { currency: true }
+    });
+    
+    if (!user) {
+      throw new Error("User not found");
+    }
+    
+    const userCurrency = user.currency;
     
     // Parse the date range
     const start = new Date(startDate);
