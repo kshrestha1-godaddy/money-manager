@@ -19,12 +19,16 @@ interface WaterfallData {
     base: number;
     total: number;
     type: "income" | "expenses" | "savings" | "loss";
+    count?: number;
+    average?: number;
+    percentage?: number;
+    description?: string;
 }
 
 export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency = "USD", heightClass }) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
-    const { totals, formatTimePeriod } = useChartData();
+    const { totals, formatTimePeriod, filteredIncomes, filteredExpenses } = useChartData();
     
     const totalIncome = totals.income;
     const totalExpenses = totals.expenses;
@@ -33,28 +37,48 @@ export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency = "USD
 
     const timePeriodText = formatTimePeriod();
 
-    // Create waterfall data - each bar shows cumulative values with base and value parts
+    // Calculate detailed statistics
+    const incomeCount = filteredIncomes.length;
+    const expenseCount = filteredExpenses.length;
+    const totalTransactions = incomeCount + expenseCount;
+    const averageIncome = incomeCount > 0 ? totalIncome / incomeCount : 0;
+    const averageExpense = expenseCount > 0 ? totalExpenses / expenseCount : 0;
+    const totalFlow = totalIncome + totalExpenses;
+
+    // Create waterfall data with enhanced statistics
     const data: WaterfallData[] = [
         {
             name: "Income",
             value: totalIncome,
             base: 0,
             total: totalIncome,
-            type: "income"
+            type: "income",
+            count: incomeCount,
+            average: averageIncome,
+            percentage: totalFlow > 0 ? (totalIncome / totalFlow) * 100 : 0,
+            description: "Total money earned during this period"
         },
         {
             name: "Expenses",
             value: totalExpenses,
             base: totalSavings > 0 ? totalSavings : 0, // Start from savings level
             total: totalIncome,
-            type: "expenses"
+            type: "expenses",
+            count: expenseCount,
+            average: averageExpense,
+            percentage: totalFlow > 0 ? (totalExpenses / totalFlow) * 100 : 0,
+            description: "Total money spent during this period"
         },
         {
             name: "Net Savings",
             value: Math.abs(totalSavings),
             base: 0,
             total: Math.abs(totalSavings),
-            type: totalSavings >= 0 ? "savings" : "loss"
+            type: totalSavings >= 0 ? "savings" : "loss",
+            count: totalTransactions,
+            average: totalTransactions > 0 ? Math.abs(totalSavings) / totalTransactions : 0,
+            percentage: totalIncome > 0 ? Math.abs(savingsRate) : 0,
+            description: totalSavings >= 0 ? "Money saved after all expenses" : "Amount by which expenses exceeded income"
         }
     ];
 
@@ -72,21 +96,88 @@ export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency = "USD
         if (active && payload && payload.length) {
             const data = payload[0]?.payload as WaterfallData;
             return (
-                <div className="bg-white p-3 border border-gray-200 rounded shadow-lg">
-                    <p className="font-medium">{label}</p>
-                    <p className="text-sm">
-                        <span className="inline-block w-3 h-3 rounded mr-2" style={{ backgroundColor: getBarColor(data.type) }}></span>
-                        {formatCurrency(data.value, currency)}
-                    </p>
-                    {data.type === "expenses" && (
-                        <p className="text-xs text-gray-500">Reduces available savings</p>
-                    )}
-                    {data.type === "savings" && (
-                        <p className="text-xs text-gray-500">Money saved this period</p>
-                    )}
-                    {data.type === "loss" && (
-                        <p className="text-xs text-gray-500">Spending exceeded income</p>
-                    )}
+                <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-lg max-w-sm">
+                    <div className="font-bold text-gray-900 mb-3 text-base">{label}</div>
+                    
+                    {/* Main Amount */}
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center">
+                            <span 
+                                className="inline-block w-3 h-3 rounded mr-2" 
+                                style={{ backgroundColor: getBarColor(data.type) }}
+                            ></span>
+                            <span className="font-medium">Amount:</span>
+                        </div>
+                        <span className="font-bold text-lg">
+                            {formatCurrency(data.value, currency)}
+                        </span>
+                    </div>
+
+                    {/* Description */}
+                    <div className="text-sm text-gray-600 mb-3 italic">
+                        {data.description}
+                    </div>
+
+                    {/* Detailed Statistics */}
+                    <div className="border-t border-gray-200 pt-3 space-y-2 text-sm">
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Transactions:</span>
+                            <span className="font-medium">{data.count}</span>
+                        </div>
+                        
+                        {data.type !== "savings" && data.type !== "loss" && (
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Average per Transaction:</span>
+                                <span className="font-medium">{formatCurrency(data.average || 0, currency)}</span>
+                            </div>
+                        )}
+                        
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">
+                                {data.type === "savings" || data.type === "loss" ? "Savings Rate:" : "Percentage of Total:"}
+                            </span>
+                            <span className={`font-medium ${
+                                data.type === "savings" ? 'text-green-600' : 
+                                data.type === "loss" ? 'text-red-600' : 
+                                'text-gray-900'
+                            }`}>
+                                {data.percentage?.toFixed(1)}%
+                            </span>
+                        </div>
+
+                        {/* Additional context based on type */}
+                        {data.type === "income" && (
+                            <div className="mt-2 pt-2 border-t border-gray-100">
+                                <div className="text-xs text-gray-500">
+                                    This represents all money earned during the selected period
+                                </div>
+                            </div>
+                        )}
+                        
+                        {data.type === "expenses" && (
+                            <div className="mt-2 pt-2 border-t border-gray-100">
+                                <div className="text-xs text-gray-500">
+                                    This reduces your available savings from income
+                                </div>
+                            </div>
+                        )}
+                        
+                        {data.type === "savings" && (
+                            <div className="mt-2 pt-2 border-t border-gray-100">
+                                <div className="text-xs text-green-600">
+                                    Great job! You saved money this period
+                                </div>
+                            </div>
+                        )}
+                        
+                        {data.type === "loss" && (
+                            <div className="mt-2 pt-2 border-t border-gray-100">
+                                <div className="text-xs text-red-600">
+                                    Your expenses exceeded your income this period
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             );
         }
@@ -106,13 +197,15 @@ export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency = "USD
         }
     };
 
-    // Prepare CSV data
+    // Enhanced CSV data with detailed statistics
     const csvData = [
-        ['Category', 'Amount', 'Type'],
-        ['Income', totalIncome.toString(), 'Positive'],
-        ['Expenses', totalExpenses.toString(), 'Negative'],
-        ['Net Savings', totalSavings.toString(), totalSavings >= 0 ? 'Positive' : 'Negative'],
-        ['Savings Rate', `${savingsRate.toFixed(1)}%`, 'Percentage']
+        ['Category', 'Amount', 'Type', 'Transactions', 'Average per Transaction', 'Percentage', 'Description'],
+        ['Income', totalIncome.toString(), 'Positive', incomeCount.toString(), averageIncome.toFixed(2), `${(totalFlow > 0 ? (totalIncome / totalFlow) * 100 : 0).toFixed(1)}%`, 'Total money earned during this period'],
+        ['Expenses', totalExpenses.toString(), 'Negative', expenseCount.toString(), averageExpense.toFixed(2), `${(totalFlow > 0 ? (totalExpenses / totalFlow) * 100 : 0).toFixed(1)}%`, 'Total money spent during this period'],
+        ['Net Savings', totalSavings.toString(), totalSavings >= 0 ? 'Positive' : 'Negative', totalTransactions.toString(), (totalTransactions > 0 ? Math.abs(totalSavings) / totalTransactions : 0).toFixed(2), `${Math.abs(savingsRate).toFixed(1)}%`, totalSavings >= 0 ? 'Money saved after all expenses' : 'Amount by which expenses exceeded income'],
+        ['Summary', '', '', '', '', '', ''],
+        ['Total Transactions', totalTransactions.toString(), 'Count', '', '', '', 'All income and expense transactions'],
+        ['Savings Rate', `${savingsRate.toFixed(1)}%`, 'Percentage', '', '', '', 'Percentage of income that was saved or lost']
     ];
 
     const ChartContent = () => (
@@ -257,8 +350,8 @@ export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency = "USD
                     fileName="waterfall-chart"
                     csvData={csvData}
                     csvFileName="waterfall-data"
-                    title={`Financial Waterfall ${timePeriodText}`}
-                    tooltipText="Visualizes the flow from income to expenses, showing your net savings"
+                    title={totalTransactions > 0 ? `Financial Waterfall ${timePeriodText} • ${totalTransactions} transaction${totalTransactions !== 1 ? 's' : ''}` : `Financial Waterfall ${timePeriodText}`}
+                    tooltipText="Visualizes the flow from income to expenses, showing your net savings with detailed statistics including transaction counts, averages, and percentages. Hover over bars for detailed breakdowns."
                 />
                 <ChartContent />
             </div>
@@ -269,8 +362,10 @@ export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency = "USD
                     <div className="bg-white rounded-lg p-3 sm:p-6 max-w-7xl w-full max-h-full overflow-auto">
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 gap-2 sm:gap-0">
                             <div>
-                                <h2 className="text-lg sm:text-2xl font-semibold">Financial Waterfall {timePeriodText}</h2>
-                                <p className="text-sm text-gray-500">Visualizes the flow from income to expenses, showing your net savings</p>
+                                <h2 className="text-lg sm:text-2xl font-semibold">
+                                    {totalTransactions > 0 ? `Financial Waterfall ${timePeriodText} • ${totalTransactions} transaction${totalTransactions !== 1 ? 's' : ''}` : `Financial Waterfall ${timePeriodText}`}
+                                </h2>
+                                <p className="text-sm text-gray-500">Visualizes the flow from income to expenses, showing your net savings with detailed statistics</p>
                             </div>
                             <button
                                 onClick={toggleExpanded}

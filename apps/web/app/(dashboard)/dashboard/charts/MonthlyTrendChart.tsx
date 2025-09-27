@@ -22,6 +22,11 @@ interface MonthlyData {
     expensesT: number;
     savingsT: number;
     formattedMonth: string;
+    incomeCount: number;
+    expenseCount: number;
+    savingsRate: number;
+    incomeAverage: number;
+    expenseAverage: number;
 }
 
 interface CalculationsResult {
@@ -144,18 +149,32 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
     
     const timePeriodText = formatTimePeriod();
     
-    // Transform chart data to match component expectations
+    // Transform chart data to match component expectations with enhanced statistics
     const chartData = useMemo((): MonthlyData[] => {
-        return monthlyData.map(month => ({
-            month: month.monthKey,
-            income: month.income,
-            expenses: month.expenses,
-            savings: month.savings,
-            incomeT: month.income,
-            expensesT: month.expenses,
-            savingsT: month.savings,
-            formattedMonth: month.formattedMonth
-        }));
+        return monthlyData.map(month => {
+            // Use the pre-calculated counts from monthlyData
+            const incomeCount = month.incomeCount || 0;
+            const expenseCount = month.expenseCount || 0;
+            const incomeAverage = incomeCount > 0 ? month.income / incomeCount : 0;
+            const expenseAverage = expenseCount > 0 ? month.expenses / expenseCount : 0;
+            const savingsRate = month.income > 0 ? ((month.income - month.expenses) / month.income) * 100 : 0;
+            
+            return {
+                month: month.monthKey,
+                income: month.income,
+                expenses: month.expenses,
+                savings: month.savings,
+                incomeT: month.income,
+                expensesT: month.expenses,
+                savingsT: month.savings,
+                formattedMonth: month.formattedMonth,
+                incomeCount,
+                expenseCount,
+                savingsRate,
+                incomeAverage,
+                expenseAverage
+            };
+        });
     }, [monthlyData]);
 
     // Optimized calculations using single pass through data
@@ -221,30 +240,39 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
         };
     }, [chartData]);
 
-    // Memoize CSV data
+    // Enhanced CSV data with detailed statistics
     const csvData = useMemo(() => [
-        ['Month', 'Income', 'Expenses', 'Savings'],
+        ['Month', 'Income', 'Expenses', 'Savings', 'Income Transactions', 'Expense Transactions', 'Total Transactions', 'Savings Rate (%)', 'Avg Income', 'Avg Expense'],
         ...chartData.map(item => [
             item.formattedMonth,
             item.income.toString(),
             item.expenses.toString(),
-            item.savings.toString()
+            item.savings.toString(),
+            item.incomeCount.toString(),
+            item.expenseCount.toString(),
+            (item.incomeCount + item.expenseCount).toString(),
+            item.savingsRate.toFixed(1),
+            item.incomeAverage.toFixed(2),
+            item.expenseAverage.toFixed(2)
         ])
     ], [chartData]);
 
+    // Calculate total transactions for display
+    const totalTransactions = chartData.reduce((sum, item) => sum + item.incomeCount + item.expenseCount, 0);
+    
     // Memoize chart title and tooltip text
     const { chartTitle, tooltipText } = useMemo(() => ({
-        chartTitle: `Monthly Income, Expenses & Savings Trend ${timePeriodText}`,
-        tooltipText: "Compare your monthly financial flows and identify patterns over time"
-    }), [timePeriodText]);
+        chartTitle: totalTransactions > 0 ? `Monthly Income, Expenses & Savings Trend ${timePeriodText} • ${totalTransactions} transaction${totalTransactions !== 1 ? 's' : ''}` : `Monthly Income, Expenses & Savings Trend ${timePeriodText}`,
+        tooltipText: "Compare your monthly financial flows with detailed statistics including transaction counts, averages, savings rates, and percentages. Hover over bars for detailed breakdowns."
+    }), [timePeriodText, totalTransactions]);
 
     // Optimized download functions with better error handling
     // Removed unused custom download functions; ChartControls handles downloads
 
-    // Optimized tooltip component with better performance
+    // Enhanced tooltip component with detailed statistics
     const CustomTooltip = useCallback(({ active, payload, label }: {
         active?: boolean;
-        payload?: Array<{ dataKey: string; value: number; color: string }>;
+        payload?: Array<{ dataKey: string; value: number; color: string; payload?: MonthlyData }>;
         label?: string;
     }) => {
         if (!active || !payload?.length) return null;
@@ -256,19 +284,70 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
         
         if (barData.length === 0) return null;
 
+        // Get the month data for detailed statistics
+        const monthData = barData[0]?.payload;
+        if (!monthData) return null;
+
+        const totalTransactions = monthData.incomeCount + monthData.expenseCount;
+        const totalAmount = monthData.income + monthData.expenses;
+
         return (
-            <div className="bg-white border border-gray-300 rounded p-3 shadow-lg">
-                <p className="text-gray-900 font-medium mb-2">{label}</p>
-                {barData.map((entry, index) => {
-                    const displayName = entry.dataKey === 'income' ? 'Income' :
-                                     entry.dataKey === 'expenses' ? 'Expenses' : 'Savings';
-                    
-                    return (
-                        <p key={index} style={{ color: entry.color }} className="text-sm">
-                            {displayName}: {formatCurrency(entry.value, currency)}
-                        </p>
-                    );
-                })}
+            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-lg max-w-sm">
+                <div className="font-bold text-gray-900 mb-3 text-base">{label}</div>
+                
+                {/* Financial Summary */}
+                <div className="space-y-2 mb-3">
+                    {barData.map((entry, index) => {
+                        const displayName = entry.dataKey === 'income' ? 'Income' :
+                                         entry.dataKey === 'expenses' ? 'Expenses' : 'Savings';
+                        const percentage = totalAmount > 0 ? ((Math.abs(entry.value) / totalAmount) * 100).toFixed(1) : '0.0';
+                        
+                        return (
+                            <div key={index} className="flex justify-between items-center">
+                                <span className="text-sm font-medium" style={{ color: entry.color }}>
+                                    {displayName}:
+                                </span>
+                                <span className="text-sm font-semibold">
+                                    {formatCurrency(entry.value, currency)} ({percentage}%)
+                                </span>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Detailed Statistics */}
+                <div className="border-t border-gray-200 pt-3 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">Total Transactions:</span>
+                        <span className="font-medium">{totalTransactions}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">Income Transactions:</span>
+                        <span className="font-medium">{monthData.incomeCount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">Expense Transactions:</span>
+                        <span className="font-medium">{monthData.expenseCount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">Savings Rate:</span>
+                        <span className={`font-medium ${monthData.savingsRate >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {monthData.savingsRate.toFixed(1)}%
+                        </span>
+                    </div>
+                    {monthData.incomeCount > 0 && (
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Avg Income:</span>
+                            <span className="font-medium">{formatCurrency(monthData.incomeAverage, currency)}</span>
+                        </div>
+                    )}
+                    {monthData.expenseCount > 0 && (
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Avg Expense:</span>
+                            <span className="font-medium">{formatCurrency(monthData.expenseAverage, currency)}</span>
+                        </div>
+                    )}
+                </div>
             </div>
         );
     }, [currency]);
