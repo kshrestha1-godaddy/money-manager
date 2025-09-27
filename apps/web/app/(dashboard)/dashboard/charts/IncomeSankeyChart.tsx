@@ -22,6 +22,21 @@ interface SankeyData {
     from: string;
     to: string;
     size: number;
+    count: number;
+    average: number;
+    minAmount: number;
+    maxAmount: number;
+    dateRange: string;
+}
+
+interface CategoryStats {
+    totalAmount: number;
+    count: number;
+    minAmount: number;
+    maxAmount: number;
+    earliestDate: Date;
+    latestDate: Date;
+    amounts: number[];
 }
 
 export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency = "USD", title, heightClass }) => {
@@ -41,40 +56,82 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
 
     // Process data with useMemo for stability and optimized dependencies
     const { sankeyData, total, csvData } = useMemo(() => {
-        const categoryMap = new Map<string, number>();
+        const categoryStatsMap = new Map<string, CategoryStats>();
         
-        // Group data by category (with currency conversion)
+        // Group data by category with detailed statistics (with currency conversion)
         filteredIncomes.forEach(item => {
             const categoryName = item.category?.name || 'Unknown Category';
-            const currentAmount = categoryMap.get(categoryName) || 0;
-            // Convert individual transaction amount to display currency
             const convertedAmount = convertForDisplaySync(item.amount, item.currency, currency);
-            categoryMap.set(categoryName, currentAmount + convertedAmount);
+            const transactionDate = new Date(item.date);
+            
+            const existingStats = categoryStatsMap.get(categoryName);
+            
+            if (!existingStats) {
+                categoryStatsMap.set(categoryName, {
+                    totalAmount: convertedAmount,
+                    count: 1,
+                    minAmount: convertedAmount,
+                    maxAmount: convertedAmount,
+                    earliestDate: transactionDate,
+                    latestDate: transactionDate,
+                    amounts: [convertedAmount]
+                });
+            } else {
+                existingStats.totalAmount += convertedAmount;
+                existingStats.count += 1;
+                existingStats.minAmount = Math.min(existingStats.minAmount, convertedAmount);
+                existingStats.maxAmount = Math.max(existingStats.maxAmount, convertedAmount);
+                existingStats.earliestDate = transactionDate < existingStats.earliestDate ? transactionDate : existingStats.earliestDate;
+                existingStats.latestDate = transactionDate > existingStats.latestDate ? transactionDate : existingStats.latestDate;
+                existingStats.amounts.push(convertedAmount);
+            }
         });
 
-        // Convert to Sankey data format
+        // Convert to Sankey data format with enhanced information
         const sankeyData: SankeyData[] = [];
-        const total = Array.from(categoryMap.values()).reduce((sum, value) => sum + value, 0);
+        const total = Array.from(categoryStatsMap.values()).reduce((sum, stats) => sum + stats.totalAmount, 0);
         
-        // Create flow from each category to "Total Income"
-        Array.from(categoryMap.entries()).forEach(([categoryName, amount]) => {
+        // Helper function to format date range
+        const formatDateRange = (earliest: Date, latest: Date): string => {
+            const options: Intl.DateTimeFormatOptions = { month: 'short', year: 'numeric' };
+            if (earliest.getTime() === latest.getTime()) {
+                return earliest.toLocaleDateString('en', options);
+            }
+            return `${earliest.toLocaleDateString('en', options)} - ${latest.toLocaleDateString('en', options)}`;
+        };
+        
+        // Create flow from each category to "Total Income" with enhanced data
+        Array.from(categoryStatsMap.entries()).forEach(([categoryName, stats]) => {
+            const average = stats.totalAmount / stats.count;
+            const dateRange = formatDateRange(stats.earliestDate, stats.latestDate);
+            
             sankeyData.push({
-                from: categoryName,
+                from: `${categoryName} (${stats.count}x)`,
                 to: "Total Income",
-                size: amount
+                size: stats.totalAmount,
+                count: stats.count,
+                average: average,
+                minAmount: stats.minAmount,
+                maxAmount: stats.maxAmount,
+                dateRange: dateRange
             });
         });
 
         // Sort by amount for consistency
         sankeyData.sort((a, b) => b.size - a.size);
 
-        // Prepare CSV data
+        // Prepare enhanced CSV data
         const csvData = [
-            ['Income Source', 'Amount', 'Percentage'],
-            ...Array.from(categoryMap.entries()).map(([categoryName, amount]) => [
-                categoryName,
-                amount.toString(),
-                total > 0 ? ((amount / total) * 100).toFixed(1) + '%' : '0.0%'
+            ['Income Source', 'Total Amount', 'Percentage', 'Transactions', 'Average Amount', 'Min Amount', 'Max Amount', 'Date Range'],
+            ...sankeyData.map((item) => [
+                item.from.replace(/ \(\d+x\)$/, ''), // Remove count from category name for CSV
+                item.size.toString(),
+                total > 0 ? ((item.size / total) * 100).toFixed(1) + '%' : '0.0%',
+                item.count.toString(),
+                item.average.toFixed(2),
+                item.minAmount.toFixed(2),
+                item.maxAmount.toFixed(2),
+                item.dateRange
             ])
         ];
 
@@ -129,22 +186,33 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
                 // Clear container
                 container.innerHTML = '';
 
-                // Create data table with simple tooltip
+                // Create data table with HTML tooltip for better formatting
                 const data = new window.google.visualization.DataTable();
                 data.addColumn('string', 'From');
                 data.addColumn('string', 'To');
                 data.addColumn('number', 'Weight');
-                data.addColumn({type: 'string', role: 'tooltip'});
+                data.addColumn({type: 'string', role: 'tooltip', p: {html: true}});
 
-                // Add rows with simple tooltips
+                // Add rows with enhanced tooltips
                 const rows = validData.map((item) => {
                     const percentage = total > 0 ? ((item.size / total) * 100).toFixed(1) : '0.0';
                     const labelWithPercentage = `${item.from} [${percentage}%]`;
                     const validSize = Math.max(item.size, 0.01); // Ensure minimum positive value
                     
-                    // Simple tooltip format: "Category (X%)" on first line, "Currency Amount" on second line
-                    const formattedAmount = formatCurrency(item.size, currency);
-                    const tooltip = `Total: ${formattedAmount}`;
+                    // Enhanced HTML tooltip with detailed statistics on separate lines
+                    const formattedTotal = formatCurrency(item.size, currency);
+                    const formattedAverage = formatCurrency(item.average, currency);
+                    const formattedMin = formatCurrency(item.minAmount, currency);
+                    const formattedMax = formatCurrency(item.maxAmount, currency);
+                    
+                    const tooltip = `<div style="padding: 8px; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.4;">
+<div style="font-weight: bold; margin-bottom: 4px; color: #333;">${item.from.replace(/ \(\d+x\)$/, '')}</div>
+<div style="margin-bottom: 2px;"><strong>Total:</strong> ${formattedTotal} (${percentage}%)</div>
+<div style="margin-bottom: 2px;"><strong>Transactions:</strong> ${item.count}</div>
+<div style="margin-bottom: 2px;"><strong>Average:</strong> ${formattedAverage}</div>
+<div style="margin-bottom: 2px;"><strong>Range:</strong> ${formattedMin} - ${formattedMax}</div>
+<div><strong>Period:</strong> ${item.dateRange}</div>
+</div>`;
                     
                     return [labelWithPercentage, item.to, validSize, tooltip];
                 });
@@ -152,11 +220,12 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
                 // console.log('Chart data rows:', rows);
                 data.addRows(rows);
 
-                // Chart options with simple tooltip and optimized animations
+                // Chart options with HTML tooltip and optimized animations
                 const options = {
                     width: width,
                     height: height,
                     tooltip: {
+                        isHtml: true,
                         textStyle: {
                             fontName: 'Arial',
                             fontSize: 13
@@ -228,9 +297,13 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
         };
         }, [sankeyData, total, COLORS, hasAnimated]);
 
+    // Calculate total transactions for display
+    const totalTransactions = sankeyData.reduce((sum, item) => sum + item.count, 0);
+    
     const timePeriodText = formatTimePeriod();
-    const chartTitle = title || `Income Distribution ${timePeriodText}`;
-    const tooltipText = 'Flow visualization of your income sources contributing to total income';
+    const baseTitle = title || `Income Distribution ${timePeriodText}`;
+    const chartTitle = totalTransactions > 0 ? `${baseTitle} • ${totalTransactions} transaction${totalTransactions !== 1 ? 's' : ''}` : baseTitle;
+    const tooltipText = 'Flow visualization of your income sources with detailed statistics including transaction counts, averages, and date ranges. Hover over categories for detailed breakdowns.';
 
     return (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6" data-chart-type="income-sankey">
@@ -247,8 +320,8 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
                     <div className="flex flex-col items-center justify-center py-16 text-gray-500">
                         <h3 className="text-lg font-medium mb-2">No Income Data</h3>
                         <p className="text-sm text-center max-w-sm">
-                            Add some income entries to see the flow visualization.
-                            Your income sources will appear here.
+                            Add some income entries to see the flow visualization with detailed statistics.
+                            Each category will show transaction counts, averages, ranges, and time periods.
                         </p>
                     </div>
                 ) : (

@@ -20,6 +20,21 @@ interface CategoryData {
     value: number;
     color: string;
     solidColor?: string;
+    count: number;
+    average: number;
+    minAmount: number;
+    maxAmount: number;
+    dateRange: string;
+}
+
+interface CategoryStats {
+    totalAmount: number;
+    count: number;
+    minAmount: number;
+    maxAmount: number;
+    earliestDate: Date;
+    latestDate: Date;
+    amounts: number[];
 }
 
 // Color palette with bright pie colors and dark legend colors
@@ -41,29 +56,70 @@ const COLOR_PALETTE = [
 export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, currency = "USD", title, heightClass }) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
-    const { categoryData, formatTimePeriod } = useChartData();
+    const { categoryData, formatTimePeriod, filteredIncomes, filteredExpenses } = useChartData();
     
     // Memoize all data processing for better performance
     const { chartData, rawChartData, total, smallCategories } = useMemo(() => {
-        // Create category map based on type
-        const categoryMap = new Map<string, number>();
+        // Get the appropriate transaction data based on type
+        const transactions = type === 'income' ? filteredIncomes : filteredExpenses;
         
-        Object.entries(categoryData).forEach(([categoryName, data]) => {
-            const amount = type === 'income' ? data.income : data.expenses;
-            if (amount > 0) {
-                categoryMap.set(categoryName, amount);
+        // Create detailed category statistics map
+        const categoryStatsMap = new Map<string, CategoryStats>();
+        
+        transactions.forEach(transaction => {
+            const categoryName = transaction.category?.name || 'Unknown Category';
+            const transactionDate = new Date(transaction.date);
+            const amount = transaction.amount;
+            
+            const existingStats = categoryStatsMap.get(categoryName);
+            
+            if (!existingStats) {
+                categoryStatsMap.set(categoryName, {
+                    totalAmount: amount,
+                    count: 1,
+                    minAmount: amount,
+                    maxAmount: amount,
+                    earliestDate: transactionDate,
+                    latestDate: transactionDate,
+                    amounts: [amount]
+                });
+            } else {
+                existingStats.totalAmount += amount;
+                existingStats.count += 1;
+                existingStats.minAmount = Math.min(existingStats.minAmount, amount);
+                existingStats.maxAmount = Math.max(existingStats.maxAmount, amount);
+                existingStats.earliestDate = transactionDate < existingStats.earliestDate ? transactionDate : existingStats.earliestDate;
+                existingStats.latestDate = transactionDate > existingStats.latestDate ? transactionDate : existingStats.latestDate;
+                existingStats.amounts.push(amount);
             }
         });
 
-        // Convert to array and add colors
-        const rawChartData: CategoryData[] = Array.from(categoryMap.entries())
-            .map(([name, value], index) => {
+        // Helper function to format date range
+        const formatDateRange = (earliest: Date, latest: Date): string => {
+            const options: Intl.DateTimeFormatOptions = { month: 'short', year: 'numeric' };
+            if (earliest.getTime() === latest.getTime()) {
+                return earliest.toLocaleDateString('en', options);
+            }
+            return `${earliest.toLocaleDateString('en', options)} - ${latest.toLocaleDateString('en', options)}`;
+        };
+
+        // Convert to array and add colors with detailed statistics
+        const rawChartData: CategoryData[] = Array.from(categoryStatsMap.entries())
+            .map(([name, stats], index) => {
                 const colorConfig = COLOR_PALETTE[index % COLOR_PALETTE.length];
+                const average = stats.totalAmount / stats.count;
+                const dateRange = formatDateRange(stats.earliestDate, stats.latestDate);
+                
                 return {
                     name,
-                    value,
+                    value: stats.totalAmount,
                     color: colorConfig?.pie || '#8884d8',
-                    solidColor: colorConfig?.legend || '#6b7280'
+                    solidColor: colorConfig?.legend || '#6b7280',
+                    count: stats.count,
+                    average: average,
+                    minAmount: stats.minAmount,
+                    maxAmount: stats.maxAmount,
+                    dateRange: dateRange
                 };
             })
             .sort((a, b) => b.value - a.value); // Sort by value descending
@@ -85,35 +141,88 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
         const chartData: CategoryData[] = [...significantCategories];
         if (smallCategories.length > 0) {
             const othersValue = smallCategories.reduce((sum, item) => sum + item.value, 0);
+            const othersCount = smallCategories.reduce((sum, item) => sum + item.count, 0);
+            const othersAverage = othersCount > 0 ? othersValue / othersCount : 0;
+            const othersMin = Math.min(...smallCategories.map(item => item.minAmount));
+            const othersMax = Math.max(...smallCategories.map(item => item.maxAmount));
+            
+            // Get date range for Others category
+            const allDates = smallCategories.flatMap(item => {
+                const [start, end] = item.dateRange.includes(' - ') 
+                    ? item.dateRange.split(' - ').map(d => new Date(d + ' 1, 2000'))
+                    : [new Date(item.dateRange + ' 1, 2000'), new Date(item.dateRange + ' 1, 2000')];
+                return [start, end];
+            });
+            const othersEarliest = new Date(Math.min(...allDates.map(d => d.getTime())));
+            const othersLatest = new Date(Math.max(...allDates.map(d => d.getTime())));
+            const othersDateRange = formatDateRange(othersEarliest, othersLatest);
+            
             chartData.push({
                 name: 'Others',
                 value: othersValue,
                 color: '#94a3b8', // Light gray for Others category pie
-                solidColor: '#64748b' // Dark gray for Others category legend
+                solidColor: '#64748b', // Dark gray for Others category legend
+                count: othersCount,
+                average: othersAverage,
+                minAmount: othersMin,
+                maxAmount: othersMax,
+                dateRange: othersDateRange
             });
         }
 
         return { chartData, rawChartData, total, smallCategories };
-    }, [categoryData, type]);
+    }, [filteredIncomes, filteredExpenses, type]);
 
-    // Memoize callback functions for better performance
-    const formatTooltip = useCallback((value: number, name: string): [string, string] => {
+    // Custom tooltip component for better formatting
+    const CustomTooltip = useCallback(({ active, payload }: any) => {
+        if (!active || !payload || !payload.length) {
+            return null;
+        }
+
+        const data = payload[0];
+        const name = data.name;
+        const value = data.value;
         const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
         
-        // For "Others" category, show additional details
-        if (name === 'Others' && smallCategories.length > 0) {
-            const categoryNames = smallCategories.map(cat => cat.name).join(', ');
-            return [
-                `${formatCurrency(value, currency)} [${percentage}%] - Includes: ${categoryNames}`,
-                name
-            ];
+        // Find the category data to get detailed statistics
+        const categoryItem = chartData.find(item => item.name === name);
+        
+        if (!categoryItem) {
+            return (
+                <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+                    <div className="font-medium text-gray-900">{name}</div>
+                    <div className="text-sm text-gray-600">{formatCurrency(value, currency)} [{percentage}%]</div>
+                </div>
+            );
         }
         
-        return [
-            `${formatCurrency(value, currency)} [${percentage}%]`,
-            name
-        ];
-    }, [total, smallCategories, currency]);
+        // Format detailed statistics
+        const formattedTotal = formatCurrency(categoryItem.value, currency);
+        const formattedAverage = formatCurrency(categoryItem.average, currency);
+        const formattedMin = formatCurrency(categoryItem.minAmount, currency);
+        const formattedMax = formatCurrency(categoryItem.maxAmount, currency);
+        
+        return (
+            <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg max-w-xs">
+                <div className="font-bold text-gray-900 mb-2">{name}</div>
+                <div className="space-y-1 text-sm">
+                    <div><span className="font-medium">Total:</span> {formattedTotal} ({percentage}%)</div>
+                    <div><span className="font-medium">Transactions:</span> {categoryItem.count}</div>
+                    <div><span className="font-medium">Average:</span> {formattedAverage}</div>
+                    <div><span className="font-medium">Range:</span> {formattedMin} - {formattedMax}</div>
+                    <div><span className="font-medium">Period:</span> {categoryItem.dateRange}</div>
+                    {name === 'Others' && smallCategories.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-gray-200">
+                            <div className="font-medium text-xs text-gray-500 mb-1">Includes:</div>
+                            <div className="text-xs text-gray-600">
+                                {smallCategories.map(cat => cat.name).join(', ')}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }, [total, smallCategories, currency, chartData]);
 
     interface LabelEntry {
         value: number;
@@ -122,9 +231,10 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
     const renderCustomizedLabel = useCallback((entry: any) => {
         const percentage = total > 0 ? ((entry.value / total) * 100).toFixed(1) : '0.0';
         
-        // Find the corresponding chart data to get the solid color
+        // Find the corresponding chart data to get the solid color and transaction count
         const chartDataEntry = chartData.find(item => item.name === entry.name);
         const labelColor = chartDataEntry?.solidColor || entry.fill || "#374151";
+        const transactionCount = chartDataEntry?.count || 0;
         
         // Calculate positioning for elbow-shaped connector lines
         const RADIAN = Math.PI / 180;
@@ -151,7 +261,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                     strokeWidth="1.5"
                     fill="none"
                 />
-                {/* Label text */}
+                {/* Label text with transaction count */}
                 <text 
                     x={textX} 
                     y={textY} 
@@ -161,18 +271,22 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                     fontSize="10"
                     fontWeight="500"
                 >
-                    {`${entry.name} [${percentage}%]`}
+                    {`${entry.name} (${transactionCount}x) [${percentage}%]`}
                 </text>
             </g>
         );
     }, [total, chartData]);
 
+    // Calculate total transactions for display
+    const totalTransactions = chartData.reduce((sum, item) => sum + item.count, 0);
+    
     // Memoize computed text values
     const timePeriodText = useMemo(() => formatTimePeriod(), [formatTimePeriod]);
     const defaultTitle = type === 'income' ? 'Income by Category' : 'Expenses by Category';
-    const chartTitle = `${title || defaultTitle} ${timePeriodText}`;
+    const baseTitle = `${title || defaultTitle} ${timePeriodText}`;
+    const chartTitle = totalTransactions > 0 ? `${baseTitle} • ${totalTransactions} transaction${totalTransactions !== 1 ? 's' : ''}` : baseTitle;
     const totalLabel = type === 'income' ? 'Total Income' : 'Total Expenses';
-    const tooltipText = type === 'income' ? 'Breakdown of your income sources by category' : 'Analysis of your spending patterns by category';
+    const tooltipText = type === 'income' ? 'Breakdown of your income sources by category with detailed statistics including transaction counts, averages, and date ranges. Hover over slices for detailed information.' : 'Analysis of your spending patterns by category with detailed statistics including transaction counts, averages, and date ranges. Hover over slices for detailed information.';
 
     // Download functions
     const downloadPNG = async (): Promise<void> => {
@@ -246,25 +360,39 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
 
 
 
-    // Memoize CSV data preparation to avoid duplication and improve performance
+    // Memoize CSV data preparation with enhanced statistics
     const csvDataForControls = useMemo(() => {
         const csvData = [
-            ['Category', 'Amount', 'Percentage'],
+            ['Category', 'Total Amount', 'Percentage', 'Transactions', 'Average Amount', 'Min Amount', 'Max Amount', 'Date Range'],
             ...chartData.map(item => [
                 item.name || 'Unknown Category',
                 item.value.toString(),
-                total > 0 ? ((item.value / total) * 100).toFixed(1) + '%' : '0.0%'
+                total > 0 ? ((item.value / total) * 100).toFixed(1) + '%' : '0.0%',
+                item.count.toString(),
+                item.average.toFixed(2),
+                item.minAmount.toFixed(2),
+                item.maxAmount.toFixed(2),
+                item.dateRange
             ])
         ];
 
         // Add detailed breakdown if "Others" category exists
         if (smallCategories.length > 0) {
-            csvData.push(['', '', '']); // Empty row for separation
-            csvData.push(['--- Detailed Breakdown ---', '', '']);
-            csvData.push(['All Categories (including < 2.5%)', '', '']);
+            csvData.push(['', '', '', '', '', '', '', '']); // Empty row for separation
+            csvData.push(['--- Detailed Breakdown ---', '', '', '', '', '', '', '']);
+            csvData.push(['All Categories (including < 2.5%)', '', '', '', '', '', '', '']);
             rawChartData.forEach(item => {
                 const percentage = total > 0 ? ((item.value / total) * 100).toFixed(1) + '%' : '0.0%';
-                csvData.push([item.name, item.value.toString(), percentage]);
+                csvData.push([
+                    item.name, 
+                    item.value.toString(), 
+                    percentage,
+                    item.count.toString(),
+                    item.average.toFixed(2),
+                    item.minAmount.toFixed(2),
+                    item.maxAmount.toFixed(2),
+                    item.dateRange
+                ]);
             });
         }
 
@@ -317,21 +445,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                                     />
                                 ))}
                             </Pie>
-                            <Tooltip 
-                                formatter={formatTooltip}
-                                contentStyle={{
-                                    backgroundColor: '#fff',
-                                    border: '1px solid #e5e7eb',
-                                    borderRadius: '8px',
-                                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-                                    fontSize: '11px',
-                                    maxWidth: '300px',
-                                    wordWrap: 'break-word',
-                                    whiteSpace: 'normal',
-                                    lineHeight: '1.5',
-                                    padding: '12px'
-                                }}
-                            />
+                            <Tooltip content={CustomTooltip} />
                         </PieChart>
                     </ResponsiveContainer>
                 </div>
@@ -355,10 +469,12 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                                                     boxShadow: `0 1px 3px rgba(0, 0, 0, 0.1)`
                                                 }}
                                             />
-                                            <span className="text-sm sm:text-base text-gray-700 truncate font-medium">{entry.name}</span>
+                                            <span className="text-sm sm:text-base text-gray-700 truncate font-medium">
+                                                {entry.name} ({entry.count}x)
+                                            </span>
                                             {isOthers && smallCategories.length > 0 && (
                                                 <span className="text-xs text-gray-500">
-                                                    ({smallCategories.length})
+                                                    ({smallCategories.length} categories)
                                                 </span>
                                             )}
                                         </div>
