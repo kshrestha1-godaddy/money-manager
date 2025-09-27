@@ -205,8 +205,8 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
                     const formattedMin = formatCurrency(item.minAmount, currency);
                     const formattedMax = formatCurrency(item.maxAmount, currency);
                     
-                    const tooltip = `<div style="padding: 12px; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.5; min-width: 280px; max-width: 350px;">
-<div style="font-weight: bold; margin-bottom: 6px; color: #333; font-size: 14px;">${item.from.replace(/ \(\d+x\)$/, '')}</div>
+                    const tooltip = `<div style="padding: 20px; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.5; min-width: 384px; max-width: 512px; min-height: 224px;">
+<div style="font-weight: bold; margin-bottom: 8px; color: #333; font-size: 15px;">${item.from.replace(/ \(\d+x\)$/, '')}</div>
 <div style="margin-bottom: 3px;"><strong>Total:</strong> ${formattedTotal} (${percentage}%)</div>
 <div style="margin-bottom: 3px;"><strong>Transactions:</strong> ${item.count}</div>
 <div style="margin-bottom: 3px;"><strong>Average:</strong> ${formattedAverage}</div>

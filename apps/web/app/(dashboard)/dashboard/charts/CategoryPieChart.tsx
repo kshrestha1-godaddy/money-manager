@@ -189,8 +189,8 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
         
         if (!categoryItem) {
             return (
-                <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-                    <div className="font-medium text-gray-900">{name}</div>
+                <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-5 min-w-96 max-w-lg min-h-32">
+                    <div className="font-bold text-gray-900 mb-2 text-base">{name}</div>
                     <div className="text-sm text-gray-600">{formatCurrency(value, currency)} [{percentage}%]</div>
                 </div>
             );
@@ -203,9 +203,9 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
         const formattedMax = formatCurrency(categoryItem.maxAmount, currency);
         
         return (
-            <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg max-w-xs">
-                <div className="font-bold text-gray-900 mb-2">{name}</div>
-                <div className="space-y-1 text-sm">
+            <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-5 min-w-96 max-w-lg min-h-56">
+                <div className="font-bold text-gray-900 mb-3 text-base">{name}</div>
+                <div className="space-y-2 text-sm">
                     <div><span className="font-medium">Total:</span> {formattedTotal} ({percentage}%)</div>
                     <div><span className="font-medium">Transactions:</span> {categoryItem.count}</div>
                     <div><span className="font-medium">Average:</span> {formattedAverage}</div>

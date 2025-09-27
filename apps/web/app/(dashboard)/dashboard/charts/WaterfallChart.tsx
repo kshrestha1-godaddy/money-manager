@@ -96,7 +96,7 @@ export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency = "USD
         if (active && payload && payload.length) {
             const data = payload[0]?.payload as WaterfallData;
             return (
-                <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-lg max-w-sm">
+                <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-5 min-w-96 max-w-lg min-h-56">
                     <div className="font-bold text-gray-900 mb-3 text-base">{label}</div>
                     
                     {/* Main Amount */}
