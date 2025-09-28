@@ -50,8 +50,8 @@ const SummaryStats = React.memo<{
     currency: string;
 }>(({ calculations, currency }) => (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-        <div className="text-center sm:text-left">
-            <div className="flex items-center justify-center sm:justify-start space-x-1">
+        <div className="text-center">
+            <div className="flex items-center justify-center space-x-1">
                 <p className="text-sm text-gray-600">Monthly Average Income</p>
                 <div className="relative group">
                     <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
@@ -65,8 +65,8 @@ const SummaryStats = React.memo<{
                 {formatCurrency(calculations.averageIncome, currency)}
             </p>
         </div>
-        <div className="text-center sm:text-left">
-            <div className="flex items-center justify-center sm:justify-start space-x-1">
+        <div className="text-center">
+            <div className="flex items-center justify-center space-x-1">
                 <p className="text-sm text-gray-600">Monthly Average Expenses</p>
                 <div className="relative group">
                     <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
@@ -80,8 +80,8 @@ const SummaryStats = React.memo<{
                 {formatCurrency(calculations.averageExpenses, currency)}
             </p>
         </div>
-        <div className="text-center sm:text-left">
-            <div className="flex items-center justify-center sm:justify-start space-x-1">
+        <div className="text-center">
+            <div className="flex items-center justify-center space-x-1">
                 <p className="text-sm text-gray-600">Monthly Average Savings</p>
                 <div className="relative group">
                     <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
