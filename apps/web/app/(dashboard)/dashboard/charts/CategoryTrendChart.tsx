@@ -83,8 +83,10 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(({
 
     return monthlyData.map(month => {
       const monthValue = type === 'income' ? month.income : month.expenses;
+      // Use the transaction count from the monthly data instead of manually filtering
+      const transactionCount = type === 'income' ? month.incomeCount : month.expenseCount;
       
-      // Get transactions for this month and category
+      // Get transactions for this month and category for min/max calculations
       const monthStart = new Date(month.date);
       const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
       
@@ -95,7 +97,6 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(({
         return categoryMatch && dateMatch;
       });
 
-      const transactionCount = monthTransactions.length;
       const amounts = monthTransactions.map(t => t.amount);
       const averageAmount = transactionCount > 0 ? monthValue / transactionCount : 0;
       const minAmount = amounts.length > 0 ? Math.min(...amounts) : 0;

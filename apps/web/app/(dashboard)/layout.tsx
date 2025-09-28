@@ -22,6 +22,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             title="Dashboard" 
                             id="dashboard-nav-item"
                         />
+                        <SidebarItem
+                            href="/worth"
+                            icon={<NetWorthIcon />}
+                            title="Net Worth"
+                        />
                         <SidebarItem 
                             href="/incomes" 
                             icon={<IncomesIcon />} 
@@ -52,11 +57,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             href="/investments" 
                             icon={<InvestmentsIcon />} 
                             title="Investments" 
-                        />
-                        <SidebarItem 
-                            href="/worth" 
-                            icon={<NetWorthIcon />} 
-                            title="Net Worth" 
                         />
                         <SidebarItem
                             href="/history"
