@@ -211,40 +211,49 @@ export async function getBudgetComparison(period: string = 'MONTHLY'): Promise<{
             existingBudgetTargets.map(target => [target.name, target])
         );
 
-        // Group transactions by category
+        // Create a set of category names that are included in budget for quick lookup
+        const includedCategoryNames = new Set(categories.map(cat => cat.name));
+
+        // Group transactions by category (only for categories included in budget)
         const transactionsByCategory = new Map<string, { 
             expenses: any[], 
             incomes: any[], 
             categoryType: 'EXPENSE' | 'INCOME' 
         }>();
 
-        // Process expenses
+        // Process expenses (only for categories included in budget)
         expenses.forEach(expense => {
             const categoryName = expense.category?.name || 'Unknown';
-            if (!transactionsByCategory.has(categoryName)) {
-                transactionsByCategory.set(categoryName, {
-                    expenses: [],
-                    incomes: [],
-                    categoryType: 'EXPENSE'
-                });
+            // Only include if category is marked as included in budget
+            if (includedCategoryNames.has(categoryName)) {
+                if (!transactionsByCategory.has(categoryName)) {
+                    transactionsByCategory.set(categoryName, {
+                        expenses: [],
+                        incomes: [],
+                        categoryType: 'EXPENSE'
+                    });
+                }
+                transactionsByCategory.get(categoryName)!.expenses.push(expense);
             }
-            transactionsByCategory.get(categoryName)!.expenses.push(expense);
         });
 
-        // Process incomes
+        // Process incomes (only for categories included in budget)
         incomes.forEach(income => {
             const categoryName = income.category?.name || 'Unknown';
-            if (!transactionsByCategory.has(categoryName)) {
-                transactionsByCategory.set(categoryName, {
-                    expenses: [],
-                    incomes: [],
-                    categoryType: 'INCOME'
-                });
+            // Only include if category is marked as included in budget
+            if (includedCategoryNames.has(categoryName)) {
+                if (!transactionsByCategory.has(categoryName)) {
+                    transactionsByCategory.set(categoryName, {
+                        expenses: [],
+                        incomes: [],
+                        categoryType: 'INCOME'
+                    });
+                }
+                transactionsByCategory.get(categoryName)!.incomes.push(income);
             }
-            transactionsByCategory.get(categoryName)!.incomes.push(income);
         });
 
-        // Add categories that don't have transactions yet
+        // Add categories that don't have transactions yet (these are already filtered by includedInBudget: true)
         categories.forEach(category => {
             if (!transactionsByCategory.has(category.name)) {
                 transactionsByCategory.set(category.name, {
