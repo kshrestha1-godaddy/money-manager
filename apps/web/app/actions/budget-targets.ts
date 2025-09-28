@@ -4,6 +4,9 @@ import prisma from "@repo/db/client";
 import { BudgetTarget } from "../types/financial";
 import { BudgetComparisonData, BudgetTargetFormData } from "../hooks/useBudgetTracking";
 import { getAuthenticatedSession, getUserIdFromSession } from "../utils/auth";
+import { convertForDisplaySync } from "../utils/currencyDisplay";
+import { ImportResult } from "../types/bulkImport";
+import { parseCSV } from "../utils/csvUtils";
 
 export async function getBudgetTargets(period?: string): Promise<{ data?: BudgetTarget[], error?: string }> {
     try {
@@ -163,6 +166,13 @@ export async function getBudgetComparison(period: string = 'MONTHLY'): Promise<{
         const session = await getAuthenticatedSession();
         const userId = getUserIdFromSession(session.user.id);
 
+        // Get user's preferred currency for display
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { currency: true }
+        });
+        const userCurrency = user?.currency || 'USD';
+
         // Get all user's categories that are included in budget (both expense and income)
         const categories = await prisma.category.findMany({
             where: {
@@ -171,13 +181,19 @@ export async function getBudgetComparison(period: string = 'MONTHLY'): Promise<{
             },
         });
 
-        // Get all expense and income data with their spending/earning data
+        // Get current month's start and end dates
+        const now = new Date();
+        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+        // Get all expense and income data for the current month only
         const [expenses, incomes] = await Promise.all([
             prisma.expense.findMany({
                 where: {
                     userId: userId,
                     date: {
-                        gte: new Date(new Date().getFullYear(), new Date().getMonth() - 11, 1), // Last 12 months
+                        gte: currentMonthStart,
+                        lte: currentMonthEnd,
                     },
                 },
                 include: {
@@ -188,7 +204,8 @@ export async function getBudgetComparison(period: string = 'MONTHLY'): Promise<{
                 where: {
                     userId: userId,
                     date: {
-                        gte: new Date(new Date().getFullYear(), new Date().getMonth() - 11, 1), // Last 12 months
+                        gte: currentMonthStart,
+                        lte: currentMonthEnd,
                     },
                 },
                 include: {
@@ -271,13 +288,16 @@ export async function getBudgetComparison(period: string = 'MONTHLY'): Promise<{
             const isExpenseCategory = categoryData.categoryType === 'EXPENSE';
             const relevantTransactions = isExpenseCategory ? categoryData.expenses : categoryData.incomes;
             
-            // Calculate actual spending/earning statistics
-            const totalAmount = relevantTransactions.reduce((sum, transaction) => 
-                sum + parseFloat(transaction.amount.toString()), 0
-            );
+            // Calculate actual spending/earning for current month (with currency conversion)
+            const totalAmount = relevantTransactions.reduce((sum, transaction) => {
+                const amount = parseFloat(transaction.amount.toString());
+                const transactionCurrency = transaction.currency || 'USD';
+                const convertedAmount = convertForDisplaySync(amount, transactionCurrency, userCurrency);
+                return sum + convertedAmount;
+            }, 0);
             const transactionCount = relevantTransactions.length;
-            const monthsSpan = 12; // Using 12 months for calculation
-            const monthlyAverage = totalAmount / monthsSpan;
+            // Use actual current month total instead of average
+            const currentMonthActual = totalAmount;
 
             // Get or create budget target
             let budgetTarget = budgetTargetsMap.get(categoryName);
@@ -294,13 +314,13 @@ export async function getBudgetComparison(period: string = 'MONTHLY'): Promise<{
             }
             
             // Calculate variance
-            const variance = monthlyAverage - monthlySpend;
+            const variance = currentMonthActual - monthlySpend;
             const variancePercentage = monthlySpend > 0 ? (variance / monthlySpend) * 100 : 
-                                     (monthlyAverage > 0 ? 100 : 0);
+                                     (currentMonthActual > 0 ? 100 : 0);
             
             let status: 'over' | 'under' | 'on-track' = 'on-track';
             if (monthlySpend === 0) {
-                status = monthlyAverage > 0 ? 'over' : 'on-track';
+                status = currentMonthActual > 0 ? 'over' : 'on-track';
             } else if (Math.abs(variancePercentage) > 10) {
                 status = variance > 0 ? 'over' : 'under';
             }
@@ -309,7 +329,7 @@ export async function getBudgetComparison(period: string = 'MONTHLY'): Promise<{
                 categoryName,
                 categoryType: categoryData.categoryType,
                 actualSpending: {
-                    monthlyAverage,
+                    monthlyAverage: currentMonthActual, // Now represents current month actual, not average
                     totalAmount,
                     transactionCount,
                 },
@@ -435,5 +455,417 @@ export async function getAllCategoriesWithBudgetStatus(): Promise<{ data?: any[]
     } catch (error) {
         console.error("Error fetching categories with budget status:", error);
         return { error: "Failed to fetch categories" };
+    }
+}
+
+export async function getAllBudgetTargetsForExport(): Promise<{ data?: (BudgetTarget & { categoryType?: string })[], error?: string }> {
+    try {
+        const session = await getAuthenticatedSession();
+        const userId = getUserIdFromSession(session.user.id);
+
+        const budgetTargets = await prisma.budgetTarget.findMany({
+            where: {
+                userId: userId,
+            },
+            orderBy: [
+                { isActive: 'desc' }, // Active targets first
+                { createdAt: 'desc' }, // Then by creation date
+            ],
+        });
+
+        // Get all categories to map category names to their types
+        const categories = await prisma.category.findMany({
+            where: {
+                userId: userId,
+            },
+            select: {
+                name: true,
+                type: true,
+            },
+        });
+
+        // Create a map of category name to type
+        const categoryTypeMap = new Map(
+            categories.map(cat => [cat.name, cat.type])
+        );
+
+        const formattedTargets: (BudgetTarget & { categoryType?: string })[] = budgetTargets.map(target => ({
+            id: target.id,
+            name: target.name,
+            targetAmount: parseFloat(target.targetAmount.toString()),
+            currentAmount: parseFloat(target.currentAmount.toString()),
+            period: target.period as 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY',
+            startDate: target.startDate,
+            endDate: target.endDate,
+            userId: target.userId,
+            isActive: target.isActive,
+            createdAt: target.createdAt,
+            updatedAt: target.updatedAt,
+            categoryType: categoryTypeMap.get(target.name) || 'UNKNOWN',
+        }));
+
+        return { data: formattedTargets };
+    } catch (error) {
+        console.error("Error fetching budget targets for export:", error);
+        return { error: "Failed to fetch budget targets for export" };
+    }
+}
+
+interface ParsedBudgetTargetData {
+    name: string;
+    categoryType: 'INCOME' | 'EXPENSE';
+    targetAmount: number;
+    period: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
+    startDate: Date;
+    endDate: Date;
+}
+
+async function validateAndTransformBudgetTargetRow(
+    row: string[],
+    headers: string[],
+    userId: number
+): Promise<ParsedBudgetTargetData> {
+    const getColumnValue = (columnName: string): string => {
+        const normalizedHeaders = headers.map(h => h.toLowerCase().replace(/\s+/g, ''));
+        const normalizedColumnName = columnName.toLowerCase().replace(/\s+/g, '');
+        const index = normalizedHeaders.indexOf(normalizedColumnName);
+        return index >= 0 ? (row[index] || '').toString().trim() : '';
+    };
+
+    const name = getColumnValue('categoryname') || getColumnValue('category');
+    const categoryType = getColumnValue('categorytype') || getColumnValue('type');
+    const targetAmountStr = getColumnValue('targetamount') || getColumnValue('amount');
+    const period = getColumnValue('period');
+    const startDateStr = getColumnValue('startdate');
+    const endDateStr = getColumnValue('enddate');
+
+    // Validate required fields
+    if (!name) throw new Error('Category name is required');
+    if (!categoryType) throw new Error('Category type is required');
+    if (!targetAmountStr) throw new Error('Target amount is required');
+    if (!period) throw new Error('Period is required');
+
+    // Validate category type
+    if (!['INCOME', 'EXPENSE'].includes(categoryType.toUpperCase())) {
+        throw new Error('Category type must be INCOME or EXPENSE');
+    }
+
+    // Validate and parse target amount
+    const targetAmount = parseFloat(targetAmountStr);
+    if (isNaN(targetAmount) || targetAmount <= 0) {
+        throw new Error('Target amount must be a positive number');
+    }
+
+    // Validate period
+    const validPeriods = ['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY'];
+    if (!validPeriods.includes(period.toUpperCase())) {
+        throw new Error('Period must be WEEKLY, MONTHLY, QUARTERLY, or YEARLY');
+    }
+
+    // Parse dates
+    let startDate: Date;
+    let endDate: Date;
+
+    if (startDateStr && endDateStr) {
+        startDate = new Date(startDateStr);
+        endDate = new Date(endDateStr);
+        
+        if (isNaN(startDate.getTime())) throw new Error('Invalid start date format');
+        if (isNaN(endDate.getTime())) throw new Error('Invalid end date format');
+        if (startDate >= endDate) throw new Error('Start date must be before end date');
+    } else {
+        // Default to current month if dates not provided
+        const now = new Date();
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    }
+
+    return {
+        name: name.trim(),
+        categoryType: categoryType.toUpperCase() as 'INCOME' | 'EXPENSE',
+        targetAmount,
+        period: period.toUpperCase() as 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY',
+        startDate,
+        endDate
+    };
+}
+
+export async function bulkImportBudgetTargets(csvText: string): Promise<ImportResult> {
+    try {
+        const session = await getAuthenticatedSession();
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Parse CSV
+        const rows = parseCSV(csvText);
+        if (rows.length === 0) {
+            throw new Error("CSV file is empty");
+        }
+
+        const headers = rows[0]?.map((h: string) => h?.toLowerCase().replace(/\s+/g, '') || '') || [];
+        const dataRows = rows.slice(1);
+
+        const result: ImportResult = {
+            success: false,
+            importedCount: 0,
+            errors: [],
+            skippedCount: 0
+        };
+
+        // Get existing categories to create missing ones
+        const existingCategories = await prisma.category.findMany({
+            where: { userId: userId },
+            select: { name: true, type: true }
+        });
+
+        const categoryMap = new Map(
+            existingCategories.map(cat => [`${cat.name}-${cat.type}`, cat])
+        );
+
+        // Track categories that will be imported
+        const importedCategoryNames = new Set<string>();
+
+        // Pre-validate all rows and collect category information
+        const validatedRows: Array<{
+            data: ParsedBudgetTargetData;
+            rowIndex: number;
+            originalRow: string[];
+        }> = [];
+
+        for (let i = 0; i < dataRows.length; i++) {
+            const rowIndex = i + 2;
+            const row = dataRows[i];
+
+            if (!row) continue;
+
+            try {
+                // Skip empty rows
+                if (row.every((cell: string) => !cell || (typeof cell === 'string' && !cell.trim()))) {
+                    result.skippedCount++;
+                    continue;
+                }
+
+                // Validate and transform row
+                const budgetTargetData = await validateAndTransformBudgetTargetRow(row, headers, userId);
+                
+                validatedRows.push({
+                    data: budgetTargetData,
+                    rowIndex,
+                    originalRow: row
+                });
+
+                // Track category for creation if needed
+                importedCategoryNames.add(budgetTargetData.name);
+
+            } catch (error) {
+                result.errors.push({
+                    row: rowIndex,
+                    error: error instanceof Error ? error.message : 'Unknown error',
+                    data: row
+                });
+            }
+        }
+
+        // Create missing categories first
+        const categoriesToCreate: Array<{ name: string; type: 'INCOME' | 'EXPENSE' }> = [];
+        
+        for (const validatedRow of validatedRows) {
+            const categoryKey = `${validatedRow.data.name}-${validatedRow.data.categoryType}`;
+            if (!categoryMap.has(categoryKey)) {
+                categoriesToCreate.push({
+                    name: validatedRow.data.name,
+                    type: validatedRow.data.categoryType
+                });
+            }
+        }
+
+        // Remove duplicates
+        const uniqueCategoriesToCreate = categoriesToCreate.filter((cat, index, self) => 
+            index === self.findIndex(c => c.name === cat.name && c.type === cat.type)
+        );
+
+        // Create missing categories
+        if (uniqueCategoriesToCreate.length > 0) {
+            await prisma.category.createMany({
+                data: uniqueCategoriesToCreate.map(cat => ({
+                    name: cat.name,
+                    type: cat.type,
+                    userId: userId,
+                    includedInBudget: true // Include in budget by default
+                })),
+                skipDuplicates: true
+            });
+        }
+
+        // Hide categories that are not in the import file
+        await prisma.category.updateMany({
+            where: {
+                userId: userId,
+                name: {
+                    notIn: Array.from(importedCategoryNames)
+                }
+            },
+            data: {
+                includedInBudget: false
+            }
+        });
+
+        // Process budget targets in batches
+        const BATCH_SIZE = 10;
+        const batches: typeof validatedRows[] = [];
+        
+        for (let i = 0; i < validatedRows.length; i += BATCH_SIZE) {
+            batches.push(validatedRows.slice(i, i + BATCH_SIZE));
+        }
+
+        // Process each batch
+        for (const batch of batches) {
+            try {
+                await prisma.$transaction(async (tx) => {
+                    for (const validatedRow of batch) {
+                        // Delete existing budget target for this category if it exists
+                        await tx.budgetTarget.deleteMany({
+                            where: {
+                                userId: userId,
+                                name: validatedRow.data.name
+                            }
+                        });
+
+                        // Create new budget target
+                        await tx.budgetTarget.create({
+                            data: {
+                                name: validatedRow.data.name,
+                                targetAmount: validatedRow.data.targetAmount,
+                                currentAmount: 0,
+                                period: validatedRow.data.period,
+                                startDate: validatedRow.data.startDate,
+                                endDate: validatedRow.data.endDate,
+                                userId: userId,
+                                isActive: true
+                            }
+                        });
+
+                        result.importedCount++;
+                    }
+                }, {
+                    timeout: 30000
+                });
+            } catch (error) {
+                // If a batch fails, add errors for all rows in that batch
+                batch.forEach(validatedRow => {
+                    result.errors.push({
+                        row: validatedRow.rowIndex,
+                        error: error instanceof Error ? error.message : 'Unknown error during batch import',
+                        data: validatedRow.originalRow
+                    });
+                });
+            }
+        }
+
+        result.success = result.importedCount > 0;
+        return result;
+
+    } catch (error) {
+        throw new Error(error instanceof Error ? error.message : "Failed to import budget targets");
+    }
+}
+
+export async function parseCSVForUI(csvText: string): Promise<string[][]> {
+    try {
+        return parseCSV(csvText);
+    } catch (error) {
+        throw new Error(error instanceof Error ? error.message : "Failed to parse CSV");
+    }
+}
+
+export async function importCorrectedBudgetTargetRow(rowData: string[], headers: string[]): Promise<any> {
+    try {
+        const session = await getAuthenticatedSession();
+        const userId = getUserIdFromSession(session.user.id);
+
+        const budgetTargetData = await validateAndTransformBudgetTargetRow(rowData, headers, userId);
+
+        // Create or update category
+        const existingCategory = await prisma.category.findFirst({
+            where: {
+                userId: userId,
+                name: budgetTargetData.name,
+                type: budgetTargetData.categoryType
+            }
+        });
+
+        if (existingCategory) {
+            await prisma.category.update({
+                where: { id: existingCategory.id },
+                data: { includedInBudget: true }
+            });
+        } else {
+            await prisma.category.create({
+                data: {
+                    name: budgetTargetData.name,
+                    type: budgetTargetData.categoryType,
+                    userId: userId,
+                    includedInBudget: true
+                }
+            });
+        }
+
+        // Delete existing budget target for this category if it exists
+        await prisma.budgetTarget.deleteMany({
+            where: {
+                userId: userId,
+                name: budgetTargetData.name
+            }
+        });
+
+        // Create new budget target
+        const budgetTarget = await prisma.budgetTarget.create({
+            data: {
+                name: budgetTargetData.name,
+                targetAmount: budgetTargetData.targetAmount,
+                currentAmount: 0,
+                period: budgetTargetData.period,
+                startDate: budgetTargetData.startDate,
+                endDate: budgetTargetData.endDate,
+                userId: userId,
+                isActive: true
+            }
+        });
+
+        return budgetTarget;
+    } catch (error) {
+        throw new Error(error instanceof Error ? error.message : "Failed to import corrected budget target row");
+    }
+}
+
+export async function bulkDeleteAllBudgetTargets(): Promise<{ success?: boolean, deletedCount?: number, error?: string }> {
+    try {
+        const session = await getAuthenticatedSession();
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Get count of budget targets before deletion for confirmation
+        const count = await prisma.budgetTarget.count({
+            where: {
+                userId: userId
+            }
+        });
+
+        if (count === 0) {
+            return { success: true, deletedCount: 0 };
+        }
+
+        // Delete all budget targets for the user
+        const deleteResult = await prisma.budgetTarget.deleteMany({
+            where: {
+                userId: userId
+            }
+        });
+
+        return { 
+            success: true, 
+            deletedCount: deleteResult.count 
+        };
+    } catch (error) {
+        console.error("Error bulk deleting budget targets:", error);
+        return { error: "Failed to delete budget targets" };
     }
 }

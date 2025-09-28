@@ -4,9 +4,14 @@ import React, { useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency } from "../../utils/currency";
-import { TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle, Plus, Edit, Trash2, Check, X, ChevronUp, ChevronDown, EyeOff, Eye, Settings } from "lucide-react";
+import { TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle, Plus, Edit, Trash2, Check, X, ChevronUp, ChevronDown, EyeOff, Eye, Settings, Download, Upload, Trash } from "lucide-react";
 import { useBudgetTracking, useAllCategories } from "../../hooks/useBudgetTracking";
 import { BudgetTarget } from "../../types/financial";
+import { getAllBudgetTargetsForExport, bulkDeleteAllBudgetTargets } from "../../actions/budget-targets";
+import { exportBudgetTargetsToCSV } from "../../utils/csvExportBudgetTargets";
+import { UnifiedBulkImportModal } from "../../components/shared/UnifiedBulkImportModal";
+import { budgetTargetsImportConfig } from "../../config/bulkImportConfig";
+import { BUTTON_COLORS, UI_STYLES } from "../../config/colorConfig";
 
 type SortField = 'category' | 'actual' | 'budget' | 'variance';
 type SortDirection = 'asc' | 'desc';
@@ -47,6 +52,9 @@ export default function BudgetPage() {
   
   // Category management state
   const [showManageCategories, setShowManageCategories] = useState(false);
+  
+  // Import modal state
+  const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
   
   const {
     budgetComparison,
@@ -229,6 +237,72 @@ export default function BudgetPage() {
     }
   };
 
+  const handleExportBudgetTargets = async () => {
+    try {
+      const response = await getAllBudgetTargetsForExport();
+      if (response.error) {
+        alert(`Export failed: ${response.error}`);
+        return;
+      }
+      
+      if (!response.data || response.data.length === 0) {
+        alert('No budget targets to export');
+        return;
+      }
+
+      exportBudgetTargetsToCSV(response.data);
+    } catch (error) {
+      console.error('Error exporting budget targets:', error);
+      alert('Failed to export budget targets. Please try again.');
+    }
+  };
+
+  const handleBulkImportSuccess = () => {
+    setIsBulkImportModalOpen(false);
+    // Refresh the budget data
+    window.location.reload();
+  };
+
+  const handleBulkDeleteAllBudgetTargets = async () => {
+    const confirmMessage = `Are you sure you want to delete ALL budget targets? This action cannot be undone.
+
+This will:
+• Delete all your budget targets
+• Keep your categories but they will be hidden from budget tracking
+
+Type "DELETE ALL" to confirm:`;
+
+    const userInput = prompt(confirmMessage);
+    
+    if (userInput !== "DELETE ALL") {
+      if (userInput !== null) {
+        alert('Bulk delete cancelled. You must type "DELETE ALL" exactly to confirm.');
+      }
+      return;
+    }
+
+    try {
+      const response = await bulkDeleteAllBudgetTargets();
+      
+      if (response.error) {
+        alert(`Delete failed: ${response.error}`);
+        return;
+      }
+
+      if (response.deletedCount === 0) {
+        alert('No budget targets found to delete.');
+        return;
+      }
+
+      alert(`Successfully deleted ${response.deletedCount} budget target(s).`);
+      // Refresh the budget data
+      window.location.reload();
+    } catch (error) {
+      console.error('Error bulk deleting budget targets:', error);
+      alert('Failed to delete budget targets. Please try again.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -249,14 +323,14 @@ export default function BudgetPage() {
   }
 
   return (
-    <div className="p-6 w-full min-w-0">
+    <div className={`${UI_STYLES.page.container} p-6 w-full min-w-0`}>
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className={UI_STYLES.header.container}>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Budget Tracking</h1>
-          <p className="text-gray-600 mt-2">Compare your actual spending against budget targets</p>
+          <h1 className={UI_STYLES.page.title}>Budget Tracking</h1>
+          <p className={`${UI_STYLES.page.subtitle} mt-2`}>Compare your actual spending against budget targets</p>
         </div>
-        <div className="flex gap-4">
+        <div className={UI_STYLES.header.buttonGroup}>
           <select
             value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(e.target.value as 'MONTHLY' | 'QUARTERLY' | 'YEARLY')}
@@ -267,8 +341,30 @@ export default function BudgetPage() {
             <option value="YEARLY">Yearly</option>
           </select>
           <button
+            onClick={handleExportBudgetTargets}
+            className={`${BUTTON_COLORS.secondaryGreen} flex items-center gap-2`}
+          >
+            <Download className="w-4 h-4" />
+            Export CSV
+          </button>
+          <button
+            onClick={() => setIsBulkImportModalOpen(true)}
+            className={`${BUTTON_COLORS.secondaryBlue} flex items-center gap-2`}
+          >
+            <Upload className="w-4 h-4" />
+            Import CSV
+          </button>
+          <button
+            onClick={handleBulkDeleteAllBudgetTargets}
+            className={`${BUTTON_COLORS.secondary} flex items-center gap-2 disabled:opacity-50`}
+            disabled={budgetComparison.length === 0}
+          >
+            <Trash className="w-4 h-4" />
+            Delete All
+          </button>
+          <button
             onClick={() => setShowManageCategories(!showManageCategories)}
-            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2"
+            className={`${BUTTON_COLORS.secondary} flex items-center gap-2`}
           >
             <Settings className="w-4 h-4" />
             Manage Categories
@@ -758,6 +854,14 @@ export default function BudgetPage() {
           </div>
         </div>
       )}
+
+      {/* Bulk Import Modal */}
+      <UnifiedBulkImportModal
+        isOpen={isBulkImportModalOpen}
+        onClose={() => setIsBulkImportModalOpen(false)}
+        onSuccess={handleBulkImportSuccess}
+        config={budgetTargetsImportConfig}
+      />
     </div>
   );
 }

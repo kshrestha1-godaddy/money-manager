@@ -30,6 +30,13 @@ import {
 } from '../(dashboard)/investments/actions/investment-targets';
 import { downloadInvestmentTargetsImportTemplate } from '../utils/csvImportInvestmentTargets';
 import { useOptimizedAccounts } from '../hooks/useOptimizedAccounts';
+import { 
+    bulkImportBudgetTargets,
+    parseCSVForUI as parseBudgetTargetsCSV,
+    importCorrectedBudgetTargetRow
+} from '../actions/budget-targets';
+import { downloadBudgetTargetsImportTemplate } from '../utils/csvImportBudgetTargets';
+import { useBudgetTargetsFormData } from '../hooks/useBudgetTargetsFormData';
 
 // Income bulk import configuration
 export const incomeImportConfig: BulkImportConfig = {
@@ -117,6 +124,34 @@ export const investmentImportConfig: BulkImportConfig = {
         
         return {
             accounts: result.accounts || [],
+            loading: result.loading || false,
+            error: result.error || null
+        };
+    }
+};
+
+// Budget targets bulk import configuration
+export const budgetTargetsImportConfig: BulkImportConfig = {
+    type: 'EXPENSE', // Using EXPENSE as the base type since budget targets can be for both
+    title: 'Bulk Import Budget Targets',
+    description: 'Import budget targets from CSV file. Categories will be created automatically if they don\'t exist. Categories not in the import file will be hidden from budget tracking.',
+    requiredFields: ['Category Name', 'Category Type', 'Target Amount', 'Period'],
+    optionalFields: ['Start Date', 'End Date'],
+    supportsCategoriesImport: false,
+    supportsTargetsImport: false,
+    bulkImportFunction: async (file: File) => {
+        const fileText = await file.text();
+        return await bulkImportBudgetTargets(fileText);
+    },
+    parseCSVFunction: parseBudgetTargetsCSV,
+    importCorrectedRowFunction: importCorrectedBudgetTargetRow,
+    targetsTemplateDownload: downloadBudgetTargetsImportTemplate,
+    formDataHook: () => {
+        const result = useBudgetTargetsFormData();
+        
+        return {
+            accounts: [], // Budget targets don't need accounts
+            categories: result.categories || [],
             loading: result.loading || false,
             error: result.error || null
         };
