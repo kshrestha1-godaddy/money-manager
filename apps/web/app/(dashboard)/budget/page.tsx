@@ -843,7 +843,7 @@ export default function BudgetPage() {
                           </button>
                         </div>
                       ) : (
-                        <div className="text-gray-900">
+                        <div className="text-blue-600 font-semibold">
                           {formatCurrency(item.budgetTarget.monthlySpend, currency)}
                         </div>
                       )}
@@ -906,7 +906,7 @@ export default function BudgetPage() {
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-600">Budget Target</div>
-                  <div className="text-lg font-bold text-gray-900">{formatCurrency(incomeTotals.totalBudget, currency)}</div>
+                  <div className="text-lg font-bold text-blue-600">{formatCurrency(incomeTotals.totalBudget, currency)}</div>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-600">Total Variance</div>
@@ -1022,7 +1022,7 @@ export default function BudgetPage() {
                           </button>
                         </div>
                       ) : (
-                        <div className="text-gray-900">
+                        <div className="text-blue-600 font-semibold">
                           {formatCurrency(item.budgetTarget.monthlySpend, currency)}
                         </div>
                       )}
@@ -1085,7 +1085,7 @@ export default function BudgetPage() {
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-600">Budget Target</div>
-                  <div className="text-lg font-bold text-gray-900">{formatCurrency(expenseTotals.totalBudget, currency)}</div>
+                  <div className="text-lg font-bold text-blue-600">{formatCurrency(expenseTotals.totalBudget, currency)}</div>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-600">Total Variance</div>
