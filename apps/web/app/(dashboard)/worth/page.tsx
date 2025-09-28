@@ -248,30 +248,7 @@ export default function NetWorthPage() {
                     </div>
                 </div>
 
-                {/* Description */}
-                <div className="border-t border-gray-200 pt-3 mb-3">
-                    <div className="text-xs text-gray-600 leading-relaxed">
-                        <div className="font-medium text-gray-700 mb-1">About this asset class:</div>
-                        {assetInfo.description}
-                    </div>
-                </div>
 
-                {/* Insights and Recommendations */}
-                <div className="border-t border-gray-200 pt-3">
-                    <div className="text-xs leading-relaxed">
-                        <div className="font-medium text-gray-700 mb-1">💡 Financial Insight:</div>
-                        <div className="text-gray-600">{assetInfo.insights}</div>
-                    </div>
-                </div>
-
-                {/* Action Context */}
-                {percentage > 60 && (
-                    <div className="border-t border-gray-200 pt-2 mt-2">
-                        <div className="text-xs text-orange-600 text-center">
-                            ⚠️ High concentration - Consider diversification across asset classes
-                        </div>
-                    </div>
-                )}
                 
                 {percentage < 5 && label.toLowerCase() !== 'money lent' && (
                     <div className="border-t border-gray-200 pt-2 mt-2">
