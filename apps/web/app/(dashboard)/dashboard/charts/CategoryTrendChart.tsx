@@ -129,6 +129,15 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(({
     return { maxValue, totalValue };
   }, [chartData]);
 
+  // Calculate total transactions for display - use the same method as pie chart
+  const totalTransactions = useMemo(() => {
+    if (!selectedCategory) return 0;
+    
+    // Count transactions directly from filtered data like the pie chart does
+    const transactions = type === 'income' ? filteredIncomes : filteredExpenses;
+    return transactions.filter(transaction => transaction.category?.name === selectedCategory).length;
+  }, [selectedCategory, type, filteredIncomes, filteredExpenses]);
+
   // Enhanced custom tooltip with detailed statistics
   const CustomTooltip = useCallback(({ active, payload, label }: {
     active?: boolean;
@@ -140,7 +149,7 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(({
     const data = payload[0]?.payload;
     if (!data) return null;
 
-    const totalTransactions = chartData.reduce((sum, item) => sum + item.transactionCount, 0);
+    // Use the corrected totalTransactions from outer scope instead of recalculating
 
     return (
       <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-lg min-w-96 max-w-lg">
@@ -216,7 +225,7 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(({
         </div>
       </div>
     );
-  }, [currency, selectedCategory, type, chartData, totalValue]);
+  }, [currency, selectedCategory, type, chartData, totalValue, totalTransactions]);
 
   // Format Y axis ticks
   const formatYAxisTick = useCallback((value: number) => {
@@ -257,8 +266,6 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(({
   // Chart titles and text
   const timePeriodText = formatTimePeriod();
   const defaultTitle = type === 'income' ? 'Income Category Trends' : 'Expense Category Trends';
-  // Calculate total transactions for display
-  const totalTransactions = chartData.reduce((sum, item) => sum + item.transactionCount, 0);
   
   const chartTitle = totalTransactions > 0 
     ? `${title || defaultTitle} ${timePeriodText} • ${totalTransactions} transaction${totalTransactions !== 1 ? 's' : ''}`
