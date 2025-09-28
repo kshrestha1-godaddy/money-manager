@@ -5,16 +5,28 @@ import { useSession } from "next-auth/react";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency } from "../../utils/currency";
 import { TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle, Plus, Edit, Trash2, Check, X, ChevronUp, ChevronDown, EyeOff, Eye, Settings, Download, Upload, Trash } from "lucide-react";
+import { LOADING_COLORS, UI_STYLES, getSummaryCardClasses, BUTTON_COLORS } from "../../config/colorConfig";
 import { useBudgetTracking, useAllCategories } from "../../hooks/useBudgetTracking";
 import { BudgetTarget } from "../../types/financial";
 import { getAllBudgetTargetsForExport, bulkDeleteAllBudgetTargets } from "../../actions/budget-targets";
 import { exportBudgetTargetsToCSV } from "../../utils/csvExportBudgetTargets";
 import { UnifiedBulkImportModal } from "../../components/shared/UnifiedBulkImportModal";
 import { budgetTargetsImportConfig } from "../../config/bulkImportConfig";
-import { BUTTON_COLORS, UI_STYLES } from "../../config/colorConfig";
+import { BulkDeleteBudgetTargetsModal } from "./components/BulkDeleteBudgetTargetsModal";
+import { BudgetActionSuccessModal } from "./components/BudgetActionSuccessModal";
 
 type SortField = 'category' | 'actual' | 'budget' | 'variance';
 type SortDirection = 'asc' | 'desc';
+
+const loadingContainer = LOADING_COLORS.container;
+const loadingSpinner = LOADING_COLORS.spinner;
+const loadingText = LOADING_COLORS.text;
+
+// UI Style constants
+const cardLargeContainer = UI_STYLES.summaryCard.containerLarge;
+const cardTitle = UI_STYLES.summaryCard.title;
+const cardValue = UI_STYLES.summaryCard.value;
+const cardSubtitle = UI_STYLES.summaryCard.subtitle;
 
 interface BudgetComparisonData {
   categoryName: string;
@@ -56,6 +68,25 @@ export default function BudgetPage() {
   // Import modal state
   const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
   
+  // Delete modal states
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  
+  // Success/Error modal states
+  const [successModal, setSuccessModal] = useState<{
+    isOpen: boolean;
+    type: 'success' | 'error' | 'info';
+    title: string;
+    message: string;
+    details?: string[];
+  }>({
+    isOpen: false,
+    type: 'success',
+    title: '',
+    message: '',
+    details: []
+  });
+  
   const {
     budgetComparison,
     budgetTargets,
@@ -71,32 +102,56 @@ export default function BudgetPage() {
 
   const { allCategories, loading: categoriesLoading } = useAllCategories();
 
-  // Calculate summary statistics
+  // Calculate enhanced summary statistics
   const summaryStats = useMemo(() => {
     if (!budgetComparison.length) return {
       totalBudget: 0,
       totalActual: 0,
       totalVariance: 0,
+      totalVariancePercentage: 0,
       overBudgetCount: 0,
       underBudgetCount: 0,
-      onTrackCount: 0
+      onTrackCount: 0,
+      budgetUtilization: 0,
+      avgVariancePercentage: 0,
+      totalCategories: 0,
+      incomeCategories: 0,
+      expenseCategories: 0,
+      totalTransactions: 0
     };
 
     const totalBudget = budgetComparison.reduce((sum, item) => sum + item.budgetTarget.monthlySpend, 0);
     const totalActual = budgetComparison.reduce((sum, item) => sum + item.actualSpending.monthlyAverage, 0);
     const totalVariance = totalActual - totalBudget;
+    const totalVariancePercentage = totalBudget > 0 ? ((totalVariance / totalBudget) * 100) : 0;
     
     const overBudgetCount = budgetComparison.filter(item => item.variance.status === 'over').length;
     const underBudgetCount = budgetComparison.filter(item => item.variance.status === 'under').length;
     const onTrackCount = budgetComparison.filter(item => item.variance.status === 'on-track').length;
+    
+    const budgetUtilization = totalBudget > 0 ? ((totalActual / totalBudget) * 100) : 0;
+    const avgVariancePercentage = budgetComparison.length > 0 
+      ? budgetComparison.reduce((sum, item) => sum + Math.abs(item.variance.percentage), 0) / budgetComparison.length 
+      : 0;
+    
+    const incomeCategories = budgetComparison.filter(item => item.categoryType === 'INCOME').length;
+    const expenseCategories = budgetComparison.filter(item => item.categoryType === 'EXPENSE').length;
+    const totalTransactions = budgetComparison.reduce((sum, item) => sum + item.actualSpending.transactionCount, 0);
 
     return {
       totalBudget,
       totalActual,
       totalVariance,
+      totalVariancePercentage,
       overBudgetCount,
       underBudgetCount,
-      onTrackCount
+      onTrackCount,
+      budgetUtilization,
+      avgVariancePercentage,
+      totalCategories: budgetComparison.length,
+      incomeCategories,
+      expenseCategories,
+      totalTransactions
     };
   }, [budgetComparison]);
 
@@ -209,6 +264,39 @@ export default function BudgetPage() {
     return sortData(expenseData, expenseSortField, expenseSortDirection);
   }, [budgetComparison, expenseSortField, expenseSortDirection]);
 
+  // Calculate totals for income and expense tables
+  const incomeTotals = useMemo(() => {
+    if (sortedIncomeData.length === 0) return {
+      totalActual: 0,
+      totalBudget: 0,
+      totalVariance: 0,
+      totalTransactions: 0
+    };
+
+    const totalActual = sortedIncomeData.reduce((sum, item) => sum + item.actualSpending.monthlyAverage, 0);
+    const totalBudget = sortedIncomeData.reduce((sum, item) => sum + item.budgetTarget.monthlySpend, 0);
+    const totalVariance = totalActual - totalBudget;
+    const totalTransactions = sortedIncomeData.reduce((sum, item) => sum + item.actualSpending.transactionCount, 0);
+
+    return { totalActual, totalBudget, totalVariance, totalTransactions };
+  }, [sortedIncomeData]);
+
+  const expenseTotals = useMemo(() => {
+    if (sortedExpenseData.length === 0) return {
+      totalActual: 0,
+      totalBudget: 0,
+      totalVariance: 0,
+      totalTransactions: 0
+    };
+
+    const totalActual = sortedExpenseData.reduce((sum, item) => sum + item.actualSpending.monthlyAverage, 0);
+    const totalBudget = sortedExpenseData.reduce((sum, item) => sum + item.budgetTarget.monthlySpend, 0);
+    const totalVariance = totalActual - totalBudget;
+    const totalTransactions = sortedExpenseData.reduce((sum, item) => sum + item.actualSpending.transactionCount, 0);
+
+    return { totalActual, totalBudget, totalVariance, totalTransactions };
+  }, [sortedExpenseData]);
+
   // Inline editing handlers
   const handleStartEdit = (categoryName: string, currentAmount: number) => {
     setEditingCategory(categoryName);
@@ -241,19 +329,44 @@ export default function BudgetPage() {
     try {
       const response = await getAllBudgetTargetsForExport();
       if (response.error) {
-        alert(`Export failed: ${response.error}`);
+        setSuccessModal({
+          isOpen: true,
+          type: 'error',
+          title: 'Export Failed',
+          message: response.error,
+          details: []
+        });
         return;
       }
       
       if (!response.data || response.data.length === 0) {
-        alert('No budget targets to export');
+        setSuccessModal({
+          isOpen: true,
+          type: 'info',
+          title: 'No Data to Export',
+          message: 'No budget targets found to export.',
+          details: []
+        });
         return;
       }
 
       exportBudgetTargetsToCSV(response.data);
+      setSuccessModal({
+        isOpen: true,
+        type: 'success',
+        title: 'Export Successful',
+        message: `Successfully exported ${response.data.length} budget targets to CSV.`,
+        details: []
+      });
     } catch (error) {
       console.error('Error exporting budget targets:', error);
-      alert('Failed to export budget targets. Please try again.');
+      setSuccessModal({
+        isOpen: true,
+        type: 'error',
+        title: 'Export Failed',
+        message: 'Failed to export budget targets. Please try again.',
+        details: []
+      });
     }
   };
 
@@ -263,50 +376,78 @@ export default function BudgetPage() {
     window.location.reload();
   };
 
-  const handleBulkDeleteAllBudgetTargets = async () => {
-    const confirmMessage = `Are you sure you want to delete ALL budget targets? This action cannot be undone.
+  const handleBulkDeleteAllBudgetTargets = () => {
+    setIsBulkDeleteModalOpen(true);
+  };
 
-This will:
-• Delete all your budget targets
-• Keep your categories but they will be hidden from budget tracking
-
-Type "DELETE ALL" to confirm:`;
-
-    const userInput = prompt(confirmMessage);
-    
-    if (userInput !== "DELETE ALL") {
-      if (userInput !== null) {
-        alert('Bulk delete cancelled. You must type "DELETE ALL" exactly to confirm.');
-      }
-      return;
-    }
-
+  const confirmBulkDelete = async () => {
+    setIsBulkDeleting(true);
     try {
       const response = await bulkDeleteAllBudgetTargets();
       
       if (response.error) {
-        alert(`Delete failed: ${response.error}`);
+        setSuccessModal({
+          isOpen: true,
+          type: 'error',
+          title: 'Delete Failed',
+          message: response.error,
+          details: []
+        });
+        setIsBulkDeleteModalOpen(false);
+        setIsBulkDeleting(false);
         return;
       }
 
       if (response.deletedCount === 0) {
-        alert('No budget targets found to delete.');
+        setSuccessModal({
+          isOpen: true,
+          type: 'info',
+          title: 'No Data to Delete',
+          message: 'No budget targets found to delete.',
+          details: []
+        });
+        setIsBulkDeleteModalOpen(false);
+        setIsBulkDeleting(false);
         return;
       }
 
-      alert(`Successfully deleted ${response.deletedCount} budget target(s).`);
-      // Refresh the budget data
-      window.location.reload();
+      setIsBulkDeleteModalOpen(false);
+      setIsBulkDeleting(false);
+      setSuccessModal({
+        isOpen: true,
+        type: 'success',
+        title: 'Delete Successful',
+        message: `Successfully deleted ${response.deletedCount} budget target(s).`,
+        details: [
+          'All budget targets have been removed',
+          'Categories are now hidden from budget tracking',
+          'You can re-import or create new budget targets anytime'
+        ]
+      });
+      
+      // Refresh the budget data after a short delay
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
     } catch (error) {
       console.error('Error bulk deleting budget targets:', error);
-      alert('Failed to delete budget targets. Please try again.');
+      setSuccessModal({
+        isOpen: true,
+        type: 'error',
+        title: 'Delete Failed',
+        message: 'Failed to delete budget targets. Please try again.',
+        details: []
+      });
+      setIsBulkDeleteModalOpen(false);
+      setIsBulkDeleting(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
+      <div className={loadingContainer}>
+        <div className={loadingSpinner}></div>
+        <p className={loadingText}>Loading budget data...</p>
       </div>
     );
   }
@@ -372,63 +513,134 @@ Type "DELETE ALL" to confirm:`;
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Budget</p>
-              <p className="text-2xl font-bold text-blue-600">
-                {formatCurrency(summaryStats.totalBudget, currency)}
-              </p>
-            </div>
-            <Target className="w-8 h-8 text-blue-500" />
+      {/* Enhanced Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        {/* Total Budget Card */}
+        <div className={`${cardLargeContainer} relative`}>
+          <div className="absolute top-4 left-4 w-3 h-3 rounded-full bg-blue-500"></div>
+          <div className="flex flex-col items-center justify-center h-full text-center pt-6">
+            <h3 className={`${cardTitle} mb-2`}>Total Budget</h3>
+            <p className="text-2xl font-bold text-blue-600 mb-1">
+              {formatCurrency(summaryStats.totalBudget, currency)}
+            </p>
+            <p className={`${cardSubtitle}`}>
+              {selectedPeriod.toLowerCase()} target
+            </p>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Actual Spending</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(summaryStats.totalActual, currency)}
-              </p>
-            </div>
-            <TrendingUp className="w-8 h-8 text-gray-500" />
+        {/* Actual Spending Card */}
+        <div className={`${cardLargeContainer} relative`}>
+          <div className="absolute top-4 left-4 w-3 h-3 rounded-full bg-gray-500"></div>
+          <div className="flex flex-col items-center justify-center h-full text-center pt-6">
+            <h3 className={`${cardTitle} mb-2`}>Actual Spending</h3>
+            <p className="text-2xl font-bold text-gray-900 mb-1">
+              {formatCurrency(summaryStats.totalActual, currency)}
+            </p>
+            <p className={`${cardSubtitle}`}>
+              {summaryStats.totalTransactions} transactions
+            </p>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Variance</p>
-              <p className={`text-2xl font-bold ${summaryStats.totalVariance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                {summaryStats.totalVariance >= 0 ? '+' : ''}{formatCurrency(summaryStats.totalVariance, currency)}
-              </p>
-            </div>
-            {summaryStats.totalVariance >= 0 ? 
-              <AlertTriangle className="w-8 h-8 text-red-500" /> :
-              <CheckCircle className="w-8 h-8 text-green-500" />
-            }
+        {/* Budget Utilization Card */}
+        <div className={`${cardLargeContainer} relative`}>
+          <div className={`absolute top-4 left-4 w-3 h-3 rounded-full ${
+            summaryStats.budgetUtilization > 100 ? 'bg-red-500' : 
+            summaryStats.budgetUtilization > 90 ? 'bg-yellow-500' : 'bg-green-500'
+          }`}></div>
+          <div className="flex flex-col items-center justify-center h-full text-center pt-6">
+            <h3 className={`${cardTitle} mb-2`}>Budget Utilization</h3>
+            <p className={`text-2xl font-bold mb-1 ${
+              summaryStats.budgetUtilization > 100 ? 'text-red-600' : 
+              summaryStats.budgetUtilization > 90 ? 'text-yellow-600' : 'text-green-600'
+            }`}>
+              {summaryStats.budgetUtilization.toFixed(1)}%
+            </p>
+            <p className={`${cardSubtitle}`}>
+              of budget used
+            </p>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Categories</p>
-              <div className="flex gap-2 text-sm mt-1">
+        {/* Variance Card */}
+        <div className={`${cardLargeContainer} relative`}>
+          <div className={`absolute top-4 left-4 w-3 h-3 rounded-full ${
+            summaryStats.totalVariance >= 0 ? 'bg-red-500' : 'bg-green-500'
+          }`}></div>
+          <div className="flex flex-col items-center justify-center h-full text-center pt-6">
+            <h3 className={`${cardTitle} mb-2`}>Variance</h3>
+            <p className={`text-2xl font-bold mb-1 ${
+              summaryStats.totalVariance >= 0 ? 'text-red-600' : 'text-green-600'
+            }`}>
+              {summaryStats.totalVariance >= 0 ? '+' : ''}{formatCurrency(summaryStats.totalVariance, currency)}
+            </p>
+            <p className={`${cardSubtitle} ${
+              summaryStats.totalVariancePercentage >= 0 ? 'text-red-600' : 'text-green-600'
+            }`}>
+              {summaryStats.totalVariancePercentage >= 0 ? '+' : ''}{summaryStats.totalVariancePercentage.toFixed(1)}%
+            </p>
+          </div>
+        </div>
+
+        {/* Categories Status Card */}
+        <div className={`${cardLargeContainer} relative`}>
+          <div className="absolute top-4 left-4 w-3 h-3 rounded-full bg-purple-500"></div>
+          <div className="flex flex-col items-center justify-center h-full text-center pt-6">
+            <h3 className={`${cardTitle} mb-2`}>Categories</h3>
+            <p className="text-2xl font-bold text-gray-900 mb-1">
+              {summaryStats.totalCategories}
+            </p>
+            <div className="flex flex-col gap-1 text-xs">
+              <div className="flex justify-between">
                 <span className="text-red-600">{summaryStats.overBudgetCount} over</span>
                 <span className="text-green-600">{summaryStats.underBudgetCount} under</span>
-                <span className="text-blue-600">{summaryStats.onTrackCount} on-track</span>
               </div>
-            </div>
-            <div className="text-2xl font-bold text-gray-900">
-              {budgetComparison.length}
+              <span className="text-blue-600">{summaryStats.onTrackCount} on-track</span>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Budget Performance Insights */}
+      {budgetComparison.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Budget Performance Insights</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-blue-600 mb-2">
+                {summaryStats.avgVariancePercentage.toFixed(1)}%
+              </div>
+              <div className="text-sm text-gray-600">Average Variance</div>
+              <div className="text-xs text-gray-500 mt-1">
+                Across all categories
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-purple-600 mb-2">
+                {summaryStats.incomeCategories}/{summaryStats.expenseCategories}
+              </div>
+              <div className="text-sm text-gray-600">Income/Expense Split</div>
+              <div className="text-xs text-gray-500 mt-1">
+                Category distribution
+              </div>
+            </div>
+            <div className="text-center">
+              <div className={`text-3xl font-bold mb-2 ${
+                (summaryStats.overBudgetCount / summaryStats.totalCategories) > 0.5 ? 'text-red-600' : 
+                (summaryStats.underBudgetCount / summaryStats.totalCategories) > 0.5 ? 'text-green-600' : 'text-yellow-600'
+              }`}>
+                {summaryStats.totalCategories > 0 ? 
+                  Math.round((summaryStats.onTrackCount / summaryStats.totalCategories) * 100) : 0}%
+              </div>
+              <div className="text-sm text-gray-600">On Track</div>
+              <div className="text-xs text-gray-500 mt-1">
+                Categories meeting targets
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Manage Categories Modal */}
       {showManageCategories && (
@@ -546,37 +758,37 @@ Type "DELETE ALL" to confirm:`;
               <thead className="bg-gray-50">
                 <tr>
                   <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                     onClick={() => handleIncomeSort('category')}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-center">
                       <span>Category</span>
                       {getSortIcon('category', incomeSortField, incomeSortDirection)}
                     </div>
                   </th>
                   <th 
-                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                     onClick={() => handleIncomeSort('actual')}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-center">
                       <span>Actual ({selectedPeriod.toLowerCase()})</span>
                       {getSortIcon('actual', incomeSortField, incomeSortDirection)}
                     </div>
                   </th>
                   <th 
-                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                     onClick={() => handleIncomeSort('budget')}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-center">
                       <span>Budget Target</span>
                       {getSortIcon('budget', incomeSortField, incomeSortDirection)}
                     </div>
                   </th>
                   <th 
-                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                     onClick={() => handleIncomeSort('variance')}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-center">
                       <span>Variance</span>
                       {getSortIcon('variance', incomeSortField, incomeSortDirection)}
                     </div>
@@ -589,18 +801,18 @@ Type "DELETE ALL" to confirm:`;
               <tbody className="divide-y divide-gray-200">
                 {sortedIncomeData.map((item, index) => (
                   <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900 text-center">
                       <div className="break-words">{item.categoryName}</div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-right text-gray-900">
+                    <td className="px-6 py-4 text-sm text-center text-gray-900">
                       {formatCurrency(item.actualSpending.monthlyAverage, currency)}
                       <div className="text-xs text-gray-500">
                         {item.actualSpending.transactionCount} transactions
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-right">
+                    <td className="px-6 py-4 text-sm text-center">
                       {editingCategory === item.categoryName ? (
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-center gap-2">
                           <input
                             type="number"
                             value={editingValue}
@@ -631,7 +843,7 @@ Type "DELETE ALL" to confirm:`;
                         </div>
                       )}
                     </td>
-                    <td className={`px-6 py-4 text-sm text-right font-medium ${
+                    <td className={`px-6 py-4 text-sm text-center font-medium ${
                       item.variance.amount > 0 ? 'text-green-600' : 
                       item.variance.amount < 0 ? 'text-red-600' : 'text-gray-600'
                     }`}>
@@ -673,6 +885,45 @@ Type "DELETE ALL" to confirm:`;
               </tbody>
             </table>
           </div>
+          
+          {/* Income Totals Summary */}
+          {sortedIncomeData.length > 0 && (
+            <div className="bg-gray-50 border-t border-gray-200 px-6 py-4">
+              <div className="grid grid-cols-4 gap-6 text-center">
+                <div>
+                  <div className="text-sm font-medium text-gray-600">Total Categories</div>
+                  <div className="text-lg font-bold text-gray-900">{sortedIncomeData.length}</div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-600">Actual Income</div>
+                  <div className="text-lg font-bold text-gray-900">{formatCurrency(incomeTotals.totalActual, currency)}</div>
+                  <div className="text-xs text-gray-500">{incomeTotals.totalTransactions} transactions</div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-600">Budget Target</div>
+                  <div className="text-lg font-bold text-gray-900">{formatCurrency(incomeTotals.totalBudget, currency)}</div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-600">Total Variance</div>
+                  <div className={`text-lg font-bold ${
+                    incomeTotals.totalVariance > 0 ? 'text-green-600' : 
+                    incomeTotals.totalVariance < 0 ? 'text-red-600' : 'text-gray-600'
+                  }`}>
+                    {incomeTotals.totalVariance >= 0 ? '+' : ''}{formatCurrency(incomeTotals.totalVariance, currency)}
+                  </div>
+                  <div className={`text-xs ${
+                    incomeTotals.totalVariance > 0 ? 'text-green-600' : 
+                    incomeTotals.totalVariance < 0 ? 'text-red-600' : 'text-gray-600'
+                  }`}>
+                    {incomeTotals.totalBudget > 0 ? 
+                      `${incomeTotals.totalVariance >= 0 ? '+' : ''}${((incomeTotals.totalVariance / incomeTotals.totalBudget) * 100).toFixed(1)}%` : 
+                      '0.0%'
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Expense Budget Tracking */}
@@ -686,37 +937,37 @@ Type "DELETE ALL" to confirm:`;
               <thead className="bg-gray-50">
                 <tr>
                   <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                     onClick={() => handleExpenseSort('category')}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-center">
                       <span>Category</span>
                       {getSortIcon('category', expenseSortField, expenseSortDirection)}
                     </div>
                   </th>
                   <th 
-                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                     onClick={() => handleExpenseSort('actual')}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-center">
                       <span>Actual ({selectedPeriod.toLowerCase()})</span>
                       {getSortIcon('actual', expenseSortField, expenseSortDirection)}
                     </div>
                   </th>
                   <th 
-                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                     onClick={() => handleExpenseSort('budget')}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-center">
                       <span>Budget Target</span>
                       {getSortIcon('budget', expenseSortField, expenseSortDirection)}
                     </div>
                   </th>
                   <th 
-                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                     onClick={() => handleExpenseSort('variance')}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-center">
                       <span>Variance</span>
                       {getSortIcon('variance', expenseSortField, expenseSortDirection)}
                     </div>
@@ -729,18 +980,18 @@ Type "DELETE ALL" to confirm:`;
               <tbody className="divide-y divide-gray-200">
                 {sortedExpenseData.map((item, index) => (
                   <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900 text-center">
                       <div className="break-words">{item.categoryName}</div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-right text-gray-900">
+                    <td className="px-6 py-4 text-sm text-center text-gray-900">
                       {formatCurrency(item.actualSpending.monthlyAverage, currency)}
                       <div className="text-xs text-gray-500">
                         {item.actualSpending.transactionCount} transactions
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-right">
+                    <td className="px-6 py-4 text-sm text-center">
                       {editingCategory === item.categoryName ? (
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-center gap-2">
                           <input
                             type="number"
                             value={editingValue}
@@ -771,7 +1022,7 @@ Type "DELETE ALL" to confirm:`;
                         </div>
                       )}
                     </td>
-                    <td className={`px-6 py-4 text-sm text-right font-medium ${
+                    <td className={`px-6 py-4 text-sm text-center font-medium ${
                       item.variance.amount > 0 ? 'text-red-600' : 
                       item.variance.amount < 0 ? 'text-green-600' : 'text-gray-600'
                     }`}>
@@ -813,6 +1064,45 @@ Type "DELETE ALL" to confirm:`;
               </tbody>
             </table>
           </div>
+          
+          {/* Expense Totals Summary */}
+          {sortedExpenseData.length > 0 && (
+            <div className="bg-gray-50 border-t border-gray-200 px-6 py-4">
+              <div className="grid grid-cols-4 gap-6 text-center">
+                <div>
+                  <div className="text-sm font-medium text-gray-600">Total Categories</div>
+                  <div className="text-lg font-bold text-gray-900">{sortedExpenseData.length}</div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-600">Actual Expenses</div>
+                  <div className="text-lg font-bold text-gray-900">{formatCurrency(expenseTotals.totalActual, currency)}</div>
+                  <div className="text-xs text-gray-500">{expenseTotals.totalTransactions} transactions</div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-600">Budget Target</div>
+                  <div className="text-lg font-bold text-gray-900">{formatCurrency(expenseTotals.totalBudget, currency)}</div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-600">Total Variance</div>
+                  <div className={`text-lg font-bold ${
+                    expenseTotals.totalVariance > 0 ? 'text-red-600' : 
+                    expenseTotals.totalVariance < 0 ? 'text-green-600' : 'text-gray-600'
+                  }`}>
+                    {expenseTotals.totalVariance >= 0 ? '+' : ''}{formatCurrency(expenseTotals.totalVariance, currency)}
+                  </div>
+                  <div className={`text-xs ${
+                    expenseTotals.totalVariance > 0 ? 'text-red-600' : 
+                    expenseTotals.totalVariance < 0 ? 'text-green-600' : 'text-gray-600'
+                  }`}>
+                    {expenseTotals.totalBudget > 0 ? 
+                      `${expenseTotals.totalVariance >= 0 ? '+' : ''}${((expenseTotals.totalVariance / expenseTotals.totalBudget) * 100).toFixed(1)}%` : 
+                      '0.0%'
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -826,34 +1116,6 @@ Type "DELETE ALL" to confirm:`;
         </div>
       )}
 
-      {/* Summary Section */}
-      {budgetComparison.length > 0 && (
-        <div className="mt-8 bg-white rounded-lg shadow-md p-6 w-full">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Budget Summary</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
-                {formatCurrency(summaryStats.totalBudget, currency)}
-              </div>
-              <div className="text-sm text-gray-600">Total Monthly Budget</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900">
-                {formatCurrency(summaryStats.totalActual, currency)}
-              </div>
-              <div className="text-sm text-gray-600">Total Monthly Spending</div>
-            </div>
-            <div className="text-center">
-              <div className={`text-2xl font-bold ${summaryStats.totalVariance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                {summaryStats.totalVariance >= 0 ? '+' : ''}{formatCurrency(summaryStats.totalVariance, currency)}
-              </div>
-              <div className="text-sm text-gray-600">
-                {summaryStats.totalVariance >= 0 ? 'Over Budget' : 'Under Budget'}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Bulk Import Modal */}
       <UnifiedBulkImportModal
@@ -861,6 +1123,25 @@ Type "DELETE ALL" to confirm:`;
         onClose={() => setIsBulkImportModalOpen(false)}
         onSuccess={handleBulkImportSuccess}
         config={budgetTargetsImportConfig}
+      />
+
+      {/* Bulk Delete Modal */}
+      <BulkDeleteBudgetTargetsModal
+        isOpen={isBulkDeleteModalOpen}
+        onClose={() => setIsBulkDeleteModalOpen(false)}
+        onConfirm={confirmBulkDelete}
+        targetCount={budgetComparison.length}
+        isDeleting={isBulkDeleting}
+      />
+
+      {/* Success/Error Modal */}
+      <BudgetActionSuccessModal
+        isOpen={successModal.isOpen}
+        onClose={() => setSuccessModal(prev => ({ ...prev, isOpen: false }))}
+        type={successModal.type}
+        title={successModal.title}
+        message={successModal.message}
+        details={successModal.details}
       />
     </div>
   );
