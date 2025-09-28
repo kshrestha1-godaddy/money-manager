@@ -356,7 +356,7 @@ Type "DELETE ALL" to confirm:`;
           </button>
           <button
             onClick={handleBulkDeleteAllBudgetTargets}
-            className={`${BUTTON_COLORS.secondary} flex items-center gap-2 disabled:opacity-50`}
+            className="px-4 py-2 border border-red-300 text-red-700 hover:bg-red-50 rounded-md flex items-center gap-2 disabled:opacity-50"
             disabled={budgetComparison.length === 0}
           >
             <Trash className="w-4 h-4" />
@@ -364,7 +364,7 @@ Type "DELETE ALL" to confirm:`;
           </button>
           <button
             onClick={() => setShowManageCategories(!showManageCategories)}
-            className={`${BUTTON_COLORS.secondary} flex items-center gap-2`}
+            className="px-4 py-2 border border-gray-400 text-gray-700 hover:bg-gray-100 rounded-md flex items-center gap-2"
           >
             <Settings className="w-4 h-4" />
             Manage Categories
