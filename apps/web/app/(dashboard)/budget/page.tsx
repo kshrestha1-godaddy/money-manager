@@ -28,6 +28,9 @@ const cardTitle = UI_STYLES.summaryCard.title;
 const cardValue = UI_STYLES.summaryCard.value;
 const cardSubtitle = UI_STYLES.summaryCard.subtitle;
 
+// Button styles
+const primaryButton = BUTTON_COLORS.primary;
+
 interface BudgetComparisonData {
   categoryName: string;
   categoryType: 'EXPENSE' | 'INCOME';
@@ -482,18 +485,11 @@ export default function BudgetPage() {
             <option value="YEARLY">Yearly</option>
           </select>
           <button
-            onClick={handleExportBudgetTargets}
-            className={`${BUTTON_COLORS.secondaryGreen} flex items-center gap-2`}
+            onClick={() => setShowManageCategories(!showManageCategories)}
+            className={`${primaryButton} flex items-center gap-2`}
           >
-            <Download className="w-4 h-4" />
-            Export CSV
-          </button>
-          <button
-            onClick={() => setIsBulkImportModalOpen(true)}
-            className={`${BUTTON_COLORS.secondaryBlue} flex items-center gap-2`}
-          >
-            <Upload className="w-4 h-4" />
-            Import CSV
+            <Settings className="w-4 h-4" />
+            Manage Categories
           </button>
           <button
             onClick={handleBulkDeleteAllBudgetTargets}
@@ -504,12 +500,21 @@ export default function BudgetPage() {
             Delete All
           </button>
           <button
-            onClick={() => setShowManageCategories(!showManageCategories)}
-            className="px-4 py-2 border border-gray-400 text-gray-700 hover:bg-gray-100 rounded-md flex items-center gap-2"
+            onClick={handleExportBudgetTargets}
+            className={`${BUTTON_COLORS.secondaryGreen} flex items-center gap-2`}
           >
-            <Settings className="w-4 h-4" />
-            Manage Categories
+            <Download className="w-4 h-4" />
+            Export
           </button>
+          <button
+            onClick={() => setIsBulkImportModalOpen(true)}
+            className={`${BUTTON_COLORS.secondaryBlue} flex items-center gap-2`}
+          >
+            <Upload className="w-4 h-4" />
+            Import
+          </button>
+
+
         </div>
       </div>
 
