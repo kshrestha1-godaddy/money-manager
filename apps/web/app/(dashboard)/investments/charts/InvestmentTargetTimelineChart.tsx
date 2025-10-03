@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useRef, useCallback } from "react";
-import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Dot, Legend } from "recharts";
+import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea, Dot, Legend } from "recharts";
 import { Calendar, Target, TrendingUp } from "lucide-react";
 import { formatCurrency } from "../../../utils/currency";
 import { InvestmentTargetProgress } from "../../../types/investments";
@@ -74,9 +74,9 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
     const chartId = "investment-target-timeline";
     const { animationDuration, isAnimationActive } = useChartAnimationState(chartId);
 
-    const { timelineData, maxAmount, hasTargets, todayData, thirtyDaysData, sixtyDaysData } = useMemo(() => {
+    const { timelineData, maxAmount, hasTargets, todayData, thirtyDaysData, sixtyDaysData, todayIndex, thirtyDaysIndex, sixtyDaysIndex } = useMemo(() => {
         if (!targets?.length) {
-            return { timelineData: [], maxAmount: 0, hasTargets: false, todayData: null, thirtyDaysData: null, sixtyDaysData: null };
+            return { timelineData: [], maxAmount: 0, hasTargets: false, todayData: null, thirtyDaysData: null, sixtyDaysData: null, todayIndex: -1, thirtyDaysIndex: -1, sixtyDaysIndex: -1 };
         }
 
         // Filter targets that have completion dates and sort by date
@@ -195,12 +195,30 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
         const allData = [...data];
         const referencePoints = [todayData, thirtyDaysData, sixtyDaysData];
         
+        let todayIndex = -1;
+        let thirtyDaysIndex = -1;
+        let sixtyDaysIndex = -1;
+        
         referencePoints.forEach(refPoint => {
             const insertIndex = allData.findIndex(item => item.sortDate > refPoint.sortDate);
             if (insertIndex === -1) {
                 allData.push(refPoint);
+                if (refPoint.investmentType === 'TODAY') todayIndex = allData.length - 1;
+                else if (refPoint.investmentType === 'THIRTY_DAYS') thirtyDaysIndex = allData.length - 1;
+                else if (refPoint.investmentType === 'SIXTY_DAYS') sixtyDaysIndex = allData.length - 1;
             } else {
                 allData.splice(insertIndex, 0, refPoint);
+                if (refPoint.investmentType === 'TODAY') todayIndex = insertIndex;
+                else if (refPoint.investmentType === 'THIRTY_DAYS') thirtyDaysIndex = insertIndex;
+                else if (refPoint.investmentType === 'SIXTY_DAYS') sixtyDaysIndex = insertIndex;
+                
+                // Update other indices that got shifted
+                if (refPoint.investmentType === 'TODAY') {
+                    if (thirtyDaysIndex >= insertIndex) thirtyDaysIndex++;
+                    if (sixtyDaysIndex >= insertIndex) sixtyDaysIndex++;
+                } else if (refPoint.investmentType === 'THIRTY_DAYS') {
+                    if (sixtyDaysIndex >= insertIndex) sixtyDaysIndex++;
+                }
             }
         });
 
@@ -210,7 +228,10 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
             hasTargets: data.length > 0,
             todayData,
             thirtyDaysData,
-            sixtyDaysData
+            sixtyDaysData,
+            todayIndex,
+            thirtyDaysIndex,
+            sixtyDaysIndex
         };
     }, [targets]);
 
@@ -569,6 +590,28 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                                 horizontal={true}
                                 vertical={true}
                             />
+
+                            {/* Priority background area between today and +30 days */}
+                            {todayIndex >= 0 && thirtyDaysIndex >= 0 && (
+                                <ReferenceArea
+                                    x1={timelineData[todayIndex]?.displayLabel}
+                                    x2={timelineData[thirtyDaysIndex]?.displayLabel}
+                                    fill="#ef4444"
+                                    fillOpacity={0.08}
+                                    stroke="none"
+                                />
+                            )}
+
+                            {/* Secondary priority background area between +30 and +60 days */}
+                            {thirtyDaysIndex >= 0 && sixtyDaysIndex >= 0 && (
+                                <ReferenceArea
+                                    x1={timelineData[thirtyDaysIndex]?.displayLabel}
+                                    x2={timelineData[sixtyDaysIndex]?.displayLabel}
+                                    fill="#f97316"
+                                    fillOpacity={0.06}
+                                    stroke="none"
+                                />
+                            )}
 
                             {/* Reference lines */}
                             {todayData && (
