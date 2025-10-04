@@ -140,20 +140,23 @@ const processChartData = (
       timePeriodText: '(All Time)'
     };
   } else {
-    // Default range (last 6 months)
+    // Default range (last 6 months) - matches DateFilterButtons calculation
     const today = new Date();
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
+    const defaultMonths = 6;
     
-    let targetMonth = currentMonth - 5;
+    // Use same formula as DateFilterButtons for consistency
+    let targetMonth = currentMonth - defaultMonths + 2;
     let targetYear = currentYear;
     
-    if (targetMonth < 0) {
+    // Adjust for year boundary crossing
+    while (targetMonth <= 0) {
       targetMonth += 12;
       targetYear -= 1;
     }
     
-    const start = new Date(targetYear, targetMonth, 1);
+    const start = new Date(targetYear, targetMonth - 1, 1);
     const end = new Date(currentYear, currentMonth + 1, 0);
     
     timeRange = {

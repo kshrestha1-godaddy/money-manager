@@ -24,8 +24,9 @@ export function DateFilterButtons({
         const currentMonth = today.getMonth();
         const currentYear = today.getFullYear();
         
-        // Calculate year and month for X months ago
-        let targetMonth = currentMonth - months + 1; // +1 to include current month
+        // Calculate year and month for X months ago (excluding current month, then add 1 to include it)
+        // For "Last N Months": go back (N-1) months to include current month as the Nth month
+        let targetMonth = currentMonth - months + 2;
         let targetYear = currentYear;
         
         // Adjust for year boundary crossing

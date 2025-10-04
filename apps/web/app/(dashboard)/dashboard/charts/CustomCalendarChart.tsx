@@ -2,7 +2,6 @@
 
 import React, { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Income, Expense } from "../../../types/financial";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { ChartControls } from "../../../components/ChartControls";
 import { useChartExpansion } from "../../../utils/chartUtils";
@@ -655,18 +654,6 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                     ))}
                 </div>
             </div>
-
-            {/* Empty State */}
-            {Array.from(processedData.values()).every(d => d.count === 0) && (
-                <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-                    <div className="text-6xl mb-4">{type === 'income' ? '💰' : '💸'}</div>
-                    <h3 className="text-lg font-medium mb-2">No {type === 'income' ? 'Income' : 'Expense'} Data</h3>
-                    <p className="text-sm text-center max-w-sm">
-                        Add some {type} entries to see the transaction frequency calendar.
-                        Your daily {type} activity will appear here.
-                    </p>
-                </div>
-            )}
         </div>
     );
 
