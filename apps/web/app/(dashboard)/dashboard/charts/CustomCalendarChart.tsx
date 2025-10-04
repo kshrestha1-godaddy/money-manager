@@ -14,12 +14,19 @@ interface CustomCalendarChartProps {
     title?: string;
 }
 
+interface YearData {
+    year: number;
+    count: number;
+    amount: number;
+}
+
 interface DayData {
     date: Date;
     count: number;
     amount: number;
     isCurrentMonth: boolean;
     isToday: boolean;
+    yearBreakdown: YearData[];
 }
 
 interface MonthData {
@@ -44,8 +51,53 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
     const chartId = `calendar-${type}`;
     const { hasAnimated } = useChartAnimationState(chartId);
     
+    // Tooltip state management with delays
+    const [hoveredCell, setHoveredCell] = useState<{ row: number; col: number } | null>(null);
+    const [isTooltipHovered, setIsTooltipHovered] = useState(false);
+    const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    
     const timePeriodText = formatTimePeriod();
     const data = type === 'income' ? filteredIncomes : filteredExpenses;
+
+    // Tooltip handlers with delay
+    const handleCellMouseEnter = (rowIndex: number, colIndex: number) => {
+        if (hideTimeoutRef.current) {
+            clearTimeout(hideTimeoutRef.current);
+            hideTimeoutRef.current = null;
+        }
+        setHoveredCell({ row: rowIndex, col: colIndex });
+    };
+
+    const handleCellMouseLeave = () => {
+        // Delay hiding to allow moving to tooltip
+        hideTimeoutRef.current = setTimeout(() => {
+            if (!isTooltipHovered) {
+                setHoveredCell(null);
+            }
+        }, 200); // 200ms delay - gives user time to move to tooltip
+    };
+
+    const handleTooltipMouseEnter = () => {
+        if (hideTimeoutRef.current) {
+            clearTimeout(hideTimeoutRef.current);
+            hideTimeoutRef.current = null;
+        }
+        setIsTooltipHovered(true);
+    };
+
+    const handleTooltipMouseLeave = () => {
+        setIsTooltipHovered(false);
+        setHoveredCell(null);
+    };
+
+    // Cleanup timeout on unmount
+    React.useEffect(() => {
+        return () => {
+            if (hideTimeoutRef.current) {
+                clearTimeout(hideTimeoutRef.current);
+            }
+        };
+    }, []);
 
     // Process data directly from context (no additional filtering)
     const processedData = useMemo(() => {
@@ -117,6 +169,7 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                 let totalAmount = 0;
                 let hasToday = false;
                 let isValidDay = false;
+                const yearBreakdown: YearData[] = [];
                 
                 // Check if this day exists in any month (use current year as reference)
                 const lastDayOfMonth = new Date(currentYear, month + 1, 0).getDate();
@@ -132,6 +185,13 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                         if (dayInfo) {
                             totalCount += dayInfo.count;
                             totalAmount += dayInfo.amount;
+                            
+                            // Track year-specific breakdown
+                            yearBreakdown.push({
+                                year: year,
+                                count: dayInfo.count,
+                                amount: dayInfo.amount
+                            });
                         }
                         
                         if (currentDate.toDateString() === today.toDateString()) {
@@ -145,7 +205,8 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                     count: totalCount,
                     amount: totalAmount,
                     isCurrentMonth: isValidDay,
-                    isToday: hasToday
+                    isToday: hasToday,
+                    yearBreakdown: yearBreakdown
                 });
             }
             
@@ -185,12 +246,15 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
     const tooltipText = `Calendar heatmap showing daily ${type} transaction frequency and amounts with detailed statistics. Hover over dates for comprehensive insights including transaction counts, totals, averages, and activity levels.`;
 
     // Handle calendar cell click to navigate with date filter
-    const handleCellClick = (cellData: DayData, monthIndex: number, dayOfMonth: number) => {
+    const handleCellClick = (cellData: DayData, monthIndex: number, dayOfMonth: number, specificYear?: number) => {
         // Only navigate if the cell has data and is a valid day
         if (!cellData.isCurrentMonth || cellData.count === 0) return;
 
-        // Create date range: d-1, d, d+1
-        const clickedDate = new Date(cellData.date);
+        // Use the specific year if provided, otherwise use the current year
+        const targetYear = specificYear || new Date().getFullYear();
+        
+        // Create date range: d-1, d, d+1 for the specific year
+        const clickedDate = new Date(targetYear, monthIndex, dayOfMonth);
         const startDate = new Date(clickedDate);
         startDate.setDate(clickedDate.getDate() - 1);
         const endDate = new Date(clickedDate);
@@ -520,11 +584,13 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                             </div>
                             
                             {/* Month Cells */}
-                            {row.map((cellData, colIndex) => (
+                            {row.map((cellData, colIndex) => {
+                                const isHovered = hoveredCell?.row === rowIndex && hoveredCell?.col === colIndex;
+                                return (
                                 <div
                                     key={colIndex}
                                     className={`
-                                        relative group flex-1 h-6 border border-gray-200 rounded-sm mx-0.5
+                                        relative flex-1 h-6 border border-gray-200 rounded-sm mx-0.5
                                         ${cellData.isToday ? 'ring-2 ring-blue-500' : ''}
                                         ${cellData.isCurrentMonth && cellData.count > 0 ? 'cursor-pointer hover:ring-2 hover:ring-blue-400 hover:shadow-sm' : cellData.isCurrentMonth ? 'hover:ring-2 hover:ring-gray-400' : 'opacity-30'}
                                         transition-all
@@ -535,11 +601,19 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                     }}
                                     title={cellData.isCurrentMonth ? 
                                         cellData.count > 0 
-                                            ? `${calendarData.monthNames[colIndex]} ${rowIndex + 1}: ${cellData.count} transactions - Click to view details`
+                                            ? `${calendarData.monthNames[colIndex]} ${rowIndex + 1}: ${cellData.count} transactions - Hover for details`
                                             : `${calendarData.monthNames[colIndex]} ${rowIndex + 1}: No transactions`
                                         : `${calendarData.monthNames[colIndex]} ${rowIndex + 1} does not exist`
                                     }
-                                    onClick={() => handleCellClick(cellData, colIndex, rowIndex + 1)}
+                                    onMouseEnter={() => handleCellMouseEnter(rowIndex, colIndex)}
+                                    onMouseLeave={handleCellMouseLeave}
+                                    onClick={() => {
+                                        // If single year, use that year; otherwise use current year as fallback
+                                        const targetYear = cellData.yearBreakdown.length === 1 
+                                            ? cellData.yearBreakdown[0]?.year 
+                                            : undefined;
+                                        handleCellClick(cellData, colIndex, rowIndex + 1, targetYear);
+                                    }}
                                 >
                                     {/* Transaction count display */}
                                     {cellData.count > 0 && cellData.isCurrentMonth && (
@@ -548,21 +622,32 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                         </span>
                                     )}
                                     
-                                    {/* Enhanced Tooltip - only show for valid days */}
-                                    {cellData.isCurrentMonth && (
-                                        <div className={`
-                                            absolute left-1/2 transform -translate-x-1/2 px-4 py-3 
-                                            bg-white border border-gray-200 rounded-lg shadow-lg 
-                                            opacity-0 group-hover:opacity-100 transition-opacity z-20 
-                                            pointer-events-none min-w-72 max-w-80
-                                            ${rowIndex < 15 ? 'top-full mt-2' : 'bottom-full mb-2'}
-                                        `}>
+                                    {/* Enhanced Tooltip - only show for valid days and when hovered */}
+                                    {cellData.isCurrentMonth && isHovered && (
+                                        <div 
+                                            className={`
+                                                absolute px-4 py-3 
+                                                bg-white border border-gray-200 rounded-lg shadow-xl 
+                                                opacity-100 z-30 animate-in fade-in duration-150
+                                                pointer-events-auto min-w-72 max-w-96
+                                                ${rowIndex < 15 ? 'top-full mt-1' : 'bottom-full mb-1'}
+                                                ${
+                                                    colIndex === 0 ? 'left-0' :  // January - align left
+                                                    colIndex === 1 ? 'left-0' :  // February - align left
+                                                    colIndex >= 10 ? 'right-0' : // November, December - align right
+                                                    colIndex >= 9 ? 'right-0' :  // October - align right
+                                                    'left-1/2 transform -translate-x-1/2' // Others - center
+                                                }
+                                            `}
+                                            onMouseEnter={handleTooltipMouseEnter}
+                                            onMouseLeave={handleTooltipMouseLeave}
+                                        >
                                             {/* Date Header */}
                                             <div className="font-bold text-gray-900 mb-2 text-sm">
                                                 {calendarData.monthNames[colIndex]} {rowIndex + 1}
-                                                {displayYears.length > 1 && (
+                                                {displayYears.length > 1 && cellData.yearBreakdown.length > 0 && (
                                                     <span className="text-xs font-normal text-gray-500 ml-1">
-                                                        (Across {displayYears.length} year{displayYears.length !== 1 ? 's' : ''}: {displayYears.join(', ')})
+                                                        (Across {cellData.yearBreakdown.length} year{cellData.yearBreakdown.length !== 1 ? 's' : ''})
                                                     </span>
                                                 )}
                                             </div>
@@ -591,6 +676,39 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                                         </div>
                                                     </div>
 
+                                                    {/* Year Breakdown - Show when multiple years exist */}
+                                                    {cellData.yearBreakdown.length > 1 && (
+                                                        <div className="border-t border-gray-200 pt-2 mb-3">
+                                                            <div className="text-xs font-semibold text-gray-700 mb-2">
+                                                                📅 Year Breakdown (Click to view):
+                                                            </div>
+                                                            <div className="space-y-1.5">
+                                                                {cellData.yearBreakdown.map((yearData) => (
+                                                                    <button
+                                                                        key={yearData.year}
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleCellClick(cellData, colIndex, rowIndex + 1, yearData.year);
+                                                                        }}
+                                                                        className="w-full flex justify-between items-center px-2 py-1.5 bg-gray-50 hover:bg-blue-50 rounded border border-gray-200 hover:border-blue-300 transition-colors text-xs group/year"
+                                                                    >
+                                                                        <span className="font-medium text-gray-700 group-hover/year:text-blue-700">
+                                                                            {yearData.year}
+                                                                        </span>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-gray-600 group-hover/year:text-blue-600">
+                                                                                {yearData.count} tx
+                                                                            </span>
+                                                                            <span className={`font-medium ${type === 'income' ? 'text-green-600 group-hover/year:text-green-700' : 'text-red-600 group-hover/year:text-red-700'}`}>
+                                                                                {currency} {yearData.amount.toLocaleString()}
+                                                                            </span>
+                                                                        </div>
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
                                                     {/* Activity Context */}
                                                     <div className="border-t border-gray-200 pt-2 space-y-1 text-xs">
                                                         <div className="flex justify-between">
@@ -606,11 +724,11 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                                             </span>
                                                         </div>
                                                         
-                                                        {displayYears.length > 1 && (
+                                                        {cellData.yearBreakdown.length > 1 && (
                                                             <div className="flex justify-between">
                                                                 <span className="text-gray-500">Avg per Year:</span>
                                                                 <span className="font-medium text-gray-700">
-                                                                    {(cellData.count / displayYears.length).toFixed(1)} transactions
+                                                                    {(cellData.count / cellData.yearBreakdown.length).toFixed(1)} transactions
                                                                 </span>
                                                             </div>
                                                         )}
@@ -619,7 +737,10 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                                     {/* Action Hint */}
                                                     <div className="border-t border-gray-200 pt-2 mt-2">
                                                         <div className="text-xs text-gray-500 text-center">
-                                                            💡 Click to view {type} details (±1 day range)
+                                                            {cellData.yearBreakdown.length > 1 
+                                                                ? '💡 Click year buttons above to view specific year data'
+                                                                : '💡 Click cell to view details (±1 day range)'
+                                                            }
                                                         </div>
                                                     </div>
                                                 </>
@@ -640,7 +761,14 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
 
                                             {/* Tooltip Arrow */}
                                             <div className={`
-                                                absolute left-1/2 transform -translate-x-1/2 w-0 h-0 
+                                                absolute w-0 h-0 
+                                                ${
+                                                    colIndex === 0 || colIndex === 1 
+                                                        ? 'left-4' // Left-aligned tooltips - arrow near left edge
+                                                        : colIndex >= 9 
+                                                        ? 'right-4' // Right-aligned tooltips - arrow near right edge
+                                                        : 'left-1/2 transform -translate-x-1/2' // Centered tooltips - arrow in middle
+                                                }
                                                 ${rowIndex < 15 
                                                     ? 'top-0 -mt-1 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-200' 
                                                     : 'bottom-0 -mb-1 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-200'
@@ -649,7 +777,8 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                         </div>
                                     )}
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     ))}
                 </div>
