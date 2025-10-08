@@ -69,6 +69,12 @@ model Account {
   // Notes and Nicknames
   notes String?
   nickname String?
+  // Liquidity and Risk Assessment
+  isLiquid Boolean @default(true)
+  liquidityTimeframe LiquidityTimeframe @default(IMMEDIATE)
+  riskLevel RiskLevel @default(VERY_LOW)
+  expectedAnnualReturn Decimal @default(0)
+  isEmergencyFund Boolean @default(false)
   user User @relation(fields: [userId], references: [id])
   userId Int
   expenses Expense[]
@@ -160,6 +166,13 @@ model Investment {
   // Fixed Deposit specific fields
   interestRate Decimal? // Annual interest rate as percentage for fixed deposits
   maturityDate DateTime? // Maturity date for fixed deposits
+  // Liquidity and Risk Assessment
+  isLiquid Boolean @default(false)
+  liquidityTimeframe LiquidityTimeframe @default(DAYS)
+  riskLevel RiskLevel @default(MEDIUM)
+  expectedAnnualReturn Decimal @default(0)
+  hasMaturityDate Boolean @default(false)
+  isInflationHedge Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -206,6 +219,13 @@ model Debt {
   status DebtStatus @default(ACTIVE)
   purpose String?
   notes String?
+  // Liquidity and Risk Assessment
+  isLiquid Boolean @default(false)
+  liquidityTimeframe LiquidityTimeframe @default(MONTHS)
+  riskLevel RiskLevel @default(MEDIUM)
+  repaymentProbability Decimal @default(80)
+  hasCollateral Boolean @default(false)
+  borrowerCreditRating String?
   repayments DebtRepayment[]
   account Account? @relation(fields: [accountId], references: [id])
   accountId Int?
@@ -523,5 +543,21 @@ model PasswordShare {
 enum PasswordShareReason {
   INACTIVITY    // Sent due to user inactivity
   MANUAL        // Manually triggered by user
+}
+
+enum LiquidityTimeframe {
+  IMMEDIATE
+  DAYS
+  WEEKS
+  MONTHS
+  YEARS
+}
+
+enum RiskLevel {
+  VERY_LOW
+  LOW
+  MEDIUM
+  HIGH
+  VERY_HIGH
 }
 
