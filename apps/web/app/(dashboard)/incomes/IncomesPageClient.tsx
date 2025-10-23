@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Info } from 'lucide-react';
 import { useOptimizedFinancialData } from '../../hooks/useOptimizedFinancialData';
-import { IncomeList, AddIncomeModal, EditIncomeModal, ViewIncomeModal } from './components';
+import { IncomeList, AddIncomeModal, EditIncomeModal, ViewIncomeModal, IncomeBubbleChart } from './components';
 import { UnifiedBulkImportModal } from '../../components/shared/UnifiedBulkImportModal';
 import { incomeImportConfig } from '../../config/bulkImportConfig';
 import { DeleteConfirmationModal } from '../../components/DeleteConfirmationModal';
@@ -298,6 +298,12 @@ export default function IncomesPageClient() {
       </div>
 
       <FinancialAreaChart {...chartProps} />
+
+      <IncomeBubbleChart 
+        incomes={incomes}
+        currency={userCurrency}
+        hasActiveFilters={hasActiveFilters}
+      />
 
       <FinancialFilters
         searchTerm={searchTerm}

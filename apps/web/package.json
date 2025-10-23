@@ -41,6 +41,7 @@
     "@repo/eslint-config": "*",
     "@repo/tailwind-config": "*",
     "@repo/typescript-config": "*",
+    "@types/google.visualization": "^0.0.74",
     "@types/node": "^22.14.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.1",
