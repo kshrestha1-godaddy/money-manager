@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useMemo, useState } from 'react';
-import { Income } from '../../../types/financial';
+import { Expense } from '../../../types/financial';
 import { convertForDisplaySync } from '../../../utils/currencyDisplay';
 
-interface IncomeBubbleChartProps {
-  incomes: Income[];
+interface ExpenseBubbleChartProps {
+  expenses: Expense[];
   currency: string;
   hasActiveFilters?: boolean;
 }
@@ -18,7 +18,7 @@ interface CategoryData {
   color: string;
 }
 
-export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: IncomeBubbleChartProps) {
+export function ExpenseBubbleChart({ expenses, currency, hasActiveFilters }: ExpenseBubbleChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [isChartLoading, setIsChartLoading] = useState(true);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -43,13 +43,13 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
     return { width: screenWidth, height };
   };
 
-  // Process income data by categories
+  // Process expense data by categories
   const categoryData = useMemo(() => {
     const categoryMap = new Map<number, CategoryData>();
     
-    incomes.forEach(income => {
-      const categoryId = income.categoryId;
-      const amount = convertForDisplaySync(income.amount, income.currency, currency);
+    expenses.forEach(expense => {
+      const categoryId = expense.categoryId;
+      const amount = convertForDisplaySync(expense.amount, expense.currency, currency);
       
       if (categoryMap.has(categoryId)) {
         const existing = categoryMap.get(categoryId)!;
@@ -58,17 +58,17 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
         existing.averageAmount = existing.totalAmount / existing.transactionCount;
       } else {
         categoryMap.set(categoryId, {
-          name: income.category.name,
+          name: expense.category.name,
           totalAmount: amount,
           transactionCount: 1,
           averageAmount: amount,
-          color: income.category.color || '#4285f4'
+          color: expense.category.color || '#f56565'
         });
       }
     });
     
     return Array.from(categoryMap.values()).filter(category => category.transactionCount > 0);
-  }, [incomes, currency]);
+  }, [expenses, currency]);
 
   // Initialize dimensions and add resize listener
   useEffect(() => {
@@ -244,10 +244,10 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6 w-full">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Income Categories Bubble Chart
+          Expense Categories Bubble Chart
         </h3>
         <div className="text-center py-8 text-gray-500">
-          No income data available to display
+          No expense data available to display
         </div>
       </div>
     );
@@ -257,7 +257,7 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
     <div className={`bg-white rounded-lg shadow-sm border border-gray-200 ${dimensions.width < 640 ? 'p-4' : 'p-6'} mb-6 w-full`}>
       <div>
         <h3 className={`${dimensions.width < 640 ? 'text-base' : 'text-lg'} font-semibold text-gray-900 mb-2`}>
-          Income Categories Analysis
+          Expense Categories Analysis
         </h3>
       </div>
       <div className="relative">
