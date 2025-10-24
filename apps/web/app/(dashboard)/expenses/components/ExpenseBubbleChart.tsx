@@ -185,6 +185,18 @@ export function ExpenseBubbleChart({ expenses, currency, hasActiveFilters }: Exp
 
       const data = window.google.visualization.arrayToDataTable(dataArray);
 
+      // Calculate dynamic X-axis maximum: max average amount + 20000
+      const maxAverageAmount = categoryData.length > 0 
+        ? Math.max(...categoryData.map(category => category.averageAmount))
+        : 0;
+      const xAxisMax = Math.max(51100, maxAverageAmount + 20000); // Ensure minimum of 51100
+      
+      // Calculate dynamic Y-axis maximum: max transaction count + 100
+      const maxTransactionCount = categoryData.length > 0 
+        ? Math.max(...categoryData.map(category => category.transactionCount))
+        : 0;
+      const yAxisMax = Math.max(110, maxTransactionCount + 100); // Ensure minimum of 110
+
       const options = {
         title: ``,
         titleTextStyle: {
@@ -203,8 +215,13 @@ export function ExpenseBubbleChart({ expenses, currency, hasActiveFilters }: Exp
             color: '#6B7280'
           },
           format: currency === 'USD' ? 'currency' : 'decimal',
-          minValue: -2000,
-          maxValue: 1100
+          minValue: 0,
+          maxValue: xAxisMax,
+          viewWindow: {
+            min: 0,
+            max: xAxisMax
+          },
+          viewWindowMode: 'explicit'
         },
         vAxis: {
           title: 'Number of Transactions',
@@ -216,9 +233,14 @@ export function ExpenseBubbleChart({ expenses, currency, hasActiveFilters }: Exp
             fontSize: dimensions.width < 640 ? 9 : 11,
             color: '#6B7280'
           },
-          format: '0',
-          minValue: -5,
-          maxValue: 110
+          format: '0',  
+          minValue: -50,
+          maxValue: yAxisMax,
+          viewWindow: {
+            min: -50,
+            max: yAxisMax
+          },
+          viewWindowMode: 'explicit'
         },
         bubble: {
           textStyle: {
