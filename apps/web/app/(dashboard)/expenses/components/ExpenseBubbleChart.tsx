@@ -215,10 +215,10 @@ export function ExpenseBubbleChart({ expenses, currency, hasActiveFilters }: Exp
             color: '#6B7280'
           },
           format: currency === 'USD' ? 'currency' : 'decimal',
-          minValue: 0,
+          minValue: -5000,
           maxValue: xAxisMax,
           viewWindow: {
-            min: 0,
+            min: -5000,
             max: xAxisMax
           },
           viewWindowMode: 'explicit'
