@@ -28,11 +28,11 @@ export function WelcomeBackNotification({ onHide }: WelcomeBackNotificationProps
 
   const shouldShowWelcomeMessage = (): boolean => {
     const lastWelcomeShown = getLocalStorageItem('lastWelcomeShown');
-    console.log('WelcomeBack: lastWelcomeShown from localStorage =', lastWelcomeShown);
+    // console.log('WelcomeBack: lastWelcomeShown from localStorage =', lastWelcomeShown);
     
     if (!lastWelcomeShown) {
       // First time user or no previous welcome message
-      console.log('WelcomeBack: No previous welcome shown, returning true');
+      // console.log('WelcomeBack: No previous welcome shown, returning true');
       return true;
     }
 
@@ -42,15 +42,15 @@ export function WelcomeBackNotification({ onHide }: WelcomeBackNotificationProps
       const timeDifference = now.getTime() - lastWelcomeTime.getTime();
       const hoursDifference = timeDifference / (1000 * 60 * 60);
       
-      console.log('WelcomeBack: Hours since last welcome =', hoursDifference);
+      // console.log('WelcomeBack: Hours since last welcome =', hoursDifference);
       
       // Show welcome message if more than 24 hours have passed since last welcome
       const shouldShow = hoursDifference >= 24;
-      console.log('WelcomeBack: Should show based on time =', shouldShow);
+      // console.log('WelcomeBack: Should show based on time =', shouldShow);
       return shouldShow;
     } catch (error) {
       // Invalid date in localStorage, show welcome message
-      console.log('WelcomeBack: Error parsing date, returning true', error);
+      // console.log('WelcomeBack: Error parsing date, returning true', error);
       return true;
     }
   };
@@ -76,11 +76,11 @@ export function WelcomeBackNotification({ onHide }: WelcomeBackNotificationProps
   };
 
   useEffect(() => {
-    console.log('WelcomeBack: useEffect triggered', { status, user: session?.user?.name });
+    // console.log('WelcomeBack: useEffect triggered', { status, user: session?.user?.name });
     
     if (status === 'authenticated' && session?.user) {
       const shouldShow = shouldShowWelcomeMessage();
-      console.log('WelcomeBack: shouldShow =', shouldShow);
+      // console.log('WelcomeBack: shouldShow =', shouldShow);
       
       if (shouldShow) {
         const lastWelcomeShown = getLocalStorageItem('lastWelcomeShown');

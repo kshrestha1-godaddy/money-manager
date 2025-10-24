@@ -95,8 +95,8 @@ export async function convertMultipleForDisplay<T extends { amount: number; curr
 }
 
 /**
- * Sync version of currency conversion for simple INR/NPR conversions
- * Falls back to async conversion for USD
+ * Sync version of currency conversion using static rates
+ * Supports USD, INR, and NPR conversions
  */
 export function convertForDisplaySync(
     amount: number,
@@ -108,19 +108,37 @@ export function convertForDisplaySync(
         return amount;
     }
 
-    // Handle simple INR/NPR conversions synchronously
-    if ((storedCurrency === 'INR' && userCurrency === 'NPR') || 
-        (storedCurrency === 'NPR' && userCurrency === 'INR')) {
-        const INR_TO_NPR_RATE = 1.6;
-        if (storedCurrency === 'INR' && userCurrency === 'NPR') {
-            return amount * INR_TO_NPR_RATE;
-        } else {
-            return amount / INR_TO_NPR_RATE;
+    // Static conversion rates based on:
+    // 1 INR = 1.6 NPR
+    // 1 USD = 140 NPR
+    const CONVERSION_RATES: { [key: string]: { [key: string]: number } } = {
+        usd: {
+            usd: 1,
+            inr: 87.5,           // 1 USD = 140 NPR, 1 INR = 1.6 NPR, so 1 USD = 140/1.6 = 87.5 INR
+            npr: 140             // 1 USD = 140 NPR
+        },
+        inr: {
+            usd: 0.011428571,    // 1 INR = 1.6/140 = 0.011428571 USD
+            inr: 1,
+            npr: 1.6             // 1 INR = 1.6 NPR
+        },
+        npr: {
+            usd: 0.007142857,    // 1 NPR = 1/140 = 0.007142857 USD
+            inr: 0.625,          // 1 NPR = 1/1.6 = 0.625 INR
+            npr: 1
         }
+    };
+
+    const sourceCurrency = storedCurrency.toLowerCase();
+    const targetCurrency = userCurrency.toLowerCase();
+
+    // Check if we have conversion rates for both currencies
+    if (CONVERSION_RATES[sourceCurrency] && CONVERSION_RATES[sourceCurrency][targetCurrency] !== undefined) {
+        const rate = CONVERSION_RATES[sourceCurrency][targetCurrency];
+        return amount * rate;
     }
 
-    // For USD conversions or other currencies, return original amount
-    // The async version should be used instead
-    console.warn(`Sync conversion not available for ${storedCurrency} to ${userCurrency}, use convertForDisplay instead`);
+    // If conversion not supported, log warning and return original amount
+    console.warn(`Sync conversion not available for ${storedCurrency} to ${userCurrency}, supported currencies: USD, INR, NPR`);
     return amount;
 }

@@ -1,65 +1,47 @@
 /**
  * Currency Conversion Utility
- * Uses the fawazahmed0 currency API to convert between different currencies
+ * Uses static conversion rates for USD, INR, and NPR currencies
  */
-
-interface CurrencyApiResponse {
-  date: string;
-  [key: string]: any;
-}
 
 interface ConversionRates {
   [currency: string]: number;
 }
 
-// Cache for API responses to avoid repeated requests
-const rateCache = new Map<string, { rates: ConversionRates; timestamp: number }>();
-const CACHE_DURATION = 1000 * 60 * 60; // 1 hour in milliseconds
+// Static conversion rates based on:
+// 1 INR = 1.6 NPR
+// 1 USD = 140 NPR
+const STATIC_RATES: { [sourceCurrency: string]: ConversionRates } = {
+  usd: {
+    usd: 1,
+    inr: 87.5,      // 1 USD = 140 NPR, 1 INR = 1.6 NPR, so 1 USD = 140/1.6 = 87.5 INR
+    npr: 140        // 1 USD = 140 NPR
+  },
+  inr: {
+    usd: 0.011428571,  // 1 INR = 1.6/140 = 0.011428571 USD
+    inr: 1,
+    npr: 1.6           // 1 INR = 1.6 NPR
+  },
+  npr: {
+    usd: 0.007142857,  // 1 NPR = 1/140 = 0.007142857 USD
+    inr: 0.625,        // 1 NPR = 1/1.6 = 0.625 INR
+    npr: 1
+  }
+};
 
 /**
- * Fetches conversion rates from the currency API
- * @param sourceCurrency - The source currency code (e.g., 'usd', 'eur', 'npr')
+ * Gets conversion rates from static rate table
+ * @param sourceCurrency - The source currency code (e.g., 'usd', 'inr', 'npr')
  * @returns Promise<ConversionRates> - Object containing conversion rates
  */
 async function fetchConversionRates(sourceCurrency: string): Promise<ConversionRates> {
-  const cacheKey = sourceCurrency.toLowerCase();
-  const cached = rateCache.get(cacheKey);
+  const source = sourceCurrency.toLowerCase();
   
-  // Check if we have cached data that's still fresh
-  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-    return cached.rates;
+  // Check if we have rates for this currency
+  if (!STATIC_RATES[source]) {
+    throw new Error(`Conversion rates not available for currency: ${sourceCurrency.toUpperCase()}. Supported currencies: USD, INR, NPR`);
   }
-
-  try {
-    const apiUrl = `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${sourceCurrency.toLowerCase()}.json`;
-    
-    console.info(`Fetching currency rates for ${sourceCurrency.toUpperCase()}`);
-    const response = await fetch(apiUrl);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch currency rates: ${response.status} ${response.statusText}`);
-    }
-    
-    const data: CurrencyApiResponse = await response.json();
-    
-    // Extract the rates object (the key will be the source currency)
-    const rates = data[sourceCurrency.toLowerCase()];
-    
-    if (!rates) {
-      throw new Error(`No conversion rates found for currency: ${sourceCurrency}`);
-    }
-    
-    // Cache the rates
-    rateCache.set(cacheKey, {
-      rates,
-      timestamp: Date.now()
-    });
-    
-    return rates;
-  } catch (error) {
-    console.error(`Failed to fetch currency rates for ${sourceCurrency}:`, error);
-    throw new Error(`Unable to fetch currency conversion rates for ${sourceCurrency}`);
-  }
+  
+  return STATIC_RATES[source];
 }
 
 /**
@@ -160,36 +142,29 @@ export async function convertCurrencyFormatted(
 }
 
 /**
- * Gets all available currencies from the API
- * @param baseCurrency - The base currency to fetch rates for (default: 'usd')
+ * Gets all available currencies from static rates
+ * @param baseCurrency - The base currency (not used for static rates but kept for compatibility)
  * @returns Promise<string[]> - Array of available currency codes
  */
 export async function getAvailableCurrencies(baseCurrency: string = 'usd'): Promise<string[]> {
-  try {
-    const rates = await fetchConversionRates(baseCurrency);
-    return Object.keys(rates).sort();
-  } catch (error) {
-    console.error('Failed to fetch available currencies:', error);
-    throw new Error('Unable to fetch available currencies');
-  }
+  return Object.keys(STATIC_RATES).map(currency => currency.toUpperCase()).sort();
 }
 
 /**
- * Clears the currency rate cache
- * Useful for forcing fresh data fetch
+ * Clears the currency rate cache (no-op for static rates)
+ * Kept for compatibility with existing code
  */
 export function clearCurrencyCache(): void {
-  rateCache.clear();
-  console.info('Currency rate cache cleared');
+  console.info('Using static currency rates - no cache to clear');
 }
 
 /**
- * Gets the current cache status
- * @returns Object containing cache information
+ * Gets the current cache status (returns static rate info)
+ * @returns Object containing static rate information
  */
 export function getCacheStatus(): { size: number; entries: string[] } {
   return {
-    size: rateCache.size,
-    entries: Array.from(rateCache.keys())
+    size: Object.keys(STATIC_RATES).length,
+    entries: Object.keys(STATIC_RATES).map(currency => currency.toUpperCase())
   };
 } 
