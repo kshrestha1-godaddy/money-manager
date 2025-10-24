@@ -310,12 +310,6 @@ export default function ExpensesPageClient() {
 
       <FinancialAreaChart {...chartProps} />
 
-      <ExpenseBubbleChart 
-        expenses={expenses}
-        currency={userCurrency}
-        hasActiveFilters={hasActiveFilters}
-      />
-
       <FinancialFilters
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
@@ -334,6 +328,12 @@ export default function ExpensesPageClient() {
         hasActiveFilters={hasActiveFilters}
         showBookmarkedOnly={showBookmarkedOnly}
         onShowBookmarkedOnlyChange={setShowBookmarkedOnly}
+      />
+
+      <ExpenseBubbleChart 
+        expenses={expenses}
+        currency={userCurrency}
+        hasActiveFilters={hasActiveFilters}
       />
 
       <Suspense fallback={<div>Loading expenses...</div>}>

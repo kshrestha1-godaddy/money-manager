@@ -299,12 +299,6 @@ export default function IncomesPageClient() {
 
       <FinancialAreaChart {...chartProps} />
 
-      <IncomeBubbleChart 
-        incomes={incomes}
-        currency={userCurrency}
-        hasActiveFilters={hasActiveFilters}
-      />
-
       <FinancialFilters
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
@@ -323,6 +317,12 @@ export default function IncomesPageClient() {
         hasActiveFilters={hasActiveFilters}
         showBookmarkedOnly={showBookmarkedOnly}
         onShowBookmarkedOnlyChange={setShowBookmarkedOnly}
+      />
+
+      <IncomeBubbleChart 
+        incomes={incomes}
+        currency={userCurrency}
+        hasActiveFilters={hasActiveFilters}
       />
 
       <Suspense fallback={<div>Loading incomes...</div>}>
