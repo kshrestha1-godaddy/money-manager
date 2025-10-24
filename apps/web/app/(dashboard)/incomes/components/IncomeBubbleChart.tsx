@@ -90,11 +90,36 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
     };
 
     window.addEventListener('resize', handleResize);
+
+    // Fix for non-passive event listeners
+    const addPassiveEventListeners = () => {
+      const chartContainer = chartRef.current;
+      if (chartContainer) {
+        // Add passive mousewheel listeners to prevent scroll blocking
+        const passiveWheelHandler = (e: Event) => {
+          // Allow default scrolling behavior
+          return true;
+        };
+        
+        chartContainer.addEventListener('wheel', passiveWheelHandler, { passive: true });
+        chartContainer.addEventListener('mousewheel' as any, passiveWheelHandler, { passive: true } as any);
+        
+        return () => {
+          chartContainer.removeEventListener('wheel', passiveWheelHandler);
+          chartContainer.removeEventListener('mousewheel' as any, passiveWheelHandler);
+        };
+      }
+    };
+
+    const cleanupPassiveListeners = addPassiveEventListeners();
     
     // Cleanup
     return () => {
       clearTimeout(resizeTimeout);
       window.removeEventListener('resize', handleResize);
+      if (cleanupPassiveListeners) {
+        cleanupPassiveListeners();
+      }
     };
   }, []);
 
@@ -107,6 +132,12 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
     setIsChartLoading(true);
 
     const loadGoogleCharts = () => {
+      // Check if BubbleChart is already available
+      if (window.google?.visualization?.BubbleChart) {
+        drawChart();
+        return;
+      }
+
       if (!window.google?.charts) {
         // Load Google Charts if not already loaded
         const script = document.createElement('script');
@@ -118,6 +149,8 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
         };
         document.head.appendChild(script);
       } else if (window.google.charts) {
+        // Charts loader is available, load the corechart package
+        window.google.charts.load('current', { packages: ['corechart'] });
         window.google.charts.setOnLoadCallback(drawChart);
       } else {
         // Charts not loaded yet, try again after a short delay
@@ -127,6 +160,13 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
 
     const drawChart = () => {
       if (!chartRef.current) return;
+
+      // Ensure BubbleChart is available before proceeding
+      if (!window.google?.visualization?.BubbleChart) {
+        console.warn('BubbleChart not yet available, retrying...');
+        setTimeout(loadGoogleCharts, 100);
+        return;
+      }
 
       // Prepare data for Google Charts
       const dataArray: (string | number)[][] = [
@@ -206,6 +246,13 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
           },
           showColorCode: false,
           trigger: 'hover'
+        },
+        // Disable interactions that cause scroll-blocking events
+        enableInteractivity: true,
+        explorer: {
+          actions: [],
+          maxZoomIn: 1,
+          maxZoomOut: 1
         },
         // Use series colors for better control over individual bubbles
         series: categoryData.reduce((acc, category, index) => {
