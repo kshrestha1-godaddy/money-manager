@@ -70,9 +70,9 @@ export function CategoryPerformanceGauge({
   // Get color for each bar based on utilization percentage
   const getBarColor = (utilization: number) => {
     if (utilization <= 0) return '#d1d5db'; // Light gray for no activity
-    if (utilization <= 75) return '#10b981'; // Green - well under budget
+    if (utilization <= 75) return '#3b82f6'; // Blue - well under budget
     if (utilization <= 90) return '#f59e0b'; // Amber - approaching budget
-    if (utilization <= 100) return '#f97316'; // Orange - near budget limit
+    if (utilization <= 100) return '#10b981'; // Orange - near budget limit
     return '#ef4444'; // Red - over budget
   };
   
@@ -134,7 +134,7 @@ export function CategoryPerformanceGauge({
   const leftMargin = Math.max(200, containerWidth * 0.16); // Space for category names
   const rightMargin = Math.max(80, containerWidth * 0.08); // Space for percentage labels
   const topMargin = 10; // Reduced top margin
-  const bottomMargin = 60; // Bottom margin for axis labels
+  const bottomMargin = 80; // Bottom margin for axis labels
 
   // Chart dimensions - recalculated
   const chartWidth = containerWidth;
@@ -196,9 +196,6 @@ export function CategoryPerformanceGauge({
             </span>
           )}
         </h3>
-        <div className="text-sm text-gray-600">
-          Utilization (% of budget)
-        </div>
       </div>
       
       {/* Legend */}
@@ -434,13 +431,6 @@ export function CategoryPerformanceGauge({
           </div>
         </div>
       )}
-
-      <div className="mt-4 text-xs text-gray-500 text-center">
-        <p>
-          Dashed red line indicates 100% budget utilization. 
-          Categories above this line are over budget.
-        </p>
-      </div>
     </div>
   );
 }
