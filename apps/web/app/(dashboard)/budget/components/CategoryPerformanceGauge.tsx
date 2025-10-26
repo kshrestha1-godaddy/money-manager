@@ -35,6 +35,7 @@ interface ChartDataPoint {
   budget: number;
   status: 'over' | 'under' | 'on-track';
   color: string;
+  categoryType: 'EXPENSE' | 'INCOME';
 }
 
 export function CategoryPerformanceGauge({ 
@@ -101,25 +102,44 @@ export function CategoryPerformanceGauge({
         actual: item.actualSpending.monthlyAverage,
         budget: item.budgetTarget.monthlySpend,
         status: item.variance.status,
+        categoryType: item.categoryType,
         color: getBarColor(roundedUtilization)
       };
     });
     
-    // Sort by utilization percentage (highest first)
-    return processedData.sort((a, b) => b.utilization - a.utilization);
+    // Separate expense and income categories
+    const expenseCategories = processedData
+      .filter(item => item.categoryType === 'EXPENSE')
+      .sort((a, b) => b.utilization - a.utilization);
+    
+    const incomeCategories = processedData
+      .filter(item => item.categoryType === 'INCOME')
+      .sort((a, b) => b.utilization - a.utilization);
+    
+    // Return expenses first, then incomes
+    return [...expenseCategories, ...incomeCategories];
   }, [budgetData, categoryType]);
 
-  // Chart dimensions and settings - responsive
-  const chartWidth = containerWidth;
-  const chartHeight = Math.max(400, chartData.length * 45 + 80); // Add extra space for proper alignment
+  // Calculate separator position for mixed categories
+  const expenseCount = chartData.filter(item => item.categoryType === 'EXPENSE').length;
+  const incomeCount = chartData.filter(item => item.categoryType === 'INCOME').length;
+  const hasBothTypes = expenseCount > 0 && incomeCount > 0;
+  const separatorSpace = hasBothTypes ? 25 : 0; // Space for separator line
+
+  // Chart settings - optimized spacing
+  const barHeight = 24;
+  const barSpacing = 42; // Optimal spacing between bars
   
-  // Responsive margins based on screen size - reduced for full width
-  const leftMargin = Math.max(160, containerWidth * 0.12); // 12% of width or minimum 160px
-  const rightMargin = Math.max(80, containerWidth * 0.08); // 8% of width or minimum 80px
-  const topMargin = 30;
-  const bottomMargin = 50;
-  const barHeight = 28;
-  const barSpacing = 45;
+  // Margins - optimized for better layout
+  const leftMargin = Math.max(200, containerWidth * 0.16); // Space for category names
+  const rightMargin = Math.max(80, containerWidth * 0.08); // Space for percentage labels
+  const topMargin = 10; // Reduced top margin
+  const bottomMargin = 60; // Bottom margin for axis labels
+
+  // Chart dimensions - recalculated
+  const chartWidth = containerWidth;
+  const chartAreaHeight = chartData.length * barSpacing + separatorSpace;
+  const chartHeight = chartAreaHeight + topMargin + bottomMargin;
 
   // Responsive font sizes
   const isSmallScreen = containerWidth < 768;
@@ -210,12 +230,12 @@ export function CategoryPerformanceGauge({
           viewBox={`0 0 ${chartWidth} ${chartHeight}`}
           preserveAspectRatio="xMidYMid meet"
         >
-          {/* Chart area background - removed gray background */}
+          {/* Chart area background */}
           <rect
             x={leftMargin}
             y={topMargin}
             width={chartAreaWidth}
-            height={chartHeight - topMargin - bottomMargin}
+            height={chartAreaHeight}
             fill="transparent"
             stroke="none"
           />
@@ -231,14 +251,14 @@ export function CategoryPerformanceGauge({
                     x1={x}
                     y1={topMargin}
                     x2={x}
-                    y2={chartHeight - bottomMargin}
+                    y2={topMargin + chartAreaHeight}
                     stroke="#e5e7eb"
                     strokeWidth="1"
                     strokeDasharray={value === 0 ? "none" : "2,2"}
                   />
                   <text
                     x={x}
-                    y={chartHeight - bottomMargin + 20}
+                    y={topMargin + chartAreaHeight + 20}
                     textAnchor="middle"
                     fontSize={axisFontSize}
                     fill="#6b7280"
@@ -257,7 +277,7 @@ export function CategoryPerformanceGauge({
               x1={leftMargin + scaleX(100)}
               y1={topMargin}
               x2={leftMargin + scaleX(100)}
-              y2={chartHeight - bottomMargin}
+              y2={topMargin + chartAreaHeight}
               stroke="#dc2626"
               strokeWidth="3"
               strokeDasharray="8,4"
@@ -265,9 +285,52 @@ export function CategoryPerformanceGauge({
             />
           )}
 
+          {/* Separator line between expenses and incomes */}
+          {hasBothTypes && expenseCount > 0 && (
+            <g>
+              {/* Separator line */}
+              <line
+                x1={0}
+                y1={topMargin + (expenseCount * barSpacing) + (separatorSpace / 2)}
+                x2={leftMargin + chartAreaWidth}
+                y2={topMargin + (expenseCount * barSpacing) + (separatorSpace / 2)}
+                stroke="#d1d5db"
+                strokeWidth="2"
+                strokeDasharray="6,4"
+              />
+              {/* Section labels - positioned with proper spacing */}
+              <text
+                x={25}
+                y={topMargin + (expenseCount * barSpacing) / 2}
+                textAnchor="middle"
+                fontSize="12"
+                fill="#6b7280"
+                fontWeight="600"
+                transform={`rotate(-90, 25, ${topMargin + (expenseCount * barSpacing) / 2})`}
+              >
+                EXPENSES
+              </text>
+              <text
+                x={25}
+                y={topMargin + (expenseCount * barSpacing) + separatorSpace + (incomeCount * barSpacing) / 2}
+                textAnchor="middle"
+                fontSize="12"
+                fill="#6b7280"
+                fontWeight="600"
+                transform={`rotate(-90, 25, ${topMargin + (expenseCount * barSpacing) + separatorSpace + (incomeCount * barSpacing) / 2})`}
+              >
+                INCOMES
+              </text>
+            </g>
+          )}
+
           {/* Bars and labels */}
           {chartData.map((item, index) => {
-            const rowCenterY = topMargin + 20 + (index * barSpacing) + (barSpacing / 2); // Center of each row
+            // Calculate position with proper separator handling
+            const isIncome = item.categoryType === 'INCOME';
+            const incomeOffset = isIncome && hasBothTypes ? separatorSpace : 0;
+            
+            const rowCenterY = topMargin + (index * barSpacing) + (barSpacing / 2) + incomeOffset;
             const barY = rowCenterY - (barHeight / 2); // Center the bar vertically
             const barWidth = Math.max(3, scaleX(item.utilization)); // Minimum 3px width for visibility
             const isHovered = hoveredCategory === item.categoryName;
@@ -307,7 +370,7 @@ export function CategoryPerformanceGauge({
 
                 {/* Percentage label */}
                 <text
-                  x={leftMargin + barWidth + 8} // Closer to the bar end
+                  x={leftMargin + Math.max(barWidth + 12, 60)} // Optimal spacing from bar end
                   y={rowCenterY}
                   dominantBaseline="middle"
                   fontSize={percentageFontSize}
@@ -324,7 +387,7 @@ export function CategoryPerformanceGauge({
           {/* X-axis title */}
           <text
             x={leftMargin + chartAreaWidth / 2}
-            y={chartHeight - 10}
+            y={chartHeight - 15}
             textAnchor="middle"
             fontSize={axisFontSize}
             fill="#6b7280"
@@ -333,18 +396,6 @@ export function CategoryPerformanceGauge({
             Utilization (% of budget)
           </text>
 
-          {/* Y-axis title */}
-          <text
-            x={15}
-            y={topMargin + (chartHeight - topMargin - bottomMargin) / 2}
-            textAnchor="middle"
-            fontSize={axisFontSize}
-            fill="#6b7280"
-            fontWeight="600"
-            transform={`rotate(-90, 15, ${topMargin + (chartHeight - topMargin - bottomMargin) / 2})`}
-          >
-            Categories
-          </text>
         </svg>
       </div>
 

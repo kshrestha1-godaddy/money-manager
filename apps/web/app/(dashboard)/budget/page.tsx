@@ -15,6 +15,7 @@ import { budgetTargetsImportConfig } from "../../config/bulkImportConfig";
 import { BulkDeleteBudgetTargetsModal } from "./components/BulkDeleteBudgetTargetsModal";
 import { BudgetActionSuccessModal } from "./components/BudgetActionSuccessModal";
 import { CategoryPerformanceGauge } from "./components/CategoryPerformanceGauge";
+import { DeleteBudgetTargetModal } from "./components/DeleteBudgetTargetModal";
 
 type SortField = 'category' | 'actual' | 'budget' | 'variance';
 type SortDirection = 'asc' | 'desc';
@@ -75,6 +76,11 @@ export default function BudgetPage() {
   // Delete modal states
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  
+  // Individual delete modal states
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletingCategoryName, setDeletingCategoryName] = useState<string | null>(null);
+  const [isIndividualDeleting, setIsIndividualDeleting] = useState(false);
   
   // Success/Error modal states
   const [successModal, setSuccessModal] = useState<{
@@ -324,9 +330,52 @@ export default function BudgetPage() {
   };
 
   const handleDeleteTarget = (categoryName: string) => {
-    if (window.confirm(`Are you sure you want to remove the budget target for ${categoryName}?`)) {
-      updateOrCreateBudgetTarget(categoryName, 0, selectedPeriod);
+    setDeletingCategoryName(categoryName);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteTarget = async () => {
+    if (!deletingCategoryName) return;
+    
+    setIsIndividualDeleting(true);
+    try {
+      await updateOrCreateBudgetTarget(deletingCategoryName, 0, selectedPeriod);
+      
+      // Close modal and reset state
+      setIsDeleteModalOpen(false);
+      setDeletingCategoryName(null);
+      setIsIndividualDeleting(false);
+      
+      // Show success message
+      setSuccessModal({
+        isOpen: true,
+        type: 'success',
+        title: 'Budget Target Removed',
+        message: `Budget target for "${deletingCategoryName}" has been successfully removed.`,
+        details: [
+          'The budget target has been removed',
+          'Category remains visible in budget tracking',
+          'You can set a new budget target anytime'
+        ]
+      });
+    } catch (error) {
+      console.error('Error deleting budget target:', error);
+      setIsIndividualDeleting(false);
+      
+      setSuccessModal({
+        isOpen: true,
+        type: 'error',
+        title: 'Delete Failed',
+        message: 'Failed to remove budget target. Please try again.',
+        details: []
+      });
     }
+  };
+
+  const closeDeleteModal = () => {
+    if (isIndividualDeleting) return; // Prevent closing while deleting
+    setIsDeleteModalOpen(false);
+    setDeletingCategoryName(null);
   };
 
   const handleExportBudgetTargets = async () => {
@@ -1147,6 +1196,15 @@ export default function BudgetPage() {
         onConfirm={confirmBulkDelete}
         targetCount={budgetComparison.length}
         isDeleting={isBulkDeleting}
+      />
+
+      {/* Individual Delete Modal */}
+      <DeleteBudgetTargetModal 
+        isOpen={isDeleteModalOpen}
+        onClose={closeDeleteModal}
+        onConfirm={confirmDeleteTarget}
+        categoryName={deletingCategoryName}
+        isDeleting={isIndividualDeleting}
       />
 
       {/* Success/Error Modal */}
