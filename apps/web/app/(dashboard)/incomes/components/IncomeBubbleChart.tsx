@@ -269,9 +269,9 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
         backgroundColor: 'transparent',
         chartArea: {
           left: dimensions.width < 640 ? 40 : 60,
-          top: 45,
+          top: 10,
           width: dimensions.width < 640 ? '92%' : '95%',
-          height: '80%'
+          height: '90%'
         },
         legend: {
           position: 'none'
