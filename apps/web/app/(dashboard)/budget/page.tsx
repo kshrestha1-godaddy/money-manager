@@ -14,6 +14,7 @@ import { UnifiedBulkImportModal } from "../../components/shared/UnifiedBulkImpor
 import { budgetTargetsImportConfig } from "../../config/bulkImportConfig";
 import { BulkDeleteBudgetTargetsModal } from "./components/BulkDeleteBudgetTargetsModal";
 import { BudgetActionSuccessModal } from "./components/BudgetActionSuccessModal";
+import { CategoryPerformanceGauge } from "./components/CategoryPerformanceGauge";
 
 type SortField = 'category' | 'actual' | 'budget' | 'variance';
 type SortDirection = 'asc' | 'desc';
@@ -645,6 +646,15 @@ export default function BudgetPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Category Performance Gauge */}
+      {budgetComparison.length > 0 && (
+        <CategoryPerformanceGauge 
+          budgetData={budgetComparison}
+          currency={currency}
+          categoryType="ALL"
+        />
       )}
 
       {/* Manage Categories Modal */}
