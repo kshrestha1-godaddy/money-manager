@@ -818,14 +818,14 @@ export function DebtStatusWaterfallChart({
             left: 8, 
             bottom: 8 
           }}>
-            <CartesianGrid strokeDasharray="4 4" stroke="#e5e7eb" strokeWidth={4} horizontal={true} vertical={true} />
+            <CartesianGrid strokeDasharray="2 2" stroke="#e5e7eb" strokeWidth={1} horizontal={true} vertical={true} />
             <XAxis dataKey="name" tick={{ fontSize: isExpanded ? 12 : 10 }} interval={0} />
             <YAxis tickFormatter={(v) => formatCurrency(Number(v), currency)} tick={{ fontSize: isExpanded ? 12 : 10 }} />
             <Tooltip content={<CustomTooltip />} />
 
             {/* Reference lines for waterfall levels */}
             {metrics.rows.slice(1).map((r) => (
-              <ReferenceLine key={r.key} y={r.cumulative} stroke={getColor(r.key)} strokeDasharray="4 4" opacity={0.6} />
+              <ReferenceLine key={r.key} y={r.cumulative} stroke={getColor(r.key)} strokeDasharray="2 2" opacity={0.6} />
             ))}
 
             {/* Invisible/transparent bars for spacing in waterfall */}

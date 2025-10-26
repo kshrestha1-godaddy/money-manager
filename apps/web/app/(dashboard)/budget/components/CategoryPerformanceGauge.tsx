@@ -239,7 +239,7 @@ export function CategoryPerformanceGauge({
 
           {/* Grid lines */}
           <g>
-            {[0, 25, 50, 75, 100, 125, 150, 175, 200].map(value => {
+            {[0, 25, 50, 75, 100, 125, 150, 175, 200, 300].map(value => {
               if (value > maxUtilization) return null;
               const x = leftMargin + scaleX(value);
               return (
@@ -275,8 +275,8 @@ export function CategoryPerformanceGauge({
               y1={topMargin}
               x2={leftMargin + scaleX(100)}
               y2={topMargin + chartAreaHeight}
-              stroke="#dc2626"
-              strokeWidth="3"
+              stroke="#6b7280"
+              strokeWidth="1"
               strokeDasharray="8,4"
               opacity="0.8"
             />
@@ -364,6 +364,20 @@ export function CategoryPerformanceGauge({
                   onMouseMove={handleMouseMove}
                   onMouseLeave={handleMouseLeave}
                 />
+
+                {/* Values inside bar */}
+                {barWidth > 120 && ( // Only show if bar is wide enough
+                  <text
+                    x={leftMargin + 10} // Small padding from bar start
+                    y={rowCenterY}
+                    dominantBaseline="middle"
+                    fontSize="8"
+                    fill="white"
+                    fontWeight="500"
+                  >
+                    {formatCurrency(item.actual, currency)} | {formatCurrency(item.budget, currency)}
+                  </text>
+                )}
 
                 {/* Percentage label */}
                 <text
