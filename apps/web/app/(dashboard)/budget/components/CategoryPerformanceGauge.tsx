@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { formatCurrency } from '../../../utils/currency';
 
 interface BudgetComparisonData {
@@ -43,6 +44,7 @@ export function CategoryPerformanceGauge({
   currency, 
   categoryType = 'ALL' 
 }: CategoryPerformanceGaugeProps) {
+  const router = useRouter();
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [containerWidth, setContainerWidth] = useState(1200);
@@ -167,6 +169,33 @@ export function CategoryPerformanceGauge({
 
   const handleMouseLeave = () => {
     setHoveredCategory(null);
+  };
+
+  // Handle bar click navigation
+  const handleBarClick = (item: ChartDataPoint) => {
+    // Calculate current month date range
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    
+    // First day of current month
+    const startDate = new Date(currentYear, currentMonth, 1);
+    // Last day of current month
+    const endDate = new Date(currentYear, currentMonth + 1, 0);
+    
+    // Format dates as YYYY-MM-DD for URL parameters
+    const formatDateForURL = (date: Date): string => {
+      return date.toISOString().split('T')[0] || '';
+    };
+    
+    const startDateStr = formatDateForURL(startDate);
+    const endDateStr = formatDateForURL(endDate);
+    
+    // Navigate to appropriate page with category and date filters
+    const targetPath = item.categoryType === 'EXPENSE' ? '/expenses' : '/incomes';
+    const url = `${targetPath}?category=${encodeURIComponent(item.categoryName)}&startDate=${startDateStr}&endDate=${endDateStr}`;
+    
+    router.push(url);
   };
 
   if (chartData.length === 0) {
@@ -356,13 +385,14 @@ export function CategoryPerformanceGauge({
                   fill={item.color}
                   rx="4"
                   ry="4"
-                  className={`transition-all cursor-pointer ${
+                  className={`transition-all cursor-pointer hover:opacity-90 ${
                     isHovered ? 'opacity-90 stroke-gray-400' : 'opacity-100'
                   }`}
                   strokeWidth={isHovered ? "1" : "0"}
                   onMouseEnter={(e) => handleMouseEnter(item.categoryName, e)}
                   onMouseMove={handleMouseMove}
                   onMouseLeave={handleMouseLeave}
+                  onClick={() => handleBarClick(item)}
                 />
 
                 {/* Values inside bar */}

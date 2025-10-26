@@ -137,6 +137,7 @@ export default function IncomesPageClient() {
     // Handle date filter URL parameters
     const urlStartDate = searchParams.get('startDate');
     const urlEndDate = searchParams.get('endDate');
+    const urlCategory = searchParams.get('category');
     
     if (urlStartDate) {
       setStartDate(urlStartDate);
@@ -144,7 +145,10 @@ export default function IncomesPageClient() {
     if (urlEndDate) {
       setEndDate(urlEndDate);
     }
-  }, [searchParams, setIsAddModalOpen, setStartDate, setEndDate]);
+    if (urlCategory) {
+      setSelectedCategory(urlCategory);
+    }
+  }, [searchParams, setIsAddModalOpen, setStartDate, setEndDate, setSelectedCategory]);
 
   // Use timezone-aware date calculations to match notification system
   const now = new Date();
