@@ -18,10 +18,18 @@ interface CategoryData {
   color: string;
 }
 
+interface AxisRange {
+  min: number;
+  max: number;
+}
+
 export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: IncomeBubbleChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [isChartLoading, setIsChartLoading] = useState(true);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [showAxisControls, setShowAxisControls] = useState(false);
+  const [customXRange, setCustomXRange] = useState<AxisRange | null>(null);
+  const [customYRange, setCustomYRange] = useState<AxisRange | null>(null);
   
   // Calculate responsive dimensions based on screen size
   const calculateDimensions = () => {
@@ -185,17 +193,24 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
 
       const data = window.google.visualization.arrayToDataTable(dataArray);
 
-      // Calculate dynamic X-axis maximum: max average amount + 20000
+      // Calculate dynamic ranges or use custom ranges
       const maxAverageAmount = categoryData.length > 0 
         ? Math.max(...categoryData.map(category => category.averageAmount))
         : 0;
-      const xAxisMax = Math.max(51100, maxAverageAmount + 20000); // Ensure minimum of 51100
+      const defaultXAxisMax = Math.max(51100, maxAverageAmount + 20000); // Ensure minimum of 51100
+      const defaultXAxisMin = -5000;
       
-      // Calculate dynamic Y-axis maximum: max transaction count + 100
       const maxTransactionCount = categoryData.length > 0 
         ? Math.max(...categoryData.map(category => category.transactionCount))
         : 0;
-      const yAxisMax = Math.max(110, maxTransactionCount + 100); // Ensure minimum of 110
+      const defaultYAxisMax = Math.max(110, maxTransactionCount + 100); // Ensure minimum of 110
+      const defaultYAxisMin = -50;
+
+      // Use custom ranges if set, otherwise use calculated defaults
+      const xAxisMin = customXRange?.min ?? defaultXAxisMin;
+      const xAxisMax = customXRange?.max ?? defaultXAxisMax;
+      const yAxisMin = customYRange?.min ?? defaultYAxisMin;
+      const yAxisMax = customYRange?.max ?? defaultYAxisMax;
 
       const options = {
         title: ``,
@@ -215,10 +230,10 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
             color: '#6B7280'
           },
           format: currency === 'USD' ? 'currency' : 'decimal',
-          minValue: -5000,
+          minValue: xAxisMin,
           maxValue: xAxisMax,
           viewWindow: {
-            min: -5000,
+            min: xAxisMin,
             max: xAxisMax
           },
           viewWindowMode: 'explicit'
@@ -234,10 +249,10 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
             color: '#6B7280'
           },
           format: '0',
-          minValue: -50,
+          minValue: yAxisMin,
           maxValue: yAxisMax,
           viewWindow: {
-            min: -50,
+            min: yAxisMin,
             max: yAxisMax
           },
           viewWindowMode: 'explicit'
@@ -307,7 +322,7 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
         chartRef.current.innerHTML = '';
       }
     };
-  }, [categoryData, currency, hasActiveFilters, dimensions]);
+  }, [categoryData, currency, hasActiveFilters, dimensions, customXRange, customYRange]);
 
   if (categoryData.length === 0) {
     return (
@@ -322,13 +337,151 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
     );
   }
 
+  const handleXRangeChange = (min: number, max: number) => {
+    setCustomXRange({ min, max });
+  };
+
+  const handleYRangeChange = (min: number, max: number) => {
+    setCustomYRange({ min, max });
+  };
+
+  const resetToDefaults = () => {
+    setCustomXRange(null);
+    setCustomYRange(null);
+  };
+
   return (
     <div className={`bg-white rounded-lg shadow-sm border border-gray-200 ${dimensions.width < 640 ? 'p-4' : 'p-6'} mb-6 w-full`}>
-      <div>
-        <h3 className={`${dimensions.width < 640 ? 'text-base' : 'text-lg'} font-semibold text-gray-900 mb-2`}>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className={`${dimensions.width < 640 ? 'text-base' : 'text-lg'} font-semibold text-gray-900`}>
           Income Categories Analysis
         </h3>
+        <button
+          onClick={() => setShowAxisControls(!showAxisControls)}
+          className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+        >
+          {showAxisControls ? 'Hide Controls' : 'Adjust Scale'}
+        </button>
       </div>
+      
+      {showAxisControls && (
+        <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* X-Axis Controls */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                X-Axis Range (Average Amount)
+              </label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="number"
+                  placeholder="Min"
+                  value={customXRange?.min ?? ''}
+                  onChange={(e) => {
+                    const min = e.target.value ? parseFloat(e.target.value) : (customXRange?.min ?? -5000);
+                    const max = customXRange?.max ?? 51100;
+                    handleXRangeChange(min, max);
+                  }}
+                  className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <span className="text-sm text-gray-500">to</span>
+                <input
+                  type="number"
+                  placeholder="Max"
+                  value={customXRange?.max ?? ''}
+                  onChange={(e) => {
+                    const max = e.target.value ? parseFloat(e.target.value) : (customXRange?.max ?? 51100);
+                    const min = customXRange?.min ?? -5000;
+                    handleXRangeChange(min, max);
+                  }}
+                  className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div className="flex gap-1 mt-2">
+                <button
+                  onClick={() => handleXRangeChange(0, 10000)}
+                  className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                >
+                  0-10K
+                </button>
+                <button
+                  onClick={() => handleXRangeChange(0, 50000)}
+                  className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                >
+                  0-50K
+                </button>
+                <button
+                  onClick={() => handleXRangeChange(0, 100000)}
+                  className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                >
+                  0-100K
+                </button>
+              </div>
+            </div>
+            
+            {/* Y-Axis Controls */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Y-Axis Range (Transaction Count)
+              </label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="number"
+                  placeholder="Min"
+                  value={customYRange?.min ?? ''}
+                  onChange={(e) => {
+                    const min = e.target.value ? parseFloat(e.target.value) : (customYRange?.min ?? -50);
+                    const max = customYRange?.max ?? 110;
+                    handleYRangeChange(min, max);
+                  }}
+                  className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <span className="text-sm text-gray-500">to</span>
+                <input
+                  type="number"
+                  placeholder="Max"
+                  value={customYRange?.max ?? ''}
+                  onChange={(e) => {
+                    const max = e.target.value ? parseFloat(e.target.value) : (customYRange?.max ?? 110);
+                    const min = customYRange?.min ?? -50;
+                    handleYRangeChange(min, max);
+                  }}
+                  className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div className="flex gap-1 mt-2">
+                <button
+                  onClick={() => handleYRangeChange(0, 50)}
+                  className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200"
+                >
+                  0-50
+                </button>
+                <button
+                  onClick={() => handleYRangeChange(0, 100)}
+                  className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200"
+                >
+                  0-100
+                </button>
+                <button
+                  onClick={() => handleYRangeChange(0, 200)}
+                  className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200"
+                >
+                  0-200
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex justify-end mt-4">
+            <button
+              onClick={resetToDefaults}
+              className="text-sm px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+            >
+              Reset to Auto
+            </button>
+          </div>
+        </div>
+      )}
       <div className="relative">
         {isChartLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-50 rounded z-10">
