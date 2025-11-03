@@ -703,6 +703,8 @@ export default function BudgetPage() {
             budgetData={budgetComparison}
             currency={currency}
             categoryType="ALL"
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
           />
         )}
       </div>

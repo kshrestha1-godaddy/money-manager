@@ -27,6 +27,8 @@ interface CategoryPerformanceGaugeProps {
   budgetData: BudgetComparisonData[];
   currency: string;
   categoryType?: 'EXPENSE' | 'INCOME' | 'ALL';
+  selectedMonth?: number;
+  selectedYear?: number;
 }
 
 interface ChartDataPoint {
@@ -42,7 +44,9 @@ interface ChartDataPoint {
 export function CategoryPerformanceGauge({ 
   budgetData, 
   currency, 
-  categoryType = 'ALL' 
+  categoryType = 'ALL',
+  selectedMonth,
+  selectedYear
 }: CategoryPerformanceGaugeProps) {
   const router = useRouter();
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
@@ -172,15 +176,15 @@ export function CategoryPerformanceGauge({
 
   // Handle bar click navigation
   const handleBarClick = (item: ChartDataPoint) => {
-    // Calculate current month date range
+    // Use selected month/year or fall back to current month
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
+    const targetYear = selectedYear !== undefined ? selectedYear : now.getFullYear();
+    const targetMonth = selectedMonth !== undefined ? selectedMonth : now.getMonth();
     
-    // First day of current month
-    const startDate = new Date(currentYear, currentMonth, 1);
-    // Last day of current month
-    const endDate = new Date(currentYear, currentMonth + 1, 0);
+    // First day of selected month
+    const startDate = new Date(targetYear, targetMonth, 1);
+    // Last day of selected month
+    const endDate = new Date(targetYear, targetMonth + 1, 0);
     
     // Format dates as YYYY-MM-DD for URL parameters
     const formatDateForURL = (date: Date): string => {
