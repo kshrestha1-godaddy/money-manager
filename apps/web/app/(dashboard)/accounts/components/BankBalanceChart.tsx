@@ -151,9 +151,12 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                         data={chartData}
                         margin={{
                             top: 20,
-                            right: 15,
+                            right: 30,
                             left: 20,
+                            bottom: 5
                         }}
+                        maxBarSize={chartData.length === 1 ? 100 : undefined}
+                        barCategoryGap={chartData.length === 1 ? "20%" : "10%"}
                     >
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0"
                         vertical={true}
@@ -168,13 +171,18 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                             height={40}
                             interval={0}
                             textAnchor="middle"
+                            axisLine={true}
+                            tickLine={true}
+                            type="category"
                         />
                         <YAxis
                             tick={{ fontSize: 10 }}
                             stroke="#666"
                             tickFormatter={formatYAxisTick}
-                            width={40}
-                            domain={['dataMin < 0 ? dataMin * 1.1 : 0', 'dataMax * 1.1']}
+                            width={50}
+                            domain={chartData.length === 1 ? [0, 'dataMax * 1.2'] : ['dataMin < 0 ? dataMin * 1.1 : 0', 'dataMax * 1.1']}
+                            axisLine={true}
+                            tickLine={true}
                         />
                         <Tooltip
                             formatter={formatTooltip}
@@ -199,6 +207,7 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                         <Bar
                             dataKey="balance"
                             radius={[4, 4, 0, 0]}
+                            minPointSize={5}
                         >
                             {/* Conditional colors for positive/negative values */}
                             {chartData.map((entry, index) => (
