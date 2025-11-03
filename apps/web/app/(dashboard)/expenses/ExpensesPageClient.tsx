@@ -282,7 +282,7 @@ export default function ExpensesPageClient() {
         </div>
         <div className={UI_STYLES.header.buttonGroup}>
           <button onClick={() => setIsAddModalOpen(true)} className={primaryButton}>Add Expense</button>
-          <button onClick={() => setIsAddCategoryModalOpen(true)} className={primaryButton}>Add Category</button>
+          <button onClick={() => setIsAddCategoryModalOpen(true)} className={primaryButton}>Manage Categories</button>
           <button onClick={() => setIsBulkImportModalOpen(true)} className={secondaryBlueButton}>Import CSV</button>
           <button onClick={handleExportToCSV} disabled={allExpenses.length === 0} className={`${secondaryGreenButton} disabled:opacity-50`}>Export CSV</button>
         </div>

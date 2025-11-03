@@ -271,7 +271,7 @@ export default function IncomesPageClient() {
         </div>
         <div className={UI_STYLES.header.buttonGroup}>
           <button onClick={() => setIsAddModalOpen(true)} className={primaryButton}>Add Income</button>
-          <button onClick={() => setIsAddCategoryModalOpen(true)} className={primaryButton}>Add Category</button>
+          <button onClick={() => setIsAddCategoryModalOpen(true)} className={primaryButton}>Manage Categories</button>
           <button onClick={() => setIsBulkImportModalOpen(true)} className={secondaryBlueButton}>Import CSV</button>
           <button onClick={handleExportToCSV} disabled={allIncomes.length === 0} className={`${secondaryGreenButton} disabled:opacity-50`}>Export CSV</button>
         </div>

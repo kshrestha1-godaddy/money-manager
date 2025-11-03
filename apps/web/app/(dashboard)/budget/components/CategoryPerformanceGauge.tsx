@@ -72,9 +72,8 @@ export function CategoryPerformanceGauge({
   // Get color for each bar based on utilization percentage
   const getBarColor = (utilization: number) => {
     if (utilization <= 0) return '#d1d5db'; // Light gray for no activity
-    if (utilization <= 75) return '#3b82f6'; // Blue - well under budget
-    if (utilization <= 90) return '#f59e0b'; // Amber - approaching budget
-    if (utilization <= 100) return '#10b981'; // Orange - near budget limit
+    if (utilization < 100) return '#3b82f6'; // Blue - under budget
+    if (utilization === 100) return '#10b981'; // Green - exactly at budget
     return '#ef4444'; // Red - over budget
   };
   
@@ -230,16 +229,12 @@ export function CategoryPerformanceGauge({
       {/* Legend */}
       <div className="flex flex-wrap gap-4 mb-6 text-xs">
         <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-blue-500 rounded"></div>
+          <span className="text-gray-600">Under Budget (&lt;100%)</span>
+        </div>
+        <div className="flex items-center gap-2">
           <div className="w-3 h-3 bg-green-500 rounded"></div>
-          <span className="text-gray-600">Under Budget (≤75%)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-amber-500 rounded"></div>
-          <span className="text-gray-600">Approaching (76-90%)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-orange-500 rounded"></div>
-          <span className="text-gray-600">Near Limit (91-100%)</span>
+          <span className="text-gray-600">At Budget (100%)</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 bg-red-500 rounded"></div>
@@ -465,8 +460,8 @@ export function CategoryPerformanceGauge({
                 <span className="text-gray-600">Utilization:</span>
                 <span className={`font-bold ${
                   hoveredData.utilization > 100 ? 'text-red-600' : 
-                  hoveredData.utilization > 90 ? 'text-orange-600' : 
-                  'text-green-600'
+                  hoveredData.utilization === 100 ? 'text-green-600' : 
+                  'text-blue-600'
                 }`}>
                   {hoveredData.utilization}%
                 </span>
