@@ -413,3 +413,173 @@ export async function bulkCreateAccounts(accounts: Omit<AccountInterface, 'id' |
         throw error;
     }
 }
+
+export async function transferMoney(fromAccountId: number, toAccountId: number, amount: number, notes?: string) {
+    try {
+        const session = await getAuthenticatedSession();
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Validate input
+        if (fromAccountId === toAccountId) {
+            throw new Error("Source and destination accounts cannot be the same");
+        }
+
+        if (amount <= 0) {
+            throw new Error("Transfer amount must be greater than 0");
+        }
+
+        // Get user's preferred currency
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { currency: true }
+        });
+
+        const userCurrency = user?.currency || 'USD';
+
+        // Find existing Self Transfer of Money category
+        let transferCategory = await prisma.category.findFirst({
+            where: {
+                userId: userId,
+                OR: [
+                    { name: "Transfer" },
+                    { name: "Self Transfer of Money" },
+                    { name: "SToM (Self Transfer of Money)" }
+                ],
+                type: "EXPENSE"
+            }
+        });
+
+        if (!transferCategory) {
+            // Create the category if it doesn't exist
+            transferCategory = await prisma.category.create({
+                data: {
+                    name: "SToM (Self Transfer of Money)",
+                    type: "EXPENSE",
+                    color: "#8B5CF6", // Purple color for transfers
+                    icon: "↔️",
+                    includedInBudget: false, // Transfers shouldn't be included in budget calculations
+                    userId: userId
+                }
+            });
+        }
+
+        // Use transaction to ensure all operations succeed or fail together
+        const result = await prisma.$transaction(async (tx) => {
+            // Verify both accounts belong to the user
+            const fromAccount = await tx.account.findFirst({
+                where: {
+                    id: fromAccountId,
+                    userId: userId,
+                },
+            });
+
+            const toAccount = await tx.account.findFirst({
+                where: {
+                    id: toAccountId,
+                    userId: userId,
+                },
+            });
+
+            if (!fromAccount) {
+                throw new Error("Source account not found or unauthorized");
+            }
+
+            if (!toAccount) {
+                throw new Error("Destination account not found or unauthorized");
+            }
+
+            // Check if source account has sufficient balance
+            const sourceBalance = fromAccount.balance ? decimalToNumber(fromAccount.balance, 'balance') : 0;
+            if (sourceBalance < amount) {
+                throw new Error(`Insufficient balance. Available: ${sourceBalance} ${userCurrency}`);
+            }
+
+            // Update account balances
+            const updatedFromAccount = await tx.account.update({
+                where: { id: fromAccountId },
+                data: { 
+                    balance: {
+                        decrement: amount
+                    }
+                },
+            });
+
+            const updatedToAccount = await tx.account.update({
+                where: { id: toAccountId },
+                data: { 
+                    balance: {
+                        increment: amount
+                    }
+                },
+            });
+
+            // Create a single expense entry for tracking with zero amount (doesn't affect expense calculations)
+            const transferExpense = await tx.expense.create({
+                data: {
+                    title: `Transfer: ${fromAccount.bankName} → ${toAccount.bankName}`,
+                    description: `Money transfer between accounts`,
+                    amount: 0, // Zero amount so it doesn't affect expense calculations
+                    currency: userCurrency,
+                    date: new Date(),
+                    category: {
+                        connect: { id: transferCategory!.id }
+                    },
+                    account: {
+                        connect: { id: fromAccountId }
+                    },
+                    user: {
+                        connect: { id: userId }
+                    },
+                    tags: ["Transfer", "Self-Transfer"],
+                    location: [],
+                    notes: `Transfer Amount: ${amount} ${userCurrency} | From: ${fromAccount.bankName} (${fromAccount.accountNumber}) | To: ${toAccount.bankName} (${toAccount.accountNumber})${notes ? ` | Notes: ${notes}` : ''}`,
+                    isRecurring: false
+                }
+            });
+
+            return {
+                fromAccount: {
+                    ...updatedFromAccount,
+                    balance: updatedFromAccount.balance ? decimalToNumber(updatedFromAccount.balance, 'balance') : 0,
+                    accountOpeningDate: new Date(updatedFromAccount.accountOpeningDate),
+                    createdAt: new Date(updatedFromAccount.createdAt),
+                    updatedAt: new Date(updatedFromAccount.updatedAt),
+                    appUsername: updatedFromAccount.appUsername || undefined,
+                    appPassword: updatedFromAccount.appPassword || undefined,
+                    appPin: updatedFromAccount.appPin || undefined,
+                    notes: updatedFromAccount.notes || undefined,
+                    nickname: updatedFromAccount.nickname || undefined,
+                },
+                toAccount: {
+                    ...updatedToAccount,
+                    balance: updatedToAccount.balance ? decimalToNumber(updatedToAccount.balance, 'balance') : 0,
+                    accountOpeningDate: new Date(updatedToAccount.accountOpeningDate),
+                    createdAt: new Date(updatedToAccount.createdAt),
+                    updatedAt: new Date(updatedToAccount.updatedAt),
+                    appUsername: updatedToAccount.appUsername || undefined,
+                    appPassword: updatedToAccount.appPassword || undefined,
+                    appPin: updatedToAccount.appPin || undefined,
+                    notes: updatedToAccount.notes || undefined,
+                    nickname: updatedToAccount.nickname || undefined,
+                },
+                transferExpense,
+                transferAmount: amount
+            };
+        });
+
+        console.info(`Transfer completed successfully: ${amount} ${userCurrency} from account ${fromAccountId} to account ${toAccountId} for user ${userId}`);
+
+        return {
+            success: true,
+            message: `Successfully transferred ${amount} ${userCurrency} from ${result.fromAccount.bankName} to ${result.toAccount.bankName}`,
+            data: {
+                fromAccount: result.fromAccount as AccountInterface,
+                toAccount: result.toAccount as AccountInterface,
+                transferAmount: result.transferAmount
+            }
+        };
+    } catch (error: any) {
+        console.error(`Failed to transfer money:`, error);
+        throw error;
+    }
+}

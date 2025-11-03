@@ -28,6 +28,7 @@ interface AccountTableProps {
     showBulkActions?: boolean;
     onBulkDelete?: () => void;
     onClearSelection?: () => void;
+    headerActions?: React.ReactNode;
 }
 
 type SortField = 'holderName' | 'bankName' | 'accountNumber' | 'accountOpeningDate' | 'balance';
@@ -44,7 +45,8 @@ export function AccountTable({
     onSelectAll,
     showBulkActions = false,
     onBulkDelete,
-    onClearSelection 
+    onClearSelection,
+    headerActions
 }: AccountTableProps) {
     const { currency: userCurrency } = useCurrency();
     const [sortField, setSortField] = useState<SortField>('bankName');
@@ -257,22 +259,25 @@ export function AccountTable({
                     <h2 className="text-lg font-semibold text-gray-900">
                         Bank Accounts ({accounts.length})
                     </h2>
-                    {showBulkActions && selectedAccounts.size > 0 && (
-                        <div className="flex space-x-2">
-                            <button
-                                onClick={onClearSelection}
-                                className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors"
-                            >
-                                Clear Selection
-                            </button>
-                            <button
-                                onClick={handleBulkDelete}
-                                className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
-                            >
-                                Delete Selected ({selectedAccounts.size})
-                            </button>
-                        </div>
-                    )}
+                    <div className="flex items-center space-x-4">
+                        {headerActions}
+                        {showBulkActions && selectedAccounts.size > 0 && (
+                            <div className="flex space-x-2">
+                                <button
+                                    onClick={onClearSelection}
+                                    className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors"
+                                >
+                                    Clear Selection
+                                </button>
+                                <button
+                                    onClick={handleBulkDelete}
+                                    className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                                >
+                                    Delete Selected ({selectedAccounts.size})
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
             <div className="overflow-x-auto">

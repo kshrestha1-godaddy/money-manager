@@ -9,6 +9,7 @@ import { DeleteAccountModal } from "./components/DeleteAccountModal";
 import { ViewAccountModal } from "./components/ViewAccountModal";
 import { ShareAccountModal } from "./components/ShareAccountModal";
 import { ImportAccountModal } from "./components/ImportAccountModal";
+import { TransferModal } from "./components/TransferModal";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { BankBalanceChart } from "./components/BankBalanceChart";
@@ -77,6 +78,8 @@ export default function Accounts() {
         setIsShareModalOpen,
         isImportModalOpen,
         setIsImportModalOpen,
+        isTransferModalOpen,
+        setIsTransferModalOpen,
 
         // Filter states
         selectedAccounts,
@@ -109,6 +112,7 @@ export default function Accounts() {
         handleBulkDelete,
         handleBulkImportSuccess,
         handleExportToCSV,
+        handleTransfer,
         handleAccountSelect,
         handleSelectAll,
         clearFilters,
@@ -372,6 +376,19 @@ export default function Accounts() {
                     onDelete={openDeleteModal}
                     onViewDetails={openViewModal}
                     onShare={openShareModal}
+                    headerActions={
+                        <button
+                            onClick={() => setIsTransferModalOpen(true)}
+                            className={`${primaryButton} flex items-center space-x-2 disabled:opacity-50`}
+                            disabled={filteredAccounts.length < 2}
+                            title={filteredAccounts.length < 2 ? "You need at least 2 accounts to transfer money" : "Transfer money between accounts"}
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                            </svg>
+                            <span>Self Transfer of Money</span>
+                        </button>
+                    }
                 />
             )}
 
@@ -425,6 +442,13 @@ export default function Accounts() {
                 onClose={() => setIsImportModalOpen(false)}
                 onImport={handleBulkImportSuccess}
                 isImporting={isImporting}
+            />
+
+            <TransferModal
+                isOpen={isTransferModalOpen}
+                onClose={() => setIsTransferModalOpen(false)}
+                onTransfer={handleTransfer}
+                accounts={allAccounts}
             />
         </div>
     );
