@@ -484,19 +484,23 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
                 await prisma.$transaction(async (tx) => {
                     for (const investmentData of batch) {
                         try {
-                            // Validate account exists
-                            const account = await tx.account.findUnique({
-                                where: { id: investmentData.accountId },
-                                select: { id: true, bankName: true }
-                            });
-
-                            if (!account) {
-                                result.errors.push({
-                                    row: 0, // We don't have row tracking in batch processing
-                                    error: `Account not found for investment: ${investmentData.name}`,
-                                    data: investmentData
+                            let account = null;
+                            
+                            // Validate account exists only if accountId is provided
+                            if (investmentData.accountId) {
+                                account = await tx.account.findUnique({
+                                    where: { id: investmentData.accountId },
+                                    select: { id: true, bankName: true, balance: true }
                                 });
-                                continue;
+
+                                if (!account) {
+                                    result.errors.push({
+                                        row: 0, // We don't have row tracking in batch processing
+                                        error: `Account not found for investment: ${investmentData.name}`,
+                                        data: investmentData
+                                    });
+                                    continue;
+                                }
                             }
 
                             const totalInvestmentAmount = (investmentData.type === 'FIXED_DEPOSIT' || investmentData.type === 'PROVIDENT_FUNDS' || investmentData.type === 'SAFE_KEEPINGS' || investmentData.type === 'EMERGENCY_FUND' || investmentData.type === 'MARRIAGE' || investmentData.type === 'VACATION') ? 
@@ -741,15 +745,35 @@ export async function importCorrectedRow(rowData: string[], headers: string[]): 
 
     const investmentData = parseResult.data[0];
 
-    // Create the investment
-    const newInvestment = await prisma.investment.create({
-        data: {
-            ...investmentData,
-            userId: userId,
-        },
-        include: {
-            account: true,
-        },
+    // Use a transaction to ensure both investment creation and account balance update are atomic
+    const newInvestment = await prisma.$transaction(async (tx) => {
+        // Create the investment
+        const investment = await tx.investment.create({
+            data: {
+                ...investmentData,
+                userId: userId,
+            },
+            include: {
+                account: true,
+            },
+        });
+
+        // Update account balance only if account is linked
+        if (investmentData.accountId) {
+            const totalInvestmentAmount = (investmentData.type === 'FIXED_DEPOSIT' || investmentData.type === 'PROVIDENT_FUNDS' || investmentData.type === 'SAFE_KEEPINGS' || investmentData.type === 'EMERGENCY_FUND' || investmentData.type === 'MARRIAGE' || investmentData.type === 'VACATION') ? 
+                investmentData.purchasePrice : investmentData.quantity * investmentData.purchasePrice;
+            
+            await tx.account.update({
+                where: { id: investmentData.accountId },
+                data: {
+                    balance: {
+                        decrement: totalInvestmentAmount
+                    }
+                }
+            });
+        }
+
+        return investment;
     });
     
     revalidatePath("/(dashboard)/investments");

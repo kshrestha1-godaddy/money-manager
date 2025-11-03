@@ -247,8 +247,8 @@ function validateAndConvertRow(
         investmentType = 'OTHER';
     }
 
-    // Find account by account name or bank name
-    let accountId: number;
+    // Find account by account name or bank name (optional)
+    let accountId: number | undefined;
     const accountName = rowData.account || rowData.bankname || '';
     
     if (accountName) {
@@ -274,9 +274,8 @@ function validateAndConvertRow(
         } else {
             errors.push(`Row ${rowIndex + 1}: Account not found (${accountName}). Please ensure the account exists or matches the exported format.`);
         }
-    } else {
-        errors.push(`Row ${rowIndex + 1}: Account information is required`);
     }
+    // Account information is now optional - investments can be tracked independently
 
     if (errors.length > 0) {
         return { isValid: false, data: null, errors };
