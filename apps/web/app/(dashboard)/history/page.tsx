@@ -332,6 +332,12 @@ interface ComparisonChartProps {
     period1Label: string;
     period2Label: string;
     currency: string;
+    // Adjusted values - separate for income increment vs expense inflation
+    period1IncomeWithIncrement: number;
+    period1ExpensesWithInflation: number;
+    period1SavingsAdjusted: number;
+    incomeIncrementRate: number;
+    expenseInflationRate: number;
 }
 
 function ComparisonChart({ 
@@ -343,33 +349,52 @@ function ComparisonChart({
     period2Savings,
     period1Label, 
     period2Label,
-    currency 
+    currency,
+    period1IncomeWithIncrement,
+    period1ExpensesWithInflation,
+    period1SavingsAdjusted,
+    incomeIncrementRate,
+    expenseInflationRate
 }: ComparisonChartProps) {
-    // Create chart data inside the component - this is the only thing that changes
+    // Create chart data inside the component - separate adjustments for income vs expenses
     const data = [
         {
             name: "Income",
             period1: period1Income,
-            period2: period2Income
+            period2: period2Income,
+            period1IncomeIncrement: period1IncomeWithIncrement - period1Income,
+            period1ExpenseInflation: 0 // No expense inflation for income
         },
         {
             name: "Expenses", 
             period1: period1Expenses,
-            period2: period2Expenses
+            period2: period2Expenses,
+            period1IncomeIncrement: 0, // No income increment for expenses
+            period1ExpenseInflation: period1ExpensesWithInflation - period1Expenses
         },
         {
             name: "Savings",
             period1: period1Savings,
-            period2: period2Savings
+            period2: period2Savings,
+            period1IncomeIncrement: (period1IncomeWithIncrement - period1Income), // Positive impact from income
+            period1ExpenseInflation: -(period1ExpensesWithInflation - period1Expenses) // Negative impact from expenses
         }
     ];
 
     // Simple formatting functions
     const formatDataLabel = (value: number) => {
-        if (value === 0) return '';
+        if (value === 0 || Math.abs(value) < 10) return ''; // Hide very small values to reduce clutter
         if (Math.abs(value) >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
         if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(0)}K`;
         return Math.abs(value) >= 100 ? Math.round(value).toString() : formatCurrency(value, currency);
+    };
+
+    // Formatting function for adjustment labels (without currency symbol)
+    const formatAdjustmentLabel = (value: number) => {
+        if (value === 0 || Math.abs(value) < 10) return ''; // Hide very small values to reduce clutter
+        if (Math.abs(value) >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+        if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(0)}K`;
+        return Math.abs(value) >= 100 ? Math.round(value).toString() : Math.round(value).toString();
     };
 
     const formatYAxisTick = (value: number) => {
@@ -378,12 +403,12 @@ function ComparisonChart({
         return value.toString();
     };
 
-    // Calculate percentage change for labels
-    const calculatePercentageChange = (current: number, previous: number): string => {
+    // Calculate percentage change for labels (comparing adjusted values vs previous period)
+    const calculatePercentageChange = (current: number, previous: number, adjustedValue: number): string => {
         if (previous === 0) {
-            return current > 0 ? '+∞%' : current < 0 ? '-∞%' : '0%';
+            return adjustedValue > 0 ? '+∞%' : adjustedValue < 0 ? '-∞%' : '0%';
         }
-        const change = ((current - previous) / Math.abs(previous)) * 100;
+        const change = ((adjustedValue - previous) / Math.abs(previous)) * 100;
         const sign = change >= 0 ? '+' : '';
         return `${sign}${change.toFixed(1)}%`;
     };
@@ -394,15 +419,18 @@ function ComparisonChart({
         
         const period1Value = payload.period1 || 0;
         const period2Value = payload.period2 || 0;
-        const percentageChange = calculatePercentageChange(period1Value, period2Value);
+        const incomeIncrement = payload.period1IncomeIncrement || 0;
+        const expenseInflation = payload.period1ExpenseInflation || 0;
+        const totalAdjusted = period1Value + incomeIncrement + expenseInflation;
+        const percentageChange = calculatePercentageChange(period1Value, period2Value, totalAdjusted);
         
         // Position the label between the two bars
         const labelX = x + width / 2;
         const labelY = y - 5; // Slightly above the bars
         
-        // Color based on change
-        const isPositive = period1Value > period2Value;
-        const color = isPositive ? '#059669' : period1Value < period2Value ? '#dc2626' : '#6b7280';
+        // Color based on change (using adjusted values)
+        const isPositive = totalAdjusted > period2Value;
+        const color = isPositive ? '#059669' : totalAdjusted < period2Value ? '#dc2626' : '#6b7280';
         
         return (
             <text
@@ -419,11 +447,11 @@ function ComparisonChart({
     };
 
     return (
-        <div className="h-[500px]">
+        <div className="h-[600px]">
             <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                     data={data}
-                    margin={{ top: 60, right: 30, left: 20, bottom: 60 }}
+                    margin={{ top: 100, right: 50, left: 40, bottom: 80 }}
                     barCategoryGap="30%"
                     barGap="1%"
                 >
@@ -441,16 +469,113 @@ function ComparisonChart({
                         tickFormatter={formatYAxisTick}
                     />
                     <Tooltip 
-                        formatter={(value: number, name: string, props: any) => [
-                            formatCurrency(value, currency),
-                            props.dataKey === 'period1' ? period1Label : period2Label
-                        ]}
-                        labelFormatter={(label) => `${label} Comparison`}
-                        contentStyle={{
-                            backgroundColor: 'white',
-                            border: '1px solid #e5e7eb',
-                            borderRadius: '8px',
-                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                        content={({ active, payload, label }) => {
+                            if (!active || !payload || payload.length === 0 || !payload[0]?.payload) return null;
+                            
+                            const data = payload[0].payload;
+                            const categoryName = label;
+                            
+                            // Calculate values
+                            const period1Value = data.period1 || 0;
+                            const period2Value = data.period2 || 0;
+                            const incomeIncrement = data.period1IncomeIncrement || 0;
+                            const expenseInflation = data.period1ExpenseInflation || 0;
+                            const totalAdjusted = period1Value + incomeIncrement + expenseInflation;
+                            
+                            // Calculate percentage change
+                            const percentageChangeNum = period2Value !== 0 
+                                ? ((totalAdjusted - period2Value) / Math.abs(period2Value)) * 100
+                                : totalAdjusted > 0 ? Infinity : totalAdjusted < 0 ? -Infinity : 0;
+                            
+                            const percentageChangeStr = isFinite(percentageChangeNum) 
+                                ? percentageChangeNum.toFixed(1)
+                                : percentageChangeNum > 0 ? '+∞' : percentageChangeNum < 0 ? '-∞' : '0.0';
+                            
+                            return (
+                                <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-4 min-w-[280px]">
+                                    <div className="font-semibold text-gray-800 mb-3 pb-2 border-b border-gray-100">
+                                        {categoryName} Comparison
+                                    </div>
+                                    
+                                    {/* Period 1 (Original) */}
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="flex items-center text-sm">
+                                                <div className="w-3 h-3 bg-violet-500 rounded mr-2"></div>
+                                                {period1Label}
+                                            </span>
+                                            <span className="font-medium text-gray-800">
+                                                {formatCurrency(period1Value, currency)}
+                                            </span>
+                                        </div>
+                                        
+                                        {/* Income Increment (only show if > 0) */}
+                                        {incomeIncrement > 0 && (
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="flex items-center text-emerald-600 pl-5">
+                                                    <div className="w-2 h-2 bg-emerald-500 rounded mr-2"></div>
+                                                    Income Increment ({incomeIncrementRate.toFixed(1)}%)
+                                                </span>
+                                                <span className="text-emerald-600 font-medium">
+                                                    +{formatCurrency(incomeIncrement, currency)}
+                                                </span>
+                                            </div>
+                                        )}
+                                        
+                                        {/* Expense Inflation (only show if != 0) */}
+                                        {Math.abs(expenseInflation) > 0 && (
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="flex items-center text-amber-600 pl-5">
+                                                    <div className="w-2 h-2 bg-amber-500 rounded mr-2"></div>
+                                                    Expense Inflation ({expenseInflationRate.toFixed(1)}%)
+                                                </span>
+                                                <span className="text-amber-600 font-medium">
+                                                    {expenseInflation >= 0 ? '+' : ''}{formatCurrency(expenseInflation, currency)}
+                                                </span>
+                                            </div>
+                                        )}
+                                        
+                                        {/* Total Adjusted (only show if different from original) */}
+                                        {Math.abs(totalAdjusted - period1Value) > 0 && (
+                                            <div className="flex justify-between items-center text-sm pt-1 border-t border-gray-100">
+                                                <span className="text-gray-700 font-medium">
+                                                    Adjusted Total
+                                                </span>
+                                                <span className="font-semibold text-gray-800">
+                                                    {formatCurrency(totalAdjusted, currency)}
+                                                </span>
+                                            </div>
+                                        )}
+                                        
+                                        {/* Period 2 */}
+                                        <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                                            <span className="flex items-center text-sm">
+                                                <div className="w-3 h-3 bg-slate-500 rounded mr-2"></div>
+                                                {period2Label}
+                                            </span>
+                                            <span className="font-medium text-gray-800">
+                                                {formatCurrency(period2Value, currency)}
+                                            </span>
+                                        </div>
+                                        
+                                        {/* Change */}
+                                        <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                                            <span className="text-sm font-medium text-gray-700">
+                                                Change vs {period2Label}
+                                            </span>
+                                            <span className={`font-semibold ${
+                                                totalAdjusted > period2Value 
+                                                    ? 'text-green-600' 
+                                                    : totalAdjusted < period2Value 
+                                                        ? 'text-red-600' 
+                                                        : 'text-gray-600'
+                                            }`}>
+                                                {totalAdjusted >= period2Value ? '+' : ''}{formatCurrency(totalAdjusted - period2Value, currency)} ({percentageChangeNum >= 0 && isFinite(percentageChangeNum) ? '+' : ''}{percentageChangeStr}{isFinite(percentageChangeNum) ? '%' : ''})
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
                         }}
                     />
                     
@@ -472,17 +597,53 @@ function ComparisonChart({
                         dataKey="period1" 
                         name={period1Label}
                         fill="#8b5cf6" 
-                        radius={[2, 2, 0, 0]}
+                        stackId="period1"
+                        radius={[0, 0, 0, 0]}
                         maxBarSize={80}
                     >
                         <LabelList 
                             dataKey="period1" 
-                            position="top" 
-                            formatter={formatDataLabel}
+                            position="center" 
+                            formatter={(value: number) => value > 100 ? formatDataLabel(value) : ''} // Only show if bar is large enough
                             style={{
                                 fontSize: '11px',
                                 fontWeight: 'bold',
-                                fill: '#374151'
+                                fill: 'white'
+                            }}
+                        />
+                        {/* Add total adjusted value on top of the entire stacked bar */}
+                        <LabelList 
+                            content={(props: any) => {
+                                const { payload, x, y, width, height } = props;
+                                if (!payload) return null;
+                                
+                                const period1Value = payload.period1 || 0;
+                                const incomeIncrement = payload.period1IncomeIncrement || 0;
+                                const expenseInflation = payload.period1ExpenseInflation || 0;
+                                const totalAdjusted = period1Value + incomeIncrement + expenseInflation;
+                                
+                                // Always show the total adjusted value
+                                if (totalAdjusted === 0) return null;
+                                
+                                // Position the label above the entire stacked bar
+                                const labelX = x + width / 2;
+                                const labelY = y - 15; // Above the entire stacked bar
+                                
+                                return (
+                                    <text
+                                        x={labelX}
+                                        y={labelY}
+                                        textAnchor="middle"
+                                        fill="#111827"
+                                        fontSize="14"
+                                        fontWeight="bold"
+                                        style={{
+                                            textShadow: '2px 2px 4px rgba(255,255,255,1)'
+                                        }}
+                                    >
+                                        {formatDataLabel(totalAdjusted)}
+                                    </text>
+                                );
                             }}
                         />
                     </Bar>
@@ -503,7 +664,55 @@ function ComparisonChart({
                                 fill: '#374151'
                             }}
                         />
-                        {/* Add percentage change labels on period2 bar */}
+                    </Bar>
+                    
+                    {/* Income increment bar - stacked on top of period1 (green) */}
+                    <Bar 
+                        dataKey="period1IncomeIncrement" 
+                        name={`Income Increment (${incomeIncrementRate}%)`}
+                        fill="#10b981" 
+                        stackId="period1"
+                        radius={[0, 0, 0, 0]}
+                        maxBarSize={80}
+                    >
+                        <LabelList 
+                            dataKey="period1IncomeIncrement" 
+                            position="right" 
+                            formatter={(value: number) => {
+                                if (value === 0 || Math.abs(value) <= 50) return ''; // Hide if zero or not significant
+                                return value > 0 ? `+${formatAdjustmentLabel(Math.abs(value))}` : `-${formatAdjustmentLabel(Math.abs(value))}`;
+                            }}
+                            style={{
+                                fontSize: '9px',
+                                fontWeight: 'bold',
+                                fill: '#065f46'
+                            }}
+                        />
+                    </Bar>
+                    
+                    {/* Expense inflation bar - stacked on top of income increment (amber) */}
+                    <Bar 
+                        dataKey="period1ExpenseInflation" 
+                        name={`Expense Inflation (${expenseInflationRate}%)`}
+                        fill="#f59e0b" 
+                        stackId="period1"
+                        radius={[2, 2, 0, 0]}
+                        maxBarSize={80}
+                    >
+                        <LabelList 
+                            dataKey="period1ExpenseInflation" 
+                            position="left" 
+                            formatter={(value: number) => {
+                                if (value === 0 || Math.abs(value) <= 50) return ''; // Hide if zero or not significant
+                                return value > 0 ? `+${formatAdjustmentLabel(Math.abs(value))}` : `-${formatAdjustmentLabel(Math.abs(value))}`;
+                            }}
+                            style={{
+                                fontSize: '9px',
+                                fontWeight: 'bold',
+                                fill: '#92400e'
+                            }}
+                        />
+                        {/* Add percentage change labels comparing all adjustments vs period2 */}
                         <LabelList 
                             content={(props: any) => {
                                 const { payload, x, y, width } = props;
@@ -511,16 +720,18 @@ function ComparisonChart({
                                 
                                 const period1Value = payload.period1 || 0;
                                 const period2Value = payload.period2 || 0;
-                                const percentageChange = calculatePercentageChange(period1Value, period2Value);
+                                const incomeIncrement = payload.period1IncomeIncrement || 0;
+                                const expenseInflation = payload.period1ExpenseInflation || 0;
+                                const totalAdjusted = period1Value + incomeIncrement + expenseInflation;
+                                const percentageChange = calculatePercentageChange(period1Value, period2Value, totalAdjusted);
                                 
-                                // Position the label above the highest bar
-                                const maxValue = Math.max(period1Value, period2Value);
+                                // Position the label above the total adjusted value
                                 const labelX = x + width / 2;
-                                const labelY = y - 35; // Above the value labels
+                                const labelY = y - 35; // Above the total adjusted value
                                 
                                 // Color based on change
-                                const isPositive = period1Value > period2Value;
-                                const color = isPositive ? '#059669' : period1Value < period2Value ? '#dc2626' : '#6b7280';
+                                const isPositive = totalAdjusted > period2Value;
+                                const color = isPositive ? '#059669' : totalAdjusted < period2Value ? '#dc2626' : '#6b7280';
                                 
                                 return (
                                     <text
@@ -528,7 +739,7 @@ function ComparisonChart({
                                         y={labelY}
                                         textAnchor="middle"
                                         fill={color}
-                                        fontSize="12"
+                                        fontSize="11"
                                         fontWeight="bold"
                                         style={{
                                             textShadow: '1px 1px 2px rgba(255,255,255,0.8)'
@@ -561,6 +772,10 @@ export default function History() {
     const [customPeriod1End, setCustomPeriod1End] = useState<string>("");
     const [customPeriod2Start, setCustomPeriod2Start] = useState<string>("");
     const [customPeriod2End, setCustomPeriod2End] = useState<string>("");
+    
+    // Adjustment rates state
+    const [incomeIncrementRate, setIncomeIncrementRate] = useState<number>(0); // Default 5% income increment
+    const [expenseInflationRate, setExpenseInflationRate] = useState<number>(0); // Default 3% expense inflation
 
     // Sorting state for income table
     const [incomeSortField, setIncomeSortField] = useState<SortField>('delta');
@@ -634,6 +849,28 @@ export default function History() {
             }
             return matchesDateRange;
         });
+    };
+
+    // Calculate income increment adjustment based on time difference between periods
+    const calculateIncomeIncrement = (amount: number, period1Date: Date, period2Date: Date, annualIncrementRate: number): number => {
+        // Calculate the time difference in years
+        const timeDifferenceMs = Math.abs(period1Date.getTime() - period2Date.getTime());
+        const timeDifferenceYears = timeDifferenceMs / (365.25 * 24 * 60 * 60 * 1000);
+        
+        // Apply compound increment: adjustedAmount = originalAmount * (1 + rate)^years
+        const incrementMultiplier = Math.pow(1 + (annualIncrementRate / 100), timeDifferenceYears);
+        return amount * incrementMultiplier;
+    };
+
+    // Calculate expense inflation adjustment based on time difference between periods  
+    const calculateExpenseInflation = (amount: number, period1Date: Date, period2Date: Date, annualInflationRate: number): number => {
+        // Calculate the time difference in years
+        const timeDifferenceMs = Math.abs(period1Date.getTime() - period2Date.getTime());
+        const timeDifferenceYears = timeDifferenceMs / (365.25 * 24 * 60 * 60 * 1000);
+        
+        // Apply compound inflation: adjustedAmount = originalAmount * (1 + rate)^years
+        const inflationMultiplier = Math.pow(1 + (annualInflationRate / 100), timeDifferenceYears);
+        return amount * inflationMultiplier;
     };
 
     // Calculate period data from filtered arrays (with currency conversion)
@@ -714,11 +951,58 @@ export default function History() {
         const period1Data = calculatePeriodDataFromArrays(period1Incomes, period1Expenses);
         const period2Data = calculatePeriodDataFromArrays(period2Incomes, period2Expenses);
 
+        // Calculate separate adjustments for income increment vs expense inflation
+        const period1IncomeWithIncrement = calculateIncomeIncrement(
+            period1Data.totalIncome, 
+            periods.period1.end, 
+            periods.period2.end, 
+            incomeIncrementRate
+        );
+        const period1ExpensesWithInflation = calculateExpenseInflation(
+            period1Data.totalExpenses, 
+            periods.period1.end, 
+            periods.period2.end, 
+            expenseInflationRate
+        );
+        const period1SavingsAdjusted = period1IncomeWithIncrement - period1ExpensesWithInflation;
+        const period1SavingsRateAdjusted = period1IncomeWithIncrement > 0 ? 
+            (period1SavingsAdjusted / period1IncomeWithIncrement) * 100 : 0;
+
+        // Calculate adjusted category data
+        const period1IncomeByCategoryWithIncrement: Record<string, number> = {};
+        const period1ExpensesByCategoryWithInflation: Record<string, number> = {};
+
+        Object.entries(period1Data.incomeByCategory).forEach(([category, amount]) => {
+            period1IncomeByCategoryWithIncrement[category] = calculateIncomeIncrement(
+                amount, 
+                periods.period1.end, 
+                periods.period2.end, 
+                incomeIncrementRate
+            );
+        });
+
+        Object.entries(period1Data.expensesByCategory).forEach(([category, amount]) => {
+            period1ExpensesByCategoryWithInflation[category] = calculateExpenseInflation(
+                amount, 
+                periods.period1.end, 
+                periods.period2.end, 
+                expenseInflationRate
+            );
+        });
+
         return {
             period1: { ...period1Data, label: periods.period1.label },
-            period2: { ...period2Data, label: periods.period2.label }
+            period2: { ...period2Data, label: periods.period2.label },
+            adjusted: {
+                totalIncome: period1IncomeWithIncrement,
+                totalExpenses: period1ExpensesWithInflation,
+                totalSavings: period1SavingsAdjusted,
+                savingsRate: period1SavingsRateAdjusted,
+                incomeByCategory: period1IncomeByCategoryWithIncrement,
+                expensesByCategory: period1ExpensesByCategoryWithInflation
+            }
         };
-    }, [allIncomes, allExpenses, selectedPeriod, customPeriod1Start, customPeriod1End, customPeriod2Start, customPeriod2End, loading]);
+    }, [allIncomes, allExpenses, selectedPeriod, customPeriod1Start, customPeriod1End, customPeriod2Start, customPeriod2End, loading, incomeIncrementRate, expenseInflationRate]);
 
     // Sorted categories for income table
     const sortedIncomeCategories = useMemo(() => {
@@ -726,7 +1010,8 @@ export default function History() {
         
         const allIncomeCategories = new Set([
             ...Object.keys(comparisonData.period1.incomeByCategory),
-            ...Object.keys(comparisonData.period2.incomeByCategory)
+            ...Object.keys(comparisonData.period2.incomeByCategory),
+            ...Object.keys(comparisonData.adjusted.incomeByCategory)
         ]);
 
         return Array.from(allIncomeCategories).sort((a, b) => {
@@ -747,8 +1032,8 @@ export default function History() {
                     bValue = comparisonData.period2.incomeByCategory[b] || 0;
                     break;
                 case 'delta':
-                    aValue = (comparisonData.period1.incomeByCategory[a] || 0) - (comparisonData.period2.incomeByCategory[a] || 0);
-                    bValue = (comparisonData.period1.incomeByCategory[b] || 0) - (comparisonData.period2.incomeByCategory[b] || 0);
+                    aValue = (comparisonData.adjusted.incomeByCategory[a] || 0) - (comparisonData.period2.incomeByCategory[a] || 0);
+                    bValue = (comparisonData.adjusted.incomeByCategory[b] || 0) - (comparisonData.period2.incomeByCategory[b] || 0);
                     break;
                 default:
                     return 0;
@@ -770,7 +1055,8 @@ export default function History() {
         
         const allExpenseCategories = new Set([
             ...Object.keys(comparisonData.period1.expensesByCategory),
-            ...Object.keys(comparisonData.period2.expensesByCategory)
+            ...Object.keys(comparisonData.period2.expensesByCategory),
+            ...Object.keys(comparisonData.adjusted.expensesByCategory)
         ]);
 
         return Array.from(allExpenseCategories).sort((a, b) => {
@@ -791,8 +1077,8 @@ export default function History() {
                     bValue = comparisonData.period2.expensesByCategory[b] || 0;
                     break;
                 case 'delta':
-                    aValue = (comparisonData.period1.expensesByCategory[a] || 0) - (comparisonData.period2.expensesByCategory[a] || 0);
-                    bValue = (comparisonData.period1.expensesByCategory[b] || 0) - (comparisonData.period2.expensesByCategory[b] || 0);
+                    aValue = (comparisonData.adjusted.expensesByCategory[a] || 0) - (comparisonData.period2.expensesByCategory[a] || 0);
+                    bValue = (comparisonData.adjusted.expensesByCategory[b] || 0) - (comparisonData.period2.expensesByCategory[b] || 0);
                     break;
                 default:
                     return 0;
@@ -991,20 +1277,23 @@ export default function History() {
         );
     }
 
-    const incomeDelta = comparisonData.period1.totalIncome - comparisonData.period2.totalIncome;
-    const expensesDelta = comparisonData.period1.totalExpenses - comparisonData.period2.totalExpenses;
-    const savingsDelta = comparisonData.period1.totalSavings - comparisonData.period2.totalSavings;
-    const savingsRateDelta = comparisonData.period1.savingsRate - comparisonData.period2.savingsRate;
+    // Use adjusted values for deltas and comparisons
+    const incomeDelta = comparisonData.adjusted.totalIncome - comparisonData.period2.totalIncome;
+    const expensesDelta = comparisonData.adjusted.totalExpenses - comparisonData.period2.totalExpenses;
+    const savingsDelta = comparisonData.adjusted.totalSavings - comparisonData.period2.totalSavings;
+    const savingsRateDelta = comparisonData.adjusted.savingsRate - comparisonData.period2.savingsRate;
 
-    // Combine all categories for comparison tables
+    // Combine all categories for comparison tables (including adjusted categories)
     const allIncomeCategories = new Set([
         ...Object.keys(comparisonData.period1.incomeByCategory),
-        ...Object.keys(comparisonData.period2.incomeByCategory)
+        ...Object.keys(comparisonData.period2.incomeByCategory),
+        ...Object.keys(comparisonData.adjusted.incomeByCategory)
     ]);
 
     const allExpenseCategories = new Set([
         ...Object.keys(comparisonData.period1.expensesByCategory),
-        ...Object.keys(comparisonData.period2.expensesByCategory)
+        ...Object.keys(comparisonData.period2.expensesByCategory),
+        ...Object.keys(comparisonData.adjusted.expensesByCategory)
     ]);
 
     return (
@@ -1019,19 +1308,72 @@ export default function History() {
 
             {/* Time Period Selection */}
             <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center space-x-4">
-                    <label className="text-sm font-medium text-gray-700">Time period comparison:</label>
-                    <select
-                        value={selectedPeriod}
-                        onChange={(e) => handlePeriodChange(e.target.value)}
-                        className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-yellow-50"
-                    >
-                        {COMPARISON_PERIODS.map((period) => (
-                            <option key={period.value} value={period.value}>
-                                {period.label}
-                            </option>
-                        ))}
-                    </select>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="flex items-center space-x-4">
+                        <label className="text-sm font-medium text-gray-700">Time period comparison:</label>
+                        <select
+                            value={selectedPeriod}
+                            onChange={(e) => handlePeriodChange(e.target.value)}
+                            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-yellow-50"
+                        >
+                            {COMPARISON_PERIODS.map((period) => (
+                                <option key={period.value} value={period.value}>
+                                    {period.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    
+                    {/* Rate Adjustment Sliders */}
+                    <div className="space-y-4">
+                        {/* Income Increment Rate Slider */}
+                        <div className="flex items-center space-x-4">
+                            <label className="text-sm font-medium text-gray-700 w-32">Income increment:</label>
+                            <div className="flex items-center space-x-3">
+                                <span className="text-xs text-gray-500">0%</span>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="15"
+                                    step="0.1"
+                                    value={incomeIncrementRate}
+                                    onChange={(e) => setIncomeIncrementRate(parseFloat(e.target.value))}
+                                    className="w-24 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                                    style={{
+                                        background: `linear-gradient(to right, #10b981 0%, #10b981 ${(incomeIncrementRate / 15) * 100}%, #d1d5db ${(incomeIncrementRate / 15) * 100}%, #d1d5db 100%)`
+                                    }}
+                                />
+                                <span className="text-xs text-gray-500">15%</span>
+                                <span className="text-sm font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
+                                    {incomeIncrementRate.toFixed(1)}%
+                                </span>
+                            </div>
+                        </div>
+                        
+                        {/* Expense Inflation Rate Slider */}
+                        <div className="flex items-center space-x-4">
+                            <label className="text-sm font-medium text-gray-700 w-32">Expense inflation:</label>
+                            <div className="flex items-center space-x-3">
+                                <span className="text-xs text-gray-500">0%</span>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="15"
+                                    step="0.1"
+                                    value={expenseInflationRate}
+                                    onChange={(e) => setExpenseInflationRate(parseFloat(e.target.value))}
+                                    className="w-24 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                                    style={{
+                                        background: `linear-gradient(to right, #f59e0b 0%, #f59e0b ${(expenseInflationRate / 15) * 100}%, #d1d5db ${(expenseInflationRate / 15) * 100}%, #d1d5db 100%)`
+                                    }}
+                                />
+                                <span className="text-xs text-gray-500">15%</span>
+                                <span className="text-sm font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                                    {expenseInflationRate.toFixed(1)}%
+                                </span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 {/* Custom Date Range Selection */}
@@ -1107,12 +1449,7 @@ export default function History() {
                         </div>
                     </div>
                 )}
-                
-                {comparisonData && (
-                    <div className="mt-4 text-sm text-gray-600">
-                        <span className="font-medium">Comparing:</span> {comparisonData.period1.label} <span className="italic">versus</span> {comparisonData.period2.label}
-                    </div>
-                )}
+            
             </div>
 
             {/* Summary Cards */}
@@ -1121,10 +1458,11 @@ export default function History() {
                     <h3 className="text-sm font-medium text-gray-600">Total Income</h3>
                     <div className="mt-2">
                         <div className="text-lg font-semibold">{formatCurrency(comparisonData.period1.totalIncome, currency)}</div>
-                        <div className="text-sm text-gray-500">{formatCurrency(comparisonData.period2.totalIncome, currency)}</div>
+                        <div className="text-xs text-emerald-600 font-medium">+ {formatCurrency(comparisonData.adjusted.totalIncome - comparisonData.period1.totalIncome, currency)} increment</div>
+                        <div className="text-sm text-gray-500 border-t pt-1 mt-1">{formatCurrency(comparisonData.period2.totalIncome, currency)}</div>
                         <div className={`text-sm font-medium ${incomeDelta > 0 ? 'text-green-600' : incomeDelta < 0 ? 'text-red-600' : 'text-gray-600'
                             }`}>
-                            {formatDelta(comparisonData.period1.totalIncome, comparisonData.period2.totalIncome).value}
+                            {formatDelta(comparisonData.adjusted.totalIncome, comparisonData.period2.totalIncome).value}
                         </div>
                     </div>
                 </div>
@@ -1133,10 +1471,11 @@ export default function History() {
                     <h3 className="text-sm font-medium text-gray-600">Total Expenses</h3>
                     <div className="mt-2">
                         <div className="text-lg font-semibold">{formatCurrency(comparisonData.period1.totalExpenses, currency)}</div>
-                        <div className="text-sm text-gray-500">{formatCurrency(comparisonData.period2.totalExpenses, currency)}</div>
+                        <div className="text-xs text-amber-600 font-medium">+ {formatCurrency(comparisonData.adjusted.totalExpenses - comparisonData.period1.totalExpenses, currency)} inflation</div>
+                        <div className="text-sm text-gray-500 border-t pt-1 mt-1">{formatCurrency(comparisonData.period2.totalExpenses, currency)}</div>
                         <div className={`text-sm font-medium ${-expensesDelta > 0 ? 'text-green-600' : -expensesDelta < 0 ? 'text-red-600' : 'text-gray-600'
                             }`}>
-                            {formatDelta(comparisonData.period1.totalExpenses, comparisonData.period2.totalExpenses).value}
+                            {formatDelta(comparisonData.adjusted.totalExpenses, comparisonData.period2.totalExpenses).value}
                         </div>
                     </div>
                 </div>
@@ -1145,10 +1484,15 @@ export default function History() {
                     <h3 className="text-sm font-medium text-gray-600">Total Savings</h3>
                     <div className="mt-2">
                         <div className="text-lg font-semibold">{formatCurrency(comparisonData.period1.totalSavings, currency)}</div>
-                        <div className="text-sm text-gray-500">{formatCurrency(comparisonData.period2.totalSavings, currency)}</div>
+                        <div className="text-xs text-gray-600 font-medium">
+                            <span className="text-emerald-600">+{formatCurrency((comparisonData.adjusted.totalIncome - comparisonData.period1.totalIncome), currency)}</span>
+                            {" / "}
+                            <span className="text-amber-600">-{formatCurrency((comparisonData.adjusted.totalExpenses - comparisonData.period1.totalExpenses), currency)}</span>
+                        </div>
+                        <div className="text-sm text-gray-500 border-t pt-1 mt-1">{formatCurrency(comparisonData.period2.totalSavings, currency)}</div>
                         <div className={`text-sm font-medium ${savingsDelta > 0 ? 'text-green-600' : savingsDelta < 0 ? 'text-red-600' : 'text-gray-600'
                             }`}>
-                            {formatDelta(comparisonData.period1.totalSavings, comparisonData.period2.totalSavings).value}
+                            {formatDelta(comparisonData.adjusted.totalSavings, comparisonData.period2.totalSavings).value}
                         </div>
                     </div>
                 </div>
@@ -1157,7 +1501,8 @@ export default function History() {
                     <h3 className="text-sm font-medium text-gray-600">Savings Rate</h3>
                     <div className="mt-2">
                         <div className="text-lg font-semibold">{comparisonData.period1.savingsRate.toFixed(1)}%</div>
-                        <div className="text-sm text-gray-500">{comparisonData.period2.savingsRate.toFixed(1)}%</div>
+                        <div className="text-xs text-gray-600 font-medium">→ {comparisonData.adjusted.savingsRate.toFixed(1)}% adj.</div>
+                        <div className="text-sm text-gray-500 border-t pt-1 mt-1">{comparisonData.period2.savingsRate.toFixed(1)}%</div>
                         <div className={`text-sm font-medium ${savingsRateDelta > 0 ? 'text-green-600' : savingsRateDelta < 0 ? 'text-red-600' : 'text-gray-600'
                             }`}>
                             {(() => {
@@ -1188,21 +1533,31 @@ export default function History() {
                     period1Label={comparisonData.period1.label}
                     period2Label={comparisonData.period2.label}
                     currency={currency}
+                    period1IncomeWithIncrement={comparisonData.adjusted.totalIncome}
+                    period1ExpensesWithInflation={comparisonData.adjusted.totalExpenses}
+                    period1SavingsAdjusted={comparisonData.adjusted.totalSavings}
+                    incomeIncrementRate={incomeIncrementRate}
+                    expenseInflationRate={expenseInflationRate}
                 />
                 
                 {/* Chart Key/Delta Summary */}
                 <div className="mt-4 flex justify-center">
-                    <div className="flex items-center space-x-8 text-sm">
+                    <div className="flex flex-wrap items-center justify-center gap-6 text-sm">
                         <div className="flex items-center space-x-2">
-                            <div className="w-4 h-4 bg-green-500 rounded"></div>
-                            <span>Positive Change</span>
+                            <div className="w-4 h-4 bg-violet-500 rounded"></div>
+                            <span>{comparisonData.period1.label}</span>
                         </div>
                         <div className="flex items-center space-x-2">
-                            <div className="w-4 h-4 bg-red-500 rounded"></div>
-                            <span>Negative Change</span>
+                            <div className="w-4 h-4 bg-emerald-500 rounded"></div>
+                            <span>Income Increment ({incomeIncrementRate.toFixed(1)}%)</span>
                         </div>
-                        <div className="text-gray-600">
-                            Delta values shown in summary cards above
+                        <div className="flex items-center space-x-2">
+                            <div className="w-4 h-4 bg-amber-500 rounded"></div>
+                            <span>Expense Inflation ({expenseInflationRate.toFixed(1)}%)</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <div className="w-4 h-4 bg-slate-500 rounded"></div>
+                            <span>{comparisonData.period2.label}</span>
                         </div>
                     </div>
                 </div>
@@ -1277,7 +1632,8 @@ export default function History() {
                                 {sortedIncomeCategories.map((category) => {
                                     const period1Amount = comparisonData.period1.incomeByCategory[category] || 0;
                                     const period2Amount = comparisonData.period2.incomeByCategory[category] || 0;
-                                    const delta = period1Amount - period2Amount;
+                                    const period1AmountWithIncrement = comparisonData.adjusted.incomeByCategory[category] || 0;
+                                    const delta = period1AmountWithIncrement - period2Amount;
                                     
                                     return (
                                         <tr key={category}>
@@ -1285,7 +1641,8 @@ export default function History() {
                                                 <div className="break-words">{category}</div>
                                             </td>
                                             <td className="px-6 py-4 text-sm text-right text-gray-900" style={{ width: `${incomeColumnWidths.period1}px` }}>
-                                                {formatCurrency(period1Amount, currency)}
+                                                <div>{formatCurrency(period1Amount, currency)}</div>
+                                                <div className="text-xs text-emerald-600">+ {formatCurrency(period1AmountWithIncrement - period1Amount, currency)}</div>
                                             </td>
                                             <td className="px-6 py-4 text-sm text-right text-gray-900" style={{ width: `${incomeColumnWidths.period2}px` }}>
                                                 {formatCurrency(period2Amount, currency)}
@@ -1293,7 +1650,7 @@ export default function History() {
                                             <td className={`px-6 py-4 text-sm text-right font-medium ${
                                                 delta > 0 ? 'text-green-600' : delta < 0 ? 'text-red-600' : 'text-gray-600'
                                             }`} style={{ width: `${incomeColumnWidths.delta}px` }}>
-                                                {formatDelta(period1Amount, period2Amount).value}
+                                                {formatDelta(period1AmountWithIncrement, period2Amount).value}
                                             </td>
                                         </tr>
                                     );
@@ -1370,7 +1727,8 @@ export default function History() {
                                 {sortedExpenseCategories.map((category) => {
                                     const period1Amount = comparisonData.period1.expensesByCategory[category] || 0;
                                     const period2Amount = comparisonData.period2.expensesByCategory[category] || 0;
-                                    const delta = period1Amount - period2Amount;
+                                    const period1AmountWithInflation = comparisonData.adjusted.expensesByCategory[category] || 0;
+                                    const delta = period1AmountWithInflation - period2Amount;
                                     
                                     return (
                                         <tr key={category}>
@@ -1378,7 +1736,8 @@ export default function History() {
                                                 <div className="break-words">{category}</div>
                                             </td>
                                             <td className="px-6 py-4 text-sm text-right text-gray-900" style={{ width: `${expenseColumnWidths.period1}px` }}>
-                                                {formatCurrency(period1Amount, currency)}
+                                                <div>{formatCurrency(period1Amount, currency)}</div>
+                                                <div className="text-xs text-amber-600">+ {formatCurrency(period1AmountWithInflation - period1Amount, currency)}</div>
                                             </td>
                                             <td className="px-6 py-4 text-sm text-right text-gray-900" style={{ width: `${expenseColumnWidths.period2}px` }}>
                                                 {formatCurrency(period2Amount, currency)}
@@ -1386,7 +1745,7 @@ export default function History() {
                                             <td className={`px-6 py-4 text-sm text-right font-medium ${
                                                 -delta > 0 ? 'text-green-600' : -delta < 0 ? 'text-red-600' : 'text-gray-600'
                                             }`} style={{ width: `${expenseColumnWidths.delta}px` }}>
-                                                {formatDelta(period1Amount, period2Amount).value}
+                                                {formatDelta(period1AmountWithInflation, period2Amount).value}
                                             </td>
                                         </tr>
                                     );
