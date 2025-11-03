@@ -19,7 +19,7 @@ interface InvestmentTableProps {
     onClearSelection?: () => void;
 }
 
-type SortField = 'name' | 'type' | 'quantity' | 'purchasePrice' | 'currentPrice' | 'totalValue' | 'gain' | 'purchaseDate';
+type SortField = 'name' | 'type' | 'bank' | 'quantity' | 'purchasePrice' | 'currentPrice' | 'totalValue' | 'gain' | 'purchaseDate';
 type SortOrder = 'asc' | 'desc';
 
 export function InvestmentTable({ 
@@ -118,6 +118,10 @@ export function InvestmentTable({
             case 'type':
                 aValue = a.type;
                 bValue = b.type;
+                break;
+            case 'bank':
+                aValue = a.account?.bankName?.toLowerCase() || '';
+                bValue = b.account?.bankName?.toLowerCase() || '';
                 break;
             case 'quantity':
                 aValue = a.quantity;
@@ -224,6 +228,20 @@ export function InvestmentTable({
                             <div 
                                 className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
                                 onMouseDown={(e) => handleMouseDown(e, 'type')}
+                            />
+                        </th>
+                        <th 
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
+                            style={{ width: `${columnWidths.bank}px` }}
+                            onClick={() => handleSort('bank')}
+                        >
+                            <div className="flex items-center justify-between">
+                                <span>Bank</span>
+                                {getSortIcon('bank')}
+                            </div>
+                            <div 
+                                className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                onMouseDown={(e) => handleMouseDown(e, 'bank')}
                             />
                         </th>
                         <th 
@@ -416,6 +434,18 @@ function InvestmentRow({
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                     {formatType(investment.type)}
                 </span>
+            </td>
+            <td className="px-6 py-4" style={{ width: `${columnWidths.bank}px` }}>
+                <div className="text-sm text-gray-900 break-words">
+                    {investment.account?.bankName || (
+                        <span className="text-gray-400 italic">No bank linked</span>
+                    )}
+                </div>
+                {investment.account?.holderName && (
+                    <div className="text-xs text-gray-500 break-words leading-tight">
+                        {investment.account.holderName}
+                    </div>
+                )}
             </td>
             <td className="px-6 py-4 text-sm text-gray-900" style={{ width: `${columnWidths.quantityInterest}px` }}>
                 {investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' || investment.type === 'EMERGENCY_FUND' || investment.type === 'MARRIAGE' || investment.type === 'VACATION' ? (

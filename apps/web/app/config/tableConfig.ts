@@ -36,6 +36,7 @@ export const TABLE_COLUMN_WIDTHS = {
     checkbox: 40,
     investment: 280,
     type: 140,
+    bank: 160,
     quantityInterest: 200,
     purchasePrincipal: 180,
     currentValue: 160,
@@ -71,6 +72,7 @@ export type InvestmentColumnWidths = {
   checkbox: number;
   investment: number;
   type: number;
+  bank: number;
   quantityInterest: number;
   purchasePrincipal: number;
   currentValue: number;
