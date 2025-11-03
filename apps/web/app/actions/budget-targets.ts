@@ -161,7 +161,11 @@ export async function deleteBudgetTarget(id: number): Promise<void> {
     }
 }
 
-export async function getBudgetComparison(period: string = 'MONTHLY'): Promise<{ data?: BudgetComparisonData[], error?: string }> {
+export async function getBudgetComparison(
+    period: string = 'MONTHLY',
+    selectedMonth?: number,
+    selectedYear?: number
+): Promise<{ data?: BudgetComparisonData[], error?: string }> {
     try {
         const session = await getAuthenticatedSession();
         const userId = getUserIdFromSession(session.user.id);
@@ -181,19 +185,22 @@ export async function getBudgetComparison(period: string = 'MONTHLY'): Promise<{
             },
         });
 
-        // Get current month's start and end dates
+        // Get selected month's start and end dates (default to current month if not specified)
         const now = new Date();
-        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        const targetMonth = selectedMonth !== undefined ? selectedMonth : now.getMonth();
+        const targetYear = selectedYear !== undefined ? selectedYear : now.getFullYear();
+        
+        const monthStart = new Date(targetYear, targetMonth, 1);
+        const monthEnd = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59, 999);
 
-        // Get all expense and income data for the current month only
+        // Get all expense and income data for the selected month
         const [expenses, incomes] = await Promise.all([
             prisma.expense.findMany({
                 where: {
                     userId: userId,
                     date: {
-                        gte: currentMonthStart,
-                        lte: currentMonthEnd,
+                        gte: monthStart,
+                        lte: monthEnd,
                     },
                 },
                 include: {
@@ -204,8 +211,8 @@ export async function getBudgetComparison(period: string = 'MONTHLY'): Promise<{
                 where: {
                     userId: userId,
                     date: {
-                        gte: currentMonthStart,
-                        lte: currentMonthEnd,
+                        gte: monthStart,
+                        lte: monthEnd,
                     },
                 },
                 include: {
@@ -288,7 +295,7 @@ export async function getBudgetComparison(period: string = 'MONTHLY'): Promise<{
             const isExpenseCategory = categoryData.categoryType === 'EXPENSE';
             const relevantTransactions = isExpenseCategory ? categoryData.expenses : categoryData.incomes;
             
-            // Calculate actual spending/earning for current month (with currency conversion)
+            // Calculate actual spending/earning for selected month (with currency conversion)
             const totalAmount = relevantTransactions.reduce((sum, transaction) => {
                 const amount = parseFloat(transaction.amount.toString());
                 const transactionCurrency = transaction.currency || 'USD';
@@ -296,8 +303,8 @@ export async function getBudgetComparison(period: string = 'MONTHLY'): Promise<{
                 return sum + convertedAmount;
             }, 0);
             const transactionCount = relevantTransactions.length;
-            // Use actual current month total instead of average
-            const currentMonthActual = totalAmount;
+            // Use actual selected month total instead of average
+            const selectedMonthActual = totalAmount;
 
             // Get or create budget target
             let budgetTarget = budgetTargetsMap.get(categoryName);
@@ -314,13 +321,13 @@ export async function getBudgetComparison(period: string = 'MONTHLY'): Promise<{
             }
             
             // Calculate variance
-            const variance = currentMonthActual - monthlySpend;
+            const variance = selectedMonthActual - monthlySpend;
             const variancePercentage = monthlySpend > 0 ? (variance / monthlySpend) * 100 : 
-                                     (currentMonthActual > 0 ? 100 : 0);
+                                     (selectedMonthActual > 0 ? 100 : 0);
             
             let status: 'over' | 'under' | 'on-track' = 'on-track';
             if (monthlySpend === 0) {
-                status = currentMonthActual > 0 ? 'over' : 'on-track';
+                status = selectedMonthActual > 0 ? 'over' : 'on-track';
             } else if (Math.abs(variancePercentage) > 10) {
                 status = variance > 0 ? 'over' : 'under';
             }
@@ -329,7 +336,7 @@ export async function getBudgetComparison(period: string = 'MONTHLY'): Promise<{
                 categoryName,
                 categoryType: categoryData.categoryType,
                 actualSpending: {
-                    monthlyAverage: currentMonthActual, // Now represents current month actual, not average
+                    monthlyAverage: selectedMonthActual, // Now represents selected month actual, not average
                     totalAmount,
                     transactionCount,
                 },

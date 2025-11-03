@@ -16,6 +16,7 @@ import { BulkDeleteBudgetTargetsModal } from "./components/BulkDeleteBudgetTarge
 import { BudgetActionSuccessModal } from "./components/BudgetActionSuccessModal";
 import { CategoryPerformanceGauge } from "./components/CategoryPerformanceGauge";
 import { DeleteBudgetTargetModal } from "./components/DeleteBudgetTargetModal";
+import { MonthNavigation } from "./components/MonthNavigation";
 
 type SortField = 'category' | 'actual' | 'budget' | 'variance';
 type SortDirection = 'asc' | 'desc';
@@ -58,6 +59,29 @@ export default function BudgetPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<'MONTHLY' | 'QUARTERLY' | 'YEARLY'>('MONTHLY');
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');
+  
+  // Month/Year navigation state
+  const currentDate = new Date();
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentDate.getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(currentDate.getFullYear());
+
+  // Month navigation handler
+  const handleMonthChange = (month: number, year: number) => {
+    setSelectedMonth(month);
+    setSelectedYear(year);
+  };
+
+  // Helper to get month name
+  const getSelectedMonthName = () => {
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return monthNames[selectedMonth];
+  };
+
+  // Check if viewing current month
+  const isCurrentMonth = selectedMonth === currentDate.getMonth() && selectedYear === currentDate.getFullYear();
   
   // Sorting state for income table
   const [incomeSortField, setIncomeSortField] = useState<SortField>('variance');
@@ -108,7 +132,7 @@ export default function BudgetPage() {
     isUpdating,
     isDeleting,
     isUpdatingInclusion
-  } = useBudgetTracking(selectedPeriod);
+  } = useBudgetTracking(selectedPeriod, selectedMonth, selectedYear);
 
   const { allCategories, loading: categoriesLoading } = useAllCategories();
 
@@ -522,7 +546,12 @@ export default function BudgetPage() {
       <div className={UI_STYLES.header.container}>
         <div>
           <h1 className={UI_STYLES.page.title}>Budget Tracking</h1>
-          <p className={`${UI_STYLES.page.subtitle} mt-2`}>Compare your actual spending against budget targets</p>
+          <p className={`${UI_STYLES.page.subtitle} mt-2`}>
+            {isCurrentMonth 
+              ? `Compare your current spending against budget targets for ${getSelectedMonthName()} ${selectedYear}`
+              : `Review your spending vs budget targets for ${getSelectedMonthName()} ${selectedYear}`
+            }
+          </p>
         </div>
         <div className={UI_STYLES.header.buttonGroup}>
           <select
@@ -579,7 +608,7 @@ export default function BudgetPage() {
               {formatCurrency(summaryStats.totalBudget, currency)}
             </p>
             <p className={`${cardSubtitle}`}>
-              {selectedPeriod.toLowerCase()} target
+              {getSelectedMonthName()} {selectedYear} target
             </p>
           </div>
         </div>
@@ -593,7 +622,7 @@ export default function BudgetPage() {
               {formatCurrency(summaryStats.totalActual, currency)}
             </p>
             <p className={`${cardSubtitle}`}>
-              {summaryStats.totalTransactions} transactions
+              {summaryStats.totalTransactions} transactions in {getSelectedMonthName()}
             </p>
           </div>
         </div>
@@ -657,54 +686,26 @@ export default function BudgetPage() {
         </div>
       </div>
 
-      {/* Budget Performance Insights */}
-      {budgetComparison.length > 0 && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Budget Performance Insights</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-blue-600 mb-2">
-                {summaryStats.avgVariancePercentage.toFixed(1)}%
-              </div>
-              <div className="text-sm text-gray-600">Average Variance</div>
-              <div className="text-xs text-gray-500 mt-1">
-                Across all categories
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-purple-600 mb-2">
-                {summaryStats.incomeCategories}/{summaryStats.expenseCategories}
-              </div>
-              <div className="text-sm text-gray-600">Income/Expense Split</div>
-              <div className="text-xs text-gray-500 mt-1">
-                Category distribution
-              </div>
-            </div>
-            <div className="text-center">
-              <div className={`text-3xl font-bold mb-2 ${
-                (summaryStats.overBudgetCount / summaryStats.totalCategories) > 0.5 ? 'text-red-600' : 
-                (summaryStats.underBudgetCount / summaryStats.totalCategories) > 0.5 ? 'text-green-600' : 'text-yellow-600'
-              }`}>
-                {summaryStats.totalCategories > 0 ? 
-                  Math.round((summaryStats.onTrackCount / summaryStats.totalCategories) * 100) : 0}%
-              </div>
-              <div className="text-sm text-gray-600">On Track</div>
-              <div className="text-xs text-gray-500 mt-1">
-                Categories meeting targets
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Category Performance Gauge */}
-      {budgetComparison.length > 0 && (
-        <CategoryPerformanceGauge 
-          budgetData={budgetComparison}
-          currency={currency}
-          categoryType="ALL"
-        />
-      )}
+      {/* Month Navigation - Always visible */}
+      <div className="mb-6">
+        <div className="mb-4 flex justify-start">
+          <MonthNavigation
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+            onMonthChange={handleMonthChange}
+          />
+        </div>
+        
+        {/* Category Performance Gauge */}
+        {budgetComparison.length > 0 && (
+          <CategoryPerformanceGauge 
+            budgetData={budgetComparison}
+            currency={currency}
+            categoryType="ALL"
+          />
+        )}
+      </div>
 
       {/* Manage Categories Modal */}
       {showManageCategories && (
@@ -835,7 +836,7 @@ export default function BudgetPage() {
                     onClick={() => handleIncomeSort('actual')}
                   >
                     <div className="flex items-center justify-center">
-                      <span>Actual ({selectedPeriod.toLowerCase()})</span>
+                      <span>Actual ({getSelectedMonthName()} {selectedYear})</span>
                       {getSortIcon('actual', incomeSortField, incomeSortDirection)}
                     </div>
                   </th>
@@ -1014,7 +1015,7 @@ export default function BudgetPage() {
                     onClick={() => handleExpenseSort('actual')}
                   >
                     <div className="flex items-center justify-center">
-                      <span>Actual ({selectedPeriod.toLowerCase()})</span>
+                      <span>Actual ({getSelectedMonthName()} {selectedYear})</span>
                       {getSortIcon('actual', expenseSortField, expenseSortDirection)}
                     </div>
                   </th>

@@ -30,7 +30,11 @@ export interface BudgetTargetFormData {
   endDate: Date;
 }
 
-export function useBudgetTracking(period: 'MONTHLY' | 'QUARTERLY' | 'YEARLY' = 'MONTHLY') {
+export function useBudgetTracking(
+  period: 'MONTHLY' | 'QUARTERLY' | 'YEARLY' = 'MONTHLY', 
+  selectedMonth?: number, 
+  selectedYear?: number
+) {
   const queryClient = useQueryClient();
 
   // Fetch budget targets
@@ -56,9 +60,9 @@ export function useBudgetTracking(period: 'MONTHLY' | 'QUARTERLY' | 'YEARLY' = '
     isLoading: comparisonLoading,
     error: comparisonError
   } = useQuery({
-    queryKey: ['budget-comparison', period],
+    queryKey: ['budget-comparison', period, selectedMonth, selectedYear],
     queryFn: async () => {
-      const result = await getBudgetComparison(period);
+      const result = await getBudgetComparison(period, selectedMonth, selectedYear);
       if (result.error) {
         throw new Error(result.error);
       }
