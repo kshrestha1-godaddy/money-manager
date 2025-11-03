@@ -134,11 +134,8 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                 }
             }
             
-            // Account selection validation - optional for Provident Funds and Safe Keepings
-            if (!formData.accountId && formData.type !== 'PROVIDENT_FUNDS' && formData.type !== 'SAFE_KEEPINGS' && formData.type !== 'EMERGENCY_FUND' && formData.type !== 'MARRIAGE' && formData.type !== 'VACATION') {
-                setError("Please select an account");
-                return;
-            }
+            // Account selection is now optional for all investment types
+            // Users can choose to link an account or track investments independently
 
             // Validate account balance for investment amount (only if account is selected)
             if (formData.accountId) {
@@ -484,7 +481,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
 
                     <div>
                         <label htmlFor="accountId" className="block text-sm font-medium text-gray-700 mb-1">
-                            Account {formData.type !== 'PROVIDENT_FUNDS' && formData.type !== 'SAFE_KEEPINGS' ? '*' : '(Optional)'} {formData.accountId && (() => {
+                            Account (Optional) {formData.accountId && (() => {
                                 const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
                                 let totalAmount: number;
                                 if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') {
@@ -507,15 +504,20 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                             value={formData.accountId}
                             onChange={(e) => handleInputChange("accountId", e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required={formData.type !== 'PROVIDENT_FUNDS' && formData.type !== 'SAFE_KEEPINGS'}
                         >
-                            <option value="">{formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' ? 'No account selected' : 'Select an account'}</option>
+                            <option value="">No account selected</option>
                             {accounts.map(account => (
                                 <option key={account.id} value={account.id}>
                                     {account.bankName} - {account.accountNumber} ({formatCurrency(account.balance || 0, userCurrency)})
                                 </option>
                             ))}
                         </select>
+                        <p className="text-sm text-gray-500 mt-1">
+                            {formData.accountId 
+                                ? "Investment amount will be deducted from the selected account balance." 
+                                : "Investment will be tracked independently without affecting any account balance."
+                            }
+                        </p>
                         {formData.accountId && formData.purchasePrice && (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION' || formData.quantity) && (() => {
                             const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
                             let totalAmount: number;

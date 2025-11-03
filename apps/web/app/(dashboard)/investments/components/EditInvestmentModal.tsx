@@ -150,11 +150,8 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                 }
             }
             
-            // Account selection validation - optional for Provident Funds and Safe Keepings
-            if (!formData.accountId && formData.type !== 'PROVIDENT_FUNDS' && formData.type !== 'SAFE_KEEPINGS') {
-                setError("Please select an account");
-                return;
-            }
+            // Account selection is now optional for all investment types
+            // Users can choose to link an account or track investments independently
 
             // Validate account balance for investment changes (only if account is selected)
             if (formData.accountId) {
@@ -493,22 +490,27 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
 
                     <div>
                         <label htmlFor="accountId" className="block text-sm font-medium text-gray-700 mb-1">
-                            Account {formData.type !== 'PROVIDENT_FUNDS' && formData.type !== 'SAFE_KEEPINGS' ? '*' : '(Optional)'}
+                            Account (Optional)
                         </label>
                         <select
                             id="accountId"
                             value={formData.accountId}
                             onChange={(e) => handleInputChange("accountId", e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required={formData.type !== 'PROVIDENT_FUNDS' && formData.type !== 'SAFE_KEEPINGS'}
                         >
-                            <option value="">{formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' ? 'No account selected' : 'Select an account'}</option>
+                            <option value="">No account selected</option>
                             {accounts.map(account => (
                                 <option key={account.id} value={account.id}>
                                     {account.bankName} - {account.accountNumber}
                                 </option>
                             ))}
                         </select>
+                        <p className="text-sm text-gray-500 mt-1">
+                            {formData.accountId 
+                                ? "Investment amount changes will affect the selected account balance." 
+                                : "Investment will be tracked independently without affecting any account balance."
+                            }
+                        </p>
                     </div>
 
                     <div>
