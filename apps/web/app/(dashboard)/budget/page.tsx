@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency } from "../../utils/currency";
@@ -15,8 +15,10 @@ import { budgetTargetsImportConfig } from "../../config/bulkImportConfig";
 import { BulkDeleteBudgetTargetsModal } from "./components/BulkDeleteBudgetTargetsModal";
 import { BudgetActionSuccessModal } from "./components/BudgetActionSuccessModal";
 import { CategoryPerformanceGauge } from "./components/CategoryPerformanceGauge";
+import { CategorySpendTrendChart } from "./components/CategorySpendTrendChart";
 import { DeleteBudgetTargetModal } from "./components/DeleteBudgetTargetModal";
 import { MonthNavigation } from "./components/MonthNavigation";
+import { getCategoryHistoricalTrends, CategoryTrendData } from "../../actions/budget-trends";
 
 type SortField = 'category' | 'actual' | 'budget' | 'variance';
 type SortDirection = 'asc' | 'desc';
@@ -53,6 +55,8 @@ interface BudgetComparisonData {
   };
 }
 
+// Now using real historical data from getCategoryHistoricalTrends API
+
 export default function BudgetPage() {
   const session = useSession();
   const { currency } = useCurrency();
@@ -64,12 +68,52 @@ export default function BudgetPage() {
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState<number>(currentDate.getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(currentDate.getFullYear());
+  
+  // Historical trend data state
+  const [trendData, setTrendData] = useState<any[]>([]);
+  const [trendLoading, setTrendLoading] = useState(false);
+  const [trendMonths, setTrendMonths] = useState(6); // Default to 6 months
 
   // Month navigation handler
   const handleMonthChange = (month: number, year: number) => {
     setSelectedMonth(month);
     setSelectedYear(year);
   };
+
+  // Time range change handler for trend chart
+  const handleTimeRangeChange = (months: number, startDate?: Date, endDate?: Date) => {
+    console.log('Parent received time range change:', months, 'months');
+    setTrendMonths(months);
+    // TODO: Handle custom date range if needed
+    if (startDate && endDate) {
+      // For now, we'll just use the months calculation
+      // In the future, you could modify getCategoryHistoricalTrends to accept custom date ranges
+      console.log('Custom date range selected:', startDate, endDate);
+    }
+  };
+
+  // Fetch historical trend data when month/year or trend months change
+  useEffect(() => {
+    const fetchTrendData = async () => {
+      setTrendLoading(true);
+      try {
+        const result = await getCategoryHistoricalTrends(selectedMonth, selectedYear, trendMonths);
+        if (result.error) {
+          console.error("Error fetching trend data:", result.error);
+          setTrendData([]);
+        } else {
+          setTrendData(result.data || []);
+        }
+      } catch (error) {
+        console.error("Error fetching trend data:", error);
+        setTrendData([]);
+      } finally {
+        setTrendLoading(false);
+      }
+    };
+
+    fetchTrendData();
+  }, [selectedMonth, selectedYear, trendMonths]);
 
   // Helper to get month name
   const getSelectedMonthName = () => {
@@ -707,6 +751,31 @@ export default function BudgetPage() {
             selectedYear={selectedYear}
           />
         )}
+
+        {/* Category Spend Trend Chart */}
+        {(trendData.length > 0 || trendLoading) ? (
+          <CategorySpendTrendChart
+            trendData={trendData}
+            currency={currency}
+            categoryType="ALL"
+            periodType="monthly"
+            maxCategories={12}
+            showSeparateSections={true}
+            onTimeRangeChange={handleTimeRangeChange}
+            isLoading={trendLoading}
+          />
+        ) : budgetComparison.length > 0 ? (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Category Spend Trend Analysis
+            </h3>
+            <div className="text-center py-8 text-gray-500">
+              <div className="text-4xl mb-2">📈</div>
+              <p>No historical spending data available</p>
+              <p className="text-sm mt-2">Add some transactions to see spending trends over time</p>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Manage Categories Modal */}
