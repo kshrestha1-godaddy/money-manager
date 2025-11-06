@@ -50,7 +50,7 @@ export function CategorySpendTrendChart({
   categoryType = 'ALL',
   selectedCategories,
   periodType = 'monthly',
-  maxCategories = 6,
+  maxCategories = 12,
   showSeparateSections = true,
   onTimeRangeChange,
   isLoading = false
@@ -90,12 +90,10 @@ export function CategorySpendTrendChart({
 
   // Time range selection handlers
   const handleTimeRangeChange = (range: '3m' | '6m' | '1y' | '2y' | 'custom') => {
-    console.log('Time range changed to:', range);
     setSelectedTimeRange(range);
     
     if (range !== 'custom' && onTimeRangeChange) {
       const monthsMap = { '3m': 3, '6m': 6, '1y': 12, '2y': 24 };
-      console.log('Calling onTimeRangeChange with months:', monthsMap[range]);
       onTimeRangeChange(monthsMap[range]);
     }
   };
@@ -105,31 +103,19 @@ export function CategorySpendTrendChart({
       const startDate = new Date(customStartDate);
       const endDate = new Date(customEndDate);
       const monthsDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
-      console.log('Custom date range applied:', startDate, endDate, 'months:', monthsDiff);
       setSelectedTimeRange('custom');
       onTimeRangeChange(Math.max(1, monthsDiff), startDate, endDate);
     }
   };
 
-  // Remove automatic initial callback - let user selection drive the changes
-
   // Helper functions for category visibility and styling
   const getCategoryOpacity = (categoryName: string): number => {
-    // If no categories selected, show all at full opacity
     if (internalSelectedCategories.size === 0) return 1;
-    // If categories are selected, highlight selected ones and dim others
     return internalSelectedCategories.has(categoryName) ? 1 : 0.3;
   };
 
-  const isCategoryVisible = (categoryName: string): boolean => {
-    // Always show all categories (no hiding functionality)
-    return true;
-  };
-
   const getCategoryStrokeWidth = (categoryName: string): number => {
-    // If no categories selected, use normal stroke width
     if (internalSelectedCategories.size === 0) return 2;
-    // If categories are selected, make selected ones thicker
     return internalSelectedCategories.has(categoryName) ? 3 : 1;
   };
 
@@ -571,7 +557,6 @@ export function CategorySpendTrendChart({
           </div>
         </div>
       )}
-    
 
       {/* Chart */}
       <div className="relative w-full overflow-x-auto">
@@ -658,8 +643,6 @@ export function CategorySpendTrendChart({
           {/* Lines for each category */}
           <g className={`transition-opacity duration-500 ${isLoading ? 'opacity-30' : 'opacity-100'}`}>
             {chartData.map(category => {
-              if (!isCategoryVisible(category.categoryName)) return null;
-              
               const opacity = getCategoryOpacity(category.categoryName);
               const strokeWidth = getCategoryStrokeWidth(category.categoryName);
               
@@ -673,7 +656,7 @@ export function CategorySpendTrendChart({
                     strokeDasharray="8,4"
                     fill="none"
                     opacity={opacity}
-                    className="hover:stroke-width-4 transition-all duration-300"
+                    className="transition-all duration-300"
                   />
                   
                   {/* Actual line (solid) */}
@@ -683,7 +666,7 @@ export function CategorySpendTrendChart({
                     strokeWidth={strokeWidth}
                     fill="none"
                     opacity={opacity}
-                    className="hover:stroke-width-4 transition-all duration-300"
+                    className="transition-all duration-300"
                   />
                 </g>
               );
@@ -693,8 +676,6 @@ export function CategorySpendTrendChart({
           {/* Points */}
           <g className={`transition-opacity duration-500 ${isLoading ? 'opacity-30' : 'opacity-100'}`}>
             {chartConfig.scaleX && chartConfig.scaleY && chartData.map(category => {
-              if (!isCategoryVisible(category.categoryName)) return null;
-              
               const opacity = getCategoryOpacity(category.categoryName);
               const isSelected = internalSelectedCategories.has(category.categoryName);
               const pointRadius = isSelected ? 6 : 4;
@@ -732,7 +713,7 @@ export function CategorySpendTrendChart({
                     stroke={category.color}
                     strokeWidth={isSelected ? "3" : "2"}
                     className={`transition-all duration-300 ${
-                      isLoading ? 'pointer-events-none' : 'cursor-pointer hover:r-8'
+                      isLoading ? 'pointer-events-none' : 'cursor-pointer'
                     }`}
                     onMouseEnter={isLoading ? undefined : (e) => handlePointHover(targetPoint, category, e)}
                     onMouseMove={isLoading ? undefined : handleMouseMove}
@@ -749,7 +730,7 @@ export function CategorySpendTrendChart({
                     strokeWidth={isSelected ? "2" : "0"}
                     stroke={isSelected ? "white" : "none"}
                     className={`transition-all duration-300 ${
-                      isLoading ? 'pointer-events-none' : 'cursor-pointer hover:r-7'
+                      isLoading ? 'pointer-events-none' : 'cursor-pointer'
                     }`}
                     onMouseEnter={isLoading ? undefined : (e) => handlePointHover(actualPoint, category, e)}
                     onMouseMove={isLoading ? undefined : handleMouseMove}
