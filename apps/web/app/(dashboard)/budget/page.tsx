@@ -8,7 +8,7 @@ import { TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle, Plus, Edi
 import { LOADING_COLORS, UI_STYLES, getSummaryCardClasses, BUTTON_COLORS } from "../../config/colorConfig";
 import { useBudgetTracking, useAllCategories } from "../../hooks/useBudgetTracking";
 import { BudgetTarget } from "../../types/financial";
-import { getAllBudgetTargetsForExport, bulkDeleteAllBudgetTargets } from "../../actions/budget-targets";
+import { getAllBudgetTargetsForExport, bulkDeleteAllBudgetTargets, getBudgetComparison } from "../../actions/budget-targets";
 import { exportBudgetTargetsToCSV } from "../../utils/csvExportBudgetTargets";
 import { UnifiedBulkImportModal } from "../../components/shared/UnifiedBulkImportModal";
 import { budgetTargetsImportConfig } from "../../config/bulkImportConfig";
@@ -73,6 +73,10 @@ export default function BudgetPage() {
   const [trendData, setTrendData] = useState<any[]>([]);
   const [trendLoading, setTrendLoading] = useState(false);
   const [trendMonths, setTrendMonths] = useState(6); // Default to 6 months
+  
+  // Separate loading state for CategoryPerformanceGauge to prevent page re-renders
+  const [gaugeLoading, setGaugeLoading] = useState(false);
+  const [gaugeBudgetData, setGaugeBudgetData] = useState<any[]>([]);
 
   // Month navigation handler
   const handleMonthChange = (month: number, year: number) => {
@@ -114,6 +118,29 @@ export default function BudgetPage() {
 
     fetchTrendData();
   }, [selectedMonth, selectedYear, trendMonths]);
+
+  // Fetch budget data specifically for CategoryPerformanceGauge to prevent page re-renders
+  useEffect(() => {
+    const fetchGaugeBudgetData = async () => {
+      setGaugeLoading(true);
+      try {
+        const result = await getBudgetComparison(selectedPeriod, selectedMonth, selectedYear);
+        if (result.error) {
+          console.error("Error fetching gauge budget data:", result.error);
+          setGaugeBudgetData([]);
+        } else {
+          setGaugeBudgetData(result.data || []);
+        }
+      } catch (error) {
+        console.error("Error fetching gauge budget data:", error);
+        setGaugeBudgetData([]);
+      } finally {
+        setGaugeLoading(false);
+      }
+    };
+
+    fetchGaugeBudgetData();
+  }, [selectedMonth, selectedYear, selectedPeriod]);
 
   // Helper to get month name
   const getSelectedMonthName = () => {
@@ -165,6 +192,10 @@ export default function BudgetPage() {
     details: []
   });
   
+  // Use current month/year for main page data to prevent re-renders when month navigation changes
+  const currentMonth = currentDate.getMonth();
+  const currentYear = currentDate.getFullYear();
+  
   const {
     budgetComparison,
     budgetTargets,
@@ -176,7 +207,7 @@ export default function BudgetPage() {
     isUpdating,
     isDeleting,
     isUpdatingInclusion
-  } = useBudgetTracking(selectedPeriod, selectedMonth, selectedYear);
+  } = useBudgetTracking(selectedPeriod, currentMonth, currentYear);
 
   const { allCategories, loading: categoriesLoading } = useAllCategories();
 
@@ -742,13 +773,14 @@ export default function BudgetPage() {
         </div>
         
         {/* Category Performance Gauge */}
-        {budgetComparison.length > 0 && (
+        {(gaugeBudgetData.length > 0 || gaugeLoading) && (
           <CategoryPerformanceGauge 
-            budgetData={budgetComparison}
+            budgetData={gaugeBudgetData}
             currency={currency}
             categoryType="ALL"
             selectedMonth={selectedMonth}
             selectedYear={selectedYear}
+            isLoading={gaugeLoading}
           />
         )}
 

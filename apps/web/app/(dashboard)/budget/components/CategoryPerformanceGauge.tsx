@@ -29,6 +29,7 @@ interface CategoryPerformanceGaugeProps {
   categoryType?: 'EXPENSE' | 'INCOME' | 'ALL';
   selectedMonth?: number;
   selectedYear?: number;
+  isLoading?: boolean; // Loading state for data refresh
 }
 
 interface ChartDataPoint {
@@ -46,7 +47,8 @@ export function CategoryPerformanceGauge({
   currency, 
   categoryType = 'ALL',
   selectedMonth,
-  selectedYear
+  selectedYear,
+  isLoading = false
 }: CategoryPerformanceGaugeProps) {
   const router = useRouter();
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
@@ -248,10 +250,20 @@ export function CategoryPerformanceGauge({
 
       {/* Chart Container */}
       <div className="relative w-full">
+        {/* Loading Overlay */}
+        {isLoading && (
+          <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center z-10 rounded-lg">
+            <div className="flex flex-col items-center">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mb-2"></div>
+              <p className="text-sm text-gray-600">Updating chart data...</p>
+            </div>
+          </div>
+        )}
+        
         <svg 
           width="100%" 
           height={chartHeight}
-          className="bg-white w-full"
+          className={`bg-white w-full transition-opacity duration-300 ${isLoading ? 'opacity-50' : 'opacity-100'}`}
           viewBox={`0 0 ${chartWidth} ${chartHeight}`}
           preserveAspectRatio="xMidYMid meet"
         >
@@ -350,18 +362,19 @@ export function CategoryPerformanceGauge({
           )}
 
           {/* Bars and labels */}
-          {chartData.map((item, index) => {
-            // Calculate position with proper separator handling
-            const isIncome = item.categoryType === 'INCOME';
-            const incomeOffset = isIncome && hasBothTypes ? separatorSpace : 0;
-            
-            const rowCenterY = topMargin + (index * barSpacing) + (barSpacing / 2) + incomeOffset;
-            const barY = rowCenterY - (barHeight / 2); // Center the bar vertically
-            const barWidth = Math.max(3, scaleX(item.utilization)); // Minimum 3px width for visibility
-            const isHovered = hoveredCategory === item.categoryName;
+          <g className={`transition-opacity duration-500 ${isLoading ? 'opacity-30' : 'opacity-100'}`}>
+            {chartData.map((item, index) => {
+              // Calculate position with proper separator handling
+              const isIncome = item.categoryType === 'INCOME';
+              const incomeOffset = isIncome && hasBothTypes ? separatorSpace : 0;
+              
+              const rowCenterY = topMargin + (index * barSpacing) + (barSpacing / 2) + incomeOffset;
+              const barY = rowCenterY - (barHeight / 2); // Center the bar vertically
+              const barWidth = Math.max(3, scaleX(item.utilization)); // Minimum 3px width for visibility
+              const isHovered = hoveredCategory === item.categoryName;
 
-            return (
-              <g key={item.categoryName}>
+              return (
+                <g key={item.categoryName}>
                 {/* Category name */}
                 <text
                   x={leftMargin - 10}
@@ -384,14 +397,16 @@ export function CategoryPerformanceGauge({
                   fill={item.color}
                   rx="4"
                   ry="4"
-                  className={`transition-all cursor-pointer hover:opacity-90 ${
-                    isHovered ? 'opacity-90 stroke-gray-400' : 'opacity-100'
-                  }`}
+                  className={`transition-all duration-300 ${
+                    isLoading 
+                      ? 'pointer-events-none' 
+                      : 'cursor-pointer hover:opacity-90'
+                  } ${isHovered ? 'opacity-90 stroke-gray-400' : 'opacity-100'}`}
                   strokeWidth={isHovered ? "1" : "0"}
-                  onMouseEnter={(e) => handleMouseEnter(item.categoryName, e)}
-                  onMouseMove={handleMouseMove}
-                  onMouseLeave={handleMouseLeave}
-                  onClick={() => handleBarClick(item)}
+                  onMouseEnter={isLoading ? undefined : (e) => handleMouseEnter(item.categoryName, e)}
+                  onMouseMove={isLoading ? undefined : handleMouseMove}
+                  onMouseLeave={isLoading ? undefined : handleMouseLeave}
+                  onClick={isLoading ? undefined : () => handleBarClick(item)}
                 />
 
                 {/* Values inside bar */}
@@ -423,6 +438,7 @@ export function CategoryPerformanceGauge({
               </g>
             );
           })}
+          </g>
 
           {/* X-axis title */}
           <text
