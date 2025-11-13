@@ -11,7 +11,7 @@ export function CurrencyConverterButton() {
     <>
       <button
         onClick={() => setIsModalOpen(true)}
-        className="fixed bottom-[6rem] right-6 bg-green-600 hover:bg-green-700 text-white p-3 rounded-full shadow-lg transition-colors z-40 group"
+        className="fixed bottom-[6rem] right-6 bg-green-600 hover:bg-green-700 text-white p-3 rounded-full shadow-lg transition-colors z-50 group"
         title="Currency Converter"
       >
         <ArrowLeftRight className="w-6 h-6" />

@@ -11,7 +11,7 @@ export function CalculatorButton() {
     <>
       <button
         onClick={() => setIsModalOpen(true)}
-        className="fixed bottom-[10.5rem] right-6 bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg transition-colors z-40 group"
+        className="fixed bottom-[10.5rem] right-6 bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg transition-colors z-50 group"
         title="Calculator"
       >
         <Calculator className="w-6 h-6" />
