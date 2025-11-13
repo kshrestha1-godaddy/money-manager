@@ -829,10 +829,10 @@ export function DebtStatusWaterfallChart({
             ))}
 
             {/* Invisible/transparent bars for spacing in waterfall */}
-            <Bar dataKey="start" fill="transparent" stackId="waterfall" />
+            <Bar dataKey="start" fill="transparent" stackId="waterfall" barSize={300}/>
             
             {/* Main bars for waterfall effect */}
-            <Bar dataKey="value" stackId="waterfall" radius={[4, 4, 0, 0]}>
+            <Bar dataKey="value" stackId="waterfall" radius={[4, 4, 0, 0]} barSize={300}>
               <LabelList
                 position="center"
                 formatter={(v: number, _n: any, entry: any) => {
