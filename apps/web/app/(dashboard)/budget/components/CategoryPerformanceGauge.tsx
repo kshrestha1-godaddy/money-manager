@@ -53,8 +53,8 @@ export function CategoryPerformanceGauge({
   const router = useRouter();
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  const [containerWidth, setContainerWidth] = useState(1200);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(1200);
 
   // Update container width on mount and resize
   useEffect(() => {
@@ -74,6 +74,21 @@ export function CategoryPerformanceGauge({
 
     return () => resizeObserver.disconnect();
   }, []);
+
+  // Force width recalculation when data changes to prevent shrinking
+  useEffect(() => {
+    const updateWidth = () => {
+      if (containerRef.current) {
+        const width = containerRef.current.getBoundingClientRect().width;
+        setContainerWidth(Math.max(800, width - 32));
+      }
+    };
+    
+    // Use requestAnimationFrame to ensure DOM has updated
+    requestAnimationFrame(() => {
+      requestAnimationFrame(updateWidth);
+    });
+  }, [budgetData, categoryType]);
 
   // Get color for each bar based on utilization percentage
   const getBarColor = (utilization: number) => {

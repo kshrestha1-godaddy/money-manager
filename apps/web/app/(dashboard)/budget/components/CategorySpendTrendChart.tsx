@@ -58,6 +58,7 @@ export function CategorySpendTrendChart({
   const router = useRouter();
   const [hoveredPoint, setHoveredPoint] = useState<HoveredPoint | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(1200);
   const [activeSection, setActiveSection] = useState<'EXPENSE' | 'INCOME' | 'ALL'>(
     showSeparateSections && categoryType === 'ALL' ? 'EXPENSE' : categoryType
@@ -66,7 +67,6 @@ export function CategorySpendTrendChart({
   const [selectedTimeRange, setSelectedTimeRange] = useState<'3m' | '6m' | '1y' | '2y' | 'custom'>('6m');
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
-  const containerRef = useRef<HTMLDivElement>(null);
 
   // Category selection handlers
   const toggleCategory = (categoryName: string) => {
@@ -137,6 +137,21 @@ export function CategorySpendTrendChart({
 
     return () => resizeObserver.disconnect();
   }, []);
+
+  // Force width recalculation when data changes to prevent shrinking
+  useEffect(() => {
+    const updateWidth = () => {
+      if (containerRef.current) {
+        const width = containerRef.current.getBoundingClientRect().width;
+        setContainerWidth(Math.max(800, width - 32));
+      }
+    };
+    
+    // Use requestAnimationFrame to ensure DOM has updated
+    requestAnimationFrame(() => {
+      requestAnimationFrame(updateWidth);
+    });
+  }, [trendData, categoryType, activeSection]);
 
   // Filter and process data
   const chartData = useMemo(() => {
