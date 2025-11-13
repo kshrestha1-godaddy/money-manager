@@ -35,8 +35,8 @@ const CURRENCY_NAMES = {
 
 export function CurrencyConverterModal({ isOpen, onClose }: CurrencyConverterModalProps) {
   const [amount, setAmount] = useState<string>('100');
-  const [fromCurrency, setFromCurrency] = useState<Currency>('USD');
-  const [toCurrency, setToCurrency] = useState<Currency>('INR');
+  const [fromCurrency, setFromCurrency] = useState<Currency>('INR');
+  const [toCurrency, setToCurrency] = useState<Currency>('NPR');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
