@@ -4,6 +4,7 @@ import { SidebarItem } from "../components/sidebar/SidebarItem";
 import { TutorialOverlay } from "../components/TutorialOverlay";
 import { TutorialButton } from "../components/TutorialButton";
 import { CurrencyConverterButton } from "../components/CurrencyConverterButton";
+import { CalculatorButton } from "../components/CalculatorButton";
 import { InactivityWarning } from "../components/InactivityWarning";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -109,6 +110,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             
             {/* Currency Converter Button */}
             <CurrencyConverterButton />
+            
+            {/* Calculator Button */}
+            <CalculatorButton />
             
             {/* Inactivity Warning - shows warnings when users are approaching password sharing threshold */}
             <InactivityWarning />
