@@ -8,7 +8,8 @@ import {
     deleteAccount, 
     bulkDeleteAccounts,
     bulkCreateAccounts,
-    transferMoney 
+    transferMoney,
+    getWithheldAmountsByBank
 } from "../(dashboard)/accounts/actions/accounts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
 import { exportAccountsToCSV } from "../utils/csv";
@@ -21,6 +22,7 @@ interface UseOptimizedAccountsReturn {
     loading: boolean;
     error: string | null;
     totalBalance: number;
+    freeBalance: number; // Total balance minus withheld amounts from investments
     hasActiveFilters: boolean;
 
     // Modal states
@@ -135,6 +137,16 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         refetchOnWindowFocus: false,
     });
 
+    // Fetch withheld amounts from investments
+    const { data: withheldAmounts = {} } = useQuery({
+        queryKey: ['withheld-amounts'],
+        queryFn: getWithheldAmountsByBank,
+        staleTime: 5 * 60 * 1000, // 5 minutes
+        gcTime: 15 * 60 * 1000, // 15 minutes
+        retry: 1,
+        refetchOnWindowFocus: false,
+    });
+
     // Extract accounts array safely
     const allAccounts = useMemo(() => {
         if (accountsResponse && !('error' in accountsResponse)) {
@@ -199,6 +211,14 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
     const totalBalance = useMemo(() => {
         return filteredAccounts.reduce((sum, account) => sum + (account.balance || 0), 0);
     }, [filteredAccounts]);
+
+    // Calculate free balance (total balance minus withheld amounts from investments)
+    const freeBalance = useMemo(() => {
+        // Calculate total withheld amount across all accounts
+        const totalWithheld = Object.values(withheldAmounts).reduce((sum, amount) => sum + amount, 0);
+        // Free balance = total balance - withheld amounts
+        return Math.max(0, totalBalance - totalWithheld); // Ensure non-negative
+    }, [totalBalance, withheldAmounts]);
 
     // Optimized mutations with cache updates
     const createAccountMutation = useMutation({
@@ -471,6 +491,7 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         loading,
         error,
         totalBalance,
+        freeBalance,
         hasActiveFilters,
 
         // Modal states

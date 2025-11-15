@@ -63,6 +63,7 @@ export default function Accounts() {
         loading,
         error,
         totalBalance,
+        freeBalance,
         hasActiveFilters,
 
         // Modal states
@@ -140,6 +141,9 @@ export default function Accounts() {
         queryKey: ['withheld-amounts'],
         queryFn: getWithheldAmountsByBank,
     });
+    
+    // Calculate total withheld amount
+    const totalWithheldAmount = Object.values(withheldAmounts).reduce((sum, amount) => sum + amount, 0);
     
     const uniqueBankNames = Array.from(new Set(allAccounts.map(account => account.bankName)));
     const uniqueAccountTypes = Array.from(new Set(allAccounts.map(account => account.accountType)));
@@ -219,7 +223,7 @@ export default function Accounts() {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-3 gap-6 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
                 <div className={cardContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRow}>
                         <div className={`${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('totalAccounts', 'accounts').indicator}`}></div>
@@ -238,7 +242,27 @@ export default function Accounts() {
                     <p className={`${cardValue} ${getSummaryCardClasses('totalBalance', 'accounts').text}`}>
                         {loading ? "..." : formatCurrency(filteredTotalBalance, userCurrency)}
                     </p>
-                    <p className={cardSubtitle}>total balance</p>
+                    <p className={cardSubtitle}>accounts total</p>
+                </div>
+                <div className={cardContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRow}>
+                        <div className={`${UI_STYLES.summaryCard.indicator} bg-green-500`}></div>
+                        <h3 className={cardTitle}>Free Balance</h3>
+                    </div>
+                    <p className={`${cardValue} text-green-600`}>
+                        {loading ? "..." : formatCurrency(freeBalance, userCurrency)}
+                    </p>
+                    <p className={cardSubtitle}>available to use</p>
+                </div>
+                <div className={cardContainer}>
+                    <div className={UI_STYLES.summaryCard.indicatorRow}>
+                        <div className={`${UI_STYLES.summaryCard.indicator} bg-gray-400`}></div>
+                        <h3 className={cardTitle}>Withheld Balance</h3>
+                    </div>
+                    <p className={`${cardValue} text-gray-600`}>
+                        {loading ? "..." : formatCurrency(totalWithheldAmount, userCurrency)}
+                    </p>
+                    <p className={cardSubtitle}>in investments</p>
                 </div>
                 <div className={cardContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRow}>

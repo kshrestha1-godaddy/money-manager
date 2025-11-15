@@ -10,6 +10,7 @@ import { getExpenses } from '../(dashboard)/expenses/actions/expenses';
 import { calculateRemainingWithInterest } from '../utils/interestCalculation';
 import { convertForDisplaySync } from '../utils/currencyDisplay';
 import { useCurrency } from '../providers/CurrencyProvider';
+import { getWithheldAmountsByBank } from '../(dashboard)/accounts/actions/accounts';
 
 interface NetWorthStats {
     // Asset breakdown
@@ -78,7 +79,7 @@ export function useOptimizedWorth() {
         accounts,
         loading: accountsLoading,
         error: accountsError,
-        totalBalance: totalAccountBalance
+        freeBalance: totalAccountBalance // Use freeBalance to avoid double-counting withheld amounts
     } = useOptimizedAccounts();
 
     const {
@@ -121,12 +122,63 @@ export function useOptimizedWorth() {
         gcTime: 15 * 60 * 1000, // 15 minutes
     });
 
+    // Fetch withheld amounts by bank
+    const { data: withheldAmounts = {} } = useQuery({
+        queryKey: ['withheld-amounts'],
+        queryFn: getWithheldAmountsByBank,
+        staleTime: 5 * 60 * 1000, // 5 minutes
+        gcTime: 15 * 60 * 1000, // 15 minutes
+    });
+
     // ==================== LOADING & ERROR STATES ====================
 
     const loading = accountsLoading || investmentsLoading || debtsLoading || incomesLoading || expensesLoading;
     const error = accountsError || investmentsError || debtsError || incomesError || expensesError;
 
     // ==================== COMPUTED VALUES ====================
+
+    // Calculate accounts with free balances (excluding withheld amounts)
+    const accountsWithFreeBalance = useMemo(() => {
+        if (accounts.length === 0) return [];
+
+        // Group accounts by bank name to calculate proportional withheld amounts
+        const bankGroups = new Map<string, typeof accounts>();
+        accounts.forEach(account => {
+            const bankName = account.bankName;
+            if (!bankGroups.has(bankName)) {
+                bankGroups.set(bankName, []);
+            }
+            bankGroups.get(bankName)!.push(account);
+        });
+
+        // Calculate free balance for each account
+        return accounts.map(account => {
+            const bankName = account.bankName;
+            const withheldAmountForBank = withheldAmounts[bankName] || 0;
+            
+            // If there's no withheld amount for this bank, return account as-is
+            if (withheldAmountForBank === 0) {
+                return account;
+            }
+
+            // Calculate total balance for all accounts in this bank
+            const accountsInBank = bankGroups.get(bankName) || [];
+            const totalBankBalance = accountsInBank.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+
+            // Calculate proportional withheld amount for this account
+            const accountProportion = totalBankBalance > 0 ? (account.balance || 0) / totalBankBalance : 0;
+            const accountWithheldAmount = withheldAmountForBank * accountProportion;
+
+            // Calculate free balance (ensure non-negative)
+            const freeBalance = Math.max(0, (account.balance || 0) - accountWithheldAmount);
+
+            // Return modified account with free balance
+            return {
+                ...account,
+                balance: freeBalance
+            };
+        });
+    }, [accounts, withheldAmounts]);
 
     // Monthly cash flow analysis (with currency conversion)
     const monthlyCashFlow = useMemo(() => {
@@ -288,13 +340,13 @@ export function useOptimizedWorth() {
         return [
             {
                 key: 'accounts',
-                title: `Bank Accounts (${accounts.length})`,
+                title: `Bank Accounts (${accountsWithFreeBalance.length})`,
                 value: netWorthStats.totalAccountBalance,
                 percentage: netWorthStats.totalAssets > 0 
                     ? (netWorthStats.totalAccountBalance / netWorthStats.totalAssets) * 100 
                     : 0,
                 color: CHART_COLORS.accounts,
-                items: accounts,
+                items: accountsWithFreeBalance,
                 expanded: false
             },
             {
@@ -323,7 +375,7 @@ export function useOptimizedWorth() {
                 expanded: false
             }
         ].filter(section => section.value > 0);
-    }, [accounts, investments, debts, netWorthStats]);
+    }, [accountsWithFreeBalance, investments, debts, netWorthStats]);
 
     // ==================== EXPORT FUNCTIONALITY ====================
 
@@ -381,7 +433,7 @@ export function useOptimizedWorth() {
         netWorthStats,
         chartData,
         sections,
-        accounts,
+        accounts: accountsWithFreeBalance, // Return accounts with free balances
         investments,
         debts,
         incomes,
