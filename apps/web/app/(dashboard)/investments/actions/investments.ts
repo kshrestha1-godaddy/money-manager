@@ -165,56 +165,15 @@ export async function createInvestment(investment: Omit<InvestmentInterface, 'id
             }
         }
 
-        // Use a transaction to ensure both investment creation and account balance are updated atomically
-        const result = await prisma.$transaction(async (tx) => {
-            // Validate account balance only if account is provided
-            let account = null;
-            if (investment.accountId) {
-                account = await tx.account.findUnique({
-                    where: { id: investment.accountId },
-                    select: { balance: true, bankName: true }
-                });
-
-                if (!account) {
-                    throw new Error("Selected account not found");
-                }
-
-                const totalInvestmentAmount = (investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' || investment.type === 'EMERGENCY_FUND' || investment.type === 'MARRIAGE' || investment.type === 'VACATION') ? 
-                    investment.purchasePrice : investment.quantity * investment.purchasePrice;
-                const currentBalance = parseFloat(account.balance.toString());
-                
-                if (currentBalance < totalInvestmentAmount) {
-                    throw new Error(`Insufficient balance in ${account.bankName}. Available: ${currentBalance}, Required: ${totalInvestmentAmount}`);
-                }
-            }
-
-            // Create the investment
-            const newInvestment = await tx.investment.create({
-                data: {
-                    ...investment,
-                    userId: user.id,
-                },
-                include: {
-                    account: true,
-                },
-            });
-
-            // Update the account balance (decrease by investment amount) only if account is provided
-            if (investment.accountId && account) {
-                const totalInvestmentAmount = (investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' || investment.type === 'EMERGENCY_FUND' || investment.type === 'MARRIAGE' || investment.type === 'VACATION') ? 
-                    investment.purchasePrice : investment.quantity * investment.purchasePrice;
-                
-                await tx.account.update({
-                    where: { id: investment.accountId },
-                    data: {
-                        balance: {
-                            decrement: totalInvestmentAmount
-                        }
-                    }
-                });
-            }
-
-            return newInvestment;
+        // Create the investment without modifying account balance
+        const result = await prisma.investment.create({
+            data: {
+                ...investment,
+                userId: user.id,
+            },
+            include: {
+                account: true,
+            },
         });
 
         // Revalidate related pages
@@ -353,40 +312,21 @@ export async function deleteInvestment(id: number) {
 
         const userId = getUserIdFromSession(session.user.id);
 
-        // Use a transaction to handle investment deletion and account balance restoration
-        await prisma.$transaction(async (tx) => {
-            // Verify the investment belongs to the user and get its details
-            const existingInvestment = await tx.investment.findFirst({
-                where: {
-                    id,
-                    userId: userId,
-                },
-            });
+        // Verify the investment belongs to the user
+        const existingInvestment = await prisma.investment.findFirst({
+            where: {
+                id,
+                userId: userId,
+            },
+        });
 
-            if (!existingInvestment) {
-                throw new Error("Investment not found or unauthorized");
-            }
+        if (!existingInvestment) {
+            throw new Error("Investment not found or unauthorized");
+        }
 
-            // Delete the investment
-            await tx.investment.delete({
-                where: { id },
-            });
-
-            // Restore the account balance only if investment was linked to an account
-            if (existingInvestment.accountId) {
-                const totalInvestmentAmount = (existingInvestment.type === 'FIXED_DEPOSIT' || existingInvestment.type === 'PROVIDENT_FUNDS' || existingInvestment.type === 'SAFE_KEEPINGS' || existingInvestment.type === 'EMERGENCY_FUND' || existingInvestment.type === 'MARRIAGE' || existingInvestment.type === 'VACATION') ? 
-                    parseFloat(existingInvestment.purchasePrice.toString()) : 
-                    parseFloat(existingInvestment.quantity.toString()) * parseFloat(existingInvestment.purchasePrice.toString());
-                
-                await tx.account.update({
-                    where: { id: existingInvestment.accountId },
-                    data: {
-                        balance: {
-                            increment: totalInvestmentAmount
-                        }
-                    }
-                });
-            }
+        // Delete the investment without modifying account balance
+        await prisma.investment.delete({
+            where: { id },
         });
 
         // Revalidate related pages
@@ -503,29 +443,13 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
                                 }
                             }
 
-                            const totalInvestmentAmount = (investmentData.type === 'FIXED_DEPOSIT' || investmentData.type === 'PROVIDENT_FUNDS' || investmentData.type === 'SAFE_KEEPINGS' || investmentData.type === 'EMERGENCY_FUND' || investmentData.type === 'MARRIAGE' || investmentData.type === 'VACATION') ? 
-                                investmentData.purchasePrice : 
-                                investmentData.quantity * investmentData.purchasePrice;
-
-                            // Create the investment
+                            // Create the investment without modifying account balance
                             await tx.investment.create({
                                 data: {
                                     ...investmentData,
                                     userId: userId,
                                 },
                             });
-
-                            // Update account balance - no balance check for bulk import (only if account is provided)
-                            if (investmentData.accountId) {
-                                await tx.account.update({
-                                    where: { id: investmentData.accountId },
-                                    data: {
-                                        balance: {
-                                            decrement: totalInvestmentAmount
-                                        }
-                                    }
-                                });
-                            }
 
                             result.importedCount++;
                         } catch (error) {
@@ -575,55 +499,23 @@ export async function bulkDeleteInvestments(investmentIds: number[]) {
 
         const userId = getUserIdFromSession(session.user.id);
 
-        // Verify all investments belong to the user and get investment details for account balance restoration
+        // Verify all investments belong to the user
         const existingInvestments = await prisma.investment.findMany({
             where: {
                 id: { in: investmentIds },
                 userId: userId,
             },
-            include: {
-                account: true
-            }
         });
 
         if (existingInvestments.length !== investmentIds.length) {
             throw new Error("Some investments not found or unauthorized");
         }
 
-        // Use a transaction to handle investment deletion and account balance restoration
-        await prisma.$transaction(async (tx) => {
-            // Delete the investments
-            await tx.investment.deleteMany({
-                where: { 
-                    id: { in: investmentIds },
-                    userId: userId
-                }
-            });
-
-            // Restore account balances (increase by investment amounts since investments are removed)
-            const accountUpdates = new Map<number, number>();
-            
-            existingInvestments.forEach(investment => {
-                if (investment.accountId) {
-                    const totalInvestmentAmount = investment.type === 'FIXED_DEPOSIT' ? 
-                        parseFloat(investment.purchasePrice.toString()) : 
-                        parseFloat(investment.quantity.toString()) * parseFloat(investment.purchasePrice.toString());
-                    
-                    const currentTotal = accountUpdates.get(investment.accountId) || 0;
-                    accountUpdates.set(investment.accountId, currentTotal + totalInvestmentAmount);
-                }
-            });
-
-            // Apply account balance updates
-            for (const [accountId, totalAmount] of accountUpdates) {
-                await tx.account.update({
-                    where: { id: accountId },
-                    data: {
-                        balance: {
-                            increment: totalAmount
-                        }
-                    }
-                });
+        // Delete the investments without modifying account balance
+        await prisma.investment.deleteMany({
+            where: { 
+                id: { in: investmentIds },
+                userId: userId
             }
         });
 
@@ -680,7 +572,13 @@ export async function bulkImportInvestmentsWithTargets(
     const investmentImportResult = await bulkImportInvestments(investmentText);
 
     return {
-        investmentImport: investmentImportResult,
+        investmentImport: {
+            success: investmentImportResult.importedCount,
+            errors: investmentImportResult.errors.map(e => ({
+                row: e.row,
+                message: e.error
+            }))
+        },
         targetImport: targetImportResult
     };
 }
@@ -737,7 +635,7 @@ export async function importCorrectedRow(rowData: string[], headers: string[]): 
         .map(row => row.map(cell => `"${cell}"`).join(','))
         .join('\n');
     
-    const parseResult = parseInvestmentsCSV(csvString, accounts);
+    const parseResult = parseInvestmentsCSV(csvString, accounts) as ImportResult & { data?: ParsedInvestmentData[] };
     
     if (!parseResult.success || !parseResult.data || parseResult.data.length === 0) {
         throw new Error("Failed to parse corrected row data");
@@ -745,35 +643,15 @@ export async function importCorrectedRow(rowData: string[], headers: string[]): 
 
     const investmentData = parseResult.data[0];
 
-    // Use a transaction to ensure both investment creation and account balance update are atomic
-    const newInvestment = await prisma.$transaction(async (tx) => {
-        // Create the investment
-        const investment = await tx.investment.create({
-            data: {
-                ...investmentData,
-                userId: userId,
-            },
-            include: {
-                account: true,
-            },
-        });
-
-        // Update account balance only if account is linked
-        if (investmentData.accountId) {
-            const totalInvestmentAmount = (investmentData.type === 'FIXED_DEPOSIT' || investmentData.type === 'PROVIDENT_FUNDS' || investmentData.type === 'SAFE_KEEPINGS' || investmentData.type === 'EMERGENCY_FUND' || investmentData.type === 'MARRIAGE' || investmentData.type === 'VACATION') ? 
-                investmentData.purchasePrice : investmentData.quantity * investmentData.purchasePrice;
-            
-            await tx.account.update({
-                where: { id: investmentData.accountId },
-                data: {
-                    balance: {
-                        decrement: totalInvestmentAmount
-                    }
-                }
-            });
-        }
-
-        return investment;
+    // Create the investment without modifying account balance
+    const newInvestment = await prisma.investment.create({
+        data: {
+            ...(investmentData as any),
+            userId: userId,
+        } as any,
+        include: {
+            account: true,
+        },
     });
     
     revalidatePath("/(dashboard)/investments");

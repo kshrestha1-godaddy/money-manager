@@ -302,6 +302,8 @@ export function useOptimizedInvestments() {
             );
             // Invalidate investment target progress since current amounts changed
             queryClient.invalidateQueries({ queryKey: ['investment-target-progress'] });
+            // Invalidate withheld amounts since investment was added
+            queryClient.invalidateQueries({ queryKey: ['withheld-amounts'] });
             triggerBalanceRefresh();
             closeModal();
             setError(null);
@@ -347,6 +349,8 @@ export function useOptimizedInvestments() {
             );
             // Invalidate investment target progress since current amounts changed
             queryClient.invalidateQueries({ queryKey: ['investment-target-progress'] });
+            // Invalidate withheld amounts since investment was updated
+            queryClient.invalidateQueries({ queryKey: ['withheld-amounts'] });
             triggerBalanceRefresh();
             closeModal();
             setError(null);
@@ -385,6 +389,8 @@ export function useOptimizedInvestments() {
         onSuccess: () => {
             // Invalidate investment target progress since current amounts changed
             queryClient.invalidateQueries({ queryKey: ['investment-target-progress'] });
+            // Invalidate withheld amounts since investment was deleted
+            queryClient.invalidateQueries({ queryKey: ['withheld-amounts'] });
             triggerBalanceRefresh();
             closeModal();
             setError(null);
@@ -423,6 +429,8 @@ export function useOptimizedInvestments() {
         onSuccess: () => {
             // Invalidate investment target progress since current amounts changed
             queryClient.invalidateQueries({ queryKey: ['investment-target-progress'] });
+            // Invalidate withheld amounts since investments were deleted
+            queryClient.invalidateQueries({ queryKey: ['withheld-amounts'] });
             triggerBalanceRefresh();
             setSelectedInvestments(new Set());
             setError(null);

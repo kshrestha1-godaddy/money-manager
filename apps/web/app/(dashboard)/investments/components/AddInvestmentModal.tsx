@@ -166,7 +166,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                 purchasePrice: parseFloat(formData.purchasePrice || "0"),
                 currentPrice: (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') ? parseFloat(formData.purchasePrice || "0") : parseFloat(formData.currentPrice || "0"),
                 purchaseDate: new Date(formData.purchaseDate + 'T00:00:00'),
-                accountId: formData.accountId ? parseInt(formData.accountId) : undefined,
+                accountId: formData.accountId ? parseInt(formData.accountId) : null,
                 notes: formData.notes.trim() || undefined,
             };
 

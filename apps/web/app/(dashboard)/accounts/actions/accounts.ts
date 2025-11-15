@@ -414,6 +414,70 @@ export async function bulkCreateAccounts(accounts: Omit<AccountInterface, 'id' |
     }
 }
 
+/**
+ * Get withheld amounts from investments grouped by bank name
+ * Withheld amounts are from ALL investment types EXCEPT: GOLD, BONDS, MUTUAL_FUNDS, CRYPTO, REAL_ESTATE
+ * These categories represent amounts physically stored in bank accounts
+ */
+export async function getWithheldAmountsByBank(): Promise<Record<string, number>> {
+    try {
+        const session = await getAuthenticatedSession();
+        const userId = getUserIdFromSession(session.user.id);
+
+        // Fetch investments that represent withheld amounts in banks
+        // Exclude investment types that are NOT stored in banks (external investments)
+        const withheldInvestments = await prisma.investment.findMany({
+            where: {
+                userId: userId,
+                type: {
+                    notIn: ['GOLD', 'BONDS', 'MUTUAL_FUNDS', 'CRYPTO', 'REAL_ESTATE']
+                },
+                accountId: {
+                    not: null // Only include investments linked to accounts
+                }
+            },
+            include: {
+                account: {
+                    select: {
+                        bankName: true
+                    }
+                }
+            }
+        });
+
+        // Group withheld amounts by bank name
+        const withheldByBank: Record<string, number> = {};
+        
+        withheldInvestments.forEach(investment => {
+            if (investment.account) {
+                const bankName = investment.account.bankName;
+                
+                // Calculate amount based on investment type
+                // For stocks, use quantity * purchasePrice
+                // For fixed deposits and other bank-stored investments, use purchasePrice only
+                let amount: number;
+                if (investment.type === 'STOCKS') {
+                    amount = parseFloat(investment.quantity.toString()) * parseFloat(investment.purchasePrice.toString());
+                } else {
+                    // FIXED_DEPOSIT, PROVIDENT_FUNDS, SAFE_KEEPINGS, EMERGENCY_FUND, MARRIAGE, VACATION, OTHER
+                    amount = parseFloat(investment.purchasePrice.toString());
+                }
+                
+                if (withheldByBank[bankName]) {
+                    withheldByBank[bankName] += amount;
+                } else {
+                    withheldByBank[bankName] = amount;
+                }
+            }
+        });
+
+        return withheldByBank;
+    } catch (error) {
+        console.error("Failed to fetch withheld amounts by bank:", error);
+        return {};
+    }
+}
+
 export async function transferMoney(fromAccountId: number, toAccountId: number, amount: number, notes?: string) {
     try {
         const session = await getAuthenticatedSession();

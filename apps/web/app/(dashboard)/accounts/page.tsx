@@ -14,7 +14,7 @@ import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { BankBalanceChart } from "./components/BankBalanceChart";
 import { useOptimizedAccounts } from "../../hooks/useOptimizedAccounts";
-import { getUserAccounts } from "./actions/accounts";
+import { getUserAccounts, getWithheldAmountsByBank } from "./actions/accounts";
 import { 
     getSummaryCardClasses,
     BUTTON_COLORS,
@@ -134,6 +134,12 @@ export default function Accounts() {
         queryFn: getUserAccounts,
     });
     const allAccounts = allAccountsData && !('error' in allAccountsData) ? allAccountsData : [];
+
+    // Fetch withheld amounts from investments
+    const { data: withheldAmounts = {} } = useQuery({
+        queryKey: ['withheld-amounts'],
+        queryFn: getWithheldAmountsByBank,
+    });
     
     const uniqueBankNames = Array.from(new Set(allAccounts.map(account => account.bankName)));
     const uniqueAccountTypes = Array.from(new Set(allAccounts.map(account => account.accountType)));
@@ -249,7 +255,11 @@ export default function Accounts() {
             {/* Balance Chart */}
             {!loading && accounts.length > 0 && (
                 <div className={UI_STYLES.chart.container}>
-                    <BankBalanceChart accounts={accounts} currency={userCurrency} />
+                    <BankBalanceChart 
+                        accounts={accounts} 
+                        currency={userCurrency} 
+                        withheldAmounts={withheldAmounts}
+                    />
                 </div>
             )}
 

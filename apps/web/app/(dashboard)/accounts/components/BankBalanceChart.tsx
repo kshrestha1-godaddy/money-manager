@@ -1,23 +1,28 @@
 "use client";
 
 import { useMemo } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, ReferenceLine, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, ReferenceLine, Cell, Legend } from "recharts";
 import { AccountInterface } from "../../../types/accounts";
 import { formatCurrency } from "../../../utils/currency";
 
 interface BankBalanceChartProps {
     accounts: AccountInterface[];
     currency?: string;
+    withheldAmounts?: Record<string, number>; // Withheld amounts from investments by bank name
 }
 
 interface ChartDataPoint {
     bank: string;
     balance: number;
+    withheld: number;
+    free: number;
     accountCount: number;
     percentage: number;
+    withheldPercentage: number;
+    freePercentage: number;
 }
 
-export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChartProps) {
+export function BankBalanceChart({ accounts, currency = "USD", withheldAmounts = {} }: BankBalanceChartProps) {
     const chartData = useMemo(() => {
         // Group accounts by bank and calculate total balance per bank
         const bankMap = new Map<string, { balance: number; accountCount: number }>();
@@ -42,30 +47,51 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
 
         // Convert to array format for chart and calculate total balance
         const initialPoints = Array.from(bankMap.entries())
-            .map(([bank, data]) => ({
-                bank,
-                balance: data.balance,
-                accountCount: data.accountCount
-            }))
-            .sort((a, b) => b.balance - a.balance); // Sort by balance descending
+            .map(([bank, data]) => {
+                const withheld = withheldAmounts[bank] || 0;
+                const totalBalance = data.balance;
+                const free = totalBalance - withheld;
+                
+                return {
+                    bank,
+                    balance: totalBalance,
+                    withheld: withheld,
+                    free: free >= 0 ? free : 0, // Prevent negative free balance
+                    accountCount: data.accountCount
+                };
+            })
+            .sort((a, b) => b.balance - a.balance); // Sort by total balance descending
 
         // Calculate total balance for percentage calculation
         const totalBalance = initialPoints.reduce((sum, item) => sum + item.balance, 0);
 
         // Add percentage to each data point
-        const chartDataPoints: ChartDataPoint[] = initialPoints.map(item => ({
-            ...item,
-            percentage: totalBalance > 0 ? ((item.balance / totalBalance) * 100) : 0
-        }));
+        const chartDataPoints: ChartDataPoint[] = initialPoints.map(item => {
+            const withheldPercentage = item.balance > 0 ? ((item.withheld / item.balance) * 100) : 0;
+            const freePercentage = item.balance > 0 ? ((item.free / item.balance) * 100) : 0;
+            
+            return {
+                ...item,
+                percentage: totalBalance > 0 ? ((item.balance / totalBalance) * 100) : 0,
+                withheldPercentage,
+                freePercentage
+            };
+        });
 
         return chartDataPoints;
-    }, [accounts]);
+    }, [accounts, withheldAmounts]);
 
     const formatTooltip = (value: number, name: string, props: any) => {
-        if (name === 'balance') {
+        if (name === 'free') {
             return [
                 formatCurrency(value, currency),
-                'Total Balance'
+                'Free Balance'
+            ];
+        }
+        if (name === 'withheld') {
+            return [
+                formatCurrency(value, currency),
+                'Withheld (Investments)'
             ];
         }
         return [value, name];
@@ -90,37 +116,6 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
         return formatCurrency(value, currency);
     };
 
-    const renderCustomLabel = (props: any) => {
-        const { x, y, width, height, payload } = props;
-
-        // Debug log to see what data we're getting
-        console.log('Label props:', props);
-
-        // Check if payload exists and has percentage property
-        if (!payload || typeof payload.percentage !== 'number') {
-            console.log('No valid payload or percentage:', payload);
-            return null;
-        }
-
-        const percentage = payload.percentage;
-
-        // Temporarily remove the 5% filter to see all labels
-        // if (percentage < 5) return null;
-
-        return (
-            <text
-                x={x + width / 2}
-                y={y + height / 2}
-                fill="white"
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fontSize="11"
-                fontWeight="bold"
-            >
-                {`${percentage.toFixed(1)}%`}
-            </text>
-        );
-    };
 
     if (chartData.length === 0) {
         return (
@@ -191,10 +186,18 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                                     const data = payload[0].payload as ChartDataPoint;
                                     return (
                                         <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-2 sm:p-3 max-w-xs">
-                                            <p className="text-xs sm:text-sm font-medium text-gray-900 mb-1">{label}</p>
-                                            <p className="text-xs sm:text-sm text-blue-600">
-                                                Balance: {formatCurrency(data.balance, currency)}
+                                            <p className="text-xs sm:text-sm font-medium text-gray-900 mb-2">{label}</p>
+                                            <p className="text-xs sm:text-sm text-gray-700 mb-1">
+                                                Total Balance: <span className="font-semibold">{formatCurrency(data.balance, currency)}</span>
                                             </p>
+                                            <div className="border-t border-gray-200 my-1"></div>
+                                            <p className="text-xs sm:text-sm text-green-600 mb-1">
+                                                Free: <span className="font-semibold">{formatCurrency(data.free, currency)}</span> ({data.freePercentage.toFixed(1)}%)
+                                            </p>
+                                            <p className="text-xs sm:text-sm text-gray-600 mb-1">
+                                                Withheld: <span className="font-semibold">{formatCurrency(data.withheld, currency)}</span> ({data.withheldPercentage.toFixed(1)}%)
+                                            </p>
+                                            <div className="border-t border-gray-200 my-1"></div>
                                             <p className="text-xs sm:text-sm text-gray-600">
                                                 Accounts: {data.accountCount}
                                             </p>
@@ -204,19 +207,43 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                                 return null;
                             }}
                         />
+                        <Legend 
+                            verticalAlign="top" 
+                            height={36}
+                            iconType="rect"
+                            formatter={(value) => {
+                                if (value === 'free') return 'Free Balance';
+                                if (value === 'withheld') return 'Withheld (Investments)';
+                                return value;
+                            }}
+                        />
+                        {/* Free balance bar (bottom of stack) */}
                         <Bar
-                            dataKey="balance"
-                            radius={[4, 4, 0, 0]}
-                            minPointSize={5}
+                            dataKey="free"
+                            stackId="balance"
+                            fill="#10b981"
+                            radius={[0, 0, 0, 0]}
+                            minPointSize={2}
                         >
-                            {/* Conditional colors for positive/negative values */}
-                            {chartData.map((entry, index) => (
-                                <Cell
-                                    key={`cell-${index}`}
-                                    fill={entry.balance >= 0 ? "#3b82f6" : "#ef4444"}
-                                />
-                            ))}
-                            {/* Data labels on top of bars */}
+                            {/* Percentage labels for free balance */}
+                            <LabelList
+                                dataKey="freePercentage"
+                                position="center"
+                                fill="white"
+                                fontSize={10}
+                                fontWeight="bold"
+                                formatter={(value: number) => value > 5 ? `${value.toFixed(1)}%` : ''}
+                            />
+                        </Bar>
+                        {/* Withheld balance bar (top of stack) */}
+                        <Bar
+                            dataKey="withheld"
+                            stackId="balance"
+                            fill="#d1d5db"
+                            radius={[4, 4, 0, 0]}
+                            minPointSize={2}
+                        >
+                            {/* Data labels on top of stacked bars showing total */}
                             <LabelList
                                 dataKey="balance"
                                 position="top"
@@ -227,14 +254,14 @@ export function BankBalanceChart({ accounts, currency = "USD" }: BankBalanceChar
                                     fontWeight: '600'
                                 }}
                             />
-                            {/* Percentage labels inside bars */}
+                            {/* Percentage labels for withheld balance */}
                             <LabelList
-                                dataKey="percentage"
+                                dataKey="withheldPercentage"
                                 position="center"
-                                fill="white"
-                                fontSize={9}
+                                fill="#374151"
+                                fontSize={10}
                                 fontWeight="bold"
-                                formatter={(value: number) => `${value.toFixed(1)}%`}
+                                formatter={(value: number) => value > 5 ? `${value.toFixed(1)}%` : ''}
                             />
                         </Bar>
                     </BarChart>
