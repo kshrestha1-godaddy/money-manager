@@ -72,7 +72,7 @@ export default function NavBar() {
           {/* App Logo and Info Container */}
           <Link href={status === "authenticated" ? "/dashboard" : "/"} className="flex items-center space-x-4">
             <Image 
-              src="/logo.png" 
+              src="/logo-zero.gif" 
               alt="Money Manager Logo" 
               priority={true}
               width={56} 
