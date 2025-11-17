@@ -110,12 +110,22 @@ export function CategorySpendTrendChart({
 
   // Helper functions for category visibility and styling
   const getCategoryOpacity = (categoryName: string): number => {
-    if (internalSelectedCategories.size === 0) return 1;
-    return internalSelectedCategories.has(categoryName) ? 1 : 0.3;
+    // If no categories selected, use reduced opacity based on total number of categories
+    if (internalSelectedCategories.size === 0) {
+      // More categories = lower default opacity
+      if (chartData.length > 8) return 0.4;
+      if (chartData.length > 5) return 0.5;
+      return 0.7;
+    }
+    // When categories are selected, highlight them strongly
+    return internalSelectedCategories.has(categoryName) ? 1 : 0.15;
   };
 
   const getCategoryStrokeWidth = (categoryName: string): number => {
-    if (internalSelectedCategories.size === 0) return 2;
+    if (internalSelectedCategories.size === 0) {
+      // Thinner lines when showing many categories
+      return chartData.length > 6 ? 1.5 : 2;
+    }
     return internalSelectedCategories.has(categoryName) ? 3 : 1;
   };
 
@@ -564,9 +574,6 @@ export function CategorySpendTrendChart({
                   style={{ backgroundColor: category.color }}
                 ></div>
                 <span>{category.categoryName}</span>
-                {internalSelectedCategories.has(category.categoryName) && (
-                  <span className="text-blue-600">✓</span>
-                )}
               </button>
             ))}
           </div>
@@ -693,8 +700,14 @@ export function CategorySpendTrendChart({
             {chartConfig.scaleX && chartConfig.scaleY && chartData.map(category => {
               const opacity = getCategoryOpacity(category.categoryName);
               const isSelected = internalSelectedCategories.has(category.categoryName);
-              const pointRadius = isSelected ? 6 : 4;
-              const targetPointRadius = isSelected ? 7 : 5;
+              const hasSelection = internalSelectedCategories.size > 0;
+              
+              // Smaller points when many categories or no selection
+              const basePointSize = chartData.length > 6 ? 3 : 4;
+              const baseTargetPointSize = chartData.length > 6 ? 4 : 5;
+              
+              const pointRadius = hasSelection && isSelected ? 6 : basePointSize;
+              const targetPointRadius = hasSelection && isSelected ? 7 : baseTargetPointSize;
             
             return category.dataPoints.map(point => {
               const periodIndex = (periods as string[]).indexOf(point.period);
@@ -726,7 +739,7 @@ export function CategorySpendTrendChart({
                     r={targetPointRadius}
                     fill="white"
                     stroke={category.color}
-                    strokeWidth={isSelected ? "3" : "2"}
+                    strokeWidth={hasSelection && isSelected ? "3" : chartData.length > 6 ? "1.5" : "2"}
                     className={`transition-all duration-300 ${
                       isLoading ? 'pointer-events-none' : 'cursor-pointer'
                     }`}
@@ -742,8 +755,8 @@ export function CategorySpendTrendChart({
                     cy={actualY}
                     r={pointRadius}
                     fill={category.color}
-                    strokeWidth={isSelected ? "2" : "0"}
-                    stroke={isSelected ? "white" : "none"}
+                    strokeWidth={hasSelection && isSelected ? "2" : "0"}
+                    stroke={hasSelection && isSelected ? "white" : "none"}
                     className={`transition-all duration-300 ${
                       isLoading ? 'pointer-events-none' : 'cursor-pointer'
                     }`}
