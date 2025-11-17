@@ -258,8 +258,18 @@ export function CategoryPerformanceGauge({
           <span className="text-gray-600">At Budget (100%)</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-red-500 rounded"></div>
-          <span className="text-gray-600">Over Budget (&gt;100%)</span>
+          <div className="flex">
+            <div className="w-2 h-3 bg-green-500 rounded-l"></div>
+            <div className="w-2 h-3 bg-red-500 rounded-r"></div>
+          </div>
+          <span className="text-gray-600">Expense Over Budget (&gt;100%) - Red: Overspent</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex">
+            <div className="w-2 h-3 bg-green-500 rounded-l"></div>
+            <div className="w-2 h-3 bg-green-700 rounded-r"></div>
+          </div>
+          <span className="text-gray-600">Income Over Budget (&gt;100%) - Dark Green: Extra earned</span>
         </div>
       </div>
 
@@ -403,52 +413,221 @@ export function CategoryPerformanceGauge({
                   {item.categoryName}
                 </text>
 
-                {/* Bar */}
-                <rect
-                  x={leftMargin + 1} // Small offset to align with grid
-                  y={barY}
-                  width={barWidth}
-                  height={barHeight}
-                  fill={item.color}
-                  rx="4"
-                  ry="4"
-                  className={`transition-all duration-300 ${
-                    isLoading 
-                      ? 'pointer-events-none' 
-                      : 'cursor-pointer hover:opacity-90'
-                  } ${isHovered ? 'opacity-90 stroke-gray-400' : 'opacity-100'}`}
-                  strokeWidth={isHovered ? "1" : "0"}
-                  onMouseEnter={isLoading ? undefined : (e) => handleMouseEnter(item.categoryName, e)}
-                  onMouseMove={isLoading ? undefined : handleMouseMove}
-                  onMouseLeave={isLoading ? undefined : handleMouseLeave}
-                  onClick={isLoading ? undefined : () => handleBarClick(item)}
-                />
+                {/* Skeleton bar for remaining budget (only show if under budget) */}
+                {item.utilization < 100 && (() => {
+                  const remainingWidth = scaleX(100 - item.utilization);
+                  const remainingAmount = item.budget - item.actual;
+                  const skeletonBarX = leftMargin + 1 + barWidth;
+                  const hundredPercentX = leftMargin + 1 + scaleX(100);
+                  
+                  return (
+                    <>
+                      <rect
+                        x={skeletonBarX}
+                        y={barY}
+                        width={remainingWidth}
+                        height={barHeight}
+                        fill="#f9fafb"
+                        stroke="#d1d5db"
+                        strokeWidth="2"
+                        strokeDasharray="4,4"
+                        rx="4"
+                        ry="4"
+                        opacity="0.8"
+                      />
+                      {/* Remaining amount text - positioned near the 100% line */}
+                      {remainingWidth > 60 && (
+                        <text
+                          x={hundredPercentX - 10}
+                          y={rowCenterY}
+                          textAnchor="end"
+                          dominantBaseline="middle"
+                          fontSize="10"
+                          fill="#6b7280"
+                          fontWeight="500"
+                        >
+                          {formatCurrency(remainingAmount, currency)}
+                        </text>
+                      )}
+                    </>
+                  );
+                })()}
 
-                {/* Values inside bar */}
-                {barWidth > 120 && ( // Only show if bar is wide enough
-                  <text
-                    x={leftMargin + 10} // Small padding from bar start
-                    y={rowCenterY}
-                    dominantBaseline="middle"
-                    fontSize="8"
-                    fill="white"
-                    fontWeight="500"
-                  >
-                    {formatCurrency(item.actual, currency)} | {formatCurrency(item.budget, currency)}
-                  </text>
+                {/* Bar rendering - split into green (up to 100%) and red/green (excess) for over-budget */}
+                {item.utilization > 100 ? (
+                  // Over budget: Different visualization for INCOME vs EXPENSE
+                  (() => {
+                    const isIncome = item.categoryType === 'INCOME';
+                    const baseBarWidth = scaleX(100);
+                    const excessUtilization = item.utilization - 100;
+                    const excessBarWidth = scaleX(excessUtilization);
+                    const excessBarX = leftMargin + 1 + baseBarWidth;
+                    const excessAmount = item.actual - item.budget;
+                    
+                    // For income: over-performance is good (all green with darker shade for excess)
+                    // For expense: over-budget is bad (green up to 100%, red for excess)
+                    const baseColor = isIncome ? "#10b981" : "#10b981"; // Green for budget portion
+                    const excessColor = isIncome ? "#059669" : "#ef4444"; // Darker green for income, red for expense
+                    
+                    return (
+                      <>
+                        {/* Base bar (0-100%) */}
+                        <rect
+                          x={leftMargin + 1}
+                          y={barY}
+                          width={baseBarWidth}
+                          height={barHeight}
+                          fill={baseColor}
+                          rx="4"
+                          ry="4"
+                          className={`transition-all duration-300 ${
+                            isLoading 
+                              ? 'pointer-events-none' 
+                              : 'cursor-pointer hover:opacity-90'
+                          } ${isHovered ? 'opacity-90 stroke-gray-400' : 'opacity-100'}`}
+                          strokeWidth={isHovered ? "1" : "0"}
+                          onMouseEnter={isLoading ? undefined : (e) => handleMouseEnter(item.categoryName, e)}
+                          onMouseMove={isLoading ? undefined : handleMouseMove}
+                          onMouseLeave={isLoading ? undefined : handleMouseLeave}
+                          onClick={isLoading ? undefined : () => handleBarClick(item)}
+                        />
+                        
+                        {/* Excess bar (over 100%) */}
+                        <rect
+                          x={excessBarX}
+                          y={barY}
+                          width={excessBarWidth}
+                          height={barHeight}
+                          fill={excessColor}
+                          rx="4"
+                          ry="4"
+                          className={`transition-all duration-300 ${
+                            isLoading 
+                              ? 'pointer-events-none' 
+                              : 'cursor-pointer hover:opacity-90'
+                          } ${isHovered ? 'opacity-90 stroke-gray-400' : 'opacity-100'}`}
+                          strokeWidth={isHovered ? "1" : "0"}
+                          onMouseEnter={isLoading ? undefined : (e) => handleMouseEnter(item.categoryName, e)}
+                          onMouseMove={isLoading ? undefined : handleMouseMove}
+                          onMouseLeave={isLoading ? undefined : handleMouseLeave}
+                          onClick={isLoading ? undefined : () => handleBarClick(item)}
+                        />
+                        
+                        {/* Actual | Budget amounts on the left of base bar */}
+                        {baseBarWidth > 140 && (
+                          <text
+                            x={leftMargin + 10}
+                            y={rowCenterY}
+                            dominantBaseline="middle"
+                            fontSize="9"
+                            fill="white"
+                            fontWeight="400"
+                            opacity="0.9"
+                          >
+                            {formatCurrency(item.actual, currency)} | {formatCurrency(item.budget, currency)}
+                          </text>
+                        )}
+                        
+                        {/* Percentage in base bar - show if no amounts displayed or if bar is very wide */}
+                        {baseBarWidth > 40 && !(baseBarWidth > 140) && (
+                          <text
+                            x={leftMargin + 1 + (baseBarWidth / 2)}
+                            y={rowCenterY}
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            fontSize={percentageFontSize}
+                            fill="white"
+                            fontWeight="600"
+                          >
+                            100%
+                          </text>
+                        )}
+                        
+                        {/* Excess amount in excess bar */}
+                        {excessBarWidth > 60 && (
+                          <text
+                            x={excessBarX + (excessBarWidth / 2)}
+                            y={rowCenterY}
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            fontSize="10"
+                            fill="white"
+                            fontWeight="600"
+                          >
+                            {isIncome ? '+' : ''}{formatCurrency(excessAmount, currency)}
+                          </text>
+                        )}
+                        
+                        {/* Total utilization percentage at the end */}
+                        {excessBarWidth > 5 && (
+                          <text
+                            x={excessBarX + excessBarWidth + 12}
+                            y={rowCenterY}
+                            dominantBaseline="middle"
+                            fontSize={percentageFontSize}
+                            fill="#374151"
+                            fontWeight="600"
+                          >
+                            {item.utilization}%
+                          </text>
+                        )}
+                      </>
+                    );
+                  })()
+                ) : (
+                  // Under or at budget: Show single colored bar
+                  <>
+                    <rect
+                      x={leftMargin + 1}
+                      y={barY}
+                      width={barWidth}
+                      height={barHeight}
+                      fill={item.color}
+                      rx="4"
+                      ry="4"
+                      className={`transition-all duration-300 ${
+                        isLoading 
+                          ? 'pointer-events-none' 
+                          : 'cursor-pointer hover:opacity-90'
+                      } ${isHovered ? 'opacity-90 stroke-gray-400' : 'opacity-100'}`}
+                      strokeWidth={isHovered ? "1" : "0"}
+                      onMouseEnter={isLoading ? undefined : (e) => handleMouseEnter(item.categoryName, e)}
+                      onMouseMove={isLoading ? undefined : handleMouseMove}
+                      onMouseLeave={isLoading ? undefined : handleMouseLeave}
+                      onClick={isLoading ? undefined : () => handleBarClick(item)}
+                    />
+
+                    {/* Values inside bar - show for bars at 100% or very wide bars */}
+                    {(barWidth > 180 || item.utilization === 100) && barWidth > 120 && (
+                      <text
+                        x={leftMargin + 10}
+                        y={rowCenterY}
+                        dominantBaseline="middle"
+                        fontSize="9"
+                        fill="white"
+                        fontWeight="400"
+                        opacity="0.9"
+                      >
+                        {formatCurrency(item.actual, currency)} | {formatCurrency(item.budget, currency)}
+                      </text>
+                    )}
+
+                    {/* Percentage label - centered in the bar, only if no amounts shown or bar is wide enough */}
+                    {barWidth > 30 && !((barWidth > 180 || item.utilization === 100) && barWidth > 120) && (
+                      <text
+                        x={leftMargin + 1 + (barWidth / 2)}
+                        y={rowCenterY}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fontSize={percentageFontSize}
+                        fill="white"
+                        fontWeight="600"
+                      >
+                        {item.utilization}%
+                      </text>
+                    )}
+                  </>
                 )}
-
-                {/* Percentage label */}
-                <text
-                  x={leftMargin + Math.max(barWidth + 12, 60)} // Optimal spacing from bar end
-                  y={rowCenterY}
-                  dominantBaseline="middle"
-                  fontSize={percentageFontSize}
-                  fill="#374151"
-                  fontWeight="600"
-                >
-                  {item.utilization}%
-                </text>
 
               </g>
             );
@@ -471,40 +650,66 @@ export function CategoryPerformanceGauge({
       </div>
 
       {/* Custom Tooltip */}
-      {hoveredData && (
-        <div
-          className="fixed z-50 pointer-events-none"
-          style={{
-            left: mousePosition.x + 10,
-            top: mousePosition.y - 10,
-            transform: 'translateY(-100%)'
-          }}
-        >
-          <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 min-w-64">
-            <div className="font-medium text-gray-900 mb-2">{hoveredData.categoryName}</div>
-            <div className="space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Actual:</span>
-                <span className="font-medium">{formatCurrency(hoveredData.actual, currency)}</span>
+      {hoveredData && (() => {
+        const isIncome = hoveredData.categoryType === 'INCOME';
+        const difference = hoveredData.actual - hoveredData.budget;
+        const isOverBudget = hoveredData.utilization > 100;
+        const isUnderBudget = hoveredData.utilization < 100;
+        
+        // For income: over budget is good (earning more), under budget is bad (earning less)
+        // For expense: over budget is bad (spending more), under budget is good (spending less)
+        const differenceLabel = isIncome 
+          ? (isOverBudget ? 'Extra Received:' : 'Shortfall:')
+          : (isOverBudget ? 'Overspent:' : 'Remaining:');
+        
+        const differenceColor = isIncome
+          ? (isOverBudget ? 'text-green-600' : 'text-red-600')
+          : (isOverBudget ? 'text-red-600' : 'text-green-600');
+        
+        const utilizationColor = isIncome
+          ? (isOverBudget ? 'text-green-600' : isUnderBudget ? 'text-red-600' : 'text-blue-600')
+          : (isOverBudget ? 'text-red-600' : isUnderBudget ? 'text-blue-600' : 'text-green-600');
+        
+        return (
+          <div
+            className="fixed z-50 pointer-events-none"
+            style={{
+              left: mousePosition.x + 10,
+              top: mousePosition.y - 10,
+              transform: 'translateY(-100%)'
+            }}
+          >
+            <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 min-w-64">
+              <div className="font-medium text-gray-900 mb-2">
+                {hoveredData.categoryName}
+                <span className="text-xs text-gray-500 ml-2">({hoveredData.categoryType})</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Budget:</span>
-                <span className="font-medium">{formatCurrency(hoveredData.budget, currency)}</span>
-              </div>
-              <div className="flex justify-between border-t border-gray-200 pt-1">
-                <span className="text-gray-600">Utilization:</span>
-                <span className={`font-bold ${
-                  hoveredData.utilization > 100 ? 'text-red-600' : 
-                  hoveredData.utilization === 100 ? 'text-green-600' : 
-                  'text-blue-600'
-                }`}>
-                  {hoveredData.utilization}%
-                </span>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Actual:</span>
+                  <span className="font-medium">{formatCurrency(hoveredData.actual, currency)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Budget:</span>
+                  <span className="font-medium">{formatCurrency(hoveredData.budget, currency)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">{differenceLabel}</span>
+                  <span className={`font-medium ${differenceColor}`}>
+                    {formatCurrency(Math.abs(difference), currency)}
+                  </span>
+                </div>
+                <div className="flex justify-between border-t border-gray-200 pt-1">
+                  <span className="text-gray-600">Utilization:</span>
+                  <span className={`font-bold ${utilizationColor}`}>
+                    {hoveredData.utilization}%
+                  </span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
