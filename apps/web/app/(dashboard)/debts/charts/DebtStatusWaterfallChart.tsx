@@ -309,60 +309,12 @@ export function DebtStatusWaterfallChart({
 
         {/* Portfolio Context */}
         {rowData.key !== "TOTAL" && metrics.totalDebts > 0 && (
-          <div className="border-t border-gray-200 pt-3 mb-3">
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Portfolio Share:</span>
-                <span className="font-medium">
-                  {rowData.count} of {metrics.totalDebts} debt{metrics.totalDebts !== 1 ? 's' : ''} ({((rowData.count / metrics.totalDebts) * 100).toFixed(1)}%)
-                </span>
-              </div>
-              
-              {rowData.count > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Status Health:</span>
-                  <span className={`font-medium ${
-                    rowData.key === 'FULL' ? 'text-green-600' :
-                    rowData.key === 'PARTIAL' ? 'text-yellow-600' : 'text-red-600'
-                  }`}>
-                    {rowData.key === 'FULL' ? 'Excellent' :
-                     rowData.key === 'PARTIAL' ? 'In Progress' : 'Needs Attention'}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Description */}
-        <div className="border-t border-gray-200 pt-3">
-          <div className="text-xs text-gray-600 leading-relaxed">
-            <div className="font-medium text-gray-700 mb-1">About this category:</div>
-            {rowData.description}
-          </div>
-        </div>
-
-        {/* Action Context */}
-        {rowData.key === 'ACTIVE' && rowData.count > 0 && (
-          <div className="border-t border-gray-200 pt-2 mt-2">
-            <div className="text-xs text-orange-600 text-center">
-              ⚠️ {rowData.count} debt{rowData.count !== 1 ? 's' : ''} requiring immediate attention
-            </div>
-          </div>
-        )}
-        
-        {rowData.key === 'PARTIAL' && rowData.count > 0 && (
-          <div className="border-t border-gray-200 pt-2 mt-2">
-            <div className="text-xs text-blue-600 text-center">
-              📈 {rowData.count} debt{rowData.count !== 1 ? 's' : ''} showing repayment progress
-            </div>
-          </div>
-        )}
-        
-        {rowData.key === 'FULL' && rowData.count > 0 && (
-          <div className="border-t border-gray-200 pt-2 mt-2">
-            <div className="text-xs text-green-600 text-center">
-              ✅ {rowData.count} debt{rowData.count !== 1 ? 's' : ''} successfully completed
+          <div className="border-t border-gray-200 pt-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Portfolio Share:</span>
+              <span className="font-medium">
+                {rowData.count} of {metrics.totalDebts} debt{metrics.totalDebts !== 1 ? 's' : ''} ({((rowData.count / metrics.totalDebts) * 100).toFixed(1)}%)
+              </span>
             </div>
           </div>
         )}
@@ -635,7 +587,7 @@ export function DebtStatusWaterfallChart({
           fileName="debts-waterfall"
           csvData={[["Category", "Amount", "Percent"]]}
           csvFileName="debts-waterfall-data"
-          tooltipText="Waterfall chart showing cumulative breakdown of total lendings across repayment statuses with detailed statistics including debt counts, averages, ranges, and portfolio health indicators."
+          tooltipText="Waterfall chart showing cumulative breakdown of total lendings across repayment statuses with detailed statistics including debt counts, averages, and ranges."
           customDownloadPNG={downloadCustomPNG}
           customDownloadSVG={downloadCustomSVG}
         />
@@ -733,7 +685,7 @@ export function DebtStatusWaterfallChart({
         fileName="debts-waterfall"
         csvData={metrics.csvData}
         csvFileName="debts-waterfall-data"
-        tooltipText="Waterfall chart showing cumulative breakdown of total lendings across repayment statuses with detailed statistics including debt counts, averages, ranges, portfolio health indicators, and actionable insights for debt management."
+        tooltipText="Waterfall chart showing cumulative breakdown of total lendings across repayment statuses with detailed statistics including debt counts, averages, ranges, and portfolio share."
         customDownloadPNG={downloadCustomPNG}
         customDownloadSVG={downloadCustomSVG}
       />
