@@ -3,6 +3,7 @@
 import { useEffect, useRef, useMemo, useState } from 'react';
 import { Income } from '../../../types/financial';
 import { convertForDisplaySync } from '../../../utils/currencyDisplay';
+import { formatCurrency } from '../../../utils/currency';
 
 interface IncomeBubbleChartProps {
   incomes: Income[];
@@ -30,6 +31,7 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
   const [showAxisControls, setShowAxisControls] = useState(false);
   const [customXRange, setCustomXRange] = useState<AxisRange | null>(null);
   const [customYRange, setCustomYRange] = useState<AxisRange | null>(null);
+  const [excludedCategories, setExcludedCategories] = useState<Set<string>>(new Set());
   
   // Calculate responsive dimensions based on screen size
   const calculateDimensions = () => {
@@ -51,8 +53,34 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
     return { width: screenWidth, height };
   };
 
-  // Process income data by categories
-  const categoryData = useMemo(() => {
+  // Category selection handlers
+  const toggleCategoryExclusion = (categoryName: string) => {
+    const newExcluded = new Set(excludedCategories);
+    if (newExcluded.has(categoryName)) {
+      newExcluded.delete(categoryName);
+    } else {
+      newExcluded.add(categoryName);
+    }
+    setExcludedCategories(newExcluded);
+    
+    // Reset only X-axis custom range when toggling categories to allow auto-scaling
+    // Y-axis remains constant, so we keep its custom range if set
+    if (customXRange) {
+      setCustomXRange(null);
+    }
+  };
+
+  const includeAllCategories = () => {
+    setExcludedCategories(new Set());
+    // Reset only X-axis custom range to allow auto-scaling with all categories
+    // Y-axis remains constant, so we keep its custom range if set
+    if (customXRange) {
+      setCustomXRange(null);
+    }
+  };
+
+  // Process ALL income data by categories (before filtering)
+  const allCategoryData = useMemo(() => {
     const categoryMap = new Map<number, CategoryData>();
     
     incomes.forEach(income => {
@@ -77,6 +105,27 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
     
     return Array.from(categoryMap.values()).filter(category => category.transactionCount > 0);
   }, [incomes, currency]);
+
+  // Filtered category data based on exclusions
+  const categoryData = useMemo(() => {
+    return allCategoryData.filter(category => !excludedCategories.has(category.name));
+  }, [allCategoryData, excludedCategories]);
+
+  // Filter to only show toggle for high-value categories (> 20K average)
+  const HIGH_VALUE_THRESHOLD = 50000;
+  const highValueCategories = useMemo(() => {
+    return allCategoryData.filter(cat => cat.averageAmount > HIGH_VALUE_THRESHOLD);
+  }, [allCategoryData]);
+
+  const excludeAllCategories = () => {
+    const allCategories = new Set(allCategoryData.map(cat => cat.name));
+    setExcludedCategories(allCategories);
+  };
+
+  const excludeAllHighValueCategories = () => {
+    const highValueCategoryNames = new Set(highValueCategories.map(cat => cat.name));
+    setExcludedCategories(highValueCategoryNames);
+  };
 
   // Initialize dimensions and add resize listener
   useEffect(() => {
@@ -193,18 +242,40 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
 
       const data = window.google.visualization.arrayToDataTable(dataArray);
 
-      // Calculate dynamic ranges or use custom ranges
+      // Calculate dynamic ranges
+      // X-axis: Based on visible categories only (adjusts when categories are toggled)
       const maxAverageAmount = categoryData.length > 0 
         ? Math.max(...categoryData.map(category => category.averageAmount))
         : 0;
-      const defaultXAxisMax = Math.max(51100, maxAverageAmount + 20000); // Ensure minimum of 51100
-      const defaultXAxisMin = -5000;
-      
-      const maxTransactionCount = categoryData.length > 0 
-        ? Math.max(...categoryData.map(category => category.transactionCount))
+      const minAverageAmount = categoryData.length > 0 
+        ? Math.min(...categoryData.map(category => category.averageAmount))
         : 0;
-      const defaultYAxisMax = Math.max(110, maxTransactionCount + 100); // Ensure minimum of 110
+      
+      // Y-axis: Always based on ALL categories (stays constant)
+      const maxTransactionCount = allCategoryData.length > 0 
+        ? Math.max(...allCategoryData.map(category => category.transactionCount))
+        : 0;
+      const minTransactionCount = allCategoryData.length > 0 
+        ? Math.min(...allCategoryData.map(category => category.transactionCount))
+        : 0;
+
+      // Calculate padding
+      const xRange = maxAverageAmount - minAverageAmount;
+      const xPadding = Math.max(xRange * 0.15, maxAverageAmount * 0.1);
+      const yRange = maxTransactionCount - minTransactionCount;
+      const yPadding = Math.max(yRange * 0.15, maxTransactionCount * 0.1, 5); // At least 5 transactions padding
+
+      // Calculate smart defaults
+      // X-axis adapts based on visible categories
+      const shouldUseFixedXMinimums = categoryData.length >= allCategoryData.length && !customXRange;
+      const defaultXAxisMin = shouldUseFixedXMinimums ? -5000 : Math.max(0, minAverageAmount - xPadding);
+      const defaultXAxisMax = shouldUseFixedXMinimums 
+        ? Math.max(51100, maxAverageAmount + 20000) 
+        : maxAverageAmount + xPadding;
+      
+      // Y-axis always uses fixed minimums based on all categories
       const defaultYAxisMin = -50;
+      const defaultYAxisMax = Math.max(110, maxTransactionCount + 100);
 
       // Use custom ranges if set, otherwise use calculated defaults
       const xAxisMin = customXRange?.min ?? defaultXAxisMin;
@@ -322,9 +393,9 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
         chartRef.current.innerHTML = '';
       }
     };
-  }, [categoryData, currency, hasActiveFilters, dimensions, customXRange, customYRange]);
+  }, [categoryData, allCategoryData, currency, hasActiveFilters, dimensions, customXRange, customYRange]);
 
-  if (categoryData.length === 0) {
+  if (allCategoryData.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6 w-full">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -332,6 +403,63 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
         </h3>
         <div className="text-center py-8 text-gray-500">
           No income data available to display
+        </div>
+      </div>
+    );
+  }
+
+  // Show a different message if all categories are excluded
+  if (categoryData.length === 0 && excludedCategories.size > 0 && highValueCategories.length > 0) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6 w-full">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Income Categories Analysis
+          </h3>
+        </div>
+        
+        {/* Category Selection Controls - Only high-value categories */}
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg border">
+          <div className="flex flex-wrap items-center gap-2">
+            {highValueCategories
+              .sort((a, b) => b.averageAmount - a.averageAmount)
+              .map(category => (
+                <button
+                  key={category.name}
+                  onClick={() => toggleCategoryExclusion(category.name)}
+                  className="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium transition-all bg-gray-200 text-gray-500 line-through opacity-60 hover:opacity-80"
+                  title={`Click to show ${category.name} (Avg: ${formatCurrency(category.averageAmount, currency)})`}
+                >
+                  <div 
+                    className="w-3 h-3 rounded" 
+                    style={{ backgroundColor: '#d1d5db' }}
+                  ></div>
+                  <span>{category.name}</span>
+                </button>
+              ))}
+            
+            {/* Action Buttons - Inline with chips */}
+            <div className="h-6 w-px bg-gray-300 mx-1"></div>
+            <button
+              onClick={includeAllCategories}
+              className="px-3 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded whitespace-nowrap font-medium"
+            >
+              Show All
+            </button>
+            <button
+              onClick={excludeAllHighValueCategories}
+              disabled={true}
+              className="px-3 py-1 text-xs text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            >
+              Hide High-Value
+            </button>
+          </div>
+        </div>
+        
+        <div className="text-center py-8 text-gray-500">
+          <div className="text-4xl mb-2">👁️</div>
+          <p>All high-value categories are hidden</p>
+          <p className="text-sm mt-2">Click "Show All" to display the chart</p>
         </div>
       </div>
     );
@@ -364,6 +492,55 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
         </button>
       </div>
       
+      {/* Category Selection Controls - Only show if there are high-value categories */}
+      {highValueCategories.length > 0 && (
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg border">
+          {/* Category chips and action buttons on the same line */}
+          <div className="flex flex-wrap items-center gap-2">
+            {highValueCategories
+              .sort((a, b) => b.averageAmount - a.averageAmount) // Sort by average amount descending
+              .map(category => {
+                const isExcluded = excludedCategories.has(category.name);
+                return (
+                  <button
+                    key={category.name}
+                    onClick={() => toggleCategoryExclusion(category.name)}
+                    className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                      isExcluded
+                        ? 'bg-gray-200 text-gray-500 line-through opacity-60 hover:opacity-80'
+                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                    }`}
+                    title={`Click to ${isExcluded ? 'show' : 'hide'} ${category.name} (Avg: ${formatCurrency(category.averageAmount, currency)})`}
+                  >
+                    <div 
+                      className="w-3 h-3 rounded" 
+                      style={{ backgroundColor: isExcluded ? '#d1d5db' : category.color }}
+                    ></div>
+                    <span>{category.name}</span>
+                  </button>
+                );
+              })}
+            
+            {/* Action Buttons - Inline with chips */}
+            <div className="h-6 w-px bg-gray-300 mx-1"></div>
+            <button
+              onClick={includeAllCategories}
+              disabled={excludedCategories.size === 0}
+              className="px-3 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            >
+              Show All
+            </button>
+            <button
+              onClick={excludeAllHighValueCategories}
+              disabled={highValueCategories.every(cat => excludedCategories.has(cat.name))}
+              className="px-3 py-1 text-xs text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            >
+              Hide High-Value
+            </button>
+          </div>
+        </div>
+      )}
+
       {showAxisControls && (
         <div className="mb-4 p-4 bg-gray-50 rounded-lg">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
