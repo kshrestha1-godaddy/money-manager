@@ -311,10 +311,10 @@ export function DebtStatusWaterfallChart({
         {rowData.key !== "TOTAL" && metrics.totalDebts > 0 && (
           <div className="border-t border-gray-200 pt-3">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Portfolio Share:</span>
-              <span className="font-medium">
-                {rowData.count} of {metrics.totalDebts} debt{metrics.totalDebts !== 1 ? 's' : ''} ({((rowData.count / metrics.totalDebts) * 100).toFixed(1)}%)
-              </span>
+                <span className="text-gray-600">Portfolio Share:</span>
+                <span className="font-medium">
+                  {rowData.count} of {metrics.totalDebts} debt{metrics.totalDebts !== 1 ? 's' : ''} ({((rowData.count / metrics.totalDebts) * 100).toFixed(1)}%)
+                </span>
             </div>
           </div>
         )}

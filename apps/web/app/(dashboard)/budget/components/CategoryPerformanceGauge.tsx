@@ -577,54 +577,54 @@ export function CategoryPerformanceGauge({
                 ) : (
                   // Under or at budget: Show single colored bar
                   <>
-                    <rect
+                <rect
                       x={leftMargin + 1}
-                      y={barY}
-                      width={barWidth}
-                      height={barHeight}
-                      fill={item.color}
-                      rx="4"
-                      ry="4"
-                      className={`transition-all duration-300 ${
-                        isLoading 
-                          ? 'pointer-events-none' 
-                          : 'cursor-pointer hover:opacity-90'
-                      } ${isHovered ? 'opacity-90 stroke-gray-400' : 'opacity-100'}`}
-                      strokeWidth={isHovered ? "1" : "0"}
-                      onMouseEnter={isLoading ? undefined : (e) => handleMouseEnter(item.categoryName, e)}
-                      onMouseMove={isLoading ? undefined : handleMouseMove}
-                      onMouseLeave={isLoading ? undefined : handleMouseLeave}
-                      onClick={isLoading ? undefined : () => handleBarClick(item)}
-                    />
+                  y={barY}
+                  width={barWidth}
+                  height={barHeight}
+                  fill={item.color}
+                  rx="4"
+                  ry="4"
+                  className={`transition-all duration-300 ${
+                    isLoading 
+                      ? 'pointer-events-none' 
+                      : 'cursor-pointer hover:opacity-90'
+                  } ${isHovered ? 'opacity-90 stroke-gray-400' : 'opacity-100'}`}
+                  strokeWidth={isHovered ? "1" : "0"}
+                  onMouseEnter={isLoading ? undefined : (e) => handleMouseEnter(item.categoryName, e)}
+                  onMouseMove={isLoading ? undefined : handleMouseMove}
+                  onMouseLeave={isLoading ? undefined : handleMouseLeave}
+                  onClick={isLoading ? undefined : () => handleBarClick(item)}
+                />
 
                     {/* Values inside bar - show for bars at 100% or very wide bars */}
                     {(barWidth > 180 || item.utilization === 100) && barWidth > 120 && (
-                      <text
+                  <text
                         x={leftMargin + 10}
-                        y={rowCenterY}
-                        dominantBaseline="middle"
+                    y={rowCenterY}
+                    dominantBaseline="middle"
                         fontSize="9"
-                        fill="white"
+                    fill="white"
                         fontWeight="400"
                         opacity="0.9"
-                      >
-                        {formatCurrency(item.actual, currency)} | {formatCurrency(item.budget, currency)}
-                      </text>
-                    )}
+                  >
+                    {formatCurrency(item.actual, currency)} | {formatCurrency(item.budget, currency)}
+                  </text>
+                )}
 
                     {/* Percentage label - centered in the bar, only if no amounts shown or bar is wide enough */}
                     {barWidth > 30 && !((barWidth > 180 || item.utilization === 100) && barWidth > 120) && (
-                      <text
+                <text
                         x={leftMargin + 1 + (barWidth / 2)}
-                        y={rowCenterY}
+                  y={rowCenterY}
                         textAnchor="middle"
-                        dominantBaseline="middle"
-                        fontSize={percentageFontSize}
+                  dominantBaseline="middle"
+                  fontSize={percentageFontSize}
                         fill="white"
-                        fontWeight="600"
-                      >
-                        {item.utilization}%
-                      </text>
+                  fontWeight="600"
+                >
+                  {item.utilization}%
+                </text>
                     )}
                   </>
                 )}
@@ -671,43 +671,43 @@ export function CategoryPerformanceGauge({
           : (isOverBudget ? 'text-red-600' : isUnderBudget ? 'text-blue-600' : 'text-green-600');
         
         return (
-          <div
-            className="fixed z-50 pointer-events-none"
-            style={{
-              left: mousePosition.x + 10,
-              top: mousePosition.y - 10,
-              transform: 'translateY(-100%)'
-            }}
-          >
-            <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 min-w-64">
+        <div
+          className="fixed z-50 pointer-events-none"
+          style={{
+            left: mousePosition.x + 10,
+            top: mousePosition.y - 10,
+            transform: 'translateY(-100%)'
+          }}
+        >
+          <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 min-w-64">
               <div className="font-medium text-gray-900 mb-2">
                 {hoveredData.categoryName}
                 <span className="text-xs text-gray-500 ml-2">({hoveredData.categoryType})</span>
               </div>
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Actual:</span>
-                  <span className="font-medium">{formatCurrency(hoveredData.actual, currency)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Budget:</span>
-                  <span className="font-medium">{formatCurrency(hoveredData.budget, currency)}</span>
-                </div>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Actual:</span>
+                <span className="font-medium">{formatCurrency(hoveredData.actual, currency)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Budget:</span>
+                <span className="font-medium">{formatCurrency(hoveredData.budget, currency)}</span>
+              </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">{differenceLabel}</span>
                   <span className={`font-medium ${differenceColor}`}>
                     {formatCurrency(Math.abs(difference), currency)}
                   </span>
                 </div>
-                <div className="flex justify-between border-t border-gray-200 pt-1">
-                  <span className="text-gray-600">Utilization:</span>
+              <div className="flex justify-between border-t border-gray-200 pt-1">
+                <span className="text-gray-600">Utilization:</span>
                   <span className={`font-bold ${utilizationColor}`}>
-                    {hoveredData.utilization}%
-                  </span>
-                </div>
+                  {hoveredData.utilization}%
+                </span>
               </div>
             </div>
           </div>
+        </div>
         );
       })()}
     </div>
