@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useRef } from "react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { Income, Expense } from "../types/financial";
 import { formatCurrency } from "../utils/currency";
 import { useChartExpansion } from "../utils/chartUtils";
@@ -308,6 +308,11 @@ export function FinancialAreaChart({
 
         return chartDataPoints;
     }, [filteredData, startDate, endDate, pageStartDate, pageEndDate, chartConfig.label, hasPageFilters, data, currency]);
+
+    // Check if there are any high-value days in the current chart data
+    const hasHighValueDays = useMemo(() => {
+        return chartData.some(point => point.isHighValue);
+    }, [chartData]);
 
     const formatTooltip = (value: number) => {
         return [formatCurrency(value, currency), chartConfig.label];
@@ -801,6 +806,23 @@ export function FinancialAreaChart({
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                             }}
                         />
+                        {/* High-Value Threshold Reference Line */}
+                        {hasHighValueDays && (
+                            <ReferenceLine
+                                y={HIGH_VALUE_THRESHOLDS[type]}
+                                stroke={type === 'income' ? '#059669' : '#dc2626'}
+                                strokeDasharray="5 5"
+                                strokeWidth={2}
+                                label={{
+                                    value: `High-Value Threshold: ${formatCurrency(HIGH_VALUE_THRESHOLDS[type], currency)}`,
+                                    position: 'insideTopRight',
+                                    fill: type === 'income' ? '#059669' : '#dc2626',
+                                    fontSize: isExpanded ? 12 : 10,
+                                    fontWeight: 600,
+                                    offset: 10
+                                }}
+                            />
+                        )}
                         <Area
                             type="monotone"
                             dataKey="amount"

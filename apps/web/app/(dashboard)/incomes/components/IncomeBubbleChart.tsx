@@ -32,6 +32,7 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
   const [customXRange, setCustomXRange] = useState<AxisRange | null>(null);
   const [customYRange, setCustomYRange] = useState<AxisRange | null>(null);
   const [excludedCategories, setExcludedCategories] = useState<Set<string>>(new Set());
+  const [showThresholdLine, setShowThresholdLine] = useState(false);
   
   // Calculate responsive dimensions based on screen size
   const calculateDimensions = () => {
@@ -379,9 +380,13 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
       try {
         chart.draw(data, options);
         setIsChartLoading(false);
+        
+        // Show threshold line if there are high-value categories
+        setShowThresholdLine(highValueCategories.length > 0);
       } catch (error) {
         console.error('Error drawing bubble chart:', error);
         setIsChartLoading(false);
+        setShowThresholdLine(false);
       }
     };
 
@@ -477,6 +482,40 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
     setCustomXRange(null);
     setCustomYRange(null);
   };
+
+  // Calculate threshold line position as a percentage
+  const calculateThresholdPosition = () => {
+    if (!showThresholdLine) return null;
+    
+    // Get the actual X-axis range being used
+    const maxAverageAmount = categoryData.length > 0 
+      ? Math.max(...categoryData.map(category => category.averageAmount))
+      : 0;
+    const minAverageAmount = categoryData.length > 0 
+      ? Math.min(...categoryData.map(category => category.averageAmount))
+      : 0;
+    
+    const xRange = maxAverageAmount - minAverageAmount;
+    const xPadding = Math.max(xRange * 0.15, maxAverageAmount * 0.1);
+    
+    const shouldUseFixedXMinimums = categoryData.length >= allCategoryData.length && !customXRange;
+    const xAxisMin = customXRange?.min ?? (shouldUseFixedXMinimums ? -5000 : Math.max(0, minAverageAmount - xPadding));
+    const xAxisMax = customXRange?.max ?? (shouldUseFixedXMinimums 
+      ? Math.max(51100, maxAverageAmount + 20000) 
+      : maxAverageAmount + xPadding);
+    
+    // Calculate percentage position of threshold
+    const totalRange = xAxisMax - xAxisMin;
+    const thresholdFromMin = HIGH_VALUE_THRESHOLD - xAxisMin;
+    const percentage = (thresholdFromMin / totalRange) * 100;
+    
+    // Only show if threshold is within visible range
+    if (percentage < 0 || percentage > 100) return null;
+    
+    return percentage;
+  };
+
+  const thresholdPosition = calculateThresholdPosition();
 
   return (
     <div className={`bg-white rounded-lg shadow-sm border border-gray-200 ${dimensions.width < 640 ? 'p-4' : 'p-6'} mb-6 w-full`}>
@@ -673,6 +712,56 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
           style={{ width: '100%', height: `${dimensions.height}px`, minHeight: '300px' }}
           className="overflow-hidden w-full"
         />
+        {/* Threshold Line Overlay */}
+        {showThresholdLine && thresholdPosition !== null && (
+          <div 
+            className="absolute pointer-events-none"
+            style={{
+              left: dimensions.width < 640 ? '40px' : '60px',
+              top: '10px',
+              width: dimensions.width < 640 ? 'calc(92% - 40px)' : 'calc(95% - 60px)',
+              height: 'calc(90% - 10px)',
+            }}
+          >
+            <svg
+              width="100%"
+              height="100%"
+              style={{ position: 'absolute', top: 0, left: 0 }}
+            >
+              {/* Dotted vertical line */}
+              <line
+                x1={`${thresholdPosition}%`}
+                y1="0"
+                x2={`${thresholdPosition}%`}
+                y2="100%"
+                stroke="#059669"
+                strokeWidth="2"
+                strokeDasharray="5,5"
+              />
+              {/* Label background */}
+              <rect
+                x={`calc(${thresholdPosition}% - 50px)`}
+                y="5"
+                width="100"
+                height="20"
+                fill="white"
+                fillOpacity="0.9"
+                rx="3"
+              />
+              {/* Label text */}
+              <text
+                x={`${thresholdPosition}%`}
+                y="18"
+                textAnchor="middle"
+                fill="#059669"
+                fontSize={dimensions.width < 640 ? "9" : "10"}
+                fontWeight="600"
+              >
+                {formatCurrency(HIGH_VALUE_THRESHOLD, currency)}
+              </text>
+            </svg>
+          </div>
+        )}
       </div>
     </div>
   );
