@@ -270,6 +270,24 @@ export function useOptimizedWorth() {
         }, 0);
     }, [includedInvestments]);
 
+    // Calculate investment gain/loss based on included investments only
+    const includedInvestmentGainStats = useMemo(() => {
+        const totalInvested = includedInvestments.reduce((sum, investment) => {
+            return sum + (investment.quantity * investment.purchasePrice);
+        }, 0);
+
+        const totalCurrentValue = includedTotalInvestmentValue;
+        const totalGain = totalCurrentValue - totalInvested;
+        const totalGainPercentage = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
+
+        return {
+            totalInvested,
+            totalCurrentValue,
+            totalGain,
+            totalGainPercentage
+        };
+    }, [includedInvestments, includedTotalInvestmentValue]);
+
     // Monthly cash flow analysis (with currency conversion)
     const monthlyCashFlow = useMemo(() => {
         const currentMonth = new Date().getMonth();
@@ -371,9 +389,9 @@ export function useOptimizedWorth() {
             investmentAllocation,
             liquidityRatio,
             
-            // Investment performance
-            totalInvestmentGain,
-            totalInvestmentGainPercentage,
+            // Investment performance (based on included investments only)
+            totalInvestmentGain: includedInvestmentGainStats.totalGain,
+            totalInvestmentGainPercentage: includedInvestmentGainStats.totalGainPercentage,
             
             // Debt performance
             totalDebtPrincipal: moneyLentStats.totalDebtPrincipal,
@@ -389,8 +407,7 @@ export function useOptimizedWorth() {
         includedTotalInvestmentValue, 
         moneyLentStats, 
         monthlyCashFlow,
-        totalInvestmentGain,
-        totalInvestmentGainPercentage
+        includedInvestmentGainStats
     ]);
 
     // Chart data for visualizations
