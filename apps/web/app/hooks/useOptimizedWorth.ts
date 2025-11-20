@@ -11,6 +11,7 @@ import { calculateRemainingWithInterest } from '../utils/interestCalculation';
 import { convertForDisplaySync } from '../utils/currencyDisplay';
 import { useCurrency } from '../providers/CurrencyProvider';
 import { getWithheldAmountsByBank } from '../(dashboard)/accounts/actions/accounts';
+import { getNetWorthInclusions } from '../actions/net-worth-inclusions';
 
 interface NetWorthStats {
     // Asset breakdown
@@ -130,20 +131,88 @@ export function useOptimizedWorth() {
         gcTime: 15 * 60 * 1000, // 15 minutes
     });
 
+    // Fetch net worth inclusions
+    const { data: inclusionsResponse, isLoading: inclusionsLoading } = useQuery({
+        queryKey: ['net-worth-inclusions'],
+        queryFn: getNetWorthInclusions,
+        staleTime: 5 * 60 * 1000, // 5 minutes
+        gcTime: 15 * 60 * 1000, // 15 minutes
+    });
+
+    // Create inclusion maps for quick lookups
+    const inclusionMaps = useMemo(() => {
+        if (!inclusionsResponse?.success || !inclusionsResponse?.data) {
+            return {
+                accounts: new Map<number, boolean>(),
+                investments: new Map<number, boolean>(),
+                debts: new Map<number, boolean>(),
+            };
+        }
+
+        const maps = {
+            accounts: new Map<number, boolean>(),
+            investments: new Map<number, boolean>(),
+            debts: new Map<number, boolean>(),
+        };
+
+        inclusionsResponse.data.forEach((inclusion: any) => {
+            switch (inclusion.entityType) {
+                case 'ACCOUNT':
+                    maps.accounts.set(inclusion.entityId, inclusion.includeInNetWorth);
+                    break;
+                case 'INVESTMENT':
+                    maps.investments.set(inclusion.entityId, inclusion.includeInNetWorth);
+                    break;
+                case 'DEBT':
+                    maps.debts.set(inclusion.entityId, inclusion.includeInNetWorth);
+                    break;
+            }
+        });
+
+        return maps;
+    }, [inclusionsResponse]);
+
     // ==================== LOADING & ERROR STATES ====================
 
-    const loading = accountsLoading || investmentsLoading || debtsLoading || incomesLoading || expensesLoading;
+    const loading = accountsLoading || investmentsLoading || debtsLoading || incomesLoading || expensesLoading || inclusionsLoading;
     const error = accountsError || investmentsError || debtsError || incomesError || expensesError;
 
     // ==================== COMPUTED VALUES ====================
 
-    // Calculate accounts with free balances (excluding withheld amounts)
+    // Filter accounts based on net worth inclusions
+    const includedAccounts = useMemo(() => {
+        return accounts.filter(account => {
+            // If no explicit inclusion exists, default to included (true)
+            const isIncluded = inclusionMaps.accounts.get(account.id);
+            return isIncluded === undefined ? true : isIncluded;
+        });
+    }, [accounts, inclusionMaps]);
+
+    // Filter investments based on net worth inclusions
+    const includedInvestments = useMemo(() => {
+        return investments.filter(investment => {
+            // If no explicit inclusion exists, default to included (true)
+            const isIncluded = inclusionMaps.investments.get(investment.id);
+            return isIncluded === undefined ? true : isIncluded;
+        });
+    }, [investments, inclusionMaps]);
+
+    // Filter debts based on net worth inclusions
+    const includedDebts = useMemo(() => {
+        return debts.filter(debt => {
+            // If no explicit inclusion exists, default to included (true)
+            const isIncluded = inclusionMaps.debts.get(debt.id);
+            return isIncluded === undefined ? true : isIncluded;
+        });
+    }, [debts, inclusionMaps]);
+
+    // Calculate accounts with free balances (excluding withheld amounts) - using included accounts only
     const accountsWithFreeBalance = useMemo(() => {
-        if (accounts.length === 0) return [];
+        if (includedAccounts.length === 0) return [];
 
         // Group accounts by bank name to calculate proportional withheld amounts
-        const bankGroups = new Map<string, typeof accounts>();
-        accounts.forEach(account => {
+        const bankGroups = new Map<string, typeof includedAccounts>();
+        includedAccounts.forEach(account => {
             const bankName = account.bankName;
             if (!bankGroups.has(bankName)) {
                 bankGroups.set(bankName, []);
@@ -152,7 +221,7 @@ export function useOptimizedWorth() {
         });
 
         // Calculate free balance for each account
-        return accounts.map(account => {
+        return includedAccounts.map(account => {
             const bankName = account.bankName;
             const withheldAmountForBank = withheldAmounts[bankName] || 0;
             
@@ -178,7 +247,7 @@ export function useOptimizedWorth() {
                 balance: freeBalance
             };
         });
-    }, [accounts, withheldAmounts]);
+    }, [includedAccounts, withheldAmounts]);
 
     // Monthly cash flow analysis (with currency conversion)
     const monthlyCashFlow = useMemo(() => {
@@ -214,11 +283,11 @@ export function useOptimizedWorth() {
         };
     }, [incomes, expenses, currency]);
 
-    // Money lent calculations using debt data
+    // Money lent calculations using debt data - using included debts only
     const moneyLentStats = useMemo(() => {
-        const totalMoneyLent = debts
+        const totalMoneyLent = includedDebts
             .filter(debt => debt.status === 'ACTIVE' || debt.status === 'PARTIALLY_PAID')
-            .reduce((sum, debt) => {
+            .reduce((sum, debt => {
                 const remainingWithInterest = calculateRemainingWithInterest(
                     debt.amount,
                     debt.interestRate,
@@ -237,7 +306,7 @@ export function useOptimizedWorth() {
             totalInterestAccrued: debtSummary?.totalInterestAccrued || 0,
             totalRepaid: debtSummary?.totalRepaid || 0
         };
-    }, [debts, debtSummary]);
+    }, [includedDebts, debtSummary]);
 
     // Comprehensive net worth statistics
     const netWorthStats = useMemo((): NetWorthStats => {

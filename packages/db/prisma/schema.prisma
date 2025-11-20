@@ -42,6 +42,7 @@ model User {
   userCheckins UserCheckin[]
   emergencyEmails EmergencyEmail[]
   passwordShares PasswordShare[]
+  netWorthInclusions NetWorthInclusion[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -535,6 +536,27 @@ model PasswordShare {
   expiresAt      DateTime? // Optional: when the shared passwords expire
   
   @@index([userId, sentAt])
+}
+
+model NetWorthInclusion {
+  id               Int      @id @default(autoincrement())
+  user             User     @relation(fields: [userId], references: [id])
+  userId           Int
+  entityType       WorthEntityType // ACCOUNT, INVESTMENT, DEBT
+  entityId         Int      // ID of the account, investment, or debt
+  includeInNetWorth Boolean @default(true) // Whether to include in net worth calculation
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  @@unique([userId, entityType, entityId])
+  @@index([userId, entityType])
+  @@index([userId, includeInNetWorth])
+}
+
+enum WorthEntityType {
+  ACCOUNT     // Bank accounts
+  INVESTMENT  // Investment holdings
+  DEBT        // Money lent out
 }
 
 enum PasswordShareReason {
