@@ -10,6 +10,7 @@ import { useChartExpansion } from "../../utils/chartUtils";
 import { calculateRemainingWithInterest } from "../../utils/interestCalculation";
 import { ChartControls } from "../../components/ChartControls";
 import { useOptimizedWorth } from "../../hooks/useOptimizedWorth";
+import { toggleNetWorthInclusion } from "../../actions/net-worth-inclusions";
 import { TrendingUp, TrendingDown, DollarSign, Target, PiggyBank, BarChart3, RefreshCw, Download, Info } from "lucide-react";
 import { 
     getSummaryCardClasses,
@@ -80,6 +81,10 @@ export default function NetWorthPage() {
         accounts,
         investments,
         debts,
+        allAccounts,
+        allInvestments,
+        allDebts,
+        inclusionMaps,
         loading,
         error,
         handleExportCSV,
@@ -87,6 +92,22 @@ export default function NetWorthPage() {
         exportData,
         chartColors
     } = useOptimizedWorth();
+
+    // Handler for toggling net worth inclusion
+    const handleToggleInclusion = useCallback(async (
+        entityType: 'ACCOUNT' | 'INVESTMENT' | 'DEBT',
+        entityId: number,
+        currentlyIncluded: boolean
+    ) => {
+        try {
+            await toggleNetWorthInclusion(entityType, entityId, !currentlyIncluded);
+            // Refresh data to update the UI
+            refreshData();
+        } catch (error) {
+            console.error('Error toggling net worth inclusion:', error);
+            alert('Failed to update item inclusion. Please try again.');
+        }
+    }, [refreshData]);
 
     // Helper functions
     const formatCurrencyAbbreviated = (amount: number) => {
@@ -596,100 +617,155 @@ export default function NetWorthPage() {
             )}
 
             {/* Asset Details Sections */}
-            {sections.map((section) => (
-                <div key={section.key} className={whiteContainer}>
-                    <div 
-                        className="flex items-center justify-between p-6 border-b border-gray-200 cursor-pointer hover:bg-gray-50"
-                        onClick={() => toggleSection(section.key as SectionKey)}
-                    >
-                        <div className="flex items-center gap-4">
-                            <div 
-                                className="w-4 h-4 rounded-full"
-                                style={{ backgroundColor: section.color }}
-                            ></div>
-                            <div>
-                                <h3 className={`text-lg font-semibold ${TEXT_COLORS.cardTitle}`}>{section.title}</h3>
-                                <p className={cardSubtitle}>
-                                    {formatCurrency(section.value, currency)} ({section.percentage.toFixed(1)}% of total assets)
-                                </p>
+            {sections.map((section) => {
+                // Get all items for this section type (including excluded ones)
+                let allSectionItems: any[] = [];
+                let entityType: 'ACCOUNT' | 'INVESTMENT' | 'DEBT' = 'ACCOUNT';
+                
+                if (section.key === 'accounts') {
+                    allSectionItems = allAccounts || [];
+                    entityType = 'ACCOUNT';
+                } else if (section.key === 'investments') {
+                    allSectionItems = allInvestments || [];
+                    entityType = 'INVESTMENT';
+                } else if (section.key === 'debts') {
+                    allSectionItems = (allDebts || []).filter((debt: any) => 
+                        debt.status === 'ACTIVE' || debt.status === 'PARTIALLY_PAID'
+                    );
+                    entityType = 'DEBT';
+                }
+                
+                return (
+                    <div key={section.key} className={whiteContainer}>
+                        <div 
+                            className="flex items-center justify-between p-6 border-b border-gray-200 cursor-pointer hover:bg-gray-50"
+                            onClick={() => toggleSection(section.key as SectionKey)}
+                        >
+                            <div className="flex items-center gap-4">
+                                <div 
+                                    className="w-4 h-4 rounded-full"
+                                    style={{ backgroundColor: section.color }}
+                                ></div>
+                                <div>
+                                    <h3 className={`text-lg font-semibold ${TEXT_COLORS.cardTitle}`}>{section.title}</h3>
+                                    <p className={cardSubtitle}>
+                                        {formatCurrency(section.value, currency)} ({section.percentage.toFixed(1)}% of total assets)
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="text-gray-400">
+                                {expandedSections[section.key as SectionKey] ? '▼' : '▶'}
                             </div>
                         </div>
-                        <div className="text-gray-400">
-                            {expandedSections[section.key as SectionKey] ? '▼' : '▶'}
-                        </div>
-                    </div>
-                    
-                    {expandedSections[section.key as SectionKey] && (
-                        <div className="p-6">
-                            {section.items.length === 0 ? (
-                                <p className={`${emptyMessage} text-center py-4`}>No items in this category</p>
-                            ) : (
-                                <div className="space-y-3">
-                                    {section.items.map((item: any, index: number) => {
-                                        let itemValue: number;
-                                        if (section.key === 'investments') {
-                                            itemValue = item.quantity * item.currentPrice;
-                                        } else if (section.key === 'debts') {
-                                            // For debts, calculate the remaining amount after partial payments
-                                            const remainingWithInterest = calculateRemainingWithInterest(
-                                                item.amount,
-                                                item.interestRate,
-                                                item.lentDate,
-                                                item.dueDate,
-                                                item.repayments || [],
-                                                new Date(),
-                                                item.status
-                                            );
-                                            itemValue = Math.max(0, remainingWithInterest.remainingAmount);
-                                        } else {
-                                            itemValue = item.balance || item.amount || 0;
-                                        }
-                                        const itemPercentage = calculateItemPercentage(itemValue, section.value);
-                                        
-                                        return (
-                                            <div key={item.id || index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <h4 className={`font-medium ${TEXT_COLORS.cardTitle}`}>
-                                                            {item.holderName || item.name || item.borrowerName || 'Unknown'}
-                                                        </h4>
-                                                        {section.key === 'debts' && (
-                                                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${item.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                                {item.status === 'ACTIVE' ? 'ACTIVE' : 'PARTIALLY PAID'}
-                                                            </span>
-                                                        )}
+                        
+                        {expandedSections[section.key as SectionKey] && (
+                            <div className="p-6">
+                                {allSectionItems.length === 0 ? (
+                                    <p className={`${emptyMessage} text-center py-4`}>No items in this category</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {allSectionItems.map((item: any, index: number) => {
+                                            // Check if this item is included in net worth
+                                            const inclusionMap = entityType === 'ACCOUNT' ? inclusionMaps.accounts :
+                                                               entityType === 'INVESTMENT' ? inclusionMaps.investments :
+                                                               inclusionMaps.debts;
+                                            const isIncluded = inclusionMap.get(item.id) ?? true; // Default to included if no record exists
+                                            
+                                            let itemValue: number;
+                                            if (section.key === 'investments') {
+                                                itemValue = item.quantity * item.currentPrice;
+                                            } else if (section.key === 'debts') {
+                                                // For debts, calculate the remaining amount after partial payments
+                                                const remainingWithInterest = calculateRemainingWithInterest(
+                                                    item.amount,
+                                                    item.interestRate,
+                                                    item.lentDate,
+                                                    item.dueDate,
+                                                    item.repayments || [],
+                                                    new Date(),
+                                                    item.status
+                                                );
+                                                itemValue = Math.max(0, remainingWithInterest.remainingAmount);
+                                            } else {
+                                                itemValue = item.balance || item.amount || 0;
+                                            }
+                                            const itemPercentage = calculateItemPercentage(itemValue, section.value);
+                                            
+                                            return (
+                                                <div 
+                                                    key={item.id || index} 
+                                                    className={`flex items-center gap-3 p-3 rounded-lg border ${
+                                                        isIncluded 
+                                                            ? 'bg-gray-50 border-gray-200' 
+                                                            : 'bg-gray-100 border-gray-300 opacity-60'
+                                                    }`}
+                                                >
+                                                    {/* Checkbox for inclusion/exclusion */}
+                                                    <div className="flex-shrink-0">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isIncluded}
+                                                            onChange={(e) => {
+                                                                e.stopPropagation();
+                                                                handleToggleInclusion(entityType, item.id, isIncluded);
+                                                            }}
+                                                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                                                            title={isIncluded ? "Exclude from net worth" : "Include in net worth"}
+                                                        />
                                                     </div>
-                                                    <p className={cardSubtitle}>
-                                                        {item.bankName || item.symbol || item.purpose || 'No description'}
-                                                    </p>
-                                                    {section.key === 'debts' && item.dueDate && (
-                                                        <p className="text-xs text-orange-600 font-medium mt-1">
-                                                            Due: {formatDate(new Date(item.dueDate))}
-                                                        </p>
-                                                    )}
+                                                    
+                                                    <div className="flex-1 flex justify-between items-center">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <h4 className={`font-medium ${TEXT_COLORS.cardTitle} ${!isIncluded ? 'line-through' : ''}`}>
+                                                                    {item.holderName || item.name || item.borrowerName || 'Unknown'}
+                                                                </h4>
+                                                                {!isIncluded && (
+                                                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                                        Excluded
+                                                                    </span>
+                                                                )}
+                                                                {section.key === 'debts' && (
+                                                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${item.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                                        {item.status === 'ACTIVE' ? 'ACTIVE' : 'PARTIALLY PAID'}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <p className={cardSubtitle}>
+                                                                {item.bankName || item.symbol || item.purpose || 'No description'}
+                                                            </p>
+                                                            {section.key === 'debts' && item.dueDate && (
+                                                                <p className="text-xs text-orange-600 font-medium mt-1">
+                                                                    Due: {formatDate(new Date(item.dueDate))}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className={`font-semibold ${TEXT_COLORS.cardTitle}`}>
+                                                                {formatCurrency(itemValue, currency)}
+                                                            </p>
+                                                            {isIncluded && (
+                                                                <p className={`text-xs ${blueIcon} font-medium`}>
+                                                                    {itemPercentage}%
+                                                                </p>
+                                                            )}
+                                                            {section.key === 'investments' && (
+                                                                <p className={`text-xs ${getGainLossClasses(item.currentPrice - item.purchasePrice)}`}>
+                                                                    {((item.currentPrice - item.purchasePrice) / item.purchasePrice * 100).toFixed(1)}% gain/loss
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div className="text-right">
-                                                    <p className={`font-semibold ${TEXT_COLORS.cardTitle}`}>
-                                                        {formatCurrency(itemValue, currency)}
-                                                    </p>
-                                                    <p className={`text-xs ${blueIcon} font-medium`}>
-                                                        {itemPercentage}%
-                                                    </p>
-                                                    {section.key === 'investments' && (
-                                                        <p className={`text-xs ${getGainLossClasses(item.currentPrice - item.purchasePrice)}`}>
-                                                            {((item.currentPrice - item.purchasePrice) / item.purchasePrice * 100).toFixed(1)}% gain/loss
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-            ))}
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
         </div>
     );
 } 

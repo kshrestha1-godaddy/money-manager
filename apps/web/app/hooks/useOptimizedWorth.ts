@@ -206,13 +206,14 @@ export function useOptimizedWorth() {
         });
     }, [debts, inclusionMaps]);
 
-    // Calculate accounts with free balances (excluding withheld amounts) - using included accounts only
-    const accountsWithFreeBalance = useMemo(() => {
-        if (includedAccounts.length === 0) return [];
+    // Calculate free balances for ALL accounts (excluding withheld amounts)
+    // This is used for displaying account balances in the UI
+    const allAccountsWithFreeBalance = useMemo(() => {
+        if (accounts.length === 0) return [];
 
         // Group accounts by bank name to calculate proportional withheld amounts
-        const bankGroups = new Map<string, typeof includedAccounts>();
-        includedAccounts.forEach(account => {
+        const bankGroups = new Map<string, typeof accounts>();
+        accounts.forEach(account => {
             const bankName = account.bankName;
             if (!bankGroups.has(bankName)) {
                 bankGroups.set(bankName, []);
@@ -221,7 +222,7 @@ export function useOptimizedWorth() {
         });
 
         // Calculate free balance for each account
-        return includedAccounts.map(account => {
+        return accounts.map(account => {
             const bankName = account.bankName;
             const withheldAmountForBank = withheldAmounts[bankName] || 0;
             
@@ -247,7 +248,27 @@ export function useOptimizedWorth() {
                 balance: freeBalance
             };
         });
-    }, [includedAccounts, withheldAmounts]);
+    }, [accounts, withheldAmounts]);
+
+    // Filter accounts with free balances based on inclusions - for net worth calculations
+    const accountsWithFreeBalance = useMemo(() => {
+        return allAccountsWithFreeBalance.filter(account => {
+            // If no explicit inclusion exists, default to included (true)
+            const isIncluded = inclusionMaps.accounts.get(account.id);
+            return isIncluded === undefined ? true : isIncluded;
+        });
+    }, [allAccountsWithFreeBalance, inclusionMaps]);
+
+    // Recalculate total values based on included items
+    const includedTotalAccountBalance = useMemo(() => {
+        return accountsWithFreeBalance.reduce((sum, account) => sum + (account.balance || 0), 0);
+    }, [accountsWithFreeBalance]);
+
+    const includedTotalInvestmentValue = useMemo(() => {
+        return includedInvestments.reduce((sum, investment) => {
+            return sum + (investment.quantity * investment.currentPrice);
+        }, 0);
+    }, [includedInvestments]);
 
     // Monthly cash flow analysis (with currency conversion)
     const monthlyCashFlow = useMemo(() => {
@@ -287,7 +308,7 @@ export function useOptimizedWorth() {
     const moneyLentStats = useMemo(() => {
         const totalMoneyLent = includedDebts
             .filter(debt => debt.status === 'ACTIVE' || debt.status === 'PARTIALLY_PAID')
-            .reduce((sum, debt => {
+            .reduce((sum, debt) => {
                 const remainingWithInterest = calculateRemainingWithInterest(
                     debt.amount,
                     debt.interestRate,
@@ -310,7 +331,7 @@ export function useOptimizedWorth() {
 
     // Comprehensive net worth statistics
     const netWorthStats = useMemo((): NetWorthStats => {
-        const totalAssets = totalAccountBalance + totalInvestmentValue + moneyLentStats.totalMoneyLent;
+        const totalAssets = includedTotalAccountBalance + includedTotalInvestmentValue + moneyLentStats.totalMoneyLent;
         const netWorth = totalAssets; // No liabilities in this model
 
         const savingsRate = monthlyCashFlow.thisMonthIncome > 0 
@@ -318,11 +339,11 @@ export function useOptimizedWorth() {
             : 0;
 
         const investmentAllocation = totalAssets > 0 
-            ? (totalInvestmentValue / totalAssets) * 100 
+            ? (includedTotalInvestmentValue / totalAssets) * 100 
             : 0;
 
         const liquidityRatio = totalAssets > 0
-            ? (totalAccountBalance / totalAssets) * 100
+            ? (includedTotalAccountBalance / totalAssets) * 100
             : 0;
 
         // Monthly growth calculation (simplified)
@@ -334,8 +355,8 @@ export function useOptimizedWorth() {
 
         return {
             // Asset breakdown
-            totalAccountBalance,
-            totalInvestmentValue,
+            totalAccountBalance: includedTotalAccountBalance,
+            totalInvestmentValue: includedTotalInvestmentValue,
             totalMoneyLent: moneyLentStats.totalMoneyLent,
             totalAssets,
             netWorth,
@@ -364,8 +385,8 @@ export function useOptimizedWorth() {
             projectedYearlyGrowth
         };
     }, [
-        totalAccountBalance, 
-        totalInvestmentValue, 
+        includedTotalAccountBalance, 
+        includedTotalInvestmentValue, 
         moneyLentStats, 
         monthlyCashFlow,
         totalInvestmentGain,
@@ -420,31 +441,31 @@ export function useOptimizedWorth() {
             },
             {
                 key: 'investments',
-                title: `Investments (${investments.length})`,
+                title: `Investments (${includedInvestments.length})`,
                 value: netWorthStats.totalInvestmentValue,
                 percentage: netWorthStats.totalAssets > 0 
                     ? (netWorthStats.totalInvestmentValue / netWorthStats.totalAssets) * 100 
                     : 0,
                 color: CHART_COLORS.investments,
-                items: investments,
+                items: includedInvestments,
                 expanded: false
             },
             {
                 key: 'debts',
-                title: `Money Lent (${debts.filter(debt => debt.status === 'ACTIVE' || debt.status === 'PARTIALLY_PAID').length})`,
+                title: `Money Lent (${includedDebts.filter(debt => debt.status === 'ACTIVE' || debt.status === 'PARTIALLY_PAID').length})`,
                 value: netWorthStats.totalMoneyLent,
                 percentage: netWorthStats.totalAssets > 0 
                     ? (netWorthStats.totalMoneyLent / netWorthStats.totalAssets) * 100 
                     : 0,
                 color: CHART_COLORS.moneyLent,
-                items: debts.filter(debt => {
+                items: includedDebts.filter(debt => {
                     // Show active and partially paid debts
                     return debt.status === 'ACTIVE' || debt.status === 'PARTIALLY_PAID';
                 }),
                 expanded: false
             }
         ].filter(section => section.value > 0);
-    }, [accountsWithFreeBalance, investments, debts, netWorthStats]);
+    }, [accountsWithFreeBalance, includedInvestments, includedDebts, netWorthStats]);
 
     // ==================== EXPORT FUNCTIONALITY ====================
 
@@ -493,6 +514,7 @@ export function useOptimizedWorth() {
         queryClient.invalidateQueries({ queryKey: ['debts'] });
         queryClient.invalidateQueries({ queryKey: ['incomes'] });
         queryClient.invalidateQueries({ queryKey: ['expenses'] });
+        queryClient.invalidateQueries({ queryKey: ['net-worth-inclusions'] });
     }, [queryClient]);
 
     // ==================== RETURN ====================
@@ -502,11 +524,19 @@ export function useOptimizedWorth() {
         netWorthStats,
         chartData,
         sections,
-        accounts: accountsWithFreeBalance, // Return accounts with free balances
-        investments,
-        debts,
+        accounts: accountsWithFreeBalance, // Return filtered accounts with free balances
+        investments: includedInvestments, // Return filtered investments
+        debts: includedDebts, // Return filtered debts
         incomes,
         expenses,
+        
+        // Raw data (all items, for UI toggle functionality)
+        allAccounts: allAccountsWithFreeBalance, // Return ALL accounts with free balances (not just included)
+        allInvestments: investments,
+        allDebts: debts,
+        
+        // Inclusion maps for UI state management
+        inclusionMaps,
         
         // Loading and error states
         loading,

@@ -1,20 +1,15 @@
 "use server";
 
-import { prisma } from "@repo/db";
-import { auth } from "../lib/auth";
+import prisma from "@repo/db/client";
+import { getAuthenticatedSession, getUserIdFromSession } from "../utils/auth";
 import { WorthEntityType } from "@prisma/client";
 
 /**
  * Get all net worth inclusions for the current user
  */
 export async function getNetWorthInclusions() {
-  const session = await auth();
-  
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized");
-  }
-
-  const userId = parseInt(session.user.id);
+  const session = await getAuthenticatedSession();
+  const userId = getUserIdFromSession(session.user.id);
 
   try {
     const inclusions = await prisma.netWorthInclusion.findMany({
@@ -42,13 +37,8 @@ export async function toggleNetWorthInclusion(
   entityId: number,
   includeInNetWorth: boolean
 ) {
-  const session = await auth();
-  
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized");
-  }
-
-  const userId = parseInt(session.user.id);
+  const session = await getAuthenticatedSession();
+  const userId = getUserIdFromSession(session.user.id);
 
   try {
     // Use upsert to either create or update the record
@@ -89,13 +79,8 @@ export async function bulkUpdateNetWorthInclusions(
     includeInNetWorth: boolean;
   }>
 ) {
-  const session = await auth();
-  
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized");
-  }
-
-  const userId = parseInt(session.user.id);
+  const session = await getAuthenticatedSession();
+  const userId = getUserIdFromSession(session.user.id);
 
   try {
     // Use transaction to ensure all updates succeed or fail together
@@ -137,13 +122,8 @@ export async function getEntityInclusionStatus(
   entityType: WorthEntityType,
   entityId: number
 ) {
-  const session = await auth();
-  
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized");
-  }
-
-  const userId = parseInt(session.user.id);
+  const session = await getAuthenticatedSession();
+  const userId = getUserIdFromSession(session.user.id);
 
   try {
     const inclusion = await prisma.netWorthInclusion.findUnique({
@@ -174,13 +154,8 @@ export async function getEntityInclusionStatus(
  * Reset all inclusions for the user (set all to included)
  */
 export async function resetAllNetWorthInclusions() {
-  const session = await auth();
-  
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized");
-  }
-
-  const userId = parseInt(session.user.id);
+  const session = await getAuthenticatedSession();
+  const userId = getUserIdFromSession(session.user.id);
 
   try {
     // Delete all exclusions (records where includeInNetWorth is false)
