@@ -40,6 +40,7 @@ interface BaseFinancialItem {
     notes?: string | null;
     isRecurring: boolean;
     recurringFrequency?: string | null;
+    isBookmarked?: boolean;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -78,6 +79,7 @@ const STANDARD_HEADERS = [
     'Notes',
     'Is Recurring',
     'Recurring Frequency',
+    'Is Bookmarked',
     'Created At',
     'Updated At'
 ];
@@ -85,7 +87,7 @@ const STANDARD_HEADERS = [
 const EXPENSE_HEADERS = [
     ...STANDARD_HEADERS.slice(0, 13), // Up to Location (now includes Currency)
     'Receipt', // Add receipt field for expenses
-    ...STANDARD_HEADERS.slice(13) // Notes and onwards
+    ...STANDARD_HEADERS.slice(13) // Notes, Is Recurring, Recurring Frequency, Is Bookmarked, and timestamps
 ];
 
 /**
@@ -119,6 +121,7 @@ function convertItemToRow(item: BaseFinancialItem | ExpenseItem, includeReceipt:
         safeStringify(item.notes || ''),
         item.isRecurring ? 'Yes' : 'No',
         safeStringify(item.recurringFrequency || ''),
+        item.isBookmarked ? 'Yes' : 'No', // Add bookmark status
         formatTimestampForExport(item.createdAt),
         formatTimestampForExport(item.updatedAt)
     );

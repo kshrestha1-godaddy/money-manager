@@ -39,6 +39,7 @@ export interface ImportExpenseRow {
     notes?: string;
     isRecurring?: boolean;
     recurringFrequency?: string | null;
+    isBookmarked?: boolean;
     userId: number;
 }
 

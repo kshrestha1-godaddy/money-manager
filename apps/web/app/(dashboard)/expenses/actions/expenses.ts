@@ -570,6 +570,11 @@ async function validateAndTransformRow(
         accountId = defaultAccountId;
     }
 
+    // Parse bookmark status
+    const isBookmarked = rowData.isbookmarked?.toLowerCase() === 'yes' || 
+                         rowData.isbookmarked?.toLowerCase() === 'true' || 
+                         false;
+
     return {
         title: rowData.title,
         description: rowData.description || '',
@@ -583,6 +588,7 @@ async function validateAndTransformRow(
         notes: rowData.notes || '',
         isRecurring: rowData.isrecurring?.toLowerCase() === 'true' || false,
         recurringFrequency: rowData.recurringfrequency || null,
+        isBookmarked,
         userId
     };
 }
@@ -735,6 +741,27 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
                                     }
                                 }
                             });
+                        }
+
+                        // Create bookmark if needed
+                        if (validatedRow.data.isBookmarked) {
+                            try {
+                                await tx.transactionBookmark.create({
+                                    data: {
+                                        transactionType: 'EXPENSE',
+                                        transactionId: expense.id,
+                                        title: expense.title,
+                                        description: expense.description,
+                                        notes: expense.notes,
+                                        tags: expense.tags,
+                                        userId: userId
+                                    }
+                                });
+                                console.log(`Bookmark created for expense: ${expense.title} (ID: ${expense.id})`);
+                            } catch (bookmarkError) {
+                                console.error(`Failed to create bookmark for expense ${expense.id}:`, bookmarkError);
+                                // Don't fail the entire batch if bookmark creation fails
+                            }
                         }
 
                         result.importedCount++;

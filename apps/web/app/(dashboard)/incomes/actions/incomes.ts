@@ -494,7 +494,9 @@ async function processIncomeRow(
 ): Promise<any> {
     const rowObj: Record<string, string> = {};
     headers.forEach((header, index) => {
-        rowObj[header.toLowerCase().trim()] = rowData[index]?.trim() || '';
+        // Normalize header: lowercase and remove all whitespace
+        const normalizedHeader = header.toLowerCase().replace(/\s+/g, '');
+        rowObj[normalizedHeader] = rowData[index]?.trim() || '';
     });
 
     if (!rowObj.title) throw new Error("Title is required");
@@ -543,8 +545,14 @@ async function processIncomeRow(
     const tagsString = rowObj.tags || '';
     const tags = parseTags(tagsString);
 
-    const recurringString = rowObj.recurring || '';
+    // "Is Recurring" header becomes "isrecurring" after normalization
+    const recurringString = rowObj.isrecurring || '';
     const isRecurring = recurringString.toLowerCase() === 'true' || recurringString.toLowerCase() === 'yes';
+
+    // Parse bookmark status - "Is Bookmarked" header becomes "isbookmarked"
+    const isBookmarked = rowObj.isbookmarked?.toLowerCase() === 'yes' || 
+                         rowObj.isbookmarked?.toLowerCase() === 'true' || 
+                         false;
 
     const incomeData: any = {
         title: rowObj.title,
@@ -556,7 +564,8 @@ async function processIncomeRow(
         tags: tags,
         notes: rowObj.notes || undefined,
         isRecurring: isRecurring,
-        recurringFrequency: isRecurring ? (rowObj.frequency?.toUpperCase() as any || 'MONTHLY') : undefined
+        // "Recurring Frequency" header becomes "recurringfrequency" after normalization
+        recurringFrequency: isRecurring ? (rowObj.recurringfrequency?.toUpperCase() as any || 'MONTHLY') : undefined
     };
 
     if (accountId && accountId !== '') {
@@ -566,7 +575,30 @@ async function processIncomeRow(
         }
     }
 
-    return await createIncome(incomeData as any);
+    const createdIncome = await createIncome(incomeData as any);
+
+    // Create bookmark if needed
+    if (isBookmarked && createdIncome) {
+        try {
+            await prisma.transactionBookmark.create({
+                data: {
+                    transactionType: 'INCOME',
+                    transactionId: createdIncome.id,
+                    title: createdIncome.title,
+                    description: createdIncome.description,
+                    notes: createdIncome.notes,
+                    tags: createdIncome.tags,
+                    userId: userId
+                }
+            });
+            console.log(`Bookmark created for income: ${createdIncome.title} (ID: ${createdIncome.id})`);
+        } catch (bookmarkError) {
+            console.error(`Failed to create bookmark for income ${createdIncome.id}:`, bookmarkError);
+            // Don't fail the entire import if bookmark creation fails
+        }
+    }
+
+    return createdIncome;
 }
 
 /**
