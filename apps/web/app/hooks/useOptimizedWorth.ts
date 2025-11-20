@@ -422,15 +422,26 @@ export function useOptimizedWorth() {
             }
         ];
 
-        return data.filter(item => item.value > 0);
+        // Always return all data - don't filter out zero values
+        return data;
     }, [netWorthStats]);
 
     // Section data for detailed breakdowns
     const sections = useMemo((): WorthSection[] => {
+        // Calculate total counts (including excluded items)
+        const totalAccountsCount = allAccountsWithFreeBalance.length;
+        const totalInvestmentsCount = investments.length;
+        const totalDebtsCount = debts.filter(debt => debt.status === 'ACTIVE' || debt.status === 'PARTIALLY_PAID').length;
+        
+        // Calculate included counts
+        const includedAccountsCount = accountsWithFreeBalance.length;
+        const includedInvestmentsCount = includedInvestments.length;
+        const includedDebtsCount = includedDebts.filter(debt => debt.status === 'ACTIVE' || debt.status === 'PARTIALLY_PAID').length;
+        
         return [
             {
                 key: 'accounts',
-                title: `Bank Accounts (${accountsWithFreeBalance.length})`,
+                title: `Bank Accounts (${includedAccountsCount}/${totalAccountsCount})`,
                 value: netWorthStats.totalAccountBalance,
                 percentage: netWorthStats.totalAssets > 0 
                     ? (netWorthStats.totalAccountBalance / netWorthStats.totalAssets) * 100 
@@ -441,7 +452,7 @@ export function useOptimizedWorth() {
             },
             {
                 key: 'investments',
-                title: `Investments (${includedInvestments.length})`,
+                title: `Investments (${includedInvestmentsCount}/${totalInvestmentsCount})`,
                 value: netWorthStats.totalInvestmentValue,
                 percentage: netWorthStats.totalAssets > 0 
                     ? (netWorthStats.totalInvestmentValue / netWorthStats.totalAssets) * 100 
@@ -452,7 +463,7 @@ export function useOptimizedWorth() {
             },
             {
                 key: 'debts',
-                title: `Money Lent (${includedDebts.filter(debt => debt.status === 'ACTIVE' || debt.status === 'PARTIALLY_PAID').length})`,
+                title: `Money Lent (${includedDebtsCount}/${totalDebtsCount})`,
                 value: netWorthStats.totalMoneyLent,
                 percentage: netWorthStats.totalAssets > 0 
                     ? (netWorthStats.totalMoneyLent / netWorthStats.totalAssets) * 100 
@@ -464,8 +475,9 @@ export function useOptimizedWorth() {
                 }),
                 expanded: false
             }
-        ].filter(section => section.value > 0);
-    }, [accountsWithFreeBalance, includedInvestments, includedDebts, netWorthStats]);
+        ];
+        // Removed the filter - always show all sections regardless of value
+    }, [accountsWithFreeBalance, includedInvestments, includedDebts, netWorthStats, allAccountsWithFreeBalance, investments, debts]);
 
     // ==================== EXPORT FUNCTIONALITY ====================
 

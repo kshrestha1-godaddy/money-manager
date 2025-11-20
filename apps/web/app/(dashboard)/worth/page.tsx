@@ -10,8 +10,8 @@ import { useChartExpansion } from "../../utils/chartUtils";
 import { calculateRemainingWithInterest } from "../../utils/interestCalculation";
 import { ChartControls } from "../../components/ChartControls";
 import { useOptimizedWorth } from "../../hooks/useOptimizedWorth";
-import { toggleNetWorthInclusion } from "../../actions/net-worth-inclusions";
-import { TrendingUp, TrendingDown, DollarSign, Target, PiggyBank, BarChart3, RefreshCw, Download, Info, Eye, EyeOff } from "lucide-react";
+import { toggleNetWorthInclusion, bulkUpdateNetWorthInclusions } from "../../actions/net-worth-inclusions";
+import { TrendingUp, TrendingDown, DollarSign, Target, PiggyBank, BarChart3, RefreshCw, Download, Info, Eye, EyeOff, CheckSquare, XSquare } from "lucide-react";
 import { 
     getSummaryCardClasses,
     getGainLossClasses,
@@ -75,6 +75,7 @@ export default function NetWorthPage() {
 
     // Track items that are currently being updated
     const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set());
+    const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
     // Use the optimized worth hook
     const {
@@ -128,6 +129,108 @@ export default function NetWorthPage() {
             }, 500);
         }
     }, [refreshData]);
+
+    // Bulk operations: Show All
+    const handleShowAll = useCallback(async () => {
+        setIsBulkUpdating(true);
+        try {
+            // Collect all items that need to be included
+            const updates: Array<{
+                entityType: 'ACCOUNT' | 'INVESTMENT' | 'DEBT';
+                entityId: number;
+                includeInNetWorth: boolean;
+            }> = [];
+
+            // Add all accounts
+            allAccounts?.forEach(account => {
+                updates.push({
+                    entityType: 'ACCOUNT',
+                    entityId: account.id,
+                    includeInNetWorth: true
+                });
+            });
+
+            // Add all investments
+            allInvestments?.forEach(investment => {
+                updates.push({
+                    entityType: 'INVESTMENT',
+                    entityId: investment.id,
+                    includeInNetWorth: true
+                });
+            });
+
+            // Add all debts (only active and partially paid)
+            allDebts?.filter(debt => debt.status === 'ACTIVE' || debt.status === 'PARTIALLY_PAID')
+                .forEach(debt => {
+                    updates.push({
+                        entityType: 'DEBT',
+                        entityId: debt.id,
+                        includeInNetWorth: true
+                    });
+                });
+
+            if (updates.length > 0) {
+                await bulkUpdateNetWorthInclusions(updates);
+                refreshData();
+            }
+        } catch (error) {
+            console.error('Error showing all items:', error);
+            alert('Failed to show all items. Please try again.');
+        } finally {
+            setTimeout(() => setIsBulkUpdating(false), 500);
+        }
+    }, [allAccounts, allInvestments, allDebts, refreshData]);
+
+    // Bulk operations: Hide All
+    const handleHideAll = useCallback(async () => {
+        setIsBulkUpdating(true);
+        try {
+            // Collect all items that need to be excluded
+            const updates: Array<{
+                entityType: 'ACCOUNT' | 'INVESTMENT' | 'DEBT';
+                entityId: number;
+                includeInNetWorth: boolean;
+            }> = [];
+
+            // Add all accounts
+            allAccounts?.forEach(account => {
+                updates.push({
+                    entityType: 'ACCOUNT',
+                    entityId: account.id,
+                    includeInNetWorth: false
+                });
+            });
+
+            // Add all investments
+            allInvestments?.forEach(investment => {
+                updates.push({
+                    entityType: 'INVESTMENT',
+                    entityId: investment.id,
+                    includeInNetWorth: false
+                });
+            });
+
+            // Add all debts (only active and partially paid)
+            allDebts?.filter(debt => debt.status === 'ACTIVE' || debt.status === 'PARTIALLY_PAID')
+                .forEach(debt => {
+                    updates.push({
+                        entityType: 'DEBT',
+                        entityId: debt.id,
+                        includeInNetWorth: false
+                    });
+                });
+
+            if (updates.length > 0) {
+                await bulkUpdateNetWorthInclusions(updates);
+                refreshData();
+            }
+        } catch (error) {
+            console.error('Error hiding all items:', error);
+            alert('Failed to hide all items. Please try again.');
+        } finally {
+            setTimeout(() => setIsBulkUpdating(false), 500);
+        }
+    }, [allAccounts, allInvestments, allDebts, refreshData]);
 
     // Helper functions
     const formatCurrencyAbbreviated = (amount: number) => {
@@ -494,32 +597,156 @@ export default function NetWorthPage() {
             </div>
 
             {/* Asset Breakdown Chart */}
-            {chartData.length > 0 && (
-                <>
-                    <div className={whiteContainer}>
-                        <div className="flex items-center justify-between p-2 border-b border-gray-200">
-                            <div>
-                                <h3 className={chartTitle}>Asset Breakdown</h3>
+            <div className={whiteContainer}>
+                <div className="flex items-center justify-between p-2 border-b border-gray-200">
+                    <div>
+                        <h3 className={chartTitle}>Asset Breakdown</h3>
+                    </div>
+                    <ChartControls
+                        chartRef={chartRef}
+                        onToggleExpanded={toggleChartExpansion}
+                        isExpanded={isChartExpanded}
+                        csvData={exportData}
+                        fileName="net_worth_breakdown"
+                        title=""
+                        tooltipText="Distribution of your total assets with detailed analytics including risk assessments, portfolio insights, and personalized financial recommendations. Hover over bars for comprehensive asset analysis."
+                    />
+                </div>
+                <div className="p-2">
+                    {netWorthStats.totalAssets === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-[38rem] w-full">
+                            <div className="text-center max-w-md">
+                                <EyeOff className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                                <h4 className="text-lg font-semibold text-gray-700 mb-2">All Assets Hidden</h4>
+                                <p className="text-sm text-gray-500 mb-4">
+                                    You've hidden all items from your net worth calculation. 
+                                </p>
                             </div>
-                            <ChartControls
-                                chartRef={chartRef}
-                                onToggleExpanded={toggleChartExpansion}
-                                isExpanded={isChartExpanded}
-                                csvData={exportData}
-                                fileName="net_worth_breakdown"
-                                title=""
-                                tooltipText="Distribution of your total assets with detailed analytics including risk assessments, portfolio insights, and personalized financial recommendations. Hover over bars for comprehensive asset analysis."
-                            />
                         </div>
-                        <div className="p-2">
-                            <div 
-                                ref={chartRef}
-                                className="h-[38rem] w-full"
+                    ) : (
+                        <div 
+                            ref={chartRef}
+                            className="h-[38rem] w-full"
+                        >
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart
+                                    data={chartData}
+                                    margin={{ top: 40, right: 30, left: 20, bottom: 10 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                    <XAxis 
+                                        dataKey="name" 
+                                        tick={{ fontSize: 12 }}
+                                        height={40}
+                                    />
+                                    <YAxis 
+                                        tick={{ fontSize: 12 }}
+                                        tickFormatter={formatCurrencyAbbreviated}
+                                    />
+                                    <Tooltip content={<CustomAssetTooltip />} />
+                                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                        {chartData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color} />
+                                        ))}
+                                        {/* Total value labels at the top */}
+                                        <LabelList 
+                                            dataKey="value" 
+                                            position="top" 
+                                            formatter={(value: number) => formatCurrencyAbbreviated(value)}
+                                            style={{ 
+                                                fontSize: '15px', 
+                                                fontWeight: 'bold',
+                                                fill: '#374151'
+                                            }}
+                                        />
+                                        {/* Percentage labels inside the bars */}
+                                        <LabelList 
+                                            dataKey="percentage" 
+                                            position="center" 
+                                            formatter={(value: string) => `${value}%`}
+                                            style={{ 
+                                                fontSize: '13px', 
+                                                fontWeight: 'bold',
+                                                fill: '#ffffff'
+                                            }}
+                                        />
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Quick Actions for Bulk Operations */}
+            {(allAccounts.length > 0 || allInvestments.length > 0 || allDebts.length > 0) && (
+                <div className="flex items-center justify-end gap-3 py-2">
+                    {isBulkUpdating && (
+                        <div className="flex items-center gap-2 text-blue-600">
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            <span className="text-sm font-medium">Updating...</span>
+                        </div>
+                    )}
+                    <button
+                        onClick={handleShowAll}
+                        disabled={isBulkUpdating}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm text-green-600 hover:text-green-800 hover:bg-green-50 rounded-md font-medium transition-colors border border-green-200 ${
+                            isBulkUpdating ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                    >
+                        <CheckSquare className="w-4 h-4" />
+                        Show All
+                    </button>
+                    <button
+                        onClick={handleHideAll}
+                        disabled={isBulkUpdating}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-md font-medium transition-colors border border-gray-200 ${
+                            isBulkUpdating ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                    >
+                        <XSquare className="w-4 h-4" />
+                        Hide All
+                    </button>
+                </div>
+            )}
+
+            {/* Full screen modal */}
+            {isChartExpanded && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+                    <div className="bg-white rounded-lg p-3 sm:p-6 max-w-7xl w-full max-h-full overflow-auto">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 gap-2 sm:gap-0">
+                            <div>
+                                <h2 className="text-lg sm:text-2xl font-semibold">Asset Breakdown</h2>
+                                <p className="text-sm text-gray-500">Distribution of your total assets</p>
+                            </div>
+                            <button
+                                onClick={toggleChartExpansion}
+                                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm sm:text-base"
                             >
+                                Close
+                            </button>
+                        </div>
+                        {netWorthStats.totalAssets === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-[70vh] w-full">
+                                <div className="text-center max-w-md">
+                                    <EyeOff className="w-20 h-20 text-gray-300 mx-auto mb-4" />
+                                    <h4 className="text-xl font-semibold text-gray-700 mb-2">All Assets Hidden</h4>
+                                    <p className="text-gray-500 mb-4">
+                                        You've hidden all items from your net worth calculation. 
+                                        Enable visibility on accounts, investments, or debts to see your asset breakdown.
+                                    </p>
+                                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700">
+                                        <Eye className="w-4 h-4" />
+                                        <span>Click the eye icons to include items</span>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="h-[70vh] w-full">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart
                                         data={chartData}
-                                        margin={{ top: 40, right: 30, left: 20, bottom: 10 }}
+                                        margin={{ top: 40, right: 30, left: 20, bottom: 20 }}
                                     >
                                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                                         <XAxis 
@@ -562,78 +789,9 @@ export default function NetWorthPage() {
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
-                        </div>
+                        )}
                     </div>
-
-                    {/* Full screen modal */}
-                    {isChartExpanded && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-                            <div className="bg-white rounded-lg p-3 sm:p-6 max-w-7xl w-full max-h-full overflow-auto">
-                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 gap-2 sm:gap-0">
-                                    <div>
-                                        <h2 className="text-lg sm:text-2xl font-semibold">Asset Breakdown</h2>
-                                        <p className="text-sm text-gray-500">Distribution of your total assets</p>
-                                    </div>
-                                    <button
-                                        onClick={toggleChartExpansion}
-                                        className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm sm:text-base"
-                                    >
-                                        Close
-                                    </button>
-                                </div>
-                                <div 
-                                    className="h-[70vh] w-full"
-                                >
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart
-                                            data={chartData}
-                                            margin={{ top: 40, right: 30, left: 20, bottom: 20 }}
-                                        >
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                            <XAxis 
-                                                dataKey="name" 
-                                                tick={{ fontSize: 12 }}
-                                                height={40}
-                                            />
-                                            <YAxis 
-                                                tick={{ fontSize: 12 }}
-                                                tickFormatter={formatCurrencyAbbreviated}
-                                            />
-                                            <Tooltip content={<CustomAssetTooltip />} />
-                                            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                                {chartData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                                ))}
-                                                {/* Total value labels at the top */}
-                                                <LabelList 
-                                                    dataKey="value" 
-                                                    position="top" 
-                                                    formatter={(value: number) => formatCurrencyAbbreviated(value)}
-                                                    style={{ 
-                                                        fontSize: '15px', 
-                                                        fontWeight: 'bold',
-                                                        fill: '#374151'
-                                                    }}
-                                                />
-                                                {/* Percentage labels inside the bars */}
-                                                <LabelList 
-                                                    dataKey="percentage" 
-                                                    position="center" 
-                                                    formatter={(value: string) => `${value}%`}
-                                                    style={{ 
-                                                        fontSize: '13px', 
-                                                        fontWeight: 'bold',
-                                                        fill: '#ffffff'
-                                                    }}
-                                                />
-                                            </Bar>
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </>
+                </div>
             )}
 
             {/* Asset Details Sections */}
@@ -669,7 +827,13 @@ export default function NetWorthPage() {
                                 <div>
                                     <h3 className={`text-lg font-semibold ${TEXT_COLORS.cardTitle}`}>{section.title}</h3>
                                     <p className={cardSubtitle}>
-                                        {formatCurrency(section.value, currency)} ({section.percentage.toFixed(1)}% of total assets)
+                                        {formatCurrency(section.value, currency)}
+                                        {section.value > 0 && ` (${section.percentage.toFixed(1)}% of total assets)`}
+                                        {section.value === 0 && allSectionItems.length > 0 && (
+                                            <span className="text-gray-500 ml-2">
+                                                (All items hidden from net worth)
+                                            </span>
+                                        )}
                                     </p>
                                 </div>
                             </div>
@@ -683,7 +847,8 @@ export default function NetWorthPage() {
                                 {allSectionItems.length === 0 ? (
                                     <p className={`${emptyMessage} text-center py-4`}>No items in this category</p>
                                 ) : (
-                                    <div className="space-y-3">
+                                    <>
+                                        <div className="space-y-3">
                                         {allSectionItems.map((item: any, index: number) => {
                                             // Check if this item is included in net worth
                                             const inclusionMap = entityType === 'ACCOUNT' ? inclusionMaps.accounts :
@@ -815,7 +980,8 @@ export default function NetWorthPage() {
                                                 </div>
                                             );
                                         })}
-                                    </div>
+                                        </div>
+                                    </>
                                 )}
                             </div>
                         )}
