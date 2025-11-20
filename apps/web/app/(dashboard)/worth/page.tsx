@@ -690,7 +690,7 @@ export default function NetWorthPage() {
                     <button
                         onClick={handleShowAll}
                         disabled={isBulkUpdating}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm text-green-600 hover:text-green-800 hover:bg-green-50 rounded-md font-medium transition-colors border border-green-200 ${
+                        className={`${primaryButton} flex items-center gap-2 ${
                             isBulkUpdating ? 'opacity-50 cursor-not-allowed' : ''
                         }`}
                     >
@@ -700,7 +700,7 @@ export default function NetWorthPage() {
                     <button
                         onClick={handleHideAll}
                         disabled={isBulkUpdating}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-md font-medium transition-colors border border-gray-200 ${
+                        className={`${secondaryBlueButton} flex items-center gap-2 ${
                             isBulkUpdating ? 'opacity-50 cursor-not-allowed' : ''
                         }`}
                     >

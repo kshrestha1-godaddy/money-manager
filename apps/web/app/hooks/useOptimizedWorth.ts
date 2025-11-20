@@ -352,9 +352,12 @@ export function useOptimizedWorth() {
         const totalAssets = includedTotalAccountBalance + includedTotalInvestmentValue + moneyLentStats.totalMoneyLent;
         const netWorth = totalAssets; // No liabilities in this model
 
-        const savingsRate = monthlyCashFlow.thisMonthIncome > 0 
-            ? (monthlyCashFlow.thisMonthNetIncome / monthlyCashFlow.thisMonthIncome) * 100 
-            : 0;
+        // If no assets are included, set all metrics to 0 for consistency
+        const savingsRate = totalAssets === 0 ? 0 : (
+            monthlyCashFlow.thisMonthIncome > 0 
+                ? (monthlyCashFlow.thisMonthNetIncome / monthlyCashFlow.thisMonthIncome) * 100 
+                : 0
+        );
 
         const investmentAllocation = totalAssets > 0 
             ? (includedTotalInvestmentValue / totalAssets) * 100 
@@ -364,10 +367,12 @@ export function useOptimizedWorth() {
             ? (includedTotalAccountBalance / totalAssets) * 100
             : 0;
 
-        // Monthly growth calculation (simplified)
-        const monthlyGrowthRate = monthlyCashFlow.thisMonthIncome > 0
-            ? (monthlyCashFlow.thisMonthNetIncome / totalAssets) * 100
-            : 0;
+        // Monthly growth calculation (simplified) - also set to 0 if no assets included
+        const monthlyGrowthRate = totalAssets === 0 ? 0 : (
+            monthlyCashFlow.thisMonthIncome > 0
+                ? (monthlyCashFlow.thisMonthNetIncome / totalAssets) * 100
+                : 0
+        );
 
         const projectedYearlyGrowth = monthlyGrowthRate * 12;
 
