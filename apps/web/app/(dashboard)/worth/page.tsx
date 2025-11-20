@@ -11,7 +11,7 @@ import { calculateRemainingWithInterest } from "../../utils/interestCalculation"
 import { ChartControls } from "../../components/ChartControls";
 import { useOptimizedWorth } from "../../hooks/useOptimizedWorth";
 import { toggleNetWorthInclusion } from "../../actions/net-worth-inclusions";
-import { TrendingUp, TrendingDown, DollarSign, Target, PiggyBank, BarChart3, RefreshCw, Download, Info } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Target, PiggyBank, BarChart3, RefreshCw, Download, Info, Eye, EyeOff } from "lucide-react";
 import { 
     getSummaryCardClasses,
     getGainLossClasses,
@@ -73,6 +73,9 @@ export default function NetWorthPage() {
         debts: false
     });
 
+    // Track items that are currently being updated
+    const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set());
+
     // Use the optimized worth hook
     const {
         netWorthStats,
@@ -93,12 +96,20 @@ export default function NetWorthPage() {
         chartColors
     } = useOptimizedWorth();
 
+    // Helper to create unique key for tracking updates
+    const getItemKey = (entityType: string, entityId: number) => `${entityType}-${entityId}`;
+
     // Handler for toggling net worth inclusion
     const handleToggleInclusion = useCallback(async (
         entityType: 'ACCOUNT' | 'INVESTMENT' | 'DEBT',
         entityId: number,
         currentlyIncluded: boolean
     ) => {
+        const itemKey = getItemKey(entityType, entityId);
+        
+        // Mark this item as updating
+        setUpdatingItems(prev => new Set(prev).add(itemKey));
+        
         try {
             await toggleNetWorthInclusion(entityType, entityId, !currentlyIncluded);
             // Refresh data to update the UI
@@ -106,6 +117,15 @@ export default function NetWorthPage() {
         } catch (error) {
             console.error('Error toggling net worth inclusion:', error);
             alert('Failed to update item inclusion. Please try again.');
+        } finally {
+            // Remove from updating set after a short delay to ensure UI has updated
+            setTimeout(() => {
+                setUpdatingItems(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(itemKey);
+                    return newSet;
+                });
+            }, 500);
         }
     }, [refreshData]);
 
@@ -691,71 +711,107 @@ export default function NetWorthPage() {
                                             }
                                             const itemPercentage = calculateItemPercentage(itemValue, section.value);
                                             
+                                            // Check if this item is currently being updated
+                                            const itemKey = getItemKey(entityType, item.id);
+                                            const isUpdating = updatingItems.has(itemKey);
+                                            
                                             return (
                                                 <div 
                                                     key={item.id || index} 
-                                                    className={`flex items-center gap-3 p-3 rounded-lg border ${
-                                                        isIncluded 
-                                                            ? 'bg-gray-50 border-gray-200' 
-                                                            : 'bg-gray-100 border-gray-300 opacity-60'
-                                                    }`}
+                                                    className="relative"
                                                 >
-                                                    {/* Checkbox for inclusion/exclusion */}
-                                                    <div className="flex-shrink-0">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={isIncluded}
-                                                            onChange={(e) => {
-                                                                e.stopPropagation();
-                                                                handleToggleInclusion(entityType, item.id, isIncluded);
-                                                            }}
-                                                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
-                                                            title={isIncluded ? "Exclude from net worth" : "Include in net worth"}
-                                                        />
-                                                    </div>
-                                                    
-                                                    <div className="flex-1 flex justify-between items-center">
-                                                        <div className="flex-1">
-                                                            <div className="flex items-center gap-2 mb-1">
-                                                                <h4 className={`font-medium ${TEXT_COLORS.cardTitle} ${!isIncluded ? 'line-through' : ''}`}>
+                                                    <div 
+                                                        className={`flex items-center gap-3 p-3 rounded-lg border transition-all duration-200 ${
+                                                            isIncluded 
+                                                                ? 'bg-gray-50 border-gray-200' 
+                                                                : 'bg-gray-100 border-gray-300 opacity-60'
+                                                        } ${isUpdating ? 'border-blue-400 shadow-sm' : ''}`}
+                                                    >
+                                                        {/* Eye icon toggle for inclusion/exclusion */}
+                                                        <div className="flex-shrink-0">
+                                                            <button
+                                                                type="button"
+                                                                disabled={isUpdating}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleToggleInclusion(entityType, item.id, isIncluded);
+                                                                }}
+                                                                className={`p-1 rounded-md transition-all ${
+                                                                    isUpdating 
+                                                                        ? 'cursor-wait opacity-50' 
+                                                                        : 'cursor-pointer hover:bg-gray-200'
+                                                                }`}
+                                                                title={isIncluded ? "Exclude from net worth" : "Include in net worth"}
+                                                            >
+                                                                {isIncluded ? (
+                                                                    <Eye className="w-5 h-5 text-blue-600" />
+                                                                ) : (
+                                                                    <EyeOff className="w-5 h-5 text-gray-400" />
+                                                                )}
+                                                            </button>
+                                                        </div>
+                                                        
+                                                        <div className="flex-1 flex justify-between items-center">
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                <h4 className={`font-medium ${TEXT_COLORS.cardTitle} ${!isIncluded ? 'text-gray-400 line-through' : ''}`}>
                                                                     {item.holderName || item.name || item.borrowerName || 'Unknown'}
                                                                 </h4>
                                                                 {!isIncluded && (
-                                                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                                                        Excluded
+                                                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-600">
+                                                                        <EyeOff className="w-3 h-3" />
+                                                                        Hidden
                                                                     </span>
                                                                 )}
-                                                                {section.key === 'debts' && (
-                                                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${item.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                                        {item.status === 'ACTIVE' ? 'ACTIVE' : 'PARTIALLY PAID'}
-                                                                    </span>
+                                                                    {section.key === 'debts' && (
+                                                                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${item.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                                            {item.status === 'ACTIVE' ? 'ACTIVE' : 'PARTIALLY PAID'}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <p className={`${cardSubtitle} ${!isIncluded ? 'text-gray-400' : ''}`}>
+                                                                    {item.bankName || item.symbol || item.purpose || 'No description'}
+                                                                </p>
+                                                                {section.key === 'debts' && item.dueDate && (
+                                                                    <p className={`text-xs font-medium mt-1 ${!isIncluded ? 'text-gray-400' : 'text-orange-600'}`}>
+                                                                        Due: {formatDate(new Date(item.dueDate))}
+                                                                    </p>
                                                                 )}
                                                             </div>
-                                                            <p className={cardSubtitle}>
-                                                                {item.bankName || item.symbol || item.purpose || 'No description'}
-                                                            </p>
-                                                            {section.key === 'debts' && item.dueDate && (
-                                                                <p className="text-xs text-orange-600 font-medium mt-1">
-                                                                    Due: {formatDate(new Date(item.dueDate))}
+                                                            <div className="text-right">
+                                                                <p className={`font-semibold ${!isIncluded ? 'text-gray-400 line-through' : TEXT_COLORS.cardTitle}`}>
+                                                                    {formatCurrency(itemValue, currency)}
                                                                 </p>
-                                                            )}
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <p className={`font-semibold ${TEXT_COLORS.cardTitle}`}>
-                                                                {formatCurrency(itemValue, currency)}
-                                                            </p>
-                                                            {isIncluded && (
-                                                                <p className={`text-xs ${blueIcon} font-medium`}>
-                                                                    {itemPercentage}%
-                                                                </p>
-                                                            )}
-                                                            {section.key === 'investments' && (
-                                                                <p className={`text-xs ${getGainLossClasses(item.currentPrice - item.purchasePrice)}`}>
-                                                                    {((item.currentPrice - item.purchasePrice) / item.purchasePrice * 100).toFixed(1)}% gain/loss
-                                                                </p>
-                                                            )}
+                                                                {isIncluded && (
+                                                                    <p className={`text-xs ${blueIcon} font-medium`}>
+                                                                        {itemPercentage}%
+                                                                    </p>
+                                                                )}
+                                                                {section.key === 'investments' && (
+                                                                    <p className={`text-xs ${!isIncluded ? 'text-gray-400' : getGainLossClasses(item.currentPrice - item.purchasePrice)}`}>
+                                                                        {((item.currentPrice - item.purchasePrice) / item.purchasePrice * 100).toFixed(1)}% gain/loss
+                                                                    </p>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
+                                                    
+                                                    {/* Loading indicator below the item */}
+                                                    {isUpdating && (
+                                                        <div className="relative mt-2 mb-1 px-2">
+                                                            {/* Loading bar with animation */}
+                                                            <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+                                                                <div className="h-full bg-gradient-to-r from-blue-400 via-blue-600 to-blue-400 rounded-full animate-shimmer"></div>
+                                                            </div>
+                                                            {/* Status text */}
+                                                            <div className="flex items-center justify-center gap-2 mt-2">
+                                                                <RefreshCw className="w-3.5 h-3.5 text-blue-600 animate-spin" />
+                                                                <span className="text-xs text-blue-600 font-medium">
+                                                                    Updating net worth calculations...
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         })}
