@@ -15,6 +15,7 @@ import { DeleteConfirmationModal } from '../../components/DeleteConfirmationModa
 import { AddCategoryModal } from '../../components/category/AddCategoryModal';
 import { FinancialAreaChart } from '../../components/FinancialAreaChart';
 import { FinancialFilters } from '../../components/shared/FinancialFilters';
+import { MonthNavigation } from '../../components/shared/MonthNavigation';
 import { formatCurrency } from '../../utils/currency';
 import { getExpenses, createExpense, updateExpense, deleteExpense, bulkDeleteExpenses } from './actions/expenses';
 import { exportExpensesToCSV } from '../../utils/csvExportExpenses';
@@ -52,6 +53,19 @@ export default function ExpensesPageClient() {
   const { timezone: userTimezone } = useTimezone();
   const searchParams = useSearchParams();
   const [notification, setNotification] = useState<NotificationData | null>(null);
+  
+  // Month navigation state
+  const currentDate = new Date();
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentDate.getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(currentDate.getFullYear());
+  const [isMonthFilterActive, setIsMonthFilterActive] = useState<boolean>(true);
+
+  // Month navigation handler
+  const handleMonthChange = (month: number, year: number) => {
+    setSelectedMonth(month);
+    setSelectedYear(year);
+    setIsMonthFilterActive(true);
+  };
 
   const {
     items: expenses,
@@ -141,6 +155,20 @@ export default function ExpensesPageClient() {
       invalidateQueries();
     }
   };
+
+  // Filter expenses by selected month if month filter is active
+  const filteredExpenses = useMemo(() => {
+    if (!isMonthFilterActive) {
+      return expenses;
+    }
+    
+    return expenses.filter(expense => {
+      const expenseDate = new Date(expense.date);
+      const expenseDateInUserTimezone = new Date(expenseDate.toLocaleString("en-US", { timeZone: userTimezone }));
+      return expenseDateInUserTimezone.getMonth() === selectedMonth && 
+             expenseDateInUserTimezone.getFullYear() === selectedYear;
+    });
+  }, [expenses, isMonthFilterActive, selectedMonth, selectedYear, userTimezone]);
 
   useEffect(() => {
     if (searchParams.get('action') === 'add') setIsAddModalOpen(true);
@@ -314,6 +342,12 @@ export default function ExpensesPageClient() {
 
       <FinancialAreaChart {...chartProps} />
 
+      <ExpenseBubbleChart 
+        expenses={expenses}
+        currency={userCurrency}
+        hasActiveFilters={hasActiveFilters}
+      />
+
       <FinancialFilters
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
@@ -334,15 +368,25 @@ export default function ExpensesPageClient() {
         onShowBookmarkedOnlyChange={setShowBookmarkedOnly}
       />
 
-      <ExpenseBubbleChart 
-        expenses={expenses}
-        currency={userCurrency}
-        hasActiveFilters={hasActiveFilters}
-      />
+      <div className="mb-6 flex items-center justify-between">
+        <MonthNavigation
+          selectedMonth={selectedMonth}
+          selectedYear={selectedYear}
+          onMonthChange={handleMonthChange}
+        />
+        {isMonthFilterActive && (
+          <button
+            onClick={() => setIsMonthFilterActive(false)}
+            className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+          >
+            Show All Expenses
+          </button>
+        )}
+      </div>
 
       <Suspense fallback={<div>Loading expenses...</div>}>
         <ExpenseList
-          expenses={expenses}
+          expenses={filteredExpenses}
           currency={userCurrency}
           onEdit={openEditModal}
           onView={openViewModal}

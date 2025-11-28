@@ -11,6 +11,7 @@ import { DeleteConfirmationModal } from '../../components/DeleteConfirmationModa
 import { AddCategoryModal } from '../../components/category/AddCategoryModal';
 import { FinancialAreaChart } from '../../components/FinancialAreaChart';
 import { FinancialFilters } from '../../components/shared/FinancialFilters';
+import { MonthNavigation } from '../../components/shared/MonthNavigation';
 import { formatCurrency } from '../../utils/currency';
 import { getIncomes, createIncome, updateIncome, deleteIncome, bulkDeleteIncomes } from './actions/incomes';
 import { exportIncomesToCSV } from '../../utils/csvExportIncomes';
@@ -41,6 +42,19 @@ export default function IncomesPageClient() {
   const { timezone: userTimezone } = useTimezone();
   const searchParams = useSearchParams();
   const [notification, setNotification] = useState<NotificationData | null>(null);
+  
+  // Month navigation state
+  const currentDate = new Date();
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentDate.getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(currentDate.getFullYear());
+  const [isMonthFilterActive, setIsMonthFilterActive] = useState<boolean>(true);
+
+  // Month navigation handler
+  const handleMonthChange = (month: number, year: number) => {
+    setSelectedMonth(month);
+    setSelectedYear(year);
+    setIsMonthFilterActive(true);
+  };
 
   const {
     items: incomes,
@@ -130,6 +144,20 @@ export default function IncomesPageClient() {
       invalidateQueries();
     }
   };
+
+  // Filter incomes by selected month if month filter is active
+  const filteredIncomes = useMemo(() => {
+    if (!isMonthFilterActive) {
+      return incomes;
+    }
+    
+    return incomes.filter(income => {
+      const incomeDate = new Date(income.date);
+      const incomeDateInUserTimezone = new Date(incomeDate.toLocaleString("en-US", { timeZone: userTimezone }));
+      return incomeDateInUserTimezone.getMonth() === selectedMonth && 
+             incomeDateInUserTimezone.getFullYear() === selectedYear;
+    });
+  }, [incomes, isMonthFilterActive, selectedMonth, selectedYear, userTimezone]);
 
   useEffect(() => {
     if (searchParams.get('action') === 'add') setIsAddModalOpen(true);
@@ -303,6 +331,12 @@ export default function IncomesPageClient() {
 
       <FinancialAreaChart {...chartProps} />
 
+      <IncomeBubbleChart 
+        incomes={incomes}
+        currency={userCurrency}
+        hasActiveFilters={hasActiveFilters}
+      />
+
       <FinancialFilters
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
@@ -323,15 +357,25 @@ export default function IncomesPageClient() {
         onShowBookmarkedOnlyChange={setShowBookmarkedOnly}
       />
 
-      <IncomeBubbleChart 
-        incomes={incomes}
-        currency={userCurrency}
-        hasActiveFilters={hasActiveFilters}
-      />
+      <div className="mb-6 flex items-center justify-between">
+        <MonthNavigation
+          selectedMonth={selectedMonth}
+          selectedYear={selectedYear}
+          onMonthChange={handleMonthChange}
+        />
+        {isMonthFilterActive && (
+          <button
+            onClick={() => setIsMonthFilterActive(false)}
+            className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+          >
+            Show All Incomes
+          </button>
+        )}
+      </div>
 
       <Suspense fallback={<div>Loading incomes...</div>}>
         <IncomeList
-          incomes={incomes}
+          incomes={filteredIncomes}
           currency={userCurrency}
           onEdit={openEditModal}
           onView={openViewModal}

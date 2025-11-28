@@ -39,3 +39,6 @@ dist/
 .env
 
 .vscode
+
+
+vercel.json

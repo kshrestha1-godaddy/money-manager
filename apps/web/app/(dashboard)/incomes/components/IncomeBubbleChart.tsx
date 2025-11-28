@@ -34,6 +34,10 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
   const [excludedCategories, setExcludedCategories] = useState<Set<string>>(new Set());
   const [showThresholdLine, setShowThresholdLine] = useState(false);
   
+  // Timeframe filtering state
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  
   // Calculate responsive dimensions based on screen size
   const calculateDimensions = () => {
     if (typeof window === 'undefined') return { width: 1200, height: 400 };
@@ -80,11 +84,82 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
     }
   };
 
-  // Process ALL income data by categories (before filtering)
+  // Timeframe filter handlers
+  const getDateRange = (months: number) => {
+    const today = new Date();
+    const startDate = new Date(today);
+
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    const targetMonth = currentMonth - months;
+
+    if (targetMonth >= 0) {
+      startDate.setMonth(targetMonth);
+    } else {
+      const yearsBack = Math.ceil(Math.abs(targetMonth) / 12);
+      const newMonth = 12 + (targetMonth % 12);
+      startDate.setFullYear(currentYear - yearsBack);
+      startDate.setMonth(newMonth === 12 ? 0 : newMonth);
+    }
+
+    const start = startDate.toISOString().split('T')[0] || '';
+    const end = today.toISOString().split('T')[0] || '';
+
+    return { start, end };
+  };
+
+  const handleQuickFilter = (months: number) => {
+    const { start, end } = getDateRange(months);
+    setStartDate(start);
+    setEndDate(end);
+  };
+
+  const isActiveQuickFilter = (months: number) => {
+    const { start, end } = getDateRange(months);
+    return startDate === start && endDate === end;
+  };
+
+  const clearTimeframeFilters = () => {
+    setStartDate("");
+    setEndDate("");
+  };
+
+  const isDefaultTimeframe = !startDate && !endDate;
+
+  const getButtonStyle = (months: number, isDefault = false) => {
+    const isActive = isActiveQuickFilter(months) || (isDefault && isDefaultTimeframe);
+    
+    if (isActive) {
+      return "px-2 sm:px-3 py-1 text-xs border-2 border-blue-500 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium shadow-sm whitespace-nowrap";
+    }
+    
+    return "px-2 sm:px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap";
+  };
+
+  // Filter incomes by date range
+  const filteredIncomesByTimeframe = useMemo(() => {
+    if (!startDate && !endDate) return incomes;
+
+    return incomes.filter(income => {
+      const incomeDate = income.date instanceof Date ? income.date : new Date(income.date);
+      const incomeDateStr = `${incomeDate.getFullYear()}-${String(incomeDate.getMonth() + 1).padStart(2, '0')}-${String(incomeDate.getDate()).padStart(2, '0')}`;
+
+      if (startDate && endDate) {
+        return incomeDateStr >= startDate && incomeDateStr <= endDate;
+      } else if (startDate) {
+        return incomeDateStr >= startDate;
+      } else if (endDate) {
+        return incomeDateStr <= endDate;
+      }
+      return true;
+    });
+  }, [incomes, startDate, endDate]);
+
+  // Process ALL income data by categories (after timeframe filtering)
   const allCategoryData = useMemo(() => {
     const categoryMap = new Map<number, CategoryData>();
     
-    incomes.forEach(income => {
+    filteredIncomesByTimeframe.forEach(income => {
       const categoryId = income.categoryId;
       const amount = convertForDisplaySync(income.amount, income.currency, currency);
       
@@ -105,7 +180,7 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
     });
     
     return Array.from(categoryMap.values()).filter(category => category.transactionCount > 0);
-  }, [incomes, currency]);
+  }, [filteredIncomesByTimeframe, currency]);
 
   // Filtered category data based on exclusions
   const categoryData = useMemo(() => {
@@ -529,6 +604,80 @@ export function IncomeBubbleChart({ incomes, currency, hasActiveFilters }: Incom
         >
           {showAxisControls ? 'Hide Controls' : 'Adjust Scale'}
         </button>
+      </div>
+
+      {/* Timeframe Selector */}
+      <div className="mb-4">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-gray-50 rounded-lg border">
+          {/* Quick Filter Buttons */}
+          <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+            <button
+              onClick={clearTimeframeFilters}
+              className={isDefaultTimeframe ? "px-2 sm:px-3 py-1 text-xs border-2 border-blue-500 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium shadow-sm whitespace-nowrap" : "px-2 sm:px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap"}
+            >
+              All Time
+            </button>
+            <button
+              onClick={() => handleQuickFilter(1)}
+              className={getButtonStyle(1)}
+            >
+              1M
+            </button>
+            <button
+              onClick={() => handleQuickFilter(3)}
+              className={getButtonStyle(3)}
+            >
+              3M
+            </button>
+            <button
+              onClick={() => handleQuickFilter(6)}
+              className={getButtonStyle(6)}
+            >
+              6M
+            </button>
+            <button
+              onClick={() => handleQuickFilter(12)}
+              className={getButtonStyle(12)}
+            >
+              1Y
+            </button>
+          </div>
+
+          {/* Divider */}
+          <div className="hidden sm:block h-4 w-px bg-gray-300"></div>
+
+          {/* Custom Date Range */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-gray-600">From:</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white flex-1 sm:flex-none"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">to</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white flex-1 sm:flex-none"
+              />
+            </div>
+          </div>
+
+          {/* Clear Button */}
+          {(startDate || endDate) && (
+            <button
+              onClick={clearTimeframeFilters}
+              className="px-2 py-1 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors w-full sm:w-auto text-center"
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
       
       {/* Category Selection Controls - Only show if there are high-value categories */}
