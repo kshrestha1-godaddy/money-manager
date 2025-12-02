@@ -55,7 +55,16 @@ export async function getCategoryHistoricalTrends(
     );
 
     // Generate month ranges for the historical data
-    const monthRanges = [];
+    interface MonthRange {
+      period: string;
+      periodLabel: string;
+      startDate: Date;
+      endDate: Date;
+      month: number;
+      year: number;
+    }
+    
+    const monthRanges: MonthRange[] = [];
     for (let i = monthsBack - 1; i >= 0; i--) {
       const targetDate = new Date(selectedYear, selectedMonth - i, 1);
       const startDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
@@ -71,13 +80,21 @@ export async function getCategoryHistoricalTrends(
       });
     }
 
+    // Return early if no month ranges generated
+    if (monthRanges.length === 0) {
+      return { data: [] };
+    }
+
     // Fetch all expenses and incomes for all months at once
+    const firstRange = monthRanges[0]!;
+    const lastRange = monthRanges[monthRanges.length - 1]!;
+    
     const allExpenses = await prisma.expense.findMany({
       where: {
         userId: userId,
         date: {
-          gte: monthRanges[0].startDate,
-          lte: monthRanges[monthRanges.length - 1].endDate,
+          gte: firstRange.startDate,
+          lte: lastRange.endDate,
         },
       },
       include: {
@@ -89,8 +106,8 @@ export async function getCategoryHistoricalTrends(
       where: {
         userId: userId,
         date: {
-          gte: monthRanges[0].startDate,
-          lte: monthRanges[monthRanges.length - 1].endDate,
+          gte: firstRange.startDate,
+          lte: lastRange.endDate,
         },
       },
       include: {
@@ -156,8 +173,8 @@ export async function getCategoryHistoricalTrends(
 
         trendData.push({
           categoryName: category.name,
-          categoryType: category.type,
-          color: categoryColors[categoryIndex % categoryColors.length],
+          categoryType: category.type as 'EXPENSE' | 'INCOME',
+          color: categoryColors[categoryIndex % categoryColors.length] ?? '#94a3b8',
           dataPoints
         });
       });
