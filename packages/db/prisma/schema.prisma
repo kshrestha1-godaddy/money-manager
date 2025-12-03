@@ -43,6 +43,7 @@ model User {
   emergencyEmails EmergencyEmail[]
   passwordShares PasswordShare[]
   netWorthInclusions NetWorthInclusion[]
+  activityLogs ActivityLog[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -551,6 +552,140 @@ model NetWorthInclusion {
   @@unique([userId, entityType, entityId])
   @@index([userId, entityType])
   @@index([userId, includeInNetWorth])
+}
+
+model ActivityLog {
+  id             Int      @id @default(autoincrement())
+  user           User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         Int?     // Nullable for system-level activities
+  
+  // Activity classification
+  action         ActivityAction    // CREATE, UPDATE, DELETE, READ, etc.
+  entityType     ActivityEntityType // EXPENSE, INCOME, ACCOUNT, etc.
+  entityId       Int?     // ID of the affected record (null for bulk operations)
+  
+  // Activity details
+  description    String   // Human-readable description
+  metadata       Json?    // Additional structured data (before/after values, etc.)
+  
+  // Request context
+  ipAddress      String?
+  userAgent      String?
+  sessionId      String?
+  
+  // Categorization
+  category       ActivityCategory @default(TRANSACTION) // For filtering and reporting
+  severity       ActivitySeverity @default(INFO) // For importance/alerting
+  
+  // Status and result
+  status         ActivityStatus @default(SUCCESS)
+  errorMessage   String?  // If status is ERROR or FAILED
+  
+  // Performance tracking
+  duration       Int?     // Execution time in milliseconds
+  
+  // Timestamps
+  createdAt      DateTime @default(now())
+  
+  @@index([userId, createdAt])
+  @@index([entityType, action])
+  @@index([category, createdAt])
+  @@index([status, severity])
+  @@index([createdAt]) // For time-based queries
+}
+
+enum ActivityAction {
+  CREATE
+  UPDATE
+  DELETE
+  READ
+  BULK_CREATE
+  BULK_UPDATE
+  BULK_DELETE
+  BULK_IMPORT
+  EXPORT
+  LOGIN
+  LOGOUT
+  SHARE
+  SYNC
+  CALCULATE
+  GENERATE
+  SEND
+}
+
+enum ActivityEntityType {
+  // Financial entities
+  EXPENSE
+  INCOME
+  INVESTMENT
+  DEBT
+  LOAN
+  ACCOUNT
+  CATEGORY
+  BUDGET_TARGET
+  
+  // Repayments
+  DEBT_REPAYMENT
+  LOAN_REPAYMENT
+  
+  // User management
+  USER
+  USER_PROFILE
+  USER_SETTINGS
+  
+  // System entities
+  NOTIFICATION
+  PASSWORD
+  BOOKMARK
+  EMERGENCY_EMAIL
+  PASSWORD_SHARE
+  
+  // Reports and analytics
+  REPORT
+  EXPORT
+  IMPORT
+  
+  // Session and security
+  SESSION
+  AUTHENTICATION
+  
+  // Net worth
+  NET_WORTH_INCLUSION
+  
+  // System
+  SYSTEM
+  CRON_JOB
+}
+
+enum ActivityCategory {
+  TRANSACTION        // Expenses, incomes
+  ACCOUNT           // Account management
+  INVESTMENT        // Investment operations
+  DEBT_LOAN         // Debt and loan operations
+  AUTHENTICATION    // Login, logout
+  SECURITY          // Password changes, shares
+  NOTIFICATION      // Notification operations
+  BUDGET            // Budget tracking
+  REPORT            // Reports and exports
+  SYSTEM            // System operations
+  USER_MANAGEMENT   // User profile changes
+  BULK_OPERATION    // Bulk imports/deletes
+}
+
+enum ActivitySeverity {
+  DEBUG     // Detailed debug information
+  INFO      // General informational messages
+  WARNING   // Warning messages
+  ERROR     // Error messages
+  CRITICAL  // Critical system issues
+}
+
+enum ActivityStatus {
+  SUCCESS
+  FAILED
+  ERROR
+  PARTIAL  // For bulk operations
+  PENDING
 }
 
 enum WorthEntityType {
