@@ -146,18 +146,26 @@ export default function IncomesPageClient() {
   };
 
   // Filter incomes by selected month if month filter is active
+  // When any filter/search is active, bypass month filter to show all-time results
   const filteredIncomes = useMemo(() => {
+    // If any filter is active (search, category, bank, date, bookmarked), show all matching results
+    if (hasActiveFilters) {
+      return incomes;
+    }
+    
+    // If month filter is manually disabled (user clicked "Show All Incomes"), show all
     if (!isMonthFilterActive) {
       return incomes;
     }
     
+    // Default: filter by selected month
     return incomes.filter(income => {
       const incomeDate = new Date(income.date);
       const incomeDateInUserTimezone = new Date(incomeDate.toLocaleString("en-US", { timeZone: userTimezone }));
       return incomeDateInUserTimezone.getMonth() === selectedMonth && 
              incomeDateInUserTimezone.getFullYear() === selectedYear;
     });
-  }, [incomes, isMonthFilterActive, selectedMonth, selectedYear, userTimezone]);
+  }, [incomes, hasActiveFilters, isMonthFilterActive, selectedMonth, selectedYear, userTimezone]);
 
   useEffect(() => {
     if (searchParams.get('action') === 'add') setIsAddModalOpen(true);

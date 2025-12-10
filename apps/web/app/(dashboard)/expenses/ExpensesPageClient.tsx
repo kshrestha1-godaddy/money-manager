@@ -157,18 +157,26 @@ export default function ExpensesPageClient() {
   };
 
   // Filter expenses by selected month if month filter is active
+  // When any filter/search is active, bypass month filter to show all-time results
   const filteredExpenses = useMemo(() => {
+    // If any filter is active (search, category, bank, date, bookmarked), show all matching results
+    if (hasActiveFilters) {
+      return expenses;
+    }
+    
+    // If month filter is manually disabled (user clicked "Show All Expenses"), show all
     if (!isMonthFilterActive) {
       return expenses;
     }
     
+    // Default: filter by selected month
     return expenses.filter(expense => {
       const expenseDate = new Date(expense.date);
       const expenseDateInUserTimezone = new Date(expenseDate.toLocaleString("en-US", { timeZone: userTimezone }));
       return expenseDateInUserTimezone.getMonth() === selectedMonth && 
              expenseDateInUserTimezone.getFullYear() === selectedYear;
     });
-  }, [expenses, isMonthFilterActive, selectedMonth, selectedYear, userTimezone]);
+  }, [expenses, hasActiveFilters, isMonthFilterActive, selectedMonth, selectedYear, userTimezone]);
 
   useEffect(() => {
     if (searchParams.get('action') === 'add') setIsAddModalOpen(true);
