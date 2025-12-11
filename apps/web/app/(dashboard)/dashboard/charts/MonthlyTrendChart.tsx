@@ -335,18 +335,6 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                             {monthData.savingsRate.toFixed(1)}%
                         </span>
                     </div>
-                    {monthData.incomeCount > 0 && (
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Avg Income:</span>
-                            <span className="font-medium">{formatCurrency(monthData.incomeAverage, currency)}</span>
-                        </div>
-                    )}
-                    {monthData.expenseCount > 0 && (
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Avg Expense:</span>
-                            <span className="font-medium">{formatCurrency(monthData.expenseAverage, currency)}</span>
-                        </div>
-                    )}
                 </div>
             </div>
         );
