@@ -510,20 +510,30 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
                     statusIndicator = ` [Paid: ${paidCompact} (${paymentProgress}%)]`;
                   }
                   
-                  // Simplified label text with fixed font size
+                  // Adaptive label text positioning based on bar size
                   const labelText = `${amount} (${percentage}%${statusIndicator})`;
-                  const fontSize = 11; // Fixed font size since text is now shorter
+                  const fontSize = 11;
+                  
+                  // Calculate if text fits inside the bar
+                  const estimatedTextWidth = labelText.length * 6.5; // Approximate character width at fontSize 11
+                  const minBarWidth = 120; // Minimum bar width to show text inside comfortably
+                  const textFitsInside = width >= minBarWidth && width >= estimatedTextWidth + 20; // +20 for padding
+                  
+                  // Determine text position and styling based on fit
+                  const textX = textFitsInside ? x + width / 2 : x + width + 8; // Inside center or outside right
+                  const textAnchor = textFitsInside ? "middle" : "start";
+                  const textFill = textFitsInside ? "#ffffff" : "#374151"; // White inside, dark gray outside
                   
                   return (
                     <g>
-                      {/* Single line label with borrower name, amount, and percentage */}
+                      {/* Adaptive positioned label */}
                       <text
-                        x={x + width / 2}
+                        x={textX}
                         y={barCenterY + 4}
-                        fill="#ffffff"
+                        fill={textFill}
                         fontSize={fontSize}
                         fontWeight={600}
-                        textAnchor="middle"
+                        textAnchor={textAnchor}
                       >
                         {labelText}
                       </text>
