@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Note } from "@prisma/client";
 import { NoteForm } from "./components/NoteForm";
 import { NotesHeader } from "./components/NotesHeader";
@@ -11,7 +11,7 @@ import { UI_STYLES, TEXT_COLORS, CONTAINER_COLORS, LOADING_COLORS, BUTTON_COLORS
 import { exportNotesToCSV } from "../../utils/csvExportNotes";
 import { UnifiedBulkImportModal } from "../../components/shared/UnifiedBulkImportModal";
 import { notesImportConfig } from "../../config/bulkImportConfig";
-import { deleteAllNotes } from "./actions/notes";
+import { deleteAllNotes, getNotes, getArchivedNotes } from "./actions/notes";
 import { DeleteConfirmationModal } from "../../components/DeleteConfirmationModal";
 
 const loadingContainer = LOADING_COLORS.container;
@@ -21,15 +21,9 @@ const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
 const secondaryBlueButton = BUTTON_COLORS.secondaryBlue;
 const dangerButton = BUTTON_COLORS.danger;
 
-export function NotesPageClient({ 
-  initialNotes, 
-  initialArchivedNotes 
-}: {
-  initialNotes: Note[];
-  initialArchivedNotes: Note[];
-}) {
-  const [notes, setNotes] = useState<Note[]>(initialNotes);
-  const [archivedNotes, setArchivedNotes] = useState<Note[]>(initialArchivedNotes);
+export function NotesPageClient() {
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [archivedNotes, setArchivedNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -42,15 +36,30 @@ export function NotesPageClient({
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
-  const refreshData = async () => {
+  // Load initial data
+  useEffect(() => {
+    loadNotes();
+  }, []);
+
+  const loadNotes = async () => {
+    setLoading(true);
     try {
-      // Use router refresh instead of window.location.reload for better UX
-      window.location.reload();
+      const [notesData, archivedNotesData] = await Promise.all([
+        getNotes(),
+        getArchivedNotes(),
+      ]);
+      setNotes(notesData);
+      setArchivedNotes(archivedNotesData);
     } catch (error) {
-      console.error("Error refreshing data:", error);
-      // Fallback to window reload if needed
-      window.location.reload();
+      console.error("Error loading notes:", error);
+      // Continue with empty arrays if there's an error
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const refreshData = async () => {
+    loadNotes();
   };
 
   const handleNoteUpdated = () => {
