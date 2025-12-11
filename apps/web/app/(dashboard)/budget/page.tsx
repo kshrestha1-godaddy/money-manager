@@ -78,6 +78,10 @@ export default function BudgetPage() {
   const [gaugeLoading, setGaugeLoading] = useState(false);
   const [gaugeBudgetData, setGaugeBudgetData] = useState<any[]>([]);
 
+  // State for showing/hiding zero budget categories (hidden by default)
+  const [showZeroBudgetIncome, setShowZeroBudgetIncome] = useState(false);
+  const [showZeroBudgetExpense, setShowZeroBudgetExpense] = useState(false);
+
   // Month navigation handler
   const handleMonthChange = (month: number, year: number) => {
     setSelectedMonth(month);
@@ -362,16 +366,71 @@ export default function BudgetPage() {
     }
   };
 
-  // Sorted data (filtering is now done at database level)
+  // Sorted data with filtering of hidden categories and zero-budget categories
   const sortedIncomeData = useMemo(() => {
-    const incomeData = budgetComparison.filter(item => item.categoryType === 'INCOME');
+    let incomeData = budgetComparison.filter(item => item.categoryType === 'INCOME');
+    
+    // Filter out categories that are marked as hidden in category management
+    incomeData = incomeData.filter(item => {
+      const category = allCategories.find(cat => cat.name === item.categoryName);
+      return category ? category.includedInBudget : true; // Include if category not found (fallback)
+    });
+    
+    // Filter out zero-budget categories if not showing them
+    if (!showZeroBudgetIncome) {
+      incomeData = incomeData.filter(item => item.budgetTarget.monthlySpend > 0);
+    }
+    
     return sortData(incomeData, incomeSortField, incomeSortDirection);
-  }, [budgetComparison, incomeSortField, incomeSortDirection]);
+  }, [budgetComparison, incomeSortField, incomeSortDirection, showZeroBudgetIncome, allCategories]);
 
   const sortedExpenseData = useMemo(() => {
-    const expenseData = budgetComparison.filter(item => item.categoryType === 'EXPENSE');
+    let expenseData = budgetComparison.filter(item => item.categoryType === 'EXPENSE');
+    
+    // Filter out categories that are marked as hidden in category management
+    expenseData = expenseData.filter(item => {
+      const category = allCategories.find(cat => cat.name === item.categoryName);
+      return category ? category.includedInBudget : true; // Include if category not found (fallback)
+    });
+    
+    // Filter out zero-budget categories if not showing them
+    if (!showZeroBudgetExpense) {
+      expenseData = expenseData.filter(item => item.budgetTarget.monthlySpend > 0);
+    }
+    
     return sortData(expenseData, expenseSortField, expenseSortDirection);
-  }, [budgetComparison, expenseSortField, expenseSortDirection]);
+  }, [budgetComparison, expenseSortField, expenseSortDirection, showZeroBudgetExpense, allCategories]);
+
+  // Count hidden categories (both zero-budget and manually hidden)
+  const hiddenIncomeCategoriesCount = useMemo(() => {
+    const allIncomeData = budgetComparison.filter(item => item.categoryType === 'INCOME');
+    
+    // Count categories that are either zero-budget or manually hidden
+    return allIncomeData.filter(item => {
+      const category = allCategories.find(cat => cat.name === item.categoryName);
+      const isManuallyHidden = category ? !category.includedInBudget : false;
+      const isZeroBudget = item.budgetTarget.monthlySpend === 0;
+      
+      // If showing zero budget, only count manually hidden ones
+      // If not showing zero budget, count both zero budget and manually hidden
+      return isManuallyHidden || (!showZeroBudgetIncome && isZeroBudget);
+    }).length;
+  }, [budgetComparison, allCategories, showZeroBudgetIncome]);
+
+  const hiddenExpenseCategoriesCount = useMemo(() => {
+    const allExpenseData = budgetComparison.filter(item => item.categoryType === 'EXPENSE');
+    
+    // Count categories that are either zero-budget or manually hidden
+    return allExpenseData.filter(item => {
+      const category = allCategories.find(cat => cat.name === item.categoryName);
+      const isManuallyHidden = category ? !category.includedInBudget : false;
+      const isZeroBudget = item.budgetTarget.monthlySpend === 0;
+      
+      // If showing zero budget, only count manually hidden ones
+      // If not showing zero budget, count both zero budget and manually hidden
+      return isManuallyHidden || (!showZeroBudgetExpense && isZeroBudget);
+    }).length;
+  }, [budgetComparison, allCategories, showZeroBudgetExpense]);
 
   // Calculate totals for income and expense tables
   const incomeTotals = useMemo(() => {
@@ -781,6 +840,7 @@ export default function BudgetPage() {
             selectedMonth={selectedMonth}
             selectedYear={selectedYear}
             isLoading={gaugeLoading}
+            allCategories={allCategories}
           />
         )}
 
@@ -918,9 +978,43 @@ export default function BudgetPage() {
         {/* Income Budget Tracking */}
         <div className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Income by Category</h3>
-            <p className="text-sm text-gray-600 mt-1">Set budget targets for your income categories</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Income by Category</h3>
+                <p className="text-sm text-gray-600 mt-1">Set budget targets for your income categories</p>
+              </div>
+              <button
+                onClick={() => setShowZeroBudgetIncome(!showZeroBudgetIncome)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  showZeroBudgetIncome
+                    ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+                title={showZeroBudgetIncome ? 'Hide zero-budget categories' : 'Show zero-budget categories'}
+              >
+                {showZeroBudgetIncome ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                <span className="hidden sm:inline">
+                  {showZeroBudgetIncome ? 'Hide' : 'Show'} Zero Budget
+                </span>
+              </button>
+            </div>
           </div>
+          
+          {/* Helper text for hidden income categories */}
+          {!showZeroBudgetIncome && hiddenIncomeCategoriesCount > 0 && (
+            <div className="px-6 py-2 bg-blue-50 border-b border-blue-100">
+              <p className="text-xs text-blue-600">
+                {hiddenIncomeCategoriesCount} income {hiddenIncomeCategoriesCount === 1 ? 'category' : 'categories'} with zero budget {hiddenIncomeCategoriesCount === 1 ? 'is' : 'are'} hidden. 
+                <button
+                  onClick={() => setShowZeroBudgetIncome(true)}
+                  className="ml-1 text-blue-700 hover:text-blue-800 underline font-medium"
+                >
+                  Show all
+                </button>
+              </p>
+            </div>
+          )}
+          
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
@@ -1097,9 +1191,43 @@ export default function BudgetPage() {
         {/* Expense Budget Tracking */}
         <div className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Expenses by Category</h3>
-            <p className="text-sm text-gray-600 mt-1">Set budget targets for your expense categories</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Expenses by Category</h3>
+                <p className="text-sm text-gray-600 mt-1">Set budget targets for your expense categories</p>
+              </div>
+              <button
+                onClick={() => setShowZeroBudgetExpense(!showZeroBudgetExpense)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  showZeroBudgetExpense
+                    ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+                title={showZeroBudgetExpense ? 'Hide zero-budget categories' : 'Show zero-budget categories'}
+              >
+                {showZeroBudgetExpense ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                <span className="hidden sm:inline">
+                  {showZeroBudgetExpense ? 'Hide' : 'Show'} Zero Budget
+                </span>
+              </button>
+            </div>
           </div>
+          
+          {/* Helper text for hidden expense categories */}
+          {!showZeroBudgetExpense && hiddenExpenseCategoriesCount > 0 && (
+            <div className="px-6 py-2 bg-blue-50 border-b border-blue-100">
+              <p className="text-xs text-blue-600">
+                {hiddenExpenseCategoriesCount} expense {hiddenExpenseCategoriesCount === 1 ? 'category' : 'categories'} with zero budget {hiddenExpenseCategoriesCount === 1 ? 'is' : 'are'} hidden. 
+                <button
+                  onClick={() => setShowZeroBudgetExpense(true)}
+                  className="ml-1 text-blue-700 hover:text-blue-800 underline font-medium"
+                >
+                  Show all
+                </button>
+              </p>
+            </div>
+          )}
+          
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
