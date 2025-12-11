@@ -226,10 +226,15 @@ export function CategorySpendTrendChart({
     let maxAmt = -Infinity;
 
     chartData.forEach(category => {
-      category.dataPoints.forEach(point => {
-        minAmt = Math.min(minAmt, point.targetAmount, point.actualAmount);
-        maxAmt = Math.max(maxAmt, point.targetAmount, point.actualAmount);
-      });
+      // Only include this category's data in Y-axis calculation if it's selected or no categories are selected
+      const shouldInclude = internalSelectedCategories.size === 0 || internalSelectedCategories.has(category.categoryName);
+      
+      if (shouldInclude) {
+        category.dataPoints.forEach(point => {
+          minAmt = Math.min(minAmt, point.targetAmount, point.actualAmount);
+          maxAmt = Math.max(maxAmt, point.targetAmount, point.actualAmount);
+        });
+      }
     });
 
     // Add some padding to the range
@@ -309,7 +314,7 @@ export function CategorySpendTrendChart({
         scaleY
       }
     };
-  }, [chartData, containerWidth]);
+  }, [chartData, containerWidth, internalSelectedCategories]);
 
   // Generate SVG path strings for lines
   const generateLinePath = (category: CategoryTrendData, isTarget: boolean): string => {
@@ -602,22 +607,42 @@ export function CategorySpendTrendChart({
         >
           {/* Grid lines - Y axis */}
           <g>
-            {chartConfig.scaleY && [0, 0.25, 0.5, 0.75, 1].map(ratio => {
-              const value = minAmount + (maxAmount - minAmount) * ratio;
-              const y = chartConfig.scaleY!(value);
-              return (
-                <g key={ratio}>
-                  <line
-                    x1={chartConfig.leftMargin}
-                    y1={y}
-                    x2={chartConfig.leftMargin + (chartConfig.chartAreaWidth || 0)}
-                    y2={y}
-                    stroke="#e5e7eb"
-                    strokeWidth="1"
-                    strokeDasharray="2,2"
-                  />
+            {chartConfig.scaleY && (() => {
+              // Calculate Y-axis values with 10,000 unit spacing
+              const minRounded = Math.floor(minAmount / 10000) * 10000;
+              const maxRounded = Math.ceil(maxAmount / 10000) * 10000;
+              const yAxisValues = [];
+              
+              for (let value = minRounded; value <= maxRounded; value += 10000) {
+                if (value >= minAmount && value <= maxAmount) {
+                  yAxisValues.push(value);
+                }
+              }
+              
+              // Ensure we have at least min and max values if they don't align with 10k increments
+              if (yAxisValues.length === 0 || (yAxisValues[0] !== undefined && yAxisValues[0] > minAmount)) {
+                yAxisValues.unshift(minAmount);
+              }
+              const lastValue = yAxisValues[yAxisValues.length - 1];
+              if (lastValue !== undefined && lastValue < maxAmount) {
+                yAxisValues.push(maxAmount);
+              }
+              
+              return yAxisValues.map(value => {
+                const y = chartConfig.scaleY!(value);
+                return (
+                  <g key={value}>
+                    <line
+                      x1={chartConfig.leftMargin || 0}
+                      y1={y}
+                      x2={(chartConfig.leftMargin || 0) + (chartConfig.chartAreaWidth || 0)}
+                      y2={y}
+                      stroke="#e5e7eb"
+                      strokeWidth="1"
+                      strokeDasharray="2,2"
+                    />
                   <text
-                    x={chartConfig.leftMargin - 10}
+                    x={(chartConfig.leftMargin || 0) - 10}
                     y={y}
                     textAnchor="end"
                     dominantBaseline="middle"
@@ -626,9 +651,10 @@ export function CategorySpendTrendChart({
                   >
                     {formatCurrency(value, currency)}
                   </text>
-                </g>
-              );
-            })}
+                  </g>
+                );
+              });
+            })()}
           </g>
 
           {/* Grid lines - X axis */}
@@ -659,6 +685,58 @@ export function CategorySpendTrendChart({
                   </text>
                 </g>
               );
+            })}
+          </g>
+
+          {/* Budget reference lines for selected categories */}
+          <g className={`transition-opacity duration-500 ${isLoading ? 'opacity-30' : 'opacity-100'}`}>
+            {chartConfig.scaleY && chartData.map(category => {
+              const isSelected = internalSelectedCategories.has(category.categoryName);
+              const hasSelection = internalSelectedCategories.size > 0;
+              
+              // Only show budget reference lines for selected categories (or all if none selected)
+              if (hasSelection && !isSelected) return null;
+              
+              // Get unique budget values for this category
+              const budgetValues = [...new Set(category.dataPoints.map(point => point.targetAmount))];
+              
+              return budgetValues.map(budgetValue => {
+                if (budgetValue <= 0) return null; // Don't show reference line for zero budget
+                
+                const y = chartConfig.scaleY!(budgetValue);
+                const opacity = getCategoryOpacity(category.categoryName) * 0.6; // Slightly more transparent
+                
+                return (
+                  <g key={`${category.categoryName}-budget-${budgetValue}`}>
+                    {/* Budget reference line */}
+                    <line
+                      x1={chartConfig.leftMargin}
+                      y1={y}
+                      x2={chartConfig.leftMargin + (chartConfig.chartAreaWidth || 0)}
+                      y2={y}
+                      stroke={category.color}
+                      strokeWidth="2"
+                      strokeDasharray="12,6"
+                      opacity={opacity}
+                      className="transition-all duration-300"
+                    />
+                    
+                    {/* Budget label */}
+                    <text
+                      x={chartConfig.leftMargin + 10}
+                      y={y - 5}
+                      textAnchor="start"
+                      fontSize="10"
+                      fill={category.color}
+                      opacity={opacity}
+                      fontWeight="600"
+                      className="transition-all duration-300"
+                    >
+                      {formatCurrency(budgetValue, currency)}
+                    </text>
+                  </g>
+                );
+              });
             })}
           </g>
 
