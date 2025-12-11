@@ -238,8 +238,8 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
     );
   };
 
-  // Calculate dynamic height based on number of items
-  const chartHeight = Math.max(400, chartData.data.length * 60);
+  // Calculate dynamic height based on number of items (increased to account for larger margins)
+  const chartHeight = Math.max(480, chartData.data.length * 60 + 120);
 
   if (chartData.data.length === 0) {
     return (
@@ -332,7 +332,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
           <BarChart
             data={chartData.data}
             layout="vertical"
-            margin={{ top: 30, right: 30, left: 10, bottom: 50 }}
+            margin={{ top: 60, right: 30, left: 10, bottom: 100 }}
             barCategoryGap="20%"
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={true} vertical={true} />
@@ -368,6 +368,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
               label={{
                 value: "Today",
                 position: "top",
+                offset: 40,
                 fill: "#dc2626",
                 fontSize: 10,
                 fontWeight: 600,
@@ -384,6 +385,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
               label={{
                 value: "7d",
                 position: "top",
+                offset: 40,
                 fill: "#f97316",
                 fontSize: 9,
                 fontWeight: 500,
@@ -400,6 +402,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
               label={{
                 value: "30d",
                 position: "top",
+                offset: 40,
                 fill: "#eab308",
                 fontSize: 10,
                 fontWeight: 600,
@@ -416,6 +419,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
               label={{
                 value: "60d",
                 position: "top",
+                offset: 40,
                 fill: "#22c55e",
                 fontSize: 10,
                 fontWeight: 600,
@@ -492,13 +496,12 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
                   }
                   
                   // Project line to x-axis area - use a consistent bottom position for all bars
-                  const chartAreaHeight = Math.max(400, chartData.data.length * 60) - 80; // Total height minus margins
+                  const chartAreaHeight = Math.max(400, chartData.data.length * 60); // Total height minus increased margins
                   const projectionEndY = chartAreaHeight;
-                  const labelY = projectionEndY + 15;
+                  const labelY = projectionEndY + 20; // More space for the labels
                   
                   // Enhanced label with partial payment info
                   let statusIndicator = "";
-                  console.log(`Debt ${entry.borrowerName}: status=${entry.status}, paidAmount=${entry.paidAmount}, amount=${entry.amount}`);
                   
                   if (entry.status === "PARTIALLY_PAID" && entry.paidAmount > 0) {
                     const paidCompact = formatCompact(entry.paidAmount);
@@ -513,29 +516,9 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
                     statusIndicator = ` [Paid: ${paidCompact} (${paymentProgress}%)]`;
                   }
                   
-                  // Calculate responsive font size based on bar width and text length
-                  const labelText = `${entry.borrowerName} | ${amount} | ${percentage}%${statusIndicator}`;
-                  const textLength = labelText.length;
-                  const availableWidth = width - 20; // Leave some padding
-                  
-                  // Estimate character width (approximately 6-8 pixels per character at fontSize 11)
-                  const estimatedTextWidth = textLength * 7;
-                  let fontSize = 11;
-                  
-                  // Adjust font size if text is too wide for the bar
-                  if (estimatedTextWidth > availableWidth) {
-                    fontSize = Math.max(9, Math.floor((availableWidth / textLength) * 1.2)); // Increased min font size
-                  }
-                  
-                  // For very long text, use smaller font but keep readable
-                  if (textLength > 60) {
-                    fontSize = Math.min(fontSize, 9);
-                  } else if (textLength > 45) {
-                    fontSize = Math.min(fontSize, 10);
-                  }
-                  
-                  // Ensure minimum readable size
-                  fontSize = Math.max(9, fontSize);
+                  // Simplified label text with fixed font size
+                  const labelText = `${amount} (${percentage}%${statusIndicator})`;
+                  const fontSize = 11; // Fixed font size since text is now shorter
                   
                   return (
                     <g>
