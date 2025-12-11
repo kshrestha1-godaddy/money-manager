@@ -62,12 +62,39 @@ export function NotesPageClient() {
     loadNotes();
   };
 
-  const handleNoteUpdated = () => {
-    refreshData();
+  const handleNoteUpdated = (updatedNote: Note) => {
+    // Optimistically update the note in the local state
+    setNotes(prevNotes => 
+      prevNotes.map(note => note.id === updatedNote.id ? updatedNote : note)
+    );
+    setArchivedNotes(prevNotes => 
+      prevNotes.map(note => note.id === updatedNote.id ? updatedNote : note)
+    );
   };
 
-  const handleNoteDeleted = () => {
-    refreshData();
+  const handleNoteDeleted = (deletedNoteId: number) => {
+    // Optimistically remove the note from local state
+    setNotes(prevNotes => prevNotes.filter(note => note.id !== deletedNoteId));
+    setArchivedNotes(prevNotes => prevNotes.filter(note => note.id !== deletedNoteId));
+  };
+
+  const handleNoteCreated = (newNote: Note) => {
+    // Optimistically add the new note to local state
+    if (newNote.isArchived) {
+      setArchivedNotes(prevNotes => [newNote, ...prevNotes]);
+    } else {
+      // Add to the beginning if pinned, otherwise add in chronological order
+      setNotes(prevNotes => {
+        if (newNote.isPinned) {
+          return [newNote, ...prevNotes];
+        } else {
+          // Insert in chronological order (newest first, but after pinned notes)
+          const pinnedNotes = prevNotes.filter(note => note.isPinned);
+          const unpinnedNotes = prevNotes.filter(note => !note.isPinned);
+          return [...pinnedNotes, newNote, ...unpinnedNotes];
+        }
+      });
+    }
   };
 
   const handleNoteView = (note: Note) => {
@@ -89,9 +116,9 @@ export function NotesPageClient() {
     setEditingNote(null);
   };
 
-  const handleEditComplete = () => {
+  const handleEditComplete = (updatedNote: Note) => {
     setEditingNote(null);
-    refreshData();
+    handleNoteUpdated(updatedNote);
   };
 
   const handleExportToCSV = () => {
@@ -102,7 +129,8 @@ export function NotesPageClient() {
 
   const handleImportSuccess = () => {
     setShowImportModal(false);
-    refreshData();
+    // Refresh data for import since we don't know what was imported
+    loadNotes();
   };
 
   const handleDeleteAllNotes = async () => {
@@ -111,7 +139,9 @@ export function NotesPageClient() {
       const result = await deleteAllNotes();
       if (result.success) {
         setShowDeleteAllModal(false);
-        refreshData();
+        // Optimistically clear all notes
+        setNotes([]);
+        setArchivedNotes([]);
         // Show success message if needed
         console.log(`Successfully deleted ${result.deletedCount} notes`);
       } else {
@@ -211,11 +241,11 @@ export function NotesPageClient() {
       />
 
       {/* Add Note Modal */}
-      <AddNoteModal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onSuccess={refreshData}
-      />
+            <AddNoteModal
+              isOpen={showAddModal}
+              onClose={() => setShowAddModal(false)}
+              onSuccess={handleNoteCreated}
+            />
 
       <NotesGrid
         notes={filteredNotes}

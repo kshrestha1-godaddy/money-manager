@@ -6,7 +6,7 @@ import { createNote, updateNote, CreateNoteData, UpdateNoteData } from "../actio
 
 interface NoteFormProps {
   note?: Note;
-  onSubmit: () => void;
+  onSubmit: (updatedNote: Note) => void;
   onCancel: () => void;
 }
 
@@ -64,8 +64,8 @@ export function NoteForm({ note, onSubmit, onCancel }: NoteFormProps) {
         result = await createNote(noteData);
       }
 
-      if (result.success) {
-        onSubmit();
+      if (result.success && result.note) {
+        onSubmit(result.note);
       } else {
         alert(result.error || "Failed to save note");
       }

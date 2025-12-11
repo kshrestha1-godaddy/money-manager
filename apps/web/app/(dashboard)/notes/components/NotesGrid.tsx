@@ -5,8 +5,8 @@ import { NoteCard } from "./NoteCard";
 
 interface NotesGridProps {
   notes: Note[];
-  onNoteUpdated: () => void;
-  onNoteDeleted: () => void;
+  onNoteUpdated: (updatedNote: Note) => void;
+  onNoteDeleted: (deletedNoteId: number) => void;
   onNoteView: (note: Note) => void;
   showArchived: boolean;
 }

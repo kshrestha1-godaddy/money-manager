@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { createNote, CreateNoteData } from "../actions/notes";
+import { Note } from "@prisma/client";
 
 interface AddNoteModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (note: Note) => void;
 }
 
 const NOTE_COLORS = [
@@ -57,7 +58,7 @@ export function AddNoteModal({ isOpen, onClose, onSuccess }: AddNoteModalProps) 
 
       const result = await createNote(noteData);
 
-      if (result.success) {
+      if (result.success && result.note) {
         // Reset form
         setFormData({
           title: "",
@@ -66,7 +67,7 @@ export function AddNoteModal({ isOpen, onClose, onSuccess }: AddNoteModalProps) 
           tags: "",
           reminderDate: "",
         });
-        onSuccess();
+        onSuccess(result.note);
         onClose();
       } else {
         alert(result.error || "Failed to create note");

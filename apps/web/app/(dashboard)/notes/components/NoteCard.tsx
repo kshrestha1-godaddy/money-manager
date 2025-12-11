@@ -8,8 +8,8 @@ import { NoteForm } from "./NoteForm";
 
 interface NoteCardProps {
   note: Note;
-  onUpdated: () => void;
-  onDeleted: () => void;
+  onUpdated: (updatedNote: Note) => void;
+  onDeleted: (deletedNoteId: number) => void;
   onView: (note: Note) => void;
 }
 
@@ -21,8 +21,10 @@ export function NoteCard({ note, onUpdated, onDeleted, onView }: NoteCardProps) 
   const handlePin = async () => {
     setIsLoading(true);
     try {
-      await toggleNotePin(note.id);
-      onUpdated();
+      const result = await toggleNotePin(note.id);
+      if (result.success && result.note) {
+        onUpdated(result.note);
+      }
     } catch (error) {
       console.error("Error toggling pin:", error);
     } finally {
@@ -33,8 +35,10 @@ export function NoteCard({ note, onUpdated, onDeleted, onView }: NoteCardProps) 
   const handleArchive = async () => {
     setIsLoading(true);
     try {
-      await toggleNoteArchive(note.id);
-      onUpdated();
+      const result = await toggleNoteArchive(note.id);
+      if (result.success && result.note) {
+        onUpdated(result.note);
+      }
     } catch (error) {
       console.error("Error toggling archive:", error);
     } finally {
@@ -49,8 +53,10 @@ export function NoteCard({ note, onUpdated, onDeleted, onView }: NoteCardProps) 
 
     setIsLoading(true);
     try {
-      await deleteNote(note.id);
-      onDeleted();
+      const result = await deleteNote(note.id);
+      if (result.success) {
+        onDeleted(note.id);
+      }
     } catch (error) {
       console.error("Error deleting note:", error);
     } finally {
