@@ -44,6 +44,7 @@ model User {
   passwordShares PasswordShare[]
   netWorthInclusions NetWorthInclusion[]
   activityLogs ActivityLog[]
+  notes Note[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -655,6 +656,9 @@ enum ActivityEntityType {
   // System
   SYSTEM
   CRON_JOB
+  
+  // Notes
+  NOTE
 }
 
 enum ActivityCategory {
@@ -670,6 +674,7 @@ enum ActivityCategory {
   SYSTEM            // System operations
   USER_MANAGEMENT   // User profile changes
   BULK_OPERATION    // Bulk imports/deletes
+  NOTE              // Note operations
 }
 
 enum ActivitySeverity {
@@ -713,5 +718,40 @@ enum RiskLevel {
   MEDIUM
   HIGH
   VERY_HIGH
+}
+
+model Note {
+  id Int @id @default(autoincrement())
+  title String
+  content String? // Rich text content
+  color String @default("#fbbf24") // Default yellow color like Google Keep
+  isPinned Boolean @default(false)
+  isArchived Boolean @default(false)
+  tags String[]
+  
+  // Financial context - optional relationships to financial entities
+  relatedExpenseId Int?
+  relatedIncomeId Int?
+  relatedInvestmentId Int?
+  relatedDebtId Int?
+  relatedLoanId Int?
+  relatedAccountId Int?
+  
+  // Financial values and dates for important notes
+  amount Decimal? // Optional amount if the note is about a financial value
+  currency String @default("USD") // Currency for the amount
+  noteDate DateTime? // Important date related to the note (different from creation date)
+  reminderDate DateTime? // Optional reminder date
+  
+  // Metadata
+  user User @relation(fields: [userId], references: [id])
+  userId Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId, isPinned])
+  @@index([userId, isArchived])
+  @@index([userId, createdAt])
+  @@index([userId, reminderDate])
 }
 
