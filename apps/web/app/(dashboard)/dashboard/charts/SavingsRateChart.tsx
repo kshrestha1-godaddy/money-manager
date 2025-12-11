@@ -291,7 +291,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                             dataKey="month" 
                             tickFormatter={formatMonth}
                             tick={{ fontSize: 12 }}
-                            interval={0}
+                            interval={data.length > 10 ? 2 : 0}
                             dy={10}
                         />
                         <YAxis
