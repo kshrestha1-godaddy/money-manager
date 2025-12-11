@@ -15,7 +15,7 @@ import {
 } from "recharts";
 import type { TooltipProps } from "recharts";
 import { ChartControls } from "../../../components/ChartControls";
-import { formatCurrency } from "../../../utils/currency";
+import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import type { DebtInterface } from "../../../types/debts";
 import { calculateRemainingWithInterest } from "../../../utils/interestCalculation";
@@ -37,13 +37,37 @@ interface DueDateDataPoint {
   isOverdue: boolean;
 }
 
+// Subtle/muted colors for each urgency type
+const COLORS = {
+  overdue: "#f87171",     // Soft coral for overdue
+  thisWeek: "#fb923c",   // Soft orange for this week
+  thisMonth: "#fbbf24",  // Soft amber for this month
+  withinQuarter: "#009933", // Soft green for within 3 months
+  later: "#9ca3af"       // Soft gray for later
+};
+
+// Pattern IDs for textures
+const PATTERN_IDS = {
+  overdue: "pattern-overdue",
+  thisWeek: "pattern-thisweek",
+  thisMonth: "pattern-thismonth",
+  withinQuarter: "pattern-withinquarter",
+  later: "pattern-later"
+};
+
+// Get pattern type based on urgency
+function getPatternType(daysUntilDue: number, isOverdue: boolean): keyof typeof PATTERN_IDS {
+  if (isOverdue) return "overdue";
+  if (daysUntilDue <= 7) return "thisWeek";
+  if (daysUntilDue <= 30) return "thisMonth";
+  if (daysUntilDue <= 90) return "withinQuarter";
+  return "later";
+}
+
 // Color based on urgency
 function getBarColor(daysUntilDue: number, isOverdue: boolean): string {
-  if (isOverdue) return "#ef4444"; // Red - overdue
-  if (daysUntilDue <= 7) return "#f97316"; // Orange - due this week
-  if (daysUntilDue <= 30) return "#eab308"; // Yellow - due this month
-  if (daysUntilDue <= 90) return "#22c55e"; // Green - due in 3 months
-  return "#6b7280"; // Gray - due later
+  const patternType = getPatternType(daysUntilDue, isOverdue);
+  return COLORS[patternType];
 }
 
 function getDaysLabel(days: number, isOverdue: boolean): string {
@@ -104,8 +128,24 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
     // Sort by days until due (overdue first, then soonest)
     data.sort((a, b) => a.daysUntilDue - b.daysUntilDue);
 
-    return data;
+    // Calculate total active amount for percentage calculations
+    const totalActiveAmount = data.reduce((sum, item) => sum + item.remainingAmount, 0);
+
+    return { data, totalActiveAmount };
   }, [debts]);
+
+  // Get currency symbol for the user's selected currency
+  const currencySymbol = getCurrencySymbol(currency);
+
+  // Format large numbers compactly with proper currency symbol
+  const formatCompact = (value: number): string => {
+    if (value >= 1000000) {
+      return `${currencySymbol}${(value / 1000000).toFixed(1)}M`;
+    } else if (value >= 1000) {
+      return `${currencySymbol}${(value / 1000).toFixed(1)}K`;
+    }
+    return formatCurrency(value, currency);
+  };
 
   const CustomTooltip = ({ active, payload }: TooltipProps<number, string>) => {
     if (!active || !payload || payload.length === 0) return null;
@@ -147,6 +187,12 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
             </span>
           </div>
           <div className="flex justify-between">
+            <span className="text-gray-600">Days Count:</span>
+            <span className={`font-medium ${data.isOverdue ? "text-red-600" : "text-gray-800"}`}>
+              {data.isOverdue ? `-${Math.abs(data.daysUntilDue)}` : data.daysUntilDue === 0 ? "0 (Today)" : `+${data.daysUntilDue}`}
+            </span>
+          </div>
+          <div className="flex justify-between">
             <span className="text-gray-600">Original:</span>
             <span className="font-medium text-gray-800">
               {formatCurrency(data.amount, currency)}
@@ -164,9 +210,9 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
   };
 
   // Calculate dynamic height based on number of items
-  const chartHeight = Math.max(400, chartData.length * 60);
+  const chartHeight = Math.max(400, chartData.data.length * 60);
 
-  if (chartData.length === 0) {
+  if (chartData.data.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow p-4 sm:p-6" ref={chartRef}>
         <ChartControls
@@ -191,9 +237,9 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
   }
 
   // Stats
-  const overdueCount = chartData.filter((d) => d.isOverdue).length;
-  const dueThisWeek = chartData.filter((d) => !d.isOverdue && d.daysUntilDue <= 7).length;
-  const dueThisMonth = chartData.filter((d) => !d.isOverdue && d.daysUntilDue > 7 && d.daysUntilDue <= 30).length;
+  const overdueCount = chartData.data.filter((d) => d.isOverdue).length;
+  const dueThisWeek = chartData.data.filter((d) => !d.isOverdue && d.daysUntilDue <= 7).length;
+  const dueThisMonth = chartData.data.filter((d) => !d.isOverdue && d.daysUntilDue > 7 && d.daysUntilDue <= 30).length;
 
   return (
     <div
@@ -206,12 +252,12 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
         chartRef={chartRef}
         isExpanded={isExpanded}
         onToggleExpanded={toggleExpanded}
-        title={`Lending Due Dates • ${chartData.length} active`}
+        title={`Lending Due Dates • ${chartData.data.length} active`}
         subtitle="Timeline showing days until due for each lending"
         fileName="lending-due-dates"
         csvData={[
           ["Borrower", "Purpose", "Due Date", "Days Until Due", "Original Amount", "Remaining"],
-          ...chartData.map((d) => [
+          ...chartData.data.map((d) => [
             d.borrowerName,
             d.purpose,
             d.dueDate?.toISOString().split("T")[0] || "",
@@ -252,7 +298,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
       >
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
-            data={chartData}
+            data={chartData.data}
             layout="vertical"
             margin={{ top: 30, right: 30, left: 10, bottom: 50 }}
             barCategoryGap="20%"
@@ -344,41 +390,83 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
               }}
             />
 
+            {/* SVG Pattern Definitions for Textures */}
+            <defs>
+              {/* Overdue - Diagonal lines */}
+              <pattern id={PATTERN_IDS.overdue} patternUnits="userSpaceOnUse" width="8" height="8">
+                <rect width="8" height="8" fill={COLORS.overdue} />
+                <path d="M-2,2 l4,-4 M0,8 l8,-8 M6,10 l4,-4" stroke="#dc2626" strokeWidth="1" opacity="0.4" />
+              </pattern>
+              
+              {/* This Week - Vertical lines */}
+              <pattern id={PATTERN_IDS.thisWeek} patternUnits="userSpaceOnUse" width="6" height="6">
+                <rect width="6" height="6" fill={COLORS.thisWeek} />
+                <line x1="3" y1="0" x2="3" y2="6" stroke="#ea580c" strokeWidth="1" opacity="0.3" />
+              </pattern>
+              
+              {/* This Month - Dots pattern */}
+              <pattern id={PATTERN_IDS.thisMonth} patternUnits="userSpaceOnUse" width="8" height="8">
+                <rect width="8" height="8" fill={COLORS.thisMonth} />
+                <circle cx="4" cy="4" r="1.5" fill="#d97706" opacity="0.3" />
+              </pattern>
+              
+              {/* Within Quarter - Horizontal lines */}
+              <pattern id={PATTERN_IDS.withinQuarter} patternUnits="userSpaceOnUse" width="6" height="6">
+                <rect width="6" height="6" fill={COLORS.withinQuarter} />
+                <line x1="0" y1="3" x2="6" y2="3" stroke="#16a34a" strokeWidth="1" opacity="0.25" />
+              </pattern>
+              
+              {/* Later - Crosshatch */}
+              <pattern id={PATTERN_IDS.later} patternUnits="userSpaceOnUse" width="8" height="8">
+                <rect width="8" height="8" fill={COLORS.later} />
+                <path d="M0,0 l8,8 M8,0 l-8,8" stroke="#6b7280" strokeWidth="0.8" opacity="0.2" />
+              </pattern>
+            </defs>
+
             <Bar dataKey="daysUntilDue" radius={[0, 4, 4, 0]} isAnimationActive={true} animationDuration={600}>
               {/* Label showing amount inside the bar and projection line */}
               <LabelList
                 content={(props: any) => {
                   const { x, y, width, height, index } = props;
-                  const entry = chartData[index];
+                  const entry = chartData.data[index];
                   if (!entry) return null;
                   
                   const barEndX = x + width;
                   const barCenterY = y + height / 2;
                   
-                  // Format amount for single line display
-                  const amount = formatCurrency(entry.remainingAmount, currency);
+                  // Format amount compactly for single line display
+                  const amount = formatCompact(entry.remainingAmount);
                   
-                  // Format the days text for bottom label
+                  // Calculate percentage of total active amount
+                  const percentage = chartData.totalActiveAmount > 0 
+                    ? ((entry.remainingAmount / chartData.totalActiveAmount) * 100).toFixed(1)
+                    : "0.0";
+                  
+                  // Format the days text for bottom label with date
+                  const dateString = entry.dueDate 
+                    ? entry.dueDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+                    : '';
+                  
                   let daysText = "";
                   let textColor = "#374151";
                   if (entry.isOverdue) {
-                    daysText = `${Math.abs(entry.daysUntilDue)}d overdue`;
+                    daysText = `${Math.abs(entry.daysUntilDue)}d overdue${dateString ? ` (${dateString})` : ''}`;
                     textColor = "#dc2626";
                   } else if (entry.daysUntilDue === 0) {
-                    daysText = "Due today";
+                    daysText = `Due today${dateString ? ` [${dateString}]` : ''}`;
                     textColor = "#dc2626";
                   } else {
-                    daysText = `${entry.daysUntilDue}d`;
+                    daysText = `${entry.daysUntilDue}d${dateString ? ` (${dateString})` : ''}`;
                   }
                   
                   // Project line to x-axis area - use a consistent bottom position for all bars
-                  const chartAreaHeight = Math.max(400, chartData.length * 60) - 80; // Total height minus margins
+                  const chartAreaHeight = Math.max(400, chartData.data.length * 60) - 80; // Total height minus margins
                   const projectionEndY = chartAreaHeight;
                   const labelY = projectionEndY + 15;
                   
                   return (
                     <g>
-                      {/* Amount label inside bar */}
+                      {/* Single line label with borrower name, amount, and percentage */}
                       <text
                         x={x + width / 2}
                         y={barCenterY + 4}
@@ -387,7 +475,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
                         fontWeight={600}
                         textAnchor="middle"
                       >
-                        {amount}
+                        {`${entry.borrowerName} | ${amount} | ${percentage}%  `}
                       </text>
                       {/* Vertical projection line from bar tip DOWN to x-axis area */}
                       <line
@@ -415,9 +503,17 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
                   );
                 }}
               />
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={getBarColor(entry.daysUntilDue, entry.isOverdue)} />
-              ))}
+              {chartData.data.map((entry, index) => {
+                const patternType = getPatternType(entry.daysUntilDue, entry.isOverdue);
+                return (
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={`url(#${PATTERN_IDS[patternType]})`}
+                    stroke={COLORS[patternType]}
+                    strokeWidth={1}
+                  />
+                );
+              })}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -426,23 +522,23 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
       {/* Legend */}
       <div className="mt-4 flex flex-wrap justify-center gap-4 text-xs">
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm bg-red-500" />
+          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: COLORS.overdue }} />
           <span className="text-gray-600">Overdue</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm bg-orange-500" />
+          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: COLORS.thisWeek }} />
           <span className="text-gray-600">This Week</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm bg-yellow-500" />
+          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: COLORS.thisMonth }} />
           <span className="text-gray-600">This Month</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm bg-green-500" />
+          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: COLORS.withinQuarter }} />
           <span className="text-gray-600">{"< 3 Months"}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm bg-gray-500" />
+          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: COLORS.later }} />
           <span className="text-gray-600">{"> 3 Months"}</span>
         </div>
       </div>
