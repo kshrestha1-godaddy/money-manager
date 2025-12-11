@@ -332,7 +332,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
           <BarChart
             data={chartData.data}
             layout="vertical"
-            margin={{ top: 60, right: 30, left: 10, bottom: 50 }}
+            margin={{ top: 50, right: 30, left: 10, bottom: 50 }}
             barCategoryGap="20%"
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={true} vertical={true} />
