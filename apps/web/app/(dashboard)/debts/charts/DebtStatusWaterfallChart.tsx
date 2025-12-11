@@ -205,7 +205,7 @@ export function DebtStatusWaterfallChart({
       ? ((dataPoint.displayValue / waterfallData.totalWithInterest) * 100).toFixed(1)
       : "0.0";
 
-    const amountText = formatCompact(dataPoint.displayValue);
+    const amountText = formatCurrency(dataPoint.displayValue, currency);
     const percentText = `(${percent}%)`;
     
     // Check if bar is tall enough to fit text inside
@@ -227,7 +227,7 @@ export function DebtStatusWaterfallChart({
             y={y + height / 2 - 6}
             fill={textColor}
             textAnchor="middle"
-            fontSize={isExpanded ? 14 : 12}
+            fontSize={isExpanded ? 13 : 11}
             fontWeight="600"
           >
             {amountText}
@@ -255,7 +255,7 @@ export function DebtStatusWaterfallChart({
         y={isFloatingBar ? y + height + 16 : y - 8}
         fill={textColor}
         textAnchor="middle"
-        fontSize={isExpanded ? 12 : 10}
+        fontSize={isExpanded ? 11 : 9}
         fontWeight="600"
       >
         {`${amountText} ${percentText}`}

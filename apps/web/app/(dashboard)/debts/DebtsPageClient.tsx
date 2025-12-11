@@ -12,6 +12,7 @@ import { AddRepaymentModal } from './components/AddRepaymentModal';
 import { BulkImportModal } from './components/BulkImportModal';
 import { formatCurrency } from '../../utils/currency';
 import DebtStatusWaterfallChart from './charts/DebtStatusWaterfallChart';
+import DebtDueDatesChart from './charts/DebtDueDatesChart';
 import { useCurrency } from '../../providers/CurrencyProvider';
 import { useOptimizedDebts } from './hooks/useOptimizedDebts';
 import { getSummaryCardClasses, BUTTON_COLORS, TEXT_COLORS, CONTAINER_COLORS, INPUT_COLORS, LOADING_COLORS, UI_STYLES } from '../../config/colorConfig';
@@ -176,6 +177,10 @@ export default function DebtsPageClient() {
 
       <div className="mb-6">
         <DebtStatusWaterfallChart debts={filteredDebts} currency={userCurrency} hasPageFilters={hasActiveFilters} pageStartDate={startDate} pageEndDate={endDate} />
+      </div>
+
+      <div className="mb-6">
+        <DebtDueDatesChart debts={filteredDebts} currency={userCurrency} />
       </div>
 
       <div className={UI_STYLES.filters.containerWithMargin}>
