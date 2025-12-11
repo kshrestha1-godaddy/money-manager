@@ -510,32 +510,32 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
                     statusIndicator = ` [Paid: ${paidCompact} (${paymentProgress}%)]`;
                   }
                   
-                  // Adaptive label text positioning based on bar size
-                  const labelText = `${amount} (${percentage}%${statusIndicator})`;
+                  // Smart label text - show percentage only if full text doesn't fit
+                  const fullText = `${amount} (${percentage}%${statusIndicator})`;
+                  const percentageOnlyText = `${percentage}%`;
                   const fontSize = 11;
                   
-                  // Calculate if text fits inside the bar
-                  const estimatedTextWidth = labelText.length * 6.5; // Approximate character width at fontSize 11
-                  const minBarWidth = 120; // Minimum bar width to show text inside comfortably
-                  const textFitsInside = width >= minBarWidth && width >= estimatedTextWidth + 20; // +20 for padding
+                  // Calculate if full text fits inside the bar (use absolute width for overdue bars)
+                  const estimatedFullTextWidth = fullText.length * 6.5; // Approximate character width at fontSize 11
+                  const absoluteWidth = Math.abs(width); // Handle negative widths for overdue bars
+                  const availableWidth = absoluteWidth - 20; // Leave some padding
+                  const textFitsInside = availableWidth >= estimatedFullTextWidth;
                   
-                  // Determine text position and styling based on fit
-                  const textX = textFitsInside ? x + width / 2 : x + width + 8; // Inside center or outside right
-                  const textAnchor = textFitsInside ? "middle" : "start";
-                  const textFill = textFitsInside ? "#ffffff" : "#374151"; // White inside, dark gray outside
+                  // Choose text to display based on available space
+                  const displayText = textFitsInside ? fullText : percentageOnlyText;
                   
                   return (
                     <g>
-                      {/* Adaptive positioned label */}
+                      {/* Smart label that adapts based on bar width */}
                       <text
-                        x={textX}
+                        x={x + width / 2}
                         y={barCenterY + 4}
-                        fill={textFill}
+                        fill="#ffffff"
                         fontSize={fontSize}
                         fontWeight={600}
-                        textAnchor={textAnchor}
+                        textAnchor="middle"
                       >
-                        {labelText}
+                        {displayText}
                       </text>
                       {/* Vertical projection line from bar tip DOWN to x-axis area */}
                       <line
