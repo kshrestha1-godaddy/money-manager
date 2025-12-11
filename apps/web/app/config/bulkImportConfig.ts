@@ -37,6 +37,12 @@ import {
 } from '../actions/budget-targets';
 import { downloadBudgetTargetsImportTemplate } from '../utils/csvImportBudgetTargets';
 import { useBudgetTargetsFormData } from '../hooks/useBudgetTargetsFormData';
+import { 
+    bulkImportNotes,
+    parseCSVForUI as parseNotesCSV,
+    importCorrectedRow as importCorrectedNoteRow
+} from '../(dashboard)/notes/actions/notes';
+import { downloadNotesImportTemplate } from '../utils/csvImportNotes';
 
 // Income bulk import configuration
 export const incomeImportConfig: BulkImportConfig = {
@@ -154,6 +160,32 @@ export const budgetTargetsImportConfig: BulkImportConfig = {
             categories: result.categories || [],
             loading: result.loading || false,
             error: result.error || null
+        };
+    }
+};
+
+// Notes bulk import configuration
+export const notesImportConfig: BulkImportConfig = {
+    type: 'INCOME', // Using INCOME as base type since notes don't fit the existing types
+    title: 'Bulk Import Notes',
+    description: 'Import notes from CSV file. Required field: Title. Optional fields: Content, Color, Tags, Reminder Date, Is Pinned, Is Archived. Download the template below to see the expected format.',
+    requiredFields: ['title'],
+    optionalFields: ['content', 'color', 'tags', 'reminder date', 'is pinned', 'is archived'],
+    supportsCategoriesImport: false,
+    supportsTargetsImport: false,
+    bulkImportFunction: async (file: File) => {
+        return await bulkImportNotes(file);
+    },
+    parseCSVFunction: parseNotesCSV,
+    importCorrectedRowFunction: importCorrectedNoteRow,
+    targetsTemplateDownload: downloadNotesImportTemplate, // Using targetsTemplateDownload for template
+    formDataHook: () => {
+        // Notes don't need accounts or categories
+        return {
+            accounts: [],
+            categories: [],
+            loading: false,
+            error: null
         };
     }
 };

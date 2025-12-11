@@ -558,6 +558,7 @@ export const BUTTON_COLORS = {
   secondary: `px-4 py-2 border ${COLORS.buttons.outline.border} ${COLORS.buttons.outline.text} rounded-md`,
   secondaryBlue: `px-4 py-2 border ${COLORS.buttons.outline.border} ${COLORS.buttons.outline.text} ${COLORS.buttons.outline.hoverPurple} rounded-md`,
   secondaryGreen: `px-4 py-2 border ${COLORS.buttons.outline.border} ${COLORS.buttons.outline.text} ${COLORS.buttons.outline.hoverGreen} rounded-md disabled:opacity-50`,
+  danger: `px-4 py-2 ${COLORS.buttons.danger.background} ${COLORS.buttons.danger.hover} ${COLORS.buttons.danger.text} rounded-md`,
   clear: `px-4 py-2 border ${COLORS.buttons.secondary.border} rounded-md ${COLORS.common.hover.gray[50]}`,
   clearFilter: `w-full px-6 py-2 border ${COLORS.buttons.secondary.border} ${COLORS.buttons.secondary.background} ${COLORS.buttons.secondary.text} ${COLORS.buttons.secondary.hover} rounded-lg focus:outline-none focus:ring-2 ${COLORS.forms.input.focus.ring} disabled:opacity-50 disabled:cursor-not-allowed`,
 } as const;

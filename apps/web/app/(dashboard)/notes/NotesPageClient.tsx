@@ -7,11 +7,19 @@ import { NotesHeader } from "./components/NotesHeader";
 import { NotesGrid } from "./components/NotesGrid";
 import { ViewNoteModal } from "./components/ViewNoteModal";
 import { AddNoteModal } from "./components/AddNoteModal";
-import { UI_STYLES, TEXT_COLORS, CONTAINER_COLORS, LOADING_COLORS } from "../../config/colorConfig";
+import { UI_STYLES, TEXT_COLORS, CONTAINER_COLORS, LOADING_COLORS, BUTTON_COLORS } from "../../config/colorConfig";
+import { exportNotesToCSV } from "../../utils/csvExportNotes";
+import { UnifiedBulkImportModal } from "../../components/shared/UnifiedBulkImportModal";
+import { notesImportConfig } from "../../config/bulkImportConfig";
+import { deleteAllNotes } from "./actions/notes";
+import { DeleteConfirmationModal } from "../../components/DeleteConfirmationModal";
 
 const loadingContainer = LOADING_COLORS.container;
 const loadingSpinner = LOADING_COLORS.spinner;
 const loadingText = LOADING_COLORS.text;
+const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
+const secondaryBlueButton = BUTTON_COLORS.secondaryBlue;
+const dangerButton = BUTTON_COLORS.danger;
 
 export function NotesPageClient({ 
   initialNotes, 
@@ -25,6 +33,8 @@ export function NotesPageClient({
   const [loading, setLoading] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
@@ -75,6 +85,37 @@ export function NotesPageClient({
     refreshData();
   };
 
+  const handleExportToCSV = () => {
+    // Export all notes (both active and archived)
+    const allNotes = [...notes, ...archivedNotes];
+    exportNotesToCSV(allNotes);
+  };
+
+  const handleImportSuccess = () => {
+    setShowImportModal(false);
+    refreshData();
+  };
+
+  const handleDeleteAllNotes = async () => {
+    setLoading(true);
+    try {
+      const result = await deleteAllNotes();
+      if (result.success) {
+        setShowDeleteAllModal(false);
+        refreshData();
+        // Show success message if needed
+        console.log(`Successfully deleted ${result.deletedCount} notes`);
+      } else {
+        alert("Failed to delete all notes. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error deleting all notes:", error);
+      alert("Failed to delete all notes. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Filter notes based on search query, tags, and color
   const filteredNotes = (showArchived ? archivedNotes : notes).filter((note) => {
     const matchesSearch = 
@@ -116,6 +157,28 @@ export function NotesPageClient({
         <div>
           <h1 className={TEXT_COLORS.title}>Thoughts</h1>
           <p className={TEXT_COLORS.subtitle}>Organize your financial thoughts and important reminders</p>
+        </div>
+        <div className={UI_STYLES.header.buttonGroup}>
+          <button 
+            onClick={() => setShowImportModal(true)} 
+            className={secondaryBlueButton}
+          >
+            Import CSV
+          </button>
+          <button 
+            onClick={handleExportToCSV} 
+            disabled={notes.length === 0 && archivedNotes.length === 0} 
+            className={`${secondaryGreenButton} disabled:opacity-50`}
+          >
+            Export CSV
+          </button>
+          <button 
+            onClick={() => setShowDeleteAllModal(true)} 
+            disabled={notes.length === 0 && archivedNotes.length === 0} 
+            className={`${dangerButton} disabled:opacity-50`}
+          >
+            Delete All Notes
+          </button>
         </div>
       </div>
 
@@ -206,6 +269,25 @@ export function NotesPageClient({
           )}
         </div>
       )}
+
+      {/* Import Modal */}
+      <UnifiedBulkImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={handleImportSuccess}
+        config={notesImportConfig}
+      />
+
+      {/* Delete All Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={showDeleteAllModal}
+        onClose={() => setShowDeleteAllModal(false)}
+        onConfirm={handleDeleteAllNotes}
+        title="Delete All Notes"
+        message={`Are you sure you want to delete all ${notes.length + archivedNotes.length} notes? This action cannot be undone.`}
+        confirmText="Delete All Notes"
+        isLoading={loading}
+      />
     </div>
   );
 }
