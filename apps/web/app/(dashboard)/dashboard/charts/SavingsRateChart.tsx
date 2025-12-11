@@ -179,16 +179,6 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                         </div>
                     )}
                 </div>
-
-                {/* Contextual Message */}
-                <div className="mt-3 pt-2 border-t border-gray-100">
-                    <div className="text-xs text-gray-500">
-                        {data.savingsRate >= 50 && "Excellent savings rate! Keep it up!"}
-                        {data.savingsRate >= 20 && data.savingsRate < 50 && "Good savings rate. You're on track!"}
-                        {data.savingsRate >= 0 && data.savingsRate < 20 && "Positive savings, but room for improvement."}
-                        {data.savingsRate < 0 && "Expenses exceeded income this month."}
-                    </div>
-                </div>
             </div>
         );
     };

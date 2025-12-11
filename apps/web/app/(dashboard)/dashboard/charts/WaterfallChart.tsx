@@ -144,39 +144,6 @@ export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency = "USD
                                 {data.percentage?.toFixed(1)}%
                             </span>
                         </div>
-
-                        {/* Additional context based on type */}
-                        {data.type === "income" && (
-                            <div className="mt-2 pt-2 border-t border-gray-100">
-                                <div className="text-xs text-gray-500">
-                                    This represents all money earned during the selected period
-                                </div>
-                            </div>
-                        )}
-                        
-                        {data.type === "expenses" && (
-                            <div className="mt-2 pt-2 border-t border-gray-100">
-                                <div className="text-xs text-gray-500">
-                                    This reduces your available savings from income
-                                </div>
-                            </div>
-                        )}
-                        
-                        {data.type === "savings" && (
-                            <div className="mt-2 pt-2 border-t border-gray-100">
-                                <div className="text-xs text-green-600">
-                                    Great job! You saved money this period
-                                </div>
-                            </div>
-                        )}
-                        
-                        {data.type === "loss" && (
-                            <div className="mt-2 pt-2 border-t border-gray-100">
-                                <div className="text-xs text-red-600">
-                                    Your expenses exceeded your income this period
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
             );
