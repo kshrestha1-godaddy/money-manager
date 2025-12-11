@@ -30,6 +30,7 @@ interface DueDateDataPoint {
   borrowerName: string;
   amount: number;
   remainingAmount: number;
+  paidAmount: number;
   dueDate: Date | null;
   daysUntilDue: number;
   status: string;
@@ -117,6 +118,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
         borrowerName: debt.borrowerName,
         amount: debt.amount,
         remainingAmount: result.remainingAmount,
+        paidAmount: debt.amount - result.remainingAmount,
         dueDate,
         daysUntilDue,
         status: debt.status,
@@ -204,6 +206,33 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
               {formatCurrency(data.remainingAmount, currency)}
             </span>
           </div>
+          {(data.status === "PARTIALLY_PAID" || data.paidAmount > 0) && (
+            <>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Paid Amount:</span>
+                <span className="font-medium text-green-600">
+                  {formatCurrency(data.paidAmount, currency)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Payment Progress:</span>
+                <span className="font-medium text-blue-600">
+                  {((data.paidAmount / data.amount) * 100).toFixed(1)}%
+                </span>
+              </div>
+              <div className="mt-1">
+                <div className="text-xs text-gray-500 mb-1">Progress Bar:</div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                    style={{ 
+                      width: `${(data.paidAmount / data.amount) * 100}%`
+                    }}
+                  ></div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     );
@@ -256,14 +285,17 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
         subtitle="Timeline showing days until due for each lending"
         fileName="lending-due-dates"
         csvData={[
-          ["Borrower", "Purpose", "Due Date", "Days Until Due", "Original Amount", "Remaining"],
+          ["Borrower", "Purpose", "Due Date", "Days Until Due", "Status", "Original Amount", "Paid Amount", "Remaining", "Payment Progress %"],
           ...chartData.data.map((d) => [
             d.borrowerName,
             d.purpose,
             d.dueDate?.toISOString().split("T")[0] || "",
             d.daysUntilDue,
+            d.status,
             d.amount,
+            d.paidAmount,
             d.remainingAmount,
+            d.paidAmount > 0 ? `${((d.paidAmount / d.amount) * 100).toFixed(1)}%` : "0%",
           ]),
         ]}
         csvFileName="lending-due-dates-data"
@@ -464,6 +496,47 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
                   const projectionEndY = chartAreaHeight;
                   const labelY = projectionEndY + 15;
                   
+                  // Enhanced label with partial payment info
+                  let statusIndicator = "";
+                  console.log(`Debt ${entry.borrowerName}: status=${entry.status}, paidAmount=${entry.paidAmount}, amount=${entry.amount}`);
+                  
+                  if (entry.status === "PARTIALLY_PAID" && entry.paidAmount > 0) {
+                    const paidCompact = formatCompact(entry.paidAmount);
+                    const paymentProgress = ((entry.paidAmount / entry.amount) * 100).toFixed(0);
+                    statusIndicator = ` [Paid: ${paidCompact} (${paymentProgress}%)]`;
+                  } else if (entry.status === "OVERDUE") {
+                    statusIndicator = " [OVERDUE]";
+                  } else if (entry.paidAmount > 0) {
+                    // Show paid info even if status is not exactly "PARTIALLY_PAID"
+                    const paidCompact = formatCompact(entry.paidAmount);
+                    const paymentProgress = ((entry.paidAmount / entry.amount) * 100).toFixed(0);
+                    statusIndicator = ` [Paid: ${paidCompact} (${paymentProgress}%)]`;
+                  }
+                  
+                  // Calculate responsive font size based on bar width and text length
+                  const labelText = `${entry.borrowerName} | ${amount} | ${percentage}%${statusIndicator}`;
+                  const textLength = labelText.length;
+                  const availableWidth = width - 20; // Leave some padding
+                  
+                  // Estimate character width (approximately 6-8 pixels per character at fontSize 11)
+                  const estimatedTextWidth = textLength * 7;
+                  let fontSize = 11;
+                  
+                  // Adjust font size if text is too wide for the bar
+                  if (estimatedTextWidth > availableWidth) {
+                    fontSize = Math.max(9, Math.floor((availableWidth / textLength) * 1.2)); // Increased min font size
+                  }
+                  
+                  // For very long text, use smaller font but keep readable
+                  if (textLength > 60) {
+                    fontSize = Math.min(fontSize, 9);
+                  } else if (textLength > 45) {
+                    fontSize = Math.min(fontSize, 10);
+                  }
+                  
+                  // Ensure minimum readable size
+                  fontSize = Math.max(9, fontSize);
+                  
                   return (
                     <g>
                       {/* Single line label with borrower name, amount, and percentage */}
@@ -471,11 +544,11 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
                         x={x + width / 2}
                         y={barCenterY + 4}
                         fill="#ffffff"
-                        fontSize={11}
+                        fontSize={fontSize}
                         fontWeight={600}
                         textAnchor="middle"
                       >
-                        {`${entry.borrowerName} | ${amount} | ${percentage}%  `}
+                        {labelText}
                       </text>
                       {/* Vertical projection line from bar tip DOWN to x-axis area */}
                       <line
