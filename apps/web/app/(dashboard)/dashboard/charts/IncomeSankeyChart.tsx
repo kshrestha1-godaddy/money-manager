@@ -205,14 +205,31 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
                     const formattedMin = formatCurrency(item.minAmount, currency);
                     const formattedMax = formatCurrency(item.maxAmount, currency);
                     
-                    const tooltip = `<div style="padding: 20px; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.5; min-width: 384px; max-width: 512px; min-height: 224px;">
-<div style="font-weight: bold; margin-bottom: 8px; color: #333; font-size: 15px;">${item.from.replace(/ \(\d+x\)$/, '')}</div>
-<div style="margin-bottom: 3px;"><strong>Total:</strong> ${formattedTotal} (${percentage}%)</div>
-<div style="margin-bottom: 3px;"><strong>Transactions:</strong> ${item.count}</div>
-<div style="margin-bottom: 3px;"><strong>Average:</strong> ${formattedAverage}</div>
-<div style="margin-bottom: 3px;"><strong>Range:</strong> ${formattedMin} - ${formattedMax}</div>
-<div><strong>Period:</strong> ${item.dateRange}</div>
-</div>`;
+                    const tooltip = `<div style="padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 1px solid #e5e7eb; min-width: 300px; max-width: 420px;">
+                    <div style="font-weight: 600; margin-bottom: 12px; color: #111827; font-size: 16px; border-bottom: 1px solid #f3f4f6; padding-bottom: 8px;">${item.from.replace(/ \(\d+x\)$/, '')}</div>
+                    <div style="display: grid; gap: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: #6b7280; font-weight: 500;">Total Amount:</span>
+                    <span style="font-weight: 600; color: #059669; font-size: 14px;">${formattedTotal} <span style="color: #9ca3af; font-size: 12px;">(${percentage}%)</span></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: #6b7280; font-weight: 500;">Transactions:</span>
+                    <span style="font-weight: 600; color: #374151;">${item.count}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: #6b7280; font-weight: 500;">Average:</span>
+                    <span style="font-weight: 600; color: #374151;">${formattedAverage}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: #6b7280; font-weight: 500;">Range:</span>
+                    <span style="font-weight: 600; color: #374151;">${formattedMin} - ${formattedMax}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; padding-top: 8px; border-top: 1px solid #f3f4f6;">
+                    <span style="color: #6b7280; font-weight: 500;">Period:</span>
+                    <span style="font-weight: 600; color: #6366f1; font-size: 13px;">${item.dateRange}</span>
+                    </div>
+                    </div>
+                    </div>`;
                     
                     return [labelWithPercentage, item.to, validSize, tooltip];
                 });

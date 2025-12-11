@@ -148,13 +148,19 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
             
             // Get date range for Others category
             const allDates = smallCategories.flatMap(item => {
-                const [start, end] = item.dateRange.includes(' - ') 
-                    ? item.dateRange.split(' - ').map(d => new Date(d + ' 1, 2000'))
-                    : [new Date(item.dateRange + ' 1, 2000'), new Date(item.dateRange + ' 1, 2000')];
-                return [start, end];
+                if (item.dateRange.includes(' - ')) {
+                    const parts = item.dateRange.split(' - ');
+                    const start = parts[0] ? new Date(parts[0] + ' 1, 2000') : new Date();
+                    const end = parts[1] ? new Date(parts[1] + ' 1, 2000') : new Date();
+                    return [start, end];
+                } else {
+                    const date = new Date(item.dateRange + ' 1, 2000');
+                    return [date, date];
+                }
             });
-            const othersEarliest = new Date(Math.min(...allDates.map(d => d.getTime())));
-            const othersLatest = new Date(Math.max(...allDates.map(d => d.getTime())));
+            const validDates = allDates.filter(d => d instanceof Date && !isNaN(d.getTime()));
+            const othersEarliest = validDates.length > 0 ? new Date(Math.min(...validDates.map(d => d.getTime()))) : new Date();
+            const othersLatest = validDates.length > 0 ? new Date(Math.max(...validDates.map(d => d.getTime()))) : new Date();
             const othersDateRange = formatDateRange(othersEarliest, othersLatest);
             
             chartData.push({
@@ -189,9 +195,27 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
         
         if (!categoryItem) {
             return (
-                <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-5 min-w-96 max-w-lg min-h-32">
-                    <div className="font-bold text-gray-900 mb-2 text-base">{name}</div>
-                    <div className="text-sm text-gray-600">{formatCurrency(value, currency)} [{percentage}%]</div>
+                <div style={{
+                    padding: '16px',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    background: 'white',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    border: '1px solid #e5e7eb',
+                    minWidth: '280px',
+                    maxWidth: '400px'
+                }}>
+                    <div style={{
+                        fontWeight: '600',
+                        marginBottom: '8px',
+                        color: '#111827',
+                        fontSize: '16px'
+                    }}>
+                        {name}
+                    </div>
+                    <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                        {formatCurrency(value, currency)} [{percentage}%]
+                    </div>
                 </div>
             );
         }
@@ -203,18 +227,79 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
         const formattedMax = formatCurrency(categoryItem.maxAmount, currency);
         
         return (
-            <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-5 min-w-96 max-w-lg min-h-56">
-                <div className="font-bold text-gray-900 mb-3 text-base">{name}</div>
-                <div className="space-y-2 text-sm">
-                    <div><span className="font-medium">Total:</span> {formattedTotal} ({percentage}%)</div>
-                    <div><span className="font-medium">Transactions:</span> {categoryItem.count}</div>
-                    <div><span className="font-medium">Average:</span> {formattedAverage}</div>
-                    <div><span className="font-medium">Range:</span> {formattedMin} - {formattedMax}</div>
-                    <div><span className="font-medium">Period:</span> {categoryItem.dateRange}</div>
+            <div style={{
+                padding: '16px',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                background: 'white',
+                borderRadius: '8px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                border: '1px solid #e5e7eb',
+                minWidth: '320px',
+                maxWidth: '440px'
+            }}>
+                <div style={{
+                    fontWeight: '600',
+                    marginBottom: '12px',
+                    color: '#111827',
+                    fontSize: '16px',
+                    borderBottom: '1px solid #f3f4f6',
+                    paddingBottom: '8px'
+                }}>
+                    {name}
+                </div>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: '#6b7280', fontWeight: '500' }}>Total Amount:</span>
+                        <span style={{ 
+                            fontWeight: '600', 
+                            color: type === 'income' ? '#059669' : '#dc2626', 
+                            fontSize: '14px' 
+                        }}>
+                            {formattedTotal} <span style={{ color: '#9ca3af', fontSize: '12px' }}>({percentage}%)</span>
+                        </span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: '#6b7280', fontWeight: '500' }}>Transactions:</span>
+                        <span style={{ fontWeight: '600', color: '#374151' }}>{categoryItem.count}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: '#6b7280', fontWeight: '500' }}>Average:</span>
+                        <span style={{ fontWeight: '600', color: '#374151' }}>{formattedAverage}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: '#6b7280', fontWeight: '500' }}>Range:</span>
+                        <span style={{ fontWeight: '600', color: '#374151' }}>{formattedMin} - {formattedMax}</span>
+                    </div>
+                    <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        marginTop: '4px',
+                        paddingTop: '8px',
+                        borderTop: '1px solid #f3f4f6'
+                    }}>
+                        <span style={{ color: '#6b7280', fontWeight: '500' }}>Period:</span>
+                        <span style={{ fontWeight: '600', color: '#6366f1', fontSize: '13px' }}>{categoryItem.dateRange}</span>
+                    </div>
                     {name === 'Others' && smallCategories.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-gray-200">
-                            <div className="font-medium text-xs text-gray-500 mb-1">Includes:</div>
-                            <div className="text-xs text-gray-600">
+                        <div style={{ 
+                            marginTop: '8px', 
+                            paddingTop: '8px', 
+                            borderTop: '1px solid #f3f4f6' 
+                        }}>
+                            <div style={{ 
+                                fontWeight: '500', 
+                                fontSize: '12px', 
+                                color: '#6b7280', 
+                                marginBottom: '4px' 
+                            }}>
+                                Includes:
+                            </div>
+                            <div style={{ 
+                                fontSize: '12px', 
+                                color: '#374151', 
+                                lineHeight: '1.4' 
+                            }}>
                                 {smallCategories.map(cat => cat.name).join(', ')}
                             </div>
                         </div>
