@@ -326,7 +326,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
           <BarChart
             data={chartData.data}
             layout="vertical"
-            margin={{ top: 50, right: 30, left: 10, bottom: 50 }}
+            margin={{ top: 10, right: 30, left: 10, bottom: 50 }}
             barCategoryGap="20%"
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={true} vertical={true} />
@@ -356,67 +356,67 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
             {/* Reference line at 0 (today) */}
             <ReferenceLine
               x={0}
-              stroke="#dc2626"
-              strokeWidth={2}
+              stroke="#6b7280"
+              strokeWidth={1}
               strokeDasharray="4 4"
               label={{
                 value: "Today",
                 position: "top",
-                offset: 40,
-                fill: "#dc2626",
+                offset: 10,
+                fill: "#6b7280",
                 fontSize: 10,
-                fontWeight: 600,
+                fontWeight: 300,
               }}
             />
 
             {/* Reference line at 7 days */}
             <ReferenceLine 
               x={7} 
-              stroke="#f97316" 
+              stroke="#6b7280" 
               strokeDasharray="3 3" 
               strokeWidth={1} 
               opacity={0.5}
               label={{
                 value: "7d",
                 position: "top",
-                offset: 40,
-                fill: "#f97316",
+                offset: 10,
+                fill: "#6b7280",
                 fontSize: 9,
-                fontWeight: 500,
+                fontWeight: 300,
               }}
             />
 
             {/* Reference line at 30 days */}
             <ReferenceLine 
               x={30} 
-              stroke="#eab308" 
+              stroke="#6b7280" 
               strokeDasharray="3 3" 
-              strokeWidth={1.5} 
+              strokeWidth={1} 
               opacity={0.6}
               label={{
                 value: "30d",
                 position: "top",
-                offset: 40,
-                fill: "#eab308",
+                offset: 10,
+                fill: "#6b7280",
                 fontSize: 10,
-                fontWeight: 600,
+                fontWeight: 300,
               }}
             />
 
             {/* Reference line at 60 days */}
             <ReferenceLine 
               x={60} 
-              stroke="#22c55e" 
+              stroke="#6b7280" 
               strokeDasharray="3 3" 
-              strokeWidth={1.5} 
+              strokeWidth={1} 
               opacity={0.6}
               label={{
                 value: "60d",
                 position: "top",
-                offset: 40,
-                fill: "#22c55e",
+                offset: 10,
+                fill: "#6b7280",
                 fontSize: 10,
-                fontWeight: 600,
+                fontWeight: 300,
               }}
             />
 
