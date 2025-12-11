@@ -38,12 +38,12 @@ interface WaterfallDataPoint {
   description: string;
 }
 
-// Subtle/muted colors for each bar type
+// Dashboard-consistent colors for each bar type
 const COLORS = {
-  total: "#9ca3af",      // Soft gray for total lendings
-  decrease: "#f87171",   // Soft coral for active (outstanding)
-  partial: "#fbbf24",    // Soft amber for partially paid
-  result: "#009933",     // Soft mint green for fully paid
+  total: "#6b7280",      // Neutral gray for total lendings
+  decrease: "#ef4444",   // Dashboard red for active (outstanding)
+  partial: "#3b82f6",    // Dashboard blue for partially paid
+  result: "#10b981",     // Dashboard green for fully paid
 };
 
 // Pattern IDs for textures
@@ -214,9 +214,9 @@ export function DebtStatusWaterfallChart({
     
     // White text for inside bars, colored text for outside
     const textColor = isInsideBar ? "#ffffff" : 
-      dataPoint.type === "total" ? "#4b5563" :
-      dataPoint.type === "decrease" ? "#dc2626" :
-      dataPoint.type === "partial" ? "#d97706" : "#16a34a";
+      dataPoint.type === "total" ? "#6b7280" :
+      dataPoint.type === "decrease" ? "#ef4444" :
+      dataPoint.type === "partial" ? "#3b82f6" : "#10b981";
 
     if (isInsideBar) {
       // Render inside the bar with amount and percentage
@@ -280,7 +280,7 @@ export function DebtStatusWaterfallChart({
     const colorClass = 
       dataPoint.type === 'total' ? 'text-gray-600' :
       dataPoint.type === 'decrease' ? 'text-red-500' :
-      dataPoint.type === 'partial' ? 'text-amber-500' : 'text-green-600';
+      dataPoint.type === 'partial' ? 'text-blue-500' : 'text-green-600';
 
     return (
       <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-4 py-3 min-w-[200px]">
@@ -521,7 +521,7 @@ export function DebtStatusWaterfallChart({
               {/* Total - Subtle diagonal lines */}
               <pattern id={PATTERN_IDS.total} patternUnits="userSpaceOnUse" width="8" height="8">
                 <rect width="8" height="8" fill={COLORS.total} />
-                <path d="M-2,2 l4,-4 M0,8 l8,-8 M6,10 l4,-4" stroke="#7c8591" strokeWidth="1" opacity="0.3" />
+                <path d="M-2,2 l4,-4 M0,8 l8,-8 M6,10 l4,-4" stroke="#4b5563" strokeWidth="1" opacity="0.3" />
               </pattern>
               
               {/* Decrease (Active) - Horizontal lines */}
@@ -533,13 +533,13 @@ export function DebtStatusWaterfallChart({
               {/* Partial - Dots pattern */}
               <pattern id={PATTERN_IDS.partial} patternUnits="userSpaceOnUse" width="8" height="8">
                 <rect width="8" height="8" fill={COLORS.partial} />
-                <circle cx="4" cy="4" r="1.5" fill="#d97706" opacity="0.3" />
+                <circle cx="4" cy="4" r="1.5" fill="#1d4ed8" opacity="0.3" />
               </pattern>
               
               {/* Result (Fully Paid) - Subtle crosshatch */}
               <pattern id={PATTERN_IDS.result} patternUnits="userSpaceOnUse" width="8" height="8">
                 <rect width="8" height="8" fill={COLORS.result} />
-                <path d="M0,0 l8,8 M8,0 l-8,8" stroke="#10b981" strokeWidth="0.8" opacity="0.2" />
+                <path d="M0,0 l8,8 M8,0 l-8,8" stroke="#059669" strokeWidth="0.8" opacity="0.2" />
               </pattern>
             </defs>
             

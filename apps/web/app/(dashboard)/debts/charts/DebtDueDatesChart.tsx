@@ -38,13 +38,13 @@ interface DueDateDataPoint {
   isOverdue: boolean;
 }
 
-// Subtle/muted colors for each urgency type
+// Dashboard-consistent colors for each urgency type
 const COLORS = {
-  overdue: "#f87171",     // Soft coral for overdue
-  thisWeek: "#fb923c",   // Soft orange for this week
-  thisMonth: "#fbbf24",  // Soft amber for this month
-  withinQuarter: "#009933", // Soft green for within 3 months
-  later: "#9ca3af"       // Soft gray for later
+  overdue: "#ef4444",     // Dashboard red for overdue
+  thisWeek: "#f59e0b",   // Dashboard orange for this week
+  thisMonth: "#3b82f6",  // Dashboard blue for this month
+  withinQuarter: "#10b981", // Dashboard green for within 3 months
+  later: "#6b7280"       // Dashboard gray for later
 };
 
 // Pattern IDs for textures
@@ -63,12 +63,6 @@ function getPatternType(daysUntilDue: number, isOverdue: boolean): keyof typeof 
   if (daysUntilDue <= 30) return "thisMonth";
   if (daysUntilDue <= 90) return "withinQuarter";
   return "later";
-}
-
-// Color based on urgency
-function getBarColor(daysUntilDue: number, isOverdue: boolean): string {
-  const patternType = getPatternType(daysUntilDue, isOverdue);
-  return COLORS[patternType];
 }
 
 function getDaysLabel(days: number, isOverdue: boolean): string {
@@ -437,25 +431,25 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
               {/* This Week - Vertical lines */}
               <pattern id={PATTERN_IDS.thisWeek} patternUnits="userSpaceOnUse" width="6" height="6">
                 <rect width="6" height="6" fill={COLORS.thisWeek} />
-                <line x1="3" y1="0" x2="3" y2="6" stroke="#ea580c" strokeWidth="1" opacity="0.3" />
+                <line x1="3" y1="0" x2="3" y2="6" stroke="#d97706" strokeWidth="1" opacity="0.3" />
               </pattern>
               
               {/* This Month - Dots pattern */}
               <pattern id={PATTERN_IDS.thisMonth} patternUnits="userSpaceOnUse" width="8" height="8">
                 <rect width="8" height="8" fill={COLORS.thisMonth} />
-                <circle cx="4" cy="4" r="1.5" fill="#d97706" opacity="0.3" />
+                <circle cx="4" cy="4" r="1.5" fill="#1d4ed8" opacity="0.3" />
               </pattern>
               
               {/* Within Quarter - Horizontal lines */}
               <pattern id={PATTERN_IDS.withinQuarter} patternUnits="userSpaceOnUse" width="6" height="6">
                 <rect width="6" height="6" fill={COLORS.withinQuarter} />
-                <line x1="0" y1="3" x2="6" y2="3" stroke="#16a34a" strokeWidth="1" opacity="0.25" />
+                <line x1="0" y1="3" x2="6" y2="3" stroke="#059669" strokeWidth="1" opacity="0.25" />
               </pattern>
               
               {/* Later - Crosshatch */}
               <pattern id={PATTERN_IDS.later} patternUnits="userSpaceOnUse" width="8" height="8">
                 <rect width="8" height="8" fill={COLORS.later} />
-                <path d="M0,0 l8,8 M8,0 l-8,8" stroke="#6b7280" strokeWidth="0.8" opacity="0.2" />
+                <path d="M0,0 l8,8 M8,0 l-8,8" stroke="#4b5563" strokeWidth="0.8" opacity="0.2" />
               </pattern>
             </defs>
 
