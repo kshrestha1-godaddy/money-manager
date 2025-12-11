@@ -62,6 +62,20 @@ const redNegativeIcon = ICON_COLORS.redNegative;
 
 type SectionKey = 'accounts' | 'investments' | 'debts';
 
+// Worth chart colors (matching dashboard theme)
+const WORTH_COLORS = {
+    accounts: '#10b981',    // Green (Bank Balance)
+    investments: '#3b82f6', // Blue (Investments) 
+    moneyLent: '#ef4444',   // Red (Money Lent)
+} as const;
+
+// Pattern IDs for textures
+const WORTH_PATTERN_IDS = {
+    accounts: 'pattern-accounts',
+    investments: 'pattern-investments', 
+    moneyLent: 'pattern-money-lent',
+} as const;
+
 export default function NetWorthPage() {
     const session = useSession();
     const { currency } = useCurrency();
@@ -633,6 +647,27 @@ export default function NetWorthPage() {
                                     data={chartData}
                                     margin={{ top: 40, right: 30, left: 20, bottom: 10 }}
                                 >
+                                    {/* SVG Pattern Definitions for Textures */}
+                                    <defs>
+                                        {/* Bank Balance - Diagonal lines */}
+                                        <pattern id={WORTH_PATTERN_IDS.accounts} patternUnits="userSpaceOnUse" width="8" height="8">
+                                            <rect width="8" height="8" fill={WORTH_COLORS.accounts} />
+                                            <path d="M-2,2 l4,-4 M0,8 l8,-8 M6,10 l4,-4" stroke="#059669" strokeWidth="1" opacity="0.3" />
+                                        </pattern>
+                                        
+                                        {/* Investments - Dots pattern */}
+                                        <pattern id={WORTH_PATTERN_IDS.investments} patternUnits="userSpaceOnUse" width="8" height="8">
+                                            <rect width="8" height="8" fill={WORTH_COLORS.investments} />
+                                            <circle cx="4" cy="4" r="1.5" fill="#1d4ed8" opacity="0.3" />
+                                        </pattern>
+                                        
+                                        {/* Money Lent - Horizontal lines */}
+                                        <pattern id={WORTH_PATTERN_IDS.moneyLent} patternUnits="userSpaceOnUse" width="6" height="6">
+                                            <rect width="6" height="6" fill={WORTH_COLORS.moneyLent} />
+                                            <line x1="0" y1="3" x2="6" y2="3" stroke="#dc2626" strokeWidth="1" opacity="0.25" />
+                                        </pattern>
+                                    </defs>
+                                    
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                                     <XAxis 
                                         dataKey="name" 
@@ -645,9 +680,27 @@ export default function NetWorthPage() {
                                     />
                                     <Tooltip content={<CustomAssetTooltip />} />
                                     <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                        {chartData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
+                                        {chartData.map((entry, index) => {
+                                            let patternUrl = entry.color; // Default to solid color
+                                            
+                                            // Map entry names to pattern URLs
+                                            if (entry.name === 'Bank Balance') {
+                                                patternUrl = `url(#${WORTH_PATTERN_IDS.accounts})`;
+                                            } else if (entry.name === 'Investments') {
+                                                patternUrl = `url(#${WORTH_PATTERN_IDS.investments})`;
+                                            } else if (entry.name === 'Money Lent') {
+                                                patternUrl = `url(#${WORTH_PATTERN_IDS.moneyLent})`;
+                                            }
+                                            
+                                            return (
+                                                <Cell 
+                                                    key={`cell-${index}`} 
+                                                    fill={patternUrl}
+                                                    stroke={entry.color}
+                                                    strokeWidth={1}
+                                                />
+                                            );
+                                        })}
                                         {/* Total value labels at the top */}
                                         <LabelList 
                                             dataKey="value" 
@@ -748,6 +801,27 @@ export default function NetWorthPage() {
                                         data={chartData}
                                         margin={{ top: 40, right: 30, left: 20, bottom: 20 }}
                                     >
+                                        {/* SVG Pattern Definitions for Textures (Expanded View) */}
+                                        <defs>
+                                            {/* Bank Balance - Diagonal lines */}
+                                            <pattern id="expanded-pattern-accounts" patternUnits="userSpaceOnUse" width="8" height="8">
+                                                <rect width="8" height="8" fill={WORTH_COLORS.accounts} />
+                                                <path d="M-2,2 l4,-4 M0,8 l8,-8 M6,10 l4,-4" stroke="#059669" strokeWidth="1" opacity="0.3" />
+                                            </pattern>
+                                            
+                                            {/* Investments - Dots pattern */}
+                                            <pattern id="expanded-pattern-investments" patternUnits="userSpaceOnUse" width="8" height="8">
+                                                <rect width="8" height="8" fill={WORTH_COLORS.investments} />
+                                                <circle cx="4" cy="4" r="1.5" fill="#1d4ed8" opacity="0.3" />
+                                            </pattern>
+                                            
+                                            {/* Money Lent - Horizontal lines */}
+                                            <pattern id="expanded-pattern-money-lent" patternUnits="userSpaceOnUse" width="6" height="6">
+                                                <rect width="6" height="6" fill={WORTH_COLORS.moneyLent} />
+                                                <line x1="0" y1="3" x2="6" y2="3" stroke="#dc2626" strokeWidth="1" opacity="0.25" />
+                                            </pattern>
+                                        </defs>
+                                        
                                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                                         <XAxis 
                                             dataKey="name" 
@@ -760,9 +834,27 @@ export default function NetWorthPage() {
                                         />
                                         <Tooltip content={<CustomAssetTooltip />} />
                                         <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                            {chartData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={entry.color} />
-                                            ))}
+                                            {chartData.map((entry, index) => {
+                                                let patternUrl = entry.color; // Default to solid color
+                                                
+                                                // Map entry names to expanded pattern URLs
+                                                if (entry.name === 'Bank Balance') {
+                                                    patternUrl = 'url(#expanded-pattern-accounts)';
+                                                } else if (entry.name === 'Investments') {
+                                                    patternUrl = 'url(#expanded-pattern-investments)';
+                                                } else if (entry.name === 'Money Lent') {
+                                                    patternUrl = 'url(#expanded-pattern-money-lent)';
+                                                }
+                                                
+                                                return (
+                                                    <Cell 
+                                                        key={`cell-${index}`} 
+                                                        fill={patternUrl}
+                                                        stroke={entry.color}
+                                                        strokeWidth={1}
+                                                    />
+                                                );
+                                            })}
                                             {/* Total value labels at the top */}
                                             <LabelList 
                                                 dataKey="value" 
