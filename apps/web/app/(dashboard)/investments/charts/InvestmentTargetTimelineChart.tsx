@@ -334,6 +334,19 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                                 {formatCurrency(Math.max(0, data.targetAmount - data.currentAmount), currency)}
                             </span>
                         </div>
+                        {data.daysRemaining !== undefined && (
+                            <div className="border-t border-gray-100 pt-3 mt-3">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-600">Days Remaining:</span>
+                                    <span className={`font-medium ${data.daysRemaining < 0 ? 'text-red-600' :
+                                            data.daysRemaining < 30 ? 'text-orange-600' : 'text-green-600'
+                                        }`}>
+                                        {data.daysRemaining < 0 ? 'Overdue' : `${data.daysRemaining} days`}
+                                    </span>
+                                </div>
+
+                            </div>
+                        )}
                         <div className="border-t border-gray-100 pt-3 mt-3">
                             <div className="flex justify-between items-center mb-2">
                                 <span className="text-gray-600">Progress:</span>
@@ -345,6 +358,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                                     {data.progress.toFixed(1)}%
                                 </span>
                             </div>
+                            
                             <div className="w-full bg-gray-200 rounded-full h-3 mt-2">
                                 <div 
                                     className={`h-3 rounded-full transition-all duration-300 ${
@@ -354,46 +368,6 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                                     }`}
                                     style={{ width: `${Math.min(100, data.progress)}%` }}
                                 />
-                            </div>
-                        </div>
-                        {data.daysRemaining !== undefined && (
-                            <div className="border-t border-gray-100 pt-3 mt-3">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-gray-600">Days Remaining:</span>
-                                    <span className={`font-medium ${
-                                        data.daysRemaining < 0 ? 'text-red-600' :
-                                        data.daysRemaining < 30 ? 'text-orange-600' : 'text-green-600'
-                                    }`}>
-                                        {data.daysRemaining < 0 ? 'Overdue' : `${data.daysRemaining} days`}
-                                    </span>
-                                </div>
-                                {data.daysRemaining >= 0 && (
-                                    <div className="text-xs text-gray-500 mt-1">
-                                        {data.daysRemaining < 7 ? '⚠️ Target approaching soon' :
-                                         data.daysRemaining < 30 ? '📅 Target due this month' :
-                                         data.daysRemaining < 90 ? '📈 Good time to accelerate progress' :
-                                         '🎯 Long-term target - stay consistent'}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                        
-                        {/* Status indicator */}
-                        <div className="border-t border-gray-100 pt-3 mt-3">
-                            <div className="flex items-center justify-center">
-                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                    data.isComplete ? 'bg-green-100 text-green-800' :
-                                    data.isOverdue ? 'bg-red-100 text-red-800' :
-                                    data.progress >= 75 ? 'bg-blue-100 text-blue-800' :
-                                    data.progress >= 50 ? 'bg-yellow-100 text-yellow-800' :
-                                    'bg-orange-100 text-orange-800'
-                                }`}>
-                                    {data.isComplete ? '✅ Target Achieved' :
-                                     data.isOverdue ? '🚨 Overdue' :
-                                     data.progress >= 75 ? '🎯 Nearly There' :
-                                     data.progress >= 50 ? '📈 Good Progress' :
-                                     '🚀 Getting Started'}
-                                </span>
                             </div>
                         </div>
                     </div>
