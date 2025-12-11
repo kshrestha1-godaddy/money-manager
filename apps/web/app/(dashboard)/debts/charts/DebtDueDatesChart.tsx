@@ -239,7 +239,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
   };
 
   // Calculate dynamic height based on number of items (increased to account for larger margins)
-  const chartHeight = Math.max(480, chartData.data.length * 60 + 120);
+  const chartHeight = Math.max(480, chartData.data.length * 60);
 
   if (chartData.data.length === 0) {
     return (
@@ -332,7 +332,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
           <BarChart
             data={chartData.data}
             layout="vertical"
-            margin={{ top: 60, right: 30, left: 10, bottom: 100 }}
+            margin={{ top: 60, right: 30, left: 10, bottom: 50 }}
             barCategoryGap="20%"
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={true} vertical={true} />
@@ -576,7 +576,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
       </div>
 
       {/* Legend */}
-      <div className="mt-4 flex flex-wrap justify-center gap-4 text-xs">
+      <div className="flex flex-wrap justify-center gap-4 text-xs">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: COLORS.overdue }} />
           <span className="text-gray-600">Overdue</span>
