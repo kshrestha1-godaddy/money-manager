@@ -20,6 +20,7 @@ import { formatDate } from "../../utils/date";
 import { getTodayInTimezone } from "../../utils/timezone";
 import { getBookmarkedTransactionsForCalendar, getBookmarkedTransactionsForCalendarInTimezone } from "./actions/calendar-bookmarks";
 import { getActiveDebtsWithDueDates, getActiveDebtsWithDueDatesInTimezone } from "./actions/calendar-debts";
+import { getNotesWithRemindersForCalendar, getNotesWithRemindersForCalendarInTimezone, CalendarNoteEvent } from "./actions/calendar-notes";
 import { useTimezone } from "../../providers/TimezoneProvider";
 import { TimezoneSelector } from "../../components/shared/TimezoneSelector";
 
@@ -32,12 +33,15 @@ interface CalendarEvent {
   id: string;
   date: string; // Human-readable format like "January 15, 2024"
   title: string;
-  type?: "INCOME" | "EXPENSE" | "DEBT_DUE";
+  type?: "INCOME" | "EXPENSE" | "DEBT_DUE" | "NOTE_REMINDER";
   amount?: number;
   category?: string;
   borrowerName?: string;
   status?: string;
   isOverdue?: boolean;
+  content?: string;
+  tags?: string[];
+  noteId?: number;
 }
 
 const loadingContainer = LOADING_COLORS.container;
@@ -53,6 +57,7 @@ export default function CalendarPage() {
   const [selectedDay, setSelectedDay] = useState(now.getDate());
   const [bookmarkedEvents, setBookmarkedEvents] = useState<CalendarBookmarkEvent[]>([]);
   const [debtEvents, setDebtEvents] = useState<CalendarDebtEvent[]>([]);
+  const [noteEvents, setNoteEvents] = useState<CalendarNoteEvent[]>([]);
   const [calendarDataLoading, setCalendarDataLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const { currency: userCurrency } = useCurrency();
@@ -98,28 +103,33 @@ export default function CalendarPage() {
       
       // Use timezone-aware functions when timezone is available
       if (timezone && !timezoneLoading) {
-        // Fetch both bookmarked transactions and debt due dates in parallel with timezone
-        const [bookmarkedTransactions, debtsWithDueDates] = await Promise.all([
+        // Fetch bookmarked transactions, debt due dates, and note reminders in parallel with timezone
+        const [bookmarkedTransactions, debtsWithDueDates, notesWithReminders] = await Promise.all([
           getBookmarkedTransactionsForCalendarInTimezone(timezone),
-          getActiveDebtsWithDueDatesInTimezone(timezone)
+          getActiveDebtsWithDueDatesInTimezone(timezone),
+          getNotesWithRemindersForCalendarInTimezone(timezone)
         ]);
         
         setBookmarkedEvents(bookmarkedTransactions);
         setDebtEvents(debtsWithDueDates);
+        setNoteEvents(notesWithReminders);
       } else {
         // Fallback to timezone-unaware functions
-        const [bookmarkedTransactions, debtsWithDueDates] = await Promise.all([
+        const [bookmarkedTransactions, debtsWithDueDates, notesWithReminders] = await Promise.all([
           getBookmarkedTransactionsForCalendar(),
-          getActiveDebtsWithDueDates()
+          getActiveDebtsWithDueDates(),
+          getNotesWithRemindersForCalendar()
         ]);
         
         setBookmarkedEvents(bookmarkedTransactions);
         setDebtEvents(debtsWithDueDates);
+        setNoteEvents(notesWithReminders);
       }
     } catch (error) {
       console.error("Error loading calendar data:", error);
       setBookmarkedEvents([]);
       setDebtEvents([]);
+      setNoteEvents([]);
     } finally {
       setCalendarDataLoading(false);
       setIsInitialized(true);
@@ -138,6 +148,9 @@ export default function CalendarPage() {
     if (event.type === "DEBT_DUE") {
       // Navigate to debts page
       router.push("/debts");
+    } else if (event.type === "NOTE_REMINDER") {
+      // Navigate to notes page
+      router.push("/notes");
     } else if (event.type === "EXPENSE" || event.type === "INCOME") {
       // Calculate d-1, d, d+1 date range
       const eventDateCopy = new Date(eventDate);
@@ -222,8 +235,26 @@ export default function CalendarPage() {
       map.set(dateKey, arr);
     });
     
+    // Add note reminders
+    noteEvents.forEach((event) => {
+      const calendarEvent: CalendarEvent = {
+        id: event.id,
+        date: event.date,
+        title: event.title,
+        type: event.type,
+        content: event.content,
+        tags: event.tags,
+        noteId: event.noteId
+      };
+      
+      const dateKey = getDateKeyFromHumanDate(event.date);
+      const arr = map.get(dateKey) ?? [];
+      arr.push(calendarEvent);
+      map.set(dateKey, arr);
+    });
+    
     return map;
-  }, [bookmarkedEvents, debtEvents, timezone, timezoneLoading]);
+  }, [bookmarkedEvents, debtEvents, noteEvents, timezone, timezoneLoading]);
 
   function prevMonth() {
     const { year, monthIndex } = getPreviousMonth(viewYear, viewMonth);
@@ -442,6 +473,11 @@ export default function CalendarPage() {
                         textColor = "text-orange-700";
                         borderColor = "border-orange-200";
                       }
+                    } else if (ev.type === "NOTE_REMINDER") {
+                      // Special styling for note reminders
+                      bgColor = "bg-purple-50";
+                      textColor = "text-purple-700";
+                      borderColor = "border-purple-200";
                     } else {
                       // Default styling
                       bgColor = "bg-blue-50";
