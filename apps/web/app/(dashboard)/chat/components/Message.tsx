@@ -8,7 +8,6 @@ import { Message as MessageType } from "../types/chat";
 
 interface MessageProps {
   message: MessageType;
-  streamingText: Map<number, string>;
   expandedSteps: Set<number | string>;
   showComments: Set<number>;
   commentText: Map<number, string>;
@@ -21,7 +20,6 @@ interface MessageProps {
 
 export function Message({
   message,
-  streamingText,
   expandedSteps,
   showComments,
   commentText,
@@ -63,12 +61,9 @@ export function Message({
           </span>
         </div>
         
-        {/* Processing Steps & Intermediate Steps - Combined (moved before system prompt) */}
-        {message.sender === "ASSISTANT" && (
-          (message.processingSteps && message.processingSteps.length > 0) ||
-          (message.intermediateSteps && message.intermediateSteps.length > 0)
-        ) && (
-          <CombinedSteps
+        {/* Processing Steps */}
+        {message.sender === "ASSISTANT" && message.processingSteps && message.processingSteps.length > 0 && (
+          <ProcessingSteps
             message={message}
             expandedSteps={expandedSteps}
             onToggleSteps={onToggleSteps}
@@ -126,9 +121,6 @@ export function Message({
           {message.isProcessing ? (
             <ProcessingMessage 
               message={message}
-              streamingText={streamingText}
-              expandedSteps={expandedSteps}
-              onToggleSteps={onToggleSteps}
             />
           ) : (
             <div className={`text-base leading-relaxed ${
@@ -184,27 +176,17 @@ export function Message({
 
 function ProcessingMessage({
   message,
-  streamingText,
-  expandedSteps,
-  onToggleSteps
 }: {
   message: MessageType;
-  streamingText: Map<number, string>;
-  expandedSteps: Set<number | string>;
-  onToggleSteps: (stepId: number | string) => void;
 }) {
-  const isExpanded = message.processingExpanded !== undefined 
-    ? message.processingExpanded 
-    : expandedSteps.has(`processing-${message.id}`);
-
   return (
     <div className="space-y-3">
 
       {/* Streaming Content or Default Processing */}
-      {streamingText.has(message.id) && streamingText.get(message.id) ? (
+      {message.content ? (
         <div className="text-base leading-relaxed text-gray-900">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {streamingText.get(message.id) || ""}
+            {message.content}
           </ReactMarkdown>
           <span className="inline-block w-2 h-4 bg-gray-400 ml-1 animate-pulse"></span>
         </div>
@@ -248,15 +230,15 @@ function MessageFooter({ message }: { message: MessageType }) {
           {!message.isProcessing && (
             <>
               {message.responseTimeSeconds && (
-                <span>• {message.responseTimeSeconds.toFixed(1)}s</span>
+                <span>• {message.responseTimeSeconds.toFixed(1)} s</span>
               )}
               {(message.inputTokens || message.outputTokens || message.tokenCount) && (
                 <span>• 
                   {message.inputTokens && message.outputTokens ? (
                     <>
-                      <span className="text-gray-500">[I] {message.inputTokens}</span>
+                        <span className="text-gray-500">↑ {message.inputTokens} tokens</span>
                       <span className="mx-1">•</span>
-                      <span className="text-gray-500">[O] {message.outputTokens}</span>
+                        <span className="text-gray-500">↓ {message.outputTokens} tokens</span>
                     </>
                   ) : (
                     <span className="text-gray-500">{message.tokenCount} tokens</span>
@@ -363,7 +345,7 @@ function MessageFeedback({
   );
 }
 
-function CombinedSteps({
+function ProcessingSteps({
   message,
   expandedSteps,
   onToggleSteps
@@ -372,12 +354,7 @@ function CombinedSteps({
   expandedSteps: Set<number | string>;
   onToggleSteps: (stepId: number | string) => void;
 }) {
-  const hasProcessingSteps = message.processingSteps && message.processingSteps.length > 0;
-  const hasIntermediateSteps = message.intermediateSteps && message.intermediateSteps.length > 0;
-  
-  if (!hasProcessingSteps && !hasIntermediateSteps) return null;
-
-  const totalSteps = (message.processingSteps?.length || 0) + (message.intermediateSteps?.length || 0);
+  if (!message.processingSteps || message.processingSteps.length === 0) return null;
 
   return (
     <div className="mt-3">
@@ -394,119 +371,22 @@ function CombinedSteps({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
         <span className="text-gray-500">
-          {expandedSteps.has(message.id) ? 'Hide' : 'Show'} intermediate steps ({totalSteps})
+          {expandedSteps.has(message.id) ? 'Hide' : 'Show'} steps ({message.processingSteps.length})
         </span>
       </button>
       
       {expandedSteps.has(message.id) && (
         <div className="mt-2 pl-4 border-l border-gray-200 space-y-1">
-          {/* Processing Steps */}
-          {hasProcessingSteps && (
-            <>
-              {message.processingSteps!.map((step, index) => (
-                <div key={`proc-${index}`} className="text-xs text-gray-500">
-                  <span className="text-gray-400 font-mono text-xs">
-                    {step.timestamp.toLocaleTimeString([], { 
-                      hour: '2-digit', 
-                      minute: '2-digit',
-                      second: '2-digit'
-                    })}
-                  </span>
-                  <span className="ml-2 text-gray-500">{step.text}</span>
-                  
-                  {/* Simple context details */}
-                  {step.context && (
-                    <div className="ml-6 mt-0.5 text-xs text-gray-400">
-                      {step.context.type === "financial" && (
-                        <span>{step.context.data.period}, {step.context.data.transactionCount} transactions</span>
-                      )}
-                      {step.context.type === "conversation" && (
-                        <span>{step.context.messageCount} messages</span>
-                      )}
-                      {step.context.type === "ai_connection" && (
-                        <span>{step.context.model}</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-              
-              {/* Completion marker when processing is complete */}
-              {message.processingComplete && (
-                <div className="text-xs text-gray-500 pt-1 mt-2 border-t border-gray-200">
-                  <span className="text-gray-400 font-mono text-xs">
-                    {new Date().toLocaleTimeString([], { 
-                      hour: '2-digit', 
-                      minute: '2-digit',
-                      second: '2-digit'
-                    })}
-                  </span>
-                  <span className="ml-2 text-gray-500">Processing completed</span>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Intermediate Steps */}
-          {hasIntermediateSteps && (
-            <>
-              {hasProcessingSteps && <div className="pt-2 border-t border-gray-200"></div>}
-              <div className="text-xs font-medium text-gray-600 mb-2">Intermediate Steps:</div>
-              {message.intermediateSteps!.map((step, index) => (
-                <div key={step.id} className="text-xs text-gray-500 py-1">
-                  <div className="flex items-start gap-2">
-                    <span className="text-gray-400 font-mono">{index + 1}.</span>
-                    <span className="flex-1 text-gray-500">{step.content}</span>
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Legacy IntermediateSteps component (kept for backwards compatibility)
-function IntermediateSteps({
-  message,
-  expandedSteps,
-  onToggleSteps
-}: {
-  message: MessageType;
-  expandedSteps: Set<number | string>;
-  onToggleSteps: (stepId: number | string) => void;
-}) {
-  if (!message.intermediateSteps || message.intermediateSteps.length === 0) return null;
-
-  return (
-    <div className="mt-3">
-      <button
-        onClick={() => onToggleSteps(message.id)}
-        className="flex items-center gap-2 text-xs text-gray-500 hover:text-gray-700 transition-colors"
-      >
-        <svg
-          className={`w-4 h-4 transition-transform ${expandedSteps.has(message.id) ? 'rotate-180' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-        <span>
-          {expandedSteps.has(message.id) ? 'Hide' : 'Show'} {message.intermediateSteps.length} intermediate step{message.intermediateSteps.length > 1 ? 's' : ''}
-        </span>
-      </button>
-      
-      {expandedSteps.has(message.id) && (
-        <div className="mt-2 space-y-2 pl-4 border-l-2 border-gray-200">
-          {message.intermediateSteps.map((step, index) => (
-            <div key={step.id} className="text-xs text-gray-600 py-1">
-              <div className="flex items-start gap-2">
-                <span className="text-gray-400 font-mono">{index + 1}.</span>
-                <span className="flex-1">{step.content}</span>
-              </div>
+          {message.processingSteps.map((step, index) => (
+            <div key={`proc-${index}`} className="text-xs text-gray-500">
+              <span className="text-gray-400 font-mono text-xs">
+                {step.timestamp.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })}
+              </span>
+              <span className="ml-2 text-gray-500">{step.text}</span>
             </div>
           ))}
         </div>

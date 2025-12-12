@@ -5,15 +5,12 @@ export interface Message {
   createdAt: Date;
   isProcessing?: boolean;
   processingSteps?: ProcessingStep[];
-  processingExpanded?: boolean;
-  processingComplete?: boolean;
   feedback?: "LIKE" | "DISLIKE" | null;
   comments?: string;
   responseTimeSeconds?: number;
   tokenCount?: number;
   inputTokens?: number;
   outputTokens?: number;
-  intermediateSteps?: IntermediateStep[];
   systemPrompt?: SystemPrompt;
 }
 
@@ -26,7 +23,7 @@ export interface ProcessingStep {
 
 export interface ProcessingContext {
   type: "financial" | "conversation" | "ai_connection";
-  data?: any;
+  data?: Record<string, unknown>;
   messageCount?: number;
   totalCharacters?: number;
   markdownLength?: number;
@@ -35,15 +32,9 @@ export interface ProcessingContext {
   hasFinancialContext?: boolean;
 }
 
-export interface IntermediateStep {
-  id: number;
-  content: string;
-  createdAt: Date;
-}
-
 export interface SystemPrompt {
   content: string;
-  financialContext: any;
+  financialContext: FinancialContext | null;
 }
 
 export interface ChatSettings {
@@ -65,9 +56,9 @@ export interface FinancialContext {
   markdownData: string;
   summary: {
     period: string;
-    totalIncome: string;
-    totalExpenses: string;
-    netAmount: string;
+    totalIncome: number;
+    totalExpenses: number;
+    netAmount: number;
     currency: string;
     transactionCount: number;
   };

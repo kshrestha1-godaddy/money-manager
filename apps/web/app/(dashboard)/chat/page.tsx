@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Button } from "@repo/ui/button";
 import { ThreadSidebar } from "./components/ThreadSidebar";
 import { FinancialDataSelector } from "./components/FinancialDataSelector";
@@ -10,7 +10,6 @@ import { useChat } from "./hooks/useChat";
 import { getFinancialDataForChat, FinancialDataRequest } from "./actions/financial-data";
 
 export default function ChatPage() {
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -20,7 +19,6 @@ export default function ChatPage() {
     isLoading,
     currentThreadId,
     expandedSteps,
-    streamingText,
     showComments,
     commentText,
     showSettings,
@@ -62,7 +60,7 @@ export default function ChatPage() {
   useEffect(() => {
     const timer = setTimeout(scrollToBottom, 50);
     return () => clearTimeout(timer);
-  }, [messages, streamingText]);
+  }, [messages]);
 
   // Add keyboard shortcut to return to dashboard
   useEffect(() => {
@@ -120,7 +118,6 @@ export default function ChatPage() {
         {/* Chat Messages */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           <div 
-            ref={messagesContainerRef}
             className="flex-1 overflow-y-auto px-6 py-6"
           >
             {messages.length > 0 && (
@@ -129,7 +126,6 @@ export default function ChatPage() {
                   <Message
                     key={message.id}
                     message={message}
-                    streamingText={streamingText}
                     expandedSteps={expandedSteps}
                     showComments={showComments}
                     commentText={commentText}

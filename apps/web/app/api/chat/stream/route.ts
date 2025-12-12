@@ -2,47 +2,21 @@ import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
 import OpenAI from "openai";
+import { generateDefaultSystemPrompt, generateFinancialSystemPrompt } from "../../../lib/chat/prompts";
+import { ChatSettings, FinancialContext } from "../../../(dashboard)/chat/types/chat";
 
 // Configuration
 const MODEL_NAME = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const MAX_MESSAGES = parseInt(process.env.MAX_CHAT_MESSAGES || "50");
 
-// Type definitions
-interface ChatMessage {
+interface ChatRequestMessage {
   sender: "USER" | "ASSISTANT";
   content: string;
 }
 
-interface ChatSettings {
-  model: string;
-  temperature: number;
-  max_output_tokens: number;
-  top_p: number;
-  stream: boolean;
-  parallel_tool_calls: boolean;
-  store: boolean;
-  reasoning: boolean;
-  truncation: 'auto' | 'disabled';
-  top_logprobs: number;
-  safety_identifier?: string;
-  service_tier: 'auto' | 'default' | 'flex' | 'priority';
-}
-
-interface FinancialContext {
-  markdownData: string;
-  summary: {
-    totalIncome: number;
-    totalExpenses: number;
-    netAmount: number;
-    transactionCount: number;
-    period: string;
-    currency: string;
-  };
-}
-
 interface StreamEvent {
-  event: "text" | "chat_output" | "error";
-  data: string | { complete: boolean } | { error: string };
+  event: "text" | "done" | "error";
+  data: string | { ok: true } | { error: string };
 }
 
 // Lazy initialize OpenAI client to avoid build-time issues
@@ -57,11 +31,17 @@ function getOpenAIClient() {
 }
 
 // Optimized async generator for token streaming
-async function* streamTokens(messages: ChatMessage[], settings: ChatSettings, financialContext?: FinancialContext): AsyncGenerator<StreamEvent, void, unknown> {
+async function* streamTokens(
+  requestMessages: ChatRequestMessage[],
+  settings: ChatSettings,
+  financialContext?: FinancialContext
+): AsyncGenerator<StreamEvent, void, unknown> {
   // Validate and limit message history
-  const validMessages = messages
-    .filter((msg): msg is ChatMessage => 
-      msg && typeof msg.content === 'string' && msg.content.trim() !== '' &&
+  const validMessages = requestMessages
+    .filter((msg): msg is ChatRequestMessage =>
+      msg &&
+      typeof msg.content === "string" &&
+      msg.content.trim() !== "" &&
       (msg.sender === "USER" || msg.sender === "ASSISTANT")
     )
     .slice(-MAX_MESSAGES);
@@ -71,7 +51,6 @@ async function* streamTokens(messages: ChatMessage[], settings: ChatSettings, fi
     return;
   }
 
-
   try {
     // Check for API key before proceeding
     if (!process.env.OPENAI_API_KEY) {
@@ -79,69 +58,24 @@ async function* streamTokens(messages: ChatMessage[], settings: ChatSettings, fi
       return;
     }
 
-    // Convert conversation text to messages format
-    const messages = validMessages.map(msg => ({
+    const systemPrompt = financialContext
+      ? generateFinancialSystemPrompt(financialContext)
+      : generateDefaultSystemPrompt();
+
+    // Convert conversation to OpenAI messages format
+    const openAiMessages = [
+      { role: "system" as const, content: systemPrompt },
+      ...validMessages.map((msg) => ({
       role: msg.sender === "USER" ? "user" : "assistant",
       content: msg.content,
-    }));
-
-    // Add financial context as system message if provided
-    if (financialContext) {
-      const systemMessage = {
-        role: "system" as const,
-        content: `You are a seasoned financial expert, analyst, and advisor with 20+ years of experience in personal finance management, investment analysis, and financial planning. You have a CFA designation and specialize in helping individuals optimize their financial health.
-
-              FINANCIAL DATA PROVIDED:
-              ${financialContext.markdownData}
-
-              EXECUTIVE SUMMARY:
-              - Analysis Period: ${financialContext.summary.period}
-              - Total Income: ${financialContext.summary.totalIncome} ${financialContext.summary.currency}
-              - Total Expenses: ${financialContext.summary.totalExpenses} ${financialContext.summary.currency}
-              - Net Cash Flow: ${financialContext.summary.netAmount} ${financialContext.summary.currency}
-              - Transaction Volume: ${financialContext.summary.transactionCount} transactions
-
-              ANALYSIS FRAMEWORK:
-              As a financial expert, you must respond with the rigor and professionalism of a top-tier financial analyst. Your responses should be:
-
-              1. **STRUCTURED & ORGANIZED**: Use clear headings, bullet points, and logical flow
-              2. **ANALYTICAL & CRITICAL**: Identify patterns, anomalies, and areas of concern
-              3. **DATA-DRIVEN**: Reference specific numbers, percentages, and trends from the data
-              4. **ACTIONABLE**: Provide concrete, implementable recommendations
-              5. **COMPREHENSIVE**: Consider both short-term and long-term implications
-
-              RESPONSE REQUIREMENTS:
-              ✅ Always start with an "Executive Summary" when analyzing overall performance
-              ✅ Use financial terminology appropriately (cash flow, burn rate, expense ratios, etc.)
-              ✅ Calculate and present key financial ratios and metrics
-              ✅ Identify red flags, inefficiencies, and optimization opportunities
-              ✅ Provide prioritized recommendations with expected impact
-              ✅ Include risk assessments where relevant
-              ✅ Reference specific transactions or categories when making points
-              ✅ Use professional formatting with clear sections and subsections
-
-              CRITICAL ANALYSIS AREAS TO EVALUATE:
-              - Cash flow patterns and sustainability
-              - Expense category analysis and benchmarking
-              - Income diversification and stability
-              - Spending efficiency and waste identification
-              - Financial goal alignment
-              - Emergency fund adequacy
-              - Investment vs. spending allocation
-              - Recurring expense optimization opportunities
-
-              Approach every query with the analytical rigor of a financial consultant preparing a report for a high-net-worth client. Be thorough, insightful, and professionally critical in your analysis.`
-      };
-      
-      // Insert system message at the beginning
-      messages.unshift(systemMessage);
-    }
+      })),
+    ];
 
     // Build API request with user settings
-    const requestOptions: any = {
+    const requestOptions: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming = {
       model: settings.model || MODEL_NAME,
-      messages: messages,
-      stream: settings.stream,
+      messages: openAiMessages,
+      stream: true,
       temperature: settings.temperature,
       max_tokens: settings.max_output_tokens,
       top_p: settings.top_p,
@@ -149,12 +83,12 @@ async function* streamTokens(messages: ChatMessage[], settings: ChatSettings, fi
 
     // Add optional parameters only if they have values
     if (settings.top_logprobs > 0) {
-      requestOptions.logprobs = true;
-      requestOptions.top_logprobs = settings.top_logprobs;
+      (requestOptions as any).logprobs = true;
+      (requestOptions as any).top_logprobs = settings.top_logprobs;
     }
 
     const client = getOpenAIClient();
-    const stream = await client.chat.completions.create(requestOptions) as any;
+    const stream = await client.chat.completions.create(requestOptions);
 
     // Process stream chunks efficiently
     for await (const chunk of stream) {
@@ -170,7 +104,7 @@ async function* streamTokens(messages: ChatMessage[], settings: ChatSettings, fi
     }
 
     // Signal completion
-    yield { event: "chat_output", data: { complete: true } };
+    yield { event: "done", data: { ok: true } };
     
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "OpenAI API error";
@@ -191,7 +125,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Parse and validate request body
-    let body: { messages?: unknown; settings?: ChatSettings; financialContext?: FinancialContext };
+    let body: { messages?: unknown; settings?: Partial<ChatSettings>; financialContext?: FinancialContext };
     try {
       body = await req.json();
     } catch {
@@ -215,6 +149,7 @@ export async function POST(req: NextRequest) {
       reasoning: false,
       truncation: 'auto',
       top_logprobs: 0,
+      safety_identifier: "",
       service_tier: 'auto',
     };
 
@@ -237,7 +172,7 @@ export async function POST(req: NextRequest) {
 
         try {
           // Stream tokens efficiently
-          for await (const token of streamTokens(messages as ChatMessage[], apiSettings, financialContext)) {
+          for await (const token of streamTokens(messages as ChatRequestMessage[], apiSettings, financialContext)) {
             sendEvent(token.event, token.data);
           }
           controller.close();
@@ -255,9 +190,6 @@ export async function POST(req: NextRequest) {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache, no-store, must-revalidate",
         "Connection": "keep-alive",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
     });
     

@@ -1,761 +1,463 @@
-import { useState, useRef, useCallback } from "react";
-import { 
-  Message, 
-  ChatSettings, 
-  FinancialContext, 
-  DEFAULT_CHAT_SETTINGS, 
-  StreamEvent 
+import { useCallback, useRef, useState } from "react";
+import {
+  ChatSettings,
+  DEFAULT_CHAT_SETTINGS,
+  FinancialContext,
+  Message,
+  ProcessingContext,
+  StreamEvent,
+  SystemPrompt,
 } from "../types/chat";
-import { 
-  getChatThread, 
-  createChatThread, 
-  createConversation, 
+import {
+  createChatThread,
+  createConversation,
   generateThreadTitle,
+  getChatThread,
   updateConversation,
   updateConversationFeedback,
 } from "../actions/chat-threads";
-import { 
-  generateDefaultSystemPrompt, 
+import {
+  calculateTokenCounts,
+  generateDefaultSystemPrompt,
   generateFinancialSystemPrompt,
-  calculateTokenCounts
 } from "../utils/prompts";
 
 export interface ThreadSidebarRef {
-  updateThread: (threadId: number, updates: any) => void;
-  addThread: (thread: any) => void;
+  updateThread: (threadId: number, updates: { title?: string }) => void;
+  addThread: (thread: { id: number; title: string }) => void;
+}
+
+interface ChatHistoryMessage {
+  sender: "USER" | "ASSISTANT";
+  content: string;
+}
+
+async function* readSseEvents(response: Response): AsyncGenerator<StreamEvent, void, unknown> {
+  if (!response.ok) throw new Error("Failed to get response from AI");
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("No response body");
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let currentEvent = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (line.startsWith("event: ")) currentEvent = line.slice(7).trim();
+      if (line.startsWith("data: ")) {
+        const raw = line.slice(6).trim();
+        if (!raw) continue;
+        try {
+          yield { event: currentEvent, data: JSON.parse(raw) };
+        } catch {
+          // ignore invalid JSON
+        }
+      }
+      if (line === "") currentEvent = "";
+    }
+  }
 }
 
 export function useChat() {
-  // Core state
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [currentThreadId, setCurrentThreadId] = useState<number | null>(null);
-  const [threadTitle, setThreadTitle] = useState<string>("Chat");
-  
-  // UI state
+  const [threadTitle, setThreadTitle] = useState("Chat");
+
   const [expandedSteps, setExpandedSteps] = useState<Set<number | string>>(new Set());
-  const [streamingText, setStreamingText] = useState<Map<number, string>>(new Map());
   const [showComments, setShowComments] = useState<Set<number>>(new Set());
   const [commentText, setCommentText] = useState<Map<number, string>>(new Map());
   const [showSettings, setShowSettings] = useState(false);
   const [showFinancialSelector, setShowFinancialSelector] = useState(false);
-  
-  // Chat configuration
+
   const [financialContext, setFinancialContext] = useState<FinancialContext | null>(null);
   const [chatSettings, setChatSettings] = useState<ChatSettings>(DEFAULT_CHAT_SETTINGS);
-  
-  // Refs
+
   const sidebarRef = useRef<ThreadSidebarRef>(null);
 
-  // Processing steps functions
-  const updateProcessingStep = useCallback((assistantMessageId: number, step: number, stepText: string, contextData?: any, stepsTracker?: any[]) => {
-    const stepData = {
-      step,
-      text: stepText,
-      context: contextData,
-      timestamp: new Date()
-    };
-    
-    // Add to external tracker if provided
-    if (stepsTracker) {
-      stepsTracker.push(stepData);
-    }
-    
-    setMessages((prev) => prev.map(msg => 
-      msg.id === assistantMessageId 
-        ? { 
-            ...msg, 
-            processingSteps: [
-              ...(msg.processingSteps || []),
-              stepData
-            ]
-          }
-        : msg
-    ));
-  }, []);
+  const addProcessingStep = useCallback(
+    (assistantMessageId: number, step: number, text: string, dbSteps: unknown[], context?: ProcessingContext) => {
+      const timestamp = new Date();
 
-  const collapseProcessingSteps = useCallback((assistantMessageId: number) => {
-    setMessages((prev) => prev.map(msg => 
-      msg.id === assistantMessageId 
-        ? { ...msg, processingExpanded: false }
-        : msg
-    ));
-  }, []);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantMessageId
+            ? {
+                ...m,
+                processingSteps: [
+                  ...(m.processingSteps || []),
+                  {
+                    step,
+                    text,
+                    context,
+                    timestamp,
+                  },
+                ],
+              }
+            : m
+        )
+      );
 
-  const completeProcessingSteps = useCallback((assistantMessageId: number, responseTimeSeconds: number, inputTokens: number, outputTokens: number) => {
-    setMessages((prev) => prev.map(msg => 
-      msg.id === assistantMessageId 
-        ? { 
-            ...msg, 
-            processingComplete: true,
-            responseTimeSeconds,
-            inputTokens,
-            outputTokens
-          }
-        : msg
-    ));
-  }, []);
-
-  const runProcessingSteps = useCallback(async (
-    assistantMessageId: number,
-    financialContext: FinancialContext | null,
-    conversationHistory: Array<{ sender: string; content: string }>,
-    chatSettings: ChatSettings,
-    stepsTracker?: any[]
-  ): Promise<any[]> => {
-    // Step 1: Preparing request
-    updateProcessingStep(assistantMessageId, 1, "Preparing your request...", undefined, stepsTracker);
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    // Step 2: Processing financial data (if applicable)
-    if (financialContext) {
-      const financialSummary = {
-        period: financialContext.summary.period,
-        totalIncome: financialContext.summary.totalIncome,
-        totalExpenses: financialContext.summary.totalExpenses,
-        netAmount: financialContext.summary.netAmount,
-        currency: financialContext.summary.currency,
-        transactionCount: financialContext.summary.transactionCount
-      };
-      updateProcessingStep(assistantMessageId, 2, "Processing financial data...", {
-        type: "financial",
-        data: financialSummary,
-        markdownLength: financialContext.markdownData.length
-      }, stepsTracker);
-      await new Promise(resolve => setTimeout(resolve, 400));
-    }
-
-    // Step 3: Building conversation context
-    updateProcessingStep(assistantMessageId, financialContext ? 3 : 2, "Building conversation context...", {
-      type: "conversation",
-      messageCount: conversationHistory.length,
-      totalCharacters: conversationHistory.reduce((sum, msg) => sum + msg.content.length, 0)
-    }, stepsTracker);
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    // Step 4: Connecting to AI
-    updateProcessingStep(assistantMessageId, financialContext ? 4 : 3, "Connecting to AI assistant...", {
-      type: "ai_connection",
-      model: chatSettings.model || "gpt-4",
-      temperature: chatSettings.temperature,
-      hasFinancialContext: !!financialContext
-    }, stepsTracker);
-    await new Promise(resolve => setTimeout(resolve, 200));
-
-    // Step 5: Sending to LLM
-    updateProcessingStep(assistantMessageId, financialContext ? 5 : 4, "Sending complete prompt to LLM...", undefined, stepsTracker);
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    return stepsTracker || [];
-  }, [updateProcessingStep]);
+      dbSteps.push({
+        step,
+        text,
+        context,
+        timestamp: timestamp.toISOString(),
+      });
+    },
+    []
+  );
 
   const loadThread = useCallback(async (threadId: number) => {
     try {
       const result = await getChatThread(threadId);
-      if (result.success && result.thread) {
-        const conversations = result.thread.conversations || [];
-        
-        // Group messages by turn and collect intermediate steps
-        const groupedMessages: Message[] = [];
-        let currentUserMessage: Message | null = null;
-        let intermediateSteps: Message[] = [];
-        
-        conversations.forEach((conv: any) => {
-          console.log('Loading conversation:', {
-            id: conv.id,
-            sender: conv.sender,
-            hasIntermediateSteps: !!conv.intermediateSteps,
-            intermediateStepsType: typeof conv.intermediateSteps,
-            intermediateStepsLength: Array.isArray(conv.intermediateSteps) ? conv.intermediateSteps.length : 'not array',
-            hasSystemPrompt: !!conv.systemPrompt,
-            systemPromptType: typeof conv.systemPrompt
-          });
-          
-          const message: Message = {
-            id: conv.id,
-            content: conv.content,
-            sender: conv.sender,
-            createdAt: conv.createdAt,
-            isProcessing: conv.isProcessing,
-            feedback: conv.feedback,
-            comments: conv.comments,
-            responseTimeSeconds: conv.responseTimeSeconds,
-            tokenCount: conv.tokenCount,
-            inputTokens: conv.inputTokens,
-            outputTokens: conv.outputTokens,
-            processingSteps: conv.intermediateSteps ? 
-              (Array.isArray(conv.intermediateSteps) ? conv.intermediateSteps.map((step: any) => ({
-                ...step,
-                timestamp: new Date(step.timestamp)
-              })) : undefined) : undefined,
-            systemPrompt: conv.systemPrompt ? JSON.parse(JSON.stringify(conv.systemPrompt)) : (
-              conv.sender === "ASSISTANT" ? {
-                content: generateDefaultSystemPrompt(),
-                financialContext: null
-              } : undefined
-            ),
-          };
-          
-          if (conv.sender === "USER") {
-            // Complete previous turn if exists
-            if (currentUserMessage) {
-              groupedMessages.push(currentUserMessage);
-            }
-            // If there are pending steps without a final message, attach them to the last assistant message or show as processing
-            if (intermediateSteps.length > 0) {
-              // This shouldn't happen normally, but handle it
-              const lastStep = intermediateSteps[intermediateSteps.length - 1];
-              if (lastStep) {
-                lastStep.isProcessing = true;
-                lastStep.intermediateSteps = intermediateSteps.slice(0, -1);
-                groupedMessages.push(lastStep);
-              }
-              intermediateSteps = [];
-            }
-            
-            // Start new turn
-            currentUserMessage = message;
-            intermediateSteps = [];
-          } else if (conv.sender === "ASSISTANT") {
-            if (conv.isProcessing) {
-              // Collect intermediate processing steps
-              intermediateSteps.push(message);
-            } else {
-              // Final assistant response - complete the turn
-              if (currentUserMessage) {
-                groupedMessages.push(currentUserMessage);
-                currentUserMessage = null;
-              }
-              // Attach intermediate steps to the final message
-              message.intermediateSteps = intermediateSteps;
-              groupedMessages.push(message);
-              intermediateSteps = [];
-            }
-          }
-        });
-        
-        // Handle any remaining messages
-        if (currentUserMessage) {
-          groupedMessages.push(currentUserMessage);
-        }
-        if (intermediateSteps.length > 0) {
-          // If we have steps but no final message, show the last step as processing
-          const lastStep = intermediateSteps[intermediateSteps.length - 1];
-          if (lastStep) {
-            lastStep.isProcessing = true;
-            lastStep.intermediateSteps = intermediateSteps.slice(0, -1);
-            groupedMessages.push(lastStep);
-          }
-        }
-        
-        setMessages(groupedMessages);
-        setThreadTitle(result.thread.title);
-        setCurrentThreadId(threadId);
-      }
+      if (!result.success || !result.thread) return;
+
+      const nextMessages: Message[] = (result.thread.conversations || []).map((conv: any) => ({
+        id: conv.id,
+        content: conv.content,
+        sender: conv.sender,
+        createdAt: new Date(conv.createdAt),
+        isProcessing: conv.isProcessing,
+        feedback: conv.feedback,
+        comments: conv.comments,
+        responseTimeSeconds: conv.responseTimeSeconds,
+        tokenCount: conv.tokenCount,
+        inputTokens: conv.inputTokens,
+        outputTokens: conv.outputTokens,
+        processingSteps: Array.isArray(conv.intermediateSteps)
+          ? conv.intermediateSteps.map((step: any) => ({
+              ...step,
+              timestamp: new Date(step.timestamp),
+            }))
+          : undefined,
+        systemPrompt: conv.systemPrompt || undefined,
+      }));
+
+      setMessages(nextMessages);
+      setThreadTitle(result.thread.title);
+      setCurrentThreadId(threadId);
     } catch (error) {
       console.error("Error loading thread:", error);
     }
   }, []);
 
   const toggleSteps = useCallback((stepId: number | string) => {
-    // Handle processing steps that have their own expanded state
-    if (typeof stepId === 'string' && stepId.startsWith('processing-')) {
-      const messageId = parseInt(stepId.replace('processing-', ''));
-      setMessages(prev => prev.map(msg => {
-        if (msg.id === messageId && msg.processingExpanded !== undefined) {
-          return { ...msg, processingExpanded: !msg.processingExpanded };
-        }
-        return msg;
-      }));
-    }
-    
-    // Handle other expandable steps (system prompts, intermediate steps)
-    setExpandedSteps(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(stepId)) {
-        newSet.delete(stepId);
-      } else {
-        newSet.add(stepId);
-      }
-      return newSet;
+    setExpandedSteps((prev) => {
+      const next = new Set(prev);
+      if (next.has(stepId)) next.delete(stepId);
+      else next.add(stepId);
+      return next;
     });
   }, []);
 
-  const handleFeedback = useCallback(async (messageId: number, feedback: "LIKE" | "DISLIKE") => {
-    try {
-      // Update local state immediately
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.id === messageId 
-            ? { ...msg, feedback: msg.feedback === feedback ? null : feedback }
-            : msg
-        )
+  const handleFeedback = useCallback(
+    async (messageId: number, feedback: "LIKE" | "DISLIKE") => {
+      const currentMessage = messages.find((m) => m.id === messageId);
+      const nextFeedback = currentMessage?.feedback === feedback ? null : feedback;
+
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, feedback: nextFeedback } : m))
       );
 
-      // Update in database
-      const currentMessage = messages.find(msg => msg.id === messageId);
-      const newFeedback = currentMessage?.feedback === feedback ? null : feedback;
-      
-      await updateConversationFeedback(messageId, newFeedback);
-    } catch (error) {
-      console.error("Error updating feedback:", error);
-    }
-  }, [messages]);
+      try {
+        await updateConversationFeedback(messageId, nextFeedback);
+      } catch (error) {
+        console.error("Error updating feedback:", error);
+      }
+    },
+    [messages]
+  );
 
   const toggleComments = useCallback((messageId: number) => {
-    setShowComments(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(messageId)) {
-        newSet.delete(messageId);
-      } else {
-        newSet.add(messageId);
-      }
-      return newSet;
+    setShowComments((prev) => {
+      const next = new Set(prev);
+      if (next.has(messageId)) next.delete(messageId);
+      else next.add(messageId);
+      return next;
     });
   }, []);
 
   const handleCommentChange = useCallback((messageId: number, value: string) => {
-    setCommentText(prev => {
-      const newMap = new Map(prev);
-      newMap.set(messageId, value);
-      return newMap;
+    setCommentText((prev) => {
+      const next = new Map(prev);
+      next.set(messageId, value);
+      return next;
     });
   }, []);
 
-  const handleCommentSubmit = useCallback(async (messageId: number) => {
-    try {
+  const handleCommentSubmit = useCallback(
+    async (messageId: number) => {
       const comment = commentText.get(messageId) || "";
-      
-      // Update local state
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.id === messageId 
-            ? { ...msg, comments: comment }
-            : msg
-        )
-      );
+      setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, comments: comment } : m)));
 
-      // Update in database
-      await updateConversationFeedback(messageId, undefined, comment);
-      
-      // Clear comment input
-      setCommentText(prev => {
-        const newMap = new Map(prev);
-        newMap.delete(messageId);
-        return newMap;
+      try {
+        await updateConversationFeedback(messageId, undefined, comment);
+      } catch (error) {
+        console.error("Error updating comment:", error);
+      }
+
+      setCommentText((prev) => {
+        const next = new Map(prev);
+        next.delete(messageId);
+        return next;
       });
-      
-      // Hide comment input
-      setShowComments(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(messageId);
-        return newSet;
+
+      setShowComments((prev) => {
+        const next = new Set(prev);
+        next.delete(messageId);
+        return next;
       });
-    } catch (error) {
-      console.error("Error updating comment:", error);
-    }
-  }, [commentText]);
+    },
+    [commentText]
+  );
 
   const clearFinancialContext = useCallback(() => {
     setFinancialContext(null);
   }, []);
 
-  // Stream generator function
-  const createStreamGenerator = useCallback(async function* (
-    conversationHistory: Array<{ sender: string; content: string }>,
-    settings: ChatSettings,
-    financialContext: FinancialContext | null
-  ): AsyncGenerator<StreamEvent, void, unknown> {
-    const response = await fetch("/api/chat/stream", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messages: conversationHistory,
-        settings,
-        financialContext,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to get response from OpenAI");
-    }
-
-    const reader = response.body?.getReader();
-    const decoder = new TextDecoder();
-
-    if (!reader) {
-      throw new Error("No response body");
-    }
-
-    // Parse SSE stream and yield events
-    let buffer = "";
-    let currentEvent = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const rawChunk = decoder.decode(value, { stream: true });
-      
-      buffer += rawChunk;
-      const lines = buffer.split("\n");
-      
-      // Keep incomplete line in buffer
-      buffer = lines.pop() || "";
-
-      for (const line of lines) {
-        if (line.startsWith("event: ")) {
-          currentEvent = line.slice(7).trim();
-        } else if (line.startsWith("data: ")) {
-          const data = line.slice(6).trim();
-          
-          if (!data) continue;
-
-          try {
-            const parsedData = JSON.parse(data);
-            yield { event: currentEvent, data: parsedData };
-          } catch (e) {
-            // Skip invalid JSON
-            console.warn("Failed to parse SSE data:", e);
-          }
-        } else if (line === "") {
-          currentEvent = "";
-        }
-      }
-    }
-  }, []);
-
   const handleSendMessage = useCallback(async () => {
-    if (!inputMessage.trim()) return;
-    
+    const trimmed = inputMessage.trim();
+    if (!trimmed) return;
+
+    setInputMessage("");
+    setIsLoading(true);
+
     let threadId = currentThreadId;
-    const userMessageContent = inputMessage.trim();
-    
-    // Create new thread if none exists
     if (!threadId) {
-      const threadResult = await createChatThread({
-        title: "New Chat",
-      });
-      
+      const threadResult = await createChatThread({ title: "New Chat" });
       if (!threadResult.success || !threadResult.thread) {
-        console.error("Failed to create thread:", threadResult.error);
+        setIsLoading(false);
         return;
       }
-      
       threadId = threadResult.thread.id;
       setCurrentThreadId(threadId);
       setThreadTitle(threadResult.thread.title);
+      sidebarRef.current?.addThread(threadResult.thread);
     }
 
-    // Add user message
-    const userResult = await createConversation({
-      threadId: threadId!,
-      content: userMessageContent,
-      sender: "USER" as any,
-      messageType: "TEXT" as any,
-    });
-
-    if (!userResult.success) {
-      console.error("Failed to create user message:", userResult.error);
-      return;
-    }
-
-    // Add user message to UI immediately
-    const userMessage: Message = {
-      id: userResult.conversation!.id,
-      content: userMessageContent,
-      sender: "USER",
-      createdAt: new Date(userResult.conversation!.createdAt),
-    };
-    
-    setMessages((prev) => [...prev, userMessage]);
-    setInputMessage("");
-    setIsLoading(true);
-    
-    // Get updated messages for conversation history
-    const updatedMessagesResult = await getChatThread(threadId!);
-    const allMessages = updatedMessagesResult.success && updatedMessagesResult.thread?.conversations 
-      ? updatedMessagesResult.thread.conversations 
-      : [];
-
-    // Generate system prompt for this conversation
-    const systemPrompt = financialContext 
+    const systemPrompt = financialContext
       ? generateFinancialSystemPrompt(financialContext)
       : generateDefaultSystemPrompt();
-    
-    // Store system prompt data for later database save
-    const systemPromptData = {
+
+    const systemPromptData: SystemPrompt = {
       content: systemPrompt,
-      financialContext: financialContext
+      financialContext,
     };
 
-    // Create temporary assistant message for streaming
-    const processingResult = await createConversation({
-      threadId: threadId!,
-      content: "",
-      sender: "ASSISTANT" as any,
-      messageType: "TEXT" as any,
-      isProcessing: true,
-      systemPrompt: systemPromptData,
+    const userResult = await createConversation({
+      threadId,
+      content: trimmed,
+      sender: "USER",
+      messageType: "TEXT",
     });
 
-    if (!processingResult.success || !processingResult.conversation) {
-      console.error("Failed to create processing message:", processingResult.error);
+    if (!userResult.success || !userResult.conversation) {
       setIsLoading(false);
       return;
     }
 
-    const assistantMessageId = processingResult.conversation.id;
-    
-    // Track processing steps for database save
-    let processingStepsForDB: any[] = [];
-    
-    // Add processing message to state immediately for streaming
-    const processingMessage: Message = {
+    const assistantResult = await createConversation({
+      threadId,
+      content: "",
+      sender: "ASSISTANT",
+      messageType: "TEXT",
+      isProcessing: true,
+      systemPrompt: systemPromptData,
+    });
+
+    if (!assistantResult.success || !assistantResult.conversation) {
+      setIsLoading(false);
+      return;
+    }
+
+    const userMessage: Message = {
+      id: userResult.conversation.id,
+      content: trimmed,
+      sender: "USER",
+      createdAt: new Date(userResult.conversation.createdAt),
+    };
+
+    const assistantMessageId = assistantResult.conversation.id;
+    const intermediateStepsForDb: unknown[] = [];
+    const assistantMessage: Message = {
       id: assistantMessageId,
       content: "",
       sender: "ASSISTANT",
-      createdAt: new Date(processingResult.conversation.createdAt),
+      createdAt: new Date(assistantResult.conversation.createdAt),
       isProcessing: true,
-      processingSteps: [],
-      processingExpanded: true, // Start expanded
-      processingComplete: false,
       systemPrompt: systemPromptData,
+      processingSteps: [],
     };
-    
-    setMessages((prev) => [...prev, processingMessage]);
-    
-    // Initialize streaming text state for this message
-    setStreamingText((prev) => {
-      const newMap = new Map(prev);
-      newMap.set(assistantMessageId, "");
-      return newMap;
-    });
 
-    // Track accumulated text locally for final save (React state updates are async)
+    setMessages((prev) => [...prev, userMessage, assistantMessage]);
+
+    const conversationHistory: ChatHistoryMessage[] = [...messages, userMessage]
+      .filter((m) => !m.isProcessing)
+      .filter((m) => m.sender === "USER" || m.sender === "ASSISTANT")
+      .map((m) => ({ sender: m.sender, content: m.content }));
+
     let accumulatedText = "";
     const responseStartTime = Date.now();
-
-    // Build conversation history for OpenAI
-    const conversationHistory = allMessages
-      .filter((msg: any) => !msg.isProcessing && (msg.sender === "USER" || msg.sender === "ASSISTANT"))
-      .map((msg: any) => ({
-        sender: msg.sender,
-        content: msg.content,
-      }));
+    let hasGeneratedStep = false;
 
     try {
-      // Run processing steps with expanded dropdown
-      await runProcessingSteps(assistantMessageId, financialContext, conversationHistory, chatSettings, processingStepsForDB);
+      addProcessingStep(assistantMessageId, 1, "Preparing request...", intermediateStepsForDb, {
+        type: "conversation",
+        messageCount: conversationHistory.length,
+        totalCharacters: conversationHistory.reduce((sum, m) => sum + m.content.length, 0),
+      });
+      addProcessingStep(assistantMessageId, 2, "Sending request to AI...", intermediateStepsForDb, {
+        type: "ai_connection",
+        model: chatSettings.model,
+        temperature: chatSettings.temperature,
+        hasFinancialContext: Boolean(financialContext),
+      });
 
-      // Collapse the dropdown just before streaming starts
-      collapseProcessingSteps(assistantMessageId);
-      await new Promise(resolve => setTimeout(resolve, 100));
+      const response = await fetch("/api/chat/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: conversationHistory,
+          settings: chatSettings,
+          financialContext,
+        }),
+      });
 
-      // Consume the async generator and process tokens one by one
-      for await (const token of createStreamGenerator(conversationHistory, chatSettings, financialContext)) {
-        if (token.event === "text") {
-          // Accumulate text locally (for final save)
-          accumulatedText += token.data;
-          
-          // Update streaming text state incrementally and message content
-          setStreamingText((prev) => {
-            const newMap = new Map(prev);
-            newMap.set(assistantMessageId, accumulatedText);
-            return newMap;
-          });
-          
-          // Update message content immediately with the accumulated text (preserve ALL properties)
+      for await (const evt of readSseEvents(response)) {
+        if (evt.event === "text") {
+          if (!hasGeneratedStep) {
+            hasGeneratedStep = true;
+            addProcessingStep(assistantMessageId, 3, "Generating response...", intermediateStepsForDb);
+          }
+          accumulatedText += String(evt.data ?? "");
           setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessageId
-                ? { 
-                    ...msg, 
-                    content: accumulatedText, 
-                    isProcessing: true,
-                  // Explicitly preserve all processing-related properties AND intermediate steps
-                  processingSteps: msg.processingSteps,
-                  processingExpanded: msg.processingExpanded,
-                  processingComplete: msg.processingComplete,
-                  intermediateSteps: msg.intermediateSteps,
-                  systemPrompt: msg.systemPrompt
-                  }
-                : msg
+            prev.map((m) =>
+              m.id === assistantMessageId ? { ...m, content: accumulatedText, isProcessing: true } : m
             )
           );
-        } else if (token.event === "chat_output") {
-          // Stream complete
+        }
+
+        if (evt.event === "done") {
+          addProcessingStep(assistantMessageId, 4, "Response complete.", intermediateStepsForDb);
           break;
-        } else if (token.event === "error") {
-          throw new Error(token.data.error || "Streaming error");
+        }
+
+        if (evt.event === "error") {
+          const message = typeof evt.data?.error === "string" ? evt.data.error : "Streaming error";
+          throw new Error(message);
         }
       }
-      
-      // Use accumulated text (tracked locally) for final save
-      if (!accumulatedText || accumulatedText.trim() === "") {
-        accumulatedText = "Sorry, I didn't receive a response. Please try again.";
-      }
 
-      // Calculate response time and token counts
+      if (!accumulatedText.trim()) accumulatedText = "Sorry, I didn't receive a response. Please try again.";
+
       const responseTimeSeconds = (Date.now() - responseStartTime) / 1000;
-      
       const tokenCounts = calculateTokenCounts(systemPrompt, conversationHistory, accumulatedText);
 
-      // Complete processing steps with final metrics
-      completeProcessingSteps(assistantMessageId, responseTimeSeconds, tokenCounts.inputTokens, tokenCounts.outputTokens);
-
-      // Update final message state in UI (preserve ALL existing properties)
       setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMessageId
-            ? { 
-                ...msg, 
-                content: accumulatedText, 
+        prev.map((m) =>
+          m.id === assistantMessageId
+            ? {
+                ...m,
+                content: accumulatedText,
                 isProcessing: false,
                 responseTimeSeconds,
                 tokenCount: tokenCounts.totalTokens,
                 inputTokens: tokenCounts.inputTokens,
                 outputTokens: tokenCounts.outputTokens,
-                // Explicitly preserve processing-related properties AND intermediate steps
-                processingSteps: msg.processingSteps,
-                processingExpanded: msg.processingExpanded,
-                processingComplete: msg.processingComplete,
-                intermediateSteps: msg.intermediateSteps,
-                systemPrompt: msg.systemPrompt
               }
-            : msg
+            : m
         )
       );
-      
-      // Clear streaming state for this message
-      setStreamingText((prev) => {
-        const newMap = new Map(prev);
-        newMap.delete(assistantMessageId);
-        return newMap;
-      });
-      
-      // Prepare data for database update
-      const updateData = {
+
+      await updateConversation(assistantMessageId, {
         content: accumulatedText,
         isProcessing: false,
         responseTimeSeconds,
         tokenCount: tokenCounts.totalTokens,
         inputTokens: tokenCounts.inputTokens,
         outputTokens: tokenCounts.outputTokens,
-        intermediateSteps: processingStepsForDB,
         systemPrompt: systemPromptData,
-      };
-      
-      console.log('Updating conversation with data:', {
-        assistantMessageId,
-        updateData,
-        processingStepsCount: processingStepsForDB.length,
-        processingStepsData: processingStepsForDB,
-        hasSystemPrompt: !!systemPromptData,
-        systemPromptData: systemPromptData
+        intermediateSteps: intermediateStepsForDb,
       });
-      
-      // Update in database with analytics and intermediate data
-      await updateConversation(assistantMessageId, updateData);
-      
-      // Generate thread title if needed
+
       if (threadTitle === "New Chat") {
-        const titleResult = await generateThreadTitle(threadId!);
+        const titleResult = await generateThreadTitle(threadId);
         if (titleResult.success && titleResult.title) {
           setThreadTitle(titleResult.title);
-          sidebarRef.current?.updateThread(threadId!, { title: titleResult.title });
+          sidebarRef.current?.updateThread(threadId, { title: titleResult.title });
         }
       }
-      
-      setIsLoading(false);
     } catch (error) {
       console.error("Error streaming response:", error);
-      setIsLoading(false);
-      
       const errorMessage = "Sorry, I encountered an error processing your request. Please try again.";
-      
-      // Update UI and database (preserve ALL existing properties)
+
+      addProcessingStep(assistantMessageId, 99, "Error generating response.", intermediateStepsForDb, {
+        type: "ai_connection",
+        data: { error: error instanceof Error ? error.message : "Unknown error" },
+      });
+
       setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMessageId
-            ? { 
-                ...msg, 
-                content: errorMessage, 
-                isProcessing: false, 
-                // Explicitly preserve processing-related properties AND intermediate steps
-                processingSteps: msg.processingSteps,
-                processingExpanded: msg.processingExpanded,
-                processingComplete: msg.processingComplete,
-                intermediateSteps: msg.intermediateSteps,
-                systemPrompt: msg.systemPrompt
-              }
-            : msg
+        prev.map((m) =>
+          m.id === assistantMessageId ? { ...m, content: errorMessage, isProcessing: false } : m
         )
       );
-      
+
       await updateConversation(assistantMessageId, {
         content: errorMessage,
         isProcessing: false,
+        intermediateSteps: intermediateStepsForDb,
       });
+    } finally {
+      setIsLoading(false);
     }
-  }, [
-    inputMessage, 
-    currentThreadId, 
-    threadTitle, 
-    financialContext, 
-    chatSettings, 
-    messages,
-    createStreamGenerator
-  ]);
+  }, [chatSettings, currentThreadId, financialContext, inputMessage, messages, threadTitle]);
 
   const handleNewChat = useCallback(async () => {
-    const threadResult = await createChatThread({
-      title: "New Chat",
-    });
-    
+    const threadResult = await createChatThread({ title: "New Chat" });
+    setMessages([]);
+
     if (threadResult.success && threadResult.thread) {
-      setMessages([]);
       setCurrentThreadId(threadResult.thread.id);
       setThreadTitle(threadResult.thread.title);
       sidebarRef.current?.addThread(threadResult.thread);
-    } else {
-      console.error("Failed to create new thread:", threadResult.error);
-      setMessages([]);
-      setCurrentThreadId(null);
-      setThreadTitle("Chat");
+      return;
     }
+
+    setCurrentThreadId(null);
+    setThreadTitle("Chat");
   }, []);
 
   return {
-    // State
     messages,
     inputMessage,
     isLoading,
     currentThreadId,
     threadTitle,
     expandedSteps,
-    streamingText,
     showComments,
     commentText,
     showSettings,
     showFinancialSelector,
     financialContext,
     chatSettings,
-    
-    // Setters
+
     setInputMessage,
     setShowSettings,
     setShowFinancialSelector,
     setFinancialContext,
     setChatSettings,
-    
-    // Refs
+
     sidebarRef,
-    
-    // Actions
+
     loadThread,
     toggleSteps,
     handleFeedback,

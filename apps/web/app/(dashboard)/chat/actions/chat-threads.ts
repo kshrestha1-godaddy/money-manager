@@ -5,7 +5,7 @@ import { authOptions } from "../../../lib/auth";
 import prisma from "@repo/db/client";
 import { revalidatePath } from "next/cache";
 import { getUserIdFromSession } from "../../../utils/auth";
-// Import enums from the database schema
+import { Prisma } from "@prisma/client";
 type ChatSender = "USER" | "ASSISTANT";
 type ChatMessageType = "TEXT" | "IMAGE" | "FILE" | "SYSTEM" | "ERROR";
 
@@ -26,19 +26,34 @@ export interface CreateConversationData {
   tokenCount?: number;
   inputTokens?: number;
   outputTokens?: number;
-  intermediateSteps?: any; // JSON array of processing steps
-  systemPrompt?: any; // JSON object with system prompt data
+  intermediateSteps?: unknown;
+  systemPrompt?: unknown;
+}
+
+export interface UpdateConversationData {
+  content?: string;
+  messageType?: ChatMessageType;
+  isProcessing?: boolean;
+  feedback?: "LIKE" | "DISLIKE" | null;
+  comments?: string;
+  responseTimeSeconds?: number;
+  tokenCount?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  intermediateSteps?: unknown;
+  systemPrompt?: unknown;
+}
+
+async function requireUserId() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  return getUserIdFromSession(session.user.id);
 }
 
 // Get all chat threads for the current user
 export async function getChatThreads() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return { success: false, error: "Unauthorized" };
-    }
-    
-    const userId = getUserIdFromSession(session.user.id);
+    const userId = await requireUserId();
 
     const threads = await prisma.chatThread.findMany({
       where: {
@@ -69,6 +84,9 @@ export async function getChatThreads() {
 
     return { success: true, threads };
   } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return { success: false, error: "Unauthorized" };
+    }
     console.error("Error fetching chat threads:", error);
     return { success: false, error: "Failed to fetch chat threads" };
   }
@@ -77,12 +95,7 @@ export async function getChatThreads() {
 // Get a specific chat thread with all conversations
 export async function getChatThread(threadId: number) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return { success: false, error: "Unauthorized" };
-    }
-    
-    const userId = getUserIdFromSession(session.user.id);
+    const userId = await requireUserId();
 
     const thread = await prisma.chatThread.findFirst({
       where: {
@@ -103,6 +116,9 @@ export async function getChatThread(threadId: number) {
 
     return { success: true, thread };
   } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return { success: false, error: "Unauthorized" };
+    }
     console.error("Error fetching chat thread:", error);
     return { success: false, error: "Failed to fetch chat thread" };
   }
@@ -111,12 +127,7 @@ export async function getChatThread(threadId: number) {
 // Create a new chat thread
 export async function createChatThread(data: CreateThreadData) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return { success: false, error: "Unauthorized" };
-    }
-    
-    const userId = getUserIdFromSession(session.user.id);
+    const userId = await requireUserId();
 
     const thread = await prisma.chatThread.create({
       data: {
@@ -130,6 +141,9 @@ export async function createChatThread(data: CreateThreadData) {
     revalidatePath("/chat");
     return { success: true, thread };
   } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return { success: false, error: "Unauthorized" };
+    }
     console.error("Error creating chat thread:", error);
     return { success: false, error: "Failed to create chat thread" };
   }
@@ -141,12 +155,7 @@ export async function updateChatThread(
   data: Partial<CreateThreadData & { isPinned?: boolean }>
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return { success: false, error: "Unauthorized" };
-    }
-    
-    const userId = getUserIdFromSession(session.user.id);
+    const userId = await requireUserId();
 
     const thread = await prisma.chatThread.update({
       where: {
@@ -162,6 +171,9 @@ export async function updateChatThread(
     revalidatePath("/chat");
     return { success: true, thread };
   } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return { success: false, error: "Unauthorized" };
+    }
     console.error("Error updating chat thread:", error);
     return { success: false, error: "Failed to update chat thread" };
   }
@@ -170,12 +182,7 @@ export async function updateChatThread(
 // Delete chat thread
 export async function deleteChatThread(threadId: number) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return { success: false, error: "Unauthorized" };
-    }
-    
-    const userId = getUserIdFromSession(session.user.id);
+    const userId = await requireUserId();
 
     await prisma.chatThread.update({
       where: {
@@ -191,6 +198,9 @@ export async function deleteChatThread(threadId: number) {
     revalidatePath("/chat");
     return { success: true };
   } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return { success: false, error: "Unauthorized" };
+    }
     console.error("Error deleting chat thread:", error);
     return { success: false, error: "Failed to delete chat thread" };
   }
@@ -199,12 +209,7 @@ export async function deleteChatThread(threadId: number) {
 // Add conversation to thread
 export async function createConversation(data: CreateConversationData) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return { success: false, error: "Unauthorized" };
-    }
-    
-    const userId = getUserIdFromSession(session.user.id);
+    const userId = await requireUserId();
 
     // Verify thread belongs to user
     const thread = await prisma.chatThread.findFirst({
@@ -231,8 +236,8 @@ export async function createConversation(data: CreateConversationData) {
           tokenCount: data.tokenCount,
           inputTokens: data.inputTokens,
           outputTokens: data.outputTokens,
-          intermediateSteps: data.intermediateSteps,
-          systemPrompt: data.systemPrompt,
+          intermediateSteps: data.intermediateSteps as Prisma.InputJsonValue | undefined,
+          systemPrompt: data.systemPrompt as Prisma.InputJsonValue | undefined,
           threadId: data.threadId,
         },
     });
@@ -246,6 +251,9 @@ export async function createConversation(data: CreateConversationData) {
     revalidatePath("/chat");
     return { success: true, conversation };
   } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return { success: false, error: "Unauthorized" };
+    }
     console.error("Error creating conversation:", error);
     return { success: false, error: "Failed to create conversation" };
   }
@@ -254,18 +262,24 @@ export async function createConversation(data: CreateConversationData) {
 // Update conversation (useful for updating processing status)
 export async function updateConversation(
   conversationId: number,
-  data: Partial<CreateConversationData>
+  data: UpdateConversationData
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return { success: false, error: "Unauthorized" };
-    }
+    const userId = await requireUserId();
+
+    const existing = await prisma.chatConversation.findFirst({
+      where: { id: conversationId, thread: { userId } },
+      select: { id: true },
+    });
+
+    if (!existing) return { success: false, error: "Conversation not found" };
 
     const conversation = await prisma.chatConversation.update({
       where: { id: conversationId },
       data: {
         ...data,
+        intermediateSteps: data.intermediateSteps as Prisma.InputJsonValue | undefined,
+        systemPrompt: data.systemPrompt as Prisma.InputJsonValue | undefined,
         updatedAt: new Date(),
       },
     });
@@ -273,6 +287,9 @@ export async function updateConversation(
     revalidatePath("/chat");
     return { success: true, conversation };
   } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return { success: false, error: "Unauthorized" };
+    }
     console.error("Error updating conversation:", error);
     return { success: false, error: "Failed to update conversation" };
   }
@@ -317,14 +334,12 @@ async function generateTitleWithOpenAI(userMessage: string): Promise<string> {
 // Generate thread title based on first message using OpenAI
 export async function generateThreadTitle(threadId: number) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return { success: false, error: "Unauthorized" };
-    }
+    const userId = await requireUserId();
 
     const firstMessage = await prisma.chatConversation.findFirst({
       where: {
         threadId,
+        thread: { userId },
         sender: "USER",
       },
       orderBy: { createdAt: "asc" },
@@ -355,6 +370,9 @@ export async function generateThreadTitle(threadId: number) {
     revalidatePath("/chat");
     return { success: true, title };
   } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return { success: false, error: "Unauthorized" };
+    }
     console.error("Error generating thread title:", error);
     return { success: false, error: "Failed to generate thread title" };
   }
@@ -367,10 +385,14 @@ export async function updateConversationFeedback(
   comments?: string
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return { success: false, error: "Unauthorized" };
-    }
+    const userId = await requireUserId();
+
+    const existing = await prisma.chatConversation.findFirst({
+      where: { id: conversationId, thread: { userId } },
+      select: { id: true },
+    });
+
+    if (!existing) return { success: false, error: "Conversation not found" };
 
     const conversation = await prisma.chatConversation.update({
       where: { id: conversationId },
@@ -384,48 +406,17 @@ export async function updateConversationFeedback(
     revalidatePath("/chat");
     return { success: true, conversation };
   } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return { success: false, error: "Unauthorized" };
+    }
     console.error("Error updating conversation feedback:", error);
     return { success: false, error: "Failed to update conversation feedback" };
   }
 }
 
-// Update conversation analytics (response time and token count)
-export async function updateConversationAnalytics(
-  conversationId: number,
-  responseTimeSeconds?: number,
-  tokenCount?: number
-) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return { success: false, error: "Unauthorized" };
-    }
-
-    const conversation = await prisma.chatConversation.update({
-      where: { id: conversationId },
-      data: {
-        responseTimeSeconds,
-        tokenCount,
-        updatedAt: new Date(),
-      },
-    });
-
-    revalidatePath("/chat");
-    return { success: true, conversation };
-  } catch (error) {
-    console.error("Error updating conversation analytics:", error);
-    return { success: false, error: "Failed to update conversation analytics" };
-  }
-}
-
 export async function deleteAllChatThreads() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return { success: false, error: "Unauthorized" };
-    }
-
-    const userId = getUserIdFromSession(session.user.id);
+    const userId = await requireUserId();
 
     // Delete all conversations first (due to foreign key constraints)
     await prisma.chatConversation.deleteMany({
@@ -450,6 +441,9 @@ export async function deleteAllChatThreads() {
       message: `Successfully deleted ${deleteResult.count} threads` 
     };
   } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return { success: false, error: "Unauthorized" };
+    }
     console.error("Error deleting all threads:", error);
     return { success: false, error: "Failed to delete all threads" };
   }
