@@ -53,7 +53,7 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
 
     if (!targets?.length) {
         return (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 h-[45rem] flex flex-col">
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center">
                         <Target className="w-5 h-5 text-blue-600 mr-2" />
@@ -61,7 +61,7 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
                     </div>
                 </div>
                 
-                <div className="text-center py-12">
+                <div className="text-center py-12 flex-1 flex flex-col justify-center">
                     <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                     <h4 className="text-lg font-medium text-gray-900 mb-2">No Investment Targets Set</h4>
                     <p className="text-gray-500 mb-6">
@@ -85,7 +85,7 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
     }
 
     return (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 h-[45rem] flex flex-col">
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center">
                     <Target className="w-5 h-5 text-blue-600 mr-2" />
@@ -136,7 +136,7 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
             </div>
 
 
-            <div className="space-y-4 overflow-y-auto pr-2" style={{ maxHeight: '562px' }}>
+            <div className="space-y-4 overflow-y-auto pr-2 flex-1">
                 {targets.map((target, index) => (
                     <TargetProgressItem
                         key={`${target.investmentType}-${index}`}

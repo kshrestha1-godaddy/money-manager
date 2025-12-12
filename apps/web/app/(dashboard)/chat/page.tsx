@@ -569,12 +569,12 @@ export default function ChatPage() {
                       <div className={`flex items-center gap-2 mb-1 ${
                         message.sender === "USER" ? "justify-end" : "justify-start"
                       }`}>
-                        <span className="text-sm font-medium text-gray-900">
+                        <span className="text-base font-medium text-gray-900">
                           {message.sender === "USER" ? "You" : "My Money Manager"}
                         </span>
                       </div>
                       
-                      <div className={`prose prose-sm max-w-none dark:prose-invert ${
+                      <div className={`prose max-w-none dark:prose-invert ${
                         message.sender === "USER" 
                           ? "bg-blue-500 text-white rounded-lg px-4 py-2" 
                           : "bg-gray-100 rounded-lg px-4 py-2"
@@ -583,8 +583,8 @@ export default function ChatPage() {
                           <div>
                             {/* Show streaming text if available, otherwise show loading indicator */}
                             {streamingText.has(message.id) && streamingText.get(message.id) ? (
-                              <div className={`leading-relaxed ${
-                                message.sender === "USER" ? "text-white" : "text-gray-700"
+                              <div className={`text-base leading-relaxed ${
+                                message.sender === "USER" ? "text-white" : "text-gray-900"
                               }`}>
                                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                   {streamingText.get(message.id) || ""}
@@ -603,8 +603,8 @@ export default function ChatPage() {
                             )}
                           </div>
                         ) : (
-                          <div className={`leading-relaxed ${
-                            message.sender === "USER" ? "text-white" : "text-gray-700"
+                          <div className={`text-base leading-relaxed ${
+                            message.sender === "USER" ? "text-white" : "text-gray-900"
                           }`}>
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
                               {message.content}

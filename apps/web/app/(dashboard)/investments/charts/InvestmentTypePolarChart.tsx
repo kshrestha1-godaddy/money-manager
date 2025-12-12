@@ -330,7 +330,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
 
     if (!data.length) {
       return (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8" data-chart-type="investment-type-polar">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 h-[45rem] flex flex-col" data-chart-type="investment-type-polar">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
               <PieChart className="w-5 h-5 text-blue-600 mr-2" />
@@ -338,7 +338,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
             </div>
           </div>
           
-          <div className="text-center py-12">
+          <div className="text-center py-12 flex-1 flex flex-col justify-center">
             <PieChart className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h4 className="text-lg font-medium text-gray-900 mb-2">No Investment Data Available</h4>
             <p className="text-gray-500 mb-6">
@@ -376,6 +376,15 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
     const chartOptions: any = {
       responsive: true,
       maintainAspectRatio: false,
+      aspectRatio: 1,
+      layout: {
+        padding: {
+          top: 10,
+          bottom: 10,
+          left: 10,
+          right: 10
+        }
+      },
       animation: {
         animateRotate: true,
         animateScale: true,
@@ -583,8 +592,8 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
     };
 
     const ChartContent = () => (
-      <div>
-        <div className="flex justify-start items-center mb-4">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div className="flex justify-start items-center mb-4 flex-shrink-0">
           <div className="text-left">
             <p className="text-xs text-gray-600">Total Invested</p>
             <p className="text-base font-semibold text-blue-600">
@@ -594,24 +603,26 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
           {/* Polar chart - takes up 2/3 of the width */}
           <div
             ref={chartRef}
-            className={`${isExpanded ? "h-[50rem]" : "h-[28rem] sm:h-[32rem] md:h-[36rem]"} lg:col-span-2`}
+            className={`${isExpanded ? "h-[50rem]" : "h-full min-h-0"} lg:col-span-2 overflow-hidden`}
             role="img"
             aria-label={`Investment portfolio distribution polar chart showing ${formatCurrency(
               totalInvested,
               currency
             )} across different investment types`}
           >
-            <PolarArea data={chartData} options={chartOptions} />
+            <div className="w-full h-full">
+              <PolarArea data={chartData} options={chartOptions} />
+            </div>
           </div>
 
           {/* Legend - takes up 1/3 of the width */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium text-gray-900">Type Breakdown</h4>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
+          <div className="space-y-3 min-h-0 flex flex-col">
+            <h4 className="text-sm font-medium text-gray-900 flex-shrink-0">Type Breakdown</h4>
+            <div className="space-y-2 flex-1 overflow-y-auto min-h-0">
               {data.map((d) => {
                 const pct = totalInvested > 0 ? ((d.value / totalInvested) * 100).toFixed(1) : "0.0";
                 return (
@@ -638,7 +649,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
 
     return (
       <>
-        <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-5" data-chart-type="investment-type-polar">
+        <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-5 h-[45rem] flex flex-col overflow-hidden" data-chart-type="investment-type-polar">
           <ChartControls
             chartRef={chartRef}
             isExpanded={isExpanded}
