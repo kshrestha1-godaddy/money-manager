@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@repo/ui/button";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ThreadSidebar, ThreadSidebarRef } from "./components/ThreadSidebar";
 import { 
   getChatThread, 
   createChatThread, 
   createConversation, 
   generateThreadTitle,
-  updateChatThread
+  updateConversation
 } from "./actions/chat-threads";
 
 interface Message {
@@ -32,6 +34,7 @@ export default function ChatPage() {
   const [currentThreadId, setCurrentThreadId] = useState<number | null>(null);
   const [threadTitle, setThreadTitle] = useState<string>("Chat");
   const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
+  const [streamingText, setStreamingText] = useState<Map<number, string>>(new Map());
   const sidebarRef = useRef<ThreadSidebarRef>(null);
 
   const loadThread = async (threadId: number) => {
@@ -132,8 +135,9 @@ export default function ChatPage() {
     if (!inputMessage.trim()) return;
     
     let threadId = currentThreadId;
+    const userMessageContent = inputMessage.trim();
     
-    // Create new thread if none exists (this should rarely happen now)
+    // Create new thread if none exists
     if (!threadId) {
       const threadResult = await createChatThread({
         title: "New Chat",
@@ -152,7 +156,7 @@ export default function ChatPage() {
     // Add user message
     const userResult = await createConversation({
       threadId: threadId!,
-      content: inputMessage,
+      content: userMessageContent,
       sender: "USER" as any,
       messageType: "TEXT" as any,
     });
@@ -167,47 +171,237 @@ export default function ChatPage() {
 
     // Reload messages to show user message
     await loadThread(threadId!);
+    
+    // Get updated messages for conversation history
+    const updatedMessagesResult = await getChatThread(threadId!);
+    const allMessages = updatedMessagesResult.success && updatedMessagesResult.thread?.conversations 
+      ? updatedMessagesResult.thread.conversations 
+      : [];
 
-    // Add processing message
+    // Create temporary assistant message for streaming
     const processingResult = await createConversation({
       threadId: threadId!,
-      content: "Processing your request...",
+      content: "",
       sender: "ASSISTANT" as any,
       messageType: "TEXT" as any,
       isProcessing: true,
-      processingSteps: 1,
     });
 
-    if (processingResult.success) {
-      await loadThread(threadId!);
+    if (!processingResult.success || !processingResult.conversation) {
+      console.error("Failed to create processing message:", processingResult.error);
+      setIsLoading(false);
+      return;
     }
 
-    // Simulate bot response
-    setTimeout(async () => {
-      // Remove processing message and add real response
-      const botResult = await createConversation({
-        threadId: threadId!,
-        content: "I understand your request. Let me help you with that integration task.",
-        sender: "ASSISTANT" as any,
-        messageType: "TEXT" as any,
-      });
+    const assistantMessageId = processingResult.conversation.id;
+    
+    // Add processing message to state immediately for streaming
+    const processingMessage: Message = {
+      id: assistantMessageId,
+      content: "",
+      sender: "ASSISTANT",
+      createdAt: new Date(processingResult.conversation.createdAt),
+      isProcessing: true,
+    };
+    
+    setMessages((prev) => [...prev, processingMessage]);
+    
+    // Initialize streaming text state for this message
+    setStreamingText((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(assistantMessageId, "");
+      return newMap;
+    });
 
-      if (botResult.success) {
-        await loadThread(threadId!);
+    // Track accumulated text locally for final save (React state updates are async)
+    let accumulatedText = "";
+
+    try {
+      // Build conversation history for OpenAI
+      const conversationHistory = allMessages
+        .filter((msg: any) => !msg.isProcessing && (msg.sender === "USER" || msg.sender === "ASSISTANT"))
+        .map((msg: any) => ({
+          sender: msg.sender,
+          content: msg.content,
+        }));
+
+      // Async generator function to consume the stream and yield tokens
+      async function* streamGenerator(): AsyncGenerator<{ event: string; data: any }, void, unknown> {
+        console.log("[Client] Starting stream request with messages:", conversationHistory.length);
         
-        // Generate thread title from first user message if it's still "New Chat"
-        if (threadTitle === "New Chat") {
-          const titleResult = await generateThreadTitle(threadId!);
-          if (titleResult.success && titleResult.title) {
-            setThreadTitle(titleResult.title);
-            // Update thread title in sidebar without full refresh
-            sidebarRef.current?.updateThread(threadId!, { title: titleResult.title });
+        const response = await fetch("/api/chat/stream", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            messages: conversationHistory,
+            threadId,
+          }),
+        });
+
+        console.log("[Client] Stream response status:", response.status, response.statusText);
+
+        if (!response.ok) {
+          throw new Error("Failed to get response from OpenAI");
+        }
+
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+
+        if (!reader) {
+          throw new Error("No response body");
+        }
+
+        // Parse SSE stream and yield events
+        let buffer = "";
+        let currentEvent = "";
+        let chunkCount = 0;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            console.log("[Client] Stream reader done, total chunks processed:", chunkCount);
+            break;
           }
+
+          chunkCount++;
+          const rawChunk = decoder.decode(value, { stream: true });
+          console.log(`[Client] Received chunk #${chunkCount}:`, rawChunk.substring(0, 150));
+          
+          buffer += rawChunk;
+          const lines = buffer.split("\n");
+          
+          // Keep incomplete line in buffer
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (line.startsWith("event: ")) {
+              currentEvent = line.slice(7).trim();
+              console.log("[Client] Parsed event type:", currentEvent);
+            } else if (line.startsWith("data: ")) {
+              const data = line.slice(6).trim();
+              
+              if (!data) continue;
+
+              try {
+                const parsedData = JSON.parse(data);
+                console.log("[Client] Parsed data for event", currentEvent, ":", typeof parsedData === 'string' ? parsedData.substring(0, 50) : parsedData);
+                // Yield the event with parsed data
+                yield { event: currentEvent, data: parsedData };
+              } catch (e) {
+                // Skip invalid JSON
+                console.warn("[Client] Failed to parse SSE data:", data.substring(0, 50), e);
+              }
+            } else if (line === "") {
+              // Empty line resets event
+              currentEvent = "";
+            }
+          }
+        }
+      }
+
+      // Consume the async generator and process tokens one by one
+      // Update streaming state incrementally for smooth streaming effect
+      let tokenCount = 0;
+      for await (const token of streamGenerator()) {
+        tokenCount++;
+        console.log(`[Client] Processing token #${tokenCount}:`, token.event, "| Data:", typeof token.data === 'string' ? token.data.substring(0, 50) : token.data);
+        
+        if (token.event === "text") {
+          // Accumulate text locally (for final save)
+          accumulatedText += token.data;
+          
+          // Update streaming text state incrementally and message content
+          setStreamingText((prev) => {
+            const newMap = new Map(prev);
+            newMap.set(assistantMessageId, accumulatedText);
+            console.log("[Client] Streaming text updated, length:", accumulatedText.length, "| Latest token:", token.data);
+            return newMap;
+          });
+          
+          // Update message content immediately with the accumulated text
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: accumulatedText, isProcessing: true }
+                : msg
+            )
+          );
+        } else if (token.event === "chat_output") {
+          console.log("[Client] Stream complete, total tokens received:", tokenCount);
+          // Stream complete
+          break;
+        } else if (token.event === "error") {
+          console.error("[Client] Stream error:", token.data);
+          throw new Error(token.data.error || "Streaming error");
+        }
+      }
+      
+      // Use accumulated text (tracked locally) for final save
+      console.log("[Client] Finished processing stream, final text length:", accumulatedText.length);
+      console.log("[Client] Final accumulated text:", accumulatedText.substring(0, 100));
+
+      if (!accumulatedText || accumulatedText.trim() === "") {
+        console.warn("[Client] No text accumulated, this shouldn't happen");
+        accumulatedText = "Sorry, I didn't receive a response. Please try again.";
+      }
+
+      // Update final message state in UI first (for immediate feedback)
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessageId
+            ? { ...msg, content: accumulatedText, isProcessing: false }
+            : msg
+        )
+      );
+      
+      // Clear streaming state for this message
+      setStreamingText((prev) => {
+        const newMap = new Map(prev);
+        newMap.delete(assistantMessageId);
+        return newMap;
+      });
+      
+      // Then update in database
+      await updateConversation(assistantMessageId, {
+        content: accumulatedText,
+        isProcessing: false,
+      });
+      
+      // Reload to sync with database (this will also handle intermediate steps grouping)
+      await loadThread(threadId!);
+      
+      // Generate thread title if needed
+      if (threadTitle === "New Chat") {
+        const titleResult = await generateThreadTitle(threadId!);
+        if (titleResult.success && titleResult.title) {
+          setThreadTitle(titleResult.title);
+          sidebarRef.current?.updateThread(threadId!, { title: titleResult.title });
         }
       }
       
       setIsLoading(false);
-    }, 2000);
+    } catch (error) {
+      console.error("Error streaming response:", error);
+      setIsLoading(false);
+      
+      // Update UI immediately
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessageId
+            ? { ...msg, content: "Sorry, I encountered an error processing your request. Please try again.", isProcessing: false }
+            : msg
+        )
+      );
+      
+      // Update database
+      await updateConversation(assistantMessageId, {
+        content: "Sorry, I encountered an error processing your request. Please try again.",
+        isProcessing: false,
+      });
+      await loadThread(threadId!);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -218,11 +412,10 @@ export default function ChatPage() {
   };
 
   const handleThreadSelect = (threadId: number) => {
-    loadThread(threadId); // Default is false for enableAutoScroll - don't auto-scroll when selecting existing threads
+    loadThread(threadId);
   };
 
   const handleNewChat = async () => {
-    // Create a new thread immediately when "New Chat" is clicked
     const threadResult = await createChatThread({
       title: "New Chat",
     });
@@ -231,11 +424,9 @@ export default function ChatPage() {
       setMessages([]);
       setCurrentThreadId(threadResult.thread.id);
       setThreadTitle(threadResult.thread.title);
-      // Add thread to sidebar without full refresh
       sidebarRef.current?.addThread(threadResult.thread);
     } else {
       console.error("Failed to create new thread:", threadResult.error);
-      // Fallback to reset state if thread creation fails
       setMessages([]);
       setCurrentThreadId(null);
       setThreadTitle("Chat");
@@ -306,18 +497,34 @@ export default function ChatPage() {
                         </span>
                       </div>
                       
-                      <div className="prose prose-sm max-w-none">
+                      <div className="prose prose-sm max-w-none dark:prose-invert">
                         {message.isProcessing ? (
-                          <div className="flex items-center gap-2 text-gray-600">
-                            <div className="flex gap-1">
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
-                            </div>
-                            <span className="text-sm">Processing...</span>
+                          <div>
+                            {/* Show streaming text if available, otherwise show loading indicator */}
+                            {streamingText.has(message.id) && streamingText.get(message.id) ? (
+                              <div className="text-gray-700 leading-relaxed">
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                  {streamingText.get(message.id) || ""}
+                                </ReactMarkdown>
+                                <span className="inline-block w-2 h-4 bg-gray-400 ml-1 animate-pulse"></span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 text-gray-600">
+                                <div className="flex gap-1">
+                                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
+                                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+                                </div>
+                                <span className="text-sm">Processing...</span>
+                              </div>
+                            )}
                           </div>
                         ) : (
-                          <p className="text-gray-700 leading-relaxed">{message.content}</p>
+                          <div className="text-gray-700 leading-relaxed">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {message.content}
+                            </ReactMarkdown>
+                          </div>
                         )}
                       </div>
 
