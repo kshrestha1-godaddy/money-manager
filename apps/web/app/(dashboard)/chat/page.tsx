@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@repo/ui/button";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useSession } from "next-auth/react";
+import Image from "next/image";
 import { ThreadSidebar, ThreadSidebarRef } from "./components/ThreadSidebar";
 import { 
   getChatThread, 
@@ -33,6 +35,7 @@ interface Message {
 }
 
 export default function ChatPage() {
+  const { data: session } = useSession();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -573,8 +576,14 @@ export default function ChatPage() {
                   }`}>
                     {/* Assistant messages: Avatar on left */}
                     {message.sender === "ASSISTANT" && (
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0 bg-gradient-to-r from-pink-500 to-red-500 text-white">
-                        C
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-white border-2 border-gray-200">
+                        <Image
+                          src="/logo.png"
+                          alt="My Money Manager"
+                          width={24}
+                          height={24}
+                          className="rounded-full"
+                        />
                       </div>
                     )}
 
@@ -791,8 +800,21 @@ export default function ChatPage() {
 
                     {/* User messages: Avatar on right */}
                     {message.sender === "USER" && (
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0 bg-gray-800 text-white order-2">
-                        Y
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 order-2">
+                        {session?.user?.image ? (
+                          <img
+                            src={session.user.image}
+                            alt={session.user.name || "User"}
+                            className="w-8 h-8 rounded-full object-cover border-2 border-gray-200"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center border-2 border-gray-200">
+                            <span className="text-sm font-semibold text-blue-700">
+                              {session?.user?.name?.charAt(0)?.toUpperCase() || "U"}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

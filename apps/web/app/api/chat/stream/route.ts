@@ -40,8 +40,8 @@ function getOpenAIClient() {
   }
   
   return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
+  apiKey: process.env.OPENAI_API_KEY,
+});
 }
 
 // Optimized async generator for token streaming
@@ -97,7 +97,7 @@ async function* streamTokens(messages: ChatMessage[], settings: ChatSettings): A
       // Extract and yield text deltas from chat completions
       if (chunk.choices?.[0]?.delta?.content) {
         yield { event: "text", data: chunk.choices[0].delta.content };
-      }
+      } 
       
       // Handle completion events
       if (chunk.choices?.[0]?.finish_reason) {

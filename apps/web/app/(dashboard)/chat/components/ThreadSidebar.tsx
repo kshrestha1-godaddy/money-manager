@@ -9,7 +9,6 @@ interface ChatThread {
   description?: string | null;
   isPinned: boolean;
   lastMessageAt: Date;
-  totalTokens?: number;
   conversations?: Array<{
     content: string;
     sender: string;
@@ -207,15 +206,6 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
     }
   };
 
-  const getLastMessagePreview = (thread: ChatThread) => {
-    if (!thread.conversations || thread.conversations.length === 0) return "No messages yet";
-    const lastMessage = thread.conversations[0];
-    if (!lastMessage) return "No messages yet";
-    const preview = lastMessage.content.length > 50 
-      ? lastMessage.content.substring(0, 50) + "..."
-      : lastMessage.content;
-    return preview;
-  };
 
   return (
     <div className="w-80 border-r border-gray-100 flex flex-col h-full">
@@ -332,7 +322,7 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
                     handlePinThread={handlePinThread}
                     handleDeleteThread={handleDeleteThread}
                     formatDate={formatDate}
-                    getLastMessagePreview={getLastMessagePreview}
+
                   />
                 ))}
               </div>
@@ -368,7 +358,6 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
                     handlePinThread={handlePinThread}
                     handleDeleteThread={handleDeleteThread}
                     formatDate={formatDate}
-                    getLastMessagePreview={getLastMessagePreview}
                   />
                 ))}
               </div>
@@ -399,7 +388,6 @@ interface ThreadItemProps {
   handlePinThread: (threadId: number, isPinned: boolean, e: React.MouseEvent) => void;
   handleDeleteThread: (threadId: number, e: React.MouseEvent) => void;
   formatDate: (date: Date | string) => string;
-  getLastMessagePreview: (thread: ChatThread) => string;
 }
 
 const ThreadItem = ({
@@ -417,7 +405,6 @@ const ThreadItem = ({
   handlePinThread,
   handleDeleteThread,
   formatDate,
-  getLastMessagePreview,
 }: ThreadItemProps) => {
   return (
     <div key={thread.id}>
@@ -462,27 +449,12 @@ const ThreadItem = ({
               )}
             </div>
           </div>
-          
-          {/* Preview and Count */}
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-gray-500 truncate flex-1">
-              {getLastMessagePreview(thread)}
-            </p>
-            {thread._count?.conversations && thread._count.conversations > 0 && (
-              <span className="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-full ml-2">
-                {thread._count.conversations}
-              </span>
-            )}
-          </div>
         </div>
         
         {/* Timestamp and Action buttons */}
         <div className="flex items-center justify-between mt-2">
           <span className="text-xs text-gray-400">
             {formatDate(thread.lastMessageAt)}
-            {thread.totalTokens && thread.totalTokens > 0 && (
-              <> • {thread.totalTokens.toLocaleString()} tokens</>
-            )}
           </span>
           <div className="flex gap-1">
           <button

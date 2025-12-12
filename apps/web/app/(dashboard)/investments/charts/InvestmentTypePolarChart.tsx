@@ -621,7 +621,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
             )} across different investment types`}
           >
             <div className="w-full h-full">
-              <PolarArea data={chartData} options={chartOptions} />
+            <PolarArea data={chartData} options={chartOptions} />
             </div>
           </div>
 

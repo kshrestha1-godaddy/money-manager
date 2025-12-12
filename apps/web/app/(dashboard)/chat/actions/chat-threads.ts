@@ -63,27 +63,7 @@ export async function getChatThreads() {
       ],
     });
 
-    // Calculate total tokens for each thread
-    const threadsWithTokens = await Promise.all(
-      threads.map(async (thread) => {
-        const tokenSum = await prisma.chatConversation.aggregate({
-          where: {
-            threadId: thread.id,
-            tokenCount: { not: null },
-          },
-          _sum: {
-            tokenCount: true,
-          },
-        });
-
-        return {
-          ...thread,
-          totalTokens: tokenSum._sum.tokenCount || 0,
-        };
-      })
-    );
-
-    return { success: true, threads: threadsWithTokens };
+    return { success: true, threads };
   } catch (error) {
     console.error("Error fetching chat threads:", error);
     return { success: false, error: "Failed to fetch chat threads" };
@@ -290,7 +270,43 @@ export async function updateConversation(
   }
 }
 
-// Generate thread title based on first message
+// Helper function to call OpenAI Responses API for title generation
+async function generateTitleWithOpenAI(userMessage: string): Promise<string> {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("Missing OPENAI_API_KEY environment variable");
+  }
+
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      input: `Generate a concise, descriptive title (maximum 6 words) for a chat conversation that starts with this user message: "${userMessage}". Return only the title, nothing else.`,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  
+  // Extract title from the responses API structure
+  if (data.output && data.output.length > 0 && data.output[0].content && data.output[0].content.length > 0) {
+    const generatedTitle = data.output[0].content[0].text?.trim();
+    if (generatedTitle) {
+      // Remove quotes if present and ensure it's not too long
+      return generatedTitle.replace(/^["']|["']$/g, '').substring(0, 60);
+    }
+  }
+  
+  throw new Error("Invalid response structure from OpenAI API");
+}
+
+// Generate thread title based on first message using OpenAI
 export async function generateThreadTitle(threadId: number) {
   try {
     const session = await getServerSession(authOptions);
@@ -310,10 +326,18 @@ export async function generateThreadTitle(threadId: number) {
       return { success: false, error: "No user message found" };
     }
 
-    // Generate title from first 50 characters of first user message
-    const title = firstMessage.content.length > 50 
-      ? firstMessage.content.substring(0, 50) + "..."
-      : firstMessage.content;
+    let title: string;
+    
+    try {
+      // Try to generate title using OpenAI
+      title = await generateTitleWithOpenAI(firstMessage.content);
+    } catch (openaiError) {
+      console.warn("Failed to generate title with OpenAI, using fallback:", openaiError);
+      // Fallback to truncated message if OpenAI fails
+      title = firstMessage.content.length > 50 
+        ? firstMessage.content.substring(0, 50) + "..."
+        : firstMessage.content;
+    }
 
     const updatedThread = await prisma.chatThread.update({
       where: { id: threadId },
