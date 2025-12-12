@@ -47,6 +47,8 @@ export function NotesGrid({ notes, onNoteUpdated, onNoteDeleted, onNoteView, sho
         <div>
           {!showArchived && pinnedNotes.length > 0 && (
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              {/* add a divider line */}
+              <div className="h-px bg-gray-200 my-4"></div>
               Other Notes
             </h2>
           )}
