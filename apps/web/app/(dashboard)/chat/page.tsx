@@ -25,39 +25,12 @@ interface Message {
   }>;
 }
 
-const conversationStarters = [
-  {
-    id: 1,
-    title: "Connect API endpoints",
-    description: "Help me integrate multiple API services",
-    icon: "🔗"
-  },
-  {
-    id: 2,
-    title: "Data transformation",
-    description: "Transform data between different formats",
-    icon: "🔄"
-  },
-  {
-    id: 3,
-    title: "Database integration",
-    description: "Set up database connections and queries",
-    icon: "🗄️"
-  },
-  {
-    id: 4,
-    title: "Webhook configuration",
-    description: "Configure webhooks and event handling",
-    icon: "📡"
-  }
-];
-
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [currentThreadId, setCurrentThreadId] = useState<number | null>(null);
-  const [threadTitle, setThreadTitle] = useState<string>("Integration Chat");
+  const [threadTitle, setThreadTitle] = useState<string>("Chat");
   const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
   const sidebarRef = useRef<ThreadSidebarRef>(null);
 
@@ -244,81 +217,6 @@ export default function ChatPage() {
     }
   };
 
-  const handleStarterClick = async (starter: typeof conversationStarters[0]) => {
-    let threadId = currentThreadId;
-    
-    // Use existing thread if available, otherwise create new thread
-    if (!threadId) {
-      const threadResult = await createChatThread({
-        title: starter.title,
-      });
-      
-      if (!threadResult.success || !threadResult.thread) {
-        console.error("Failed to create thread");
-        return;
-      }
-      
-      threadId = threadResult.thread.id;
-      setCurrentThreadId(threadId);
-      setThreadTitle(starter.title);
-      // Add thread to sidebar without full refresh
-      sidebarRef.current?.addThread(threadResult.thread);
-    } else {
-      // Update thread title if it's still "New Chat"
-      if (threadTitle === "New Chat") {
-        const updateResult = await updateChatThread(threadId, { title: starter.title });
-        if (updateResult.success) {
-          setThreadTitle(starter.title);
-          sidebarRef.current?.updateThread(threadId, { title: starter.title });
-        }
-      }
-    }
-    
-    setIsLoading(true);
-
-    // Add user message
-    const userResult = await createConversation({
-      threadId,
-      content: starter.title,
-      sender: "USER" as any,
-      messageType: "TEXT" as any,
-    });
-
-    if (userResult.success) {
-      await loadThread(threadId);
-    }
-
-    // Add processing message
-    const processingResult = await createConversation({
-      threadId,
-      content: "I'll help you with that integration task...",
-      sender: "ASSISTANT" as any,
-      messageType: "TEXT" as any,
-      isProcessing: true,
-      processingSteps: 1,
-    });
-
-    if (processingResult.success) {
-      await loadThread(threadId);
-    }
-
-    // Simulate bot response
-    setTimeout(async () => {
-      const botResult = await createConversation({
-        threadId,
-        content: `Great! I'll help you with ${starter.description.toLowerCase()}. Let me guide you through the process step by step.`,
-        sender: "ASSISTANT" as any,
-        messageType: "TEXT" as any,
-      });
-
-      if (botResult.success) {
-        await loadThread(threadId);
-      }
-      
-      setIsLoading(false);
-    }, 1500);
-  };
-
   const handleThreadSelect = (threadId: number) => {
     loadThread(threadId); // Default is false for enableAutoScroll - don't auto-scroll when selecting existing threads
   };
@@ -340,7 +238,7 @@ export default function ChatPage() {
       // Fallback to reset state if thread creation fails
       setMessages([]);
       setCurrentThreadId(null);
-      setThreadTitle("Integration Chat");
+      setThreadTitle("Chat");
     }
   };
 
@@ -362,12 +260,7 @@ export default function ChatPage() {
             <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
-            <span className="text-gray-900 font-medium flex items-center gap-1">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              Integration Chat
-            </span>
+            <span className="text-gray-900 font-medium">Chat</span>
           </div>
       </div>
 
@@ -383,40 +276,10 @@ export default function ChatPage() {
 
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <div className="border-b border-gray-100 px-6 py-4 bg-white">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-red-500 rounded-full flex items-center justify-center shadow-sm">
-              <span className="text-white text-base font-bold">C</span>
-            </div>
-            <div className="flex-1">
-              <h1 className="text-xl font-bold text-gray-950 tracking-tight">{threadTitle}</h1>
-              <div className="flex items-center gap-2 text-sm text-gray-500 mt-0.5">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span>Online</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Chat Messages or Conversation Starters */}
+        {/* Chat Messages */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           <div className="flex-1 overflow-y-auto px-6 py-6">
-            {messages.length === 0 ? (
-              /* Empty State with Assistant Info */
-              <div className="flex flex-col">
-                <div className="flex flex-col justify-center items-center min-h-[400px]">
-                  <div className="text-center mb-8">
-                    <div className="w-16 h-16 bg-gradient-to-r from-pink-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <span className="text-white text-2xl font-bold">C</span>
-                    </div>
-                    <h2 className="text-2xl font-semibold text-gray-900 mb-2">Integration Assistant</h2>
-                    <p className="text-gray-600">Choose a starting point or type your own message</p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* Chat Messages */
+            {messages.length > 0 && (
               <div className="space-y-6">
                 {messages.map((message) => (
                   <div key={message.id} className="flex gap-4">
@@ -506,33 +369,6 @@ export default function ChatPage() {
               </div>
             )}
           </div>
-
-          {/* Conversation Starters - only show when no messages */}
-          {messages.length === 0 && (
-            <div className="px-6 py-4">
-              <div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                  {conversationStarters.map((starter) => (
-                    <button
-                      key={starter.id}
-                      onClick={() => handleStarterClick(starter)}
-                      className="p-3 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-all text-left group"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="text-lg">{starter.icon}</div>
-                        <div>
-                          <h3 className="font-medium text-gray-900 mb-1 group-hover:text-gray-700 text-sm">
-                            {starter.title}
-                          </h3>
-                          <p className="text-xs text-gray-600">{starter.description}</p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Input Area */}
