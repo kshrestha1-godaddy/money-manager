@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { Button } from "@repo/ui/button";
 import { ThreadSidebar } from "./components/ThreadSidebar";
-import { FinancialDataSelector } from "./components/FinancialDataSelector";
+import { InlineFinancialSelector } from "./components/InlineFinancialSelector";
 import { Message } from "./components/Message";
 import { SettingsModal } from "./components/SettingsModal";
 import { useChat } from "./hooks/useChat";
@@ -147,6 +147,13 @@ export default function ChatPage() {
         <div className="border-t border-gray-100 px-6 pt-4 pb-8 flex-shrink-0">
           <div className="flex justify-center">
             <div className="w-2/3 max-w-8xl">
+              {/* Inline Financial Data Selector */}
+              <InlineFinancialSelector
+                isVisible={showFinancialSelector}
+                onSelect={handleFinancialDataSelect}
+                onClose={() => setShowFinancialSelector(false)}
+              />
+              
               {/* Financial Context Banner - positioned above input controls */}
               {financialContext && (
                 <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
@@ -266,12 +273,6 @@ export default function ChatPage() {
         setChatSettings={setChatSettings}
       />
 
-      {/* Financial Data Selector Modal */}
-      <FinancialDataSelector
-        isOpen={showFinancialSelector}
-        onClose={() => setShowFinancialSelector(false)}
-        onSelect={handleFinancialDataSelect}
-      />
     </div>
   );
 }
