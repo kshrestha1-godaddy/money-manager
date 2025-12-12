@@ -39,8 +39,8 @@ export default function ChatPage() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll function that only scrolls when content overflows
-  const scrollToBottom = () => {
+  // Auto-scroll function that always scrolls to the latest messages
+  const scrollToBottom = (force = false) => {
     if (!messagesContainerRef.current || !messagesEndRef.current) return;
 
     const container = messagesContainerRef.current;
@@ -48,12 +48,13 @@ export default function ChatPage() {
     const scrollHeight = container.scrollHeight;
     const scrollTop = container.scrollTop;
     
-    // Only auto-scroll if content overflows the visible area
-    // and user is near the bottom (within 100px of bottom)
-    const isNearBottom = scrollTop + containerHeight >= scrollHeight - 100;
+    // Check if content overflows and user position
     const hasOverflow = scrollHeight > containerHeight;
+    const isNearBottom = scrollTop + containerHeight >= scrollHeight - 100;
     
-    if (hasOverflow && isNearBottom) {
+    // Always scroll if forced, or if there's overflow and user is near bottom
+    // Force scroll for new messages and streaming responses
+    if (force || (hasOverflow && isNearBottom)) {
       messagesEndRef.current.scrollIntoView({ 
         behavior: "smooth", 
         block: "end" 
@@ -61,9 +62,27 @@ export default function ChatPage() {
     }
   };
 
-  // Auto-scroll when messages change or streaming updates
+  // Force scroll to bottom for new messages (always)
+  const forceScrollToBottom = () => {
+    scrollToBottom(true);
+  };
+
+  // Auto-scroll when messages change (force scroll for new messages)
   useEffect(() => {
-    scrollToBottom();
+    forceScrollToBottom();
+  }, [messages]);
+
+  // Auto-scroll during streaming updates (force scroll to keep up with streaming text)
+  useEffect(() => {
+    forceScrollToBottom();
+  }, [streamingText]);
+
+  // Additional scroll trigger with delay to ensure DOM updates
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      forceScrollToBottom();
+    }, 50);
+    return () => clearTimeout(timer);
   }, [messages, streamingText]);
 
   // Add keyboard shortcut to return to dashboard
@@ -156,6 +175,9 @@ export default function ChatPage() {
         setMessages(groupedMessages);
         setThreadTitle(result.thread.title);
         setCurrentThreadId(threadId);
+
+        // Scroll to bottom when loading a thread to show latest messages
+        setTimeout(forceScrollToBottom, 100);
       }
     } catch (error) {
       console.error("Error loading thread:", error);
@@ -215,6 +237,9 @@ export default function ChatPage() {
     // Reload messages to show user message
     await loadThread(threadId!);
     
+    // Scroll to show the user message just sent
+    setTimeout(forceScrollToBottom, 100);
+    
     // Get updated messages for conversation history
     const updatedMessagesResult = await getChatThread(threadId!);
     const allMessages = updatedMessagesResult.success && updatedMessagesResult.thread?.conversations 
@@ -256,8 +281,8 @@ export default function ChatPage() {
       return newMap;
     });
     
-    // Trigger scroll when assistant starts responding
-    setTimeout(scrollToBottom, 100);
+    // Trigger scroll when assistant starts responding (force scroll)
+    setTimeout(forceScrollToBottom, 100);
 
     // Track accumulated text locally for final save (React state updates are async)
     let accumulatedText = "";
@@ -374,6 +399,9 @@ export default function ChatPage() {
                 : msg
             )
           );
+
+          // Force scroll after each streaming update to keep up with new content
+          setTimeout(forceScrollToBottom, 10);
         } else if (token.event === "chat_output") {
           console.log("[Client] Stream complete, total tokens received:", tokenCount);
           // Stream complete
@@ -401,6 +429,9 @@ export default function ChatPage() {
             : msg
         )
       );
+
+      // Force scroll when streaming completes
+      setTimeout(forceScrollToBottom, 50);
       
       // Clear streaming state for this message
       setStreamingText((prev) => {
@@ -417,6 +448,9 @@ export default function ChatPage() {
       
       // Reload to sync with database (this will also handle intermediate steps grouping)
       await loadThread(threadId!);
+      
+      // Force scroll after reload to ensure we see the final message
+      setTimeout(forceScrollToBottom, 200);
       
       // Generate thread title if needed
       if (threadTitle === "New Chat") {
@@ -523,30 +557,24 @@ export default function ChatPage() {
               <div className="space-y-6">
                 {messages.map((message) => (
                   <div key={message.id} className={`flex gap-4 ${
-                    message.sender === "USER" ? "justify-start" : "justify-end"
+                    message.sender === "USER" ? "justify-end" : "justify-start"
                   }`}>
-                    {/* User messages: Avatar on left */}
-                    {message.sender === "USER" && (
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0 bg-gray-800 text-white">
-                        Y
+                    {/* Assistant messages: Avatar on left */}
+                    {message.sender === "ASSISTANT" && (
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0 bg-gradient-to-r from-pink-500 to-red-500 text-white">
+                        C
                       </div>
                     )}
 
                     {/* Message Content */}
-                    <div className={`max-w-[70%] ${
-                      message.sender === "USER" ? "order-2" : "order-1"
+                    <div className={`max-w-[50%] ${
+                      message.sender === "USER" ? "order-1" : "order-2"
                     }`}>
                       <div className={`flex items-center gap-2 mb-1 ${
-                        message.sender === "USER" ? "justify-start" : "justify-end"
+                        message.sender === "USER" ? "justify-end" : "justify-start"
                       }`}>
                         <span className="text-sm font-medium text-gray-900">
-                          {message.sender === "USER" ? "You" : "Chatbot"}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {new Date(message.createdAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {message.sender === "USER" ? "You" : "My Money Manager"}
                         </span>
                       </div>
                       
@@ -587,6 +615,18 @@ export default function ChatPage() {
                             </ReactMarkdown>
                           </div>
                         )}
+                      </div>
+
+                      {/* Timestamp below message */}
+                      <div className={`mt-1 ${
+                        message.sender === "USER" ? "text-right" : "text-left"
+                      }`}>
+                        <span className="text-xs text-gray-500">
+                          {new Date(message.createdAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
                       </div>
 
                       {/* Intermediate Steps - Collapsible */}
@@ -633,10 +673,10 @@ export default function ChatPage() {
                       )}
                     </div>
 
-                    {/* AI messages: Avatar on right */}
-                    {message.sender === "ASSISTANT" && (
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0 bg-gradient-to-r from-pink-500 to-red-500 text-white order-2">
-                        C
+                    {/* User messages: Avatar on right */}
+                    {message.sender === "USER" && (
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0 bg-gray-800 text-white order-2">
+                        Y
                       </div>
                     )}
                   </div>
