@@ -73,9 +73,9 @@ export function NoteCard({ note, onUpdated, onDeleted, onView }: NoteCardProps) 
     setShowActions(false);
   };
 
-  const handleEditComplete = () => {
+  const handleEditComplete = (updatedNote: Note) => {
     setIsEditing(false);
-    onUpdated();
+    onUpdated(updatedNote);
   };
 
   const formatDate = (date: Date | null) => {

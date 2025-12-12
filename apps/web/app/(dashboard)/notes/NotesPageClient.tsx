@@ -63,13 +63,41 @@ export function NotesPageClient() {
   };
 
   const handleNoteUpdated = (updatedNote: Note) => {
-    // Optimistically update the note in the local state
-    setNotes(prevNotes => 
-      prevNotes.map(note => note.id === updatedNote.id ? updatedNote : note)
-    );
-    setArchivedNotes(prevNotes => 
-      prevNotes.map(note => note.id === updatedNote.id ? updatedNote : note)
-    );
+    // Handle archive/unarchive by moving notes between arrays
+    if (updatedNote.isArchived) {
+      // Note was archived - remove from notes, add to archived
+      setNotes(prevNotes => prevNotes.filter(note => note.id !== updatedNote.id));
+      setArchivedNotes(prevNotes => {
+        const existingIndex = prevNotes.findIndex(note => note.id === updatedNote.id);
+        if (existingIndex >= 0) {
+          // Update existing archived note
+          return prevNotes.map(note => note.id === updatedNote.id ? updatedNote : note);
+        } else {
+          // Add newly archived note to the beginning
+          return [updatedNote, ...prevNotes];
+        }
+      });
+    } else {
+      // Note was unarchived - remove from archived, add to notes
+      setArchivedNotes(prevNotes => prevNotes.filter(note => note.id !== updatedNote.id));
+      setNotes(prevNotes => {
+        const existingIndex = prevNotes.findIndex(note => note.id === updatedNote.id);
+        if (existingIndex >= 0) {
+          // Update existing note
+          return prevNotes.map(note => note.id === updatedNote.id ? updatedNote : note);
+        } else {
+          // Add newly unarchived note in the correct position
+          if (updatedNote.isPinned) {
+            return [updatedNote, ...prevNotes];
+          } else {
+            // Insert in chronological order (after pinned notes)
+            const pinnedNotes = prevNotes.filter(note => note.isPinned);
+            const unpinnedNotes = prevNotes.filter(note => !note.isPinned);
+            return [...pinnedNotes, updatedNote, ...unpinnedNotes];
+          }
+        }
+      });
+    }
   };
 
   const handleNoteDeleted = (deletedNoteId: number) => {
