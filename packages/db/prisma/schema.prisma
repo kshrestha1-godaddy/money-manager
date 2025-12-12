@@ -791,6 +791,12 @@ model ChatConversation {
   // File attachments (if any)
   attachments Json? // Array of file attachments with metadata
   
+  // Feedback and analytics
+  feedback ChatFeedback? // Like/dislike feedback from user
+  comments String? // User comments on the conversation
+  responseTimeSeconds Float? // Time taken to complete the response (in seconds)
+  tokenCount Int? // Number of tokens in the response
+  
   // Relationships
   thread ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
   threadId Int
@@ -801,6 +807,7 @@ model ChatConversation {
   
   @@index([threadId, createdAt])
   @@index([sender, createdAt])
+  @@index([feedback])
 }
 
 enum ChatSender {
@@ -814,5 +821,10 @@ enum ChatMessageType {
   FILE
   SYSTEM
   ERROR
+}
+
+enum ChatFeedback {
+  LIKE
+  DISLIKE
 }
 
