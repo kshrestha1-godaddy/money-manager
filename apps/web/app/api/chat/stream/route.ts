@@ -28,6 +28,18 @@ interface ChatSettings {
   service_tier: 'auto' | 'default' | 'flex' | 'priority';
 }
 
+interface FinancialContext {
+  markdownData: string;
+  summary: {
+    totalIncome: number;
+    totalExpenses: number;
+    netAmount: number;
+    transactionCount: number;
+    period: string;
+    currency: string;
+  };
+}
+
 interface StreamEvent {
   event: "text" | "chat_output" | "error";
   data: string | { complete: boolean } | { error: string };
@@ -45,7 +57,7 @@ function getOpenAIClient() {
 }
 
 // Optimized async generator for token streaming
-async function* streamTokens(messages: ChatMessage[], settings: ChatSettings): AsyncGenerator<StreamEvent, void, unknown> {
+async function* streamTokens(messages: ChatMessage[], settings: ChatSettings, financialContext?: FinancialContext): AsyncGenerator<StreamEvent, void, unknown> {
   // Validate and limit message history
   const validMessages = messages
     .filter((msg): msg is ChatMessage => 
@@ -72,6 +84,58 @@ async function* streamTokens(messages: ChatMessage[], settings: ChatSettings): A
       role: msg.sender === "USER" ? "user" : "assistant",
       content: msg.content,
     }));
+
+    // Add financial context as system message if provided
+    if (financialContext) {
+      const systemMessage = {
+        role: "system" as const,
+        content: `You are a seasoned financial expert, analyst, and advisor with 20+ years of experience in personal finance management, investment analysis, and financial planning. You have a CFA designation and specialize in helping individuals optimize their financial health.
+
+              FINANCIAL DATA PROVIDED:
+              ${financialContext.markdownData}
+
+              EXECUTIVE SUMMARY:
+              - Analysis Period: ${financialContext.summary.period}
+              - Total Income: ${financialContext.summary.totalIncome} ${financialContext.summary.currency}
+              - Total Expenses: ${financialContext.summary.totalExpenses} ${financialContext.summary.currency}
+              - Net Cash Flow: ${financialContext.summary.netAmount} ${financialContext.summary.currency}
+              - Transaction Volume: ${financialContext.summary.transactionCount} transactions
+
+              ANALYSIS FRAMEWORK:
+              As a financial expert, you must respond with the rigor and professionalism of a top-tier financial analyst. Your responses should be:
+
+              1. **STRUCTURED & ORGANIZED**: Use clear headings, bullet points, and logical flow
+              2. **ANALYTICAL & CRITICAL**: Identify patterns, anomalies, and areas of concern
+              3. **DATA-DRIVEN**: Reference specific numbers, percentages, and trends from the data
+              4. **ACTIONABLE**: Provide concrete, implementable recommendations
+              5. **COMPREHENSIVE**: Consider both short-term and long-term implications
+
+              RESPONSE REQUIREMENTS:
+              ✅ Always start with an "Executive Summary" when analyzing overall performance
+              ✅ Use financial terminology appropriately (cash flow, burn rate, expense ratios, etc.)
+              ✅ Calculate and present key financial ratios and metrics
+              ✅ Identify red flags, inefficiencies, and optimization opportunities
+              ✅ Provide prioritized recommendations with expected impact
+              ✅ Include risk assessments where relevant
+              ✅ Reference specific transactions or categories when making points
+              ✅ Use professional formatting with clear sections and subsections
+
+              CRITICAL ANALYSIS AREAS TO EVALUATE:
+              - Cash flow patterns and sustainability
+              - Expense category analysis and benchmarking
+              - Income diversification and stability
+              - Spending efficiency and waste identification
+              - Financial goal alignment
+              - Emergency fund adequacy
+              - Investment vs. spending allocation
+              - Recurring expense optimization opportunities
+
+              Approach every query with the analytical rigor of a financial consultant preparing a report for a high-net-worth client. Be thorough, insightful, and professionally critical in your analysis.`
+      };
+      
+      // Insert system message at the beginning
+      messages.unshift(systemMessage);
+    }
 
     // Build API request with user settings
     const requestOptions: any = {
@@ -127,7 +191,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Parse and validate request body
-    let body: { messages?: unknown; settings?: ChatSettings };
+    let body: { messages?: unknown; settings?: ChatSettings; financialContext?: FinancialContext };
     try {
       body = await req.json();
     } catch {
@@ -137,7 +201,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const { messages, settings } = body;
+    const { messages, settings, financialContext } = body;
     
     // Use default settings if not provided
     const defaultSettings: ChatSettings = {
@@ -173,7 +237,7 @@ export async function POST(req: NextRequest) {
 
         try {
           // Stream tokens efficiently
-          for await (const token of streamTokens(messages as ChatMessage[], apiSettings)) {
+          for await (const token of streamTokens(messages as ChatMessage[], apiSettings, financialContext)) {
             sendEvent(token.event, token.data);
           }
           controller.close();
