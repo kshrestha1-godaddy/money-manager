@@ -20,16 +20,14 @@ export interface CreateConversationData {
   sender: ChatSender;
   messageType?: ChatMessageType;
   isProcessing?: boolean;
-  processingSteps?: number;
-  attachments?: any;
 }
 
 // Get all chat threads for the current user
 export async function getChatThreads() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) {
-      throw new Error("Unauthorized for user " + session?.user?.id);
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
     }
     
     const userId = getUserIdFromSession(session.user.id);
@@ -72,8 +70,8 @@ export async function getChatThreads() {
 export async function getChatThread(threadId: number) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) {
-      throw new Error("Unauthorized for user " + session?.user?.id);
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
     }
     
     const userId = getUserIdFromSession(session.user.id);
@@ -106,8 +104,8 @@ export async function getChatThread(threadId: number) {
 export async function createChatThread(data: CreateThreadData) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) {
-      throw new Error("Unauthorized for user " + session?.user?.id);
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
     }
     
     const userId = getUserIdFromSession(session.user.id);
@@ -136,8 +134,8 @@ export async function updateChatThread(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) {
-      throw new Error("Unauthorized for user " + session?.user?.id);
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
     }
     
     const userId = getUserIdFromSession(session.user.id);
@@ -165,8 +163,8 @@ export async function updateChatThread(
 export async function deleteChatThread(threadId: number) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) {
-      throw new Error("Unauthorized for user " + session?.user?.id);
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
     }
     
     const userId = getUserIdFromSession(session.user.id);
@@ -194,8 +192,8 @@ export async function deleteChatThread(threadId: number) {
 export async function createConversation(data: CreateConversationData) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) {
-      throw new Error("Unauthorized for user " + session?.user?.id);
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
     }
     
     const userId = getUserIdFromSession(session.user.id);
@@ -219,8 +217,6 @@ export async function createConversation(data: CreateConversationData) {
           sender: data.sender,
           messageType: data.messageType || "TEXT",
           isProcessing: data.isProcessing || false,
-          processingSteps: data.processingSteps || 0,
-          attachments: data.attachments,
           threadId: data.threadId,
         },
     });
@@ -246,8 +242,8 @@ export async function updateConversation(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) {
-      throw new Error("Unauthorized for user " + session?.user?.id);
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
     }
 
     const conversation = await prisma.chatConversation.update({
@@ -270,8 +266,8 @@ export async function updateConversation(
 export async function generateThreadTitle(threadId: number) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) {
-      throw new Error("Unauthorized for user " + session?.user?.id);
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
     }
 
     const firstMessage = await prisma.chatConversation.findFirst({

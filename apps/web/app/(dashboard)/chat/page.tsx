@@ -19,7 +19,6 @@ interface Message {
   sender: "USER" | "ASSISTANT";
   createdAt: Date;
   isProcessing?: boolean;
-  processingSteps?: number;
   intermediateSteps?: Array<{
     id: number;
     content: string;
@@ -39,49 +38,17 @@ export default function ChatPage() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll function that always scrolls to the latest messages
-  const scrollToBottom = (force = false) => {
-    if (!messagesContainerRef.current || !messagesEndRef.current) return;
-
-    const container = messagesContainerRef.current;
-    const containerHeight = container.clientHeight;
-    const scrollHeight = container.scrollHeight;
-    const scrollTop = container.scrollTop;
-    
-    // Check if content overflows and user position
-    const hasOverflow = scrollHeight > containerHeight;
-    const isNearBottom = scrollTop + containerHeight >= scrollHeight - 100;
-    
-    // Always scroll if forced, or if there's overflow and user is near bottom
-    // Force scroll for new messages and streaming responses
-    if (force || (hasOverflow && isNearBottom)) {
-      messagesEndRef.current.scrollIntoView({ 
-        behavior: "smooth", 
-        block: "end" 
-      });
-    }
+  // Optimized auto-scroll function
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ 
+      behavior: "smooth", 
+      block: "end" 
+    });
   };
 
-  // Force scroll to bottom for new messages (always)
-  const forceScrollToBottom = () => {
-    scrollToBottom(true);
-  };
-
-  // Auto-scroll when messages change (force scroll for new messages)
+  // Auto-scroll when messages or streaming text changes
   useEffect(() => {
-    forceScrollToBottom();
-  }, [messages]);
-
-  // Auto-scroll during streaming updates (force scroll to keep up with streaming text)
-  useEffect(() => {
-    forceScrollToBottom();
-  }, [streamingText]);
-
-  // Additional scroll trigger with delay to ensure DOM updates
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      forceScrollToBottom();
-    }, 50);
+    const timer = setTimeout(scrollToBottom, 50);
     return () => clearTimeout(timer);
   }, [messages, streamingText]);
 
@@ -117,7 +84,6 @@ export default function ChatPage() {
             sender: conv.sender,
             createdAt: conv.createdAt,
             isProcessing: conv.isProcessing,
-            processingSteps: conv.processingSteps,
           };
           
           if (conv.sender === "USER") {
@@ -175,9 +141,6 @@ export default function ChatPage() {
         setMessages(groupedMessages);
         setThreadTitle(result.thread.title);
         setCurrentThreadId(threadId);
-
-        // Scroll to bottom when loading a thread to show latest messages
-        setTimeout(forceScrollToBottom, 100);
       }
     } catch (error) {
       console.error("Error loading thread:", error);
@@ -231,14 +194,17 @@ export default function ChatPage() {
       return;
     }
 
+    // Add user message to UI immediately
+    const userMessage: Message = {
+      id: userResult.conversation!.id,
+      content: userMessageContent,
+      sender: "USER",
+      createdAt: new Date(userResult.conversation!.createdAt),
+    };
+    
+    setMessages((prev) => [...prev, userMessage]);
     setInputMessage("");
     setIsLoading(true);
-
-    // Reload messages to show user message
-    await loadThread(threadId!);
-    
-    // Scroll to show the user message just sent
-    setTimeout(forceScrollToBottom, 100);
     
     // Get updated messages for conversation history
     const updatedMessagesResult = await getChatThread(threadId!);
@@ -280,9 +246,6 @@ export default function ChatPage() {
       newMap.set(assistantMessageId, "");
       return newMap;
     });
-    
-    // Trigger scroll when assistant starts responding (force scroll)
-    setTimeout(forceScrollToBottom, 100);
 
     // Track accumulated text locally for final save (React state updates are async)
     let accumulatedText = "";
@@ -298,8 +261,6 @@ export default function ChatPage() {
 
       // Async generator function to consume the stream and yield tokens
       async function* streamGenerator(): AsyncGenerator<{ event: string; data: any }, void, unknown> {
-        console.log("[Client] Starting stream request with messages:", conversationHistory.length);
-        
         const response = await fetch("/api/chat/stream", {
           method: "POST",
           headers: {
@@ -307,11 +268,8 @@ export default function ChatPage() {
           },
           body: JSON.stringify({
             messages: conversationHistory,
-            threadId,
           }),
         });
-
-        console.log("[Client] Stream response status:", response.status, response.statusText);
 
         if (!response.ok) {
           throw new Error("Failed to get response from OpenAI");
@@ -327,18 +285,12 @@ export default function ChatPage() {
         // Parse SSE stream and yield events
         let buffer = "";
         let currentEvent = "";
-        let chunkCount = 0;
 
         while (true) {
           const { done, value } = await reader.read();
-          if (done) {
-            console.log("[Client] Stream reader done, total chunks processed:", chunkCount);
-            break;
-          }
+          if (done) break;
 
-          chunkCount++;
           const rawChunk = decoder.decode(value, { stream: true });
-          console.log(`[Client] Received chunk #${chunkCount}:`, rawChunk.substring(0, 150));
           
           buffer += rawChunk;
           const lines = buffer.split("\n");
@@ -349,7 +301,6 @@ export default function ChatPage() {
           for (const line of lines) {
             if (line.startsWith("event: ")) {
               currentEvent = line.slice(7).trim();
-              console.log("[Client] Parsed event type:", currentEvent);
             } else if (line.startsWith("data: ")) {
               const data = line.slice(6).trim();
               
@@ -357,15 +308,12 @@ export default function ChatPage() {
 
               try {
                 const parsedData = JSON.parse(data);
-                console.log("[Client] Parsed data for event", currentEvent, ":", typeof parsedData === 'string' ? parsedData.substring(0, 50) : parsedData);
-                // Yield the event with parsed data
                 yield { event: currentEvent, data: parsedData };
               } catch (e) {
                 // Skip invalid JSON
-                console.warn("[Client] Failed to parse SSE data:", data.substring(0, 50), e);
+                console.warn("Failed to parse SSE data:", e);
               }
             } else if (line === "") {
-              // Empty line resets event
               currentEvent = "";
             }
           }
@@ -373,12 +321,7 @@ export default function ChatPage() {
       }
 
       // Consume the async generator and process tokens one by one
-      // Update streaming state incrementally for smooth streaming effect
-      let tokenCount = 0;
       for await (const token of streamGenerator()) {
-        tokenCount++;
-        console.log(`[Client] Processing token #${tokenCount}:`, token.event, "| Data:", typeof token.data === 'string' ? token.data.substring(0, 50) : token.data);
-        
         if (token.event === "text") {
           // Accumulate text locally (for final save)
           accumulatedText += token.data;
@@ -387,7 +330,6 @@ export default function ChatPage() {
           setStreamingText((prev) => {
             const newMap = new Map(prev);
             newMap.set(assistantMessageId, accumulatedText);
-            console.log("[Client] Streaming text updated, length:", accumulatedText.length, "| Latest token:", token.data);
             return newMap;
           });
           
@@ -399,29 +341,20 @@ export default function ChatPage() {
                 : msg
             )
           );
-
-          // Force scroll after each streaming update to keep up with new content
-          setTimeout(forceScrollToBottom, 10);
         } else if (token.event === "chat_output") {
-          console.log("[Client] Stream complete, total tokens received:", tokenCount);
           // Stream complete
           break;
         } else if (token.event === "error") {
-          console.error("[Client] Stream error:", token.data);
           throw new Error(token.data.error || "Streaming error");
         }
       }
       
       // Use accumulated text (tracked locally) for final save
-      console.log("[Client] Finished processing stream, final text length:", accumulatedText.length);
-      console.log("[Client] Final accumulated text:", accumulatedText.substring(0, 100));
-
       if (!accumulatedText || accumulatedText.trim() === "") {
-        console.warn("[Client] No text accumulated, this shouldn't happen");
         accumulatedText = "Sorry, I didn't receive a response. Please try again.";
       }
 
-      // Update final message state in UI first (for immediate feedback)
+      // Update final message state in UI and database
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantMessageId
@@ -429,9 +362,6 @@ export default function ChatPage() {
             : msg
         )
       );
-
-      // Force scroll when streaming completes
-      setTimeout(forceScrollToBottom, 50);
       
       // Clear streaming state for this message
       setStreamingText((prev) => {
@@ -440,17 +370,11 @@ export default function ChatPage() {
         return newMap;
       });
       
-      // Then update in database
+      // Update in database
       await updateConversation(assistantMessageId, {
         content: accumulatedText,
         isProcessing: false,
       });
-      
-      // Reload to sync with database (this will also handle intermediate steps grouping)
-      await loadThread(threadId!);
-      
-      // Force scroll after reload to ensure we see the final message
-      setTimeout(forceScrollToBottom, 200);
       
       // Generate thread title if needed
       if (threadTitle === "New Chat") {
@@ -466,21 +390,21 @@ export default function ChatPage() {
       console.error("Error streaming response:", error);
       setIsLoading(false);
       
-      // Update UI immediately
+      const errorMessage = "Sorry, I encountered an error processing your request. Please try again.";
+      
+      // Update UI and database
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantMessageId
-            ? { ...msg, content: "Sorry, I encountered an error processing your request. Please try again.", isProcessing: false }
+            ? { ...msg, content: errorMessage, isProcessing: false }
             : msg
         )
       );
       
-      // Update database
       await updateConversation(assistantMessageId, {
-        content: "Sorry, I encountered an error processing your request. Please try again.",
+        content: errorMessage,
         isProcessing: false,
       });
-      await loadThread(threadId!);
     }
   };
 
@@ -671,25 +595,6 @@ export default function ChatPage() {
         {/* Input Area */}
         <div className="border-t border-gray-100 px-6 py-4 bg-white flex-shrink-0">
           <div className="flex gap-3">
-            {/* Attachment button */}
-            <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-                className="w-5 h-5"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13"
-                />
-              </svg>
-            </button>
-
-            {/* Input field */}
             <input
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
@@ -698,8 +603,6 @@ export default function ChatPage() {
               className="flex-1 border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
               disabled={isLoading}
             />
-
-            {/* Send button */}
             <Button onClick={handleSendMessage}>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
