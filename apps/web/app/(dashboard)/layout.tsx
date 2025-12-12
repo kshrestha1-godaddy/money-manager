@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { SidebarItem } from "../components/sidebar/SidebarItem";
 import { TutorialOverlay } from "../components/TutorialOverlay";
 import { TutorialButton } from "../components/TutorialButton";
@@ -8,13 +9,16 @@ import { CalculatorButton } from "../components/CalculatorButton";
 import { InactivityWarning } from "../components/InactivityWarning";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
+    const pathname = usePathname();
+    const isChatPage = pathname === "/chat";
     return (
-        <div className="flex min-h-screen bg-gray-50">
-            {/* Sidebar */}
-            <div 
-                id="sidebar"
-                className="fixed left-0 top-0 w-72 h-screen bg-white border-r border-gray-200 pt-24 flex-shrink-0 z-30 overflow-y-auto"
-            >
+        <div className={`${isChatPage ? "fixed inset-0 bg-gray-50 overflow-hidden" : "flex min-h-screen bg-gray-50"}`}>
+            {/* Sidebar - Hidden on chat page */}
+            {!isChatPage && (
+                <div 
+                    id="sidebar"
+                    className="fixed left-0 top-0 w-72 h-screen bg-white border-r border-gray-200 pt-24 flex-shrink-0 z-30 overflow-y-auto"
+                >
                 <div id="sidebar-nav" className="flex flex-col gap-2 pt-12 px-2">
                     {/* Navigation Items */}
                     <div className="space-y-3">
@@ -99,29 +103,38 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         /> */}
                     </div>
                 </div>
-            </div>
+                </div>
+            )}
             
             {/* Main Content Area */}
-            <div className="flex-1 ml-60 max-w-full overflow-x-auto">
-                <div className="p-6 pt-24 min-h-[calc(100vh-12rem)]">
+            <div className={`${
+                isChatPage 
+                    ? "w-full h-full" 
+                    : "flex-1 ml-60 max-w-full overflow-x-auto"
+            }`}>
+                <div className={`${
+                    isChatPage 
+                        ? "h-full" 
+                        : "p-6 pt-24 min-h-[calc(100vh-12rem)]"
+                }`}>
                     {children}
                 </div>
             </div>
             
-            {/* Tutorial Overlay */}
-            <TutorialOverlay />
+            {/* Tutorial Overlay - Hidden on chat page */}
+            {!isChatPage && <TutorialOverlay />}
             
-            {/* Tutorial Button */}
-            <TutorialButton />
+            {/* Tutorial Button - Hidden on chat page */}
+            {!isChatPage && <TutorialButton />}
             
-            {/* Currency Converter Button */}
-            <CurrencyConverterButton />
+            {/* Currency Converter Button - Hidden on chat page */}
+            {!isChatPage && <CurrencyConverterButton />}
             
-            {/* Calculator Button */}
-            <CalculatorButton />
+            {/* Calculator Button - Hidden on chat page */}
+            {!isChatPage && <CalculatorButton />}
             
             {/* Inactivity Warning - shows warnings when users are approaching password sharing threshold */}
-            <InactivityWarning />
+            {!isChatPage && <InactivityWarning />}
         </div>
     );
 }

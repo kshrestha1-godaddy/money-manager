@@ -356,7 +356,7 @@ export default function InvestmentsPageClient() {
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div>
             <InvestmentTypePolarChart {...polarChartProps} />
           </div>

@@ -136,7 +136,7 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
             </div>
 
 
-            <div className="space-y-4 overflow-y-auto pr-2" style={{ maxHeight: '420px' }}>
+            <div className="space-y-4 overflow-y-auto pr-2" style={{ maxHeight: '562px' }}>
                 {targets.map((target, index) => (
                     <TargetProgressItem
                         key={`${target.investmentType}-${index}`}

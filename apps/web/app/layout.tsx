@@ -7,6 +7,7 @@ import { Providers } from "./providers";
 import NavBar from "./components/NavBar";
 import Footer from "./components/Footer";
 import { GlobalModals } from "./components/GlobalModals";
+import { ChatLayoutWrapper } from "./components/ChatLayoutWrapper";
 const inter = Inter({ subsets: ["latin"] });
 
 // Generate environment-specific title
@@ -56,14 +57,16 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <Providers>
-          <NavBar />
+          <ChatLayoutWrapper>
+            <NavBar />
             <GlobalModals />
 
-          <div className="flex-grow p-10 pb-20">
-            {children}
-          </div>
+            <div className="flex-grow p-10 pb-20">
+              {children}
+            </div>
 
-          <Footer />
+            <Footer />
+          </ChatLayoutWrapper>
         </Providers>
       </body>
     </html>

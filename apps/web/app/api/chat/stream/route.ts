@@ -3,114 +3,157 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
 import OpenAI from "openai";
 
+// Configuration
+const MODEL_NAME = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const MAX_MESSAGES = parseInt(process.env.MAX_CHAT_MESSAGES || "50");
+
+// Type definitions
+interface ChatMessage {
+  sender: "USER" | "ASSISTANT";
+  content: string;
+}
+
+interface StreamEvent {
+  event: "text" | "chat_output" | "error";
+  data: string | { complete: boolean } | { error: string };
+}
+
+interface OpenAIChunk {
+  type: string;
+  delta?: string;
+}
+
+// Initialize OpenAI client
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Async generator function that yields tokens one by one
-async function* streamTokens(messages: any[]): AsyncGenerator<{ event: string; data: any }, void, unknown> {
-  // Build conversation history for OpenAI
-  const conversationText = messages
-    .map((msg: any) => {
-      const role = msg.sender === "USER" ? "User" : "Assistant";
-      return `${role}: ${msg.content}`;
-    })
+// Optimized async generator for token streaming
+async function* streamTokens(messages: ChatMessage[]): AsyncGenerator<StreamEvent, void, unknown> {
+  // Validate and limit message history
+  const validMessages = messages
+    .filter((msg): msg is ChatMessage => 
+      msg && typeof msg.content === 'string' && msg.content.trim() !== '' &&
+      (msg.sender === "USER" || msg.sender === "ASSISTANT")
+    )
+    .slice(-MAX_MESSAGES);
+
+  if (validMessages.length === 0) {
+    yield { event: "error", data: { error: "No valid messages provided" } };
+    return;
+  }
+
+  // Build optimized conversation text
+  const conversationText = validMessages
+    .map(msg => `${msg.sender === "USER" ? "User" : "Assistant"}: ${msg.content}`)
     .join("\n\n");
 
   try {
     const response = await client.responses.create({
-      model: "gpt-4o-mini",
+      model: MODEL_NAME,
       input: conversationText,
       stream: true,
     });
 
-    // Stream the response chunks token by token
-    let chunkIndex = 0;
-    console.log("[API] Starting to stream tokens from OpenAI...");
-    
+    // Process stream chunks efficiently
     for await (const chunk of response) {
-      chunkIndex++;
-      const chunkData = chunk as any;
-      console.log(`[API] Received chunk #${chunkIndex} from OpenAI:`, JSON.stringify(chunkData).substring(0, 200));
+      const chunkData = chunk as OpenAIChunk;
       
-      // Handle OpenAI responses API format
-      // The stream has different event types, we need to extract text from response.output_text.delta
-      if (chunkData.type === "response.output_text.delta") {
-        const delta = chunkData.delta || "";
-        if (delta) {
-          console.log(`[API] Yielding text token (delta):`, delta);
-          // Yield text token immediately
-          yield { event: "text", data: delta };
-        }
-      } else if (chunkData.type === "response.output_text.done") {
-        // Final text is available, but we've already streamed all deltas
-        console.log("[API] Output text done");
-      } else if (chunkData.type === "response.completed" || chunkData.type === "stream.complete") {
-        // Stream is complete
-        console.log("[API] Stream completed");
+      // Extract and yield text deltas
+      if (chunkData.type === "response.output_text.delta" && chunkData.delta) {
+        yield { event: "text", data: chunkData.delta };
+      } 
+      // Handle completion events
+      else if (chunkData.type === "response.completed" || chunkData.type === "stream.complete") {
         break;
       }
     }
-    
-    console.log("[API] Stream complete, yielding chat_output event");
 
-    // Yield final event to indicate completion
+    // Signal completion
     yield { event: "chat_output", data: { complete: true } };
+    
   } catch (error) {
-    console.error("Error streaming OpenAI response:", error);
-    const errorMessage = error instanceof Error ? error.message : "Failed to get response from OpenAI";
+    const errorMessage = error instanceof Error ? error.message : "OpenAI API error";
     yield { event: "error", data: { error: errorMessage } };
   }
 }
 
+// Optimized POST handler
 export async function POST(req: NextRequest) {
   try {
+    // Authentication check
     const session = await getServerSession(authOptions);
     if (!session) {
-      return new Response("Unauthorized", { status: 401 });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { 
+        status: 401, 
+        headers: { "Content-Type": "application/json" } 
+      });
     }
 
-    const { messages } = await req.json();
-
-    if (!messages || !Array.isArray(messages)) {
-      return new Response("Messages array is required", { status: 400 });
+    // Parse and validate request body
+    let body: { messages?: unknown };
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON payload" }), { 
+        status: 400, 
+        headers: { "Content-Type": "application/json" } 
+      });
     }
 
-    // Create a streaming response using the async generator
+    const { messages } = body;
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return new Response(JSON.stringify({ error: "Valid messages array is required" }), { 
+        status: 400, 
+        headers: { "Content-Type": "application/json" } 
+      });
+    }
+
+    // Create optimized streaming response
+    const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
+        const sendEvent = (event: string, data: unknown) => {
+          const eventData = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+          controller.enqueue(encoder.encode(eventData));
+        };
+
         try {
-          // Consume the async generator and send SSE events
-          for await (const token of streamTokens(messages)) {
-            console.log("[API] Generator yielded token:", token.event, "| Data:", typeof token.data === 'string' ? token.data.substring(0, 50) : token.data);
-            const encoder = new TextEncoder();
-            const eventData = `event: ${token.event}\ndata: ${JSON.stringify(token.data)}\n\n`;
-            console.log("[API] Sending SSE event:", eventData.substring(0, 100));
-            controller.enqueue(encoder.encode(eventData));
+          // Stream tokens efficiently
+          for await (const token of streamTokens(messages as ChatMessage[])) {
+            sendEvent(token.event, token.data);
           }
-          console.log("[API] Stream closed");
           controller.close();
         } catch (error) {
-          console.error("Error in stream controller:", error);
-          const encoder = new TextEncoder();
-          controller.enqueue(
-            encoder.encode(`event: error\ndata: ${JSON.stringify({ error: "Stream error" })}\n\n`)
-          );
+          // Send error event and close stream
+          sendEvent("error", { error: "Streaming failed" });
           controller.close();
         }
       },
     });
 
+    // Return streaming response with optimal headers
     return new Response(stream, {
       headers: {
         "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Connection": "keep-alive",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
     });
+    
   } catch (error) {
-    console.error("Error in chat stream route:", error);
-    return new Response("Internal server error", { status: 500 });
+    // Log error for debugging (only in development)
+    if (process.env.NODE_ENV === "development") {
+      console.error("Chat stream error:", error);
+    }
+    
+    return new Response(JSON.stringify({ error: "Internal server error" }), { 
+      status: 500, 
+      headers: { "Content-Type": "application/json" } 
+    });
   }
 }
 

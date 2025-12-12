@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@repo/ui/button";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -36,6 +36,49 @@ export default function ChatPage() {
   const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
   const [streamingText, setStreamingText] = useState<Map<number, string>>(new Map());
   const sidebarRef = useRef<ThreadSidebarRef>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll function that only scrolls when content overflows
+  const scrollToBottom = () => {
+    if (!messagesContainerRef.current || !messagesEndRef.current) return;
+
+    const container = messagesContainerRef.current;
+    const containerHeight = container.clientHeight;
+    const scrollHeight = container.scrollHeight;
+    const scrollTop = container.scrollTop;
+    
+    // Only auto-scroll if content overflows the visible area
+    // and user is near the bottom (within 100px of bottom)
+    const isNearBottom = scrollTop + containerHeight >= scrollHeight - 100;
+    const hasOverflow = scrollHeight > containerHeight;
+    
+    if (hasOverflow && isNearBottom) {
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: "smooth", 
+        block: "end" 
+      });
+    }
+  };
+
+  // Auto-scroll when messages change or streaming updates
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, streamingText]);
+
+  // Add keyboard shortcut to return to dashboard
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        window.location.href = '/dashboard';
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    return () => {
+      document.removeEventListener('keydown', handleKeyPress);
+    };
+  }, []);
 
   const loadThread = async (threadId: number) => {
     try {
@@ -212,6 +255,9 @@ export default function ChatPage() {
       newMap.set(assistantMessageId, "");
       return newMap;
     });
+    
+    // Trigger scroll when assistant starts responding
+    setTimeout(scrollToBottom, 100);
 
     // Track accumulated text locally for final save (React state updates are async)
     let accumulatedText = "";
@@ -434,9 +480,9 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] overflow-hidden -mt-6 -mx-6">
+    <div className="flex flex-col h-screen overflow-hidden">
       {/* Navigation Breadcrumb */}
-      <div className="border-b border-gray-100 px-6 py-3">
+      <div className="border-b border-gray-100 px-6 py-3 bg-white">
           <div className="flex items-center gap-2 text-sm">
             <a 
               href="/dashboard" 
@@ -469,23 +515,30 @@ export default function ChatPage() {
         <div className="flex-1 flex flex-col">
         {/* Chat Messages */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <div className="flex-1 overflow-y-auto px-6 py-6">
+          <div 
+            ref={messagesContainerRef}
+            className="flex-1 overflow-y-auto px-6 py-6"
+          >
             {messages.length > 0 && (
               <div className="space-y-6">
                 {messages.map((message) => (
-                  <div key={message.id} className="flex gap-4">
-                    {/* Avatar */}
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0 ${
-                      message.sender === "USER" 
-                        ? "bg-gray-800 text-white" 
-                        : "bg-gradient-to-r from-pink-500 to-red-500 text-white"
-                    }`}>
-                      {message.sender === "USER" ? "Y" : "C"}
-                    </div>
+                  <div key={message.id} className={`flex gap-4 ${
+                    message.sender === "USER" ? "justify-start" : "justify-end"
+                  }`}>
+                    {/* User messages: Avatar on left */}
+                    {message.sender === "USER" && (
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0 bg-gray-800 text-white">
+                        Y
+                      </div>
+                    )}
 
                     {/* Message Content */}
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
+                    <div className={`max-w-[70%] ${
+                      message.sender === "USER" ? "order-2" : "order-1"
+                    }`}>
+                      <div className={`flex items-center gap-2 mb-1 ${
+                        message.sender === "USER" ? "justify-start" : "justify-end"
+                      }`}>
                         <span className="text-sm font-medium text-gray-900">
                           {message.sender === "USER" ? "You" : "Chatbot"}
                         </span>
@@ -497,12 +550,18 @@ export default function ChatPage() {
                         </span>
                       </div>
                       
-                      <div className="prose prose-sm max-w-none dark:prose-invert">
+                      <div className={`prose prose-sm max-w-none dark:prose-invert ${
+                        message.sender === "USER" 
+                          ? "bg-blue-500 text-white rounded-lg px-4 py-2" 
+                          : "bg-gray-100 rounded-lg px-4 py-2"
+                      }`}>
                         {message.isProcessing ? (
                           <div>
                             {/* Show streaming text if available, otherwise show loading indicator */}
                             {streamingText.has(message.id) && streamingText.get(message.id) ? (
-                              <div className="text-gray-700 leading-relaxed">
+                              <div className={`leading-relaxed ${
+                                message.sender === "USER" ? "text-white" : "text-gray-700"
+                              }`}>
                                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                   {streamingText.get(message.id) || ""}
                                 </ReactMarkdown>
@@ -520,7 +579,9 @@ export default function ChatPage() {
                             )}
                           </div>
                         ) : (
-                          <div className="text-gray-700 leading-relaxed">
+                          <div className={`leading-relaxed ${
+                            message.sender === "USER" ? "text-white" : "text-gray-700"
+                          }`}>
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
                               {message.content}
                             </ReactMarkdown>
@@ -571,10 +632,19 @@ export default function ChatPage() {
                         </div>
                       )}
                     </div>
+
+                    {/* AI messages: Avatar on right */}
+                    {message.sender === "ASSISTANT" && (
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0 bg-gradient-to-r from-pink-500 to-red-500 text-white order-2">
+                        C
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             )}
+            {/* Bottom marker for auto-scroll */}
+            <div ref={messagesEndRef} className="h-1" />
           </div>
         </div>
 
