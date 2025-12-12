@@ -24,6 +24,10 @@ export interface CreateConversationData {
   comments?: string;
   responseTimeSeconds?: number;
   tokenCount?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  intermediateSteps?: any; // JSON array of processing steps
+  systemPrompt?: any; // JSON object with system prompt data
 }
 
 // Get all chat threads for the current user
@@ -225,6 +229,10 @@ export async function createConversation(data: CreateConversationData) {
           comments: data.comments,
           responseTimeSeconds: data.responseTimeSeconds,
           tokenCount: data.tokenCount,
+          inputTokens: data.inputTokens,
+          outputTokens: data.outputTokens,
+          intermediateSteps: data.intermediateSteps,
+          systemPrompt: data.systemPrompt,
           threadId: data.threadId,
         },
     });

@@ -79,147 +79,209 @@ export function FinancialDataSelector({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">Include Financial Data</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 max-h-[85vh] overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Include Financial Data</h2>
+            <p className="text-sm text-gray-500 mt-1">Select data to analyze with AI</p>
           </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg p-2 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
-          <div className="space-y-6">
+        {/* Content */}
+        <div className="p-6 overflow-y-auto max-h-[calc(85vh-140px)]">
+
+          <div className="space-y-8">
             {/* Data Type Selection */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Select Data Types
-              </label>
-              <div className="space-y-2">
-                <label className="flex items-center">
+              <h3 className="text-sm font-medium text-gray-900 mb-4">Data Types</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <label className={`flex items-center p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                  includeIncomes 
+                    ? 'border-green-500 bg-green-50 text-green-700' 
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}>
                   <input
                     type="checkbox"
                     checked={includeIncomes}
                     onChange={(e) => setIncludeIncomes(e.target.checked)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="sr-only"
                   />
-                  <span className="ml-2 text-sm text-gray-700">Include Income Data</span>
+                  <div className="flex items-center">
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center mr-3 ${
+                      includeIncomes ? 'border-green-500 bg-green-500' : 'border-gray-300'
+                    }`}>
+                      {includeIncomes && (
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </div>
+                    <span className="text-sm font-medium">Income</span>
+                  </div>
                 </label>
-                <label className="flex items-center">
+                
+                <label className={`flex items-center p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                  includeExpenses 
+                    ? 'border-red-500 bg-red-50 text-red-700' 
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}>
                   <input
                     type="checkbox"
                     checked={includeExpenses}
                     onChange={(e) => setIncludeExpenses(e.target.checked)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="sr-only"
                   />
-                  <span className="ml-2 text-sm text-gray-700">Include Expense Data</span>
+                  <div className="flex items-center">
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center mr-3 ${
+                      includeExpenses ? 'border-red-500 bg-red-500' : 'border-gray-300'
+                    }`}>
+                      {includeExpenses && (
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </div>
+                    <span className="text-sm font-medium">Expenses</span>
+                  </div>
                 </label>
               </div>
             </div>
 
             {/* Date Range Selection */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Select Time Period
-              </label>
-              
-              {/* Toggle between preset and custom */}
-              <div className="flex space-x-4 mb-4">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="dateRangeType"
-                    checked={!useCustomRange}
-                    onChange={() => setUseCustomRange(false)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Quick Select</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="dateRangeType"
-                    checked={useCustomRange}
-                    onChange={() => setUseCustomRange(true)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Custom Range</span>
-                </label>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-medium text-gray-900">Time Period</h3>
+                <div className="flex bg-gray-100 rounded-lg p-1">
+                  <button
+                    type="button"
+                    onClick={() => setUseCustomRange(false)}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                      !useCustomRange 
+                        ? 'bg-white text-gray-900 shadow-sm' 
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Quick
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUseCustomRange(true)}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                      useCustomRange 
+                        ? 'bg-white text-gray-900 shadow-sm' 
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Custom
+                  </button>
+                </div>
               </div>
 
               {!useCustomRange ? (
                 /* Preset Selection */
                 <div className="grid grid-cols-1 gap-2">
                   {Object.entries(presets).map(([key, preset]) => (
-                    <label key={key} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                    <label 
+                      key={key} 
+                      className={`flex items-center justify-between p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                        selectedPreset === key 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center">
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center mr-3 ${
+                          selectedPreset === key ? 'border-blue-500' : 'border-gray-300'
+                        }`}>
+                          {selectedPreset === key && (
+                            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                          )}
+                        </div>
+                        <div>
+                          <div className={`text-sm font-medium ${
+                            selectedPreset === key ? 'text-blue-900' : 'text-gray-900'
+                          }`}>
+                            {preset.label}
+                          </div>
+                          <div className={`text-xs ${
+                            selectedPreset === key ? 'text-blue-600' : 'text-gray-500'
+                          }`}>
+                            {formatDateForInput(preset.startDate)} to {formatDateForInput(preset.endDate)}
+                          </div>
+                        </div>
+                      </div>
                       <input
                         type="radio"
                         name="preset"
                         value={key}
                         checked={selectedPreset === key}
                         onChange={(e) => setSelectedPreset(e.target.value)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                        className="sr-only"
                       />
-                      <div className="ml-3">
-                        <div className="text-sm font-medium text-gray-900">{preset.label}</div>
-                        <div className="text-xs text-gray-500">
-                          {formatDateForInput(preset.startDate)} to {formatDateForInput(preset.endDate)}
-                        </div>
-                      </div>
                     </label>
                   ))}
                 </div>
               ) : (
                 /* Custom Date Range */
-                <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-2">
                       Start Date
                     </label>
                     <input
                       type="date"
                       value={customStartDate}
                       onChange={(e) => setCustomStartDate(e.target.value)}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-2">
                       End Date
                     </label>
                     <input
                       type="date"
                       value={customEndDate}
                       onChange={(e) => setCustomEndDate(e.target.value)}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Currency Display */}
-            <div className="bg-blue-50 p-3 rounded-lg">
-              <div className="text-sm text-blue-800">
-                <strong>Currency:</strong> All amounts will be converted to {userCurrency} for analysis
-              </div>
-            </div>
           </div>
+        </div>
 
-          <div className="flex justify-end gap-3 mt-8">
+        {/* Footer */}
+        <div className="flex items-center justify-between p-6 bg-gray-50 border-t border-gray-100">
+          <div className="text-xs text-gray-500">
+            {!includeIncomes && !includeExpenses ? 'Select at least one data type' : 
+             `${includeIncomes ? 'Income' : ''}${includeIncomes && includeExpenses ? ' & ' : ''}${includeExpenses ? 'Expenses' : ''} selected`}
+          </div>
+          <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
             >
               Cancel
             </button>
-            <Button onClick={handleSubmit}>
-              Include Financial Data
-            </Button>
+            <button
+              onClick={handleSubmit}
+              disabled={!includeIncomes && !includeExpenses}
+              className="px-6 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Include Data
+            </button>
           </div>
         </div>
       </div>

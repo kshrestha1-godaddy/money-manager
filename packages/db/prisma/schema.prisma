@@ -791,6 +791,12 @@ model ChatConversation {
   // File attachments (if any)
   attachments Json? // Array of file attachments with metadata
   
+  // Processing and system data
+  intermediateSteps Json? // Array of processing steps with timestamps and context
+  systemPrompt Json? // System prompt data including financial context
+  inputTokens Int? // Input tokens sent to LLM
+  outputTokens Int? // Output tokens received from LLM
+  
   // Feedback and analytics
   feedback ChatFeedback? // Like/dislike feedback from user
   comments String? // User comments on the conversation
