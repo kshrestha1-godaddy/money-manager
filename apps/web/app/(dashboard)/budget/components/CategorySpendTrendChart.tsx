@@ -608,12 +608,16 @@ export function CategorySpendTrendChart({
           {/* Grid lines - Y axis */}
           <g>
             {chartConfig.scaleY && (() => {
-              // Calculate Y-axis values with 10,000 unit spacing
-              const minRounded = Math.floor(minAmount / 10000) * 10000;
-              const maxRounded = Math.ceil(maxAmount / 10000) * 10000;
+              // Determine spacing based on category type - 50K for income, 10K for expenses
+              const isIncomeChart = activeSection === 'INCOME' || (categoryType === 'INCOME');
+              const spacing = isIncomeChart ? 50000 : 10000;
+              
+              // Calculate Y-axis values with appropriate spacing
+              const minRounded = Math.floor(minAmount / spacing) * spacing;
+              const maxRounded = Math.ceil(maxAmount / spacing) * spacing;
               const yAxisValues = [];
               
-              for (let value = minRounded; value <= maxRounded; value += 10000) {
+              for (let value = minRounded; value <= maxRounded; value += spacing) {
                 if (value >= minAmount && value <= maxAmount) {
                   yAxisValues.push(value);
                 }
