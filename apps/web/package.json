@@ -27,6 +27,7 @@
     "next": "^15.3.6",
     "next-auth": "^4.24.11",
     "nodemailer": "^6.10.1",
+    "openai": "^6.10.0",
     "postcss": "^8.5.3",
     "prisma": "^6.6.0",
     "react": "^19.1.0",

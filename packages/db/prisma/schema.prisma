@@ -45,6 +45,7 @@ model User {
   netWorthInclusions NetWorthInclusion[]
   activityLogs ActivityLog[]
   notes Note[]
+  chatThreads ChatThread[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -753,5 +754,65 @@ model Note {
   @@index([userId, isArchived])
   @@index([userId, createdAt])
   @@index([userId, reminderDate])
+}
+
+model ChatThread {
+  id Int @id @default(autoincrement())
+  title String // Thread title (auto-generated or user-defined)
+  description String? // Optional description of the thread
+  isActive Boolean @default(true) // Whether the thread is active
+  isPinned Boolean @default(false) // Whether the thread is pinned to top
+  lastMessageAt DateTime @default(now()) // Timestamp of last message for sorting
+  
+  // Relationships
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId Int
+  conversations ChatConversation[]
+  
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId, lastMessageAt])
+  @@index([userId, isPinned])
+  @@index([userId, isActive])
+}
+
+model ChatConversation {
+  id Int @id @default(autoincrement())
+  content String // Message content
+  sender ChatSender // USER or ASSISTANT
+  messageType ChatMessageType @default(TEXT) // TEXT, IMAGE, FILE, etc.
+  
+  // Processing metadata
+  isProcessing Boolean @default(false) // Whether the message is being processed
+  processingSteps Int @default(0) // Number of processing steps taken
+  
+  // File attachments (if any)
+  attachments Json? // Array of file attachments with metadata
+  
+  // Relationships
+  thread ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  threadId Int
+  
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([threadId, createdAt])
+  @@index([sender, createdAt])
+}
+
+enum ChatSender {
+  USER
+  ASSISTANT
+}
+
+enum ChatMessageType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM
+  ERROR
 }
 
