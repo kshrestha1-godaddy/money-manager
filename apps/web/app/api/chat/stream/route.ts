@@ -66,7 +66,7 @@ async function* streamTokens(
     const openAiMessages = [
       { role: "system" as const, content: systemPrompt },
       ...validMessages.map((msg) => ({
-      role: msg.sender === "USER" ? "user" : "assistant",
+      role: msg.sender === "USER" ? "user" as const : "assistant" as const,
       content: msg.content,
       })),
     ];

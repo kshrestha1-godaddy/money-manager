@@ -144,7 +144,7 @@ export default function ChatPage() {
         </div>
 
         {/* Input Area */}
-        <div className="border-t border-gray-100 px-6 py-4 flex-shrink-0">
+        <div className="border-t border-gray-100 px-6 pt-4 pb-8 flex-shrink-0">
           <div className="flex justify-center">
             <div className="w-2/3 max-w-8xl">
               {/* Financial Context Banner - positioned above input controls */}

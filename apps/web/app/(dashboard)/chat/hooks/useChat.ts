@@ -25,6 +25,7 @@ import {
 export interface ThreadSidebarRef {
   updateThread: (threadId: number, updates: { title?: string }) => void;
   addThread: (thread: { id: number; title: string }) => void;
+  removeThread: (threadId: number) => void;
 }
 
 interface ChatHistoryMessage {
