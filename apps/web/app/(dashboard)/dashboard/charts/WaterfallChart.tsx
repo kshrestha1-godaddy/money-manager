@@ -316,10 +316,10 @@ export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency = "USD
                                         fillPattern = getBarColor(entry.type);
                                 }
                                 return (
-                                    <Cell 
-                                        key={`cell-${index}`} 
+                                <Cell 
+                                    key={`cell-${index}`} 
                                         fill={fillPattern}
-                                    />
+                                />
                                 );
                             })}
                         </Bar>

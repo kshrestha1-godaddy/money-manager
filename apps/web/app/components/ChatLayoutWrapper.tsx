@@ -9,32 +9,23 @@ export function ChatLayoutWrapper({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isChatPage) {
-      // Make page unscrollable and full height
+      // Make page unscrollable for chat
       document.body.style.overflow = "hidden";
-      document.body.style.height = "100vh";
       
-      // Hide footer
+      // Hide footer on chat page
       const footer = document.querySelector("footer");
       if (footer) {
         footer.style.display = "none";
       }
       
-      // Hide navbar
-      const navbar = document.querySelector("nav");
-      if (navbar) {
-        navbar.style.display = "none";
-      }
-      
-      // Remove padding from main content container  
+      // Remove padding from main content container for chat
       const mainContainer = document.querySelector(".flex-grow");
       if (mainContainer) {
         (mainContainer as HTMLElement).style.padding = "0";
-        (mainContainer as HTMLElement).style.height = "100vh";
       }
     } else {
       // Restore normal layout
       document.body.style.overflow = "";
-      document.body.style.height = "";
       
       // Show footer
       const footer = document.querySelector("footer");
@@ -42,39 +33,25 @@ export function ChatLayoutWrapper({ children }: { children: React.ReactNode }) {
         footer.style.display = "";
       }
       
-      // Show navbar  
-      const navbar = document.querySelector("nav");
-      if (navbar) {
-        navbar.style.display = "";
-      }
-      
       // Restore padding to main content container
       const mainContainer = document.querySelector(".flex-grow");
       if (mainContainer) {
         (mainContainer as HTMLElement).style.padding = "";
-        (mainContainer as HTMLElement).style.height = "";
       }
     }
     
     // Cleanup on unmount
     return () => {
       document.body.style.overflow = "";
-      document.body.style.height = "";
       
       const footer = document.querySelector("footer");
       if (footer) {
         footer.style.display = "";
       }
       
-      const navbar = document.querySelector("nav");
-      if (navbar) {
-        navbar.style.display = "";
-      }
-      
       const mainContainer = document.querySelector(".flex-grow");
       if (mainContainer) {
         (mainContainer as HTMLElement).style.padding = "";
-        (mainContainer as HTMLElement).style.height = "";
       }
     };
   }, [isChatPage]);

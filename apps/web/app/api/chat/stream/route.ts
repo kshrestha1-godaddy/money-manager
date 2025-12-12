@@ -13,6 +13,21 @@ interface ChatMessage {
   content: string;
 }
 
+interface ChatSettings {
+  model: string;
+  temperature: number;
+  max_output_tokens: number;
+  top_p: number;
+  stream: boolean;
+  parallel_tool_calls: boolean;
+  store: boolean;
+  reasoning: boolean;
+  truncation: 'auto' | 'disabled';
+  top_logprobs: number;
+  safety_identifier?: string;
+  service_tier: 'auto' | 'default' | 'flex' | 'priority';
+}
+
 interface StreamEvent {
   event: "text" | "chat_output" | "error";
   data: string | { complete: boolean } | { error: string };
@@ -29,7 +44,7 @@ const client = new OpenAI({
 });
 
 // Optimized async generator for token streaming
-async function* streamTokens(messages: ChatMessage[]): AsyncGenerator<StreamEvent, void, unknown> {
+async function* streamTokens(messages: ChatMessage[], settings: ChatSettings): AsyncGenerator<StreamEvent, void, unknown> {
   // Validate and limit message history
   const validMessages = messages
     .filter((msg): msg is ChatMessage => 
@@ -49,11 +64,34 @@ async function* streamTokens(messages: ChatMessage[]): AsyncGenerator<StreamEven
     .join("\n\n");
 
   try {
-    const response = await client.responses.create({
-      model: MODEL_NAME,
+    // Build API request with user settings
+    const requestOptions: any = {
+      model: settings.model || MODEL_NAME,
       input: conversationText,
-      stream: true,
-    });
+      stream: settings.stream,
+      temperature: settings.temperature,
+      max_output_tokens: settings.max_output_tokens,
+      top_p: settings.top_p,
+      parallel_tool_calls: settings.parallel_tool_calls,
+      store: settings.store,
+      truncation: settings.truncation,
+      service_tier: settings.service_tier,
+    };
+
+    // Add optional parameters only if they have values
+    if (settings.top_logprobs > 0) {
+      requestOptions.top_logprobs = settings.top_logprobs;
+    }
+
+    if (settings.safety_identifier) {
+      requestOptions.safety_identifier = settings.safety_identifier;
+    }
+
+    if (settings.reasoning) {
+      requestOptions.reasoning = { enabled: true };
+    }
+
+    const response = await client.responses.create(requestOptions);
 
     // Process stream chunks efficiently
     for await (const chunk of response) {
@@ -91,7 +129,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Parse and validate request body
-    let body: { messages?: unknown };
+    let body: { messages?: unknown; settings?: ChatSettings };
     try {
       body = await req.json();
     } catch {
@@ -101,7 +139,24 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const { messages } = body;
+    const { messages, settings } = body;
+    
+    // Use default settings if not provided
+    const defaultSettings: ChatSettings = {
+      model: MODEL_NAME,
+      temperature: 1,
+      max_output_tokens: 4096,
+      top_p: 1,
+      stream: true,
+      parallel_tool_calls: true,
+      store: false,
+      reasoning: false,
+      truncation: 'auto',
+      top_logprobs: 0,
+      service_tier: 'auto',
+    };
+
+    const apiSettings = { ...defaultSettings, ...settings };
     if (!Array.isArray(messages) || messages.length === 0) {
       return new Response(JSON.stringify({ error: "Valid messages array is required" }), { 
         status: 400, 
@@ -120,7 +175,7 @@ export async function POST(req: NextRequest) {
 
         try {
           // Stream tokens efficiently
-          for await (const token of streamTokens(messages as ChatMessage[])) {
+          for await (const token of streamTokens(messages as ChatMessage[], apiSettings)) {
             sendEvent(token.event, token.data);
           }
           controller.close();

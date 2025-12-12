@@ -463,7 +463,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                             <Cell 
                                 key={`savings-cell-${index}`} 
                                 fill={entry.savings >= 0 ? "url(#monthlySavingsPattern)" : "url(#monthlyLossPattern)"}
-                            />
+                    />
                         ))}
                     </Bar>
                     

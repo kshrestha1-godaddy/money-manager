@@ -61,7 +61,7 @@ export function IncomeBubbleChart({ incomes, currency }: IncomeBubbleChartProps)
           {INCOME_CONFIG.title}
         </h3>
       </div>
-
+      
       <BubbleChartControls
         startDate={startDate}
         setStartDate={setStartDate}
