@@ -617,24 +617,35 @@ export default function ChatPage() {
                       <div className={`mt-1 ${
                         message.sender === "USER" ? "text-right" : "text-left"
                       }`}>
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                          <span>
+                        {message.sender === "USER" ? (
+                          /* User timestamp only */
+                          <span className="text-xs text-gray-500">
                             {new Date(message.createdAt).toLocaleTimeString([], {
                               hour: "2-digit",
                               minute: "2-digit",
                             })}
                           </span>
-                          {message.sender === "ASSISTANT" && !message.isProcessing && (
-                            <>
-                              {message.responseTimeSeconds && (
-                                <span>• {message.responseTimeSeconds.toFixed(1)}s</span>
-                              )}
-                              {message.tokenCount && (
-                                <span>• {message.tokenCount} tokens</span>
-                              )}
-                            </>
-                          )}
-                        </div>
+                        ) : (
+                          /* Assistant timestamp with analytics */
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <span>
+                              {new Date(message.createdAt).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                            {!message.isProcessing && (
+                              <>
+                                {message.responseTimeSeconds && (
+                                  <span>• {message.responseTimeSeconds.toFixed(1)}s</span>
+                                )}
+                                {message.tokenCount && (
+                                  <span>• {message.tokenCount} tokens</span>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Feedback and Comments for Assistant Messages */}
@@ -778,32 +789,34 @@ export default function ChatPage() {
         </div>
 
         {/* Input Area */}
-        <div className="border-t border-gray-100 px-6 py-4 bg-white flex-shrink-0">
-          <div className="flex gap-3">
-            <input
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Type your message here..."
-              className="flex-1 border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-              disabled={isLoading}
-            />
-            <Button onClick={handleSendMessage}>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-                className="w-5 h-5"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"
-                />
-              </svg>
-            </Button>
+        <div className="border-t border-gray-100 px-6 py-4 flex-shrink-0">
+          <div className="flex justify-center">
+            <div className="flex gap-3 w-2/3 max-w-8xl">
+              <input
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Type your message here..."
+                className="flex-1 border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                disabled={isLoading}
+              />
+              <Button onClick={handleSendMessage}>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                  className="w-5 h-5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"
+                  />
+                </svg>
+              </Button>
+            </div>
           </div>
         </div>
         </div>

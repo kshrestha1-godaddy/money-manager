@@ -84,7 +84,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         <SidebarItem
                             href="/chat"
                             icon={<ChatIcon />}
-                            title="Integration Chat"
+                            title="Chat"
                             showSeparator={true}
                         />
 
