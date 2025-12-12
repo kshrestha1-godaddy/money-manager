@@ -115,23 +115,17 @@ export function Message({
         )}
         
         {/* Message Content Box */}
-        <div className={`prose max-w-none dark:prose-invert ${
-          message.sender === "USER" 
-            ? "bg-blue-500 text-white rounded-lg px-4 py-2" 
-            : "bg-gray-100 rounded-lg px-4 py-2"
-        }`}>
+        <div
+          className={`rounded-lg px-4 py-2 ${
+            message.sender === "USER" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-900"
+          }`}
+        >
           {message.isProcessing ? (
             <ProcessingMessage 
               message={message}
             />
           ) : (
-            <div className={`text-base leading-relaxed ${
-              message.sender === "USER" ? "text-white" : "text-gray-900"
-            }`}>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {message.content}
-              </ReactMarkdown>
-            </div>
+            <MarkdownContent content={message.content} variant={message.sender === "USER" ? "user" : "assistant"} />
           )}
         </div>
 
@@ -248,10 +242,8 @@ function ProcessingMessage({
 
       {/* Streaming Content or Default Processing */}
       {message.content ? (
-        <div className="text-base leading-relaxed text-gray-900">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {message.content}
-          </ReactMarkdown>
+        <div className="text-gray-900">
+          <MarkdownContent content={message.content} variant="assistant" />
           <span className="inline-block w-2 h-4 bg-gray-400 ml-1 animate-pulse"></span>
         </div>
       ) : (!message.processingSteps || message.processingSteps.length === 0) && (
@@ -266,6 +258,149 @@ function ProcessingMessage({
       )}
     </div>
   );
+}
+
+function MarkdownContent({
+  content,
+  variant,
+}: {
+  content: string;
+  variant: "assistant" | "user";
+}) {
+  const normalizedContent = variant === "assistant" ? normalizeAssistantMarkdown(content) : content;
+
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkSoftBreaks]}
+      components={{
+        a: ({ children, href }) => (
+          <a
+            href={href}
+            target="_blank"
+            rel="noreferrer noopener"
+            className={variant === "user" ? "underline text-white" : "underline text-blue-700 hover:text-blue-800"}
+          >
+            {children}
+          </a>
+        ),
+        p: ({ children }) => (
+          <p className="whitespace-pre-wrap leading-relaxed text-sm sm:text-base">{children}</p>
+        ),
+        li: ({ children }) => <li className="whitespace-pre-wrap">{children}</li>,
+        h1: ({ children }) => <h1 className="text-lg sm:text-xl font-semibold mt-4 mb-2">{children}</h1>,
+        h2: ({ children }) => <h2 className="text-base sm:text-lg font-semibold mt-4 mb-2">{children}</h2>,
+        h3: ({ children }) => <h3 className="text-sm sm:text-base font-semibold mt-3 mb-1">{children}</h3>,
+        blockquote: ({ children }) => (
+          <blockquote className="border-l-4 border-gray-300 pl-3 italic text-gray-700">{children}</blockquote>
+        ),
+        table: ({ children }) => (
+          <div className="my-3 w-full overflow-x-auto">
+            <table className="w-full border-collapse text-sm">{children}</table>
+          </div>
+        ),
+        th: ({ children }) => (
+          <th className="border border-gray-200 bg-gray-50 px-2 py-1 text-left font-semibold">{children}</th>
+        ),
+        td: ({ children }) => <td className="border border-gray-200 px-2 py-1 align-top">{children}</td>,
+        code: ({ children, className }) => {
+          const isBlock = typeof className === "string" && className.includes("language-");
+          if (isBlock) return <code className={className}>{children}</code>;
+          return (
+            <code
+              className={`rounded px-1 py-0.5 font-mono text-[0.85em] ${
+                variant === "user" ? "bg-white/20 text-white" : "bg-gray-200 text-gray-900"
+              }`}
+            >
+              {children}
+            </code>
+          );
+        },
+        pre: ({ children }) => (
+          <pre className="my-3 overflow-x-auto rounded-md bg-gray-900 p-3 text-xs text-gray-100">
+            {children}
+          </pre>
+        ),
+      }}
+    >
+      {normalizedContent}
+    </ReactMarkdown>
+  );
+}
+
+function normalizeAssistantMarkdown(raw: string): string {
+  // Heuristic: many LLM responses contain section titles without markdown '#'.
+  // Convert "Title Case" / "Section" standalone lines into '##' headings.
+  const lines = raw.replace(/\r\n/g, "\n").split("\n");
+  const output: string[] = [];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i] ?? "";
+    const trimmed = line.trim();
+    const next = lines[i + 1]?.trim() ?? "";
+
+    const isAlreadyMarkdown =
+      trimmed.startsWith("#") ||
+      trimmed.startsWith(">") ||
+      trimmed.startsWith("- ") ||
+      trimmed.startsWith("* ") ||
+      /^\d+\.\s/.test(trimmed) ||
+      trimmed.startsWith("|") ||
+      trimmed.startsWith("```");
+
+    const looksLikeStandaloneTitle =
+      trimmed.length > 0 &&
+      trimmed.length <= 60 &&
+      next.length > 0 &&
+      !/[.!?]$/.test(trimmed) &&
+      /^[A-Z][A-Za-z0-9 &()/:'",-]*$/.test(trimmed);
+
+    if (!isAlreadyMarkdown && looksLikeStandaloneTitle) {
+      output.push(`## ${trimmed}`);
+      output.push("");
+      continue;
+    }
+
+    output.push(line);
+  }
+
+  return output.join("\n");
+}
+
+function remarkSoftBreaks() {
+  // Minimal in-file replacement for `remark-breaks`:
+  // convert soft line breaks inside paragraphs into hard breaks.
+  return function transform(tree: any) {
+    transformNode(tree);
+  };
+}
+
+function transformNode(node: any) {
+  if (!node || typeof node !== "object") return;
+
+  if (Array.isArray(node.children)) {
+    node.children = node.children.flatMap((child: any) => {
+      if (child?.type !== "text" || typeof child.value !== "string") {
+        transformNode(child);
+        return [child];
+      }
+
+      if (!child.value.includes("\n")) return [child];
+
+      const parts = child.value.split("\n");
+      const nextNodes: any[] = [];
+      parts.forEach((part: string, idx: number) => {
+        if (part) nextNodes.push({ ...child, value: part });
+        if (idx < parts.length - 1) nextNodes.push({ type: "break" });
+      });
+      return nextNodes;
+    });
+  }
+
+  Object.keys(node).forEach((key) => {
+    if (key === "children") return;
+    const value = (node as any)[key];
+    if (value && typeof value === "object") transformNode(value);
+  });
 }
 
 function MessageFooter({ message }: { message: MessageType }) {
@@ -353,7 +488,7 @@ function MessageFeedback({
           onClick={handleCopy}
           className={`p-1 rounded-full transition-colors ${
             isCopied
-            ? "text-gray-400 text-gray-600"
+            ? "bg-gray-100 text-gray-600"
               : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
           }`}
           title={isCopied ? "Copied!" : "Copy response"}
