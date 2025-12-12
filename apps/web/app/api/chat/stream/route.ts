@@ -33,15 +33,16 @@ interface StreamEvent {
   data: string | { complete: boolean } | { error: string };
 }
 
-interface OpenAIChunk {
-  type: string;
-  delta?: string;
+// Lazy initialize OpenAI client to avoid build-time issues
+function getOpenAIClient() {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("Missing OPENAI_API_KEY environment variable");
+  }
+  
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
 }
-
-// Initialize OpenAI client
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 // Optimized async generator for token streaming
 async function* streamTokens(messages: ChatMessage[], settings: ChatSettings): AsyncGenerator<StreamEvent, void, unknown> {
@@ -58,51 +59,48 @@ async function* streamTokens(messages: ChatMessage[], settings: ChatSettings): A
     return;
   }
 
-  // Build optimized conversation text
-  const conversationText = validMessages
-    .map(msg => `${msg.sender === "USER" ? "User" : "Assistant"}: ${msg.content}`)
-    .join("\n\n");
 
   try {
+    // Check for API key before proceeding
+    if (!process.env.OPENAI_API_KEY) {
+      yield { event: "error", data: { error: "OpenAI API key not configured" } };
+      return;
+    }
+
+    // Convert conversation text to messages format
+    const messages = validMessages.map(msg => ({
+      role: msg.sender === "USER" ? "user" : "assistant",
+      content: msg.content,
+    }));
+
     // Build API request with user settings
     const requestOptions: any = {
       model: settings.model || MODEL_NAME,
-      input: conversationText,
+      messages: messages,
       stream: settings.stream,
       temperature: settings.temperature,
-      max_output_tokens: settings.max_output_tokens,
+      max_tokens: settings.max_output_tokens,
       top_p: settings.top_p,
-      parallel_tool_calls: settings.parallel_tool_calls,
-      store: settings.store,
-      truncation: settings.truncation,
-      service_tier: settings.service_tier,
     };
 
     // Add optional parameters only if they have values
     if (settings.top_logprobs > 0) {
+      requestOptions.logprobs = true;
       requestOptions.top_logprobs = settings.top_logprobs;
     }
 
-    if (settings.safety_identifier) {
-      requestOptions.safety_identifier = settings.safety_identifier;
-    }
-
-    if (settings.reasoning) {
-      requestOptions.reasoning = { enabled: true };
-    }
-
-    const response = await client.responses.create(requestOptions);
+    const client = getOpenAIClient();
+    const stream = await client.chat.completions.create(requestOptions) as any;
 
     // Process stream chunks efficiently
-    for await (const chunk of response) {
-      const chunkData = chunk as OpenAIChunk;
+    for await (const chunk of stream) {
+      // Extract and yield text deltas from chat completions
+      if (chunk.choices?.[0]?.delta?.content) {
+        yield { event: "text", data: chunk.choices[0].delta.content };
+      }
       
-      // Extract and yield text deltas
-      if (chunkData.type === "response.output_text.delta" && chunkData.delta) {
-        yield { event: "text", data: chunkData.delta };
-      } 
       // Handle completion events
-      else if (chunkData.type === "response.completed" || chunkData.type === "stream.complete") {
+      if (chunk.choices?.[0]?.finish_reason) {
         break;
       }
     }

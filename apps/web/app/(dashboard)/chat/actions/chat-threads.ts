@@ -20,6 +20,10 @@ export interface CreateConversationData {
   sender: ChatSender;
   messageType?: ChatMessageType;
   isProcessing?: boolean;
+  feedback?: "LIKE" | "DISLIKE" | null;
+  comments?: string;
+  responseTimeSeconds?: number;
+  tokenCount?: number;
 }
 
 // Get all chat threads for the current user
@@ -217,6 +221,10 @@ export async function createConversation(data: CreateConversationData) {
           sender: data.sender,
           messageType: data.messageType || "TEXT",
           isProcessing: data.isProcessing || false,
+          feedback: data.feedback,
+          comments: data.comments,
+          responseTimeSeconds: data.responseTimeSeconds,
+          tokenCount: data.tokenCount,
           threadId: data.threadId,
         },
     });
@@ -297,6 +305,64 @@ export async function generateThreadTitle(threadId: number) {
   } catch (error) {
     console.error("Error generating thread title:", error);
     return { success: false, error: "Failed to generate thread title" };
+  }
+}
+
+// Update conversation feedback and analytics
+export async function updateConversationFeedback(
+  conversationId: number,
+  feedback?: "LIKE" | "DISLIKE" | null,
+  comments?: string
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const conversation = await prisma.chatConversation.update({
+      where: { id: conversationId },
+      data: {
+        feedback,
+        comments,
+        updatedAt: new Date(),
+      },
+    });
+
+    revalidatePath("/chat");
+    return { success: true, conversation };
+  } catch (error) {
+    console.error("Error updating conversation feedback:", error);
+    return { success: false, error: "Failed to update conversation feedback" };
+  }
+}
+
+// Update conversation analytics (response time and token count)
+export async function updateConversationAnalytics(
+  conversationId: number,
+  responseTimeSeconds?: number,
+  tokenCount?: number
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const conversation = await prisma.chatConversation.update({
+      where: { id: conversationId },
+      data: {
+        responseTimeSeconds,
+        tokenCount,
+        updatedAt: new Date(),
+      },
+    });
+
+    revalidatePath("/chat");
+    return { success: true, conversation };
+  } catch (error) {
+    console.error("Error updating conversation analytics:", error);
+    return { success: false, error: "Failed to update conversation analytics" };
   }
 }
 

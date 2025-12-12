@@ -10,7 +10,9 @@ import {
   createChatThread, 
   createConversation, 
   generateThreadTitle,
-  updateConversation
+  updateConversation,
+  updateConversationFeedback,
+  updateConversationAnalytics
 } from "./actions/chat-threads";
 
 interface Message {
@@ -19,6 +21,10 @@ interface Message {
   sender: "USER" | "ASSISTANT";
   createdAt: Date;
   isProcessing?: boolean;
+  feedback?: "LIKE" | "DISLIKE" | null;
+  comments?: string;
+  responseTimeSeconds?: number;
+  tokenCount?: number;
   intermediateSteps?: Array<{
     id: number;
     content: string;
@@ -34,6 +40,8 @@ export default function ChatPage() {
   const [threadTitle, setThreadTitle] = useState<string>("Chat");
   const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
   const [streamingText, setStreamingText] = useState<Map<number, string>>(new Map());
+  const [showComments, setShowComments] = useState<Set<number>>(new Set());
+  const [commentText, setCommentText] = useState<Map<number, string>>(new Map());
   const sidebarRef = useRef<ThreadSidebarRef>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -84,6 +92,10 @@ export default function ChatPage() {
             sender: conv.sender,
             createdAt: conv.createdAt,
             isProcessing: conv.isProcessing,
+            feedback: conv.feedback,
+            comments: conv.comments,
+            responseTimeSeconds: conv.responseTimeSeconds,
+            tokenCount: conv.tokenCount,
           };
           
           if (conv.sender === "USER") {
@@ -157,6 +169,73 @@ export default function ChatPage() {
       }
       return newSet;
     });
+  };
+
+  const handleFeedback = async (messageId: number, feedback: "LIKE" | "DISLIKE") => {
+    try {
+      // Update local state immediately
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.id === messageId 
+            ? { ...msg, feedback: msg.feedback === feedback ? null : feedback }
+            : msg
+        )
+      );
+
+      // Update in database
+      const currentMessage = messages.find(msg => msg.id === messageId);
+      const newFeedback = currentMessage?.feedback === feedback ? null : feedback;
+      
+      await updateConversationFeedback(messageId, newFeedback);
+    } catch (error) {
+      console.error("Error updating feedback:", error);
+    }
+  };
+
+  const toggleComments = (messageId: number) => {
+    setShowComments(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(messageId)) {
+        newSet.delete(messageId);
+      } else {
+        newSet.add(messageId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleCommentSubmit = async (messageId: number) => {
+    try {
+      const comment = commentText.get(messageId) || "";
+      
+      // Update local state
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.id === messageId 
+            ? { ...msg, comments: comment }
+            : msg
+        )
+      );
+
+      // Update in database
+      await updateConversationFeedback(messageId, undefined, comment);
+      
+      // Clear comment input
+      setCommentText(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(messageId);
+        return newMap;
+      });
+      
+      // Hide comment input
+      setShowComments(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(messageId);
+        return newSet;
+      });
+    } catch (error) {
+      console.error("Error updating comment:", error);
+    }
   };
 
   const handleSendMessage = async () => {
@@ -249,6 +328,7 @@ export default function ChatPage() {
 
     // Track accumulated text locally for final save (React state updates are async)
     let accumulatedText = "";
+    const responseStartTime = Date.now();
 
     try {
       // Build conversation history for OpenAI
@@ -354,11 +434,21 @@ export default function ChatPage() {
         accumulatedText = "Sorry, I didn't receive a response. Please try again.";
       }
 
+      // Calculate response time and token count
+      const responseTimeSeconds = (Date.now() - responseStartTime) / 1000;
+      const tokenCount = accumulatedText.split(/\s+/).length; // Rough token estimation
+
       // Update final message state in UI and database
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantMessageId
-            ? { ...msg, content: accumulatedText, isProcessing: false }
+            ? { 
+                ...msg, 
+                content: accumulatedText, 
+                isProcessing: false,
+                responseTimeSeconds,
+                tokenCount
+              }
             : msg
         )
       );
@@ -370,10 +460,12 @@ export default function ChatPage() {
         return newMap;
       });
       
-      // Update in database
+      // Update in database with analytics
       await updateConversation(assistantMessageId, {
         content: accumulatedText,
         isProcessing: false,
+        responseTimeSeconds,
+        tokenCount,
       });
       
       // Generate thread title if needed
@@ -521,17 +613,110 @@ export default function ChatPage() {
                         )}
                       </div>
 
-                      {/* Timestamp below message */}
+                      {/* Timestamp and Analytics below message */}
                       <div className={`mt-1 ${
                         message.sender === "USER" ? "text-right" : "text-left"
                       }`}>
-                        <span className="text-xs text-gray-500">
-                          {new Date(message.createdAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <span>
+                            {new Date(message.createdAt).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                          {message.sender === "ASSISTANT" && !message.isProcessing && (
+                            <>
+                              {message.responseTimeSeconds && (
+                                <span>• {message.responseTimeSeconds.toFixed(1)}s</span>
+                              )}
+                              {message.tokenCount && (
+                                <span>• {message.tokenCount} tokens</span>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
+
+                      {/* Feedback and Comments for Assistant Messages */}
+                      {message.sender === "ASSISTANT" && !message.isProcessing && (
+                        <div className="mt-2 space-y-2">
+                          {/* Feedback Buttons */}
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleFeedback(message.id, "LIKE")}
+                              className={`p-1 rounded-full transition-colors ${
+                                message.feedback === "LIKE"
+                                  ? "bg-green-100 text-green-600"
+                                  : "text-gray-400 hover:text-green-600 hover:bg-green-50"
+                              }`}
+                              title="Like this response"
+                            >
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleFeedback(message.id, "DISLIKE")}
+                              className={`p-1 rounded-full transition-colors ${
+                                message.feedback === "DISLIKE"
+                                  ? "bg-red-100 text-red-600"
+                                  : "text-gray-400 hover:text-red-600 hover:bg-red-50"
+                              }`}
+                              title="Dislike this response"
+                            >
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M18 9.5a1.5 1.5 0 11-3 0v-6a1.5 1.5 0 013 0v6zM14 9.667v-5.43a2 2 0 00-1.106-1.79l-.05-.025A4 4 0 0011.057 2H5.641a2 2 0 00-1.962 1.608l-1.2 6A2 2 0 004.44 12H8v4a2 2 0 002 2 1 1 0 001-1v-.667a4 4 0 01.8-2.4l1.4-1.866a4 4 0 00.8-2.4z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => toggleComments(message.id)}
+                              className="p-1 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                              title="Add comment"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                              </svg>
+                            </button>
+                          </div>
+
+                          {/* Comment Input */}
+                          {showComments.has(message.id) && (
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="Add a comment..."
+                                value={commentText.get(message.id) || ""}
+                                onChange={(e) => {
+                                  setCommentText(prev => {
+                                    const newMap = new Map(prev);
+                                    newMap.set(message.id, e.target.value);
+                                    return newMap;
+                                  });
+                                }}
+                                onKeyPress={(e) => {
+                                  if (e.key === "Enter") {
+                                    handleCommentSubmit(message.id);
+                                  }
+                                }}
+                                className="flex-1 text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              />
+                              <button
+                                onClick={() => handleCommentSubmit(message.id)}
+                                className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 transition-colors"
+                              >
+                                Save
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Existing Comment Display */}
+                          {message.comments && (
+                            <div className="text-xs text-gray-600 bg-gray-50 rounded px-2 py-1">
+                              <span className="font-medium"><i>Comment:</i></span> {message.comments}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Intermediate Steps - Collapsible */}
                       {message.sender === "ASSISTANT" && 
