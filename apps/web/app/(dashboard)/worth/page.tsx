@@ -284,60 +284,12 @@ export default function NetWorthPage() {
         const data = payload[0].payload;
         const value = payload[0].value;
         const percentage = typeof data.percentage === 'number' ? data.percentage : parseFloat(data.percentage) || 0;
-        
-        // Get asset type descriptions and insights
-        const getAssetDescription = (assetName: string) => {
-            switch (assetName.toLowerCase()) {
-                case 'bank accounts':
-                    return {
-                        description: "Liquid cash holdings in bank accounts. Provides immediate accessibility for expenses and emergencies but typically offers lower returns.",
-                        insights: netWorthStats.liquidityRatio > 70 ? "High liquidity - consider investing some cash for better returns" :
-                                netWorthStats.liquidityRatio < 30 ? "Low liquidity - ensure adequate emergency funds" :
-                                "Good liquidity balance for financial flexibility",
-                        riskLevel: "Very Low Risk",
-                        riskColor: "text-green-600"
-                    };
-                case 'investments':
-                    return {
-                        description: "Portfolio of stocks, bonds, mutual funds, and other investment vehicles. Offers potential for growth but carries market risk.",
-                        insights: netWorthStats.investmentAllocation > 30 ? "Strong investment allocation - diversification is key" :
-                                netWorthStats.investmentAllocation < 10 ? "Low investment allocation - consider increasing for long-term growth" :
-                                "Moderate investment allocation - room for growth-focused expansion",
-                        riskLevel: "Medium-High Risk",
-                        riskColor: "text-yellow-600"
-                    };
-                case 'money lent':
-                    return {
-                        description: "Outstanding loans to individuals or entities. Represents money owed to you with potential interest income.",
-                        insights: value > netWorthStats.totalAssets * 0.2 ? "High lending exposure - monitor repayment schedules closely" :
-                                value > 0 ? "Active lending portfolio - track due dates and payments" :
-                                "No outstanding loans - consider peer-to-peer lending for additional income",
-                        riskLevel: "Medium Risk",
-                        riskColor: "text-orange-600"
-                    };
-                default:
-                    return {
-                        description: "Asset category contributing to your overall net worth and financial position.",
-                        insights: "Monitor this asset class for optimal portfolio balance",
-                        riskLevel: "Variable Risk",
-                        riskColor: "text-gray-600"
-                    };
-            }
-        };
 
-        const assetInfo = getAssetDescription(label);
         const totalAssets = netWorthStats.totalAssets || 1; // Prevent division by zero
         
         // Calculate additional metrics with safety checks
         const averageAssetValue = chartData.length > 0 ? totalAssets / chartData.length : 0;
         const isAboveAverage = value > averageAssetValue;
-        const contributionLevel = percentage > 50 ? "Dominant" :
-                                percentage > 30 ? "Major" :
-                                percentage > 15 ? "Significant" :
-                                percentage > 5 ? "Minor" : "Minimal";
-        
-        // Ensure netWorthStats.netWorth is not zero for percentage calculations
-        const netWorth = netWorthStats.netWorth || 1;
 
         return (
             <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-5 min-w-96 max-w-lg">
@@ -358,18 +310,6 @@ export default function NetWorthPage() {
                         <span className="font-medium">{percentage.toFixed(1)}%</span>
                     </div>
                     
-                    <div className="flex justify-between">
-                        <span className="text-gray-600">Contribution Level:</span>
-                        <span className={`font-medium ${
-                            contributionLevel === 'Dominant' ? 'text-red-600' :
-                            contributionLevel === 'Major' ? 'text-orange-600' :
-                            contributionLevel === 'Significant' ? 'text-blue-600' :
-                            contributionLevel === 'Minor' ? 'text-green-600' : 'text-gray-600'
-                        }`}>
-                            {contributionLevel}
-                        </span>
-                    </div>
-                    
                         <div className="flex justify-between">
                             <span className="text-gray-600">vs Average Asset:</span>
                             <span className={`font-medium ${isAboveAverage ? 'text-green-600' : 'text-orange-600'}`}>
@@ -380,41 +320,6 @@ export default function NetWorthPage() {
                             </span>
                         </div>
                 </div>
-
-                {/* Risk Assessment */}
-                <div className="border-t border-gray-200 pt-3 mb-3">
-                    <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Risk Level:</span>
-                        <span className={`font-medium ${assetInfo.riskColor}`}>{assetInfo.riskLevel}</span>
-                    </div>
-                </div>
-
-                {/* Portfolio Context */}
-                <div className="border-t border-gray-200 pt-3 mb-3">
-                    <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Total Assets:</span>
-                            <span className="font-medium">{formatCurrency(totalAssets, currency)}</span>
-                        </div>
-                        
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Net Worth Impact:</span>
-                            <span className="font-medium text-purple-600">
-                                {((value / netWorth) * 100).toFixed(1)}% of net worth
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-
-                
-                {percentage < 5 && label.toLowerCase() !== 'money lent' && (
-                    <div className="border-t border-gray-200 pt-2 mt-2">
-                        <div className="text-xs text-blue-600 text-center">
-                            📈 Small allocation - Consider increasing if aligned with financial goals
-                        </div>
-                    </div>
-                )}
             </div>
         );
     }, [currency, netWorthStats, chartData]);
