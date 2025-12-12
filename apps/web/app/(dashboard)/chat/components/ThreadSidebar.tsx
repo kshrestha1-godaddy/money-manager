@@ -38,9 +38,11 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
 }, ref) => {
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingThreadId, setEditingThreadId] = useState<number | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
 
   useEffect(() => {
     loadThreads();
@@ -117,16 +119,23 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
   };
 
   const handleDeleteAllThreads = async () => {
-    if (threads.length === 0) return;
+    console.log("DELETE ALL BUTTON CLICKED!", { threadsLength: threads.length, isDeletingAll });
+    if (threads.length === 0 || isDeletingAll) {
+      console.log("Early return - no threads or already deleting");
+      return;
+    }
     
-    const confirmed = window.confirm(
-      `Are you sure you want to delete all ${threads.length} threads? This action cannot be undone.`
-    );
-    
-    if (!confirmed) return;
+    setShowDeleteAllConfirm(true);
+  };
+
+  const confirmDeleteAll = async () => {
+    setShowDeleteAllConfirm(false);
 
     try {
+      setIsDeletingAll(true);
+      console.log(`UI: Starting delete all threads (${threads.length} threads)`);
       const result = await deleteAllChatThreads();
+      console.log("UI: Delete all result:", result);
       
       if (result.success) {
         // Clear local state
@@ -135,36 +144,44 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
         if (currentThreadId) {
           onNewChat();
         }
-        console.log(result.message);
+        console.log("UI: Successfully deleted all threads:", result.message);
       } else {
-        console.error("Failed to delete all threads:", result.error);
+        console.error("UI: Failed to delete all threads:", result.error);
+        alert(`Failed to delete all chats: ${result.error || "Unknown error"}`);
       }
     } catch (error) {
-      console.error("Error deleting all threads:", error);
+      console.error("UI: Error deleting all threads:", error);
+      alert("An error occurred while deleting all chats. Please try again.");
+    } finally {
+      setIsDeletingAll(false);
     }
   };
 
   const handleDeleteThread = async (threadId: number, e: React.MouseEvent) => {
+    console.log("DELETE THREAD BUTTON CLICKED!", { threadId });
     e.stopPropagation();
-    if (confirm("Are you sure you want to delete this chat? This action cannot be undone.")) {
-      try {
-        const result = await deleteChatThread(threadId);
-        if (result.success) {
-          // Remove thread from local state instead of reloading all
-          removeThread(threadId);
-          
-          // If the deleted thread was currently selected, create a new chat
-          if (currentThreadId === threadId) {
-            onNewChat();
-          }
-        } else {
-          console.error("Failed to delete thread:", result.error);
-          alert("Failed to delete chat. Please try again.");
+    
+    try {
+      console.log(`UI: Starting delete thread ${threadId}`);
+      const result = await deleteChatThread(threadId);
+      console.log(`UI: Delete thread ${threadId} result:`, result);
+      
+      if (result.success) {
+        // Remove thread from local state instead of reloading all
+        removeThread(threadId);
+        
+        // If the deleted thread was currently selected, create a new chat
+        if (currentThreadId === threadId) {
+          onNewChat();
         }
-      } catch (error) {
-        console.error("Error deleting thread:", error);
-        alert("An error occurred while deleting the chat.");
+        console.log(`UI: Successfully deleted thread ${threadId}`);
+      } else {
+        console.error("UI: Failed to delete thread:", result.error);
+        alert("Failed to delete chat. Please try again.");
       }
+    } catch (error) {
+      console.error("UI: Error deleting thread:", error);
+      alert("An error occurred while deleting the chat.");
     }
   };
 
@@ -218,7 +235,7 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
               onClick={handleDeleteAllThreads}
               className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
               title="Delete All Threads"
-              disabled={threads.length === 0}
+              disabled={threads.length === 0 || isDeletingAll}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -365,6 +382,34 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
           </div>
         )}
       </div>
+
+      {/* Delete All Confirmation Dialog */}
+      {showDeleteAllConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Delete All Chats</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete all {threads.length} chats? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteAllConfirm(false)}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteAll}
+                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+                disabled={isDeletingAll}
+              >
+                {isDeletingAll ? "Deleting..." : "Delete All"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 });

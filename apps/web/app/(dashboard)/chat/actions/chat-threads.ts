@@ -184,7 +184,9 @@ export async function deleteChatThread(threadId: number) {
   try {
     const userId = await requireUserId();
 
-    await prisma.chatThread.update({
+    console.log(`Attempting to delete thread ${threadId} for user ${userId}`);
+
+    const result = await prisma.chatThread.update({
       where: {
         id: threadId,
         userId,
@@ -195,6 +197,7 @@ export async function deleteChatThread(threadId: number) {
       },
     });
 
+    console.log(`Successfully soft-deleted thread ${threadId}:`, result);
     revalidatePath("/chat");
     return { success: true };
   } catch (error) {
@@ -418,27 +421,28 @@ export async function deleteAllChatThreads() {
   try {
     const userId = await requireUserId();
 
-    // Delete all conversations first (due to foreign key constraints)
-    await prisma.chatConversation.deleteMany({
-      where: {
-        thread: {
-          userId: userId,
-        },
-      },
-    });
+    console.log(`Attempting to delete all threads for user ${userId}`);
 
-    // Then delete all threads for the user
-    const deleteResult = await prisma.chatThread.deleteMany({
-      where: {
-        userId: userId,
-      },
+    const [deletedConversations, deletedThreads] = await prisma.$transaction([
+      prisma.chatConversation.deleteMany({
+        where: { thread: { userId } },
+      }),
+      prisma.chatThread.deleteMany({
+        where: { userId },
+      }),
+    ]);
+
+    console.log(`Successfully deleted all threads for user ${userId}:`, {
+      threads: deletedThreads.count,
+      conversations: deletedConversations.count
     });
 
     revalidatePath("/chat");
     return { 
       success: true, 
-      deletedCount: deleteResult.count,
-      message: `Successfully deleted ${deleteResult.count} threads` 
+      deletedCount: deletedThreads.count,
+      deletedConversationCount: deletedConversations.count,
+      message: `Successfully deleted ${deletedThreads.count} threads` 
     };
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
