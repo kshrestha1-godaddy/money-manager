@@ -9,6 +9,7 @@ interface ChatThread {
   description?: string | null;
   isPinned: boolean;
   lastMessageAt: Date;
+  totalTokens?: number;
   conversations?: Array<{
     content: string;
     sender: string;
@@ -188,6 +189,10 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
     thread.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Separate pinned and regular threads
+  const pinnedThreads = filteredThreads.filter(thread => thread.isPinned);
+  const regularThreads = filteredThreads.filter(thread => !thread.isPinned);
+
   const formatDate = (date: Date | string) => {
     const now = new Date();
     const messageDate = new Date(date);
@@ -302,161 +307,258 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
           </div>
         ) : (
           <div className="p-2">
-            {filteredThreads.map((thread, index) => (
-              <div key={thread.id}>
-                <div
-                  className={`group relative p-3 transition-colors ${
-                    currentThreadId === thread.id
-                      ? "bg-gray-50 border-l-4 border-blue-500"
-                      : "hover:bg-gray-50"
-                  }`}
-                >
-                  {/* Thread Content */}
-                  <div 
-                    onClick={() => onThreadSelect(thread.id)}
-                    className="cursor-pointer"
-                  >
-                    {/* Title Row with Time */}
-                    <div className="flex items-start justify-between mb-1">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        {thread.isPinned && (
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            strokeWidth={1.5}
-                            stroke="currentColor"
-                            className="w-3 h-3 text-blue-500 flex-shrink-0"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M5 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16l-7-3.5L5 21V5Z"
-                            />
-                          </svg>
-                        )}
-                        {editingThreadId === thread.id ? (
-                          <input
-                            value={editingTitle}
-                            onChange={(e) => setEditingTitle(e.target.value)}
-                            onBlur={() => handleSaveTitle(thread.id)}
-                            onKeyPress={(e) => {
-                              if (e.key === 'Enter') {
-                                handleSaveTitle(thread.id);
-                              } else if (e.key === 'Escape') {
-                                handleCancelEdit();
-                              }
-                            }}
-                            className="text-sm font-medium text-gray-900 bg-white border border-blue-500 rounded px-1 py-0.5 flex-1"
-                            autoFocus
-                          />
-                        ) : (
-                          <h3 
-                            className="text-sm font-medium text-gray-900 truncate cursor-pointer hover:text-blue-600 flex-1"
-                            onDoubleClick={() => handleEditTitle(thread.id, thread.title)}
-                            title="Double-click to rename"
-                          >
-                            {thread.title}
-                          </h3>
-                        )}
-                      </div>
-                      <span className="text-xs text-gray-400 ml-2 flex-shrink-0">
-                        {formatDate(thread.lastMessageAt)}
-                      </span>
-                    </div>
-                    
-                    {/* Preview and Count */}
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs text-gray-500 truncate flex-1">
-                        {getLastMessagePreview(thread)}
-                      </p>
-                      {thread._count?.conversations && thread._count.conversations > 0 && (
-                        <span className="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-full ml-2">
-                          {thread._count.conversations}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Action buttons - compact inline */}
-                  <div className="flex justify-end gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditTitle(thread.id, thread.title);
-                      }}
-                      className="p-1 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
-                      title="Rename"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                        className="w-3 h-3"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"
-                        />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={(e) => handlePinThread(thread.id, thread.isPinned, e)}
-                      className="p-1 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
-                      title={thread.isPinned ? "Unpin" : "Pin"}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill={thread.isPinned ? "currentColor" : "none"}
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                        className="w-3 h-3"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M5 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16l-7-3.5L5 21V5Z"
-                        />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={(e) => handleDeleteThread(thread.id, e)}
-                      className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                      title="Delete"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                        className="w-3 h-3"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
-                        />
-                      </svg>
-                    </button>
-                  </div>
+            {/* Pinned Threads Section */}
+            {pinnedThreads.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center gap-2 px-2 py-1 mb-2">
+                  <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                    Pinned
+                  </h3>
                 </div>
-                
-                {/* Divider - show for all threads except the last one */}
-                {index < filteredThreads.length - 1 && (
-                  <div className="border-b border-gray-100 mx-3"></div>
-                )}
+                {pinnedThreads.map((thread, index) => (
+                  <ThreadItem
+                    key={thread.id}
+                    thread={thread}
+                    index={index}
+                    isLast={index === pinnedThreads.length - 1}
+                    currentThreadId={currentThreadId}
+                    onThreadSelect={onThreadSelect}
+                    editingThreadId={editingThreadId}
+                    editingTitle={editingTitle}
+                    setEditingTitle={setEditingTitle}
+                    handleEditTitle={handleEditTitle}
+                    handleSaveTitle={handleSaveTitle}
+                    handleCancelEdit={handleCancelEdit}
+                    handlePinThread={handlePinThread}
+                    handleDeleteThread={handleDeleteThread}
+                    formatDate={formatDate}
+                    getLastMessagePreview={getLastMessagePreview}
+                  />
+                ))}
               </div>
-            ))}
+            )}
+
+            {/* Regular Threads Section */}
+            {regularThreads.length > 0 && (
+              <div>
+                {pinnedThreads.length > 0 && (
+                  <>
+                    <div className="h-px bg-gray-200 my-3"></div>
+                    <div className="flex items-center gap-2 px-2 py-1 mb-2">
+                      <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                        All
+                      </h3>
+                    </div>
+                  </>
+                )}
+                {regularThreads.map((thread, index) => (
+                  <ThreadItem
+                    key={thread.id}
+                    thread={thread}
+                    index={index}
+                    isLast={index === regularThreads.length - 1}
+                    currentThreadId={currentThreadId}
+                    onThreadSelect={onThreadSelect}
+                    editingThreadId={editingThreadId}
+                    editingTitle={editingTitle}
+                    setEditingTitle={setEditingTitle}
+                    handleEditTitle={handleEditTitle}
+                    handleSaveTitle={handleSaveTitle}
+                    handleCancelEdit={handleCancelEdit}
+                    handlePinThread={handlePinThread}
+                    handleDeleteThread={handleDeleteThread}
+                    formatDate={formatDate}
+                    getLastMessagePreview={getLastMessagePreview}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
     </div>
   );
 });
+
+ThreadSidebar.displayName = 'ThreadSidebar';
+
+
+// Extract ThreadItem component for reusability
+interface ThreadItemProps {
+  thread: ChatThread;
+  index: number;
+  isLast: boolean;
+  currentThreadId?: number;
+  onThreadSelect: (threadId: number) => void;
+  editingThreadId: number | null;
+  editingTitle: string;
+  setEditingTitle: (title: string) => void;
+  handleEditTitle: (threadId: number, currentTitle: string) => void;
+  handleSaveTitle: (threadId: number) => void;
+  handleCancelEdit: () => void;
+  handlePinThread: (threadId: number, isPinned: boolean, e: React.MouseEvent) => void;
+  handleDeleteThread: (threadId: number, e: React.MouseEvent) => void;
+  formatDate: (date: Date | string) => string;
+  getLastMessagePreview: (thread: ChatThread) => string;
+}
+
+const ThreadItem = ({
+  thread,
+  index,
+  isLast,
+  currentThreadId,
+  onThreadSelect,
+  editingThreadId,
+  editingTitle,
+  setEditingTitle,
+  handleEditTitle,
+  handleSaveTitle,
+  handleCancelEdit,
+  handlePinThread,
+  handleDeleteThread,
+  formatDate,
+  getLastMessagePreview,
+}: ThreadItemProps) => {
+  return (
+    <div key={thread.id}>
+      <div
+        className={`group relative p-3 transition-colors ${
+          currentThreadId === thread.id
+            ? "bg-blue-50 border-l-4 border-blue-500"
+            : "hover:bg-gray-50"
+        }`}
+      >
+        {/* Thread Content */}
+        <div 
+          onClick={() => onThreadSelect(thread.id)}
+          className="cursor-pointer"
+        >
+          {/* Title Row */}
+          <div className="mb-1">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              {editingThreadId === thread.id ? (
+                <input
+                  value={editingTitle}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  onBlur={() => handleSaveTitle(thread.id)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSaveTitle(thread.id);
+                    } else if (e.key === 'Escape') {
+                      handleCancelEdit();
+                    }
+                  }}
+                  className="text-sm font-medium text-gray-900 bg-white border border-blue-500 rounded px-1 py-0.5 flex-1"
+                  autoFocus
+                />
+              ) : (
+                <h3 
+                  className="text-sm font-medium text-gray-900 truncate cursor-pointer hover:text-blue-600 flex-1"
+                  onDoubleClick={() => handleEditTitle(thread.id, thread.title)}
+                  title="Double-click to rename"
+                >
+                  {thread.title}
+                </h3>
+              )}
+            </div>
+          </div>
+          
+          {/* Preview and Count */}
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-gray-500 truncate flex-1">
+              {getLastMessagePreview(thread)}
+            </p>
+            {thread._count?.conversations && thread._count.conversations > 0 && (
+              <span className="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-full ml-2">
+                {thread._count.conversations}
+              </span>
+            )}
+          </div>
+        </div>
+        
+        {/* Timestamp and Action buttons */}
+        <div className="flex items-center justify-between mt-2">
+          <span className="text-xs text-gray-400">
+            {formatDate(thread.lastMessageAt)}
+            {thread.totalTokens && thread.totalTokens > 0 && (
+              <> • {thread.totalTokens.toLocaleString()} tokens</>
+            )}
+          </span>
+          <div className="flex gap-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEditTitle(thread.id, thread.title);
+            }}
+            className="p-1 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
+            title="Rename"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="w-3 h-3"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"
+              />
+            </svg>
+          </button>
+          <button
+            onClick={(e) => handlePinThread(thread.id, thread.isPinned, e)}
+            className="p-1 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
+            title={thread.isPinned ? "Unpin" : "Pin"}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill={thread.isPinned ? "currentColor" : "none"}
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="w-3 h-3"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M16.5 3.75V16.5L12 14.25 7.5 16.5V3.75m9 0H18A2.25 2.25 0 0 1 20.25 6v12A2.25 2.25 0 0 1 18 20.25H6A2.25 2.25 0 0 1 3.75 18V6A2.25 2.25 0 0 1 6 3.75h1.5m9 0h-9"
+              />
+            </svg>
+          </button>
+          <button
+            onClick={(e) => handleDeleteThread(thread.id, e)}
+            className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+            title="Delete"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="w-3 h-3"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
+              />
+            </svg>
+          </button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Divider - show for all threads except the last one */}
+      {!isLast && (
+        <div className="border-b border-gray-100 mx-3"></div>
+        
+      )}
+    </div>
+  );
+};
 
 ThreadSidebar.displayName = 'ThreadSidebar';

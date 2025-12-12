@@ -42,6 +42,21 @@ export default function ChatPage() {
   const [streamingText, setStreamingText] = useState<Map<number, string>>(new Map());
   const [showComments, setShowComments] = useState<Set<number>>(new Set());
   const [commentText, setCommentText] = useState<Map<number, string>>(new Map());
+  const [showSettings, setShowSettings] = useState(false);
+  const [chatSettings, setChatSettings] = useState({
+    model: "gpt-4o",
+    temperature: 1,
+    max_output_tokens: 4096,
+    top_p: 1,
+    stream: true,
+    parallel_tool_calls: true,
+    store: true,
+    reasoning: false,
+    truncation: 'auto' as 'auto' | 'disabled',
+    top_logprobs: 0,
+    safety_identifier: "",
+    service_tier: 'auto' as 'auto' | 'default' | 'flex' | 'priority'
+  });
   const sidebarRef = useRef<ThreadSidebarRef>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -348,6 +363,7 @@ export default function ChatPage() {
           },
           body: JSON.stringify({
             messages: conversationHistory,
+            settings: chatSettings,
           }),
         });
 
@@ -792,6 +808,27 @@ export default function ChatPage() {
         <div className="border-t border-gray-100 px-6 py-4 flex-shrink-0">
           <div className="flex justify-center">
             <div className="flex gap-3 w-2/3 max-w-8xl">
+              <button
+                onClick={() => setShowSettings(true)}
+                className="p-3 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Chat Settings"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                  className="w-5 h-5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a6.759 6.759 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"
+                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                </svg>
+              </button>
               <input
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
@@ -821,6 +858,205 @@ export default function ChatPage() {
         </div>
         </div>
       </div>
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Chat Settings</h2>
+                <button
+                  onClick={() => setShowSettings(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {/* Model Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Model</label>
+                  <select
+                    value={chatSettings.model}
+                    onChange={(e) => setChatSettings(prev => ({ ...prev, model: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="gpt-4o">GPT-4o</option>
+                    <option value="gpt-4o-mini">GPT-4o Mini</option>
+                    <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                  </select>
+                </div>
+
+                {/* Temperature */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Temperature: {chatSettings.temperature}
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="2"
+                    step="0.1"
+                    value={chatSettings.temperature}
+                    onChange={(e) => setChatSettings(prev => ({ ...prev, temperature: parseFloat(e.target.value) }))}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>Focused (0)</span>
+                    <span>Balanced (1)</span>
+                    <span>Creative (2)</span>
+                  </div>
+                </div>
+
+                {/* Max Output Tokens */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Max Output Tokens</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="8192"
+                    value={chatSettings.max_output_tokens}
+                    onChange={(e) => setChatSettings(prev => ({ ...prev, max_output_tokens: parseInt(e.target.value) }))}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Top P */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Top P: {chatSettings.top_p}
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={chatSettings.top_p}
+                    onChange={(e) => setChatSettings(prev => ({ ...prev, top_p: parseFloat(e.target.value) }))}
+                    className="w-full"
+                  />
+                </div>
+
+                {/* Top Logprobs */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Top Logprobs</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="20"
+                    value={chatSettings.top_logprobs}
+                    onChange={(e) => setChatSettings(prev => ({ ...prev, top_logprobs: parseInt(e.target.value) }))}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Service Tier */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Service Tier</label>
+                  <select
+                    value={chatSettings.service_tier}
+                    onChange={(e) => setChatSettings(prev => ({ ...prev, service_tier: e.target.value as any }))}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="auto">Auto</option>
+                    <option value="default">Default</option>
+                    <option value="flex">Flex</option>
+                    <option value="priority">Priority</option>
+                  </select>
+                </div>
+
+                {/* Truncation */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Truncation</label>
+                  <select
+                    value={chatSettings.truncation}
+                    onChange={(e) => setChatSettings(prev => ({ ...prev, truncation: e.target.value as any }))}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="auto">Auto</option>
+                    <option value="disabled">Disabled</option>
+                  </select>
+                </div>
+
+                {/* Safety Identifier */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Safety Identifier</label>
+                  <input
+                    type="text"
+                    value={chatSettings.safety_identifier}
+                    onChange={(e) => setChatSettings(prev => ({ ...prev, safety_identifier: e.target.value }))}
+                    placeholder="Optional safety identifier"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Boolean Options */}
+                <div className="grid grid-cols-2 gap-4">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={chatSettings.stream}
+                      onChange={(e) => setChatSettings(prev => ({ ...prev, stream: e.target.checked }))}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-700">Stream Response</span>
+                  </label>
+
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={chatSettings.parallel_tool_calls}
+                      onChange={(e) => setChatSettings(prev => ({ ...prev, parallel_tool_calls: e.target.checked }))}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-700">Parallel Tool Calls</span>
+                  </label>
+
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={chatSettings.store}
+                      onChange={(e) => setChatSettings(prev => ({ ...prev, store: e.target.checked }))}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-700">Store Response</span>
+                  </label>
+
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={chatSettings.reasoning}
+                      onChange={(e) => setChatSettings(prev => ({ ...prev, reasoning: e.target.checked }))}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-700">Enable Reasoning</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-8">
+                <button
+                  onClick={() => setShowSettings(false)}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => setShowSettings(false)}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                >
+                  Save Settings
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

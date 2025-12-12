@@ -63,7 +63,27 @@ export async function getChatThreads() {
       ],
     });
 
-    return { success: true, threads };
+    // Calculate total tokens for each thread
+    const threadsWithTokens = await Promise.all(
+      threads.map(async (thread) => {
+        const tokenSum = await prisma.chatConversation.aggregate({
+          where: {
+            threadId: thread.id,
+            tokenCount: { not: null },
+          },
+          _sum: {
+            tokenCount: true,
+          },
+        });
+
+        return {
+          ...thread,
+          totalTokens: tokenSum._sum.tokenCount || 0,
+        };
+      })
+    );
+
+    return { success: true, threads: threadsWithTokens };
   } catch (error) {
     console.error("Error fetching chat threads:", error);
     return { success: false, error: "Failed to fetch chat threads" };
