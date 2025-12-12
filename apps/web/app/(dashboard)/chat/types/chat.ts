@@ -35,6 +35,17 @@ export interface ProcessingContext {
 export interface SystemPrompt {
   content: string;
   financialContext: FinancialContext | null;
+  /**
+   * Full input context that was sent to the LLM for this assistant response.
+   * Stored as JSON for transparency/debugging.
+   *
+   * Note: optional for backwards compatibility with older rows.
+   */
+  request?: {
+    messages: Array<{ sender: "USER" | "ASSISTANT"; content: string }>;
+    settings: Pick<ChatSettings, "model" | "temperature" | "max_output_tokens" | "top_p">;
+    financialContext: FinancialContext | null;
+  };
 }
 
 export interface ChatSettings {

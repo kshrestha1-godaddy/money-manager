@@ -251,6 +251,16 @@ export function useChat() {
     const systemPromptData: SystemPrompt = {
       content: systemPrompt,
       financialContext,
+      request: {
+        messages: [],
+        settings: {
+          model: chatSettings.model,
+          temperature: chatSettings.temperature,
+          max_output_tokens: chatSettings.max_output_tokens,
+          top_p: chatSettings.top_p,
+        },
+        financialContext,
+      },
     };
 
     const userResult = await createConversation({
@@ -300,10 +310,20 @@ export function useChat() {
 
     setMessages((prev) => [...prev, userMessage, assistantMessage]);
 
-    const conversationHistory: ChatHistoryMessage[] = [...messages, userMessage]
-      .filter((m) => !m.isProcessing)
-      .filter((m) => m.sender === "USER" || m.sender === "ASSISTANT")
-      .map((m) => ({ sender: m.sender, content: m.content }));
+    // Only send the current user message as the LLM input (no assistant turns / no duplicates).
+    const conversationHistory: ChatHistoryMessage[] = [{ sender: "USER", content: trimmed }];
+
+    // Capture the exact input payload we are sending to the API for transparency.
+    systemPromptData.request = {
+      messages: conversationHistory,
+      settings: {
+        model: chatSettings.model,
+        temperature: chatSettings.temperature,
+        max_output_tokens: chatSettings.max_output_tokens,
+        top_p: chatSettings.top_p,
+      },
+      financialContext,
+    };
 
     let accumulatedText = "";
     const responseStartTime = Date.now();

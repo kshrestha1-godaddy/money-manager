@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
+import { useState } from "react";
 import { Message as MessageType } from "../types/chat";
 
 interface MessageProps {
@@ -30,6 +31,7 @@ export function Message({
   onCommentSubmit
 }: MessageProps) {
   const { data: session } = useSession();
+  const inputContextText = getInputContextText(message);
 
   return (
     <div className={`flex gap-4 ${
@@ -105,7 +107,7 @@ export function Message({
                     ? 'text-blue-700 bg-blue-100'
                     : 'text-gray-700 bg-gray-100'
                 }`}>
-                  {message.systemPrompt.content}
+                  {inputContextText}
                 </div>
               </div>
             )}
@@ -174,6 +176,68 @@ export function Message({
   );
 }
 
+function getInputContextText(message: MessageType): string {
+  const systemPrompt = message.systemPrompt;
+  if (!systemPrompt) return "";
+
+  const lines: string[] = [];
+  lines.push("SYSTEM PROMPT:");
+  lines.push(systemPrompt.content);
+
+  const request = systemPrompt.request;
+  if (request) {
+    lines.push("");
+    lines.push("SETTINGS:");
+    lines.push(
+      JSON.stringify(
+        {
+          model: request.settings.model,
+          temperature: request.settings.temperature,
+          max_output_tokens: request.settings.max_output_tokens,
+          top_p: request.settings.top_p,
+        },
+        null,
+        2
+      )
+    );
+
+    lines.push("");
+    lines.push("MESSAGES SENT:");
+    if (request.messages.length === 0) {
+      lines.push("(none)");
+    } else {
+      request.messages.forEach((m, idx) => {
+        lines.push("");
+        lines.push(`[${idx + 1}] ${m.sender}:`);
+        lines.push(m.content);
+      });
+    }
+
+    if (request.financialContext) {
+      lines.push("");
+      lines.push("FINANCIAL CONTEXT SUMMARY:");
+      lines.push(JSON.stringify(request.financialContext.summary, null, 2));
+      lines.push("");
+      lines.push("FINANCIAL CONTEXT MARKDOWN:");
+      lines.push(request.financialContext.markdownData);
+    }
+
+    return lines.join("\n");
+  }
+
+  // Backwards compatibility: older rows only had the system prompt + financialContext.
+  if (systemPrompt.financialContext) {
+    lines.push("");
+    lines.push("FINANCIAL CONTEXT SUMMARY:");
+    lines.push(JSON.stringify(systemPrompt.financialContext.summary, null, 2));
+    lines.push("");
+    lines.push("FINANCIAL CONTEXT MARKDOWN:");
+    lines.push(systemPrompt.financialContext.markdownData);
+  }
+
+  return lines.join("\n");
+}
+
 function ProcessingMessage({
   message,
 }: {
@@ -236,9 +300,9 @@ function MessageFooter({ message }: { message: MessageType }) {
                 <span>• 
                   {message.inputTokens && message.outputTokens ? (
                     <>
-                        <span className="text-gray-500">↑ {message.inputTokens} tokens</span>
+                        <span className="text-gray-500"> ↑ {message.inputTokens} tokens</span>
                       <span className="mx-1">•</span>
-                        <span className="text-gray-500">↓ {message.outputTokens} tokens</span>
+                        <span className="text-gray-500"> ↓ {message.outputTokens} tokens</span>
                     </>
                   ) : (
                     <span className="text-gray-500">{message.tokenCount} tokens</span>
@@ -270,10 +334,40 @@ function MessageFeedback({
   onCommentChange: (messageId: number, value: string) => void;
   onCommentSubmit: (messageId: number) => void;
 }) {
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy text:', error);
+    }
+  };
   return (
     <div className="mt-2 space-y-2">
       {/* Feedback Buttons */}
       <div className="flex items-center gap-2">
+        <button
+          onClick={handleCopy}
+          className={`p-1 rounded-full transition-colors ${
+            isCopied
+            ? "text-gray-400 text-gray-600"
+              : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+          }`}
+          title={isCopied ? "Copied!" : "Copy response"}
+        >
+          {isCopied ? (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          )}
+        </button>
         <button
           onClick={() => onFeedback(message.id, "LIKE")}
           className={`p-1 rounded-full transition-colors ${
