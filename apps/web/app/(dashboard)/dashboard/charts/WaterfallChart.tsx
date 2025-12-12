@@ -233,6 +233,30 @@ export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency = "USD
                         barCategoryGap="10%"
                         barGap="1%"
                     >
+                        {/* Define texture patterns */}
+                        <defs>
+                            <pattern id="incomePattern" patternUnits="userSpaceOnUse" width="4" height="4">
+                                <rect width="4" height="4" fill="#10b981"/>
+                                <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke="#0d9488" strokeWidth="0.5" opacity="0.3"/>
+                            </pattern>
+                            <pattern id="expensesPattern" patternUnits="userSpaceOnUse" width="4" height="4">
+                                <rect width="4" height="4" fill="#ef4444"/>
+                                <circle cx="2" cy="2" r="0.5" fill="#dc2626" opacity="0.4"/>
+                                <circle cx="0" cy="0" r="0.3" fill="#dc2626" opacity="0.4"/>
+                                <circle cx="4" cy="4" r="0.3" fill="#dc2626" opacity="0.4"/>
+                            </pattern>
+                            <pattern id="savingsPattern" patternUnits="userSpaceOnUse" width="6" height="6">
+                                <rect width="6" height="6" fill="#3b82f6"/>
+                                <rect x="0" y="0" width="2" height="2" fill="#2563eb" opacity="0.3"/>
+                                <rect x="4" y="4" width="2" height="2" fill="#2563eb" opacity="0.3"/>
+                                <rect x="2" y="2" width="2" height="2" fill="#1d4ed8" opacity="0.2"/>
+                            </pattern>
+                            <pattern id="lossPattern" patternUnits="userSpaceOnUse" width="3" height="3">
+                                <rect width="3" height="3" fill="#f59e0b"/>
+                                <path d="M 0,3 l 3,-3 M -0.5,0.5 l 1,-1 M 2.5,3.5 l 1,-1" stroke="#d97706" strokeWidth="0.8" opacity="0.4"/>
+                            </pattern>
+                        </defs>
+
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                         <XAxis 
                             dataKey="name" 
@@ -259,7 +283,7 @@ export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency = "USD
                             stackId="waterfall"
                         />
                         
-                        {/* Value bars with different colors and labels */}
+                        {/* Value bars with textured patterns and labels */}
                         <Bar 
                             dataKey="value" 
                             stackId="waterfall"
@@ -273,12 +297,31 @@ export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency = "USD
                                 fontWeight="bold"
                                 formatter={(value: number) => formatCurrency(value, currency)}
                             />
-                            {data.map((entry, index) => (
-                                <Cell 
-                                    key={`cell-${index}`} 
-                                    fill={getBarColor(entry.type)} 
-                                />
-                            ))}
+                            {data.map((entry, index) => {
+                                let fillPattern;
+                                switch (entry.type) {
+                                    case "income":
+                                        fillPattern = "url(#incomePattern)";
+                                        break;
+                                    case "expenses":
+                                        fillPattern = "url(#expensesPattern)";
+                                        break;
+                                    case "savings":
+                                        fillPattern = "url(#savingsPattern)";
+                                        break;
+                                    case "loss":
+                                        fillPattern = "url(#lossPattern)";
+                                        break;
+                                    default:
+                                        fillPattern = getBarColor(entry.type);
+                                }
+                                return (
+                                    <Cell 
+                                        key={`cell-${index}`} 
+                                        fill={fillPattern}
+                                    />
+                                );
+                            })}
                         </Bar>
                     </BarChart>
                 </ResponsiveContainer>

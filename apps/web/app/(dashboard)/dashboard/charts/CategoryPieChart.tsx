@@ -505,6 +505,65 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                 >
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
+                            {/* Define texture patterns for pie slices */}
+                            <defs>
+                                {chartData.map((entry, index) => {
+                                    const patternId = `piePattern${index}`;
+                                    const baseColor = entry.color;
+                                    const darkerColor = entry.solidColor || baseColor;
+                                    
+                                    // Different texture patterns for variety
+                                    const patterns = [
+                                        // Diagonal lines
+                                        <pattern key={patternId} id={patternId} patternUnits="userSpaceOnUse" width="6" height="6">
+                                            <rect width="6" height="6" fill={baseColor}/>
+                                            <path d="M 0,6 l 6,-6 M -1.5,1.5 l 3,-3 M 4.5,7.5 l 3,-3" stroke={darkerColor} strokeWidth="0.8" opacity="0.3"/>
+                                        </pattern>,
+                                        // Dots pattern
+                                        <pattern key={patternId} id={patternId} patternUnits="userSpaceOnUse" width="8" height="8">
+                                            <rect width="8" height="8" fill={baseColor}/>
+                                            <circle cx="2" cy="2" r="0.8" fill={darkerColor} opacity="0.4"/>
+                                            <circle cx="6" cy="6" r="0.8" fill={darkerColor} opacity="0.4"/>
+                                            <circle cx="4" cy="4" r="0.5" fill={darkerColor} opacity="0.3"/>
+                                        </pattern>,
+                                        // Grid pattern
+                                        <pattern key={patternId} id={patternId} patternUnits="userSpaceOnUse" width="5" height="5">
+                                            <rect width="5" height="5" fill={baseColor}/>
+                                            <rect x="0" y="0" width="1.5" height="1.5" fill={darkerColor} opacity="0.25"/>
+                                            <rect x="3.5" y="3.5" width="1.5" height="1.5" fill={darkerColor} opacity="0.25"/>
+                                            <rect x="1.75" y="1.75" width="1.5" height="1.5" fill={darkerColor} opacity="0.2"/>
+                                        </pattern>,
+                                        // Cross-hatch pattern
+                                        <pattern key={patternId} id={patternId} patternUnits="userSpaceOnUse" width="4" height="4">
+                                            <rect width="4" height="4" fill={baseColor}/>
+                                            <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke={darkerColor} strokeWidth="0.6" opacity="0.3"/>
+                                            <path d="M 0,0 l 4,4 M -1,3 l 2,2 M 3,-1 l 2,2" stroke={darkerColor} strokeWidth="0.6" opacity="0.2"/>
+                                        </pattern>,
+                                        // Waves pattern
+                                        <pattern key={patternId} id={patternId} patternUnits="userSpaceOnUse" width="8" height="4">
+                                            <rect width="8" height="4" fill={baseColor}/>
+                                            <path d="M 0,2 Q 2,0 4,2 T 8,2" stroke={darkerColor} strokeWidth="0.8" fill="none" opacity="0.35"/>
+                                            <path d="M 0,3 Q 2,1 4,3 T 8,3" stroke={darkerColor} strokeWidth="0.6" fill="none" opacity="0.25"/>
+                                        </pattern>,
+                                        // Hexagon pattern
+                                        <pattern key={patternId} id={patternId} patternUnits="userSpaceOnUse" width="6" height="6">
+                                            <rect width="6" height="6" fill={baseColor}/>
+                                            <polygon points="3,0.5 5,1.5 5,3.5 3,4.5 1,3.5 1,1.5" fill={darkerColor} opacity="0.25"/>
+                                        </pattern>
+                                    ];
+                                    
+                                    // Cycle through different patterns
+                                    return patterns[index % patterns.length];
+                                })}
+                                
+                                {/* Special pattern for "Others" category */}
+                                <pattern id="othersPattern" patternUnits="userSpaceOnUse" width="3" height="3">
+                                    <rect width="3" height="3" fill="#94a3b8"/>
+                                    <rect x="0" y="0" width="1" height="1" fill="#64748b" opacity="0.4"/>
+                                    <rect x="2" y="2" width="1" height="1" fill="#64748b" opacity="0.4"/>
+                                    <rect x="1" y="1" width="1" height="1" fill="#475569" opacity="0.3"/>
+                                </pattern>
+                            </defs>
 
                             <Pie
                                 data={chartData}
@@ -524,7 +583,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                                 {chartData.map((entry, index) => (
                                     <Cell 
                                         key={`cell-${index}`} 
-                                        fill={entry.color}
+                                        fill={entry.name === 'Others' ? "url(#othersPattern)" : `url(#piePattern${index})`}
                                         stroke="#ffffff"
                                         strokeWidth={2}
                                     />

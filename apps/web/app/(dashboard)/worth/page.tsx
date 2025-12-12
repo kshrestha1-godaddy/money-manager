@@ -647,24 +647,59 @@ export default function NetWorthPage() {
                                     data={chartData}
                                     margin={{ top: 40, right: 30, left: 20, bottom: 10 }}
                                 >
-                                    {/* SVG Pattern Definitions for Textures */}
+                                    {/* Enhanced SVG Pattern Definitions for Textures */}
                                     <defs>
-                                        {/* Bank Balance - Diagonal lines */}
-                                        <pattern id={WORTH_PATTERN_IDS.accounts} patternUnits="userSpaceOnUse" width="8" height="8">
-                                            <rect width="8" height="8" fill={WORTH_COLORS.accounts} />
-                                            <path d="M-2,2 l4,-4 M0,8 l8,-8 M6,10 l4,-4" stroke="#059669" strokeWidth="1" opacity="0.3" />
+                                        {/* Bank Balance - Enhanced diagonal lines with grid */}
+                                        <pattern id={WORTH_PATTERN_IDS.accounts} patternUnits="userSpaceOnUse" width="6" height="6">
+                                            <rect width="6" height="6" fill={WORTH_COLORS.accounts} />
+                                            <path d="M 0,6 l 6,-6 M -1.5,1.5 l 3,-3 M 4.5,7.5 l 3,-3" stroke="#059669" strokeWidth="0.8" opacity="0.3" />
+                                            <rect x="0" y="0" width="2" height="2" fill="#047857" opacity="0.15" />
+                                            <rect x="4" y="4" width="2" height="2" fill="#047857" opacity="0.15" />
                                         </pattern>
                                         
-                                        {/* Investments - Dots pattern */}
+                                        {/* Investments - Enhanced dots with varying sizes */}
                                         <pattern id={WORTH_PATTERN_IDS.investments} patternUnits="userSpaceOnUse" width="8" height="8">
                                             <rect width="8" height="8" fill={WORTH_COLORS.investments} />
-                                            <circle cx="4" cy="4" r="1.5" fill="#1d4ed8" opacity="0.3" />
+                                            <circle cx="2" cy="2" r="1" fill="#1d4ed8" opacity="0.35" />
+                                            <circle cx="6" cy="6" r="1" fill="#1d4ed8" opacity="0.35" />
+                                            <circle cx="4" cy="4" r="0.6" fill="#1e40af" opacity="0.25" />
+                                            <circle cx="0" cy="4" r="0.4" fill="#1e40af" opacity="0.2" />
+                                            <circle cx="8" cy="0" r="0.4" fill="#1e40af" opacity="0.2" />
                                         </pattern>
                                         
-                                        {/* Money Lent - Horizontal lines */}
-                                        <pattern id={WORTH_PATTERN_IDS.moneyLent} patternUnits="userSpaceOnUse" width="6" height="6">
-                                            <rect width="6" height="6" fill={WORTH_COLORS.moneyLent} />
-                                            <line x1="0" y1="3" x2="6" y2="3" stroke="#dc2626" strokeWidth="1" opacity="0.25" />
+                                        {/* Money Lent - Enhanced cross-hatch pattern */}
+                                        <pattern id={WORTH_PATTERN_IDS.moneyLent} patternUnits="userSpaceOnUse" width="5" height="5">
+                                            <rect width="5" height="5" fill={WORTH_COLORS.moneyLent} />
+                                            <path d="M 0,5 l 5,-5 M -1.25,1.25 l 2.5,-2.5 M 3.75,6.25 l 2.5,-2.5" stroke="#dc2626" strokeWidth="0.6" opacity="0.3" />
+                                            <path d="M 0,0 l 5,5 M -1.25,3.75 l 2.5,2.5 M 3.75,-1.25 l 2.5,2.5" stroke="#dc2626" strokeWidth="0.6" opacity="0.2" />
+                                        </pattern>
+
+                                        {/* Additional patterns for other asset types */}
+                                        <pattern id="pattern-cash" patternUnits="userSpaceOnUse" width="4" height="4">
+                                            <rect width="4" height="4" fill="#10b981" />
+                                            <rect x="0" y="0" width="1.5" height="1.5" fill="#059669" opacity="0.3" />
+                                            <rect x="2.5" y="2.5" width="1.5" height="1.5" fill="#059669" opacity="0.3" />
+                                            <rect x="1.25" y="1.25" width="1.5" height="1.5" fill="#047857" opacity="0.2" />
+                                        </pattern>
+
+                                        <pattern id="pattern-property" patternUnits="userSpaceOnUse" width="6" height="6">
+                                            <rect width="6" height="6" fill="#f59e0b" />
+                                            <polygon points="3,1 5,3 3,5 1,3" fill="#d97706" opacity="0.3" />
+                                            <rect x="0" y="0" width="1" height="1" fill="#b45309" opacity="0.25" />
+                                            <rect x="5" y="5" width="1" height="1" fill="#b45309" opacity="0.25" />
+                                        </pattern>
+
+                                        <pattern id="pattern-crypto" patternUnits="userSpaceOnUse" width="8" height="8">
+                                            <rect width="8" height="8" fill="#8b5cf6" />
+                                            <path d="M 2,2 L 6,2 L 6,6 L 2,6 Z" fill="#7c3aed" opacity="0.3" stroke="#6d28d9" strokeWidth="0.5" />
+                                            <circle cx="4" cy="4" r="1.5" fill="none" stroke="#6d28d9" strokeWidth="0.8" opacity="0.4" />
+                                        </pattern>
+
+                                        <pattern id="pattern-other" patternUnits="userSpaceOnUse" width="3" height="3">
+                                            <rect width="3" height="3" fill="#6b7280" />
+                                            <rect x="0" y="0" width="1" height="1" fill="#4b5563" opacity="0.4" />
+                                            <rect x="2" y="2" width="1" height="1" fill="#4b5563" opacity="0.4" />
+                                            <rect x="1" y="1" width="1" height="1" fill="#374151" opacity="0.3" />
                                         </pattern>
                                     </defs>
                                     
@@ -683,13 +718,22 @@ export default function NetWorthPage() {
                                         {chartData.map((entry, index) => {
                                             let patternUrl = entry.color; // Default to solid color
                                             
-                                            // Map entry names to pattern URLs
-                                            if (entry.name === 'Bank Balance') {
+                                            // Map entry names to enhanced pattern URLs
+                                            const entryName = entry.name.toLowerCase();
+                                            if (entryName.includes('bank') || entryName.includes('account')) {
                                                 patternUrl = `url(#${WORTH_PATTERN_IDS.accounts})`;
-                                            } else if (entry.name === 'Investments') {
+                                            } else if (entryName.includes('investment') || entryName.includes('stock') || entryName.includes('bond')) {
                                                 patternUrl = `url(#${WORTH_PATTERN_IDS.investments})`;
-                                            } else if (entry.name === 'Money Lent') {
+                                            } else if (entryName.includes('lent') || entryName.includes('loan')) {
                                                 patternUrl = `url(#${WORTH_PATTERN_IDS.moneyLent})`;
+                                            } else if (entryName.includes('cash') || entryName.includes('saving')) {
+                                                patternUrl = 'url(#pattern-cash)';
+                                            } else if (entryName.includes('property') || entryName.includes('real estate') || entryName.includes('house')) {
+                                                patternUrl = 'url(#pattern-property)';
+                                            } else if (entryName.includes('crypto') || entryName.includes('bitcoin') || entryName.includes('ethereum')) {
+                                                patternUrl = 'url(#pattern-crypto)';
+                                            } else if (entryName.includes('other') || entryName.includes('misc')) {
+                                                patternUrl = 'url(#pattern-other)';
                                             }
                                             
                                             return (

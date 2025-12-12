@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useMemo, useCallback } from "react";
-import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from "recharts";
+import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, Cell } from "recharts";
 import { Info } from "lucide-react";
 import { formatCurrency } from "../../../utils/currency";
 import { Income, Expense } from "../../../types/financial";
@@ -387,6 +387,31 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                     margin={CHART_MARGINS}
                     barCategoryGap="15%"
                 >
+                    {/* Define texture patterns for bars */}
+                    <defs>
+                        <pattern id="monthlyIncomePattern" patternUnits="userSpaceOnUse" width="5" height="5">
+                            <rect width="5" height="5" fill="#10b981"/>
+                            <path d="M 0,5 l 5,-5 M -1.25,1.25 l 2.5,-2.5 M 3.75,6.25 l 2.5,-2.5" stroke="#0d9488" strokeWidth="0.6" opacity="0.25"/>
+                        </pattern>
+                        <pattern id="monthlyExpensesPattern" patternUnits="userSpaceOnUse" width="4" height="4">
+                            <rect width="4" height="4" fill="#ef4444"/>
+                            <rect x="0" y="0" width="1" height="1" fill="#dc2626" opacity="0.4"/>
+                            <rect x="2" y="2" width="1" height="1" fill="#dc2626" opacity="0.4"/>
+                            <rect x="1" y="3" width="1" height="1" fill="#dc2626" opacity="0.3"/>
+                            <rect x="3" y="1" width="1" height="1" fill="#dc2626" opacity="0.3"/>
+                        </pattern>
+                        <pattern id="monthlySavingsPattern" patternUnits="userSpaceOnUse" width="6" height="6">
+                            <rect width="6" height="6" fill="#3b82f6"/>
+                            <circle cx="1" cy="1" r="0.8" fill="#2563eb" opacity="0.3"/>
+                            <circle cx="5" cy="5" r="0.8" fill="#2563eb" opacity="0.3"/>
+                            <circle cx="3" cy="3" r="0.5" fill="#1d4ed8" opacity="0.25"/>
+                        </pattern>
+                        <pattern id="monthlyLossPattern" patternUnits="userSpaceOnUse" width="4" height="4">
+                            <rect width="4" height="4" fill="#3b82f6"/>
+                            <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke="#1d4ed8" strokeWidth="0.7" opacity="0.4"/>
+                        </pattern>
+                    </defs>
+
                     <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
                     
                     {/* Reference lines for better visualization */}
@@ -419,22 +444,28 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
 
                     <Bar 
                         dataKey="income" 
-                        fill={CHART_COLORS.income}
+                        fill="url(#monthlyIncomePattern)"
                         name="Income"
                         radius={[2, 2, 0, 0]}
                     />
                     <Bar 
                         dataKey="expenses" 
-                        fill={CHART_COLORS.expenses}
+                        fill="url(#monthlyExpensesPattern)"
                         name="Expenses"
                         radius={[2, 2, 0, 0]}
                     />
                     <Bar 
                         dataKey="savings" 
-                        fill={CHART_COLORS.savings}
                         name="Savings"
                         radius={[2, 2, 0, 0]}
-                    />
+                    >
+                        {chartData.map((entry, index) => (
+                            <Cell 
+                                key={`savings-cell-${index}`} 
+                                fill={entry.savings >= 0 ? "url(#monthlySavingsPattern)" : "url(#monthlyLossPattern)"}
+                            />
+                        ))}
+                    </Bar>
                     
                     {/* Trend Lines */}
                     <Line 
