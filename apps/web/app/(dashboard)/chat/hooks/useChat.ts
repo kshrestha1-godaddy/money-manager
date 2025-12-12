@@ -49,19 +49,26 @@ export function useChat() {
   const sidebarRef = useRef<ThreadSidebarRef>(null);
 
   // Processing steps functions
-  const updateProcessingStep = useCallback((assistantMessageId: number, step: number, stepText: string, contextData?: any) => {
+  const updateProcessingStep = useCallback((assistantMessageId: number, step: number, stepText: string, contextData?: any, stepsTracker?: any[]) => {
+    const stepData = {
+      step,
+      text: stepText,
+      context: contextData,
+      timestamp: new Date()
+    };
+    
+    // Add to external tracker if provided
+    if (stepsTracker) {
+      stepsTracker.push(stepData);
+    }
+    
     setMessages((prev) => prev.map(msg => 
       msg.id === assistantMessageId 
         ? { 
             ...msg, 
             processingSteps: [
               ...(msg.processingSteps || []),
-              {
-                step,
-                text: stepText,
-                context: contextData,
-                timestamp: new Date()
-              }
+              stepData
             ]
           }
         : msg
@@ -94,10 +101,11 @@ export function useChat() {
     assistantMessageId: number,
     financialContext: FinancialContext | null,
     conversationHistory: Array<{ sender: string; content: string }>,
-    chatSettings: ChatSettings
-  ) => {
+    chatSettings: ChatSettings,
+    stepsTracker?: any[]
+  ): Promise<any[]> => {
     // Step 1: Preparing request
-    updateProcessingStep(assistantMessageId, 1, "Preparing your request...");
+    updateProcessingStep(assistantMessageId, 1, "Preparing your request...", undefined, stepsTracker);
     await new Promise(resolve => setTimeout(resolve, 300));
 
     // Step 2: Processing financial data (if applicable)
@@ -114,7 +122,7 @@ export function useChat() {
         type: "financial",
         data: financialSummary,
         markdownLength: financialContext.markdownData.length
-      });
+      }, stepsTracker);
       await new Promise(resolve => setTimeout(resolve, 400));
     }
 
@@ -123,7 +131,7 @@ export function useChat() {
       type: "conversation",
       messageCount: conversationHistory.length,
       totalCharacters: conversationHistory.reduce((sum, msg) => sum + msg.content.length, 0)
-    });
+    }, stepsTracker);
     await new Promise(resolve => setTimeout(resolve, 300));
 
     // Step 4: Connecting to AI
@@ -132,12 +140,14 @@ export function useChat() {
       model: chatSettings.model || "gpt-4",
       temperature: chatSettings.temperature,
       hasFinancialContext: !!financialContext
-    });
+    }, stepsTracker);
     await new Promise(resolve => setTimeout(resolve, 200));
 
     // Step 5: Sending to LLM
-    updateProcessingStep(assistantMessageId, financialContext ? 5 : 4, "Sending complete prompt to LLM...");
+    updateProcessingStep(assistantMessageId, financialContext ? 5 : 4, "Sending complete prompt to LLM...", undefined, stepsTracker);
     await new Promise(resolve => setTimeout(resolve, 300));
+    
+    return stepsTracker || [];
   }, [updateProcessingStep]);
 
   const loadThread = useCallback(async (threadId: number) => {
@@ -152,6 +162,16 @@ export function useChat() {
         let intermediateSteps: Message[] = [];
         
         conversations.forEach((conv: any) => {
+          console.log('Loading conversation:', {
+            id: conv.id,
+            sender: conv.sender,
+            hasIntermediateSteps: !!conv.intermediateSteps,
+            intermediateStepsType: typeof conv.intermediateSteps,
+            intermediateStepsLength: Array.isArray(conv.intermediateSteps) ? conv.intermediateSteps.length : 'not array',
+            hasSystemPrompt: !!conv.systemPrompt,
+            systemPromptType: typeof conv.systemPrompt
+          });
+          
           const message: Message = {
             id: conv.id,
             content: conv.content,
@@ -164,7 +184,11 @@ export function useChat() {
             tokenCount: conv.tokenCount,
             inputTokens: conv.inputTokens,
             outputTokens: conv.outputTokens,
-            processingSteps: conv.intermediateSteps ? JSON.parse(JSON.stringify(conv.intermediateSteps)) : undefined,
+            processingSteps: conv.intermediateSteps ? 
+              (Array.isArray(conv.intermediateSteps) ? conv.intermediateSteps.map((step: any) => ({
+                ...step,
+                timestamp: new Date(step.timestamp)
+              })) : undefined) : undefined,
             systemPrompt: conv.systemPrompt ? JSON.parse(JSON.stringify(conv.systemPrompt)) : (
               conv.sender === "ASSISTANT" ? {
                 content: generateDefaultSystemPrompt(),
@@ -457,6 +481,17 @@ export function useChat() {
       ? updatedMessagesResult.thread.conversations 
       : [];
 
+    // Generate system prompt for this conversation
+    const systemPrompt = financialContext 
+      ? generateFinancialSystemPrompt(financialContext)
+      : generateDefaultSystemPrompt();
+    
+    // Store system prompt data for later database save
+    const systemPromptData = {
+      content: systemPrompt,
+      financialContext: financialContext
+    };
+
     // Create temporary assistant message for streaming
     const processingResult = await createConversation({
       threadId: threadId!,
@@ -464,6 +499,7 @@ export function useChat() {
       sender: "ASSISTANT" as any,
       messageType: "TEXT" as any,
       isProcessing: true,
+      systemPrompt: systemPromptData,
     });
 
     if (!processingResult.success || !processingResult.conversation) {
@@ -473,6 +509,9 @@ export function useChat() {
     }
 
     const assistantMessageId = processingResult.conversation.id;
+    
+    // Track processing steps for database save
+    let processingStepsForDB: any[] = [];
     
     // Add processing message to state immediately for streaming
     const processingMessage: Message = {
@@ -484,12 +523,7 @@ export function useChat() {
       processingSteps: [],
       processingExpanded: true, // Start expanded
       processingComplete: false,
-      systemPrompt: {
-        content: financialContext 
-          ? generateFinancialSystemPrompt(financialContext)
-          : generateDefaultSystemPrompt(),
-        financialContext: financialContext
-      },
+      systemPrompt: systemPromptData,
     };
     
     setMessages((prev) => [...prev, processingMessage]);
@@ -515,7 +549,7 @@ export function useChat() {
 
     try {
       // Run processing steps with expanded dropdown
-      await runProcessingSteps(assistantMessageId, financialContext, conversationHistory, chatSettings);
+      await runProcessingSteps(assistantMessageId, financialContext, conversationHistory, chatSettings, processingStepsForDB);
 
       // Collapse the dropdown just before streaming starts
       collapseProcessingSteps(assistantMessageId);
@@ -567,16 +601,13 @@ export function useChat() {
 
       // Calculate response time and token counts
       const responseTimeSeconds = (Date.now() - responseStartTime) / 1000;
-      const systemPrompt = financialContext 
-        ? generateFinancialSystemPrompt(financialContext)
-        : generateDefaultSystemPrompt();
       
       const tokenCounts = calculateTokenCounts(systemPrompt, conversationHistory, accumulatedText);
 
       // Complete processing steps with final metrics
       completeProcessingSteps(assistantMessageId, responseTimeSeconds, tokenCounts.inputTokens, tokenCounts.outputTokens);
 
-      // Update final message state in UI and database (preserve ALL existing properties)
+      // Update final message state in UI (preserve ALL existing properties)
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantMessageId
@@ -606,27 +637,29 @@ export function useChat() {
         return newMap;
       });
       
-      // Get the current message to access processing steps and system prompt
-      const currentMessage = messages.find(msg => msg.id === assistantMessageId);
-      
-      // Update in database with analytics and intermediate data
-      await updateConversation(assistantMessageId, {
+      // Prepare data for database update
+      const updateData = {
         content: accumulatedText,
         isProcessing: false,
         responseTimeSeconds,
         tokenCount: tokenCounts.totalTokens,
         inputTokens: tokenCounts.inputTokens,
         outputTokens: tokenCounts.outputTokens,
-        intermediateSteps: currentMessage?.processingSteps || [],
-        systemPrompt: currentMessage?.systemPrompt || (financialContext ? {
-          type: 'financial',
-          prompt: systemPrompt,
-          financialContext
-        } : {
-          type: 'default',
-          prompt: systemPrompt
-        }),
+        intermediateSteps: processingStepsForDB,
+        systemPrompt: systemPromptData,
+      };
+      
+      console.log('Updating conversation with data:', {
+        assistantMessageId,
+        updateData,
+        processingStepsCount: processingStepsForDB.length,
+        processingStepsData: processingStepsForDB,
+        hasSystemPrompt: !!systemPromptData,
+        systemPromptData: systemPromptData
       });
+      
+      // Update in database with analytics and intermediate data
+      await updateConversation(assistantMessageId, updateData);
       
       // Generate thread title if needed
       if (threadTitle === "New Chat") {

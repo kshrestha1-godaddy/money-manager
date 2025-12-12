@@ -94,34 +94,18 @@ export function Message({
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
-              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
               <span>
-                {expandedSteps.has(`system-${message.id}`) ? 'Hide' : 'Show'} system prompt{message.systemPrompt?.financialContext ? ' & financial data' : ''}
+                {expandedSteps.has(`system-${message.id}`) ? 'Hide' : 'Show'} input context{message.systemPrompt?.financialContext ? ' & financial data' : ''}
               </span>
             </button>
             
             {expandedSteps.has(`system-${message.id}`) && (
-              <div className={`mt-2 pl-4 border-l-2 rounded-r-lg p-3 ${
+              <div className={`pl-4 p-3 ${
                 message.systemPrompt?.financialContext
                   ? 'border-blue-200 bg-blue-50'
                   : 'border-gray-200 bg-gray-50'
               }`}>
-                <div className={`text-xs font-medium mb-2 flex items-center gap-2 ${
-                  message.systemPrompt?.financialContext
-                    ? 'text-blue-800'
-                    : 'text-gray-800'
-                }`}>
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {message.systemPrompt?.financialContext 
-                    ? 'Financial Expert System Prompt'
-                    : 'AI Assistant System Prompt'
-                  }
-                </div>
-                <div className={`text-xs whitespace-pre-wrap font-mono p-3 rounded border max-h-96 overflow-y-auto ${
+                <div className={`text-xs whitespace-pre-wrap font-mono p-3 max-h-96 overflow-y-auto ${
                   message.systemPrompt?.financialContext
                     ? 'text-blue-700 bg-blue-100'
                     : 'text-gray-700 bg-gray-100'
@@ -410,7 +394,7 @@ function CombinedSteps({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
         <span className="text-gray-500">
-          {expandedSteps.has(message.id) ? 'Hide' : 'Show'} processing & intermediate steps ({totalSteps})
+          {expandedSteps.has(message.id) ? 'Hide' : 'Show'} intermediate steps ({totalSteps})
         </span>
       </button>
       
