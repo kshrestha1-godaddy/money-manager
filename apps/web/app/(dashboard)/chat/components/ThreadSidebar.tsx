@@ -200,6 +200,48 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
     }
   };
 
+  const getDateGroup = (date: Date | string) => {
+    const now = new Date();
+    const threadDate = new Date(date);
+    const diffInHours = (now.getTime() - threadDate.getTime()) / (1000 * 60 * 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+
+    if (diffInHours < 24) {
+      return "Today";
+    } else if (diffInDays === 1) {
+      return "Yesterday";
+    } else if (diffInDays <= 7) {
+      return "This Week";
+    } else if (diffInDays <= 30) {
+      return "This Month";
+    } else if (diffInDays <= 90) {
+      return "Last 3 Months";
+    } else {
+      return "Older";
+    }
+  };
+
+  const groupThreadsByDate = (threads: ChatThread[]) => {
+    const groups: Record<string, ChatThread[]> = {};
+    const groupOrder = ["Today", "Yesterday", "This Week", "This Month", "Last 3 Months", "Older"];
+
+    threads.forEach(thread => {
+      const group = getDateGroup(thread.lastMessageAt);
+      if (!groups[group]) {
+        groups[group] = [];
+      }
+      groups[group].push(thread);
+    });
+
+    // Return groups in order, only including groups that have threads
+    return groupOrder
+      .filter(groupName => groups[groupName] && groups[groupName].length > 0)
+      .map(groupName => ({
+        name: groupName,
+        threads: groups[groupName]
+      }));
+  };
+
   const filteredThreads = threads.filter(thread =>
     thread.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     thread.description?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -208,6 +250,9 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
   // Separate pinned and regular threads
   const pinnedThreads = filteredThreads.filter(thread => thread.isPinned);
   const regularThreads = filteredThreads.filter(thread => !thread.isPinned);
+  
+  // Group regular threads by date
+  const groupedRegularThreads = groupThreadsByDate(regularThreads);
 
   const formatDate = (date: Date | string) => {
     const now = new Date();
@@ -345,37 +390,41 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
               </div>
             )}
 
-            {/* Regular Threads Section */}
-            {regularThreads.length > 0 && (
+            {/* Regular Threads Section - Grouped by Date */}
+            {groupedRegularThreads.length > 0 && (
               <div>
-                {pinnedThreads.length > 0 && (
-                  <>
-                    <div className="h-px bg-gray-200 my-3"></div>
+
+                
+                {groupedRegularThreads.map((group, groupIndex) => (
+                  <div key={group.name} className="mb-4">
+                    {/* Date Group Header */}
                     <div className="flex items-center gap-2 px-2 py-1 mb-2">
-                      <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide">
-                        All
-                      </h3>
+                      <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                        {group.name}
+                      </h4>
                     </div>
-                  </>
-                )}
-                {regularThreads.map((thread, index) => (
-                  <ThreadItem
-                    key={thread.id}
-                    thread={thread}
-                    index={index}
-                    isLast={index === regularThreads.length - 1}
-                    currentThreadId={currentThreadId}
-                    onThreadSelect={onThreadSelect}
-                    editingThreadId={editingThreadId}
-                    editingTitle={editingTitle}
-                    setEditingTitle={setEditingTitle}
-                    handleEditTitle={handleEditTitle}
-                    handleSaveTitle={handleSaveTitle}
-                    handleCancelEdit={handleCancelEdit}
-                    handlePinThread={handlePinThread}
-                    handleDeleteThread={handleDeleteThread}
-                    formatDate={formatDate}
-                  />
+                    
+                    {/* Threads in this date group */}
+                    {group.threads?.map((thread, threadIndex) => (
+                      <ThreadItem
+                        key={thread.id}
+                        thread={thread}
+                        index={threadIndex}
+                        isLast={threadIndex === (group.threads?.length || 0) - 1 && groupIndex === groupedRegularThreads.length - 1}
+                        currentThreadId={currentThreadId}
+                        onThreadSelect={onThreadSelect}
+                        editingThreadId={editingThreadId}
+                        editingTitle={editingTitle}
+                        setEditingTitle={setEditingTitle}
+                        handleEditTitle={handleEditTitle}
+                        handleSaveTitle={handleSaveTitle}
+                        handleCancelEdit={handleCancelEdit}
+                        handlePinThread={handlePinThread}
+                        handleDeleteThread={handleDeleteThread}
+                        formatDate={formatDate}
+                      />
+                    ))}
+                  </div>
                 ))}
               </div>
             )}
