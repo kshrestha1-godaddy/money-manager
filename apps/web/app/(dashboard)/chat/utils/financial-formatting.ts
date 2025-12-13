@@ -172,21 +172,38 @@ export function formatFinancialDataAsMarkdown(
   // Add accounts table if data exists
   if (accounts.length > 0) {
     markdown += `## Bank Accounts (${accounts.length} items)\n\n`;
-    markdown += `| Bank Name | Account Type | Holder Name | Account Number | Balance | Opening Date | Nickname |\n`;
-    markdown += `|-----------|--------------|-------------|----------------|---------|--------------|----------|\n`;
+    markdown += `| Bank Name | Holder Name | Account Number | Total Balance | Withheld Amount | Free Amount |\n`;
+    markdown += `|-----------|-------------|----------------|---------------|-----------------|-------------|\n`;
     
     accounts.forEach(account => {
-      const balance = account.balance !== undefined 
+      const totalBalance = account.balance !== undefined 
         ? formatCurrency(account.balance, currency) 
         : 'Not Set';
-      const nickname = account.nickname || 'N/A';
+      const withheldAmount = account.withheldAmount !== undefined 
+        ? formatCurrency(account.withheldAmount, currency) 
+        : formatCurrency(0, currency);
+      const freeAmount = account.freeAmount !== undefined 
+        ? formatCurrency(account.freeAmount, currency) 
+        : totalBalance;
       const maskedAccountNumber = account.accountNumber 
         ? `****${account.accountNumber.slice(-4)}` 
         : 'N/A';
       
-      markdown += `| ${account.bankName} | ${account.accountType} | ${account.holderName} | ${maskedAccountNumber} | ${balance} | ${formatDate(account.accountOpeningDate)} | ${nickname} |\n`;
+      markdown += `| ${account.bankName} | ${account.holderName} | ${maskedAccountNumber} | ${totalBalance} | ${withheldAmount} | ${freeAmount} |\n`;
     });
     markdown += `\n`;
+    
+    // Add accounts summary with withheld/free breakdown
+    const totalAccountBalance = accounts.reduce((sum, account) => sum + (account.balance || 0), 0);
+    const totalWithheldAmount = accounts.reduce((sum, account) => sum + (account.withheldAmount || 0), 0);
+    const totalFreeAmount = accounts.reduce((sum, account) => sum + (account.freeAmount || 0), 0);
+    
+    markdown += `### Bank Accounts Summary\n\n`;
+    markdown += `- **Total Account Balance**: ${formatCurrency(totalAccountBalance, currency)}\n`;
+    markdown += `- **Total Withheld Amount**: ${formatCurrency(totalWithheldAmount, currency)} (from investments)\n`;
+    markdown += `- **Total Free Amount**: ${formatCurrency(totalFreeAmount, currency)} (available for use)\n`;
+    markdown += `- **Withheld Percentage**: ${totalAccountBalance > 0 ? ((totalWithheldAmount / totalAccountBalance) * 100).toFixed(1) : 0}%\n`;
+    markdown += `- **Free Percentage**: ${totalAccountBalance > 0 ? ((totalFreeAmount / totalAccountBalance) * 100).toFixed(1) : 0}%\n\n`;
   }
 
   // Add budget targets table if data exists

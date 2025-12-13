@@ -7,7 +7,7 @@ import { getExpensesByDateRange } from "../../expenses/actions/expenses";
 import { getUserDebts } from "../../debts/actions/debts";
 import { getUserInvestments } from "../../investments/actions/investments";
 import { getInvestmentTargetProgress } from "../../investments/actions/investment-targets";
-import { getUserAccounts } from "../../accounts/actions/accounts";
+import { getUserAccounts, getWithheldAmountsByBank } from "../../accounts/actions/accounts";
 import { getBudgetTargets } from "../../../actions/budget-targets";
 import { getCurrentNetWorth } from "../../worth/actions/net-worth";
 import { getTransactionsByDateRange } from "../../transactions/actions/transactions";
@@ -49,7 +49,7 @@ export async function getFinancialDataForChat(request: FinancialDataRequest) {
     const currency = await getUserCurrency();
 
     // Fetch data in parallel - income/expenses/transactions are date-dependent
-    const [incomes, expenses, transactions, debtsResult, investmentsResult, investmentTargetsResult, accountsResult, budgetTargetsResult, netWorthResult] = await Promise.all([
+    const [incomes, expenses, transactions, debtsResult, investmentsResult, investmentTargetsResult, accountsResult, budgetTargetsResult, withheldAmountsResult, netWorthResult] = await Promise.all([
       includeIncomes ? getIncomesByDateRange(startDate, endDate) : Promise.resolve([]),
       includeExpenses ? getExpensesByDateRange(startDate, endDate) : Promise.resolve([]),
       includeTransactions ? getTransactionsByDateRange(startDate, endDate) : Promise.resolve([]),
@@ -58,6 +58,7 @@ export async function getFinancialDataForChat(request: FinancialDataRequest) {
       includeInvestmentTargets ? getInvestmentTargetProgress() : Promise.resolve({ data: [] }),
       includeAccounts ? getUserAccounts() : Promise.resolve([]),
       includeBudgetTargets ? getBudgetTargets() : Promise.resolve({ data: [] }),
+      includeAccounts ? getWithheldAmountsByBank() : Promise.resolve({}),
       includeNetWorth ? getCurrentNetWorth() : Promise.resolve({ success: false, data: undefined, error: undefined })
     ]);
 
@@ -67,6 +68,20 @@ export async function getFinancialDataForChat(request: FinancialDataRequest) {
     const investmentTargets = (investmentTargetsResult && 'data' in investmentTargetsResult && investmentTargetsResult.data) ? investmentTargetsResult.data : [];
     const accounts = (Array.isArray(accountsResult)) ? accountsResult : [];
     const budgetTargets = (budgetTargetsResult && 'data' in budgetTargetsResult && budgetTargetsResult.data) ? budgetTargetsResult.data : [];
+    const withheldAmounts: Record<string, number> = withheldAmountsResult || {};
+
+    // Enhance accounts with withheld and free amounts
+    const enhancedAccounts = accounts.map(account => {
+      const withheldAmount = withheldAmounts[account.bankName] || 0;
+      const totalBalance = account.balance || 0;
+      const freeAmount = totalBalance - withheldAmount;
+      
+      return {
+        ...account,
+        withheldAmount,
+        freeAmount: freeAmount >= 0 ? freeAmount : 0 // Prevent negative free balance
+      };
+    });
 
     // Calculate summary
     const totalIncome = incomes.reduce((sum, income) => {
@@ -116,8 +131,8 @@ export async function getFinancialDataForChat(request: FinancialDataRequest) {
       : 0;
 
     // Calculate accounts summary
-    const totalAccountBalance = accounts.reduce((sum, account) => sum + (account.balance || 0), 0);
-    const accountsCount = accounts.length;
+    const totalAccountBalance = enhancedAccounts.reduce((sum, account) => sum + (account.balance || 0), 0);
+    const accountsCount = enhancedAccounts.length;
 
     // Calculate budget targets summary
     const totalBudgetTargets = budgetTargets.length;
@@ -185,7 +200,7 @@ export async function getFinancialDataForChat(request: FinancialDataRequest) {
     };
 
     // Format as markdown
-    const markdownData = formatFinancialDataAsMarkdown(incomes, expenses, debts, investments, transactions, investmentTargets, accounts, budgetTargets, currency, summary);
+    const markdownData = formatFinancialDataAsMarkdown(incomes, expenses, debts, investments, transactions, investmentTargets, enhancedAccounts, budgetTargets, currency, summary);
 
     return {
       success: true,
@@ -196,7 +211,7 @@ export async function getFinancialDataForChat(request: FinancialDataRequest) {
         investments,
         transactions,
         investmentTargets,
-        accounts,
+        accounts: enhancedAccounts,
         budgetTargets,
         summary,
         markdownData
