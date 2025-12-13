@@ -45,7 +45,6 @@ export function InlineFinancialSelector({
       endDate: preset.endDate,
       includeIncomes,
       includeExpenses,
-      currency: userCurrency,
     };
 
     onSelect(request);
