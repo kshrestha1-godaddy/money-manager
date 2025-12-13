@@ -1,39 +1,90 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { getDateRangePresets } from "../utils/financial-formatting";
 import { FinancialDataRequest } from "../actions/financial-data";
 import { getUserCurrency } from "../../../actions/currency";
+import { TrendingUp, TrendingDown, PiggyBank, BarChart3, Wallet } from "lucide-react";
 
 interface InlineFinancialSelectorProps {
   isVisible: boolean;
   onSelect: (request: FinancialDataRequest) => void;
   onClose: () => void;
-  initialIncludeIncomes?: boolean;
-  initialIncludeExpenses?: boolean;
-  initialIncludeDebts?: boolean;
-  initialIncludeInvestments?: boolean;
-  initialIncludeNetWorth?: boolean;
-  initialPreset?: string;
 }
+
+type DataType = 'income' | 'expenses' | 'debts' | 'investments' | 'networth';
+
+interface DataTypeOption {
+  id: DataType;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+  isDateFiltered: boolean;
+}
+
+const dataTypeOptions: DataTypeOption[] = [
+  {
+    id: 'income',
+    label: 'Income',
+    description: 'Earnings and revenue streams',
+    icon: <TrendingUp className="w-5 h-5" />,
+    color: 'text-gray-700',
+    bgColor: 'bg-gray-50',
+    borderColor: 'border-gray-200 hover:border-gray-300',
+    isDateFiltered: true
+  },
+  {
+    id: 'expenses',
+    label: 'Expenses',
+    description: 'Spending and costs',
+    icon: <TrendingDown className="w-5 h-5" />,
+    color: 'text-gray-700',
+    bgColor: 'bg-gray-50',
+    borderColor: 'border-gray-200 hover:border-gray-300',
+    isDateFiltered: true
+  },
+  {
+    id: 'debts',
+    label: 'Debts',
+    description: 'Money lent to others',
+    icon: <PiggyBank className="w-5 h-5" />,
+    color: 'text-gray-700',
+    bgColor: 'bg-gray-50',
+    borderColor: 'border-gray-200 hover:border-gray-300',
+    isDateFiltered: false
+  },
+  {
+    id: 'investments',
+    label: 'Investments',
+    description: 'Portfolio and assets',
+    icon: <BarChart3 className="w-5 h-5" />,
+    color: 'text-gray-700',
+    bgColor: 'bg-gray-50',
+    borderColor: 'border-gray-200 hover:border-gray-300',
+    isDateFiltered: false
+  },
+  {
+    id: 'networth',
+    label: 'Net Worth',
+    description: 'Complete financial snapshot',
+    icon: <Wallet className="w-5 h-5" />,
+    color: 'text-gray-700',
+    bgColor: 'bg-gray-50',
+    borderColor: 'border-gray-200 hover:border-gray-300',
+    isDateFiltered: false
+  }
+];
 
 export function InlineFinancialSelector({ 
   isVisible, 
   onSelect,
-  onClose,
-  initialIncludeIncomes = true,
-  initialIncludeExpenses = true,
-  initialIncludeDebts = false,
-  initialIncludeInvestments = false,
-  initialIncludeNetWorth = false,
-  initialPreset = "thisMonth"
+  onClose
 }: InlineFinancialSelectorProps) {
-  const [selectedPreset, setSelectedPreset] = useState<string>(initialPreset);
-  const [includeIncomes, setIncludeIncomes] = useState(initialIncludeIncomes);
-  const [includeExpenses, setIncludeExpenses] = useState(initialIncludeExpenses);
-  const [includeDebts, setIncludeDebts] = useState(initialIncludeDebts);
-  const [includeInvestments, setIncludeInvestments] = useState(initialIncludeInvestments);
-  const [includeNetWorth, setIncludeNetWorth] = useState(initialIncludeNetWorth);
+  const [selectedTypes, setSelectedTypes] = useState<Set<DataType>>(new Set());
+  const [selectedPreset, setSelectedPreset] = useState<string>("thisMonth");
   const [userCurrency, setUserCurrency] = useState<string>("USD");
 
   const presetData = getDateRangePresets();
@@ -49,32 +100,40 @@ export function InlineFinancialSelector({
     }
   }, [isVisible]);
 
-  // Reset state when component becomes visible with new initial values
+  // Reset state when component becomes visible
   useEffect(() => {
     if (isVisible) {
-      setSelectedPreset(initialPreset);
-      setIncludeIncomes(initialIncludeIncomes);
-      setIncludeExpenses(initialIncludeExpenses);
-      setIncludeDebts(initialIncludeDebts);
-      setIncludeInvestments(initialIncludeInvestments);
-      setIncludeNetWorth(initialIncludeNetWorth);
+      setSelectedTypes(new Set());
+      setSelectedPreset("thisMonth");
     }
-  }, [isVisible, initialPreset, initialIncludeIncomes, initialIncludeExpenses, initialIncludeDebts, initialIncludeInvestments, initialIncludeNetWorth]);
+  }, [isVisible]);
 
   if (!isVisible) return null;
 
+  const toggleDataType = (type: DataType) => {
+    const newSelected = new Set(selectedTypes);
+    if (newSelected.has(type)) {
+      newSelected.delete(type);
+    } else {
+      newSelected.add(type);
+    }
+    setSelectedTypes(newSelected);
+  };
+
   const handleApply = () => {
+    if (selectedTypes.size === 0) return;
+
     const preset = presets.find(p => p.key === selectedPreset);
     if (!preset) return;
 
     const request: FinancialDataRequest = {
       startDate: preset.startDate,
       endDate: preset.endDate,
-      includeIncomes,
-      includeExpenses,
-      includeDebts,
-      includeInvestments,
-      includeNetWorth,
+      includeIncomes: selectedTypes.has('income'),
+      includeExpenses: selectedTypes.has('expenses'),
+      includeDebts: selectedTypes.has('debts'),
+      includeInvestments: selectedTypes.has('investments'),
+      includeNetWorth: selectedTypes.has('networth'),
     };
 
     onSelect(request);
@@ -82,131 +141,149 @@ export function InlineFinancialSelector({
   };
 
   const selectedPresetData = presets.find(p => p.key === selectedPreset);
+  const hasDateFilteredTypes = Array.from(selectedTypes).some(type => 
+    dataTypeOptions.find(opt => opt.id === type)?.isDateFiltered
+  );
+  const canApply = selectedTypes.size > 0;
 
   return (
-    <div className="mb-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+    <div className="mb-2 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="px-3 py-2 border-b border-gray-100 bg-gray-50">
+        <h3 className="text-sm font-medium text-gray-900">Select Financial Data</h3>
+        <p className="text-xs text-gray-600 mt-0.5">Choose what data to include in your analysis</p>
+      </div>
 
       {/* Content */}
-      <div className="p-4">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-          {/* Data Types - Left aligned */}
-          <div className="lg:col-span-4">
-            <label className="block text-xs font-medium text-gray-700 mb-3">Data Types</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
-              <label className="flex items-center group cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={includeIncomes}
-                  onChange={(e) => setIncludeIncomes(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500 focus:ring-2"
-                />
-                <div className="ml-3">
-                  <span className="text-sm text-gray-700 group-hover:text-gray-900">Income</span>
-                  <span className="block text-xs text-gray-500">Date filtered</span>
-                </div>
-              </label>
-              <label className="flex items-center group cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={includeExpenses}
-                  onChange={(e) => setIncludeExpenses(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 focus:ring-2"
-                />
-                <div className="ml-3">
-                  <span className="text-sm text-gray-700 group-hover:text-gray-900">Expenses</span>
-                  <span className="block text-xs text-gray-500">Date filtered</span>
-                </div>
-              </label>
-              <label className="flex items-center group cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={includeDebts}
-                  onChange={(e) => setIncludeDebts(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500 focus:ring-2"
-                />
-                <div className="ml-3">
-                  <span className="text-sm text-gray-700 group-hover:text-gray-900">Debts</span>
-                  <span className="block text-xs text-gray-500">All current data</span>
-                </div>
-              </label>
-              <label className="flex items-center group cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={includeInvestments}
-                  onChange={(e) => setIncludeInvestments(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-2"
-                />
-                <div className="ml-3">
-                  <span className="text-sm text-gray-700 group-hover:text-gray-900">Investments</span>
-                  <span className="block text-xs text-gray-500">All current data</span>
-                </div>
-              </label>
-              <label className="flex items-center group cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={includeNetWorth}
-                  onChange={(e) => setIncludeNetWorth(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 focus:ring-2"
-                />
-                <div className="ml-3">
-                  <span className="text-sm text-gray-700 group-hover:text-gray-900">Net Worth</span>
-                  <span className="block text-xs text-gray-500">Current snapshot</span>
-                </div>
-              </label>
-            </div>
+      <div className="p-3">
+        {/* Data Type Selection */}
+        <div className="mb-3">
+          <h4 className="text-xs font-medium text-gray-900 mb-2">Data Types</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {dataTypeOptions.map((option) => {
+              const isSelected = selectedTypes.has(option.id);
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => toggleDataType(option.id)}
+                  className={`
+                    relative p-2 rounded-md border transition-all duration-200 text-left
+                    ${isSelected 
+                      ? 'bg-gray-100 border-gray-400 ring-1 ring-gray-400' 
+                      : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }
+                  `}
+                >
+                  <div className="flex items-start space-x-2">
+                    <div className="flex-shrink-0 p-1 rounded bg-gray-100">
+                      <div className="text-gray-600 [&>svg]:w-4 [&>svg]:h-4">
+                        {option.icon}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h5 className="font-medium text-gray-900 text-xs">
+                        {option.label}
+                      </h5>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {option.description}
+                      </p>
+                      <div className="flex items-center mt-1">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                          {option.isDateFiltered ? 'Date filtered' : 'Current data'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  {isSelected && (
+                    <div className="absolute top-2 right-2">
+                      <div className="w-4 h-4 bg-gray-600 rounded-full flex items-center justify-center">
+                        <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
+        </div>
 
-          {/* Time Period - Center */}
-          <div className="lg:col-span-5">
-            <label className="block text-xs font-medium text-gray-700 mb-3">
+        {/* Time Period Selection - Only show if date-filtered types are selected */}
+        {hasDateFilteredTypes && (
+          <div className="mb-3">
+            <h4 className="text-xs font-medium text-gray-900 mb-2">
               Time Period
-              <span className="block text-xs font-normal text-gray-500 mt-1">
-                (Applies to Income & Expenses only)
+              <span className="text-xs font-normal text-gray-500 ml-1">
+                (for Income & Expenses)
               </span>
-            </label>
-            <select
-              value={selectedPreset}
-              onChange={(e) => setSelectedPreset(e.target.value)}
-              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              disabled={!includeIncomes && !includeExpenses}
-            >
-              {presets.map((preset) => (
-                <option key={preset.key} value={preset.key}>
+            </h4>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              {presets.slice(0, 4).map((preset) => (
+                <button
+                  key={preset.key}
+                  onClick={() => setSelectedPreset(preset.key)}
+                  className={`
+                    p-2 rounded border text-xs font-medium transition-all duration-200
+                    ${selectedPreset === preset.key
+                      ? 'bg-gray-100 border-gray-400 text-gray-900'
+                      : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                    }
+                  `}
+                >
                   {preset.label}
-                </option>
+                </button>
               ))}
-            </select>
+            </div>
             {selectedPresetData && (
-              <p className="text-xs text-gray-500 mt-2 font-medium">
+              <p className="text-xs text-gray-500 mt-1.5 text-center">
                 {selectedPresetData.startDate.toLocaleDateString()} - {selectedPresetData.endDate.toLocaleDateString()}
               </p>
             )}
-            {!includeIncomes && !includeExpenses && (
-              <p className="text-xs text-amber-600 mt-2 font-medium">
-                Date range disabled - only applies to Income & Expenses
-              </p>
-            )}
           </div>
+        )}
 
-          {/* Actions - Right aligned */}
-          <div className="lg:col-span-3">
-            <label className="block text-xs font-medium text-transparent mb-3">Actions</label>
-            <div className="flex gap-2">
-              <button
-                onClick={onClose}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-1 transition-all duration-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleApply}
-                disabled={!includeIncomes && !includeExpenses && !includeDebts && !includeInvestments && !includeNetWorth}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 border border-blue-600 rounded-lg hover:bg-blue-700 hover:border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:bg-gray-300 disabled:border-gray-300 disabled:cursor-not-allowed disabled:hover:bg-gray-300 transition-all duration-200"
-              >
-                Apply
-              </button>
+        {/* Selection Summary */}
+        {selectedTypes.size > 0 && (
+          <div className="mb-3 p-2 bg-gray-50 rounded border border-gray-200">
+            <h5 className="text-xs font-medium text-gray-900 mb-1">Selected Data</h5>
+            <div className="flex flex-wrap gap-1">
+              {Array.from(selectedTypes).map((type) => {
+                const option = dataTypeOptions.find(opt => opt.id === type);
+                return (
+                  <span
+                    key={type}
+                    className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-800"
+                  >
+                    {option?.label}
+                  </span>
+                );
+              })}
             </div>
           </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex justify-end space-x-2">
+          <button
+            onClick={onClose}
+            className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-500 transition-all duration-200"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleApply}
+            disabled={!canApply}
+            className={`
+              px-3 py-1.5 text-xs font-medium rounded focus:outline-none focus:ring-1 transition-all duration-200
+              ${canApply
+                ? 'text-white bg-gray-800 border border-gray-800 hover:bg-gray-900 hover:border-gray-900 focus:ring-gray-500'
+                : 'text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed'
+              }
+            `}
+          >
+            Apply Selection
+          </button>
         </div>
       </div>
     </div>

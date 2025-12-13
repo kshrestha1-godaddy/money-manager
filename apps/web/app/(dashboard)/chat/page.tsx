@@ -68,6 +68,12 @@ export default function ChatPage() {
       if (result.success && result.data) {
         setFinancialContext({
           markdownData: result.data.markdownData,
+          data: {
+            incomes: result.data.incomes,
+            expenses: result.data.expenses,
+            debts: result.data.debts,
+            investments: result.data.investments
+          },
           summary: result.data.summary
         });
       } else {
@@ -133,63 +139,112 @@ export default function ChatPage() {
         <div className="border-t border-gray-100 px-6 pt-4 pb-8 flex-shrink-0">
           <div className="flex justify-center">
             <div className="w-2/3 max-w-8xl">
-              {/* Inline Financial Data Selector */}
-              <InlineFinancialSelector
-                isVisible={showFinancialSelector}
-                onSelect={handleFinancialDataSelect}
-                onClose={() => setShowFinancialSelector(false)}
-                initialIncludeIncomes={financialContext ? true : true}
-                initialIncludeExpenses={financialContext ? true : true}
-                initialIncludeDebts={false}
-                initialIncludeInvestments={false}
-                initialIncludeNetWorth={false}
-                initialPreset="thisMonth"
-              />
-              
               {/* Financial Context Banner - positioned above input controls */}
               {financialContext && (
-                <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
-                          <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" />
-                        </svg>
+                <div className="mb-3 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 shadow-sm">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start space-x-4">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <div className="w-6 h-6 bg-gray-200 rounded-md flex items-center justify-center">
+                          <svg className="w-3 h-3 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
+                            <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" />
+                          </svg>
+                        </div>
                       </div>
-                    <div>
-                      <p className="text-sm font-medium text-blue-900">
-                        Financial data included: {financialContext.summary.period}
-                      </p>
-                      <p className="text-xs text-blue-700">
-                        {financialContext.summary.transactionCount} transactions • Net: {financialContext.summary.netAmount} {financialContext.summary.currency}
-                      </p>
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <h4 className="text-sm font-medium text-gray-900">Financial Data Active</h4>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700">
+                            Connected
+                          </span>
+                        </div>
+                        
+                        {/* Data Types Included */}
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {financialContext.data?.incomes && financialContext.data.incomes.length > 0 && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700">
+                              Income ({financialContext.data.incomes.length})
+                            </span>
+                          )}
+                          {financialContext.data?.expenses && financialContext.data.expenses.length > 0 && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700">
+                              Expenses ({financialContext.data.expenses.length})
+                            </span>
+                          )}
+                          {financialContext.data?.debts && financialContext.data.debts.length > 0 && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700">
+                              Debts ({financialContext.data.debts.length})
+                            </span>
+                          )}
+                          {financialContext.data?.investments && financialContext.data.investments.length > 0 && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700">
+                              Investments ({financialContext.data.investments.length})
+                            </span>
+                          )}
+                          {financialContext.summary?.netWorthData && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700">
+                              Net Worth
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Summary Info */}
+                        <div className="flex items-center space-x-3 text-xs text-gray-600">
+                          {financialContext.summary?.period && (
+                            <span>Period: {financialContext.summary.period}</span>
+                          )}
+                          {financialContext.summary?.transactionCount && financialContext.summary.transactionCount > 0 && (
+                            <span>{financialContext.summary.transactionCount} transactions</span>
+                          )}
+                          {financialContext.summary?.netAmount !== undefined && (
+                            <span className="font-medium text-gray-800">
+                              Net: {financialContext.summary.netAmount >= 0 ? '+' : ''}{financialContext.summary.netAmount} {financialContext.summary.currency}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => setShowFinancialSelector(true)}
-                      className="text-blue-400 hover:text-blue-600 transition-colors"
-                      title="Edit financial data selection"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={clearFinancialContext}
-                      className="text-blue-400 hover:text-blue-600 transition-colors"
-                      title="Remove financial data"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
+                    
+                    <div className="flex items-center space-x-1 ml-3">
+                      <button
+                        onClick={() => setShowFinancialSelector(true)}
+                        className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-md transition-all duration-200"
+                        title="Edit financial data selection"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={clearFinancialContext}
+                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-md transition-all duration-200"
+                        title="Remove financial data"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
               
+              {/* Inline Financial Data Selector - positioned above input */}
+              {showFinancialSelector && (
+                <div className="flex gap-3 mb-2 ">
+                  <div className="w-12"></div> {/* Spacer to align with input field */}
+                  <div className="flex-1">
+                    <InlineFinancialSelector
+                      isVisible={showFinancialSelector}
+                      onSelect={handleFinancialDataSelect}
+                      onClose={() => setShowFinancialSelector(false)}
+                    />
+                  </div>
+                  <div className="w-12"></div> {/* Spacer to align with send button */}
+                </div>
+              )}
+
               {/* Input Controls */}
               <div className="flex gap-3">
               <button

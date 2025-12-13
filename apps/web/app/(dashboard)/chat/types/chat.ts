@@ -65,6 +65,12 @@ export interface ChatSettings {
 
 export interface FinancialContext {
   markdownData: string;
+  data: {
+    incomes?: any[];
+    expenses?: any[];
+    debts?: any[];
+    investments?: any[];
+  };
   summary: {
     period: string;
     totalIncome: number;
@@ -72,6 +78,22 @@ export interface FinancialContext {
     netAmount: number;
     currency: string;
     transactionCount: number;
+    totalDebtAmount?: number;
+    totalDebtRemaining?: number;
+    totalInvestmentCost?: number;
+    totalInvestmentValue?: number;
+    totalInvestmentGain?: number;
+    netWorthData?: {
+      totalAccountBalance: number;
+      totalInvestmentValue: number;
+      totalInvestmentCost: number;
+      totalInvestmentGain: number;
+      totalInvestmentGainPercentage: number;
+      totalMoneyLent: number;
+      totalAssets: number;
+      netWorth: number;
+      asOfDate: Date;
+    } | null;
   };
 }
 
