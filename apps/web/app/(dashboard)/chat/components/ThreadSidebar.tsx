@@ -258,7 +258,7 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
     const now = new Date();
     const messageDate = new Date(date);
     const diffInHours = (now.getTime() - messageDate.getTime()) / (1000 * 60 * 60);
-
+    
     if (diffInHours < 24) {
       return messageDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     } else if (diffInHours < 168) { // 7 days
@@ -266,6 +266,13 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
     } else {
       return messageDate.toLocaleDateString([], { month: "short", day: "numeric" });
     }
+  };
+
+  const formatFullDateTime = (date: Date | string) => {
+    const messageDate = new Date(date);
+    const dateStr = messageDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format
+    const timeStr = messageDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return `${dateStr} • ${timeStr}`;
   };
 
 
@@ -361,8 +368,8 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
           <div className="p-2">
             {/* Pinned Threads Section */}
             {pinnedThreads.length > 0 && (
-              <div className="mb-4">
-                <div className="flex items-center gap-2 px-2 py-1 mb-2">
+              <div className="mb-2">
+                <div className="flex items-center gap-2 px-2 py-1 mb-1">
                   <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide">
                     Pinned
                   </h3>
@@ -384,7 +391,7 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
                     handlePinThread={handlePinThread}
                     handleDeleteThread={handleDeleteThread}
                     formatDate={formatDate}
-
+                    formatFullDateTime={formatFullDateTime}
                   />
                 ))}
               </div>
@@ -396,9 +403,9 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
 
                 
                 {groupedRegularThreads.map((group, groupIndex) => (
-                  <div key={group.name} className="mb-4">
+                  <div key={group.name} className="mb-2">
                     {/* Date Group Header */}
-                    <div className="flex items-center gap-2 px-2 py-1 mb-2">
+                    <div className="flex items-center gap-2 px-2 py-1 mb-1">
                       <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">
                         {group.name}
                       </h4>
@@ -422,6 +429,7 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
                         handlePinThread={handlePinThread}
                         handleDeleteThread={handleDeleteThread}
                         formatDate={formatDate}
+                        formatFullDateTime={formatFullDateTime}
                       />
                     ))}
                   </div>
@@ -482,6 +490,7 @@ interface ThreadItemProps {
   handlePinThread: (threadId: number, isPinned: boolean, e: React.MouseEvent) => void;
   handleDeleteThread: (threadId: number, e: React.MouseEvent) => void;
   formatDate: (date: Date | string) => string;
+  formatFullDateTime: (date: Date | string) => string;
 }
 
 const ThreadItem = ({
@@ -499,11 +508,12 @@ const ThreadItem = ({
   handlePinThread,
   handleDeleteThread,
   formatDate,
+  formatFullDateTime,
 }: ThreadItemProps) => {
   return (
     <div key={thread.id}>
       <div
-        className={`group relative p-3 transition-colors ${
+        className={`group relative px-3 py-2 transition-colors ${
           currentThreadId === thread.id
             ? "bg-blue-50 border-l-4 border-blue-500"
             : "hover:bg-gray-50"
@@ -515,7 +525,7 @@ const ThreadItem = ({
           className="cursor-pointer"
         >
           {/* Title Row */}
-          <div className="mb-1">
+          <div className="mb-0.5">
             <div className="flex items-center gap-2 flex-1 min-w-0">
               {editingThreadId === thread.id ? (
                 <input
@@ -545,18 +555,18 @@ const ThreadItem = ({
           </div>
         </div>
         
-        {/* Timestamp and Action buttons */}
-        <div className="flex items-center justify-between mt-2">
+        {/* Date and Action buttons on same line */}
+        <div className="flex items-center justify-between mt-0.5">
           <span className="text-xs text-gray-400">
-            {formatDate(thread.lastMessageAt)}
+            {formatFullDateTime(thread.lastMessageAt)}
           </span>
-          <div className="flex gap-1">
+          <div className="flex gap-1 opacity-30 group-hover:opacity-100 transition-opacity">
           <button
             onClick={(e) => {
               e.stopPropagation();
               handleEditTitle(thread.id, thread.title);
             }}
-            className="p-1 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
+            className="p-1 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
             title="Rename"
           >
             <svg
@@ -576,7 +586,7 @@ const ThreadItem = ({
           </button>
           <button
             onClick={(e) => handlePinThread(thread.id, thread.isPinned, e)}
-            className="p-1 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
+            className="p-1 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
             title={thread.isPinned ? "Unpin" : "Pin"}
           >
             <svg
@@ -596,7 +606,7 @@ const ThreadItem = ({
           </button>
           <button
             onClick={(e) => handleDeleteThread(thread.id, e)}
-            className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+            className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
             title="Delete"
           >
             <svg
@@ -621,7 +631,6 @@ const ThreadItem = ({
       {/* Divider - show for all threads except the last one */}
       {!isLast && (
         <div className="border-b border-gray-100 mx-3"></div>
-        
       )}
     </div>
   );
