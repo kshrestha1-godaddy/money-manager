@@ -104,7 +104,7 @@ export function Message({
         {/* Message Content Box */}
         <div
           className={`rounded-lg px-4 py-2 ${
-            message.sender === "USER" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-900"
+            message.sender === "USER" ? "bg-gray-500 text-white" : "bg-gray-100 text-gray-900"
           }`}
         >
           {message.isProcessing ? (
@@ -145,8 +145,8 @@ export function Message({
               referrerPolicy="no-referrer"
             />
           ) : (
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center border-2 border-gray-200">
-              <span className="text-sm font-semibold text-blue-700">
+            <div className="w-8 h-8 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center border-2 border-gray-200">
+              <span className="text-sm font-semibold text-gray-700">
                 {session?.user?.name?.charAt(0)?.toUpperCase() || "U"}
               </span>
             </div>
@@ -296,7 +296,7 @@ function MessageFeedback({
           className={`p-1 rounded-full transition-colors ${
             isCopied
             ? "bg-gray-100 text-gray-600"
-              : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+              : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
           }`}
           title={isCopied ? "Copied!" : "Copy response"}
         >
@@ -314,8 +314,8 @@ function MessageFeedback({
           onClick={() => onFeedback(message.id, "LIKE")}
           className={`p-1 rounded-full transition-colors ${
             message.feedback === "LIKE"
-              ? "bg-green-100 text-green-600"
-              : "text-gray-400 hover:text-green-600 hover:bg-green-50"
+              ? "bg-gray-100 text-gray-600"
+              : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
           }`}
           title="Like this response"
         >
@@ -327,8 +327,8 @@ function MessageFeedback({
           onClick={() => onFeedback(message.id, "DISLIKE")}
           className={`p-1 rounded-full transition-colors ${
             message.feedback === "DISLIKE"
-              ? "bg-red-100 text-red-600"
-              : "text-gray-400 hover:text-red-600 hover:bg-red-50"
+              ? "bg-gray-100 text-gray-600"
+              : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
           }`}
           title="Dislike this response"
         >
@@ -338,7 +338,7 @@ function MessageFeedback({
         </button>
         <button
           onClick={() => onToggleComments(message.id)}
-          className="p-1 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+          className="p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors"
           title="Add comment"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -360,11 +360,11 @@ function MessageFeedback({
                 onCommentSubmit(message.id);
               }
             }}
-            className="flex-1 text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="flex-1 text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-gray-500"
           />
           <button
             onClick={() => onCommentSubmit(message.id)}
-            className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 transition-colors"
+            className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600 transition-colors"
           >
             Save
           </button>
@@ -407,7 +407,7 @@ function ProcessingSteps({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
         <span className="text-gray-500">
-          {expandedSteps.has(message.id) ? 'Hide' : 'Show'} steps ({message.processingSteps.length})
+          {expandedSteps.has(message.id) ? 'Hide' : 'Show'} intermediate steps ({message.processingSteps.length})
         </span>
       </button>
       
