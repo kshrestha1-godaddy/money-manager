@@ -1,24 +1,24 @@
 import { useCallback, useRef, useState } from "react";
-import {
-  ChatSettings,
+import { 
+  ChatSettings, 
   DEFAULT_CHAT_SETTINGS,
-  FinancialContext,
+  FinancialContext, 
   Message,
   ProcessingContext,
   StreamEvent,
   SystemPrompt,
 } from "../types/chat";
-import {
-  createChatThread,
-  createConversation,
+import { 
+  createChatThread, 
+  createConversation, 
   generateThreadTitle,
   getChatThread,
   updateConversation,
   updateConversationFeedback,
 } from "../actions/chat-threads";
-import {
+import { 
   calculateTokenCounts,
-  generateDefaultSystemPrompt,
+  generateDefaultSystemPrompt, 
   generateFinancialSystemPrompt,
 } from "../utils/prompts";
 
@@ -72,16 +72,16 @@ export function useChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentThreadId, setCurrentThreadId] = useState<number | null>(null);
   const [threadTitle, setThreadTitle] = useState("Chat");
-
+  
   const [expandedSteps, setExpandedSteps] = useState<Set<number | string>>(new Set());
   const [showComments, setShowComments] = useState<Set<number>>(new Set());
   const [commentText, setCommentText] = useState<Map<number, string>>(new Map());
   const [showSettings, setShowSettings] = useState(false);
   const [showFinancialSelector, setShowFinancialSelector] = useState(false);
-
+  
   const [financialContext, setFinancialContext] = useState<FinancialContext | null>(null);
   const [chatSettings, setChatSettings] = useState<ChatSettings>(DEFAULT_CHAT_SETTINGS);
-
+  
   const sidebarRef = useRef<ThreadSidebarRef>(null);
 
   const addProcessingStep = useCallback(
@@ -91,9 +91,9 @@ export function useChat() {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantMessageId
-            ? {
+        ? { 
                 ...m,
-                processingSteps: [
+            processingSteps: [
                   ...(m.processingSteps || []),
                   {
                     step,
@@ -102,7 +102,7 @@ export function useChat() {
                     timestamp,
                   },
                 ],
-              }
+          }
             : m
         )
       );
@@ -121,22 +121,22 @@ export function useChat() {
     try {
       const result = await getChatThread(threadId);
       if (!result.success || !result.thread) return;
-
+        
       const nextMessages: Message[] = (result.thread.conversations || []).map((conv: any) => ({
-        id: conv.id,
-        content: conv.content,
-        sender: conv.sender,
+            id: conv.id,
+            content: conv.content,
+            sender: conv.sender,
         createdAt: new Date(conv.createdAt),
-        isProcessing: conv.isProcessing,
-        feedback: conv.feedback,
-        comments: conv.comments,
-        responseTimeSeconds: conv.responseTimeSeconds,
-        tokenCount: conv.tokenCount,
-        inputTokens: conv.inputTokens,
-        outputTokens: conv.outputTokens,
+            isProcessing: conv.isProcessing,
+            feedback: conv.feedback,
+            comments: conv.comments,
+            responseTimeSeconds: conv.responseTimeSeconds,
+            tokenCount: conv.tokenCount,
+            inputTokens: conv.inputTokens,
+            outputTokens: conv.outputTokens,
         processingSteps: Array.isArray(conv.intermediateSteps)
           ? conv.intermediateSteps.map((step: any) => ({
-              ...step,
+                ...step,
               timestamp: new Date(step.timestamp),
             }))
           : undefined,
@@ -144,8 +144,8 @@ export function useChat() {
       }));
 
       setMessages(nextMessages);
-      setThreadTitle(result.thread.title);
-      setCurrentThreadId(threadId);
+        setThreadTitle(result.thread.title);
+        setCurrentThreadId(threadId);
     } catch (error) {
       console.error("Error loading thread:", error);
     }
@@ -171,9 +171,9 @@ export function useChat() {
 
       try {
         await updateConversationFeedback(messageId, nextFeedback);
-      } catch (error) {
-        console.error("Error updating feedback:", error);
-      }
+    } catch (error) {
+      console.error("Error updating feedback:", error);
+    }
     },
     [messages]
   );
@@ -201,7 +201,7 @@ export function useChat() {
       setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, comments: comment } : m)));
 
       try {
-        await updateConversationFeedback(messageId, undefined, comment);
+      await updateConversationFeedback(messageId, undefined, comment);
       } catch (error) {
         console.error("Error updating comment:", error);
       }
@@ -211,7 +211,7 @@ export function useChat() {
         next.delete(messageId);
         return next;
       });
-
+      
       setShowComments((prev) => {
         const next = new Set(prev);
         next.delete(messageId);
@@ -231,7 +231,7 @@ export function useChat() {
 
     setInputMessage("");
     setIsLoading(true);
-
+    
     let threadId = currentThreadId;
     if (!threadId) {
       const threadResult = await createChatThread({ title: "New Chat" });
@@ -245,10 +245,10 @@ export function useChat() {
       sidebarRef.current?.addThread(threadResult.thread);
     }
 
-    const systemPrompt = financialContext
+    const systemPrompt = financialContext 
       ? generateFinancialSystemPrompt(financialContext)
       : generateDefaultSystemPrompt();
-
+    
     const systemPromptData: SystemPrompt = {
       content: systemPrompt,
       financialContext,
@@ -308,9 +308,9 @@ export function useChat() {
       systemPrompt: systemPromptData,
       processingSteps: [],
     };
-
+    
     setMessages((prev) => [...prev, userMessage, assistantMessage]);
-
+    
     // Only send the current user message as the LLM input (no assistant turns / no duplicates).
     const conversationHistory: ChatHistoryMessage[] = [{ sender: "USER", content: trimmed }];
 
@@ -386,9 +386,9 @@ export function useChat() {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantMessageId
-            ? {
+            ? { 
                 ...m,
-                content: accumulatedText,
+                content: accumulatedText, 
                 isProcessing: false,
                 responseTimeSeconds,
                 tokenCount: tokenCounts.totalTokens,
@@ -398,7 +398,7 @@ export function useChat() {
             : m
         )
       );
-
+      
       await updateConversation(assistantMessageId, {
         content: accumulatedText,
         isProcessing: false,
@@ -420,7 +420,7 @@ export function useChat() {
     } catch (error) {
       console.error("Error streaming response:", error);
       const errorMessage = "Sorry, I encountered an error processing your request. Please try again.";
-
+      
       addProcessingStep(assistantMessageId, 99, "Error generating response.", intermediateStepsForDb, {
         type: "ai_connection",
         data: { error: error instanceof Error ? error.message : "Unknown error" },
@@ -431,7 +431,7 @@ export function useChat() {
           m.id === assistantMessageId ? { ...m, content: errorMessage, isProcessing: false } : m
         )
       );
-
+      
       await updateConversation(assistantMessageId, {
         content: errorMessage,
         isProcessing: false,
@@ -445,7 +445,7 @@ export function useChat() {
   const handleNewChat = useCallback(async () => {
     const threadResult = await createChatThread({ title: "New Chat" });
     setMessages([]);
-
+    
     if (threadResult.success && threadResult.thread) {
       setCurrentThreadId(threadResult.thread.id);
       setThreadTitle(threadResult.thread.title);
@@ -453,8 +453,8 @@ export function useChat() {
       return;
     }
 
-    setCurrentThreadId(null);
-    setThreadTitle("Chat");
+      setCurrentThreadId(null);
+      setThreadTitle("Chat");
   }, []);
 
   return {
@@ -470,15 +470,15 @@ export function useChat() {
     showFinancialSelector,
     financialContext,
     chatSettings,
-
+    
     setInputMessage,
     setShowSettings,
     setShowFinancialSelector,
     setFinancialContext,
     setChatSettings,
-
+    
     sidebarRef,
-
+    
     loadThread,
     toggleSteps,
     handleFeedback,

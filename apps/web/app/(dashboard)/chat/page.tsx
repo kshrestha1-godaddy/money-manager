@@ -62,20 +62,6 @@ export default function ChatPage() {
     return () => clearTimeout(timer);
   }, [messages]);
 
-  // Add keyboard shortcut to return to dashboard
-  useEffect(() => {
-    const handleKeyPress = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        window.location.href = '/dashboard';
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyPress);
-    return () => {
-      document.removeEventListener('keydown', handleKeyPress);
-    };
-  }, []);
-
   const handleFinancialDataSelect = async (request: FinancialDataRequest) => {
     try {
       const result = await getFinancialDataForChat(request);

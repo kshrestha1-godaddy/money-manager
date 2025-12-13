@@ -183,7 +183,7 @@ export async function updateChatThread(
 export async function deleteChatThread(threadId: number) {
   try {
     const userId = await requireUserId();
-
+    
     console.log(`Attempting to delete thread ${threadId} for user ${userId}`);
 
     const result = await prisma.chatThread.update({
