@@ -90,10 +90,18 @@ export default function ChatPage() {
     }
   };
 
+  const handleSendMessageWithSelectorClose = () => {
+    // Close financial selector if open
+    if (showFinancialSelector) {
+      setShowFinancialSelector(false);
+    }
+    handleSendMessage();
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage();
+      handleSendMessageWithSelectorClose();
     }
   };
 
@@ -145,7 +153,9 @@ export default function ChatPage() {
             <div className="w-2/3 max-w-8xl">
               {/* Financial Context Banner - positioned above input controls */}
               {financialContext && (
-                <div className="mb-3 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 shadow-sm">
+                <div className="flex gap-3 mb-3">
+                  <div className="w-12"></div> {/* Spacer to align with input field */}
+                  <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 shadow-sm">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start space-x-4">
                       <div className="flex-shrink-0 mt-0.5">
@@ -159,9 +169,7 @@ export default function ChatPage() {
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-2">
                           <h4 className="text-sm font-medium text-gray-900">Financial Data Active</h4>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700">
-                            Connected
-                          </span>
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                         </div>
                         
                         {/* Data Types Included */}
@@ -246,6 +254,8 @@ export default function ChatPage() {
                       </button>
                     </div>
                   </div>
+                  </div>
+                  <div className="w-12"></div> {/* Spacer to align with send button */}
                 </div>
               )}
               
@@ -288,13 +298,13 @@ export default function ChatPage() {
                 </svg>
               </button>
               <button
-                onClick={() => setShowFinancialSelector(true)}
+                onClick={() => setShowFinancialSelector(!showFinancialSelector)}
                 className={`p-3 rounded-lg transition-colors ${
-                  financialContext 
+                  financialContext || showFinancialSelector
                     ? 'text-blue-600 bg-blue-100 hover:bg-blue-200' 
                     : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                 }`}
-                title="Include Financial Data"
+                title={showFinancialSelector ? "Close Financial Data Selector" : "Include Financial Data"}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -319,7 +329,7 @@ export default function ChatPage() {
                 className="flex-1 border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
                 disabled={isLoading}
               />
-              <Button onClick={handleSendMessage}>
+              <Button onClick={handleSendMessageWithSelectorClose}>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"

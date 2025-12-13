@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { getDateRangePresets } from "../utils/financial-formatting";
 import { FinancialDataRequest } from "../actions/financial-data";
 import { getUserCurrency } from "../../../actions/currency";
@@ -116,6 +116,7 @@ export function InlineFinancialSelector({
   const [selectedTypes, setSelectedTypes] = useState<Set<DataType>>(new Set());
   const [selectedPreset, setSelectedPreset] = useState<string>("thisMonth");
   const [userCurrency, setUserCurrency] = useState<string>("USD");
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const presetData = getDateRangePresets();
   const presets = Object.entries(presetData).map(([key, value]) => ({
@@ -138,6 +139,21 @@ export function InlineFinancialSelector({
     }
   }, [isVisible]);
 
+  // Cleanup timeout when component unmounts or becomes invisible
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isVisible && debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+  }, [isVisible]);
+
   if (!isVisible) return null;
 
   const toggleDataType = (type: DataType) => {
@@ -148,10 +164,16 @@ export function InlineFinancialSelector({
       newSelected.add(type);
     }
     setSelectedTypes(newSelected);
+    
+    // Auto-apply the selection with debounce
+    debouncedApplySelection(newSelected);
   };
 
-  const handleApply = () => {
-    if (selectedTypes.size === 0) return;
+  const applySelection = useCallback((typesToApply: Set<DataType>) => {
+    if (typesToApply.size === 0) {
+      // If no types selected, just return without applying
+      return;
+    }
 
     const preset = presets.find(p => p.key === selectedPreset);
     if (!preset) return;
@@ -159,39 +181,48 @@ export function InlineFinancialSelector({
     const request: FinancialDataRequest = {
       startDate: preset.startDate,
       endDate: preset.endDate,
-      includeIncomes: selectedTypes.has('income'),
-      includeExpenses: selectedTypes.has('expenses'),
-      includeDebts: selectedTypes.has('debts'),
-      includeInvestments: selectedTypes.has('investments'),
-      includeNetWorth: selectedTypes.has('networth'),
-      includeTransactions: selectedTypes.has('transactions'),
-      includeInvestmentTargets: selectedTypes.has('investmentTargets'),
-      includeAccounts: selectedTypes.has('accounts'),
+      includeIncomes: typesToApply.has('income'),
+      includeExpenses: typesToApply.has('expenses'),
+      includeDebts: typesToApply.has('debts'),
+      includeInvestments: typesToApply.has('investments'),
+      includeNetWorth: typesToApply.has('networth'),
+      includeTransactions: typesToApply.has('transactions'),
+      includeInvestmentTargets: typesToApply.has('investmentTargets'),
+      includeAccounts: typesToApply.has('accounts'),
     };
 
     onSelect(request);
-    onClose();
-  };
+    // Don't close the selector - keep it open for multiple selections
+  }, [selectedPreset, presets, onSelect]);
+
+  const debouncedApplySelection = useCallback((typesToApply: Set<DataType>) => {
+    // Clear existing timeout
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    // Set new timeout for debounced application
+    debounceTimeoutRef.current = setTimeout(() => {
+      applySelection(typesToApply);
+    }, 500); // 500ms debounce delay
+  }, [applySelection]);
 
   const selectedPresetData = presets.find(p => p.key === selectedPreset);
   const hasDateFilteredTypes = Array.from(selectedTypes).some(type => 
     dataTypeOptions.find(opt => opt.id === type)?.isDateFiltered
   );
-  const canApply = selectedTypes.size > 0;
 
   return (
     <div className="mb-2 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
       {/* Header */}
       <div className="px-3 py-2 border-b border-gray-100 bg-gray-50">
         <h3 className="text-sm font-medium text-gray-900">Select Financial Data</h3>
-        <p className="text-xs text-gray-600 mt-0.5">Choose what data to include in your analysis</p>
       </div>
 
       {/* Content */}
       <div className="p-3">
         {/* Data Type Selection */}
         <div className="mb-3">
-          <h4 className="text-xs font-medium text-gray-900 mb-2">Data Types</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {dataTypeOptions.map((option) => {
               const isSelected = selectedTypes.has(option.id);
@@ -255,7 +286,13 @@ export function InlineFinancialSelector({
               {presets.slice(0, 4).map((preset) => (
                 <button
                   key={preset.key}
-                  onClick={() => setSelectedPreset(preset.key)}
+                  onClick={() => {
+                    setSelectedPreset(preset.key);
+                    // Auto-apply when time period changes if there are selected types
+                    if (selectedTypes.size > 0) {
+                      debouncedApplySelection(selectedTypes);
+                    }
+                  }}
                   className={`
                     p-2 rounded border text-xs font-medium transition-all duration-200
                     ${selectedPreset === preset.key
@@ -276,48 +313,6 @@ export function InlineFinancialSelector({
           </div>
         )}
 
-        {/* Selection Summary */}
-        {selectedTypes.size > 0 && (
-          <div className="mb-3 p-2 bg-gray-50 rounded border border-gray-200">
-            <h5 className="text-xs font-medium text-gray-900 mb-1">Selected Data</h5>
-            <div className="flex flex-wrap gap-1">
-              {Array.from(selectedTypes).map((type) => {
-                const option = dataTypeOptions.find(opt => opt.id === type);
-                return (
-                  <span
-                    key={type}
-                    className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-800"
-                  >
-                    {option?.label}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex justify-end space-x-2">
-          <button
-            onClick={onClose}
-            className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-500 transition-all duration-200"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleApply}
-            disabled={!canApply}
-            className={`
-              px-3 py-1.5 text-xs font-medium rounded focus:outline-none focus:ring-1 transition-all duration-200
-              ${canApply
-                ? 'text-white bg-gray-800 border border-gray-800 hover:bg-gray-900 hover:border-gray-900 focus:ring-gray-500'
-                : 'text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed'
-              }
-            `}
-          >
-            Apply Selection
-          </button>
-        </div>
       </div>
     </div>
   );
