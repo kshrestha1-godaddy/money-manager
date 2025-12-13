@@ -209,6 +209,11 @@ export default function ChatPage() {
                               Bank Accounts ({financialContext.data.accounts.length})
                             </span>
                           )}
+                          {financialContext.data?.budgetTargets && financialContext.data.budgetTargets.length > 0 && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700">
+                              Budget Targets ({financialContext.data.budgetTargets.length})
+                            </span>
+                          )}
                           {financialContext.summary?.netWorthData && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700">
                               Net Worth

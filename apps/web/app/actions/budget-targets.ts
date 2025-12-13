@@ -8,7 +8,7 @@ import { convertForDisplaySync } from "../utils/currencyDisplay";
 import { ImportResult } from "../types/bulkImport";
 import { parseCSV } from "../utils/csvUtils";
 
-export async function getBudgetTargets(period?: string): Promise<{ data?: BudgetTarget[], error?: string }> {
+export async function getBudgetTargets(period?: string): Promise<{ data?: (BudgetTarget & { categoryType?: string })[], error?: string }> {
     try {
         const session = await getAuthenticatedSession();
         const userId = getUserIdFromSession(session.user.id);
@@ -29,7 +29,23 @@ export async function getBudgetTargets(period?: string): Promise<{ data?: Budget
             },
         });
 
-        const formattedTargets: BudgetTarget[] = budgetTargets.map(target => ({
+        // Get all categories to map category names to their types
+        const categories = await prisma.category.findMany({
+            where: {
+                userId: userId,
+            },
+            select: {
+                name: true,
+                type: true,
+            },
+        });
+
+        // Create a map of category name to type
+        const categoryTypeMap = new Map(
+            categories.map(cat => [cat.name, cat.type])
+        );
+
+        const formattedTargets: (BudgetTarget & { categoryType?: string })[] = budgetTargets.map(target => ({
             id: target.id,
             name: target.name,
             targetAmount: parseFloat(target.targetAmount.toString()),
@@ -41,6 +57,7 @@ export async function getBudgetTargets(period?: string): Promise<{ data?: Budget
             isActive: target.isActive,
             createdAt: target.createdAt,
             updatedAt: target.updatedAt,
+            categoryType: categoryTypeMap.get(target.name) || 'UNKNOWN',
         }));
 
         return { data: formattedTargets };

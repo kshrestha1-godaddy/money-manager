@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { getDateRangePresets } from "../utils/financial-formatting";
 import { FinancialDataRequest } from "../actions/financial-data";
 import { getUserCurrency } from "../../../actions/currency";
-import { TrendingUp, TrendingDown, PiggyBank, BarChart3, Wallet, ArrowLeftRight, Target, Building2 } from "lucide-react";
+import { TrendingUp, TrendingDown, PiggyBank, BarChart3, Wallet, ArrowLeftRight, Target, Building2, Calculator } from "lucide-react";
 
 interface InlineFinancialSelectorProps {
   isVisible: boolean;
@@ -12,7 +12,7 @@ interface InlineFinancialSelectorProps {
   onClose: () => void;
 }
 
-type DataType = 'income' | 'expenses' | 'debts' | 'investments' | 'networth' | 'transactions' | 'investmentTargets' | 'accounts';
+type DataType = 'income' | 'expenses' | 'debts' | 'investments' | 'networth' | 'transactions' | 'investmentTargets' | 'accounts' | 'budgetTargets';
 
 interface DataTypeOption {
   id: DataType;
@@ -105,6 +105,16 @@ const dataTypeOptions: DataTypeOption[] = [
     bgColor: 'bg-gray-50',
     borderColor: 'border-gray-200 hover:border-gray-300',
     isDateFiltered: false
+  },
+  {
+    id: 'budgetTargets',
+    label: 'Budget Targets',
+    description: 'Spending limits and budget goals',
+    icon: <Calculator className="w-5 h-5" />,
+    color: 'text-gray-700',
+    bgColor: 'bg-gray-50',
+    borderColor: 'border-gray-200 hover:border-gray-300',
+    isDateFiltered: false
   }
 ];
 
@@ -189,6 +199,7 @@ export function InlineFinancialSelector({
       includeTransactions: typesToApply.has('transactions'),
       includeInvestmentTargets: typesToApply.has('investmentTargets'),
       includeAccounts: typesToApply.has('accounts'),
+      includeBudgetTargets: typesToApply.has('budgetTargets'),
     };
 
     onSelect(request);
@@ -223,7 +234,7 @@ export function InlineFinancialSelector({
       <div className="p-3">
         {/* Data Type Selection */}
         <div className="mb-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {dataTypeOptions.map((option) => {
               const isSelected = selectedTypes.has(option.id);
               return (

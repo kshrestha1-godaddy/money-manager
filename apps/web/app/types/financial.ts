@@ -109,6 +109,7 @@ export interface BudgetTarget {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+  categoryType?: string; // 'INCOME' | 'EXPENSE' | 'UNKNOWN'
 }
 
 export interface Subscriber {

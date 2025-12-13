@@ -36,6 +36,12 @@ export interface FinancialDataSummary {
   // Accounts fields
   totalAccountBalance?: number;
   accountsCount?: number;
+  // Budget targets fields
+  totalBudgetTargets?: number;
+  totalBudgetAmount?: number;
+  totalBudgetUtilization?: number;
+  activeBudgetTargets?: number;
+  overBudgetTargets?: number;
 }
 
 // Convert financial data to markdown table format for LLM consumption
@@ -47,6 +53,7 @@ export function formatFinancialDataAsMarkdown(
   transactions: any[],
   investmentTargets: any[],
   accounts: any[],
+  budgetTargets: any[],
   currency: string = "INR",
   summary: FinancialDataSummary
 ): string {
@@ -180,6 +187,69 @@ export function formatFinancialDataAsMarkdown(
       markdown += `| ${account.bankName} | ${account.accountType} | ${account.holderName} | ${maskedAccountNumber} | ${balance} | ${formatDate(account.accountOpeningDate)} | ${nickname} |\n`;
     });
     markdown += `\n`;
+  }
+
+  // Add budget targets table if data exists
+  if (budgetTargets.length > 0) {
+    markdown += `## Budget Targets (${budgetTargets.length} items)\n\n`;
+    markdown += `| Category Name | Category Type | Target Amount | Current Amount | Period | Progress | Status | Start Date | End Date |\n`;
+    markdown += `|---------------|---------------|---------------|----------------|--------|----------|--------|------------|----------|\n`;
+    
+    budgetTargets.forEach(target => {
+      const targetAmount = formatCurrency(target.targetAmount, currency);
+      const currentAmount = formatCurrency(target.currentAmount, currency);
+      const progress = target.targetAmount > 0 
+        ? `${((target.currentAmount / target.targetAmount) * 100).toFixed(1)}%`
+        : '0%';
+      const status = target.isActive ? 'Active' : 'Inactive';
+      const isOverBudget = target.currentAmount > target.targetAmount;
+      const statusIcon = isOverBudget ? '⚠️ Over Budget' : target.currentAmount >= target.targetAmount ? '✅ Met' : '🔄 In Progress';
+      const categoryType = target.categoryType || 'UNKNOWN';
+      const categoryTypeIcon = categoryType === 'INCOME' ? '💰' : categoryType === 'EXPENSE' ? '💸' : '❓';
+      
+      markdown += `| ${target.name} | ${categoryTypeIcon} ${categoryType} | ${targetAmount} | ${currentAmount} | ${target.period} | ${progress} | ${status} ${statusIcon} | ${formatDate(target.startDate)} | ${formatDate(target.endDate)} |\n`;
+    });
+    markdown += `\n`;
+    
+    // Add budget targets summary
+    if (summary.totalBudgetTargets && summary.totalBudgetTargets > 0) {
+      markdown += `### Budget Targets Summary\n\n`;
+      markdown += `- **Total Budget Targets**: ${summary.totalBudgetTargets}\n`;
+      markdown += `- **Total Budget Amount**: ${formatCurrency(summary.totalBudgetAmount || 0, currency)}\n`;
+      markdown += `- **Active Targets**: ${summary.activeBudgetTargets || 0}\n`;
+      markdown += `- **Over Budget Targets**: ${summary.overBudgetTargets || 0}\n`;
+      markdown += `- **Average Utilization**: ${(summary.totalBudgetUtilization || 0).toFixed(1)}%\n\n`;
+      
+      // Add breakdown by category type
+      const incomeTargets = budgetTargets.filter(target => target.categoryType === 'INCOME');
+      const expenseTargets = budgetTargets.filter(target => target.categoryType === 'EXPENSE');
+      
+      if (incomeTargets.length > 0 || expenseTargets.length > 0) {
+        markdown += `#### Budget Targets by Type\n\n`;
+        
+        if (incomeTargets.length > 0) {
+          const totalIncomeTargetAmount = incomeTargets.reduce((sum, target) => sum + target.targetAmount, 0);
+          const totalIncomeCurrentAmount = incomeTargets.reduce((sum, target) => sum + target.currentAmount, 0);
+          const incomeUtilization = totalIncomeTargetAmount > 0 ? (totalIncomeCurrentAmount / totalIncomeTargetAmount) * 100 : 0;
+          
+          markdown += `**Income Targets (${incomeTargets.length} items)**\n`;
+          markdown += `- Target Amount: ${formatCurrency(totalIncomeTargetAmount, currency)}\n`;
+          markdown += `- Current Amount: ${formatCurrency(totalIncomeCurrentAmount, currency)}\n`;
+          markdown += `- Utilization: ${incomeUtilization.toFixed(1)}%\n\n`;
+        }
+        
+        if (expenseTargets.length > 0) {
+          const totalExpenseTargetAmount = expenseTargets.reduce((sum, target) => sum + target.targetAmount, 0);
+          const totalExpenseCurrentAmount = expenseTargets.reduce((sum, target) => sum + target.currentAmount, 0);
+          const expenseUtilization = totalExpenseTargetAmount > 0 ? (totalExpenseCurrentAmount / totalExpenseTargetAmount) * 100 : 0;
+          
+          markdown += `**Expense Targets (${expenseTargets.length} items)**\n`;
+          markdown += `- Target Amount: ${formatCurrency(totalExpenseTargetAmount, currency)}\n`;
+          markdown += `- Current Amount: ${formatCurrency(totalExpenseCurrentAmount, currency)}\n`;
+          markdown += `- Utilization: ${expenseUtilization.toFixed(1)}%\n\n`;
+        }
+      }
+    }
   }
 
   // Add category breakdown

@@ -73,6 +73,7 @@ export interface FinancialContext {
     transactions?: any[]; // Combined income and expense transactions
     investmentTargets?: any[]; // Investment goals and progress
     accounts?: any[]; // Bank accounts and balances
+    budgetTargets?: any[]; // Budget targets and spending limits
   };
   summary: {
     period: string;
@@ -86,6 +87,18 @@ export interface FinancialContext {
     totalInvestmentCost?: number;
     totalInvestmentValue?: number;
     totalInvestmentGain?: number;
+    totalTargetAmount?: number;
+    totalTargetProgress?: number;
+    completedTargets?: number;
+    overdueTargets?: number;
+    averageProgress?: number;
+    totalAccountBalance?: number;
+    accountsCount?: number;
+    totalBudgetTargets?: number;
+    totalBudgetAmount?: number;
+    totalBudgetUtilization?: number;
+    activeBudgetTargets?: number;
+    overBudgetTargets?: number;
     netWorthData?: {
       totalAccountBalance: number;
       totalInvestmentValue: number;
