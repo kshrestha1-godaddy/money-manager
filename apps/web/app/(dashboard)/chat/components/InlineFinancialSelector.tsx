@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { getDateRangePresets } from "../utils/financial-formatting";
 import { FinancialDataRequest } from "../actions/financial-data";
 import { getUserCurrency } from "../../../actions/currency";
-import { TrendingUp, TrendingDown, PiggyBank, BarChart3, Wallet } from "lucide-react";
+import { TrendingUp, TrendingDown, PiggyBank, BarChart3, Wallet, ArrowLeftRight, Target, Building2 } from "lucide-react";
 
 interface InlineFinancialSelectorProps {
   isVisible: boolean;
@@ -12,7 +12,7 @@ interface InlineFinancialSelectorProps {
   onClose: () => void;
 }
 
-type DataType = 'income' | 'expenses' | 'debts' | 'investments' | 'networth';
+type DataType = 'income' | 'expenses' | 'debts' | 'investments' | 'networth' | 'transactions' | 'investmentTargets' | 'accounts';
 
 interface DataTypeOption {
   id: DataType;
@@ -71,6 +71,36 @@ const dataTypeOptions: DataTypeOption[] = [
     label: 'Net Worth',
     description: 'Complete financial snapshot',
     icon: <Wallet className="w-5 h-5" />,
+    color: 'text-gray-700',
+    bgColor: 'bg-gray-50',
+    borderColor: 'border-gray-200 hover:border-gray-300',
+    isDateFiltered: false
+  },
+  {
+    id: 'transactions',
+    label: 'Transactions',
+    description: 'Combined income and expense view',
+    icon: <ArrowLeftRight className="w-5 h-5" />,
+    color: 'text-gray-700',
+    bgColor: 'bg-gray-50',
+    borderColor: 'border-gray-200 hover:border-gray-300',
+    isDateFiltered: true
+  },
+  {
+    id: 'investmentTargets',
+    label: 'Investment Targets',
+    description: 'Goals and progress tracking',
+    icon: <Target className="w-5 h-5" />,
+    color: 'text-gray-700',
+    bgColor: 'bg-gray-50',
+    borderColor: 'border-gray-200 hover:border-gray-300',
+    isDateFiltered: false
+  },
+  {
+    id: 'accounts',
+    label: 'Bank Accounts',
+    description: 'Account balances and details',
+    icon: <Building2 className="w-5 h-5" />,
     color: 'text-gray-700',
     bgColor: 'bg-gray-50',
     borderColor: 'border-gray-200 hover:border-gray-300',
@@ -134,6 +164,9 @@ export function InlineFinancialSelector({
       includeDebts: selectedTypes.has('debts'),
       includeInvestments: selectedTypes.has('investments'),
       includeNetWorth: selectedTypes.has('networth'),
+      includeTransactions: selectedTypes.has('transactions'),
+      includeInvestmentTargets: selectedTypes.has('investmentTargets'),
+      includeAccounts: selectedTypes.has('accounts'),
     };
 
     onSelect(request);
@@ -215,7 +248,7 @@ export function InlineFinancialSelector({
             <h4 className="text-xs font-medium text-gray-900 mb-2">
               Time Period
               <span className="text-xs font-normal text-gray-500 ml-1">
-                (for Income & Expenses)
+                (for date-filtered data)
               </span>
             </h4>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">

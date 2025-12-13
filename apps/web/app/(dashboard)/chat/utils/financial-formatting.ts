@@ -27,6 +27,15 @@ export interface FinancialDataSummary {
     netWorth: number;
     asOfDate: Date;
   } | null;
+  // Investment targets fields
+  totalTargetAmount?: number;
+  totalTargetProgress?: number;
+  completedTargets?: number;
+  overdueTargets?: number;
+  averageProgress?: number;
+  // Accounts fields
+  totalAccountBalance?: number;
+  accountsCount?: number;
 }
 
 // Convert financial data to markdown table format for LLM consumption
@@ -35,7 +44,10 @@ export function formatFinancialDataAsMarkdown(
   expenses: any[],
   debts: any[],
   investments: any[],
-  currency: string = "USD",
+  transactions: any[],
+  investmentTargets: any[],
+  accounts: any[],
+  currency: string = "INR",
   summary: FinancialDataSummary
 ): string {
   let markdown = `# Financial Data for ${summary.period}\n\n`;
@@ -66,6 +78,22 @@ export function formatFinancialDataAsMarkdown(
       const formattedAmount = formatCurrency(convertedAmount, currency);
       
       markdown += `| ${formatDate(expense.date)} | ${expense.title} | ${expense.category.name} | ${formattedAmount} |\n`;
+    });
+    markdown += `\n`;
+  }
+
+  // Add transactions table if data exists (combined view)
+  if (transactions.length > 0) {
+    markdown += `## All Transactions (${transactions.length} items)\n\n`;
+    markdown += `| Date | Type | Title | Category | Account | Amount |\n`;
+    markdown += `|------|------|-------|----------|---------|--------|\n`;
+    
+    transactions.forEach(transaction => {
+      const convertedAmount = convertForDisplaySync(transaction.amount, transaction.currency, currency);
+      const formattedAmount = formatCurrency(convertedAmount, currency);
+      const typeIcon = transaction.type === 'INCOME' ? '💰' : '💸';
+      
+      markdown += `| ${formatDate(transaction.date)} | ${typeIcon} ${transaction.type} | ${transaction.title} | ${transaction.category} | ${transaction.account} | ${formattedAmount} |\n`;
     });
     markdown += `\n`;
   }
@@ -105,6 +133,51 @@ export function formatFinancialDataAsMarkdown(
       const gainLoss = currentValue - purchaseValue;
       
       markdown += `| ${formatDate(investment.purchaseDate)} | ${investment.name} | ${investment.type} | ${investment.symbol || 'N/A'} | ${investment.quantity} | ${formatCurrency(investment.purchasePrice, currency)} | ${formatCurrency(investment.currentPrice, currency)} | ${formatCurrency(currentValue, currency)} | ${formatCurrency(gainLoss, currency)} |\n`;
+    });
+    markdown += `\n`;
+  }
+
+  // Add investment targets table if data exists
+  if (investmentTargets.length > 0) {
+    markdown += `## Investment Targets (${investmentTargets.length} items)\n\n`;
+    markdown += `| Investment Type | Nickname | Target Amount | Current Amount | Progress | Status | Target Date | Days Remaining |\n`;
+    markdown += `|----------------|----------|---------------|----------------|----------|--------|-------------|----------------|\n`;
+    
+    investmentTargets.forEach(target => {
+      const nickname = target.nickname || target.investmentType;
+      const targetDate = target.targetCompletionDate 
+        ? formatDate(target.targetCompletionDate) 
+        : 'Not Set';
+      const daysRemaining = target.daysRemaining !== undefined 
+        ? (target.daysRemaining < 0 ? 'Overdue' : `${target.daysRemaining} days`)
+        : 'N/A';
+      const status = target.isComplete 
+        ? '✅ Complete' 
+        : target.isOverdue 
+          ? '⚠️ Overdue' 
+          : '🔄 In Progress';
+      
+      markdown += `| ${target.investmentType} | ${nickname} | ${formatCurrency(target.targetAmount, currency)} | ${formatCurrency(target.currentAmount, currency)} | ${target.progress.toFixed(1)}% | ${status} | ${targetDate} | ${daysRemaining} |\n`;
+    });
+    markdown += `\n`;
+  }
+
+  // Add accounts table if data exists
+  if (accounts.length > 0) {
+    markdown += `## Bank Accounts (${accounts.length} items)\n\n`;
+    markdown += `| Bank Name | Account Type | Holder Name | Account Number | Balance | Opening Date | Nickname |\n`;
+    markdown += `|-----------|--------------|-------------|----------------|---------|--------------|----------|\n`;
+    
+    accounts.forEach(account => {
+      const balance = account.balance !== undefined 
+        ? formatCurrency(account.balance, currency) 
+        : 'Not Set';
+      const nickname = account.nickname || 'N/A';
+      const maskedAccountNumber = account.accountNumber 
+        ? `****${account.accountNumber.slice(-4)}` 
+        : 'N/A';
+      
+      markdown += `| ${account.bankName} | ${account.accountType} | ${account.holderName} | ${maskedAccountNumber} | ${balance} | ${formatDate(account.accountOpeningDate)} | ${nickname} |\n`;
     });
     markdown += `\n`;
   }

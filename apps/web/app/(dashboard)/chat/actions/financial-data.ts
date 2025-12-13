@@ -6,7 +6,10 @@ import { getIncomesByDateRange } from "../../incomes/actions/incomes";
 import { getExpensesByDateRange } from "../../expenses/actions/expenses";
 import { getUserDebts } from "../../debts/actions/debts";
 import { getUserInvestments } from "../../investments/actions/investments";
+import { getInvestmentTargetProgress } from "../../investments/actions/investment-targets";
+import { getUserAccounts } from "../../accounts/actions/accounts";
 import { getCurrentNetWorth } from "../../worth/actions/net-worth";
+import { getTransactionsByDateRange } from "../../transactions/actions/transactions";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { formatDate } from "../../../utils/date";
 import { getUserCurrency } from "../../../actions/currency";
@@ -24,6 +27,9 @@ export interface FinancialDataRequest {
   includeDebts: boolean;
   includeInvestments: boolean;
   includeNetWorth: boolean;
+  includeTransactions: boolean;
+  includeInvestmentTargets: boolean;
+  includeAccounts: boolean;
 }
 
 
@@ -35,23 +41,28 @@ export async function getFinancialDataForChat(request: FinancialDataRequest) {
       return { success: false, error: "Unauthorized" };
     }
 
-    const { startDate, endDate, includeIncomes, includeExpenses, includeDebts, includeInvestments, includeNetWorth } = request;
+    const { startDate, endDate, includeIncomes, includeExpenses, includeDebts, includeInvestments, includeNetWorth, includeTransactions, includeInvestmentTargets, includeAccounts } = request;
     
     // Get user's preferred currency from database
     const currency = await getUserCurrency();
 
-    // Fetch data in parallel - only income/expenses are date-dependent
-    const [incomes, expenses, debtsResult, investmentsResult, netWorthResult] = await Promise.all([
+    // Fetch data in parallel - income/expenses/transactions are date-dependent
+    const [incomes, expenses, transactions, debtsResult, investmentsResult, investmentTargetsResult, accountsResult, netWorthResult] = await Promise.all([
       includeIncomes ? getIncomesByDateRange(startDate, endDate) : Promise.resolve([]),
       includeExpenses ? getExpensesByDateRange(startDate, endDate) : Promise.resolve([]),
+      includeTransactions ? getTransactionsByDateRange(startDate, endDate) : Promise.resolve([]),
       includeDebts ? getUserDebts() : Promise.resolve({ data: [] }),
       includeInvestments ? getUserInvestments() : Promise.resolve({ data: [] }),
+      includeInvestmentTargets ? getInvestmentTargetProgress() : Promise.resolve({ data: [] }),
+      includeAccounts ? getUserAccounts() : Promise.resolve([]),
       includeNetWorth ? getCurrentNetWorth() : Promise.resolve({ success: false, data: undefined, error: undefined })
     ]);
 
     // Extract actual data from results
     const debts = (debtsResult && 'data' in debtsResult && debtsResult.data) ? debtsResult.data : [];
     const investments = (investmentsResult && 'data' in investmentsResult && investmentsResult.data) ? investmentsResult.data : [];
+    const investmentTargets = (investmentTargetsResult && 'data' in investmentTargetsResult && investmentTargetsResult.data) ? investmentTargetsResult.data : [];
+    const accounts = (Array.isArray(accountsResult)) ? accountsResult : [];
 
     // Calculate summary
     const totalIncome = incomes.reduce((sum, income) => {
@@ -91,6 +102,19 @@ export async function getFinancialDataForChat(request: FinancialDataRequest) {
 
     const totalInvestmentGain = totalInvestmentValue - totalInvestmentCost;
 
+    // Calculate investment targets summary
+    const totalTargetAmount = investmentTargets.reduce((sum, target) => sum + target.targetAmount, 0);
+    const totalTargetProgress = investmentTargets.reduce((sum, target) => sum + target.currentAmount, 0);
+    const completedTargets = investmentTargets.filter(target => target.isComplete).length;
+    const overdueTargets = investmentTargets.filter(target => target.isOverdue && !target.isComplete).length;
+    const averageProgress = investmentTargets.length > 0 
+      ? investmentTargets.reduce((sum, target) => sum + target.progress, 0) / investmentTargets.length 
+      : 0;
+
+    // Calculate accounts summary
+    const totalAccountBalance = accounts.reduce((sum, account) => sum + (account.balance || 0), 0);
+    const accountsCount = accounts.length;
+
     // Handle net worth data (if requested and successfully fetched)
     let netWorthData = null;
     if (includeNetWorth && netWorthResult && 'success' in netWorthResult && netWorthResult.success && netWorthResult.data) {
@@ -120,11 +144,20 @@ export async function getFinancialDataForChat(request: FinancialDataRequest) {
       totalInvestmentCost,
       totalInvestmentValue,
       totalInvestmentGain,
-      netWorthData
+      netWorthData,
+      // Investment targets fields
+      totalTargetAmount,
+      totalTargetProgress,
+      completedTargets,
+      overdueTargets,
+      averageProgress,
+      // Accounts fields
+      totalAccountBalance,
+      accountsCount
     };
 
     // Format as markdown
-    const markdownData = formatFinancialDataAsMarkdown(incomes, expenses, debts, investments, currency, summary);
+    const markdownData = formatFinancialDataAsMarkdown(incomes, expenses, debts, investments, transactions, investmentTargets, accounts, currency, summary);
 
     return {
       success: true,
@@ -133,6 +166,9 @@ export async function getFinancialDataForChat(request: FinancialDataRequest) {
         expenses,
         debts,
         investments,
+        transactions,
+        investmentTargets,
+        accounts,
         summary,
         markdownData
       }

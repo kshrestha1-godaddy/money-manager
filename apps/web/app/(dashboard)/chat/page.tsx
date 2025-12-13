@@ -8,6 +8,7 @@ import { Message } from "./components/Message";
 import { SettingsModal } from "./components/SettingsModal";
 import { useChat } from "./hooks/useChat";
 import { getFinancialDataForChat, FinancialDataRequest } from "./actions/financial-data";
+import { FinancialContext } from "./types/chat";
 
 export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -72,7 +73,10 @@ export default function ChatPage() {
             incomes: result.data.incomes,
             expenses: result.data.expenses,
             debts: result.data.debts,
-            investments: result.data.investments
+            investments: result.data.investments,
+            transactions: result.data.transactions,
+            investmentTargets: result.data.investmentTargets,
+            accounts: result.data.accounts
           },
           summary: result.data.summary
         });
@@ -180,6 +184,21 @@ export default function ChatPage() {
                           {financialContext.data?.investments && financialContext.data.investments.length > 0 && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700">
                               Investments ({financialContext.data.investments.length})
+                            </span>
+                          )}
+                          {financialContext.data?.transactions && financialContext.data.transactions.length > 0 && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700">
+                              Transactions ({financialContext.data.transactions.length})
+                            </span>
+                          )}
+                          {financialContext.data?.investmentTargets && financialContext.data.investmentTargets.length > 0 && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700">
+                              Investment Targets ({financialContext.data.investmentTargets.length})
+                            </span>
+                          )}
+                          {financialContext.data?.accounts && financialContext.data.accounts.length > 0 && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700">
+                              Bank Accounts ({financialContext.data.accounts.length})
                             </span>
                           )}
                           {financialContext.summary?.netWorthData && (

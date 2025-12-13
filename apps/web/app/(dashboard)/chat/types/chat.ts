@@ -70,6 +70,9 @@ export interface FinancialContext {
     expenses?: any[];
     debts?: any[];
     investments?: any[];
+    transactions?: any[]; // Combined income and expense transactions
+    investmentTargets?: any[]; // Investment goals and progress
+    accounts?: any[]; // Bank accounts and balances
   };
   summary: {
     period: string;
