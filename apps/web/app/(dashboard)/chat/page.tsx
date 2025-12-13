@@ -140,6 +140,9 @@ export default function ChatPage() {
                 onClose={() => setShowFinancialSelector(false)}
                 initialIncludeIncomes={financialContext ? true : true}
                 initialIncludeExpenses={financialContext ? true : true}
+                initialIncludeDebts={false}
+                initialIncludeInvestments={false}
+                initialIncludeNetWorth={false}
                 initialPreset="thisMonth"
               />
               
