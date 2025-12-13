@@ -138,6 +138,9 @@ export default function ChatPage() {
                 isVisible={showFinancialSelector}
                 onSelect={handleFinancialDataSelect}
                 onClose={() => setShowFinancialSelector(false)}
+                initialIncludeIncomes={financialContext ? true : true}
+                initialIncludeExpenses={financialContext ? true : true}
+                initialPreset="thisMonth"
               />
               
               {/* Financial Context Banner - positioned above input controls */}
@@ -151,15 +154,25 @@ export default function ChatPage() {
                           <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-blue-900">
-                          Financial data included: {financialContext.summary.period}
-                        </p>
-                        <p className="text-xs text-blue-700">
-                          {financialContext.summary.transactionCount} transactions • Net: {financialContext.summary.netAmount} {financialContext.summary.currency}
-                        </p>
-                      </div>
+                    <div>
+                      <p className="text-sm font-medium text-blue-900">
+                        Financial data included: {financialContext.summary.period}
+                      </p>
+                      <p className="text-xs text-blue-700">
+                        {financialContext.summary.transactionCount} transactions • Net: {financialContext.summary.netAmount} {financialContext.summary.currency}
+                      </p>
                     </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setShowFinancialSelector(true)}
+                      className="text-blue-400 hover:text-blue-600 transition-colors"
+                      title="Edit financial data selection"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
                     <button
                       onClick={clearFinancialContext}
                       className="text-blue-400 hover:text-blue-600 transition-colors"
@@ -169,6 +182,7 @@ export default function ChatPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
+                  </div>
                   </div>
                 </div>
               )}

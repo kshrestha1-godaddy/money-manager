@@ -9,16 +9,22 @@ interface InlineFinancialSelectorProps {
   isVisible: boolean;
   onSelect: (request: FinancialDataRequest) => void;
   onClose: () => void;
+  initialIncludeIncomes?: boolean;
+  initialIncludeExpenses?: boolean;
+  initialPreset?: string;
 }
 
 export function InlineFinancialSelector({ 
   isVisible, 
   onSelect,
-  onClose 
+  onClose,
+  initialIncludeIncomes = true,
+  initialIncludeExpenses = true,
+  initialPreset = "thisMonth"
 }: InlineFinancialSelectorProps) {
-  const [selectedPreset, setSelectedPreset] = useState<string>("thisMonth");
-  const [includeIncomes, setIncludeIncomes] = useState(true);
-  const [includeExpenses, setIncludeExpenses] = useState(true);
+  const [selectedPreset, setSelectedPreset] = useState<string>(initialPreset);
+  const [includeIncomes, setIncludeIncomes] = useState(initialIncludeIncomes);
+  const [includeExpenses, setIncludeExpenses] = useState(initialIncludeExpenses);
   const [userCurrency, setUserCurrency] = useState<string>("USD");
 
   const presetData = getDateRangePresets();
@@ -34,6 +40,15 @@ export function InlineFinancialSelector({
     }
   }, [isVisible]);
 
+  // Reset state when component becomes visible with new initial values
+  useEffect(() => {
+    if (isVisible) {
+      setSelectedPreset(initialPreset);
+      setIncludeIncomes(initialIncludeIncomes);
+      setIncludeExpenses(initialIncludeExpenses);
+    }
+  }, [isVisible, initialPreset, initialIncludeIncomes, initialIncludeExpenses]);
+
   if (!isVisible) return null;
 
   const handleApply = () => {
@@ -48,6 +63,7 @@ export function InlineFinancialSelector({
     };
 
     onSelect(request);
+    onClose();
   };
 
   const selectedPresetData = presets.find(p => p.key === selectedPreset);

@@ -18,30 +18,19 @@ export function formatFinancialDataAsMarkdown(
   currency: string = "USD",
   summary: FinancialDataSummary
 ): string {
-  let markdown = `# Financial Data Summary\n\n`;
+  let markdown = `# Financial Data for ${summary.period}\n\n`;
   
-  // Add summary section
-  markdown += `## Summary for ${summary.period}\n`;
-  markdown += `- **Total Income**: ${formatCurrency(summary.totalIncome, currency)}\n`;
-  markdown += `- **Total Expenses**: ${formatCurrency(summary.totalExpenses, currency)}\n`;
-  markdown += `- **Net Amount**: ${formatCurrency(summary.netAmount, currency)}\n`;
-  markdown += `- **Total Transactions**: ${summary.transactionCount}\n`;
-  markdown += `- **Currency**: ${currency}\n\n`;
-
   // Add income table if data exists
   if (incomes.length > 0) {
     markdown += `## Income Transactions (${incomes.length} items)\n\n`;
-    markdown += `| Date | Title | Category | Account | Amount | Tags | Notes |\n`;
-    markdown += `|------|-------|----------|---------|---------|------|-------|\n`;
+    markdown += `| Date | Title | Category | Amount |\n`;
+    markdown += `|------|-------|----------|--------|\n`;
     
     incomes.forEach(income => {
       const convertedAmount = convertForDisplaySync(income.amount, income.currency, currency);
       const formattedAmount = formatCurrency(convertedAmount, currency);
-      const tags = income.tags.length > 0 ? income.tags.join(', ') : 'None';
-      const notes = income.notes || 'None';
-      const account = income.account ? `${income.account.bankName} (${income.account.accountType})` : 'Cash';
       
-      markdown += `| ${formatDate(income.date)} | ${income.title} | ${income.category.name} | ${account} | ${formattedAmount} | ${tags} | ${notes} |\n`;
+      markdown += `| ${formatDate(income.date)} | ${income.title} | ${income.category.name} | ${formattedAmount} |\n`;
     });
     markdown += `\n`;
   }
@@ -49,17 +38,14 @@ export function formatFinancialDataAsMarkdown(
   // Add expense table if data exists
   if (expenses.length > 0) {
     markdown += `## Expense Transactions (${expenses.length} items)\n\n`;
-    markdown += `| Date | Title | Category | Account | Amount | Tags | Notes |\n`;
-    markdown += `|------|-------|----------|---------|---------|------|-------|\n`;
+    markdown += `| Date | Title | Category | Amount |\n`;
+    markdown += `|------|-------|----------|--------|\n`;
     
     expenses.forEach(expense => {
       const convertedAmount = convertForDisplaySync(expense.amount, expense.currency, currency);
       const formattedAmount = formatCurrency(convertedAmount, currency);
-      const tags = expense.tags.length > 0 ? expense.tags.join(', ') : 'None';
-      const notes = expense.notes || 'None';
-      const account = expense.account ? `${expense.account.bankName} (${expense.account.accountType})` : 'Cash';
       
-      markdown += `| ${formatDate(expense.date)} | ${expense.title} | ${expense.category.name} | ${account} | ${formattedAmount} | ${tags} | ${notes} |\n`;
+      markdown += `| ${formatDate(expense.date)} | ${expense.title} | ${expense.category.name} | ${formattedAmount} |\n`;
     });
     markdown += `\n`;
   }
