@@ -264,7 +264,7 @@ export function InlineFinancialSelector({
                       </p>
                       <div className="flex items-center mt-1">
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
-                          {option.isDateFiltered ? 'Date filtered' : 'Current data'}
+                          {option.isDateFiltered ? 'Date filtered' : 'Whole'}
                         </span>
                       </div>
                     </div>
