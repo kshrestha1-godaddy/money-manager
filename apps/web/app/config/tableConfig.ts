@@ -17,6 +17,7 @@ export const TABLE_COLUMN_WIDTHS = {
     accountNumber: 180,
     openingDate: 140,
     balance: 160,
+    freeBalance: 160,
     actions: 280,
   },
 
@@ -55,6 +56,7 @@ export type AccountColumnWidths = {
   accountNumber: number;
   openingDate: number;
   balance: number;
+  freeBalance: number;
   actions: number;
 };
 

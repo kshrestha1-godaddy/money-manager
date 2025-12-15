@@ -410,6 +410,7 @@ export default function Accounts() {
                     onDelete={openDeleteModal}
                     onViewDetails={openViewModal}
                     onShare={openShareModal}
+                    withheldAmounts={withheldAmounts}
                     headerActions={
                         <button
                             onClick={() => setIsTransferModalOpen(true)}

@@ -29,9 +29,10 @@ interface AccountTableProps {
     onBulkDelete?: () => void;
     onClearSelection?: () => void;
     headerActions?: React.ReactNode;
+    withheldAmounts?: Record<string, number>;
 }
 
-type SortField = 'holderName' | 'bankName' | 'accountNumber' | 'accountOpeningDate' | 'balance';
+type SortField = 'holderName' | 'bankName' | 'accountNumber' | 'accountOpeningDate' | 'balance' | 'freeBalance';
 type SortDirection = 'asc' | 'desc';
 
 export function AccountTable({ 
@@ -46,7 +47,8 @@ export function AccountTable({
     showBulkActions = false,
     onBulkDelete,
     onClearSelection,
-    headerActions
+    headerActions,
+    withheldAmounts = {}
 }: AccountTableProps) {
     const { currency: userCurrency } = useCurrency();
     const [sortField, setSortField] = useState<SortField>('bankName');
@@ -150,6 +152,28 @@ export function AccountTable({
         }
     }, [resizing, handleMouseMove, handleMouseUp]);
 
+    // Helper function to calculate free balance for any account
+    const calculateAccountFreeBalance = (account: AccountInterface) => {
+        const bankName = account.bankName;
+        const withheldAmountForBank = withheldAmounts[bankName] || 0;
+        
+        // If no withheld amount for this bank, return full balance
+        if (withheldAmountForBank === 0) {
+            return account.balance || 0;
+        }
+
+        // Calculate total balance for all accounts in this bank
+        const accountsInBank = accounts.filter(acc => acc.bankName === bankName);
+        const totalBankBalance = accountsInBank.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+        
+        // Calculate proportional withheld amount for this account
+        const accountProportion = totalBankBalance > 0 ? (account.balance || 0) / totalBankBalance : 0;
+        const accountWithheldAmount = withheldAmountForBank * accountProportion;
+        
+        // Calculate free balance (ensure non-negative)
+        return Math.max(0, (account.balance || 0) - accountWithheldAmount);
+    };
+
     const sortedAccounts = useMemo(() => {
         const sorted = [...accounts].sort((a, b) => {
             let aValue: any;
@@ -176,6 +200,10 @@ export function AccountTable({
                     aValue = a.balance || 0;
                     bValue = b.balance || 0;
                     break;
+                case 'freeBalance':
+                    aValue = calculateAccountFreeBalance(a);
+                    bValue = calculateAccountFreeBalance(b);
+                    break;
                 default:
                     return 0;
             }
@@ -190,7 +218,7 @@ export function AccountTable({
         });
 
         return sorted;
-    }, [accounts, sortField, sortDirection]);
+    }, [accounts, sortField, sortDirection, withheldAmounts]);
 
     const handleSort = (field: SortField) => {
         if (field === sortField) {
@@ -375,6 +403,20 @@ export function AccountTable({
                                 />
                             </th>
                             <th 
+                                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                style={{ width: `${columnWidths.freeBalance}px` }}
+                                onClick={() => handleSort('freeBalance')}
+                            >
+                                <div className="flex items-center justify-end space-x-1">
+                                    <span>Free Balance</span>
+                                    {getSortIcon('freeBalance')}
+                                </div>
+                                <div 
+                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                    onMouseDown={(e) => handleMouseDown(e, 'freeBalance')}
+                                />
+                            </th>
+                            <th 
                                 className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
                                 style={{ width: `${columnWidths.actions}px` }}
                             >
@@ -398,6 +440,8 @@ export function AccountTable({
                                 columnWidths={columnWidths}
                                 visibleAccountNumbers={visibleAccountNumbers}
                                 toggleAccountNumberVisibility={toggleAccountNumberVisibility}
+                                withheldAmounts={withheldAmounts}
+                                allAccounts={accounts}
                             />
                         ))}
                     </tbody>
@@ -407,7 +451,7 @@ export function AccountTable({
     );
 }
 
-function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShare, isSelected = false, onSelect, showCheckbox = false, columnWidths, visibleAccountNumbers, toggleAccountNumberVisibility }: { 
+function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShare, isSelected = false, onSelect, showCheckbox = false, columnWidths, visibleAccountNumbers, toggleAccountNumberVisibility, withheldAmounts = {}, allAccounts = [] }: { 
     account: AccountInterface;
     currency: string;
     onEdit?: (account: AccountInterface) => void;
@@ -420,6 +464,8 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShar
     columnWidths: AccountColumnWidths;
     visibleAccountNumbers: Set<number>;
     toggleAccountNumberVisibility: (accountId: number) => void;
+    withheldAmounts?: Record<string, number>;
+    allAccounts?: AccountInterface[];
 }) {
     const handleEdit = () => {
         if (onEdit) {
@@ -452,6 +498,30 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShar
     };
 
     const isAccountNumberVisible = visibleAccountNumbers.has(account.id);
+
+    // Calculate free balance for this account using the helper function
+    const calculateRowAccountFreeBalance = () => {
+        const bankName = account.bankName;
+        const withheldAmountForBank = withheldAmounts[bankName] || 0;
+        
+        // If no withheld amount for this bank, return full balance
+        if (withheldAmountForBank === 0) {
+            return account.balance || 0;
+        }
+
+        // Calculate total balance for all accounts in this bank
+        const accountsInBank = allAccounts.filter(acc => acc.bankName === bankName);
+        const totalBankBalance = accountsInBank.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+        
+        // Calculate proportional withheld amount for this account
+        const accountProportion = totalBankBalance > 0 ? (account.balance || 0) / totalBankBalance : 0;
+        const accountWithheldAmount = withheldAmountForBank * accountProportion;
+        
+        // Calculate free balance (ensure non-negative)
+        return Math.max(0, (account.balance || 0) - accountWithheldAmount);
+    };
+
+    const accountFreeBalance = calculateRowAccountFreeBalance();
 
     return (
         <tr className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
@@ -537,6 +607,18 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShar
                 {account.balance !== undefined ? (
                     <span className="text-green-600">
                         {formatCurrency(account.balance, currency)}
+                    </span>
+                ) : (
+                    <span className="text-gray-400">-</span>
+                )}
+            </td>
+            <td 
+                className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right truncate"
+                style={{ width: `${columnWidths.freeBalance}px` }}
+            >
+                {account.balance !== undefined ? (
+                    <span className="text-blue-600">
+                        {formatCurrency(accountFreeBalance, currency)}
                     </span>
                 ) : (
                     <span className="text-gray-400">-</span>

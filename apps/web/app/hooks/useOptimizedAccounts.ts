@@ -212,13 +212,39 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         return filteredAccounts.reduce((sum, account) => sum + (account.balance || 0), 0);
     }, [filteredAccounts]);
 
-    // Calculate free balance (total balance minus withheld amounts from investments)
+    // Calculate free balance (properly distributed by bank)
     const freeBalance = useMemo(() => {
-        // Calculate total withheld amount across all accounts
-        const totalWithheld = Object.values(withheldAmounts).reduce((sum, amount) => sum + amount, 0);
-        // Free balance = total balance - withheld amounts
-        return Math.max(0, totalBalance - totalWithheld); // Ensure non-negative
-    }, [totalBalance, withheldAmounts]);
+        if (filteredAccounts.length === 0) return 0;
+
+        // Group accounts by bank name to calculate proportional withheld amounts
+        const bankGroups = new Map<string, typeof filteredAccounts>();
+        filteredAccounts.forEach(account => {
+            const bankName = account.bankName;
+            if (!bankGroups.has(bankName)) {
+                bankGroups.set(bankName, []);
+            }
+            bankGroups.get(bankName)!.push(account);
+        });
+
+        // Calculate free balance for each bank and sum them up
+        let totalFreeBalance = 0;
+        
+        for (const [bankName, accountsInBank] of bankGroups.entries()) {
+            const withheldAmountForBank = withheldAmounts[bankName] || 0;
+            const totalBankBalance = accountsInBank.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+            
+            // If no withheld amount for this bank, add full balance
+            if (withheldAmountForBank === 0) {
+                totalFreeBalance += totalBankBalance;
+            } else {
+                // Calculate free balance for this bank (total bank balance minus withheld amount)
+                const bankFreeBalance = Math.max(0, totalBankBalance - withheldAmountForBank);
+                totalFreeBalance += bankFreeBalance;
+            }
+        }
+        
+        return totalFreeBalance;
+    }, [filteredAccounts, withheldAmounts]);
 
     // Optimized mutations with cache updates
     const createAccountMutation = useMutation({

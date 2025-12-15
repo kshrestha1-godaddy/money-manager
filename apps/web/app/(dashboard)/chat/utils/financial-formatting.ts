@@ -34,7 +34,9 @@ export interface FinancialDataSummary {
   overdueTargets?: number;
   averageProgress?: number;
   // Accounts fields
-  totalAccountBalance?: number;
+  totalAccountBalance?: number; // Total balance across all bank accounts (gross)
+  totalFreeBalance?: number; // Total available balance after subtracting withheld amounts
+  totalWithheldAmount?: number; // Total amount withheld from bank accounts for investments
   accountsCount?: number;
   // Budget targets fields
   totalBudgetTargets?: number;
@@ -172,8 +174,9 @@ export function formatFinancialDataAsMarkdown(
   // Add accounts table if data exists
   if (accounts.length > 0) {
     markdown += `## Bank Accounts (${accounts.length} items)\n\n`;
-    markdown += `| Bank Name | Holder Name | Account Number | Total Balance | Withheld Amount | Free Amount |\n`;
-    markdown += `|-----------|-------------|----------------|---------------|-----------------|-------------|\n`;
+    markdown += `**Free Balance Explanation**: Free Balance = Total Balance - Withheld Amount (from bank-linked investments)\n\n`;
+    markdown += `| Bank Name | Holder Name | Account Number | Total Balance | Withheld Amount | Free Balance | Account Type |\n`;
+    markdown += `|-----------|-------------|----------------|---------------|-----------------|--------------|-------------|\n`;
     
     accounts.forEach(account => {
       const totalBalance = account.balance !== undefined 
@@ -188,22 +191,26 @@ export function formatFinancialDataAsMarkdown(
       const maskedAccountNumber = account.accountNumber 
         ? `****${account.accountNumber.slice(-4)}` 
         : 'N/A';
+      const accountType = account.accountType || 'Unknown';
       
-      markdown += `| ${account.bankName} | ${account.holderName} | ${maskedAccountNumber} | ${totalBalance} | ${withheldAmount} | ${freeAmount} |\n`;
+      markdown += `| ${account.bankName} | ${account.holderName} | ${maskedAccountNumber} | ${totalBalance} | ${withheldAmount} | ${freeAmount} | ${accountType} |\n`;
     });
     markdown += `\n`;
     
-    // Add accounts summary with withheld/free breakdown
+    // Add accounts summary with detailed withheld/free breakdown
     const totalAccountBalance = accounts.reduce((sum, account) => sum + (account.balance || 0), 0);
     const totalWithheldAmount = accounts.reduce((sum, account) => sum + (account.withheldAmount || 0), 0);
     const totalFreeAmount = accounts.reduce((sum, account) => sum + (account.freeAmount || 0), 0);
     
-    markdown += `### Bank Accounts Summary\n\n`;
-    markdown += `- **Total Account Balance**: ${formatCurrency(totalAccountBalance, currency)}\n`;
-    markdown += `- **Total Withheld Amount**: ${formatCurrency(totalWithheldAmount, currency)} (from investments)\n`;
-    markdown += `- **Total Free Amount**: ${formatCurrency(totalFreeAmount, currency)} (available for use)\n`;
-    markdown += `- **Withheld Percentage**: ${totalAccountBalance > 0 ? ((totalWithheldAmount / totalAccountBalance) * 100).toFixed(1) : 0}%\n`;
-    markdown += `- **Free Percentage**: ${totalAccountBalance > 0 ? ((totalFreeAmount / totalAccountBalance) * 100).toFixed(1) : 0}%\n\n`;
+    markdown += `### Bank Accounts & Free Balance Analysis\n\n`;
+    markdown += `**💰 Account Balances Overview:**\n`;
+    markdown += `- **Total Account Balance**: ${formatCurrency(totalAccountBalance, currency)} (sum of all bank account balances)\n`;
+    markdown += `- **Total Withheld Amount**: ${formatCurrency(totalWithheldAmount, currency)} (locked in bank-linked investments)\n`;
+    markdown += `- **Total Free Balance**: ${formatCurrency(totalFreeAmount, currency)} (actually available for spending)\n\n`;
+    
+    markdown += `**📊 Balance Distribution:**\n`;
+    markdown += `- **Withheld Percentage**: ${totalAccountBalance > 0 ? ((totalWithheldAmount / totalAccountBalance) * 100).toFixed(1) : 0}% (portion tied up in investments)\n`;
+    markdown += `- **Free Percentage**: ${totalAccountBalance > 0 ? ((totalFreeAmount / totalAccountBalance) * 100).toFixed(1) : 0}% (portion available for use)\n\n`;
   }
 
   // Add budget targets table if data exists
@@ -316,13 +323,42 @@ export function formatFinancialDataAsMarkdown(
       return acc;
     }, {} as Record<string, number>);
     
-    markdown += `## Investment Breakdown by Type\n`;
+    markdown += `## Investment Portfolio Analysis\n\n`;
+    
+    markdown += `### Investment Breakdown by Type\n`;
     Object.entries(investmentTypes)
       .sort(([,a], [,b]) => (b as number) - (a as number))
       .forEach(([type, value]) => {
         markdown += `- **${type}**: ${formatCurrency(value as number, currency)}\n`;
       });
     markdown += `\n`;
+    
+    // Categorize investments by liquidity impact
+    const bankLinkedTypes = ['FIXED_DEPOSIT', 'EMERGENCY_FUND', 'MARRIAGE', 'VACATION', 'STOCKS', 'PROVIDENT_FUNDS', 'SAFE_KEEPINGS', 'OTHER'];
+    const externalTypes = ['GOLD', 'BONDS', 'MUTUAL_FUNDS', 'CRYPTO', 'REAL_ESTATE'];
+    
+    const bankLinkedInvestments = investments.filter(inv => bankLinkedTypes.includes(inv.type));
+    const externalInvestments = investments.filter(inv => externalTypes.includes(inv.type));
+    
+    if (bankLinkedInvestments.length > 0 || externalInvestments.length > 0) {
+      markdown += `### Investment Impact on Bank Account Liquidity\n\n`;
+      
+      if (bankLinkedInvestments.length > 0) {
+        const bankLinkedValue = bankLinkedInvestments.reduce((sum, inv) => sum + (inv.quantity * inv.currentPrice), 0);
+        markdown += `**🔒 Bank-Linked Investments** (${bankLinkedInvestments.length} items): ${formatCurrency(bankLinkedValue, currency)}\n`;
+        markdown += `- These investments reduce your available bank account balance (withheld amount)\n`;
+        markdown += `- Types: Fixed Deposits, Emergency Funds, Stock Trading Accounts, etc.\n`;
+        markdown += `- Impact: Reduces free balance available for spending\n\n`;
+      }
+      
+      if (externalInvestments.length > 0) {
+        const externalValue = externalInvestments.reduce((sum, inv) => sum + (inv.quantity * inv.currentPrice), 0);
+        markdown += `**🌍 External Investments** (${externalInvestments.length} items): ${formatCurrency(externalValue, currency)}\n`;
+        markdown += `- These investments do NOT affect your bank account balance\n`;
+        markdown += `- Types: Physical Gold, Real Estate, External Mutual Funds, Crypto, etc.\n`;
+        markdown += `- Impact: No reduction in free balance, stored outside bank accounts\n\n`;
+      }
+    }
   }
 
   // Add debt status breakdown
@@ -352,10 +388,56 @@ export function formatFinancialDataAsMarkdown(
   }
 
   // Add summary section with all totals
-  markdown += `## Financial Summary\n\n`;
+  markdown += `## Financial Summary & Liquidity Analysis\n\n`;
+  
+  markdown += `### 💰 Cash Flow Analysis\n`;
   markdown += `- **Total Income**: ${formatCurrency(summary.totalIncome, currency)}\n`;
   markdown += `- **Total Expenses**: ${formatCurrency(summary.totalExpenses, currency)}\n`;
-  markdown += `- **Net Cash Flow**: ${formatCurrency(summary.netAmount, currency)}\n`;
+  markdown += `- **Net Cash Flow**: ${formatCurrency(summary.netAmount, currency)} ${summary.netAmount >= 0 ? '✅ (Positive)' : '⚠️ (Negative)'}\n\n`;
+  
+  // Add liquidity analysis if account data is available
+  if (summary.totalAccountBalance && summary.totalAccountBalance > 0) {
+    const totalAccountBalance = summary.totalAccountBalance;
+    const totalWithheld = accounts.reduce((sum, account) => sum + (account.withheldAmount || 0), 0);
+    const totalFree = accounts.reduce((sum, account) => sum + (account.freeAmount || 0), 0);
+    const liquidityRatio = totalAccountBalance > 0 ? (totalFree / totalAccountBalance) * 100 : 0;
+    
+    markdown += `### 💧 Liquidity Analysis\n`;
+    markdown += `- **Total Bank Balance**: ${formatCurrency(totalAccountBalance, currency)} (gross account balances)\n`;
+    markdown += `- **Available Liquidity**: ${formatCurrency(totalFree, currency)} (free balance for immediate use)\n`;
+    markdown += `- **Tied Up in Investments**: ${formatCurrency(totalWithheld, currency)} (withheld from bank-linked investments)\n`;
+    markdown += `- **Liquidity Ratio**: ${liquidityRatio.toFixed(1)}% (percentage of bank balance available for use)\n\n`;
+    
+    // Liquidity health assessment
+    if (liquidityRatio >= 80) {
+      markdown += `**Liquidity Health**: 🟢 **Excellent** - High proportion of funds readily available\n`;
+    } else if (liquidityRatio >= 60) {
+      markdown += `**Liquidity Health**: 🟡 **Good** - Moderate proportion tied up in investments\n`;
+    } else if (liquidityRatio >= 40) {
+      markdown += `**Liquidity Health**: 🟠 **Moderate** - Significant portion locked in investments\n`;
+    } else {
+      markdown += `**Liquidity Health**: 🔴 **Low** - Large portion of bank funds tied up in investments\n`;
+    }
+    markdown += `\n`;
+    
+    // Emergency fund assessment based on free balance
+    const monthlyExpenses = summary.totalExpenses;
+    if (monthlyExpenses > 0) {
+      const emergencyFundMonths = totalFree / monthlyExpenses;
+      markdown += `**Emergency Fund Coverage**: ${emergencyFundMonths.toFixed(1)} months of expenses covered by free balance\n`;
+      
+      if (emergencyFundMonths >= 6) {
+        markdown += `**Emergency Preparedness**: 🟢 **Excellent** - 6+ months of expenses covered\n`;
+      } else if (emergencyFundMonths >= 3) {
+        markdown += `**Emergency Preparedness**: 🟡 **Good** - 3-6 months of expenses covered\n`;
+      } else if (emergencyFundMonths >= 1) {
+        markdown += `**Emergency Preparedness**: 🟠 **Moderate** - 1-3 months of expenses covered\n`;
+      } else {
+        markdown += `**Emergency Preparedness**: 🔴 **Low** - Less than 1 month of expenses covered\n`;
+      }
+      markdown += `\n`;
+    }
+  }
   
   if (summary.totalDebtAmount !== undefined) {
     markdown += `- **Total Money Lent**: ${formatCurrency(summary.totalDebtAmount, currency)}\n`;
