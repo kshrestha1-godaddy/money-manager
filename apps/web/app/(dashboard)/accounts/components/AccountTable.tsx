@@ -170,8 +170,8 @@ export function AccountTable({
         const accountProportion = totalBankBalance > 0 ? (account.balance || 0) / totalBankBalance : 0;
         const accountWithheldAmount = withheldAmountForBank * accountProportion;
         
-        // Calculate free balance (ensure non-negative)
-        return Math.max(0, (account.balance || 0) - accountWithheldAmount);
+        // Calculate free balance (can be negative if withheld amount exceeds balance)
+        return (account.balance || 0) - accountWithheldAmount;
     };
 
     const sortedAccounts = useMemo(() => {
@@ -517,8 +517,8 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShar
         const accountProportion = totalBankBalance > 0 ? (account.balance || 0) / totalBankBalance : 0;
         const accountWithheldAmount = withheldAmountForBank * accountProportion;
         
-        // Calculate free balance (ensure non-negative)
-        return Math.max(0, (account.balance || 0) - accountWithheldAmount);
+        // Calculate free balance (can be negative if withheld amount exceeds balance)
+        return (account.balance || 0) - accountWithheldAmount;
     };
 
     const accountFreeBalance = calculateRowAccountFreeBalance();
@@ -617,7 +617,7 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShar
                 style={{ width: `${columnWidths.freeBalance}px` }}
             >
                 {account.balance !== undefined ? (
-                    <span className="text-blue-600">
+                    <span className={accountFreeBalance >= 0 ? "text-blue-600" : "text-red-600"}>
                         {formatCurrency(accountFreeBalance, currency)}
                     </span>
                 ) : (

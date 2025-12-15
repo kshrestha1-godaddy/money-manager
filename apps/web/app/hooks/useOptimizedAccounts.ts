@@ -238,7 +238,7 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
                 totalFreeBalance += totalBankBalance;
             } else {
                 // Calculate free balance for this bank (total bank balance minus withheld amount)
-                const bankFreeBalance = Math.max(0, totalBankBalance - withheldAmountForBank);
+                const bankFreeBalance = totalBankBalance - withheldAmountForBank;
                 totalFreeBalance += bankFreeBalance;
             }
         }

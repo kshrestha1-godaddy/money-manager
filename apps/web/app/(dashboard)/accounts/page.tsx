@@ -246,10 +246,10 @@ export default function Accounts() {
                 </div>
                 <div className={cardContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRow}>
-                        <div className={`${UI_STYLES.summaryCard.indicator} bg-green-500`}></div>
+                        <div className={`${UI_STYLES.summaryCard.indicator} ${freeBalance >= 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
                         <h3 className={cardTitle}>Free Balance</h3>
                     </div>
-                    <p className={`${cardValue} text-green-600`}>
+                    <p className={`${cardValue} ${freeBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {loading ? "..." : formatCurrency(freeBalance, userCurrency)}
                     </p>
                     <p className={cardSubtitle}>available to use</p>
