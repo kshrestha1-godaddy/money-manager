@@ -16,6 +16,7 @@ interface ChartDataPoint {
     balance: number;
     withheld: number;
     free: number;
+    actualFree: number; // Actual free balance (can be negative)
     accountCount: number;
     percentage: number;
     withheldPercentage: number;
@@ -50,13 +51,14 @@ export function BankBalanceChart({ accounts, currency = "USD", withheldAmounts =
             .map(([bank, data]) => {
                 const withheld = withheldAmounts[bank] || 0;
                 const totalBalance = data.balance;
-                const free = totalBalance - withheld;
+                const actualFree = totalBalance - withheld;
                 
                 return {
                     bank,
                     balance: totalBalance,
                     withheld: withheld,
-                    free: free >= 0 ? free : 0, // Prevent negative free balance
+                    free: actualFree >= 0 ? actualFree : 0, // Prevent negative free balance for bars
+                    actualFree: actualFree, // Store actual free balance (can be negative) for tooltip
                     accountCount: data.accountCount
                 };
             })
@@ -68,7 +70,7 @@ export function BankBalanceChart({ accounts, currency = "USD", withheldAmounts =
         // Add percentage to each data point
         const chartDataPoints: ChartDataPoint[] = initialPoints.map(item => {
             const withheldPercentage = item.balance > 0 ? ((item.withheld / item.balance) * 100) : 0;
-            const freePercentage = item.balance > 0 ? ((item.free / item.balance) * 100) : 0;
+            const freePercentage = item.balance > 0 ? ((item.actualFree / item.balance) * 100) : 0; // Use actual free for percentage
             
             return {
                 ...item,
@@ -191,8 +193,8 @@ export function BankBalanceChart({ accounts, currency = "USD", withheldAmounts =
                                                 Total Balance: <span className="font-semibold">{formatCurrency(data.balance, currency)}</span>
                                             </p>
                                             <div className="border-t border-gray-200 my-1"></div>
-                                            <p className="text-xs sm:text-sm text-green-600 mb-1">
-                                                Free: <span className="font-semibold">{formatCurrency(data.free, currency)}</span> ({data.freePercentage.toFixed(1)}%)
+                                            <p className={`text-xs sm:text-sm mb-1 ${data.actualFree >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                Free: <span className="font-semibold">{formatCurrency(data.actualFree, currency)}</span> ({data.freePercentage.toFixed(1)}%)
                                             </p>
                                             <p className="text-xs sm:text-sm text-gray-600 mb-1">
                                                 Withheld: <span className="font-semibold">{formatCurrency(data.withheld, currency)}</span> ({data.withheldPercentage.toFixed(1)}%)
