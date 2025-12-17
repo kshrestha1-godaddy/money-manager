@@ -103,7 +103,7 @@ export async function getCurrentNetWorth(): Promise<{ success: boolean; data?: N
       const totalBankBalance = accountsInBank.reduce((sum: number, acc: any) => sum + (acc.balance || 0), 0);
       const accountProportion = totalBankBalance > 0 ? (account.balance || 0) / totalBankBalance : 0;
       const accountWithheldAmount = withheldAmountForBank * accountProportion;
-      const freeBalance = Math.max(0, (account.balance || 0) - accountWithheldAmount);
+      const freeBalance = (account.balance || 0) - accountWithheldAmount;
 
       return {
         ...account,

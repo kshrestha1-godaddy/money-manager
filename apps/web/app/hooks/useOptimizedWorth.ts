@@ -239,8 +239,8 @@ export function useOptimizedWorth() {
             const accountProportion = totalBankBalance > 0 ? (account.balance || 0) / totalBankBalance : 0;
             const accountWithheldAmount = withheldAmountForBank * accountProportion;
 
-            // Calculate free balance (ensure non-negative)
-            const freeBalance = Math.max(0, (account.balance || 0) - accountWithheldAmount);
+            // Calculate free balance (allow negative values)
+            const freeBalance = (account.balance || 0) - accountWithheldAmount;
 
             // Return modified account with free balance
             return {
