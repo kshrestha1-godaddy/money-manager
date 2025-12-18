@@ -18,6 +18,12 @@ interface FinancialAreaChartProps {
     hasPageFilters?: boolean; // New prop to indicate if page-level filters are applied
     pageStartDate?: string; // Page-level start date filter
     pageEndDate?: string; // Page-level end date filter
+    userThresholds?: {
+        autoBookmarkEnabled: boolean;
+        income: number;
+        expense: number;
+    };
+    thresholdsLoading?: boolean;
 }
 
 interface ChartDataPoint {
@@ -29,6 +35,7 @@ interface ChartDataPoint {
     minAmount: number;
     maxAmount: number;
     transactions: Array<{title: string; amount: number; category?: string}>;
+    isHighValue: boolean;
 }
 
 export function FinancialAreaChart({
@@ -38,12 +45,20 @@ export function FinancialAreaChart({
     title,
     hasPageFilters = false,
     pageStartDate,
-    pageEndDate
+    pageEndDate,
+    userThresholds,
+    thresholdsLoading = false
 }: FinancialAreaChartProps) {
     const [startDate, setStartDate] = useState<string>("");
     const [endDate, setEndDate] = useState<string>("");
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
+
+    // Use provided thresholds or fallback to defaults (50K income, 10K expense)
+    const activeThresholds = useMemo(() => ({
+        income: userThresholds?.income ?? 50000,
+        expense: userThresholds?.expense ?? 10000
+    }), [userThresholds]);
 
     // Get chart configuration based on type
     const chartConfig = {
@@ -201,6 +216,7 @@ export function FinancialAreaChart({
                 const averageAmount = dayData.count > 0 ? dayData.amount / dayData.count : 0;
                 const minAmount = dayData.amounts.length > 0 ? Math.min(...dayData.amounts) : 0;
                 const maxAmount = dayData.amounts.length > 0 ? Math.max(...dayData.amounts) : 0;
+                const isHighValue = dayData.amount > activeThresholds[type];
                 
                 return {
                     date,
@@ -210,7 +226,8 @@ export function FinancialAreaChart({
                     averageAmount,
                     minAmount,
                     maxAmount,
-                    transactions: dayData.transactions
+                    transactions: dayData.transactions,
+                    isHighValue
                 };
             })
             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -262,6 +279,7 @@ export function FinancialAreaChart({
                     const averageAmount = weekData.count > 0 ? weekData.amount / weekData.count : 0;
                     const minAmount = weekData.amounts.length > 0 ? Math.min(...weekData.amounts) : 0;
                     const maxAmount = weekData.amounts.length > 0 ? Math.max(...weekData.amounts) : 0;
+                    const isHighValue = weekData.amount > activeThresholds[type];
                     
                     return {
                         date,
@@ -271,7 +289,8 @@ export function FinancialAreaChart({
                         averageAmount,
                         minAmount,
                         maxAmount,
-                        transactions: weekData.transactions
+                        transactions: weekData.transactions,
+                        isHighValue
                     };
                 })
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -280,7 +299,7 @@ export function FinancialAreaChart({
         // console.log(`${chartConfig.label} chart final data:`, chartDataPoints.length, 'points');
 
         return chartDataPoints;
-    }, [filteredData, startDate, endDate, pageStartDate, pageEndDate, chartConfig.label, hasPageFilters, data, currency]);
+    }, [filteredData, startDate, endDate, pageStartDate, pageEndDate, chartConfig.label, hasPageFilters, data, currency, activeThresholds, type]);
 
 
     const formatTooltip = (value: number) => {
@@ -309,6 +328,62 @@ export function FinancialAreaChart({
             return `${(value / 1000).toFixed(1)}K`;
         }
         return formatCurrency(value, currency);
+    };
+
+    // Custom dot renderer for high-value markers - only show red blinking dots for values above threshold
+    const renderCustomDot = (props: any) => {
+        const { payload, cx, cy } = props;
+        
+        if (!payload?.isHighValue || thresholdsLoading) {
+            return <g key={`${payload?.date || 'unknown'}-empty`} />; // Return empty group for normal days
+        }
+
+        return (
+            <g key={`${payload?.date || 'unknown'}-marker`}>
+                {/* Pulse animation ring */}
+                <circle
+                    cx={cx}
+                    cy={cy}
+                    r={8}
+                    fill="none"
+                    stroke="#dc2626"
+                    strokeWidth={2}
+                    opacity={0.6}
+                >
+                    <animate
+                        attributeName="r"
+                        values="8;12;8"
+                        dur="2s"
+                        repeatCount="indefinite"
+                    />
+                    <animate
+                        attributeName="opacity"
+                        values="0.6;0.2;0.6"
+                        dur="2s"
+                        repeatCount="indefinite"
+                    />
+                </circle>
+                
+                {/* Main marker dot - always red for high values */}
+                <circle
+                    cx={cx}
+                    cy={cy}
+                    r={5}
+                    fill="#dc2626"
+                    stroke="white"
+                    strokeWidth={2}
+                />
+                
+                {/* Inner highlight dot */}
+                <circle
+                    cx={cx}
+                    cy={cy}
+                    r={2}
+                    fill="white"
+                    opacity={0.8}
+                />
+            </g>
+        );
     };
 
 
@@ -723,6 +798,7 @@ export function FinancialAreaChart({
                             fill={chartConfig.color}
                             fillOpacity={0.2}
                             strokeWidth={2}
+                            dot={renderCustomDot}
                         />
                     </AreaChart>
                 </ResponsiveContainer>
