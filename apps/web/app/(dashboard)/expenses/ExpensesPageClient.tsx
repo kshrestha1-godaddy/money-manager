@@ -123,6 +123,8 @@ export default function ExpensesPageClient() {
     setShowBookmarkedOnly,
     clearFilters,
     invalidateQueries,
+    userThresholds,
+    thresholdsLoading
   } = useOptimizedFinancialData<Expense>('EXPENSE', {
     getItems: getExpenses,
     createItem: createExpense,
@@ -256,8 +258,10 @@ export default function ExpensesPageClient() {
       hasPageFilters: hasActiveFilters,
       pageStartDate: startDate,
       pageEndDate: endDate,
+      userThresholds,
+      thresholdsLoading
     }),
-    [chartItems, userCurrency, hasActiveFilters, startDate, endDate]
+    [chartItems, userCurrency, hasActiveFilters, startDate, endDate, userThresholds, thresholdsLoading]
   );
 
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

@@ -112,6 +112,8 @@ export default function IncomesPageClient() {
     setShowBookmarkedOnly,
     clearFilters,
     invalidateQueries,
+    userThresholds,
+    thresholdsLoading
   } = useOptimizedFinancialData<Income>('INCOME', {
     getItems: getIncomes,
     createItem: createIncome,
@@ -245,8 +247,10 @@ export default function IncomesPageClient() {
       hasPageFilters: hasActiveFilters,
       pageStartDate: startDate,
       pageEndDate: endDate,
+      userThresholds,
+      thresholdsLoading
     }),
-    [chartItems, userCurrency, hasActiveFilters, startDate, endDate]
+    [chartItems, userCurrency, hasActiveFilters, startDate, endDate, userThresholds, thresholdsLoading]
   );
 
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

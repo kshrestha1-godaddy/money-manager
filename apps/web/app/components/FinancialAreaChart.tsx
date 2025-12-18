@@ -8,7 +8,6 @@ import { useChartExpansion } from "../utils/chartUtils";
 import { ChartControls } from "./ChartControls";
 import { convertForDisplaySync } from "../utils/currencyDisplay";
 import { DEFAULT_HIGH_VALUE_THRESHOLDS } from "../utils/thresholdUtils";
-import { useUserThresholds } from "../hooks/useUserThresholds";
 
 type FinancialTransaction = Income | Expense;
 
@@ -20,6 +19,12 @@ interface FinancialAreaChartProps {
     hasPageFilters?: boolean; // New prop to indicate if page-level filters are applied
     pageStartDate?: string; // Page-level start date filter
     pageEndDate?: string; // Page-level end date filter
+    userThresholds?: {
+        autoBookmarkEnabled: boolean;
+        incomeThreshold: number;
+        expenseThreshold: number;
+    };
+    thresholdsLoading?: boolean;
 }
 
 interface ChartDataPoint {
@@ -41,20 +46,19 @@ export function FinancialAreaChart({
     title,
     hasPageFilters = false,
     pageStartDate,
-    pageEndDate
+    pageEndDate,
+    userThresholds,
+    thresholdsLoading = false
 }: FinancialAreaChartProps) {
     const [startDate, setStartDate] = useState<string>("");
     const [endDate, setEndDate] = useState<string>("");
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
 
-    // Get user's configured thresholds
-    const { thresholds: userThresholds, loading: thresholdsLoading } = useUserThresholds();
-    
-    // Use user thresholds or fallback to defaults
+    // Use provided thresholds or fallback to defaults
     const activeThresholds = {
-        income: userThresholds.incomeThreshold,
-        expense: userThresholds.expenseThreshold
+        income: userThresholds?.incomeThreshold ?? DEFAULT_HIGH_VALUE_THRESHOLDS.income,
+        expense: userThresholds?.expenseThreshold ?? DEFAULT_HIGH_VALUE_THRESHOLDS.expense
     };
 
     // Get chart configuration based on type
