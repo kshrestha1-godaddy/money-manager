@@ -9,7 +9,6 @@ import { exportCategoriesByType } from "../utils/csvExportCategories";
 import { NotificationData } from "../components/DisappearingNotification";
 import { formatCurrency } from "../utils/currency";
 import { convertForDisplaySync } from "../utils/currencyDisplay";
-import { getUserThresholds } from "../actions/notifications";
 
 
 export interface UseOptimizedFinancialDataOptions {
@@ -31,7 +30,6 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     items: [`${categoryType.toLowerCase()}s`] as const,
     categories: ['categories', categoryType] as const,
     accounts: ['accounts'] as const,
-    thresholds: ['user-thresholds'] as const,
   }), [categoryType]);
 
   // Modal states
@@ -83,15 +81,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     enabled: options.fetchAccounts !== false,
   });
 
-  // Fetch user thresholds alongside other data
-  const { data: userThresholds = { autoBookmarkEnabled: true, incomeThreshold: 50000, expenseThreshold: 10000 }, isLoading: thresholdsLoading } = useQuery({
-    queryKey: QUERY_KEYS.thresholds,
-    queryFn: getUserThresholds,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 15 * 60 * 1000, // 15 minutes
-  });
-
-  const loading = itemsLoading || categoriesLoading || accountsLoading || thresholdsLoading;
+  const loading = itemsLoading || categoriesLoading || accountsLoading;
 
   // Optimized mutations with cache updates
   const createItemMutation = useMutation({
@@ -474,15 +464,10 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     createCategoryMutation,
     deleteCategoryMutation,
     
-    // User thresholds
-    userThresholds,
-    thresholdsLoading,
-    
     // Query invalidation helper
     invalidateQueries: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.items });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.thresholds });
     }
   };
 } 
