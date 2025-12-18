@@ -37,6 +37,8 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
         // Fixed Deposit specific fields
         interestRate: "",
         maturityDate: "",
+        // Account deduction control
+        deductFromAccount: true,
     });
 
     const [accounts, setAccounts] = useState<Account[]>([]);
@@ -49,12 +51,6 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
         }
     }, [isOpen]);
 
-    // Auto-set quantity to 1 for deposit-like investment types
-    useEffect(() => {
-        if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') {
-            setFormData(prev => ({ ...prev, quantity: "1" }));
-        }
-    }, [formData.type]);
 
     const loadAccounts = async () => {
         try {
@@ -91,83 +87,36 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                 return;
             }
             
-            if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') {
-                // Fixed Deposit and similar investment types validation
-                if (!formData.purchasePrice || parseFloat(formData.purchasePrice) <= 0) {
-                    setError("Principal amount must be greater than 0");
-                    return;
-                }
-                if (formData.interestRate && parseFloat(formData.interestRate) < 0) {
-                    setError("Interest rate must be 0 or greater");
-                    return;
-                }
-                // Only require maturity date for Fixed Deposits, make it optional for other types
-                if (formData.type === 'FIXED_DEPOSIT' && !formData.maturityDate) {
-                    setError("Maturity date is required for Fixed Deposits");
-                    return;
-                }
-                if (formData.maturityDate && formData.purchaseDate && new Date(formData.maturityDate) <= new Date(formData.purchaseDate)) {
-                    setError("Maturity date must be after the deposit date");
-                    return;
-                }
-            } else if (formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') {
-                // Provident Funds and Safe Keepings validation - simpler requirements
-                if (!formData.purchasePrice || parseFloat(formData.purchasePrice) <= 0) {
-                    setError("Investment amount must be greater than 0");
-                    return;
-                }
-                // Quantity is not relevant for these types, set to 1
-                // Interest rate and maturity date are optional
-            } else {
-                // Regular investment validation
-                if (!formData.quantity || parseFloat(formData.quantity) <= 0) {
-                    setError("Quantity must be greater than 0");
-                    return;
-                }
-                if (!formData.purchasePrice || parseFloat(formData.purchasePrice) <= 0) {
-                    setError("Purchase price must be greater than 0");
-                    return;
-                }
-                if (!formData.currentPrice || parseFloat(formData.currentPrice) < 0) {
-                    setError("Current price must be 0 or greater");
-                    return;
-                }
+            // Simplified validation - no category-specific checks
+            if (!formData.quantity || parseFloat(formData.quantity) <= 0) {
+                setError("Quantity must be greater than 0");
+                return;
+            }
+            if (!formData.purchasePrice || parseFloat(formData.purchasePrice) <= 0) {
+                setError("Purchase price must be greater than 0");
+                return;
+            }
+            if (!formData.currentPrice || parseFloat(formData.currentPrice) < 0) {
+                setError("Current price must be 0 or greater");
+                return;
             }
             
             // Account selection is now optional for all investment types
             // Users can choose to link an account or track investments independently
 
-            // Validate account balance for investment amount (only if account is selected)
-            if (formData.accountId) {
-                const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
-                let totalInvestmentAmount: number;
-                
-                if (formData.type === 'FIXED_DEPOSIT') {
-                    totalInvestmentAmount = parseFloat(formData.purchasePrice); // Principal amount for FD
-                } else if (formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS') {
-                    totalInvestmentAmount = parseFloat(formData.purchasePrice); // Investment amount
-                } else {
-                    totalInvestmentAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice || "0");
-                }
-                
-                if (selectedAccount && selectedAccount.balance !== undefined && selectedAccount.balance !== null) {
-                    if (totalInvestmentAmount > selectedAccount.balance) {
-                        setError(`Insufficient balance. Investment total of ${formatCurrency(totalInvestmentAmount, userCurrency)} exceeds account balance of ${formatCurrency(selectedAccount.balance, userCurrency)}.`);
-                        return;
-                    }
-                }
-            }
+            // No balance validation needed since we're only marking for withholding, not actually deducting
 
             const investmentData: any = {
                 name: formData.name.trim(),
                 type: formData.type,
                 symbol: formData.symbol.trim() || undefined,
-                quantity: (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') ? 1 : parseFloat(formData.quantity || "0"),
+                quantity: parseFloat(formData.quantity || "0"),
                 purchasePrice: parseFloat(formData.purchasePrice || "0"),
-                currentPrice: (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') ? parseFloat(formData.purchasePrice || "0") : parseFloat(formData.currentPrice || "0"),
+                currentPrice: parseFloat(formData.currentPrice || "0"),
                 purchaseDate: new Date(formData.purchaseDate + 'T00:00:00'),
                 accountId: formData.accountId ? parseInt(formData.accountId) : null,
                 notes: formData.notes.trim() || undefined,
+                deductFromAccount: formData.deductFromAccount,
             };
 
             // Add type-specific fields
@@ -200,6 +149,8 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                 // Fixed Deposit specific fields
                 interestRate: "",
                 maturityDate: "",
+                // Account deduction control
+                deductFromAccount: true,
             });
             
             // Close modal on success
@@ -212,7 +163,11 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
     };
 
     const handleInputChange = (field: string, value: string) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
+        if (field === 'deductFromAccount') {
+            setFormData(prev => ({ ...prev, [field]: value === 'true' }));
+        } else {
+            setFormData(prev => ({ ...prev, [field]: value }));
+        }
         setError(null);
     };
 
@@ -483,12 +438,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                         <label htmlFor="accountId" className="block text-sm font-medium text-gray-700 mb-1">
                             Account (Optional) {formData.accountId && (() => {
                                 const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
-                                let totalAmount: number;
-                                if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') {
-                                    totalAmount = parseFloat(formData.purchasePrice || "0");
-                                } else {
-                                    totalAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice || "0");
-                                }
+                                const totalAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice || "0");
                                 if (selectedAccount && totalAmount > 0) {
                                     return (
                                         <span className="text-sm text-gray-500">
@@ -514,27 +464,35 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                         </select>
                         <p className="text-sm text-gray-500 mt-1">
                             {formData.accountId 
-                                ? "Investment amount will be deducted from the selected account balance." 
-                                : "Investment will be tracked independently without affecting any account balance."
+                                ? (formData.deductFromAccount 
+                                    ? "Investment amount will be marked as withheld from the selected account." 
+                                    : "Investment will be tracked independently without being withheld from the account.")
+                                : "Investment will be tracked independently without being linked to any account."
                             }
                         </p>
-                        {formData.accountId && formData.purchasePrice && (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION' || formData.quantity) && (() => {
-                            const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
-                            let totalAmount: number;
-                            if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') {
-                                totalAmount = parseFloat(formData.purchasePrice);
-                            } else {
-                                totalAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice);
-                            }
-                            if (selectedAccount && selectedAccount.balance !== undefined && selectedAccount.balance !== null && totalAmount > selectedAccount.balance) {
-                                return (
-                                    <p className="text-sm text-red-600 mt-1">
-                                        Insufficient balance. Available: {formatCurrency(selectedAccount.balance, userCurrency)}
-                                    </p>
-                                );
-                            }
-                            return null;
-                        })()}
+                        
+                        {/* Withhold from Account Option - only show when account is selected */}
+                        {formData.accountId && (
+                            <div className="mt-3">
+                                <label className="flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.deductFromAccount}
+                                        onChange={(e) => handleInputChange("deductFromAccount", e.target.checked.toString())}
+                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span className="ml-2 text-sm text-gray-700">
+                                        Mark investment amount as withheld from account
+                                    </span>
+                                </label>
+                                <p className="text-xs text-gray-500 ml-6 mt-1">
+                                    {formData.deductFromAccount 
+                                        ? "This investment amount will show as withheld in the accounts section"
+                                        : "This investment amount will not be considered as withheld from the account"
+                                    }
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     <div>
@@ -562,36 +520,8 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                         </button>
                         <button
                             type="submit"
-                            disabled={loading || (() => {
-                                if (formData.accountId && formData.purchasePrice && (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION' || formData.quantity)) {
-                                    const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
-                                    let totalAmount: number;
-                                    if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') {
-                                        totalAmount = parseFloat(formData.purchasePrice);
-                                    } else {
-                                        totalAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice);
-                                    }
-                                    return selectedAccount && selectedAccount.balance !== undefined && selectedAccount.balance !== null && totalAmount > selectedAccount.balance;
-                                }
-                                return false;
-                            })()}
-                            className={`flex-1 px-4 py-2 rounded-md disabled:opacity-50 ${
-                                (() => {
-                                    if (formData.accountId && formData.purchasePrice && (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION' || formData.quantity)) {
-                                        const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
-                                        let totalAmount: number;
-                                        if (formData.type === 'FIXED_DEPOSIT' || formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') {
-                                            totalAmount = parseFloat(formData.purchasePrice);
-                                        } else {
-                                            totalAmount = parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice);
-                                        }
-                                        if (selectedAccount && selectedAccount.balance !== undefined && selectedAccount.balance !== null && totalAmount > selectedAccount.balance) {
-                                            return 'bg-gray-400 text-white cursor-not-allowed';
-                                        }
-                                    }
-                                    return 'bg-blue-600 hover:bg-blue-700 text-white';
-                                })()
-                            }`}
+                            disabled={loading}
+                            className="flex-1 px-4 py-2 rounded-md disabled:opacity-50 bg-blue-600 hover:bg-blue-700 text-white"
                         >
                             {loading ? "Adding..." : "Add Investment"}
                         </button>

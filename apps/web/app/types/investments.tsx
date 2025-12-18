@@ -13,6 +13,8 @@ export interface InvestmentInterface {
     // Fixed Deposit specific fields
     interestRate?: number; // Annual interest rate as percentage
     maturityDate?: Date; // When the FD matures
+    // Account deduction control
+    deductFromAccount?: boolean; // Whether to deduct investment amount from linked account balance
     createdAt: Date;
     updatedAt: Date;
     // Account information (populated when included)

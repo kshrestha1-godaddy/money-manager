@@ -169,6 +169,8 @@ model Investment {
   // Fixed Deposit specific fields
   interestRate Decimal? // Annual interest rate as percentage for fixed deposits
   maturityDate DateTime? // Maturity date for fixed deposits
+  // Account deduction control
+  deductFromAccount Boolean @default(true) // Whether to deduct investment amount from linked account balance
   // Liquidity and Risk Assessment
   isLiquid Boolean @default(false)
   liquidityTimeframe LiquidityTimeframe @default(DAYS)

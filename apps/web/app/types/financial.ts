@@ -93,6 +93,8 @@ export interface Investment {
   accountId?: number;
   userId: number;
   notes?: string;
+  // Account deduction control
+  deductFromAccount?: boolean; // Whether to deduct investment amount from linked account balance
   createdAt: Date;
   updatedAt: Date;
 }

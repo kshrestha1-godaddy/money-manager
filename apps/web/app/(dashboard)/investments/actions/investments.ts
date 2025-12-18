@@ -112,6 +112,7 @@ export async function getUserInvestments(): Promise<{ data?: InvestmentInterface
                     accountId: investment.accountId,
                     userId: investment.userId,
                     notes: investment.notes,
+                    deductFromAccount: investment.deductFromAccount,
                     createdAt: new Date(investment.createdAt),
                     updatedAt: new Date(investment.updatedAt),
                     account: transformedAccount,
@@ -165,7 +166,7 @@ export async function createInvestment(investment: Omit<InvestmentInterface, 'id
             }
         }
 
-        // Create the investment without modifying account balance
+        // Create the investment without modifying account balances
         const result = await prisma.investment.create({
             data: {
                 ...investment,
@@ -214,6 +215,7 @@ export async function createInvestment(investment: Omit<InvestmentInterface, 'id
             accountId: result.accountId,
             userId: result.userId,
             notes: result.notes,
+            deductFromAccount: result.deductFromAccount,
             createdAt: new Date(result.createdAt),
             updatedAt: new Date(result.updatedAt),
             account: transformedAccount,
@@ -236,30 +238,25 @@ export async function updateInvestment(id: number, investment: Partial<Omit<Inve
 
         const userId = getUserIdFromSession(session.user.id);
 
-        // Use a transaction to handle investment update and account balance changes
-        const result = await prisma.$transaction(async (tx) => {
-            // Verify the investment belongs to the user
-            const existingInvestment = await tx.investment.findFirst({
-                where: {
-                    id,
-                    userId: userId,
-                },
-            });
+        // Verify the investment belongs to the user and update it without modifying account balances
+        const existingInvestment = await prisma.investment.findFirst({
+            where: {
+                id,
+                userId: userId,
+            },
+        });
 
-            if (!existingInvestment) {
-                throw new Error("Investment not found or unauthorized");
-            }
+        if (!existingInvestment) {
+            throw new Error("Investment not found or unauthorized");
+        }
 
-            // Update the investment
-            const updatedInvestment = await tx.investment.update({
-                where: { id },
-                data: investment,
-                include: {
-                    account: true,
-                },
-            });
-
-            return updatedInvestment;
+        // Update the investment without any account balance modifications
+        const result = await prisma.investment.update({
+            where: { id },
+            data: investment,
+            include: {
+                account: true,
+            },
         });
 
         // Revalidate related pages
@@ -290,6 +287,7 @@ export async function updateInvestment(id: number, investment: Partial<Omit<Inve
             accountId: result.accountId,
             userId: result.userId,
             notes: result.notes,
+            deductFromAccount: result.deductFromAccount,
             createdAt: new Date(result.createdAt),
             updatedAt: new Date(result.updatedAt),
             account: transformedAccount,

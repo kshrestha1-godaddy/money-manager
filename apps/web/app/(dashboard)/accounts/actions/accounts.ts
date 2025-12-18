@@ -416,22 +416,19 @@ export async function bulkCreateAccounts(accounts: Omit<AccountInterface, 'id' |
 
 /**
  * Get withheld amounts from investments grouped by bank name
- * Withheld amounts are from ALL investment types EXCEPT: GOLD, BONDS, MUTUAL_FUNDS, CRYPTO, REAL_ESTATE
- * These categories represent amounts physically stored in bank accounts
+ * Only includes investments where deductFromAccount is true (user has chosen to mark as withheld)
  */
 export async function getWithheldAmountsByBank(): Promise<Record<string, number>> {
     try {
         const session = await getAuthenticatedSession();
         const userId = getUserIdFromSession(session.user.id);
 
-        // Fetch investments that represent withheld amounts in banks
-        // Exclude investment types that are NOT stored in banks (external investments)
+        // Fetch investments that are specifically marked as withheld from accounts
+        // Only include investments where deductFromAccount is true
         const withheldInvestments = await prisma.investment.findMany({
             where: {
                 userId: userId,
-                type: {
-                    notIn: ['GOLD', 'BONDS', 'MUTUAL_FUNDS', 'CRYPTO', 'REAL_ESTATE']
-                },
+                deductFromAccount: true, // Only include investments marked as withheld
                 accountId: {
                     not: null // Only include investments linked to accounts
                 }
@@ -452,16 +449,8 @@ export async function getWithheldAmountsByBank(): Promise<Record<string, number>
             if (investment.account) {
                 const bankName = investment.account.bankName;
                 
-                // Calculate amount based on investment type
-                // For stocks, use quantity * purchasePrice
-                // For fixed deposits and other bank-stored investments, use purchasePrice only
-                let amount: number;
-                if (investment.type === 'STOCKS') {
-                    amount = parseFloat(investment.quantity.toString()) * parseFloat(investment.purchasePrice.toString());
-                } else {
-                    // FIXED_DEPOSIT, PROVIDENT_FUNDS, SAFE_KEEPINGS, EMERGENCY_FUND, MARRIAGE, VACATION, OTHER
-                    amount = parseFloat(investment.purchasePrice.toString());
-                }
+                // Calculate investment amount using simplified formula: quantity × purchasePrice
+                const amount = parseFloat(investment.quantity.toString()) * parseFloat(investment.purchasePrice.toString());
                 
                 if (withheldByBank[bankName]) {
                     withheldByBank[bankName] += amount;

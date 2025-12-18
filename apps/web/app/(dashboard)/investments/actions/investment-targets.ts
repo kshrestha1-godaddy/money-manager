@@ -209,11 +209,9 @@ export async function getInvestmentTargetProgress(): Promise<{ data?: Investment
             },
         });
 
-        // Calculate current amounts by investment type
+        // Calculate current amounts by investment type using simplified formula: quantity × currentPrice
         const currentAmountsByType = investments.reduce((acc, investment) => {
-            const currentValue = investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS'
-                ? parseFloat(investment.currentPrice.toString())
-                : parseFloat(investment.quantity.toString()) * parseFloat(investment.currentPrice.toString());
+            const currentValue = parseFloat(investment.quantity.toString()) * parseFloat(investment.currentPrice.toString());
             
             acc[investment.type] = (acc[investment.type] || 0) + currentValue;
             return acc;
