@@ -1,0 +1,716 @@
+// Database Schema in DBML format
+// Generated from PostgreSQL schema
+// Project: Money Manager Portfolio Application
+// Date: 2024-12-18
+
+// Enums
+enum CategoryType {
+  EXPENSE
+  INCOME
+}
+
+enum RecurringFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum InvestmentType {
+  STOCKS
+  CRYPTO
+  MUTUAL_FUNDS
+  BONDS
+  REAL_ESTATE
+  GOLD
+  FIXED_DEPOSIT
+  PROVIDENT_FUNDS
+  SAFE_KEEPINGS
+  EMERGENCY_FUND
+  MARRIAGE
+  VACATION
+  OTHER
+}
+
+enum BudgetPeriod {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum DebtStatus {
+  ACTIVE
+  PARTIALLY_PAID
+  FULLY_PAID
+  OVERDUE
+  DEFAULTED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  UNSUBSCRIBED
+  BOUNCED
+}
+
+enum LoanStatus {
+  ACTIVE
+  PARTIALLY_PAID
+  FULLY_PAID
+  OVERDUE
+  DEFAULTED
+}
+
+enum NotificationType {
+  LOW_BALANCE
+  DUE_DATE_REMINDER
+  SPENDING_ALERT
+  INVESTMENT_MATURITY
+  DEBT_REMINDER
+  LOAN_REMINDER
+  PASSWORD_EXPIRY
+  MONTHLY_SUMMARY
+  PASSWORD_SHARED
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum ActivityAction {
+  CREATE
+  UPDATE
+  DELETE
+  READ
+  BULK_CREATE
+  BULK_UPDATE
+  BULK_DELETE
+  BULK_IMPORT
+  EXPORT
+  LOGIN
+  LOGOUT
+  SHARE
+  SYNC
+  CALCULATE
+  GENERATE
+  SEND
+}
+
+enum ActivityEntityType {
+  EXPENSE
+  INCOME
+  INVESTMENT
+  DEBT
+  LOAN
+  ACCOUNT
+  CATEGORY
+  BUDGET_TARGET
+  DEBT_REPAYMENT
+  LOAN_REPAYMENT
+  USER
+  USER_PROFILE
+  USER_SETTINGS
+  NOTIFICATION
+  PASSWORD
+  BOOKMARK
+  EMERGENCY_EMAIL
+  PASSWORD_SHARE
+  REPORT
+  EXPORT
+  IMPORT
+  SESSION
+  AUTHENTICATION
+  NET_WORTH_INCLUSION
+  SYSTEM
+  CRON_JOB
+  NOTE
+}
+
+enum ActivityCategory {
+  TRANSACTION
+  ACCOUNT
+  INVESTMENT
+  DEBT_LOAN
+  AUTHENTICATION
+  SECURITY
+  NOTIFICATION
+  BUDGET
+  REPORT
+  SYSTEM
+  USER_MANAGEMENT
+  BULK_OPERATION
+  NOTE
+}
+
+enum ActivitySeverity {
+  DEBUG
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+enum ActivityStatus {
+  SUCCESS
+  FAILED
+  ERROR
+  PARTIAL
+  PENDING
+}
+
+enum WorthEntityType {
+  ACCOUNT
+  INVESTMENT
+  DEBT
+}
+
+enum PasswordShareReason {
+  INACTIVITY
+  MANUAL
+}
+
+enum LiquidityTimeframe {
+  IMMEDIATE
+  DAYS
+  WEEKS
+  MONTHS
+  YEARS
+}
+
+enum RiskLevel {
+  VERY_LOW
+  LOW
+  MEDIUM
+  HIGH
+  VERY_HIGH
+}
+
+enum ChatSender {
+  USER
+  ASSISTANT
+}
+
+enum ChatMessageType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM
+  ERROR
+}
+
+enum ChatFeedback {
+  LIKE
+  DISLIKE
+}
+
+// Tables
+Table User {
+  id integer [pk, increment]
+  email varchar [unique, null]
+  name varchar [null]
+  number varchar [unique, not null]
+  password varchar [not null]
+  profilePictureUrl varchar [null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+  currency varchar [default: 'USD']
+  timezone varchar [default: 'UTC']
+}
+
+Table Account {
+  id integer [pk, increment]
+  holderName varchar [not null]
+  accountNumber varchar [unique, not null]
+  branchCode varchar [not null]
+  bankName varchar [not null]
+  branchName varchar [not null]
+  bankAddress varchar [not null]
+  accountType varchar [not null]
+  mobileNumbers varchar[] [not null]
+  branchContacts varchar[] [not null]
+  swift varchar [not null]
+  bankEmail varchar [not null]
+  accountOpeningDate timestamp [not null]
+  securityQuestion varchar[] [not null]
+  userId integer [ref: > User.id, not null]
+  balance decimal [default: 0]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+  appPassword varchar [null]
+  appPin varchar [null]
+  appUsername varchar [null]
+  nickname varchar [null]
+  notes text [null]
+  isEmergencyFund boolean [default: false]
+  isLiquid boolean [default: true]
+  liquidityTimeframe LiquidityTimeframe [default: 'IMMEDIATE']
+  riskLevel RiskLevel [default: 'VERY_LOW']
+}
+
+Table Category {
+  id integer [pk, increment]
+  name varchar [not null]
+  type CategoryType [not null]
+  color varchar [default: '#6366f1']
+  icon varchar [null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+  userId integer [ref: > User.id, not null]
+  includedInBudget boolean [default: true]
+}
+
+Table Expense {
+  id integer [pk, increment]
+  title varchar [not null]
+  description text [null]
+  amount decimal [not null]
+  date timestamp [default: `now()`]
+  categoryId integer [ref: > Category.id, not null]
+  accountId integer [ref: > Account.id, null]
+  userId integer [ref: > User.id, not null]
+  tags varchar[] [not null]
+  receipt varchar [null]
+  isRecurring boolean [default: false]
+  recurringFrequency RecurringFrequency [null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+  notes text [null]
+  location varchar[] [not null]
+  currency varchar [default: 'USD']
+}
+
+Table Income {
+  id integer [pk, increment]
+  title varchar [not null]
+  description text [null]
+  amount decimal [not null]
+  date timestamp [default: `now()`]
+  categoryId integer [ref: > Category.id, not null]
+  accountId integer [ref: > Account.id, null]
+  userId integer [ref: > User.id, not null]
+  tags varchar[] [not null]
+  isRecurring boolean [default: false]
+  recurringFrequency RecurringFrequency [null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+  notes text [null]
+  location varchar[] [not null]
+  currency varchar [default: 'USD']
+}
+
+Table Investment {
+  id integer [pk, increment]
+  name varchar [not null]
+  type InvestmentType [not null]
+  symbol varchar [null]
+  quantity decimal [not null]
+  purchasePrice decimal [not null]
+  currentPrice decimal [default: 0]
+  purchaseDate timestamp [not null]
+  accountId integer [ref: > Account.id, null]
+  userId integer [ref: > User.id, not null]
+  notes text [null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+  interestRate decimal [null]
+  maturityDate timestamp [null]
+  hasMaturityDate boolean [default: false]
+  isInflationHedge boolean [default: false]
+  isLiquid boolean [default: false]
+  liquidityTimeframe LiquidityTimeframe [default: 'DAYS']
+  riskLevel RiskLevel [default: 'MEDIUM']
+  deductFromAccount boolean [default: true]
+}
+
+Table InvestmentTarget {
+  id integer [pk, increment]
+  investmentType InvestmentType [not null]
+  targetAmount decimal [not null]
+  userId integer [ref: > User.id, not null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+  targetCompletionDate timestamp [null]
+  nickname varchar [null]
+  
+  indexes {
+    (userId, investmentType) [unique]
+    userId
+  }
+}
+
+Table BudgetTarget {
+  id integer [pk, increment]
+  name varchar [not null]
+  targetAmount decimal [not null]
+  currentAmount decimal [default: 0]
+  period BudgetPeriod [not null]
+  startDate timestamp [not null]
+  endDate timestamp [not null]
+  userId integer [ref: > User.id, not null]
+  isActive boolean [default: true]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+}
+
+Table Debt {
+  id integer [pk, increment]
+  borrowerName varchar [not null]
+  borrowerContact varchar [null]
+  borrowerEmail varchar [null]
+  amount decimal [not null]
+  interestRate decimal [default: 0]
+  dueDate timestamp [null]
+  lentDate timestamp [default: `now()`]
+  status DebtStatus [default: 'ACTIVE']
+  purpose text [null]
+  notes text [null]
+  userId integer [ref: > User.id, not null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+  accountId integer [ref: > Account.id, null]
+  borrowerCreditRating varchar [null]
+  hasCollateral boolean [default: false]
+  isLiquid boolean [default: false]
+  liquidityTimeframe LiquidityTimeframe [default: 'MONTHS']
+  riskLevel RiskLevel [default: 'MEDIUM']
+}
+
+Table DebtRepayment {
+  id integer [pk, increment]
+  amount decimal [not null]
+  repaymentDate timestamp [default: `now()`]
+  notes text [null]
+  debtId integer [ref: > Debt.id, not null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+  accountId integer [ref: > Account.id, null]
+}
+
+Table Bookmark {
+  id integer [pk, increment]
+  title varchar [not null]
+  url varchar [not null]
+  description text [null]
+  category varchar [null]
+  favicon varchar [null]
+  tags varchar[] [not null]
+  userId integer [ref: > User.id, not null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+}
+
+Table Subscriber {
+  id integer [pk, increment]
+  email varchar [unique, not null]
+  name varchar [null]
+  phone varchar [null]
+  status SubscriptionStatus [default: 'ACTIVE']
+  subscribedAt timestamp [default: `now()`]
+  unsubscribedAt timestamp [null]
+  newsletterEnabled boolean [default: true]
+  marketingEnabled boolean [default: false]
+  productUpdatesEnabled boolean [default: true]
+  weeklyDigestEnabled boolean [default: true]
+  source varchar [null]
+  tags varchar[] [not null]
+  lastEngagementAt timestamp [null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+}
+
+Table WhitelistedEmail {
+  id integer [pk, increment]
+  email varchar [unique, not null]
+  addedBy varchar [null]
+  reason text [null]
+  isActive boolean [default: true]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+}
+
+Table Loan {
+  id integer [pk, increment]
+  lenderName varchar [not null]
+  lenderContact varchar [null]
+  lenderEmail varchar [null]
+  amount decimal [not null]
+  interestRate decimal [default: 0]
+  dueDate timestamp [null]
+  takenDate timestamp [default: `now()`]
+  status LoanStatus [default: 'ACTIVE']
+  purpose text [null]
+  notes text [null]
+  accountId integer [ref: > Account.id, null]
+  userId integer [ref: > User.id, not null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+}
+
+Table LoanRepayment {
+  id integer [pk, increment]
+  amount decimal [not null]
+  repaymentDate timestamp [default: `now()`]
+  notes text [null]
+  loanId integer [ref: > Loan.id, not null]
+  accountId integer [ref: > Account.id, null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+}
+
+Table Password {
+  id integer [pk, increment]
+  websiteName varchar [not null]
+  username varchar [not null]
+  passwordHash varchar [not null]
+  notes text [null]
+  favicon varchar [null]
+  category varchar [null]
+  tags varchar[] [not null]
+  userId integer [ref: > User.id, not null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+  transactionPin varchar [null]
+  validity timestamp [null]
+  description text [not null]
+}
+
+Table Notification {
+  id integer [pk, increment]
+  title varchar [not null]
+  message text [not null]
+  type NotificationType [not null]
+  priority NotificationPriority [default: 'NORMAL']
+  isRead boolean [default: false]
+  actionUrl varchar [null]
+  metadata json [null]
+  userId integer [ref: > User.id, not null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+}
+
+Table DismissedNotification {
+  id integer [pk, increment]
+  userId integer [ref: > User.id, not null]
+  notificationType NotificationType [not null]
+  entityId varchar [not null]
+  dismissedAt timestamp [default: `now()`]
+  
+  indexes {
+    (userId, notificationType)
+    (userId, notificationType, entityId) [unique]
+  }
+}
+
+Table NotificationSettings {
+  id integer [pk, increment]
+  lowBalanceEnabled boolean [default: true]
+  lowBalanceThreshold decimal [default: 500]
+  dueDateEnabled boolean [default: true]
+  dueDateDaysBefore integer [default: 7]
+  spendingAlertsEnabled boolean [default: true]
+  monthlySpendingLimit decimal [default: 5000]
+  investmentAlertsEnabled boolean [default: true]
+  emailNotifications boolean [default: false]
+  pushNotifications boolean [default: true]
+  userId integer [ref: - User.id, unique, not null, note: 'One-to-one relationship with User']
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+  highValueIncomeThreshold decimal [default: 50000, note: 'Auto-bookmark threshold for income']
+  highValueExpenseThreshold decimal [default: 10000, note: 'Auto-bookmark threshold for expenses']
+  autoBookmarkEnabled boolean [default: true, note: 'Enable auto-bookmarking for high-value transactions']
+}
+
+Table AccountThreshold {
+  id integer [pk, increment]
+  accountId integer [ref: > Account.id, not null]
+  lowBalanceThreshold decimal [default: 500]
+  userId integer [ref: > User.id, not null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+  
+  indexes {
+    (accountId, userId) [unique]
+    userId
+  }
+}
+
+Table TransactionBookmark {
+  id integer [pk, increment]
+  transactionType varchar [not null, note: 'INCOME or EXPENSE']
+  transactionId integer [not null]
+  title varchar [not null]
+  description text [null]
+  notes text [null]
+  tags varchar[] [not null]
+  userId integer [ref: > User.id, not null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+  
+  indexes {
+    (transactionType, transactionId, userId) [unique]
+  }
+}
+
+Table UserCheckin {
+  id integer [pk, increment]
+  userId integer [ref: > User.id, not null]
+  checkinAt timestamp [default: `now()`]
+  ipAddress varchar [null]
+  userAgent text [null]
+  
+  indexes {
+    (userId, checkinAt)
+  }
+}
+
+Table EmergencyEmail {
+  id integer [pk, increment]
+  email varchar [not null]
+  label varchar [null]
+  userId integer [ref: > User.id, not null]
+  isActive boolean [default: true]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+  
+  indexes {
+    (userId, email) [unique]
+    userId
+  }
+}
+
+Table PasswordShare {
+  id integer [pk, increment]
+  userId integer [ref: > User.id, not null]
+  recipientEmail varchar [not null]
+  sentAt timestamp [default: `now()`]
+  passwordCount integer [not null]
+  shareReason PasswordShareReason [default: 'INACTIVITY']
+  secretKey varchar [null]
+  expiresAt timestamp [null]
+  
+  indexes {
+    (userId, sentAt)
+  }
+}
+
+Table NetWorthInclusion {
+  id integer [pk, increment]
+  userId integer [ref: > User.id, not null]
+  entityType WorthEntityType [not null]
+  entityId integer [not null]
+  includeInNetWorth boolean [default: true]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+  
+  indexes {
+    (userId, entityType, entityId) [unique]
+    (userId, entityType)
+    (userId, includeInNetWorth)
+  }
+}
+
+Table ActivityLog {
+  id integer [pk, increment]
+  userId integer [ref: > User.id, null]
+  action ActivityAction [not null]
+  entityType ActivityEntityType [not null]
+  entityId integer [null]
+  description text [not null]
+  metadata json [null]
+  ipAddress varchar [null]
+  userAgent text [null]
+  sessionId varchar [null]
+  category ActivityCategory [default: 'TRANSACTION']
+  severity ActivitySeverity [default: 'INFO']
+  status ActivityStatus [default: 'SUCCESS']
+  errorMessage text [null]
+  duration integer [null]
+  createdAt timestamp [default: `now()`]
+  
+  indexes {
+    (userId, createdAt)
+    (entityType, action)
+    (category, createdAt)
+    (status, severity)
+    createdAt
+  }
+}
+
+Table Note {
+  id integer [pk, increment]
+  title varchar [not null]
+  content text [null]
+  color varchar [default: '#fbbf24']
+  isPinned boolean [default: false]
+  isArchived boolean [default: false]
+  tags varchar[] [not null]
+  relatedExpenseId integer [null]
+  relatedIncomeId integer [null]
+  relatedInvestmentId integer [null]
+  relatedDebtId integer [null]
+  relatedLoanId integer [null]
+  relatedAccountId integer [null]
+  amount decimal [null]
+  currency varchar [default: 'USD']
+  noteDate timestamp [null]
+  reminderDate timestamp [null]
+  userId integer [ref: > User.id, not null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+  
+  indexes {
+    (userId, isPinned)
+    (userId, isArchived)
+    (userId, createdAt)
+    (userId, reminderDate)
+  }
+}
+
+Table ChatThread {
+  id integer [pk, increment]
+  title varchar [not null]
+  description text [null]
+  isActive boolean [default: true]
+  isPinned boolean [default: false]
+  lastMessageAt timestamp [default: `now()`]
+  userId integer [ref: > User.id, not null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+  
+  indexes {
+    (userId, lastMessageAt)
+    (userId, isPinned)
+    (userId, isActive)
+  }
+}
+
+Table ChatConversation {
+  id integer [pk, increment]
+  content text [not null]
+  sender ChatSender [not null]
+  messageType ChatMessageType [default: 'TEXT']
+  isProcessing boolean [default: false]
+  processingSteps integer [default: 0]
+  attachments json [null]
+  threadId integer [ref: > ChatThread.id, not null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp [default: `now()`]
+  comments text [null]
+  feedback ChatFeedback [null]
+  responseTimeSeconds float [null]
+  tokenCount integer [null]
+  inputTokens integer [null]
+  intermediateSteps json [null]
+  outputTokens integer [null]
+  systemPrompt json [null]
+  
+  indexes {
+    (threadId, createdAt)
+    (sender, createdAt)
+    feedback
+  }
+}
