@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, Bell, Earth, DollarSign, Calendar, TrendingUp, Shield, Settings } from "lucide-react";
+import { Save, Bell, Earth, DollarSign, Calendar, TrendingUp, Shield, Settings, Bookmark } from "lucide-react";
 import {
     getNotificationSettings,
     updateNotificationSettings,
@@ -73,6 +73,9 @@ export function NotificationSettings() {
         spendingAlertsEnabled: true,
         monthlySpendingLimit: 5000,
         investmentAlertsEnabled: true,
+        autoBookmarkEnabled: true,
+        highValueIncomeThreshold: 50000,
+        highValueExpenseThreshold: 10000,
         emailNotifications: false,
         pushNotifications: true
     });
@@ -120,6 +123,13 @@ export function NotificationSettings() {
             setSaving(true);
             await updateNotificationSettings(settings);
             setSaveMessage("Settings saved successfully!");
+            
+            // Trigger a page reload to refresh threshold-dependent components
+            // This ensures charts and auto-bookmark logic use the updated thresholds
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+            
             setTimeout(() => setSaveMessage(null), 3000);
         } catch (error) {
             console.error("Failed to save notification settings:", error);
@@ -210,6 +220,39 @@ export function NotificationSettings() {
                     label: "Enable investment alerts",
                     description: "Receive notifications about investment maturity and updates",
                     type: "boolean"
+                }
+            ]
+        },
+        {
+            title: "Auto-Bookmark Settings",
+            description: "Automatically bookmark high-value income and expense transactions",
+            icon: <Bookmark className="w-5 h-5" />,
+            settings: [
+                {
+                    key: "autoBookmarkEnabled",
+                    label: "Enable auto-bookmarking",
+                    description: "Automatically bookmark transactions that exceed threshold amounts",
+                    type: "boolean"
+                },
+                {
+                    key: "highValueIncomeThreshold",
+                    label: "High-value income threshold",
+                    description: "Income amounts above this value will be auto-bookmarked",
+                    type: "number",
+                    min: 1000,
+                    max: 1000000,
+                    step: 1000,
+                    dependsOn: "autoBookmarkEnabled"
+                },
+                {
+                    key: "highValueExpenseThreshold",
+                    label: "High-value expense threshold",
+                    description: "Expense amounts above this value will be auto-bookmarked",
+                    type: "number",
+                    min: 500,
+                    max: 500000,
+                    step: 500,
+                    dependsOn: "autoBookmarkEnabled"
                 }
             ]
         },

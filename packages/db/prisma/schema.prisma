@@ -388,6 +388,10 @@ model NotificationSettings {
   monthlySpendingLimit  Decimal @default(5000)
   // Investment alerts
   investmentAlertsEnabled Boolean @default(true)
+  // High-value transaction auto-bookmarking
+  autoBookmarkEnabled        Boolean @default(true)
+  highValueIncomeThreshold   Decimal @default(50000)
+  highValueExpenseThreshold  Decimal @default(10000)
   // General settings
   emailNotifications    Boolean @default(false)
   pushNotifications     Boolean @default(true)

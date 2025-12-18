@@ -7,6 +7,8 @@ import { formatCurrency } from "../utils/currency";
 import { useChartExpansion } from "../utils/chartUtils";
 import { ChartControls } from "./ChartControls";
 import { convertForDisplaySync } from "../utils/currencyDisplay";
+import { DEFAULT_HIGH_VALUE_THRESHOLDS } from "../utils/thresholdUtils";
+import { useUserThresholds } from "../hooks/useUserThresholds";
 
 type FinancialTransaction = Income | Expense;
 
@@ -46,10 +48,13 @@ export function FinancialAreaChart({
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
 
-    // High-value thresholds for markers
-    const HIGH_VALUE_THRESHOLDS = {
-        income: 50000,   // 50K for income
-        expense: 10000   // 10K for expenses
+    // Get user's configured thresholds
+    const { thresholds: userThresholds, loading: thresholdsLoading } = useUserThresholds();
+    
+    // Use user thresholds or fallback to defaults
+    const activeThresholds = {
+        income: userThresholds.incomeThreshold,
+        expense: userThresholds.expenseThreshold
     };
 
     // Get chart configuration based on type
@@ -224,7 +229,7 @@ export function FinancialAreaChart({
                 const averageAmount = dayData.count > 0 ? dayData.amount / dayData.count : 0;
                 const minAmount = dayData.amounts.length > 0 ? Math.min(...dayData.amounts) : 0;
                 const maxAmount = dayData.amounts.length > 0 ? Math.max(...dayData.amounts) : 0;
-                const isHighValue = dayData.amount > HIGH_VALUE_THRESHOLDS[type];
+                const isHighValue = dayData.amount > activeThresholds[type];
                 
                 return {
                     date,
@@ -287,7 +292,7 @@ export function FinancialAreaChart({
                     const averageAmount = weekData.count > 0 ? weekData.amount / weekData.count : 0;
                     const minAmount = weekData.amounts.length > 0 ? Math.min(...weekData.amounts) : 0;
                     const maxAmount = weekData.amounts.length > 0 ? Math.max(...weekData.amounts) : 0;
-                    const isHighValue = weekData.amount > HIGH_VALUE_THRESHOLDS[type];
+                    const isHighValue = weekData.amount > activeThresholds[type];
                     
                     return {
                         date,
@@ -307,7 +312,7 @@ export function FinancialAreaChart({
         // console.log(`${chartConfig.label} chart final data:`, chartDataPoints.length, 'points');
 
         return chartDataPoints;
-    }, [filteredData, startDate, endDate, pageStartDate, pageEndDate, chartConfig.label, hasPageFilters, data, currency]);
+    }, [filteredData, startDate, endDate, pageStartDate, pageEndDate, chartConfig.label, hasPageFilters, data, currency, activeThresholds, type]);
 
     // Check if there are any high-value days in the current chart data
     const hasHighValueDays = useMemo(() => {
@@ -807,14 +812,14 @@ export function FinancialAreaChart({
                             }}
                         />
                         {/* High-Value Threshold Reference Line */}
-                        {hasHighValueDays && (
+                        {hasHighValueDays && !thresholdsLoading && (
                             <ReferenceLine
-                                y={HIGH_VALUE_THRESHOLDS[type]}
+                                y={activeThresholds[type]}
                                 stroke={type === 'income' ? '#059669' : '#dc2626'}
                                 strokeDasharray="5 5"
                                 strokeWidth={2}
                                 label={{
-                                    value: `High-Value Threshold: ${formatCurrency(HIGH_VALUE_THRESHOLDS[type], currency)}`,
+                                    value: `High-Value Threshold: ${formatCurrency(activeThresholds[type], currency)}`,
                                     position: 'insideTopRight',
                                     fill: type === 'income' ? '#059669' : '#dc2626',
                                     fontSize: isExpanded ? 12 : 10,

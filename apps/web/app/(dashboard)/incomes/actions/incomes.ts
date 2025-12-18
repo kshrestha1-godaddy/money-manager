@@ -9,6 +9,7 @@ import { getUserIdFromSession } from "../../../utils/auth";
 import { parseCSV, parseTags } from "../../../utils/csvUtils";
 import { parseCategoriesCSV, type ParsedCategoryData } from "../../../utils/csvImportCategories";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import { autoBookmarkHighValueTransaction, handleBookmarkOnAmountChange } from "../../../utils/autoBookmarkUtils";
 
 // Helper function to revalidate all income-related paths
 const revalidateIncomePaths = () => {
@@ -136,6 +137,23 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
         revalidateIncomePaths();
         console.info(`Income created successfully: ${data.title} - $${data.amount} for user ${userId}`);
 
+        // Auto-bookmark high-value income
+        let isBookmarked = false;
+        try {
+            await autoBookmarkHighValueTransaction(
+                result.id,
+                'INCOME',
+                data.title,
+                data.amount
+            );
+            // Check if it was actually bookmarked
+            const { isTransactionBookmarked } = await import('../../transactions/actions/transaction-bookmarks');
+            isBookmarked = await isTransactionBookmarked('INCOME', result.id);
+        } catch (error) {
+            console.error("Failed to auto-bookmark high-value income:", error);
+            // Don't fail the entire operation if bookmarking fails
+        }
+
         // Trigger notification checks
         try {
             const { generateNotificationsForUser } = await import('../../../actions/notifications');
@@ -144,8 +162,10 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
             console.error("Failed to check notifications after income creation:", error);
         }
 
-
-        return getDisplayIncome(result);
+        return {
+            ...getDisplayIncome(result),
+            isBookmarked
+        };
 
 
     } catch (error) {
@@ -238,6 +258,26 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
 
             return income;
         });
+
+        // Handle bookmark updates if amount changed
+        if (data.amount !== undefined) {
+            try {
+                const oldAmount = parseFloat(existingIncome.amount.toString());
+                const newAmount = data.amount;
+                const title = data.title !== undefined ? data.title : existingIncome.title;
+                
+                await handleBookmarkOnAmountChange(
+                    id,
+                    'INCOME',
+                    title,
+                    oldAmount,
+                    newAmount
+                );
+            } catch (error) {
+                console.error("Failed to handle bookmark update for income:", error);
+                // Don't fail the entire operation if bookmarking fails
+            }
+        }
 
         revalidateIncomePaths();
         console.info(`Income updated successfully: ${id} for user ${userId}`);

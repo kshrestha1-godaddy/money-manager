@@ -43,6 +43,9 @@ export interface NotificationSettingsData {
     spendingAlertsEnabled: boolean;
     monthlySpendingLimit: number;
     investmentAlertsEnabled: boolean;
+    autoBookmarkEnabled: boolean;
+    highValueIncomeThreshold: number;
+    highValueExpenseThreshold: number;
     emailNotifications: boolean;
     pushNotifications: boolean;
 }
@@ -296,6 +299,9 @@ export async function getNotificationSettings(): Promise<NotificationSettingsDat
             spendingAlertsEnabled: settings.spendingAlertsEnabled,
             monthlySpendingLimit: decimalToNumber(settings.monthlySpendingLimit, 'monthlySpendingLimit'),
             investmentAlertsEnabled: settings.investmentAlertsEnabled,
+            autoBookmarkEnabled: settings.autoBookmarkEnabled,
+            highValueIncomeThreshold: decimalToNumber(settings.highValueIncomeThreshold, 'highValueIncomeThreshold'),
+            highValueExpenseThreshold: decimalToNumber(settings.highValueExpenseThreshold, 'highValueExpenseThreshold'),
             emailNotifications: settings.emailNotifications,
             pushNotifications: settings.pushNotifications
         };
@@ -335,6 +341,52 @@ export async function updateNotificationSettings(settings: Partial<NotificationS
     } catch (error) {
         console.error("Failed to update notification settings:", error);
         throw new Error("Failed to update notification settings");
+    }
+}
+
+/**
+ * Get user's high-value transaction thresholds for auto-bookmarking
+ */
+export async function getUserThresholds(): Promise<{
+    autoBookmarkEnabled: boolean;
+    incomeThreshold: number;
+    expenseThreshold: number;
+}> {
+    try {
+        const session = await getAuthenticatedSession();
+        const userId = getUserIdFromSession(session.user.id);
+
+        const settings = await prisma.notificationSettings.findUnique({
+            where: { userId },
+            select: {
+                autoBookmarkEnabled: true,
+                highValueIncomeThreshold: true,
+                highValueExpenseThreshold: true
+            }
+        });
+
+        // Return defaults if no settings found
+        if (!settings) {
+            return {
+                autoBookmarkEnabled: true,
+                incomeThreshold: 50000,
+                expenseThreshold: 10000
+            };
+        }
+
+        return {
+            autoBookmarkEnabled: settings.autoBookmarkEnabled,
+            incomeThreshold: decimalToNumber(settings.highValueIncomeThreshold, 'highValueIncomeThreshold'),
+            expenseThreshold: decimalToNumber(settings.highValueExpenseThreshold, 'highValueExpenseThreshold')
+        };
+    } catch (error) {
+        console.error("Failed to fetch user thresholds:", error);
+        // Return defaults on error to not break auto-bookmarking
+        return {
+            autoBookmarkEnabled: true,
+            incomeThreshold: 50000,
+            expenseThreshold: 10000
+        };
     }
 }
 

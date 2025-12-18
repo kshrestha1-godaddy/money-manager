@@ -23,6 +23,7 @@ import {
 } from "../../../types/bulkImport";
 import { getUserIdFromSession } from "../../../utils/auth";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import { autoBookmarkHighValueTransaction, handleBookmarkOnAmountChange } from "../../../utils/autoBookmarkUtils";
 
 export async function getExpenses() {
     try {
@@ -162,6 +163,23 @@ export async function createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'up
 
         console.info(`Expense created successfully: ${data.title} - $${data.amount} for user ${userId}`);
 
+        // Auto-bookmark high-value expense
+        let isBookmarked = false;
+        try {
+            await autoBookmarkHighValueTransaction(
+                result.id,
+                'EXPENSE',
+                data.title,
+                data.amount
+            );
+            // Check if it was actually bookmarked
+            const { isTransactionBookmarked } = await import('../../transactions/actions/transaction-bookmarks');
+            isBookmarked = await isTransactionBookmarked('EXPENSE', result.id);
+        } catch (error) {
+            console.error("Failed to auto-bookmark high-value expense:", error);
+            // Don't fail the entire operation if bookmarking fails
+        }
+
         // Trigger notification checks
         try {
             const { 
@@ -184,6 +202,7 @@ export async function createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'up
             date: new Date(result.date),
             createdAt: new Date(result.createdAt),
             updatedAt: new Date(result.updatedAt),
+            isBookmarked,
             // Convert account balance from Decimal to number
             account: result.account ? {
                 ...result.account,
@@ -315,6 +334,26 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
 
         revalidatePath("/(dashboard)/expenses");
         revalidatePath("/(dashboard)/accounts");
+
+        // Handle bookmark updates if amount changed
+        if (data.amount !== undefined) {
+            try {
+                const oldAmount = parseFloat(existingExpense.amount.toString());
+                const newAmount = data.amount;
+                const title = data.title !== undefined ? data.title : existingExpense.title;
+                
+                await handleBookmarkOnAmountChange(
+                    id,
+                    'EXPENSE',
+                    title,
+                    oldAmount,
+                    newAmount
+                );
+            } catch (error) {
+                console.error("Failed to handle bookmark update for expense:", error);
+                // Don't fail the entire operation if bookmarking fails
+            }
+        }
 
         console.info(`Expense updated successfully: ${id} for user ${userId}`);
 
