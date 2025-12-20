@@ -38,6 +38,8 @@ export function IncomeBubbleChart({ incomes, currency }: IncomeBubbleChartProps)
     setStartDate,
     endDate,
     setEndDate,
+    minAverage,
+    maxAverage,
     allCategoryData,
     visibleCategoryData,
     highValueCategories,
@@ -51,6 +53,9 @@ export function IncomeBubbleChart({ incomes, currency }: IncomeBubbleChartProps)
     handleXRangeChange,
     handleYRangeChange,
     resetToDefaults,
+    handleMinAverageChange,
+    handleMaxAverageChange,
+    resetAverageFilters,
     isDefaultTimeframe
   } = chartData;
 
@@ -71,6 +76,11 @@ export function IncomeBubbleChart({ incomes, currency }: IncomeBubbleChartProps)
         isActiveQuickFilter={isActiveQuickFilter}
         clearTimeframeFilters={clearTimeframeFilters}
         isDefaultTimeframe={isDefaultTimeframe}
+        minAverage={minAverage}
+        maxAverage={maxAverage}
+        handleMinAverageChange={handleMinAverageChange}
+        handleMaxAverageChange={handleMaxAverageChange}
+        resetAverageFilters={resetAverageFilters}
         highValueCategories={highValueCategories}
         excludedCategories={excludedCategories}
         toggleCategoryExclusion={toggleCategoryExclusion}

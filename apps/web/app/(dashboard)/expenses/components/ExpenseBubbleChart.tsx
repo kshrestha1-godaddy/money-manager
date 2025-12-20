@@ -38,6 +38,8 @@ export function ExpenseBubbleChart({ expenses, currency }: ExpenseBubbleChartPro
     setStartDate,
     endDate,
     setEndDate,
+    minAverage,
+    maxAverage,
     allCategoryData,
     visibleCategoryData,
     highValueCategories,
@@ -51,6 +53,9 @@ export function ExpenseBubbleChart({ expenses, currency }: ExpenseBubbleChartPro
     handleXRangeChange,
     handleYRangeChange,
     resetToDefaults,
+    handleMinAverageChange,
+    handleMaxAverageChange,
+    resetAverageFilters,
     isDefaultTimeframe
   } = chartData;
 
@@ -71,6 +76,11 @@ export function ExpenseBubbleChart({ expenses, currency }: ExpenseBubbleChartPro
         isActiveQuickFilter={isActiveQuickFilter}
         clearTimeframeFilters={clearTimeframeFilters}
         isDefaultTimeframe={isDefaultTimeframe}
+        minAverage={minAverage}
+        maxAverage={maxAverage}
+        handleMinAverageChange={handleMinAverageChange}
+        handleMaxAverageChange={handleMaxAverageChange}
+        resetAverageFilters={resetAverageFilters}
         highValueCategories={highValueCategories}
         excludedCategories={excludedCategories}
         toggleCategoryExclusion={toggleCategoryExclusion}

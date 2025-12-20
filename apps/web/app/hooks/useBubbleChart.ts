@@ -48,6 +48,8 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
   const [excludedCategories, setExcludedCategories] = useState<Set<string>>(new Set());
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
+  const [minAverage, setMinAverage] = useState<number>(5000);
+  const [maxAverage, setMaxAverage] = useState<number>(300000);
 
   // Responsive dimensions with memoization
   const dimensions = useMemo(() => {
@@ -130,8 +132,12 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
 
   // Filter visible categories
   const visibleCategoryData = useMemo(() => 
-    allCategoryData.filter(category => !excludedCategories.has(category.name)),
-    [allCategoryData, excludedCategories]
+    allCategoryData.filter(category => 
+      !excludedCategories.has(category.name) &&
+      category.averageAmount >= minAverage &&
+      category.averageAmount <= maxAverage
+    ),
+    [allCategoryData, excludedCategories, minAverage, maxAverage]
   );
 
   // High-value categories
@@ -360,6 +366,20 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
     setCustomYRange(null);
   }, []);
 
+  // Average amount filter handlers
+  const handleMinAverageChange = useCallback((value: number) => {
+    setMinAverage(value);
+  }, []);
+
+  const handleMaxAverageChange = useCallback((value: number) => {
+    setMaxAverage(value);
+  }, []);
+
+  const resetAverageFilters = useCallback(() => {
+    setMinAverage(5000);
+    setMaxAverage(300000);
+  }, []);
+
   // Calculate threshold line position
   const thresholdPosition = useMemo(() => {
     if (highValueCategories.length === 0) return null;
@@ -385,6 +405,8 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
     setStartDate,
     endDate,
     setEndDate,
+    minAverage,
+    maxAverage,
     allCategoryData,
     visibleCategoryData,
     highValueCategories,
@@ -398,6 +420,9 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
     handleXRangeChange,
     handleYRangeChange,
     resetToDefaults,
+    handleMinAverageChange,
+    handleMaxAverageChange,
+    resetAverageFilters,
     isDefaultTimeframe: !startDate && !endDate
   };
 }

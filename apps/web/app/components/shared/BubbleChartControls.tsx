@@ -24,6 +24,13 @@ interface BubbleChartControlsProps {
   clearTimeframeFilters: () => void;
   isDefaultTimeframe: boolean;
   
+  // Average amount filter controls
+  minAverage: number;
+  maxAverage: number;
+  handleMinAverageChange: (value: number) => void;
+  handleMaxAverageChange: (value: number) => void;
+  resetAverageFilters: () => void;
+  
   // Category controls
   highValueCategories: CategoryData[];
   excludedCategories: Set<string>;
@@ -57,6 +64,11 @@ export function BubbleChartControls({
   isActiveQuickFilter,
   clearTimeframeFilters,
   isDefaultTimeframe,
+  minAverage,
+  maxAverage,
+  handleMinAverageChange,
+  handleMaxAverageChange,
+  resetAverageFilters,
   highValueCategories,
   excludedCategories,
   toggleCategoryExclusion,
@@ -130,6 +142,43 @@ export function BubbleChartControls({
                 Clear
               </button>
             )}
+
+            {/* Divider */}
+            <div className="hidden sm:block h-4 w-px bg-gray-300"></div>
+
+            {/* Average Amount Filter */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-600">Min Avg:</span>
+                <input
+                  type="number"
+                  value={minAverage}
+                  onChange={(e) => handleMinAverageChange(Number(e.target.value))}
+                  className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white w-20"
+                  min="0"
+                  step="1000"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">to</span>
+                <input
+                  type="number"
+                  value={maxAverage}
+                  onChange={(e) => handleMaxAverageChange(Number(e.target.value))}
+                  className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white w-20"
+                  min="0"
+                  step="1000"
+                />
+              </div>
+              {(minAverage !== 5000 || maxAverage !== 300000) && (
+                <button
+                  onClick={resetAverageFilters}
+                  className="px-2 py-1 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Adjust Scale Button - Right Side */}
