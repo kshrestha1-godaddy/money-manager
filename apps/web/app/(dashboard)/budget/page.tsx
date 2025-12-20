@@ -836,28 +836,19 @@ export default function BudgetPage() {
 
         {/* Variance Card */}
         <div className={`${cardLargeContainer} relative`}>
-          <div className={`absolute top-4 left-4 w-3 h-3 rounded-full ${
-            summaryStats.totalVariance >= 0 ? 'bg-red-500' : 'bg-green-500'
-          }`}></div>
+          <div className="absolute top-4 left-4 w-3 h-3 rounded-full bg-gray-500"></div>
           <div className="flex flex-col items-center justify-center h-full text-center pt-6">
-            <h3 className={`${cardTitle} mb-2`}>Total Variance</h3>
-            <p className={`text-2xl font-bold mb-1 ${
-              summaryStats.totalVariance >= 0 ? 'text-red-600' : 'text-green-600'
-            }`}>
-              {summaryStats.totalVariance >= 0 ? '+' : ''}{formatCurrency(summaryStats.totalVariance, currency)}
+            <h3 className={`${cardTitle} mb-2`}>Variance</h3>
+            <p className="text-2xl font-bold text-gray-900 mb-1">
+              {formatCurrency(summaryStats.totalVariance, currency)}
             </p>
             <div className={`${cardSubtitle} space-y-1`}>
               <div className="flex justify-between text-xs">
-                <span className={summaryStats.incomeVariance >= 0 ? 'text-green-600' : 'text-red-600'}>
-                  Inc: {summaryStats.incomeVariance >= 0 ? '+' : ''}{formatCurrency(summaryStats.incomeVariance, currency)}
-                </span>
-                <span className={summaryStats.expenseVariance >= 0 ? 'text-red-600' : 'text-green-600'}>
-                  Exp: {summaryStats.expenseVariance >= 0 ? '+' : ''}{formatCurrency(summaryStats.expenseVariance, currency)}
-                </span>
+                <span className="text-green-600">{formatCurrency(summaryStats.incomeVariance, currency)}</span>
+                <span>|</span>
+                <span className="text-red-600">{formatCurrency(summaryStats.expenseVariance, currency)}</span>
               </div>
-              <p className={summaryStats.totalVariancePercentage >= 0 ? 'text-red-600' : 'text-green-600'}>
-                {summaryStats.totalVariancePercentage >= 0 ? '+' : ''}{summaryStats.totalVariancePercentage.toFixed(1)}%
-              </p>
+              <p>{summaryStats.totalTransactions} transactions in {getSelectedMonthName()}</p>
             </div>
           </div>
         </div>
@@ -873,6 +864,7 @@ export default function BudgetPage() {
             <div className="flex flex-col gap-1 text-xs">
               <div className="flex justify-between">
                 <span className="text-red-600">{summaryStats.overBudgetCount} over</span>
+                <span className="text-gray-900 mx-5">|</span>
                 <span className="text-green-600">{summaryStats.underBudgetCount} under</span>
               </div>
               <span className="text-blue-600">{summaryStats.onTrackCount} on-track</span>
