@@ -51,14 +51,14 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
 
   // Responsive dimensions with memoization
   const dimensions = useMemo(() => {
-    if (typeof window === 'undefined') return { width: 1200, height: 400 };
+    if (typeof window === 'undefined') return { width: 1200, height: 600 };
     
     const { innerWidth, innerHeight } = window;
-    let height = 400;
+    let height = 600;
     
-    if (innerWidth < 640) height = Math.min(innerHeight * 0.4, 300);
-    else if (innerWidth < 1024) height = Math.min(innerHeight * 0.45, 400);
-    else height = Math.min(innerHeight * 0.5, 500);
+    if (innerWidth < 640) height = Math.min(innerHeight * 0.5, 450);
+    else if (innerWidth < 1024) height = Math.min(innerHeight * 0.55, 600);
+    else height = Math.min(innerHeight * 0.6, 700);
     
     return { width: innerWidth, height };
   }, []);
@@ -186,7 +186,7 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
         Math.round(category.averageAmount * 100) / 100,
         category.transactionCount,
         category.name,
-        Math.round(category.totalAmount * 100) / 100
+        Math.round(category.totalAmount * 150) / 100 // Increase bubble size by 50%
       ]);
     });
 
@@ -232,11 +232,15 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
         bubble: { 
           opacity: 0.8,
           textStyle: {
-            fontSize: dimensions.width < 640 ? 6 : 7,
+            fontSize: dimensions.width < 640 ? 10 : 12,
             fontName: 'Arial, sans-serif',
             color: '#FFFFFF',
             bold: true
           }
+        },
+        sizeAxis: {
+          minSize: 15,  // Minimum bubble size
+          maxSize: 50   // Maximum bubble size
         },
         backgroundColor: 'transparent',
         chartArea: {

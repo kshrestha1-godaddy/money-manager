@@ -69,10 +69,10 @@ export function BubbleChart({
                 <button
                   key={category.name}
                   onClick={() => toggleCategoryExclusion(category.name)}
-                  className="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium transition-all bg-gray-200 text-gray-500 line-through opacity-60 hover:opacity-80"
+                  className="flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium transition-all bg-gray-200 text-gray-500 line-through opacity-60 hover:opacity-80"
                   title={`Click to show ${category.name} (Avg: ${formatCurrency(category.averageAmount, currency)})`}
                 >
-                  <div className="w-3 h-3 rounded bg-gray-400" />
+                  <div className="w-4 h-4 rounded bg-gray-400" />
                   <span>{category.name}</span>
                 </button>
               ))}
@@ -80,7 +80,7 @@ export function BubbleChart({
             <div className="h-6 w-px bg-gray-300 mx-1"></div>
             <button
               onClick={includeAllCategories}
-              className="px-3 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded whitespace-nowrap font-medium"
+              className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded whitespace-nowrap font-medium"
             >
               Show All
             </button>
@@ -109,7 +109,7 @@ export function BubbleChart({
       
       <div 
         ref={chartRef} 
-        style={{ width: '100%', height: `${dimensions.height}px`, minHeight: '300px' }}
+        style={{ width: '100%', height: `${dimensions.height}px`, minHeight: '500px' }}
         className="overflow-hidden w-full"
       />
       
@@ -135,24 +135,24 @@ export function BubbleChart({
               x2={`${thresholdPosition}%`}
               y2="100%"
               stroke={thresholdColor}
-              strokeWidth="2"
-              strokeDasharray="5,5"
+              strokeWidth="3"
+              strokeDasharray="6,6"
             />
             <rect
-              x={`calc(${thresholdPosition}% - 50px)`}
+              x={`calc(${thresholdPosition}% - 60px)`}
               y="5"
-              width="100"
-              height="20"
+              width="120"
+              height="25"
               fill="white"
               fillOpacity="0.9"
-              rx="3"
+              rx="4"
             />
             <text
               x={`${thresholdPosition}%`}
-              y="18"
+              y="20"
               textAnchor="middle"
               fill={thresholdColor}
-              fontSize={dimensions.width < 640 ? "8" : "9"}
+              fontSize={dimensions.width < 640 ? "12" : "14"}
               fontWeight="600"
             >
               {formatCurrency(highValueThreshold, currency)}

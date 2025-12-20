@@ -433,8 +433,8 @@ function InvestmentRow({
             <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.type}px` }}>
                 <div className="flex flex-col gap-1 items-start">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 w-fit">
-                        {formatType(investment.type)}
-                    </span>
+                    {formatType(investment.type)}
+                </span>
                     {investment.deductFromAccount && investment.accountId && (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 w-fit">
                             Withheld
