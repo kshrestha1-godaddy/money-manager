@@ -87,8 +87,11 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                 return;
             }
             
-            // Simplified validation - no category-specific checks
-            if (!formData.quantity || parseFloat(formData.quantity) <= 0) {
+            // Category-specific validation
+            const isQuantityBasedType = !['FIXED_DEPOSIT', 'PROVIDENT_FUNDS', 'SAFE_KEEPINGS', 'EMERGENCY_FUND', 'MARRIAGE', 'VACATION'].includes(formData.type);
+            const isCurrentPriceRequired = !['FIXED_DEPOSIT', 'PROVIDENT_FUNDS', 'SAFE_KEEPINGS', 'EMERGENCY_FUND', 'MARRIAGE', 'VACATION'].includes(formData.type);
+            
+            if (isQuantityBasedType && (!formData.quantity || parseFloat(formData.quantity) <= 0)) {
                 setError("Quantity must be greater than 0");
                 return;
             }
@@ -96,7 +99,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                 setError("Purchase price must be greater than 0");
                 return;
             }
-            if (!formData.currentPrice || parseFloat(formData.currentPrice) < 0) {
+            if (isCurrentPriceRequired && (!formData.currentPrice || parseFloat(formData.currentPrice) < 0)) {
                 setError("Current price must be 0 or greater");
                 return;
             }
@@ -110,9 +113,9 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                 name: formData.name.trim(),
                 type: formData.type,
                 symbol: formData.symbol.trim() || undefined,
-                quantity: parseFloat(formData.quantity || "0"),
+                quantity: isQuantityBasedType ? parseFloat(formData.quantity || "0") : 1, // Default to 1 for non-quantity types
                 purchasePrice: parseFloat(formData.purchasePrice || "0"),
-                currentPrice: parseFloat(formData.currentPrice || "0"),
+                currentPrice: isCurrentPriceRequired ? parseFloat(formData.currentPrice || "0") : parseFloat(formData.purchasePrice || "0"), // Use purchase price as current price for non-current-price types
                 purchaseDate: new Date(formData.purchaseDate + 'T00:00:00'),
                 accountId: formData.accountId ? parseInt(formData.accountId) : null,
                 notes: formData.notes.trim() || undefined,
