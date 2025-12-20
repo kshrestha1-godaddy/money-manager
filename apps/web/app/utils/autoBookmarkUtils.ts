@@ -43,7 +43,7 @@ export async function autoBookmarkHighValueTransaction(
         const bookmarkData = {
             transactionType,
             transactionId,
-            title: `🔥 High-Value ${type === 'income' ? 'Income' : 'Expense'}: ${title}`,
+            title: `${title}`,
             description: `Automatically bookmarked - Amount exceeds ${type} threshold of $${thresholds[type].toLocaleString()}`,
             notes: `Auto-generated bookmark for high-value ${type} transaction`,
             tags: ['auto-bookmark', 'high-value', type]
