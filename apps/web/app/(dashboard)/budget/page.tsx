@@ -230,7 +230,17 @@ export default function BudgetPage() {
       totalCategories: 0,
       incomeCategories: 0,
       expenseCategories: 0,
-      totalTransactions: 0
+      totalTransactions: 0,
+      // Income-specific stats
+      incomeBudget: 0,
+      incomeActual: 0,
+      incomeVariance: 0,
+      incomeTransactions: 0,
+      // Expense-specific stats
+      expenseBudget: 0,
+      expenseActual: 0,
+      expenseVariance: 0,
+      expenseTransactions: 0
     };
 
     const totalBudget = budgetComparison.reduce((sum, item) => sum + item.budgetTarget.monthlySpend, 0);
@@ -251,6 +261,20 @@ export default function BudgetPage() {
     const expenseCategories = budgetComparison.filter(item => item.categoryType === 'EXPENSE').length;
     const totalTransactions = budgetComparison.reduce((sum, item) => sum + item.actualSpending.transactionCount, 0);
 
+    // Calculate income-specific totals
+    const incomeData = budgetComparison.filter(item => item.categoryType === 'INCOME');
+    const incomeBudget = incomeData.reduce((sum, item) => sum + item.budgetTarget.monthlySpend, 0);
+    const incomeActual = incomeData.reduce((sum, item) => sum + item.actualSpending.monthlyAverage, 0);
+    const incomeVariance = incomeActual - incomeBudget;
+    const incomeTransactions = incomeData.reduce((sum, item) => sum + item.actualSpending.transactionCount, 0);
+
+    // Calculate expense-specific totals
+    const expenseData = budgetComparison.filter(item => item.categoryType === 'EXPENSE');
+    const expenseBudget = expenseData.reduce((sum, item) => sum + item.budgetTarget.monthlySpend, 0);
+    const expenseActual = expenseData.reduce((sum, item) => sum + item.actualSpending.monthlyAverage, 0);
+    const expenseVariance = expenseActual - expenseBudget;
+    const expenseTransactions = expenseData.reduce((sum, item) => sum + item.actualSpending.transactionCount, 0);
+
     return {
       totalBudget,
       totalActual,
@@ -264,7 +288,17 @@ export default function BudgetPage() {
       totalCategories: budgetComparison.length,
       incomeCategories,
       expenseCategories,
-      totalTransactions
+      totalTransactions,
+      // Income-specific stats
+      incomeBudget,
+      incomeActual,
+      incomeVariance,
+      incomeTransactions,
+      // Expense-specific stats
+      expenseBudget,
+      expenseActual,
+      expenseVariance,
+      expenseTransactions
     };
   }, [budgetComparison]);
 
@@ -732,17 +766,31 @@ export default function BudgetPage() {
       </div>
 
       {/* Enhanced Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-        {/* Total Budget Card */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
+        {/* Income Budget Card */}
         <div className={`${cardLargeContainer} relative`}>
-          <div className="absolute top-4 left-4 w-3 h-3 rounded-full bg-blue-500"></div>
+          <div className="absolute top-4 left-4 w-3 h-3 rounded-full bg-green-500"></div>
           <div className="flex flex-col items-center justify-center h-full text-center pt-6">
-            <h3 className={`${cardTitle} mb-2`}>Total Budget</h3>
-            <p className="text-2xl font-bold text-blue-600 mb-1">
-              {formatCurrency(summaryStats.totalBudget, currency)}
+            <h3 className={`${cardTitle} mb-2`}>Income Budget</h3>
+            <p className="text-2xl font-bold text-green-600 mb-1">
+              {formatCurrency(summaryStats.incomeBudget, currency)}
             </p>
             <p className={`${cardSubtitle}`}>
-              {getSelectedMonthName()} {selectedYear} target
+              {summaryStats.incomeCategories} categories, {summaryStats.incomeTransactions} transactions
+            </p>
+          </div>
+        </div>
+
+        {/* Expense Budget Card */}
+        <div className={`${cardLargeContainer} relative`}>
+          <div className="absolute top-4 left-4 w-3 h-3 rounded-full bg-red-500"></div>
+          <div className="flex flex-col items-center justify-center h-full text-center pt-6">
+            <h3 className={`${cardTitle} mb-2`}>Expense Budget</h3>
+            <p className="text-2xl font-bold text-red-600 mb-1">
+              {formatCurrency(summaryStats.expenseBudget, currency)}
+            </p>
+            <p className={`${cardSubtitle}`}>
+              {summaryStats.expenseCategories} categories, {summaryStats.expenseTransactions} transactions
             </p>
           </div>
         </div>
@@ -755,9 +803,14 @@ export default function BudgetPage() {
             <p className="text-2xl font-bold text-gray-900 mb-1">
               {formatCurrency(summaryStats.totalActual, currency)}
             </p>
-            <p className={`${cardSubtitle}`}>
-              {summaryStats.totalTransactions} transactions in {getSelectedMonthName()}
-            </p>
+            <div className={`${cardSubtitle} space-y-1`}>
+              <div className="flex justify-between text-xs">
+                <span className="text-green-600">{formatCurrency(summaryStats.incomeActual, currency)}</span>
+                <span>|</span>
+                <span className="text-red-600">{formatCurrency(summaryStats.expenseActual, currency)}</span>
+              </div>
+              <p>{summaryStats.totalTransactions} transactions in {getSelectedMonthName()}</p>
+            </div>
           </div>
         </div>
 
@@ -787,17 +840,25 @@ export default function BudgetPage() {
             summaryStats.totalVariance >= 0 ? 'bg-red-500' : 'bg-green-500'
           }`}></div>
           <div className="flex flex-col items-center justify-center h-full text-center pt-6">
-            <h3 className={`${cardTitle} mb-2`}>Variance</h3>
+            <h3 className={`${cardTitle} mb-2`}>Total Variance</h3>
             <p className={`text-2xl font-bold mb-1 ${
               summaryStats.totalVariance >= 0 ? 'text-red-600' : 'text-green-600'
             }`}>
               {summaryStats.totalVariance >= 0 ? '+' : ''}{formatCurrency(summaryStats.totalVariance, currency)}
             </p>
-            <p className={`${cardSubtitle} ${
-              summaryStats.totalVariancePercentage >= 0 ? 'text-red-600' : 'text-green-600'
-            }`}>
-              {summaryStats.totalVariancePercentage >= 0 ? '+' : ''}{summaryStats.totalVariancePercentage.toFixed(1)}%
-            </p>
+            <div className={`${cardSubtitle} space-y-1`}>
+              <div className="flex justify-between text-xs">
+                <span className={summaryStats.incomeVariance >= 0 ? 'text-green-600' : 'text-red-600'}>
+                  Inc: {summaryStats.incomeVariance >= 0 ? '+' : ''}{formatCurrency(summaryStats.incomeVariance, currency)}
+                </span>
+                <span className={summaryStats.expenseVariance >= 0 ? 'text-red-600' : 'text-green-600'}>
+                  Exp: {summaryStats.expenseVariance >= 0 ? '+' : ''}{formatCurrency(summaryStats.expenseVariance, currency)}
+                </span>
+              </div>
+              <p className={summaryStats.totalVariancePercentage >= 0 ? 'text-red-600' : 'text-green-600'}>
+                {summaryStats.totalVariancePercentage >= 0 ? '+' : ''}{summaryStats.totalVariancePercentage.toFixed(1)}%
+              </p>
+            </div>
           </div>
         </div>
 
