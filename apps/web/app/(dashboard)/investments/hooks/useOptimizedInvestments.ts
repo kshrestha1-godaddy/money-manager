@@ -89,6 +89,7 @@ export function useOptimizedInvestments() {
     // Filter states
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedType, setSelectedType] = useState('');
+    const [selectedBank, setSelectedBank] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
 
@@ -115,6 +116,10 @@ export function useOptimizedInvestments() {
             
             const matchesType = selectedType === "" || investment.type === selectedType;
             
+            const matchesBank = selectedBank === "" || 
+                (investment.account?.bankName?.toLowerCase() === selectedBank.toLowerCase()) ||
+                (selectedBank === "no-bank" && !investment.account?.bankName);
+            
             // Date filtering based on purchase date
             let matchesDateRange = true;
             if (startDate) {
@@ -130,9 +135,9 @@ export function useOptimizedInvestments() {
                 matchesDateRange = matchesDateRange && investmentDate <= end;
             }
             
-            return matchesSearch && matchesType && matchesDateRange;
+            return matchesSearch && matchesType && matchesBank && matchesDateRange;
         });
-    }, [investments, searchTerm, selectedType, startDate, endDate]);
+    }, [investments, searchTerm, selectedType, selectedBank, startDate, endDate]);
 
     // Calculate summary statistics
     const {
@@ -194,10 +199,30 @@ export function useOptimizedInvestments() {
         return Array.from(new Set(investments.map(investment => investment.type))).sort();
     }, [investments]);
 
+    // Get unique banks for filter dropdown
+    const uniqueBanks = useMemo(() => {
+        if (!Array.isArray(investments)) {
+            return [];
+        }
+        const banks = investments
+            .map(investment => investment.account?.bankName)
+            .filter(bankName => bankName) // Remove null/undefined values
+            .filter((bankName, index, array) => array.indexOf(bankName) === index) // Remove duplicates
+            .sort();
+        
+        // Add "No bank linked" option if there are investments without banks
+        const hasInvestmentsWithoutBank = investments.some(investment => !investment.account?.bankName);
+        if (hasInvestmentsWithoutBank) {
+            banks.push("No bank linked");
+        }
+        
+        return banks;
+    }, [investments]);
+
     // Check if filters are active
     const hasActiveFilters = useMemo(() => {
-        return searchTerm !== '' || selectedType !== '' || startDate !== '' || endDate !== '';
-    }, [searchTerm, selectedType, startDate, endDate]);
+        return searchTerm !== '' || selectedType !== '' || selectedBank !== '' || startDate !== '' || endDate !== '';
+    }, [searchTerm, selectedType, selectedBank, startDate, endDate]);
 
     // Organize investments by sections
     const sections = useMemo((): InvestmentSection[] => {
@@ -508,6 +533,7 @@ export function useOptimizedInvestments() {
     const clearFilters = useCallback(() => {
         setSearchTerm('');
         setSelectedType('');
+        setSelectedBank('');
         setStartDate('');
         setEndDate('');
     }, []);
@@ -526,6 +552,7 @@ export function useOptimizedInvestments() {
         error,
         sections,
         uniqueTypes,
+        uniqueBanks,
         hasActiveFilters,
 
         // Statistics
@@ -547,6 +574,8 @@ export function useOptimizedInvestments() {
         setSearchTerm,
         selectedType,
         setSelectedType,
+        selectedBank,
+        setSelectedBank,
         startDate,
         setStartDate,
         endDate,

@@ -93,6 +93,7 @@ export default function InvestmentsPageClient() {
     error,
     sections,
     uniqueTypes,
+    uniqueBanks,
     hasActiveFilters,
     totalInvested,
     totalCurrentValue,
@@ -108,6 +109,8 @@ export default function InvestmentsPageClient() {
     setSearchTerm,
     selectedType,
     setSelectedType,
+    selectedBank,
+    setSelectedBank,
     startDate,
     setStartDate,
     endDate,
@@ -375,7 +378,7 @@ export default function InvestmentsPageClient() {
         </div>
 
         <div className={UI_STYLES.filters.containerWithMargin}>
-          <div className={UI_STYLES.filters.gridFive}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             <div>
               <label className={labelText}>Search Investments</label>
               <input type="text" placeholder="Search by name, symbol, notes..." value={searchTerm} onChange={e => debouncedSetSearchTerm(e.target.value)} className={standardInput} />
@@ -386,6 +389,17 @@ export default function InvestmentsPageClient() {
                 <option value="">All Types</option>
                 {uniqueTypes.map(type => (
                   <option key={type} value={type}>{formatType(type)}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelText}>Filter by Bank</label>
+              <select value={selectedBank} onChange={e => setSelectedBank(e.target.value)} className={standardInput}>
+                <option value="">All Banks</option>
+                {uniqueBanks.map(bank => (
+                  <option key={bank} value={bank === "No bank linked" ? "no-bank" : bank}>
+                    {bank}
+                  </option>
                 ))}
               </select>
             </div>
