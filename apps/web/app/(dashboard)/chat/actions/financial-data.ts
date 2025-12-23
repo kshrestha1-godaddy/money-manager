@@ -72,14 +72,33 @@ export async function getFinancialDataForChat(request: FinancialDataRequest) {
 
     // Enhance accounts with withheld and free amounts
     const enhancedAccounts = accounts.map(account => {
-      const withheldAmount = withheldAmounts[account.bankName] || 0;
-      const totalBalance = account.balance || 0;
-      const freeAmount = totalBalance - withheldAmount;
+      const bankName = account.bankName;
+      const withheldAmountForBank = withheldAmounts[bankName] || 0;
+      
+      // If no withheld amount for this bank, return full balance
+      if (withheldAmountForBank === 0) {
+        return {
+          ...account,
+          withheldAmount: 0,
+          freeAmount: account.balance || 0
+        };
+      }
+
+      // Calculate total balance for all accounts in this bank
+      const accountsInBank = accounts.filter(acc => acc.bankName === bankName);
+      const totalBankBalance = accountsInBank.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+      
+      // Calculate proportional withheld amount for this account
+      const accountProportion = totalBankBalance > 0 ? (account.balance || 0) / totalBankBalance : 0;
+      const accountWithheldAmount = withheldAmountForBank * accountProportion;
+      
+      // Calculate free balance (can be negative if withheld amount exceeds balance)
+      const freeAmount = (account.balance || 0) - accountWithheldAmount;
       
       return {
         ...account,
-        withheldAmount,
-        freeAmount: freeAmount >= 0 ? freeAmount : 0 // Prevent negative free balance
+        withheldAmount: accountWithheldAmount,
+        freeAmount: freeAmount // Allow negative free balance
       };
     });
 
