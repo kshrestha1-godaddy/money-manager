@@ -507,14 +507,6 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
                       ` : ''}
                     </div>
 
-                    <!-- Risk Assessment -->
-                    <div class="border-t border-gray-200 pt-3 mb-3">
-                      <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">Risk Level:</span>
-                        <span class="font-medium ${riskColor}">${riskLevel}</span>
-                      </div>
-                    </div>
-
                     <!-- Top Investments Preview -->
                     ${item.investments.length > 0 ? `
                       <div class="border-t border-gray-200 pt-3 mb-3">
@@ -540,14 +532,6 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
                         </div>
                       </div>
                     ` : ''}
-
-                    <!-- Description -->
-                    <div class="border-t border-gray-200 pt-3">
-                      <div class="text-xs text-gray-600 leading-relaxed">
-                        <div class="font-medium text-gray-700 mb-1">About this investment type:</div>
-                        ${item.description}
-                      </div>
-                    </div>
 
                     <!-- Action Context -->
                     ${item.percentageOfTotal > 50 ? `

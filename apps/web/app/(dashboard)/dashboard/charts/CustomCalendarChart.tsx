@@ -27,6 +27,7 @@ interface DayData {
     isCurrentMonth: boolean;
     isToday: boolean;
     yearBreakdown: YearData[];
+    isMonthlyTotal?: boolean; // Flag to identify monthly total rows
 }
 
 interface MonthData {
@@ -159,6 +160,12 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
         // Multi-year calendar grid logic - aggregate data across all years
         const grid: DayData[][] = [];
         const currentYear = new Date().getFullYear();
+        const monthlyTotals: { count: number; amount: number; yearBreakdown: YearData[] }[] = [];
+        
+        // Initialize monthly totals
+        for (let month = 0; month < 12; month++) {
+            monthlyTotals.push({ count: 0, amount: 0, yearBreakdown: [] });
+        }
         
         for (let dayOfMonth = 1; dayOfMonth <= 31; dayOfMonth++) {
             const row: DayData[] = [];
@@ -192,6 +199,22 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                 count: dayInfo.count,
                                 amount: dayInfo.amount
                             });
+                            
+                            // Add to monthly totals
+                            const monthTotal = monthlyTotals[month];
+                            if (monthTotal) {
+                                monthTotal.count += dayInfo.count;
+                                monthTotal.amount += dayInfo.amount;
+                                
+                                // Find or add year breakdown for monthly totals
+                                let monthlyYearData = monthTotal.yearBreakdown.find(y => y.year === year);
+                                if (!monthlyYearData) {
+                                    monthlyYearData = { year: year, count: 0, amount: 0 };
+                                    monthTotal.yearBreakdown.push(monthlyYearData);
+                                }
+                                monthlyYearData.count += dayInfo.count;
+                                monthlyYearData.amount += dayInfo.amount;
+                            }
                         }
                         
                         if (currentDate.toDateString() === today.toDateString()) {
@@ -212,6 +235,34 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
             
             grid.push(row);
         }
+        
+        // Add monthly totals row
+        const monthlyTotalRow: DayData[] = [];
+        for (let month = 0; month < 12; month++) {
+            const monthTotal = monthlyTotals[month];
+            if (monthTotal) {
+                monthlyTotalRow.push({
+                    date: new Date(currentYear, month, 1), // Use first day as reference
+                    count: monthTotal.count,
+                    amount: monthTotal.amount,
+                    isCurrentMonth: true,
+                    isToday: false,
+                    yearBreakdown: monthTotal.yearBreakdown,
+                    isMonthlyTotal: true
+                });
+            } else {
+                monthlyTotalRow.push({
+                    date: new Date(currentYear, month, 1),
+                    count: 0,
+                    amount: 0,
+                    isCurrentMonth: true,
+                    isToday: false,
+                    yearBreakdown: [],
+                    isMonthlyTotal: true
+                });
+            }
+        }
+        grid.push(monthlyTotalRow);
         
         return { grid, maxCount, maxAmount, monthNames };
     }, [
@@ -277,7 +328,7 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
 
     // Enhanced CSV data for chart controls with detailed statistics
     const csvDataForControls = [
-        ['Day of Month', 'Month', 'Date', 'Transaction Count', 'Total Amount', 'Average per Transaction', 'Activity Level', 'Valid Day'],
+        ['Day of Month', 'Month', 'Date', 'Transaction Count', 'Total Amount', 'Average per Transaction', 'Activity Level', 'Valid Day', 'Type'],
         ...calendarData.grid.flatMap((row, rowIndex) => 
             row.map((cellData, colIndex) => {
                 const averageAmount = cellData.count > 0 ? cellData.amount / cellData.count : 0;
@@ -285,18 +336,22 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                    cellData.count === 1 ? 'Single' :
                                    cellData.count <= 3 ? 'Low' :
                                    cellData.count <= 6 ? 'Moderate' : 'High';
-                const dateString = cellData.isCurrentMonth ? 
-                    `${calendarData.monthNames[colIndex]} ${rowIndex + 1}` : 'Invalid';
+                const isMonthlyTotal = cellData.isMonthlyTotal;
+                const dateString = isMonthlyTotal ? 
+                    `${calendarData.monthNames[colIndex]} Monthly Total` :
+                    cellData.isCurrentMonth ? 
+                        `${calendarData.monthNames[colIndex]} ${rowIndex + 1}` : 'Invalid';
                 
                 return [
-                    (rowIndex + 1).toString(),
+                    isMonthlyTotal ? 'Total' : (rowIndex + 1).toString(),
                     calendarData.monthNames[colIndex] || '',
                     dateString,
-                    cellData.isCurrentMonth ? cellData.count.toString() : '0',
-                    cellData.isCurrentMonth ? cellData.amount.toFixed(2) : '0.00',
-                    cellData.isCurrentMonth ? averageAmount.toFixed(2) : '0.00',
-                    cellData.isCurrentMonth ? activityLevel : 'N/A',
-                    cellData.isCurrentMonth ? 'Yes' : 'No'
+                    (cellData.isCurrentMonth || isMonthlyTotal) ? cellData.count.toString() : '0',
+                    (cellData.isCurrentMonth || isMonthlyTotal) ? cellData.amount.toFixed(2) : '0.00',
+                    (cellData.isCurrentMonth || isMonthlyTotal) ? averageAmount.toFixed(2) : '0.00',
+                    (cellData.isCurrentMonth || isMonthlyTotal) ? activityLevel : 'N/A',
+                    (cellData.isCurrentMonth || isMonthlyTotal) ? 'Yes' : 'No',
+                    isMonthlyTotal ? 'Monthly Total' : 'Daily'
                 ];
             })
         )
@@ -396,41 +451,65 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
 
             // Add calendar grid
             calendarData.grid.forEach((row, rowIndex) => {
-                // Add day label
+                const isMonthlyTotalRow = row[0]?.isMonthlyTotal;
+                const yPosition = gridStartY + (rowIndex * cellHeight);
+                
+                // Add day label or total label
                 const dayLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                 dayLabel.setAttribute('x', (gridStartX + dayLabelWidth / 2).toString());
-                dayLabel.setAttribute('y', (gridStartY + (rowIndex * cellHeight) + cellHeight / 2 + 5).toString());
+                dayLabel.setAttribute('y', (yPosition + cellHeight / 2 + 5).toString());
                 dayLabel.setAttribute('text-anchor', 'middle');
                 dayLabel.setAttribute('font-family', 'Arial, sans-serif');
-                dayLabel.setAttribute('font-size', '12');
-                dayLabel.setAttribute('fill', '#6b7280');
-                dayLabel.textContent = (rowIndex + 1).toString();
+                dayLabel.setAttribute('font-size', isMonthlyTotalRow ? '14' : '12');
+                dayLabel.setAttribute('fill', isMonthlyTotalRow ? '#374151' : '#6b7280');
+                dayLabel.setAttribute('font-weight', isMonthlyTotalRow ? 'bold' : 'normal');
+                dayLabel.textContent = isMonthlyTotalRow ? 'Total' : (rowIndex + 1).toString();
                 svg.appendChild(dayLabel);
+
+                // Add separator line for monthly total row
+                if (isMonthlyTotalRow) {
+                    const separatorLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    separatorLine.setAttribute('x1', gridStartX.toString());
+                    separatorLine.setAttribute('y1', (yPosition - 10).toString());
+                    separatorLine.setAttribute('x2', (gridStartX + dayLabelWidth + (12 * cellWidth)).toString());
+                    separatorLine.setAttribute('y2', (yPosition - 10).toString());
+                    separatorLine.setAttribute('stroke', '#d1d5db');
+                    separatorLine.setAttribute('stroke-width', '2');
+                    svg.appendChild(separatorLine);
+                }
 
                 // Add month cells
                 row.forEach((cellData, colIndex) => {
                     const x = gridStartX + dayLabelWidth + (colIndex * cellWidth);
-                    const y = gridStartY + (rowIndex * cellHeight);
+                    const y = yPosition;
+                    const isMonthlyTotal = cellData.isMonthlyTotal;
 
                     // Cell background
                     const cellRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
                     cellRect.setAttribute('x', x.toString());
                     cellRect.setAttribute('y', y.toString());
                     cellRect.setAttribute('width', (cellWidth - 3).toString());
-                    cellRect.setAttribute('height', (cellHeight - 3).toString());
+                    cellRect.setAttribute('height', (isMonthlyTotal ? cellHeight + 3 : cellHeight - 3).toString());
                     cellRect.setAttribute('rx', '3');
                     
                     if (cellData.isCurrentMonth) {
-                        const backgroundColor = getColorIntensity(cellData.amount);
-                        cellRect.setAttribute('fill', backgroundColor === 'transparent' ? '#f9fafb' : backgroundColor);
-                        cellRect.setAttribute('stroke', '#e5e7eb');
-                        cellRect.setAttribute('stroke-width', '1');
-                        
-                        if (cellData.isToday) {
-                            cellRect.setAttribute('stroke', '#3b82f6');
-                            cellRect.setAttribute('stroke-width', '2');
+                        if (isMonthlyTotal) {
+                            // Special styling for monthly totals
+                            cellRect.setAttribute('fill', cellData.count > 0 ? (type === 'income' ? '#dcfce7' : '#fee2e2') : '#f9fafb');
+                            cellRect.setAttribute('stroke', '#e5e7eb');
+                            cellRect.setAttribute('stroke-width', '1');
+                        } else {
+                            const backgroundColor = getColorIntensity(cellData.amount);
+                            cellRect.setAttribute('fill', backgroundColor === 'transparent' ? '#f9fafb' : backgroundColor);
+                            cellRect.setAttribute('stroke', '#e5e7eb');
+                            cellRect.setAttribute('stroke-width', '1');
+                            
+                            if (cellData.isToday) {
+                                cellRect.setAttribute('stroke', '#3b82f6');
+                                cellRect.setAttribute('stroke-width', '2');
+                            }
                         }
-                    } else {
+                    } else if (!isMonthlyTotal) {
                         cellRect.setAttribute('fill', '#f9fafb');
                         cellRect.setAttribute('stroke', '#e5e7eb');
                         cellRect.setAttribute('stroke-width', '1');
@@ -445,9 +524,9 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                         countText.setAttribute('y', (y + cellHeight / 2 + 4).toString());
                         countText.setAttribute('text-anchor', 'middle');
                         countText.setAttribute('font-family', 'Arial, sans-serif');
-                        countText.setAttribute('font-size', '12');
+                        countText.setAttribute('font-size', isMonthlyTotal ? '14' : '12');
                         countText.setAttribute('font-weight', 'bold');
-                        countText.setAttribute('fill', '#374151');
+                        countText.setAttribute('fill', isMonthlyTotal ? '#111827' : '#374151');
                         countText.textContent = cellData.count.toString();
                         svg.appendChild(countText);
                     }
@@ -576,48 +655,83 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                     </div>
                     
                     {/* Calendar Rows */}
-                    {calendarData.grid.map((row, rowIndex) => (
-                        <div key={rowIndex} className="flex mb-0.5">
-                            {/* Day of Month Label */}
-                            <div className="w-12 flex-shrink-0 text-xs text-gray-600 font-medium flex items-center justify-center pr-2">
-                                {rowIndex + 1}
-                            </div>
+                    {calendarData.grid.map((row, rowIndex) => {
+                        const isMonthlyTotalRow = row[0]?.isMonthlyTotal;
+                        return (
+                            <div key={rowIndex} className={`flex ${isMonthlyTotalRow ? 'mb-2 mt-2 border-t-2 border-gray-300 pt-2' : 'mb-0.5'}`}>
+                                {/* Day of Month Label or Monthly Total Label */}
+                                <div className={`w-12 flex-shrink-0 text-xs font-medium flex items-center justify-center pr-2 ${
+                                    isMonthlyTotalRow ? 'text-gray-800 font-bold' : 'text-gray-600'
+                                }`}>
+                                    {isMonthlyTotalRow ? 'Total' : rowIndex + 1}
+                                </div>
                             
                             {/* Month Cells */}
                             {row.map((cellData, colIndex) => {
                                 const isHovered = hoveredCell?.row === rowIndex && hoveredCell?.col === colIndex;
+                                const isMonthlyTotal = cellData.isMonthlyTotal;
                                 return (
                                 <div
                                     key={colIndex}
                                     className={`
-                                        relative flex-1 h-6 border border-gray-200 rounded-sm mx-0.5
-                                        ${cellData.isToday ? 'ring-2 ring-blue-500' : ''}
-                                        ${cellData.isCurrentMonth && cellData.count > 0 ? 'cursor-pointer hover:ring-2 hover:ring-blue-400 hover:shadow-sm' : cellData.isCurrentMonth ? 'hover:ring-2 hover:ring-gray-400' : 'opacity-30'}
+                                        relative flex-1 border border-gray-200 rounded-sm mx-0.5
+                                        ${isMonthlyTotal ? 'h-8' : 'h-6'}
+                                        ${cellData.isToday && !isMonthlyTotal ? 'ring-2 ring-blue-500' : ''}
+                                        ${cellData.isCurrentMonth && cellData.count > 0 ? 'cursor-pointer hover:ring-2 hover:ring-blue-400 hover:shadow-sm' : cellData.isCurrentMonth ? 'hover:ring-2 hover:ring-gray-400' : !isMonthlyTotal ? 'opacity-30' : ''}
                                         transition-all
                                         min-w-[50px]
                                     `}
                                     style={{
-                                        backgroundColor: cellData.isCurrentMonth ? getColorIntensity(cellData.amount) : '#f9fafb'
+                                        backgroundColor: cellData.isCurrentMonth ? 
+                                            (isMonthlyTotal ? 
+                                                (cellData.count > 0 ? (type === 'income' ? '#dcfce7' : '#fee2e2') : '#f9fafb') 
+                                                : getColorIntensity(cellData.amount)) 
+                                            : '#f9fafb'
                                     }}
-                                    title={cellData.isCurrentMonth ? 
-                                        cellData.count > 0 
-                                            ? `${calendarData.monthNames[colIndex]} ${rowIndex + 1}: ${cellData.count} transactions - Hover for details`
-                                            : `${calendarData.monthNames[colIndex]} ${rowIndex + 1}: No transactions`
-                                        : `${calendarData.monthNames[colIndex]} ${rowIndex + 1} does not exist`
+                                    title={isMonthlyTotal ? 
+                                        `${calendarData.monthNames[colIndex]} Total: ${cellData.count} transactions - Hover for details`
+                                        : cellData.isCurrentMonth ? 
+                                            cellData.count > 0 
+                                                ? `${calendarData.monthNames[colIndex]} ${rowIndex + 1}: ${cellData.count} transactions - Hover for details`
+                                                : `${calendarData.monthNames[colIndex]} ${rowIndex + 1}: No transactions`
+                                            : `${calendarData.monthNames[colIndex]} ${rowIndex + 1} does not exist`
                                     }
                                     onMouseEnter={() => handleCellMouseEnter(rowIndex, colIndex)}
                                     onMouseLeave={handleCellMouseLeave}
                                     onClick={() => {
-                                        // If single year, use that year; otherwise use current year as fallback
-                                        const targetYear = cellData.yearBreakdown.length === 1 
-                                            ? cellData.yearBreakdown[0]?.year 
-                                            : undefined;
-                                        handleCellClick(cellData, colIndex, rowIndex + 1, targetYear);
+                                        if (isMonthlyTotal) {
+                                            // For monthly totals, navigate to the entire month view
+                                            if (cellData.count > 0) {
+                                                const currentYear = new Date().getFullYear();
+                                                const startDate = new Date(currentYear, colIndex, 1);
+                                                const endDate = new Date(currentYear, colIndex + 1, 0); // Last day of month
+                                                
+                                                const formatDateForURL = (date: Date): string => {
+                                                    return date.toISOString().split('T')[0] || '';
+                                                };
+
+                                                const startDateStr = formatDateForURL(startDate);
+                                                const endDateStr = formatDateForURL(endDate);
+
+                                                const targetPath = type === 'income' ? '/incomes' : '/expenses';
+                                                const url = `${targetPath}?startDate=${startDateStr}&endDate=${endDateStr}`;
+                                                
+                                                router.push(url);
+                                            }
+                                        } else {
+                                            // If single year, use that year; otherwise use current year as fallback
+                                            const targetYear = cellData.yearBreakdown.length === 1 
+                                                ? cellData.yearBreakdown[0]?.year 
+                                                : undefined;
+                                            handleCellClick(cellData, colIndex, rowIndex + 1, targetYear);
+                                        }
                                     }}
                                 >
                                     {/* Transaction count display */}
                                     {cellData.count > 0 && cellData.isCurrentMonth && (
-                                        <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-gray-700">
+                                        <span className={`absolute inset-0 flex items-center justify-center text-xs font-medium ${
+                                            isMonthlyTotal ? 'text-gray-800 font-bold' : 'text-gray-700'
+                                        }`}>
                                             {cellData.count}
                                         </span>
                                     )}
@@ -644,11 +758,24 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                         >
                                             {/* Date Header */}
                                             <div className="font-bold text-gray-900 mb-2 text-sm">
-                                                {calendarData.monthNames[colIndex]} {rowIndex + 1}
-                                                {displayYears.length > 1 && cellData.yearBreakdown.length > 0 && (
-                                                    <span className="text-xs font-normal text-gray-500 ml-1">
-                                                        (Across {cellData.yearBreakdown.length} year{cellData.yearBreakdown.length !== 1 ? 's' : ''})
-                                                    </span>
+                                                {isMonthlyTotal ? (
+                                                    <>
+                                                        {calendarData.monthNames[colIndex]} Monthly Total
+                                                        {displayYears.length > 1 && cellData.yearBreakdown.length > 0 && (
+                                                            <span className="text-xs font-normal text-gray-500 ml-1">
+                                                                (Across {cellData.yearBreakdown.length} year{cellData.yearBreakdown.length !== 1 ? 's' : ''})
+                                                            </span>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        {calendarData.monthNames[colIndex]} {rowIndex + 1}
+                                                        {displayYears.length > 1 && cellData.yearBreakdown.length > 0 && (
+                                                            <span className="text-xs font-normal text-gray-500 ml-1">
+                                                                (Across {cellData.yearBreakdown.length} year{cellData.yearBreakdown.length !== 1 ? 's' : ''})
+                                                            </span>
+                                                        )}
+                                                    </>
                                                 )}
                                             </div>
 
@@ -737,9 +864,13 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                                     {/* Action Hint */}
                                                     <div className="border-t border-gray-200 pt-2 mt-2">
                                                         <div className="text-xs text-gray-500 text-center">
-                                                            {cellData.yearBreakdown.length > 1 
-                                                                ? '💡 Click year buttons above to view specific year data'
-                                                                : '💡 Click cell to view details (±1 day range)'
+                                                            {isMonthlyTotal 
+                                                                ? (cellData.yearBreakdown.length > 1 
+                                                                    ? '💡 Click year buttons above to view specific year data or click cell to view entire month'
+                                                                    : '💡 Click cell to view entire month data')
+                                                                : (cellData.yearBreakdown.length > 1 
+                                                                    ? '💡 Click year buttons above to view specific year data'
+                                                                    : '💡 Click cell to view details (±1 day range)')
                                                             }
                                                         </div>
                                                     </div>
@@ -748,7 +879,9 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                                 <>
                                                     {/* No Activity State */}
                                                     <div className="text-sm text-gray-500 text-center py-2">
-                                                        <div className="mb-1">No {type} transactions</div>
+                                                        <div className="mb-1">
+                                                            {isMonthlyTotal ? `No ${type} transactions this month` : `No ${type} transactions`}
+                                                        </div>
                                                         <div className="text-xs text-gray-400">
                                                             {displayYears.length > 1 
                                                                 ? `Across ${displayYears.length} years (${displayYears.join(', ')})`
@@ -780,7 +913,8 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                 );
                             })}
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         </div>
