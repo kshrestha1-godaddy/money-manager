@@ -413,14 +413,7 @@ export function FinancialAreaChart({
 
         const start = startDate.toISOString().split('T')[0] || '';
         const end = today.toISOString().split('T')[0] || '';
-
-        // console.log(`Getting date range for ${months} months:`, { 
-        //     start, 
-        //     end, 
-        //     startDate: startDate.toLocaleDateString(),
-        //     endDate: today.toLocaleDateString()
-        // });
-
+        
         return { start, end };
     };
 
@@ -728,34 +721,16 @@ export function FinancialAreaChart({
                                                     )}
                                                 </div>
 
-                                                {/* Activity Level */}
-                                                {dataPoint.transactionCount > 0 && (
-                                                    <div className="border-t border-gray-200 pt-3 mb-3">
-                                                        <div className="flex justify-between text-sm">
-                                                            <span className="text-gray-600">Activity Level:</span>
-                                                            <span className={`font-medium ${
-                                                                dataPoint.transactionCount === 1 ? 'text-blue-600' :
-                                                                dataPoint.transactionCount <= 3 ? 'text-green-600' :
-                                                                dataPoint.transactionCount <= 6 ? 'text-yellow-600' : 'text-red-600'
-                                                            }`}>
-                                                                {dataPoint.transactionCount === 1 ? 'Single' :
-                                                                 dataPoint.transactionCount <= 3 ? 'Low' :
-                                                                 dataPoint.transactionCount <= 6 ? 'Moderate' : 'High'}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                )}
-
                                                 {/* Top Transactions Preview */}
                                                 {dataPoint.transactions.length > 0 && (
                                                     <div className="border-t border-gray-200 pt-3">
                                                         <div className="text-xs text-gray-600 mb-2">
-                                                            {dataPoint.transactions.length > 3 ? 'Top 3 Transactions:' : 'Transactions:'}
+                                                            {dataPoint.transactions.length > 6 ? 'Top 5 Transactions:' : 'Transactions:'}
                                                         </div>
                                                         <div className="space-y-1">
                                                             {dataPoint.transactions
                                                                 .sort((a, b) => b.amount - a.amount)
-                                                                .slice(0, 3)
+                                                                .slice(0, 6)
                                                                 .map((transaction, index) => (
                                                                     <div key={index} className="flex justify-between text-xs">
                                                                         <span className="text-gray-600 truncate max-w-32">
@@ -770,9 +745,9 @@ export function FinancialAreaChart({
                                                                     </div>
                                                                 ))
                                                             }
-                                                            {dataPoint.transactions.length > 3 && (
+                                                            {dataPoint.transactions.length > 6 && (
                                                                 <div className="text-xs text-gray-400 text-center pt-1">
-                                                                    +{dataPoint.transactions.length - 3} more transaction{dataPoint.transactions.length - 3 !== 1 ? 's' : ''}
+                                                                    +{dataPoint.transactions.length - 6} more transaction{dataPoint.transactions.length - 6 !== 1 ? 's' : ''}
                                                                 </div>
                                                             )}
                                                         </div>
