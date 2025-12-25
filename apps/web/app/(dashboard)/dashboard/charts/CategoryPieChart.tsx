@@ -3,6 +3,7 @@
 import React, { useState, useRef, useMemo, useCallback } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { formatCurrency } from "../../../utils/currency";
+import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { Income, Expense } from "../../../types/financial";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { ChartControls } from "../../../components/ChartControls";
@@ -69,7 +70,8 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
         transactions.forEach(transaction => {
             const categoryName = transaction.category?.name || 'Unknown Category';
             const transactionDate = new Date(transaction.date);
-            const amount = transaction.amount;
+            // Convert transaction amount to display currency for consistent totals
+            const amount = convertForDisplaySync(transaction.amount, transaction.currency, currency);
             
             const existingStats = categoryStatsMap.get(categoryName);
             
@@ -495,11 +497,11 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-2 sm:gap-3">
                 {/* Pie Chart */}
                 <div 
                     ref={chartRef} 
-                    className={`w-full max-w-7xl mx-auto ${isExpanded ? "h-[60rem]" : (heightClass ?? "h-[48rem] sm:h-[52rem]")} lg:col-span-2`}
+                    className={`w-full max-w-7xl mx-auto ${isExpanded ? "h-[60rem]" : (heightClass ?? "h-[48rem] sm:h-[52rem]")} lg:col-span-3 flex items-center justify-center`}
                     role="img"
                     aria-label={`${type === 'income' ? 'Income' : 'Expense'} categories pie chart showing distribution of ${formatCurrency(total, currency)} across different categories`}
                 >
@@ -595,17 +597,17 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                 </div>
 
                 {/* Legend and breakdown */}
-                <div className="space-y-2 sm:space-y-3 pr-10">
-                    <h4 className="text-xs font-medium text-gray-900">Category Breakdown</h4>
-                        <div className="space-y-2 sm:space-y-3 max-h-60 sm:max-h-80 overflow-y-auto">
+                <div className="space-y-1 sm:space-y-2 lg:col-span-1">
+                    <h4 className="text-xs font-medium text-gray-900 mb-2">Category Breakdown</h4>
+                        <div className="space-y-1 sm:space-y-2 max-h-60 sm:max-h-60 overflow-y-auto">
                         {chartData.map((entry, index) => {
                             const percentage = total > 0 ? ((entry.value / total) * 100).toFixed(1) : '0.0';
                             const isOthers = entry.name === 'Others';
                             
                             return (
                                 <div key={entry.name}>
-                                    <div className="flex items-center">
-                                        <div className="flex items-center flex-1 min-w-0">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-2">
                                             <div
                                                 className="w-4 h-4 sm:w-5 sm:h-5 rounded-full flex-shrink-0 border border-white"
                                                 style={{ 
@@ -622,7 +624,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="text-right flex-shrink-0">
+                                        <div className="text-right flex-shrink-0 ml-1">
                                             <div className="text-xs sm:text-sm font-medium text-gray-900">
                                                 {formatCurrency(entry.value, currency)}
                                             </div>
@@ -634,7 +636,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                                     
                                     {/* Show breakdown for Others category */}
                                     {isOthers && smallCategories.length > 0 && (
-                                        <div className="ml-5 sm:ml-6 mt-2 space-y-1">
+                                        <div className="ml-5 sm:ml-6 mt-1 space-y-0.5">
                                             {smallCategories.map((smallCat) => {
                                                 const smallPercentage = total > 0 ? ((smallCat.value / total) * 100).toFixed(1) : '0.0';
                                                 return (

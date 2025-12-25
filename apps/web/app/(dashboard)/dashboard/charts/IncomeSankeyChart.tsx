@@ -245,7 +245,7 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
                         isHtml: true,
                         textStyle: {
                             fontName: 'Arial',
-                            fontSize: 13
+                            fontSize: 16
                         }
                     },
                     sankey: {
@@ -253,10 +253,10 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
                             colors: COLORS.slice(0, validData.length + 1),
                             label: {
                                 fontName: 'Arial',
-                                fontSize: 12,
+                                fontSize: 16,
                                 color: '#333'
                             },
-                            width: 15
+                            width: 10
                         },
                         link: {
                             colorMode: 'gradient'
