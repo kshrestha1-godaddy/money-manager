@@ -340,7 +340,7 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                 const dateString = isMonthlyTotal ? 
                     `${calendarData.monthNames[colIndex]} Monthly Total` :
                     cellData.isCurrentMonth ? 
-                        `${calendarData.monthNames[colIndex]} ${rowIndex + 1}` : 'Invalid';
+                    `${calendarData.monthNames[colIndex]} ${rowIndex + 1}` : 'Invalid';
                 
                 return [
                     isMonthlyTotal ? 'Total' : (rowIndex + 1).toString(),
@@ -499,15 +499,15 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                             cellRect.setAttribute('stroke', '#e5e7eb');
                             cellRect.setAttribute('stroke-width', '1');
                         } else {
-                            const backgroundColor = getColorIntensity(cellData.amount);
-                            cellRect.setAttribute('fill', backgroundColor === 'transparent' ? '#f9fafb' : backgroundColor);
-                            cellRect.setAttribute('stroke', '#e5e7eb');
-                            cellRect.setAttribute('stroke-width', '1');
-                            
-                            if (cellData.isToday) {
-                                cellRect.setAttribute('stroke', '#3b82f6');
-                                cellRect.setAttribute('stroke-width', '2');
-                            }
+                        const backgroundColor = getColorIntensity(cellData.amount);
+                        cellRect.setAttribute('fill', backgroundColor === 'transparent' ? '#f9fafb' : backgroundColor);
+                        cellRect.setAttribute('stroke', '#e5e7eb');
+                        cellRect.setAttribute('stroke-width', '1');
+                        
+                        if (cellData.isToday) {
+                            cellRect.setAttribute('stroke', '#3b82f6');
+                            cellRect.setAttribute('stroke-width', '2');
+                        }
                         }
                     } else if (!isMonthlyTotal) {
                         cellRect.setAttribute('fill', '#f9fafb');
@@ -664,7 +664,7 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                     isMonthlyTotalRow ? 'text-gray-800 font-bold' : 'text-gray-600'
                                 }`}>
                                     {isMonthlyTotalRow ? 'Total' : rowIndex + 1}
-                                </div>
+                            </div>
                             
                             {/* Month Cells */}
                             {row.map((cellData, colIndex) => {
@@ -691,10 +691,10 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                     title={isMonthlyTotal ? 
                                         `${calendarData.monthNames[colIndex]} Total: ${cellData.count} transactions - Hover for details`
                                         : cellData.isCurrentMonth ? 
-                                            cellData.count > 0 
-                                                ? `${calendarData.monthNames[colIndex]} ${rowIndex + 1}: ${cellData.count} transactions - Hover for details`
-                                                : `${calendarData.monthNames[colIndex]} ${rowIndex + 1}: No transactions`
-                                            : `${calendarData.monthNames[colIndex]} ${rowIndex + 1} does not exist`
+                                        cellData.count > 0 
+                                            ? `${calendarData.monthNames[colIndex]} ${rowIndex + 1}: ${cellData.count} transactions - Hover for details`
+                                            : `${calendarData.monthNames[colIndex]} ${rowIndex + 1}: No transactions`
+                                        : `${calendarData.monthNames[colIndex]} ${rowIndex + 1} does not exist`
                                     }
                                     onMouseEnter={() => handleCellMouseEnter(rowIndex, colIndex)}
                                     onMouseLeave={handleCellMouseLeave}
@@ -719,11 +719,11 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                                 router.push(url);
                                             }
                                         } else {
-                                            // If single year, use that year; otherwise use current year as fallback
-                                            const targetYear = cellData.yearBreakdown.length === 1 
-                                                ? cellData.yearBreakdown[0]?.year 
-                                                : undefined;
-                                            handleCellClick(cellData, colIndex, rowIndex + 1, targetYear);
+                                        // If single year, use that year; otherwise use current year as fallback
+                                        const targetYear = cellData.yearBreakdown.length === 1 
+                                            ? cellData.yearBreakdown[0]?.year 
+                                            : undefined;
+                                        handleCellClick(cellData, colIndex, rowIndex + 1, targetYear);
                                         }
                                     }}
                                 >
@@ -769,11 +769,11 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                                     </>
                                                 ) : (
                                                     <>
-                                                        {calendarData.monthNames[colIndex]} {rowIndex + 1}
-                                                        {displayYears.length > 1 && cellData.yearBreakdown.length > 0 && (
-                                                            <span className="text-xs font-normal text-gray-500 ml-1">
-                                                                (Across {cellData.yearBreakdown.length} year{cellData.yearBreakdown.length !== 1 ? 's' : ''})
-                                                            </span>
+                                                {calendarData.monthNames[colIndex]} {rowIndex + 1}
+                                                {displayYears.length > 1 && cellData.yearBreakdown.length > 0 && (
+                                                    <span className="text-xs font-normal text-gray-500 ml-1">
+                                                        (Across {cellData.yearBreakdown.length} year{cellData.yearBreakdown.length !== 1 ? 's' : ''})
+                                                    </span>
                                                         )}
                                                     </>
                                                 )}
@@ -869,7 +869,7 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                                                     ? '💡 Click year buttons above to view specific year data or click cell to view entire month'
                                                                     : '💡 Click cell to view entire month data')
                                                                 : (cellData.yearBreakdown.length > 1 
-                                                                    ? '💡 Click year buttons above to view specific year data'
+                                                                ? '💡 Click year buttons above to view specific year data'
                                                                     : '💡 Click cell to view details (±1 day range)')
                                                             }
                                                         </div>

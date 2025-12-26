@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useMemo, useCallback } from "react";
-import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, Cell } from "recharts";
+import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, Cell, LabelList } from "recharts";
 import { Info } from "lucide-react";
 import { formatCurrency } from "../../../utils/currency";
 import { Income, Expense } from "../../../types/financial";
@@ -159,11 +159,15 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
             const expenseAverage = expenseCount > 0 ? month.expenses / expenseCount : 0;
             const savingsRate = month.income > 0 ? ((month.income - month.expenses) / month.income) * 100 : 0;
             
+            // For stacked visualization: ensure savings represents the actual amount to stack
+            // If savings is negative (expenses > income), we still want to show it stacked
+            const adjustedSavings = month.savings; // Keep original savings for stacking
+            
             return {
                 month: month.monthKey,
                 income: month.income,
                 expenses: month.expenses,
-                savings: month.savings,
+                savings: adjustedSavings,
                 incomeT: month.income,
                 expensesT: month.expenses,
                 savingsT: month.savings,
@@ -263,7 +267,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
     // Memoize chart title and tooltip text
     const { chartTitle, tooltipText } = useMemo(() => ({
         chartTitle: totalTransactions > 0 ? `Monthly Income, Expenses & Savings Trend ${timePeriodText} • ${totalTransactions} transaction${totalTransactions !== 1 ? 's' : ''}` : `Monthly Income, Expenses & Savings Trend ${timePeriodText}`,
-        tooltipText: "Compare your monthly financial flows with detailed statistics including transaction counts, averages, savings rates, and percentages. Hover over bars for detailed breakdowns."
+        tooltipText: "Visualize monthly financial flows with stacked expenses and savings bars showing how your income is allocated. The expenses bar starts at zero, and savings (or losses) stack on top, creating a clear view of your financial breakdown."
     }), [timePeriodText, totalTransactions]);
 
     // Optimized download functions with better error handling
@@ -295,12 +299,13 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
             <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-5 min-w-96 max-w-lg min-h-60">
                 <div className="font-bold text-gray-900 mb-3 text-base">{label}</div>
                 
-                {/* Financial Summary */}
+                {/* Financial Summary with stacked context */}
                 <div className="space-y-2 mb-3">
                     {barData.map((entry, index) => {
-                        const displayName = entry.dataKey === 'income' ? 'Income' :
-                                         entry.dataKey === 'expenses' ? 'Expenses' : 'Savings';
-                        const percentage = totalAmount > 0 ? ((Math.abs(entry.value) / totalAmount) * 100).toFixed(1) : '0.0';
+                        const displayName = entry.dataKey === 'income' ? 'Total Income' :
+                                         entry.dataKey === 'expenses' ? 'Expenses' : 
+                                         entry.value >= 0 ? 'Savings' : 'Loss';
+                        const incomePercentage = monthData.income > 0 ? ((Math.abs(entry.value) / monthData.income) * 100).toFixed(1) : '0.0';
                         
                         return (
                             <div key={index} className="flex justify-between items-center">
@@ -308,7 +313,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                                     {displayName}:
                                 </span>
                                 <span className="text-sm font-semibold">
-                                    {formatCurrency(entry.value, currency)} ({percentage}%)
+                                    {formatCurrency(entry.value, currency)} ({incomePercentage}%)
                                 </span>
                             </div>
                         );
@@ -373,6 +378,8 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
         );
     }, []);
 
+    // Custom label functions for percentage display on bars
+
     // Main chart component - memoized for better performance
     const Chart = useMemo(() => (
         <div 
@@ -386,6 +393,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                     data={chartData}
                     margin={CHART_MARGINS}
                     barCategoryGap="15%"
+                    barGap="5%"
                 >
                     {/* Define texture patterns for bars */}
                     <defs>
@@ -407,8 +415,8 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                             <circle cx="3" cy="3" r="0.5" fill="#1d4ed8" opacity="0.25"/>
                         </pattern>
                         <pattern id="monthlyLossPattern" patternUnits="userSpaceOnUse" width="4" height="4">
-                            <rect width="4" height="4" fill="#3b82f6"/>
-                            <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke="#1d4ed8" strokeWidth="0.7" opacity="0.4"/>
+                            <rect width="4" height="4" fill="#f59e0b"/>
+                            <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke="#d97706" strokeWidth="0.7" opacity="0.4"/>
                         </pattern>
                     </defs>
 
@@ -416,6 +424,14 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                     
                     {/* Reference lines for better visualization */}
                     <ReferenceLine y={0} stroke="#666" strokeWidth={2} />
+                    {/* Average income line for context */}
+                    <ReferenceLine 
+                        y={calculations.averageIncome} 
+                        stroke="#10b981" 
+                        strokeDasharray="5 5"
+                        strokeWidth={2}
+                        label={{ value: "Avg Income", position: "right" }}
+                    />
                     {calculations.referenceLines.map((value, index) => (
                         <ReferenceLine 
                             key={index}
@@ -452,13 +468,81 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                         dataKey="expenses" 
                         fill="url(#monthlyExpensesPattern)"
                         name="Expenses"
-                        radius={[2, 2, 0, 0]}
-                    />
+                        stackId="expensesSavings"
+                        radius={[0, 0, 0, 0]}
+                    >
+                        <LabelList 
+                            content={(props: any) => {
+                                const { x, y, width, height, value, index } = props;
+                                
+                                // Check if we have enough space to show the label
+                                if (!value || value === 0 || height < 15) return null;
+                                
+                                // Get the corresponding chart data entry
+                                const chartEntry = chartData[index];
+                                if (!chartEntry || !chartEntry.income || chartEntry.income === 0) return null;
+                                
+                                const percentage = ((value / chartEntry.income) * 100);
+                                
+                                // Only show label if percentage is >= 3%
+                                if (percentage < 3) return null;
+                                
+                                return (
+                                    <text 
+                                        x={x + width / 2} 
+                                        y={y + height / 2} 
+                                        fill="white" 
+                                        textAnchor="middle" 
+                                        dy=".35em"
+                                        fontSize="11"
+                                        fontWeight="bold"
+                                    >
+                                        {percentage.toFixed(0)}%
+                                    </text>
+                                );
+                            }}
+                        />
+                    </Bar>
                     <Bar 
                         dataKey="savings" 
                         name="Savings"
+                        stackId="expensesSavings"
                         radius={[2, 2, 0, 0]}
                     >
+                        <LabelList 
+                            content={(props: any) => {
+                                const { x, y, width, height, index } = props;
+                                
+                                // Get the corresponding chart data entry
+                                const chartEntry = chartData[index];
+                                if (!chartEntry || !chartEntry.income || chartEntry.income === 0) return null;
+                                
+                                // Use the actual savings amount from chart data, not the stacked value
+                                const savingsValue = chartEntry.savings;
+                                
+                                // Check if we have enough space to show the label
+                                if (!savingsValue || savingsValue === 0 || height < 15) return null;
+                                
+                                const percentage = ((Math.abs(savingsValue) / chartEntry.income) * 100);
+                                
+                                // Only show label if percentage is >= 3%
+                                if (percentage < 3) return null;
+                                
+                                return (
+                                    <text 
+                                        x={x + width / 2} 
+                                        y={y + height / 2} 
+                                        fill="white" 
+                                        textAnchor="middle" 
+                                        dy=".35em"
+                                        fontSize="11"
+                                        fontWeight="bold"
+                                    >
+                                        {percentage.toFixed(0)}%
+                                    </text>
+                                );
+                            }}
+                        />
                         {chartData.map((entry, index) => (
                             <Cell 
                                 key={`savings-cell-${index}`} 
@@ -473,33 +557,33 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                         dataKey="incomeT" 
                         stroke={CHART_COLORS.incomeTrend}
                         strokeWidth={3}
-                        dot={{ fill: CHART_COLORS.incomeTrend, strokeWidth: 2, r: 4 }}
+                        dot={{ fill: CHART_COLORS.incomeTrend, stroke: 'white', strokeWidth: 2, r: 5 }}
                         name="Income Trend"
                         connectNulls={false}
                         legendType="none"
-                        activeDot={false}
+                        activeDot={{ r: 7, fill: CHART_COLORS.incomeTrend, stroke: 'white', strokeWidth: 2 }}
                     />
                     <Line 
                         type="monotone" 
                         dataKey="expensesT" 
                         stroke={CHART_COLORS.expensesTrend}
                         strokeWidth={3}
-                        dot={{ fill: CHART_COLORS.expensesTrend, strokeWidth: 2, r: 4 }}
+                        dot={{ fill: CHART_COLORS.expensesTrend, stroke: 'white', strokeWidth: 2, r: 5 }}
                         name="Expenses Trend"
                         connectNulls={false}
                         legendType="none"
-                        activeDot={false}
+                        activeDot={{ r: 7, fill: CHART_COLORS.expensesTrend, stroke: 'white', strokeWidth: 2 }}
                     />
                     <Line 
                         type="monotone" 
                         dataKey="savingsT" 
                         stroke={CHART_COLORS.savingsTrend}
                         strokeWidth={3}
-                        dot={{ fill: CHART_COLORS.savingsTrend, strokeWidth: 2, r: 4 }}
+                        dot={{ fill: CHART_COLORS.savingsTrend, stroke: 'white', strokeWidth: 2, r: 5 }}
                         name="Savings Trend"
                         connectNulls={false}
                         legendType="none"
-                        activeDot={false}
+                        activeDot={{ r: 7, fill: CHART_COLORS.savingsTrend, stroke: 'white', strokeWidth: 2 }}
                     />
                 </ComposedChart>
             </ResponsiveContainer>
