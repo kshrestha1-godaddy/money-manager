@@ -424,14 +424,6 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                     
                     {/* Reference lines for better visualization */}
                     <ReferenceLine y={0} stroke="#666" strokeWidth={2} />
-                    {/* Average income line for context */}
-                    <ReferenceLine 
-                        y={calculations.averageIncome} 
-                        stroke="#10b981" 
-                        strokeDasharray="5 5"
-                        strokeWidth={2}
-                        label={{ value: "Avg Income", position: "right" }}
-                    />
                     {calculations.referenceLines.map((value, index) => (
                         <ReferenceLine 
                             key={index}
