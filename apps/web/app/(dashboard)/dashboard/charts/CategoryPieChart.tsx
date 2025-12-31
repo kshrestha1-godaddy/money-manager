@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useMemo, useCallback } from "react";
+import React, { useId, useState, useRef, useMemo, useCallback } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { formatCurrency } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
@@ -58,6 +58,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { categoryData, formatTimePeriod, filteredIncomes, filteredExpenses } = useChartData();
+    const patternPrefix = useId().replace(/:/g, "");
     
     // Memoize all data processing for better performance
     const { chartData, rawChartData, total, smallCategories } = useMemo(() => {
@@ -510,7 +511,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                             {/* Define texture patterns for pie slices */}
                             <defs>
                                 {chartData.map((entry, index) => {
-                                    const patternId = `piePattern${index}`;
+                                    const patternId = `${patternPrefix}-piePattern${index}`;
                                     const baseColor = entry.color;
                                     const darkerColor = entry.solidColor || baseColor;
                                     
@@ -559,7 +560,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                                 })}
                                 
                                 {/* Special pattern for "Others" category */}
-                                <pattern id="othersPattern" patternUnits="userSpaceOnUse" width="3" height="3">
+                                <pattern id={`${patternPrefix}-othersPattern`} patternUnits="userSpaceOnUse" width="3" height="3">
                                     <rect width="3" height="3" fill="#94a3b8"/>
                                     <rect x="0" y="0" width="1" height="1" fill="#64748b" opacity="0.4"/>
                                     <rect x="2" y="2" width="1" height="1" fill="#64748b" opacity="0.4"/>
@@ -585,7 +586,11 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                                 {chartData.map((entry, index) => (
                                     <Cell 
                                         key={`cell-${index}`} 
-                                        fill={entry.name === 'Others' ? "url(#othersPattern)" : `url(#piePattern${index})`}
+                                        fill={
+                                            entry.name === "Others"
+                                                ? `url(#${patternPrefix}-othersPattern)`
+                                                : `url(#${patternPrefix}-piePattern${index})`
+                                        }
                                         stroke="#ffffff"
                                         strokeWidth={2}
                                     />
@@ -599,7 +604,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                 {/* Legend and breakdown */}
                 <div className="space-y-1 sm:space-y-2 lg:col-span-1">
                     <h4 className="text-xs font-medium text-gray-900 mb-2">Category Breakdown</h4>
-                        <div className="space-y-1 sm:space-y-2 max-h-60 sm:max-h-60 overflow-y-auto">
+                        <div className="space-y-1 sm:space-y-2 max-h-80 sm:max-h-96 overflow-y-auto pr-2">{/* Increased from max-h-60 to max-h-80/96 and added pr-2 for scrollbar */}
                         {chartData.map((entry, index) => {
                             const percentage = total > 0 ? ((entry.value / total) * 100).toFixed(1) : '0.0';
                             const isOthers = entry.name === 'Others';

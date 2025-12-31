@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useMemo, useCallback } from "react";
+import React, { useId, useState, useRef, useMemo, useCallback } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { formatCurrency } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
@@ -39,19 +39,17 @@ interface CategoryStats {
 
 // Color palette with bright pie colors and dark legend colors for income
 const COLOR_PALETTE = [
-    { pie: '#0ea5e9', legend: '#0c4a6e' },    // bright sky / dark sky
-    { pie: '#3b82f6', legend: '#1e3a8a' },    // bright blue / dark blue
-    { pie: '#f59e0b', legend: '#92400e' },    // bright amber / dark amber
-    { pie: '#14b8a6', legend: '#0f766e' },    // bright teal / dark teal
-    { pie: '#a855f7', legend: '#581c87' },    // bright purple / dark purple
-    { pie: '#65a30d', legend: '#1a2e05' },     // bright green / very dark green
-    { pie: '#eab308', legend: '#a16207' },    // bright yellow / dark amber
+    { pie: '#0ea5e9', legend: '#0ea5e9' },    // bright sky / dark sky
+    { pie: '#3b82f6', legend: '#3b82f6' },    // bright blue / dark blue
+    { pie: '#00994d', legend: '#00994d' },     // bright green
+    { pie: '#eab308', legend: '#eab308' },    // bright yellow / dark amber
 ];
 
 export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD", title, heightClass }) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { categoryData, formatTimePeriod, filteredIncomes } = useChartData();
+    const patternPrefix = useId().replace(/:/g, "");
     
     // Memoize all data processing for better performance
     const { chartData, rawChartData, total, smallCategories } = useMemo(() => {
@@ -312,9 +310,9 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
     const renderCustomizedLabel = useCallback((entry: any) => {
         const percentage = total > 0 ? ((entry.value / total) * 100).toFixed(1) : '0.0';
         
-        // Find the corresponding chart data to get the solid color and transaction count
+        // Find the corresponding chart data to get the base color and transaction count
         const chartDataEntry = chartData.find(item => item.name === entry.name);
-        const labelColor = chartDataEntry?.solidColor || entry.fill || "#374151";
+        const labelColor = chartDataEntry?.color || entry.fill || "#374151";
         const transactionCount = chartDataEntry?.count || 0;
         
         // Calculate positioning for elbow-shaped connector lines
@@ -502,7 +500,7 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
                             {/* Define texture patterns for pie slices */}
                             <defs>
                                 {chartData.map((entry, index) => {
-                                    const patternId = `piePattern${index}`;
+                                    const patternId = `${patternPrefix}-piePattern${index}`;
                                     const baseColor = entry.color;
                                     const darkerColor = entry.solidColor || baseColor;
                                     
@@ -551,7 +549,7 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
                                 })}
                                 
                                 {/* Special pattern for "Others" category */}
-                                <pattern id="othersPattern" patternUnits="userSpaceOnUse" width="3" height="3">
+                                <pattern id={`${patternPrefix}-othersPattern`} patternUnits="userSpaceOnUse" width="3" height="3">
                                     <rect width="3" height="3" fill="#94a3b8"/>
                                     <rect x="0" y="0" width="1" height="1" fill="#64748b" opacity="0.4"/>
                                     <rect x="2" y="2" width="1" height="1" fill="#64748b" opacity="0.4"/>
@@ -577,7 +575,11 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
                                 {chartData.map((entry, index) => (
                                     <Cell 
                                         key={`cell-${index}`} 
-                                        fill={entry.color}
+                                        fill={
+                                            entry.name === "Others"
+                                                ? `url(#${patternPrefix}-othersPattern)`
+                                                : `url(#${patternPrefix}-piePattern${index})`
+                                        }
                                         stroke="#ffffff"
                                         strokeWidth={2}
                                     />
@@ -603,7 +605,7 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
                                             <div
                                                 className="w-4 h-4 sm:w-5 sm:h-5 rounded-full flex-shrink-0 border border-white"
                                                 style={{ 
-                                                    backgroundColor: entry.solidColor,
+                                                    backgroundColor: entry.color,
                                                     boxShadow: `0 1px 3px rgba(0, 0, 0, 0.1)`
                                                 }}
                                             />
