@@ -458,7 +458,8 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
                         isHtml: true,
                         textStyle: {
                             fontName: 'Arial',
-                            fontSize: 11
+                            fontSize: 11,
+                            padding: 10
                         }
                     },
                     sankey: {
@@ -469,11 +470,13 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
                                 fontSize: 14,
                                 color: '#333'
                             },
-                            width: 12
+                            width: 12,
+                            nodePadding: 30
                         },
                         link: {
-                            colorMode: 'source'
-                        }
+                            colorMode: 'source',
+                        },
+                        iterations: 64
                     }
                 };
 
@@ -586,13 +589,12 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
                 </div>
             )}
 
-            <div className="px-8 py-6">
+            <div className="px-8">
                 {sankeyData.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-16 text-gray-500">
                         <h3 className="text-lg font-medium mb-2">No Cash Flow Data</h3>
                         <p className="text-sm text-center max-w-sm">
                             Add income and expense entries to see the complete cash flow visualization.
-                            This chart shows how money flows from income sources through expenses to savings.
                         </p>
                     </div>
                 ) : (
