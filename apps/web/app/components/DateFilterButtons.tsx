@@ -5,6 +5,7 @@ import { useState } from "react";
 interface DateFilterButtonsProps {
     startDate: string;
     endDate: string;
+    availableYears?: number[];
     onDateChange: (startDate: string, endDate: string) => void;
     onClearFilters: () => void;
     onSetAllTime?: () => void;
@@ -13,6 +14,7 @@ interface DateFilterButtonsProps {
 export function DateFilterButtons({ 
     startDate, 
     endDate, 
+    availableYears = [],
     onDateChange, 
     onClearFilters,
     onSetAllTime 
@@ -87,6 +89,32 @@ export function DateFilterButtons({
         handleQuickFilter(months);
     };
 
+    const getYearRange = (year: number) => {
+        const start = new Date(year, 0, 1);
+        const end = new Date(year, 11, 31);
+        const startFormatted = start.toISOString().split('T')[0] || '';
+        const endFormatted = end.toISOString().split('T')[0] || '';
+        return { start: startFormatted, end: endFormatted };
+    };
+
+    const handleYearFilterOverride = (year: number) => {
+        setIsAllTimeSelected(false);
+        const { start, end } = getYearRange(year);
+        onDateChange(start, end);
+    };
+
+    const isActiveYearFilter = (year: number) => {
+        const { start, end } = getYearRange(year);
+        return startDate === start && endDate === end;
+    };
+
+    const getYearButtonStyle = (year: number) => {
+        if (isActiveYearFilter(year)) {
+            return "px-3 py-1 text-xs border-2 border-blue-500 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium shadow-sm";
+        }
+        return "px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500";
+    };
+
     // Handle custom date changes and reset All Time selection
     const handleCustomDateChange = (newStartDate: string, newEndDate: string) => {
         setIsAllTimeSelected(false);
@@ -152,6 +180,21 @@ export function DateFilterButtons({
                 >
                     All Time
                 </button>
+
+                {availableYears.length > 0 && (
+                    <>
+                        <div className="h-4 w-px bg-gray-300"></div>
+                        {availableYears.map((year) => (
+                            <button
+                                key={year}
+                                onClick={() => handleYearFilterOverride(year)}
+                                className={getYearButtonStyle(year)}
+                            >
+                                {year}
+                            </button>
+                        ))}
+                    </>
+                )}
             </div>
 
             {/* Divider */}

@@ -14,6 +14,7 @@ interface DashboardChartsProps {
   currency: string;
   startDate: string;
   endDate: string;
+  availableYears: number[];
   onDateChange: (start: string, end: string) => void;
   onClearFilters: () => void;
   onSetAllTime: () => void;
@@ -23,6 +24,7 @@ export function DashboardCharts({
   currency,
   startDate,
   endDate,
+  availableYears,
   onDateChange,
   onClearFilters,
   onSetAllTime,
@@ -32,6 +34,7 @@ export function DashboardCharts({
       <DateFilterButtons
         startDate={startDate}
         endDate={endDate}
+        availableYears={availableYears}
         onDateChange={onDateChange}
         onClearFilters={onClearFilters}
         onSetAllTime={onSetAllTime}

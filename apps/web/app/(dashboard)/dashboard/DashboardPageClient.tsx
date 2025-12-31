@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { ChartDataProvider } from "../../hooks/useChartDataContext";
 import { ChartAnimationProvider } from "../../hooks/useChartAnimationContext";
@@ -16,6 +16,18 @@ import { DashboardCharts } from "./components/DashboardCharts";
 const loadingContainer = LOADING_COLORS.container;
 const loadingSpinner = LOADING_COLORS.spinner;
 const loadingText = LOADING_COLORS.text;
+
+function getAvailableYears(items: Array<{ date: unknown }>): number[] {
+  const years = new Set<number>();
+
+  for (const item of items) {
+    const date = item?.date instanceof Date ? item.date : new Date(item?.date as any);
+    if (Number.isNaN(date.getTime())) continue;
+    years.add(date.getFullYear());
+  }
+
+  return Array.from(years).sort((a, b) => b - a);
+}
 
 export default function DashboardPageClient() {
   const { currency } = useCurrency();
@@ -44,6 +56,13 @@ export default function DashboardPageClient() {
       } catch (_) {}
     }
   }, [incomesData.items.length, expensesData.items.length]);
+
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    for (const year of getAvailableYears(incomesData.items)) years.add(year);
+    for (const year of getAvailableYears(expensesData.items)) years.add(year);
+    return Array.from(years).sort((a, b) => b - a);
+  }, [incomesData.items, expensesData.items]);
 
   const {
     startDate,
@@ -82,6 +101,7 @@ export default function DashboardPageClient() {
             currency={currency}
             startDate={startDate}
             endDate={endDate}
+            availableYears={availableYears}
             onDateChange={handleDateChange}
             onClearFilters={clearFilters}
             onSetAllTime={setAllTime}
