@@ -40,30 +40,55 @@ interface CategoryStats {
 
 // Color palette with bright pie colors and dark legend colors
 const COLOR_PALETTE = [
-    { pie: '#3b82f6', legend: '#1e3a8a' },    // bright blue / dark blue
-    { pie: '#ef4444', legend: '#dc2626' },    // bright red / dark red
-    { pie: '#10b981', legend: '#059669' },    // bright emerald / dark emerald
-    { pie: '#f97316', legend: '#ea580c' },    // bright orange / dark orange
-    { pie: '#a16207', legend: '#7c2d12' },    // bright amber / dark brown
-    { pie: '#ec4899', legend: '#be123c' },    // bright pink / dark rose
-    { pie: '#14b8a6', legend: '#0f766e' },    // bright teal / dark teal
-    { pie: '#eab308', legend: '#a16207' },    // bright yellow / dark amber
-    { pie: '#8b5cf6', legend: '#4c1d95' },    // bright violet / dark violet
-    { pie: '#f43f5e', legend: '#991b1b' },    // bright rose / dark red
-    { pie: '#22c55e', legend: '#065f46' },    // bright green / dark green
-    { pie: '#f59e0b', legend: '#92400e' }     // bright amber / dark amber
+    { pie: '#3b82f6', legend: '#3b82f6' },    // bright blue / dark blue
+    { pie: '#ef4444', legend: '#ef4444' },    // bright red / dark red
+    { pie: '#10b981', legend: '#10b981' },    // bright emerald / dark emerald
+    { pie: '#f97316', legend: '#f97316' },    // bright orange / dark orange
+    { pie: '#a16207', legend: '#a16207' },    // bright amber / dark brown
+    { pie: '#ec4899', legend: '#ec4899' },    // bright pink / dark rose
+    { pie: '#14b8a6', legend: '#14b8a6' },    // bright teal / dark teal
+    { pie: '#eab308', legend: '#eab308' },    // bright yellow / dark amber
+    { pie: '#8b5cf6', legend: '#8b5cf6' },    // bright violet / dark violet
+    { pie: '#f43f5e', legend: '#f43f5e' },    // bright rose / dark red
+    { pie: '#22c55e', legend: '#22c55e' },    // bright green / dark green
+    { pie: '#f59e0b', legend: '#f59e0b' }     // bright amber / dark amber
 ];
+
+function mulberry32(seed: number) {
+    return function () {
+        let t = seed += 0x6D2B79F5;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+function shuffleWithSeed<T>(items: T[], seed: number): T[] {
+    const random = mulberry32(seed);
+    const result = [...items];
+    for (let i = result.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(random() * (i + 1));
+        const a = result[i];
+        const b = result[j];
+        if (a === undefined || b === undefined) continue;
+        result[i] = b;
+        result[j] = a;
+    }
+    return result;
+}
 
 export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, currency = "USD", title, heightClass }) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { categoryData, formatTimePeriod, filteredIncomes, filteredExpenses } = useChartData();
     const patternPrefix = useId().replace(/:/g, "");
+    const paletteSeedRef = useRef<number>(Math.floor(Math.random() * 2 ** 31));
     
     // Memoize all data processing for better performance
     const { chartData, rawChartData, total, smallCategories } = useMemo(() => {
         // Get the appropriate transaction data based on type
         const transactions = type === 'income' ? filteredIncomes : filteredExpenses;
+        const shuffledPalette = shuffleWithSeed(COLOR_PALETTE, paletteSeedRef.current);
         
         // Create detailed category statistics map
         const categoryStatsMap = new Map<string, CategoryStats>();
@@ -109,7 +134,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
         // Convert to array and add colors with detailed statistics
         const rawChartData: CategoryData[] = Array.from(categoryStatsMap.entries())
             .map(([name, stats], index) => {
-                const colorConfig = COLOR_PALETTE[index % COLOR_PALETTE.length];
+                const colorConfig = shuffledPalette[index % shuffledPalette.length];
                 const average = stats.totalAmount / stats.count;
                 const dateRange = formatDateRange(stats.earliestDate, stats.latestDate);
                 
