@@ -2,6 +2,13 @@
 
 import { useState } from "react";
 
+function formatDateInputValue(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
 interface DateFilterButtonsProps {
     startDate: string;
     endDate: string;
@@ -46,9 +53,9 @@ export function DateFilterButtons({
         const endDate = new Date(currentYear, currentMonth + 1, 0);
         endDate.setHours(23, 59, 59, 999);
         
-        // Format dates as YYYY-MM-DD, ensuring we always have a string
-        const startFormatted = startDate.toISOString().split('T')[0] || '';
-        const endFormatted = endDate.toISOString().split('T')[0] || '';
+        // Format dates as YYYY-MM-DD in local time (avoid UTC shifting via toISOString)
+        const startFormatted = formatDateInputValue(startDate);
+        const endFormatted = formatDateInputValue(endDate);
         
         return {
             start: startFormatted,
@@ -92,8 +99,8 @@ export function DateFilterButtons({
     const getYearRange = (year: number) => {
         const start = new Date(year, 0, 1);
         const end = new Date(year, 11, 31);
-        const startFormatted = start.toISOString().split('T')[0] || '';
-        const endFormatted = end.toISOString().split('T')[0] || '';
+        const startFormatted = formatDateInputValue(start);
+        const endFormatted = formatDateInputValue(end);
         return { start: startFormatted, end: endFormatted };
     };
 
