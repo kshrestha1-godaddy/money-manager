@@ -7,6 +7,7 @@ import { CategoryPieChart } from "../charts/CategoryPieChart";
 import { IncomeSankeyChart } from "../charts/IncomeSankeyChart";
 import { CategoryTrendChart } from "../charts/CategoryTrendChart";
 import { CustomCalendarChart } from "../charts/CustomCalendarChart";
+import { CashFlowSankeyChart } from "../charts/CashFlowSankeyChart";
 import { RecentTransactions } from "./RecentTransactions";
 
 interface DashboardChartsProps {
@@ -80,6 +81,13 @@ export function DashboardCharts({
         </div>
         <div key="income-calendar-chart" className="flex flex-col h-full">
           <CustomCalendarChart type="income" currency={currency} />
+        </div>
+      </div>
+
+      {/* Sixth Row: Cash Flow Analysis (Full Width) */}
+      <div className="w-full min-h-[500px]">
+        <div key="cash-flow-sankey-chart" className="h-full">
+          <CashFlowSankeyChart currency={currency} />
         </div>
       </div>
 
