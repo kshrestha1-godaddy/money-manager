@@ -4,7 +4,7 @@ import { WaterfallChart } from "../charts/WaterfallChart";
 import { SavingsRateChart } from "../charts/SavingsRateChart";
 import { MonthlyTrendChart } from "../charts/MonthlyTrendChart";
 import { CategoryPieChart } from "../charts/CategoryPieChart";
-import { IncomeSankeyChart } from "../charts/IncomeSankeyChart";
+import { IncomePieChart } from "../charts/IncomePieChart";
 import { CategoryTrendChart } from "../charts/CategoryTrendChart";
 import { CustomCalendarChart } from "../charts/CustomCalendarChart";
 import { CashFlowSankeyChart } from "../charts/CashFlowSankeyChart";
@@ -59,8 +59,8 @@ export function DashboardCharts({
         <div key="expense-pie-chart" className="flex flex-col h-full">
           <CategoryPieChart type="expense" currency={currency} heightClass="h-[28rem] md:h-[34rem]" />
         </div>
-        <div key="income-sankey-chart" className="flex flex-col h-full">
-          <IncomeSankeyChart currency={currency} heightClass="h-[32rem] md:h-[38rem]" />
+        <div key="income-pie-chart" className="flex flex-col h-full">
+          <IncomePieChart currency={currency} heightClass="h-[28rem] md:h-[34rem]" />
         </div>
       </div>
 
