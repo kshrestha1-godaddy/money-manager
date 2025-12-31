@@ -50,34 +50,23 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
     const chartId = "cash-flow-sankey";
     const { hasAnimated } = useChartAnimationState(chartId);
     
-    // Generate randomized colors for flows
-    const categoryColors = useMemo(() => {
-        // Base color palette with good contrast and visibility
-        const baseColors = [
-            '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e',
-            '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1',
-            '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#f43f5e', '#64748b',
-            '#6b7280', '#374151', '#dc2626', '#ea580c', '#d97706', '#ca8a04',
-            '#65a30d', '#16a34a', '#059669', '#0d9488', '#0891b2', '#0284c7',
-            '#2563eb', '#4f46e5', '#7c3aed', '#9333ea', '#c026d3', '#db2777'
-        ];
-        
-        // Shuffle the colors array for randomization
-        const shuffledColors = [...baseColors].sort(() => Math.random() - 0.5);
-        
-        // Calculate total number of nodes needed
-        const incomeCategories = new Set(filteredIncomes.map(income => income.category?.name || 'Unknown'));
-        const expenseCategories = new Set(filteredExpenses.map(expense => expense.category?.name || 'Unknown'));
-        const totalNodes = incomeCategories.size + expenseCategories.size + 2; // +2 for System and Net Savings
-        
-        // Ensure we have enough colors by cycling through if needed
-        const colors: string[] = [];
-        for (let i = 0; i < totalNodes; i++) {
-            colors.push(shuffledColors[i % shuffledColors.length]);
-        }
-        
-        return colors;
-    }, [filteredIncomes, filteredExpenses]);
+    // Simple minimal color palette
+    const getMinimalColor = useMemo(() => {
+        return (type: 'income' | 'expense' | 'savings' | 'central') => {
+            switch (type) {
+                case 'income':
+                    return '#10b981'; // emerald-500 - consistent green for all income
+                case 'expense':
+                    return '#6b7280'; // gray-500 - consistent gray for all expenses
+                case 'savings':
+                    return '#8b5cf6'; // violet-500 - consistent purple for savings
+                case 'central':
+                    return '#e2e8f0'; // slate-200 - light gray for central node
+                default:
+                    return '#6b7280'; // gray-500 fallback
+            }
+        };
+    }, []);
 
     // Process data for cash flow visualization
     const { sankeyData, csvData, flowSummary } = useMemo(() => {
@@ -87,7 +76,7 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
         // Process income categories
         filteredIncomes.forEach(income => {
             const categoryName = income.category?.name || 'Unknown Income';
-            const convertedAmount = convertForDisplaySync(income.amount, income.currency, currency);
+            const convertedAmount = convertForDisplaySync(income.amount, income.currency, currency || 'USD');
             
             if (!incomeCategories.has(categoryName)) {
                 incomeCategories.set(categoryName, {
@@ -107,7 +96,7 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
         // Process expense categories
         filteredExpenses.forEach(expense => {
             const categoryName = expense.category?.name || 'Unknown Expense';
-            const convertedAmount = convertForDisplaySync(expense.amount, expense.currency, currency);
+            const convertedAmount = convertForDisplaySync(expense.amount, expense.currency, currency || 'USD');
             
             if (!expenseCategories.has(categoryName)) {
                 expenseCategories.set(categoryName, {
@@ -349,6 +338,38 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
                 data.addColumn('number', 'Weight');
                 data.addColumn({type: 'string', role: 'tooltip', p: {html: true}});
 
+                // Create node colors based on flow percentages
+                const nodeColors: string[] = [];
+                const nodeNames = new Set<string>();
+                
+                // Collect all unique node names and their flow data
+                validData.forEach(item => {
+                    nodeNames.add(item.from);
+                    nodeNames.add(item.to);
+                });
+                
+                // Create color mapping for each node
+                const nodeColorMap = new Map<string, string>();
+                
+                validData.forEach(item => {
+                    // Assign simple colors based on flow type
+                    if (item.type === 'income') {
+                        nodeColorMap.set(item.from, getMinimalColor('income'));
+                    } else if (item.type === 'expense') {
+                        nodeColorMap.set(item.to, getMinimalColor('expense'));
+                    } else if (item.type === 'savings') {
+                        nodeColorMap.set(item.to, getMinimalColor('savings'));
+                    }
+                });
+                
+                // Set central node color
+                nodeColorMap.set('Available Funds', getMinimalColor('central'));
+                
+                // Convert to array format expected by Google Charts
+                Array.from(nodeNames).forEach(nodeName => {
+                    nodeColors.push(nodeColorMap.get(nodeName) || '#6b7280');
+                });
+
                 // Add rows with enhanced tooltips
                 const rows = validData.map((item) => {
                     const validSize = Math.max(item.size, 0.01);
@@ -359,10 +380,10 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
                     
                     const getFlowTypeColor = (type: string) => {
                         switch (type) {
-                            case 'income': return '#059669';
-                            case 'expense': return '#dc2626';
-                            case 'savings': return '#7c3aed';
-                            case 'flow': return '#2563eb';
+                            case 'income': return getMinimalColor('income');
+                            case 'expense': return getMinimalColor('expense');
+                            case 'savings': return getMinimalColor('savings');
+                            case 'flow': return getMinimalColor('central');
                             default: return '#374151';
                         }
                     };
@@ -442,7 +463,7 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
                     },
                     sankey: {
                         node: {
-                            colors: categoryColors,
+                            colors: nodeColors,
                             label: {
                                 fontName: 'Arial',
                                 fontSize: 14,
@@ -451,7 +472,7 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
                             width: 12
                         },
                         link: {
-                            colorMode: 'gradient'
+                            colorMode: 'source'
                         }
                     }
                 };
@@ -527,7 +548,7 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                         <div>
                             <div className="text-sm font-medium text-gray-500">Available Funds</div>
-                            <div className="text-lg font-semibold text-blue-600">
+                            <div className="text-lg font-semibold" style={{ color: '#10b981' }}>
                                 {formatCurrency(flowSummary.totalIncome, currency)}
                             </div>
                             <div className="text-xs text-gray-400">
@@ -536,7 +557,7 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
                         </div>
                         <div>
                             <div className="text-sm font-medium text-gray-500">Total Expenses</div>
-                            <div className="text-lg font-semibold text-red-600">
+                            <div className="text-lg font-semibold" style={{ color: '#6b7280' }}>
                                 {formatCurrency(flowSummary.totalExpenses, currency)}
                             </div>
                             <div className="text-xs text-gray-400">
@@ -545,7 +566,7 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
                         </div>
                         <div>
                             <div className="text-sm font-medium text-gray-500">Net Savings</div>
-                            <div className={`text-lg font-semibold ${flowSummary.netSavings >= 0 ? 'text-purple-600' : 'text-red-600'}`}>
+                            <div className="text-lg font-semibold" style={{ color: flowSummary.netSavings >= 0 ? '#8b5cf6' : '#6b7280' }}>
                                 {formatCurrency(flowSummary.netSavings, currency)}
                             </div>
                             <div className="text-xs text-gray-400">

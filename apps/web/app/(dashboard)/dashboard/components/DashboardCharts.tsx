@@ -64,6 +64,13 @@ export function DashboardCharts({
         </div>
       </div>
 
+      {/* Sixth Row: Cash Flow Analysis (Full Width) */}
+      <div className="w-full min-h-[500px]">
+        <div key="cash-flow-sankey-chart" className="h-full">
+          <CashFlowSankeyChart currency={currency} />
+        </div>
+      </div>
+
       {/* Fourth Row: Category Trend Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-[400px]">
         <div key="expense-trend-chart" className="flex flex-col h-full">
@@ -84,12 +91,7 @@ export function DashboardCharts({
         </div>
       </div>
 
-      {/* Sixth Row: Cash Flow Analysis (Full Width) */}
-      <div className="w-full min-h-[500px]">
-        <div key="cash-flow-sankey-chart" className="h-full">
-          <CashFlowSankeyChart currency={currency} />
-        </div>
-      </div>
+
 
     </div>
   );

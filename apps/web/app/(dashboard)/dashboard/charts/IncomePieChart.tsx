@@ -39,18 +39,13 @@ interface CategoryStats {
 
 // Color palette with bright pie colors and dark legend colors for income
 const COLOR_PALETTE = [
-    { pie: '#22c55e', legend: '#065f46' },    // bright green / dark green
-    { pie: '#10b981', legend: '#059669' },    // bright emerald / dark emerald
-    { pie: '#84cc16', legend: '#365314' },    // bright lime / dark lime
+    { pie: '#0ea5e9', legend: '#0c4a6e' },    // bright sky / dark sky
     { pie: '#3b82f6', legend: '#1e3a8a' },    // bright blue / dark blue
-    { pie: '#06b6d4', legend: '#0f766e' },    // bright cyan / dark cyan
-    { pie: '#8b5cf6', legend: '#4c1d95' },    // bright violet / dark violet
     { pie: '#f59e0b', legend: '#92400e' },    // bright amber / dark amber
-    { pie: '#eab308', legend: '#a16207' },    // bright yellow / dark amber
     { pie: '#14b8a6', legend: '#0f766e' },    // bright teal / dark teal
     { pie: '#a855f7', legend: '#581c87' },    // bright purple / dark purple
-    { pie: '#0ea5e9', legend: '#0c4a6e' },    // bright sky / dark sky
-    { pie: '#65a30d', legend: '#1a2e05' }     // bright green / very dark green
+    { pie: '#65a30d', legend: '#1a2e05' },     // bright green / very dark green
+    { pie: '#eab308', legend: '#a16207' },    // bright yellow / dark amber
 ];
 
 export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD", title, heightClass }) => {
