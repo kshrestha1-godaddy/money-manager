@@ -34,6 +34,10 @@ interface ProcessedChartData {
   filteredIncomes: Income[];
   filteredExpenses: Expense[];
   
+  // Raw unfiltered data for components that need full data access
+  rawIncomes: Income[];
+  rawExpenses: Expense[];
+  
   // Time range info
   timeRange: TimeRangeData;
   
@@ -336,6 +340,8 @@ const processChartData = (
   return {
     filteredIncomes,
     filteredExpenses,
+    rawIncomes: incomes,
+    rawExpenses: expenses,
     timeRange,
     monthlyData,
     categoryData,
