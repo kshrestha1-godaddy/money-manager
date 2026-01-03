@@ -382,7 +382,7 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
                     fill={labelColor} 
                     textAnchor={isRightSide ? 'start' : 'end'} 
                     dominantBaseline="central"
-                    fontSize="12"
+                    fontSize="10"
                     fontWeight="600"
                 >
                     {`${entry.name} (${transactionCount}x) [${percentage}%]`}
@@ -598,8 +598,8 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
                                 cy="50%"
                                 labelLine={false}
                                 label={renderCustomizedLabel}
-                                outerRadius={isExpanded ? 260 : 200}
-                                innerRadius={isExpanded ? 90 : 100}
+                                outerRadius={isExpanded ? 260 : 110}
+                                innerRadius={isExpanded ? 90 : 55}
                                 fill="#8884d8"
                                 dataKey="value"
                                 paddingAngle={0.1}
@@ -627,16 +627,16 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
 
                 {/* Legend and breakdown */}
                 <div className="space-y-1 sm:space-y-2 lg:col-span-2">
-                    <h4 className="text-xs font-medium text-gray-900 mb-1">Category Breakdown</h4>
-                        <div className="space-y-0.5 sm:space-y-1 max-h-96 sm:max-h-96 overflow-y-auto">
+                    <h4 className="text-xs font-medium text-gray-900 mb-2">Category Breakdown</h4>
+                        <div className="space-y-1 sm:space-y-2 max-h-80 sm:max-h-96 overflow-y-auto pr-2">
                         {chartData.map((entry, index) => {
                             const percentage = total > 0 ? ((entry.value / total) * 100).toFixed(1) : '0.0';
                             const isOthers = entry.name === 'Others';
                             
                             return (
-                                <div key={entry.name} className="py-0.5">
+                                <div key={entry.name}>
                                     <div className="flex items-center justify-between">
-                                        <div className="flex items-center space-x-2 min-w-0 flex-1">
+                                        <div className="flex items-center space-x-2">
                                             <div
                                                 className="w-4 h-4 sm:w-5 sm:h-5 rounded-full flex-shrink-0 border border-white"
                                                 style={{ 
@@ -644,18 +644,16 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
                                                     boxShadow: `0 1px 3px rgba(0, 0, 0, 0.1)`
                                                 }}
                                             />
-                                            <div className="min-w-0 flex-1">
-                                                <div className="text-xs sm:text-sm text-gray-700 font-medium truncate">
-                                                    {entry.name} ({entry.count}x)
-                                                </div>
-                                                {isOthers && smallCategories.length > 0 && (
-                                                    <div className="text-xs text-gray-400">
-                                                        ({smallCategories.length} categories)
-                                                    </div>
-                                                )}
-                                            </div>
+                                            <span className="text-xs sm:text-sm text-gray-700 truncate font-medium">
+                                                {entry.name} ({entry.count}x)
+                                            </span>
+                                            {isOthers && smallCategories.length > 0 && (
+                                                <span className="text-xs text-gray-400">
+                                                    ({smallCategories.length} categories)
+                                                </span>
+                                            )}
                                         </div>
-                                        <div className="text-right flex-shrink-0">
+                                        <div className="text-right flex-shrink-0 ml-1">
                                             <div className="text-xs sm:text-sm font-medium text-gray-900">
                                                 {formatCurrency(entry.value, currency)}
                                             </div>
@@ -667,13 +665,13 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
                                     
                                     {/* Show breakdown for Others category */}
                                     {isOthers && smallCategories.length > 0 && (
-                                        <div className="ml-6 mt-1 space-y-0.5">
+                                        <div className="ml-5 sm:ml-6 mt-1 space-y-0.5">
                                             {smallCategories.map((smallCat) => {
                                                 const smallPercentage = total > 0 ? ((smallCat.value / total) * 100).toFixed(1) : '0.0';
                                                 return (
-                                                    <div key={smallCat.name} className="flex items-center justify-between text-xs text-gray-500 py-0.5">
+                                                    <div key={smallCat.name} className="flex items-center justify-between text-xs text-gray-500">
                                                         <span className="truncate">• {smallCat.name}</span>
-                                                        <span className="flex-shrink-0">
+                                                        <span className="flex-shrink-0 ml-2">
                                                             {formatCurrency(smallCat.value, currency)} ({smallPercentage}%)
                                                         </span>
                                                     </div>

@@ -381,7 +381,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                     fill={labelColor} 
                     textAnchor={isRightSide ? 'start' : 'end'} 
                     dominantBaseline="central"
-                    fontSize="14"
+                    fontSize="10"
                     fontWeight="600"
                 >
                     {`${entry.name} (${transactionCount}x) [${percentage}%]`}
@@ -599,8 +599,8 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                                 cy="50%"
                                 labelLine={false}
                                 label={renderCustomizedLabel}
-                                outerRadius={isExpanded ? 260 : 220}
-                                innerRadius={isExpanded ? 90 : 120}
+                                outerRadius={isExpanded ? 260 : 120}
+                                innerRadius={isExpanded ? 90 : 60}
                                 fill="#8884d8"
                                 dataKey="value"
                                 paddingAngle={0.1}
