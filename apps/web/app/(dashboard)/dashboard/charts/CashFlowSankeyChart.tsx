@@ -471,7 +471,7 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
                                 color: '#333'
                             },
                             width: 12,
-                            nodePadding: 30
+                            nodePadding: 15
                         },
                         link: {
                             colorMode: 'source',

@@ -57,13 +57,38 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
     const currentDate = new Date();
     const [selectedYear, setSelectedYear] = useState<number>(currentDate.getFullYear());
     
+    // Category filtering state - now supports multiple categories
+    const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+    const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+    
     // Tooltip state management with delays
     const [hoveredCell, setHoveredCell] = useState<{ row: number; col: number } | null>(null);
     const [isTooltipHovered, setIsTooltipHovered] = useState(false);
     const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     
     // Use raw unfiltered data so calendar chart is independent of global filters
-    const data = type === 'income' ? rawIncomes : rawExpenses;
+    const allData = type === 'income' ? rawIncomes : rawExpenses;
+    
+    // Extract unique categories for the dropdown
+    const availableCategories = useMemo(() => {
+        const categories = new Set<string>();
+        allData.forEach(transaction => {
+            if (transaction.category?.name) {
+                categories.add(transaction.category.name);
+            }
+        });
+        return Array.from(categories).sort();
+    }, [allData]);
+    
+    // Filter data by selected categories
+    const data = useMemo(() => {
+        if (selectedCategories.length === 0) {
+            return allData; // Show all data if no categories selected
+        }
+        return allData.filter(transaction => 
+            transaction.category?.name && selectedCategories.includes(transaction.category.name)
+        );
+    }, [allData, selectedCategories]);
 
     // Tooltip handlers with delay
     const handleCellMouseEnter = (rowIndex: number, colIndex: number) => {
@@ -298,10 +323,17 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
     // Calculate total transactions for display
     const totalTransactions = Array.from(processedData.values()).reduce((sum, d) => sum + d.count, 0);
     
+    // Create title with category info if filtered
+    const categoryText = selectedCategories.length === 0 ? '' : 
+                        selectedCategories.length === 1 ? ` • ${selectedCategories[0]}` :
+                        selectedCategories.length <= 3 ? ` • ${selectedCategories.join(', ')}` :
+                        ` • ${selectedCategories.length} categories`;
+    
     const chartTitle = title || (totalTransactions > 0 
-        ? `${type === 'income' ? 'Income' : 'Expense'} Transaction Frequency - ${selectedYear} • ${totalTransactions} transaction${totalTransactions !== 1 ? 's' : ''}`
-        : `${type === 'income' ? 'Income' : 'Expense'} Transaction Frequency - ${selectedYear}`);
-    const tooltipText = `Calendar heatmap showing daily ${type} transaction frequency and amounts for ${selectedYear}. Hover over dates for comprehensive insights including transaction counts, totals, averages, and activity levels.`;
+        ? `${type === 'income' ? 'Income' : 'Expense'} Transaction Frequency - ${selectedYear}${categoryText} • ${totalTransactions} transaction${totalTransactions !== 1 ? 's' : ''}`
+        : `${type === 'income' ? 'Income' : 'Expense'} Transaction Frequency - ${selectedYear}${categoryText}`);
+    
+    const tooltipText = `Calendar heatmap showing daily ${type} transaction frequency and amounts for ${selectedYear}${categoryText}. Hover over dates for comprehensive insights including transaction counts, totals, averages, and activity levels.`;
 
     // Handle calendar cell click to navigate with date filter
     const handleCellClick = (cellData: DayData, monthIndex: number, dayOfMonth: number) => {
@@ -390,7 +422,7 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
 
     // Enhanced CSV data for chart controls with detailed statistics
     const csvDataForControls = [
-        ['Day of Month', 'Month', 'Date', 'Year', 'Transaction Count', 'Total Amount', 'Average per Transaction', 'Activity Level', 'Valid Day', 'Type'],
+        ['Day of Month', 'Month', 'Date', 'Year', 'Category Filter', 'Transaction Count', 'Total Amount', 'Average per Transaction', 'Activity Level', 'Valid Day', 'Type'],
         ...calendarData.grid.flatMap((row, rowIndex) => 
             row.map((cellData, colIndex) => {
                 const averageAmount = cellData.count > 0 ? cellData.amount / cellData.count : 0;
@@ -409,6 +441,7 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                     calendarData.monthNames[colIndex] || '',
                     dateString,
                     selectedYear.toString(),
+                    selectedCategories.length === 0 ? 'All Categories' : selectedCategories.join('; '),
                     (cellData.isCurrentMonth || isMonthlyTotal) ? cellData.count.toString() : '0',
                     (cellData.isCurrentMonth || isMonthlyTotal) ? cellData.amount.toFixed(2) : '0.00',
                     (cellData.isCurrentMonth || isMonthlyTotal) ? averageAmount.toFixed(2) : '0.00',
@@ -665,58 +698,187 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
         }
     };
 
+    // Category filter handlers
+    const handleCategoryToggle = (category: string) => {
+        setSelectedCategories(prev => {
+            if (prev.includes(category)) {
+                // Remove category if already selected
+                return prev.filter(cat => cat !== category);
+            } else {
+                // Add category if not selected
+                return [...prev, category];
+            }
+        });
+    };
+
+    const handleSelectAllCategories = () => {
+        setSelectedCategories(availableCategories);
+    };
+
+    const handleClearAllCategories = () => {
+        setSelectedCategories([]);
+    };
+
+    // Close dropdown when clicking outside
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Element;
+            if (!target.closest('.category-dropdown')) {
+                setIsCategoryDropdownOpen(false);
+            }
+        };
+
+        if (isCategoryDropdownOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }
+    }, [isCategoryDropdownOpen]);
+
     // Year Navigation Component
     const YearNavigation = () => {
         const isCurrentYear = selectedYear === currentDate.getFullYear();
         const hasDataForYear = availableYears.includes(selectedYear);
         
         return (
-            <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg px-4 py-2 shadow-sm mb-4">
-                {/* Previous Year Button */}
-                <button
-                    onClick={goToPreviousYear}
-                    className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-gray-100 transition-colors"
-                    title="Previous year"
-                >
-                    <ChevronLeft className="w-4 h-4 text-gray-600" />
-                </button>
-
-                {/* Year Selector */}
-                <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-gray-500" />
-                    <select
-                        value={selectedYear}
-                        onChange={handleYearSelect}
-                        className="border border-gray-300 rounded px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[80px]"
+            <div className="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-4 py-2 shadow-sm mb-4">
+                {/* Left side - Year Navigation */}
+                <div className="flex items-center gap-3">
+                    {/* Previous Year Button */}
+                    <button
+                        onClick={goToPreviousYear}
+                        className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-gray-100 transition-colors"
+                        title="Previous year"
                     >
-                        {yearOptions.map(year => (
-                            <option key={year} value={year}>
-                                {year}
-                            </option>
-                        ))}
-                    </select>
+                        <ChevronLeft className="w-4 h-4 text-gray-600" />
+                    </button>
+
+                    {/* Year Selector */}
+                    <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-gray-500" />
+                        <select
+                            value={selectedYear}
+                            onChange={handleYearSelect}
+                            className="border border-gray-300 rounded px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[80px]"
+                        >
+                            {yearOptions.map(year => (
+                                <option key={year} value={year}>
+                                    {year}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Next Year Button */}
+                    <button
+                        onClick={goToNextYear}
+                        className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-gray-100 transition-colors"
+                        title="Next year"
+                    >
+                        <ChevronRight className="w-4 h-4 text-gray-600" />
+                    </button>
+
+                    {/* Current Year Button */}
+                    {!isCurrentYear && (
+                        <button
+                            onClick={goToCurrentYear}
+                            className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
+                            title="Go to current year"
+                        >
+                            Current
+                        </button>
+                    )}
+                    
+                    {/* Data availability indicator */}
+                    <div className="flex items-center gap-1 ml-2">
+                        <div className={`w-2 h-2 rounded-full ${
+                            hasDataForYear ? 'bg-green-500' : 'bg-gray-300'
+                        }`} />
+                    </div>
                 </div>
 
-                {/* Next Year Button */}
-                <button
-                    onClick={goToNextYear}
-                    className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-gray-100 transition-colors"
-                    title="Next year"
-                >
-                    <ChevronRight className="w-4 h-4 text-gray-600" />
-                </button>
+                {/* Right side - Category Filter */}
+                <div className="relative category-dropdown">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600">Categories:</span>
+                        <button
+                            onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
+                            className="flex items-center justify-between border border-gray-300 rounded px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[200px] bg-white hover:bg-gray-50 transition-colors"
+                            title={`Filter by ${type} categories`}
+                        >
+                            <span className="truncate">
+                                {selectedCategories.length === 0 
+                                    ? 'All Categories'
+                                    : selectedCategories.length === 1 
+                                    ? selectedCategories[0]
+                                    : `${selectedCategories.length} selected`
+                                }
+                            </span>
+                            <ChevronLeft className={`w-4 h-4 text-gray-500 transition-transform ${
+                                isCategoryDropdownOpen ? 'rotate-[-90deg]' : 'rotate-[-180deg]'
+                            }`} />
+                        </button>
+                    </div>
 
-                {/* Current Year Button */}
-                {!isCurrentYear && (
-                    <button
-                        onClick={goToCurrentYear}
-                        className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
-                        title="Go to current year"
-                    >
-                        Current
-                    </button>
-                )}
-            
+                    {/* Multi-select Dropdown */}
+                    {isCategoryDropdownOpen && (
+                        <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[250px] max-h-64 overflow-hidden">
+                            {/* Header with bulk actions */}
+                            <div className="p-3 border-b border-gray-200 bg-gray-50">
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-medium text-gray-700">
+                                        Select Categories ({selectedCategories.length}/{availableCategories.length})
+                                    </span>
+                                    <div className="flex gap-1">
+                                        <button
+                                            onClick={handleSelectAllCategories}
+                                            className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                                            disabled={selectedCategories.length === availableCategories.length}
+                                        >
+                                            All
+                                        </button>
+                                        <button
+                                            onClick={handleClearAllCategories}
+                                            className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                                            disabled={selectedCategories.length === 0}
+                                        >
+                                            Clear
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Category options */}
+                            <div className="max-h-48 overflow-y-auto">
+                                {availableCategories.map(category => {
+                                    const isSelected = selectedCategories.includes(category);
+                                    return (
+                                        <label
+                                            key={category}
+                                            className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer transition-colors"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={() => handleCategoryToggle(category)}
+                                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                                            />
+                                            <span className="ml-2 text-sm text-gray-700 select-none">
+                                                {category}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                                
+                                {/* Empty state */}
+                                {availableCategories.length === 0 && (
+                                    <div className="p-3 text-sm text-gray-500 text-center">
+                                        No categories available
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         );
     };
@@ -986,7 +1148,7 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                     title={chartTitle}
                     tooltipText={tooltipText}
                     csvData={csvDataForControls}
-                    csvFileName={`${type}-transaction-frequency-${selectedYear}`}
+                    csvFileName={`${type}-transaction-frequency-${selectedYear}${selectedCategories.length > 0 ? `-${selectedCategories.length === 1 ? (selectedCategories[0] || 'unknown').replace(/[^a-zA-Z0-9]/g, '-') : `${selectedCategories.length}-categories`}` : ''}`}
                     isExpanded={isExpanded}
                     onToggleExpanded={toggleExpanded}
                     chartRef={chartRef}
