@@ -39,8 +39,8 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
             const averageIncome = incomeCount > 0 ? month.income / incomeCount : 0;
             const averageExpense = expenseCount > 0 ? month.expenses / expenseCount : 0;
             const savingsRate = month.income > 0 
-                ? Math.max(-100, (month.savings / month.income) * 100)
-                : -100;
+                ? Math.max(0, (month.savings / month.income) * 100)
+                : 0;
 
             return {
                 month: month.monthKey,
@@ -92,10 +92,8 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                 {/* Savings Rate - Main Metric */}
                 <div className="flex items-center justify-between mb-3">
                     <span className="font-medium text-blue-600">Savings Rate:</span>
-                    <span className={`font-bold text-lg ${
-                        data.savingsRate >= 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                        {data.savingsRate <= -100 ? '<-100%' : `${data.savingsRate.toFixed(1)}%`}
+                    <span className="font-bold text-lg text-green-600">
+                        {data.savingsRate.toFixed(1)}%
                     </span>
                 </div>
 
