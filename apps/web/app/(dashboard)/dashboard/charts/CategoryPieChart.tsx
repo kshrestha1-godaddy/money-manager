@@ -523,11 +523,11 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-2 sm:gap-3">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 sm:gap-3">
                 {/* Pie Chart */}
                 <div 
                     ref={chartRef} 
-                    className={`w-full max-w-7xl mx-auto ${isExpanded ? "h-[60rem]" : (heightClass ?? "h-[48rem] sm:h-[52rem]")} lg:col-span-3 flex items-center justify-center`}
+                    className={`w-full max-w-7xl mx-auto ${isExpanded ? "h-[60rem]" : (heightClass ?? "h-[48rem] sm:h-[52rem]")} lg:col-span-2 flex items-center justify-center`}
                     role="img"
                     aria-label={`${type === 'income' ? 'Income' : 'Expense'} categories pie chart showing distribution of ${formatCurrency(total, currency)} across different categories`}
                 >
