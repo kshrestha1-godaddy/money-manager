@@ -450,6 +450,8 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
 
                 data.addRows(rows);
 
+                // TODO: Add a legend to the chart with the colors for the flow types.
+
                 // Chart options
                 const options = {
                     width: width,

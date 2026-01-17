@@ -81,11 +81,11 @@ export function FinancialList({
         title: 180,
         category: 130,
         account: 192,
-        date: 112,
+        date: 170,
         tags: 110,
         notes: 280,
         amount: 128,
-        actions: 128
+        actions: 70
     });
     
     const tableRef = useRef<HTMLTableElement>(null);
