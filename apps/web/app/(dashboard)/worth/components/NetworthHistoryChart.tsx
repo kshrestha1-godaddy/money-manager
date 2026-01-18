@@ -44,47 +44,151 @@ interface ChartDataPoint {
     recordType: string;
 }
 
+type NetworthPeriod = '30' | '90' | '180' | '365' | 'all';
+
+interface NetworthHistoryRecordInput {
+    snapshotDate: string | Date;
+    netWorth: number;
+    totalAssets: number;
+    totalAccountBalance: number;
+    totalInvestmentValue: number;
+    totalMoneyLent: number;
+    recordType: string;
+}
+
 interface NetworthHistoryChartProps {
     className?: string;
     onRecordNetworth?: () => void;
     isRecording?: boolean;
     refreshTrigger?: number;
+    initialHistory?: NetworthHistoryRecordInput[];
+    initialPeriod?: NetworthPeriod;
 }
 
 export function NetworthHistoryChart({ 
     className = "", 
     onRecordNetworth, 
     isRecording = false,
-    refreshTrigger = 0
+    refreshTrigger = 0,
+    initialHistory,
+    initialPeriod = '90'
 }: NetworthHistoryChartProps) {
     const { currency } = useCurrency();
-    const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
-    const [loading, setLoading] = useState(true);
+    const getTransformedData = (records: NetworthHistoryRecordInput[]) => {
+        return records.map(record => {
+            const snapshotDate = new Date(record.snapshotDate);
+            return {
+                date: snapshotDate.toISOString().split('T')[0] || '',
+                netWorth: record.netWorth,
+                totalAssets: record.totalAssets,
+                totalAccountBalance: record.totalAccountBalance,
+                totalInvestmentValue: record.totalInvestmentValue,
+                totalMoneyLent: record.totalMoneyLent,
+                formattedDate: formatDate(snapshotDate),
+                recordType: record.recordType
+            };
+        });
+    };
+
+    const getStatsFromData = (transformedData: ChartDataPoint[]) => {
+        if (transformedData.length === 0) {
+            return {
+                totalGrowth: 0,
+                totalGrowthPercentage: 0,
+                averageMonthlyGrowth: 0,
+                highestNetWorth: 0,
+                lowestNetWorth: 0,
+                daysTracked: 0,
+                latestNetWorth: 0,
+                previousNetWorth: 0,
+                recentChange: 0,
+                recentChangePercentage: 0
+            };
+        }
+
+        const sortedByNetWorth = [...transformedData].sort((a, b) => a.netWorth - b.netWorth);
+        const latest = transformedData[transformedData.length - 1];
+        const first = transformedData[0];
+        const previous = transformedData.length > 1 ? transformedData[transformedData.length - 2] : first;
+
+        if (!latest || !first || !previous) {
+            return {
+                totalGrowth: 0,
+                totalGrowthPercentage: 0,
+                averageMonthlyGrowth: 0,
+                highestNetWorth: 0,
+                lowestNetWorth: 0,
+                daysTracked: 0,
+                latestNetWorth: 0,
+                previousNetWorth: 0,
+                recentChange: 0,
+                recentChangePercentage: 0
+            };
+        }
+
+        const totalGrowth = latest.netWorth - first.netWorth;
+        const totalGrowthPercentage = first.netWorth !== 0 ? (totalGrowth / first.netWorth) * 100 : 0;
+        const daysDiff = Math.max(1, Math.ceil((new Date(latest.date).getTime() - new Date(first.date).getTime()) / (1000 * 60 * 60 * 24)));
+        const monthlyGrowthRate = daysDiff > 30 ? (totalGrowthPercentage / daysDiff) * 30 : totalGrowthPercentage;
+
+        const recentChange = latest.netWorth - previous.netWorth;
+        const recentChangePercentage = previous.netWorth !== 0 ? (recentChange / previous.netWorth) * 100 : 0;
+
+        return {
+            totalGrowth,
+            totalGrowthPercentage,
+            averageMonthlyGrowth: monthlyGrowthRate,
+            highestNetWorth: sortedByNetWorth[sortedByNetWorth.length - 1]?.netWorth || 0,
+            lowestNetWorth: sortedByNetWorth[0]?.netWorth || 0,
+            daysTracked: daysDiff,
+            latestNetWorth: latest.netWorth,
+            previousNetWorth: previous.netWorth,
+            recentChange,
+            recentChangePercentage
+        };
+    };
+
+    const initialTransformedData = initialHistory ? getTransformedData(initialHistory) : [];
+    const [chartData, setChartData] = useState<ChartDataPoint[]>(initialTransformedData);
+    const [loading, setLoading] = useState(initialTransformedData.length === 0);
     const [error, setError] = useState<string | null>(null);
-    const [selectedPeriod, setSelectedPeriod] = useState<'30' | '90' | '180' | '365' | 'all'>('90');
+    const [selectedPeriod, setSelectedPeriod] = useState<NetworthPeriod>(initialPeriod);
     const [retryKey, setRetryKey] = useState(0);
 
     // Chart statistics
-    const [stats, setStats] = useState({
-        totalGrowth: 0,
-        totalGrowthPercentage: 0,
-        averageMonthlyGrowth: 0,
-        highestNetWorth: 0,
-        lowestNetWorth: 0,
-        daysTracked: 0,
-        latestNetWorth: 0,
-        previousNetWorth: 0,
-        recentChange: 0,
-        recentChangePercentage: 0
-    });
+    const [stats, setStats] = useState(() => getStatsFromData(initialTransformedData));
 
     const divergence = stats.highestNetWorth - stats.lowestNetWorth;
     const divergencePercentage = stats.lowestNetWorth > 0 ? (divergence / stats.lowestNetWorth) * 100 : 0;
 
     useEffect(() => {
+        if (!initialHistory?.length) return;
+        if (selectedPeriod !== initialPeriod) return;
+        if (chartData.length > 0) return;
+
+        const transformedData = getTransformedData(initialHistory);
+        setChartData(transformedData);
+        setStats(getStatsFromData(transformedData));
+        setLoading(false);
+    }, [chartData.length, initialHistory, initialPeriod, selectedPeriod]);
+
+    useEffect(() => {
         let isActive = true;
 
         const loadNetworthHistory = async () => {
+            const shouldSkipFetch = Boolean(
+                initialHistory?.length &&
+                initialPeriod === selectedPeriod &&
+                refreshTrigger === 0 &&
+                retryKey === 0 &&
+                chartData.length > 0
+            );
+
+            if (shouldSkipFetch) {
+                setLoading(false);
+                return;
+            }
+
             setLoading(true);
             setError(null);
 
@@ -106,48 +210,9 @@ export function NetworthHistoryChart({
                         new Date(a.snapshotDate).getTime() - new Date(b.snapshotDate).getTime()
                     );
 
-                    const transformedData: ChartDataPoint[] = historyData.map(record => ({
-                        date: record.snapshotDate.toISOString().split('T')[0] || '',
-                        netWorth: record.netWorth,
-                        totalAssets: record.totalAssets,
-                        totalAccountBalance: record.totalAccountBalance,
-                        totalInvestmentValue: record.totalInvestmentValue,
-                        totalMoneyLent: record.totalMoneyLent,
-                        formattedDate: formatDate(record.snapshotDate),
-                        recordType: record.recordType as string
-                    }));
-
+                    const transformedData = getTransformedData(historyData);
                     setChartData(transformedData);
-
-                    if (transformedData.length > 0) {
-                        const sortedByNetWorth = [...transformedData].sort((a, b) => a.netWorth - b.netWorth);
-                        const latest = transformedData[transformedData.length - 1];
-                        const first = transformedData[0];
-                        const previous = transformedData.length > 1 ? transformedData[transformedData.length - 2] : first;
-
-                        if (latest && first && previous) {
-                            const totalGrowth = latest.netWorth - first.netWorth;
-                            const totalGrowthPercentage = first.netWorth !== 0 ? (totalGrowth / first.netWorth) * 100 : 0;
-                            const daysDiff = Math.max(1, Math.ceil((new Date(latest.date).getTime() - new Date(first.date).getTime()) / (1000 * 60 * 60 * 24)));
-                            const monthlyGrowthRate = daysDiff > 30 ? (totalGrowthPercentage / daysDiff) * 30 : totalGrowthPercentage;
-
-                            const recentChange = latest.netWorth - previous.netWorth;
-                            const recentChangePercentage = previous.netWorth !== 0 ? (recentChange / previous.netWorth) * 100 : 0;
-
-                            setStats({
-                                totalGrowth,
-                                totalGrowthPercentage,
-                                averageMonthlyGrowth: monthlyGrowthRate,
-                                highestNetWorth: sortedByNetWorth[sortedByNetWorth.length - 1]?.netWorth || 0,
-                                lowestNetWorth: sortedByNetWorth[0]?.netWorth || 0,
-                                daysTracked: daysDiff,
-                                latestNetWorth: latest.netWorth,
-                                previousNetWorth: previous.netWorth,
-                                recentChange,
-                                recentChangePercentage
-                            });
-                        }
-                    }
+                    setStats(getStatsFromData(transformedData));
                 } else {
                     setError(result.error || "Failed to load net worth history");
                 }
@@ -163,7 +228,7 @@ export function NetworthHistoryChart({
         return () => {
             isActive = false;
         };
-    }, [selectedPeriod, refreshTrigger, retryKey]);
+    }, [chartData.length, initialHistory, initialPeriod, refreshTrigger, retryKey, selectedPeriod]);
 
     // Format currency for abbreviated display
     const formatCurrencyAbbreviated = (amount: number) => {
@@ -248,7 +313,7 @@ export function NetworthHistoryChart({
     if (loading && chartData.length === 0) {
         return (
             <div className={`${whiteContainer} ${className}`}>
-                <div className={loadingContainer}>
+                <div className={`${loadingContainer} min-h-[12rem]`}>
                     <div className={loadingSpinner}></div>
                     <p className={loadingText}>Loading net worth history...</p>
                 </div>
@@ -313,7 +378,7 @@ export function NetworthHistoryChart({
                             ) : (
                                 <Save className="w-4 h-4" />
                             )}
-                            {isRecording ? 'Recording...' : 'Record Now'}
+                            {isRecording ? 'Recording...' : 'Record Worth'}
                         </button>
                     )}
                 </div>
@@ -369,7 +434,7 @@ export function NetworthHistoryChart({
                         {isRecording ? (
                             <RefreshCw className="w-4 h-4 animate-spin" />
                         ) : (
-                            "Record Now"
+                            "Record Worth"
                         )}
                     </button>
                 )}
