@@ -11,7 +11,10 @@ import { calculateRemainingWithInterest } from "../../utils/interestCalculation"
 import { ChartControls } from "../../components/ChartControls";
 import { useOptimizedWorth } from "../../hooks/useOptimizedWorth";
 import { toggleNetWorthInclusion, bulkUpdateNetWorthInclusions } from "../../actions/net-worth-inclusions";
-import { TrendingUp, TrendingDown, DollarSign, Target, PiggyBank, BarChart3, RefreshCw, Download, Info, Eye, EyeOff, CheckSquare, XSquare } from "lucide-react";
+import { recordCurrentNetworthManually } from "./actions/networth-history";
+import { DisappearingNotification, NotificationData } from "../../components/DisappearingNotification";
+import { NetworthHistoryChart } from "./components/NetworthHistoryChart";
+import { TrendingUp, TrendingDown, DollarSign, Target, PiggyBank, BarChart3, RefreshCw, Download, Info, Eye, EyeOff, CheckSquare, XSquare, Save } from "lucide-react";
 import { 
     getSummaryCardClasses,
     getGainLossClasses,
@@ -90,6 +93,9 @@ export default function NetWorthPage() {
     // Track items that are currently being updated
     const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set());
     const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+    const [isRecording, setIsRecording] = useState(false);
+    const [notification, setNotification] = useState<NotificationData | null>(null);
+    const [chartRefreshTrigger, setChartRefreshTrigger] = useState(0);
 
     // Use the optimized worth hook
     const {
@@ -245,6 +251,41 @@ export default function NetWorthPage() {
             setTimeout(() => setIsBulkUpdating(false), 500);
         }
     }, [allAccounts, allInvestments, allDebts, refreshData]);
+
+    // Handler for manually recording net worth
+    const handleRecordNetworth = useCallback(async () => {
+        setIsRecording(true);
+        try {
+            const result = await recordCurrentNetworthManually();
+            
+            if (result.success) {
+                setNotification({
+                    title: "Net worth recorded",
+                    message: "Net worth snapshot recorded successfully.",
+                    type: "success"
+                });
+                // Optionally refresh data to show the latest state
+                refreshData();
+                setChartRefreshTrigger(prev => prev + 1);
+            } else {
+                console.error('Error recording net worth:', result.error);
+                setNotification({
+                    title: "Recording failed",
+                    message: result.error || "Failed to record net worth.",
+                    type: "error"
+                });
+            }
+        } catch (error) {
+            console.error('Error recording net worth:', error);
+            setNotification({
+                title: "Recording failed",
+                message: "Failed to record net worth. Please try again.",
+                type: "error"
+            });
+        } finally {
+            setTimeout(() => setIsRecording(false), 500);
+        }
+    }, [refreshData]);
 
     // Helper functions
     const formatCurrencyAbbreviated = (amount: number) => {
@@ -680,6 +721,13 @@ export default function NetWorthPage() {
                 </div>
             </div>
 
+            {/* Net Worth History Chart */}
+            <NetworthHistoryChart 
+                onRecordNetworth={handleRecordNetworth}
+                isRecording={isRecording}
+                refreshTrigger={chartRefreshTrigger}
+            />
+
             {/* Quick Actions for Bulk Operations */}
             {(allAccounts.length > 0 || allInvestments.length > 0 || allDebts.length > 0) && (
                 <div className="flex items-center justify-end gap-3 py-2">
@@ -696,7 +744,6 @@ export default function NetWorthPage() {
                             isBulkUpdating ? 'opacity-50 cursor-not-allowed' : ''
                         }`}
                     >
-                        <CheckSquare className="w-4 h-4" />
                         Show All
                     </button>
                     <button
@@ -706,7 +753,6 @@ export default function NetWorthPage() {
                             isBulkUpdating ? 'opacity-50 cursor-not-allowed' : ''
                         }`}
                     >
-                        <XSquare className="w-4 h-4" />
                         Hide All
                     </button>
                 </div>
@@ -1029,6 +1075,7 @@ export default function NetWorthPage() {
                     </div>
                 );
             })}
+            <DisappearingNotification notification={notification} onHide={() => setNotification(null)} />
         </div>
     );
 } 
