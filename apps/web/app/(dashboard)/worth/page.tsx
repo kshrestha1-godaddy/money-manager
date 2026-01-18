@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 import { useCurrency } from "../../providers/CurrencyProvider";
@@ -11,7 +11,7 @@ import { calculateRemainingWithInterest } from "../../utils/interestCalculation"
 import { ChartControls } from "../../components/ChartControls";
 import { useOptimizedWorth } from "../../hooks/useOptimizedWorth";
 import { toggleNetWorthInclusion, bulkUpdateNetWorthInclusions } from "../../actions/net-worth-inclusions";
-import { getNetworthHistory, recordCurrentNetworthManually } from "./actions/networth-history";
+import { recordCurrentNetworthManually } from "./actions/networth-history";
 import { DisappearingNotification, NotificationData } from "../../components/DisappearingNotification";
 import { NetworthHistoryChart } from "./components/NetworthHistoryChart";
 import { TrendingUp, TrendingDown, DollarSign, Target, PiggyBank, BarChart3, RefreshCw, Download, Info, Eye, EyeOff, CheckSquare, XSquare, Save } from "lucide-react";
@@ -65,16 +65,6 @@ const redNegativeIcon = ICON_COLORS.redNegative;
 
 type SectionKey = 'accounts' | 'investments' | 'debts';
 
-interface NetworthHistoryRecordInput {
-    snapshotDate: string | Date;
-    netWorth: number;
-    totalAssets: number;
-    totalAccountBalance: number;
-    totalInvestmentValue: number;
-    totalMoneyLent: number;
-    recordType: string;
-}
-
 // Worth chart colors (matching dashboard theme)
 const WORTH_COLORS = {
     accounts: '#10b981',    // Green (Bank Balance)
@@ -106,7 +96,6 @@ export default function NetWorthPage() {
     const [isRecording, setIsRecording] = useState(false);
     const [notification, setNotification] = useState<NotificationData | null>(null);
     const [chartRefreshTrigger, setChartRefreshTrigger] = useState(0);
-    const [prefetchedHistory, setPrefetchedHistory] = useState<NetworthHistoryRecordInput[] | null>(null);
 
     // Use the optimized worth hook
     const {
@@ -127,30 +116,6 @@ export default function NetWorthPage() {
         exportData,
         chartColors
     } = useOptimizedWorth();
-
-    useEffect(() => {
-        let isActive = true;
-        const loadInitialHistory = async () => {
-            try {
-                const endDate = new Date();
-                const startDate = new Date();
-                startDate.setDate(startDate.getDate() - 90);
-
-                const result = await getNetworthHistory(startDate, endDate, 365);
-                if (!isActive) return;
-                if (result.success && result.data) {
-                    setPrefetchedHistory(result.data as NetworthHistoryRecordInput[]);
-                }
-            } catch (error) {
-                console.error("Error prefetching net worth history:", error);
-            }
-        };
-
-        loadInitialHistory();
-        return () => {
-            isActive = false;
-        };
-    }, []);
 
     // Helper to create unique key for tracking updates
     const getItemKey = (entityType: string, entityId: number) => `${entityType}-${entityId}`;
@@ -336,6 +301,16 @@ export default function NetWorthPage() {
         if (sectionValue === 0) return 0;
         return ((itemValue / sectionValue) * 100).toFixed(1);
     };
+
+    const formatDataLabel = (amount: number) => {
+        if (amount >= 1000000) {
+            return `${getCurrencySymbol(currency)}${(amount / 1000000).toFixed(3)}M`;
+        } else if (amount >= 1000) {
+            return `${getCurrencySymbol(currency)}${(amount / 1000).toFixed(3)}K`;
+        }
+        return formatCurrency(amount, currency);
+    };
+
     const toggleSection = (section: SectionKey) => {
         setExpandedSections(prev => ({
             ...prev,
@@ -751,8 +726,6 @@ export default function NetWorthPage() {
                 onRecordNetworth={handleRecordNetworth}
                 isRecording={isRecording}
                 refreshTrigger={chartRefreshTrigger}
-                initialHistory={prefetchedHistory || undefined}
-                initialPeriod="90"
             />
 
             {/* Quick Actions for Bulk Operations */}
