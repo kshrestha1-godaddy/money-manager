@@ -282,11 +282,40 @@ export function NetworthHistoryChart({
     if (chartData.length === 0) {
         return (
             <div className={`${whiteContainer} ${className}`}>
-                <div className="flex items-center justify-between p-2 border-b border-gray-200">
-                    <div>
-                        <h3 className={chartTitle}>Net Worth Over Time</h3>
-                        <p className={cardSubtitle}>Track your financial growth and progress</p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2 border-b border-gray-200">
+                    {/* Period selector - on the left (disabled in empty state) */}
+                    <div className="flex items-center gap-2 opacity-50">
+                        {(['30', '90', '180', '365', 'all'] as const).map((period) => (
+                            <button
+                                key={period}
+                                disabled
+                                className="px-3 py-1 text-xs rounded-full bg-gray-100 text-gray-400 cursor-not-allowed"
+                            >
+                                {period === 'all' ? 'All' : period === '180' ? '6mo' : `${period}d`}
+                            </button>
+                        ))}
                     </div>
+
+                    <div className="flex-1 text-center sm:text-left">
+                        <h3 className={chartTitle}>Net Worth Over Time</h3>
+                    </div>
+
+                    {/* Record button - on the right */}
+                    {onRecordNetworth && (
+                        <button
+                            onClick={onRecordNetworth}
+                            disabled={isRecording}
+                            className={`${primaryButton} flex items-center gap-2 ${isRecording ? 'opacity-50 cursor-not-allowed' : ''
+                                }`}
+                        >
+                            {isRecording ? (
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Save className="w-4 h-4" />
+                            )}
+                            {isRecording ? 'Recording...' : 'Record Now'}
+                        </button>
+                    )}
                 </div>
                 <div className="flex flex-col items-center justify-center h-96 w-full">
                     <div className="text-center max-w-md">
@@ -294,7 +323,7 @@ export function NetworthHistoryChart({
                         <h4 className={emptyTitle}>No Net Worth History</h4>
                         <p className={emptyMessage}>
                             Start recording your net worth to see your financial progress over time. 
-                            Use the "Record Now" button to create your first snapshot.
+                            Click the "Record Now" button above to create your first snapshot.
                         </p>
                     </div>
                 </div>
