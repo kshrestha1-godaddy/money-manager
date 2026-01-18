@@ -248,7 +248,7 @@ export function NetworthHistoryChart({
     if (loading && chartData.length === 0) {
         return (
             <div className={`${whiteContainer} ${className}`}>
-                <div className={loadingContainer}>
+                <div className="flex flex-col items-center justify-center h-64 py-8">
                     <div className={loadingSpinner}></div>
                     <p className={loadingText}>Loading net worth history...</p>
                 </div>
