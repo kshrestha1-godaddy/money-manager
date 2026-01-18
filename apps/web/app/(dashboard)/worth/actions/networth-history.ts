@@ -252,6 +252,74 @@ export async function recordNetworthSnapshotForUser(
   }
 }
 
+export interface NetworthSnapshotBatchResult {
+  processedUsers: number;
+  successfulRecords: number;
+  errorCount: number;
+  errors: Array<{ userId: number; email: string | null; error: string }>;
+}
+
+/**
+ * Record net worth snapshots for all users (used by cron jobs)
+ */
+export async function recordNetworthSnapshotForAllUsers(
+  recordType: NetWorthRecordType = "AUTOMATIC",
+  snapshotDate?: Date
+): Promise<{ success: boolean; result?: NetworthSnapshotBatchResult; error?: string }> {
+  try {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        email: true
+      }
+    });
+
+    const targetDate = snapshotDate ? new Date(snapshotDate) : new Date();
+    targetDate.setHours(0, 0, 0, 0);
+
+    const result: NetworthSnapshotBatchResult = {
+      processedUsers: 0,
+      successfulRecords: 0,
+      errorCount: 0,
+      errors: []
+    };
+
+    for (const user of users) {
+      try {
+        result.processedUsers++;
+        const recordResult = await recordNetworthSnapshotForUser(
+          user.id,
+          recordType,
+          new Date(targetDate)
+        );
+
+        if (recordResult.success) {
+          result.successfulRecords++;
+        } else {
+          result.errors.push({
+            userId: user.id,
+            email: user.email,
+            error: recordResult.error || "Unknown error"
+          });
+        }
+      } catch (error) {
+        result.errors.push({
+          userId: user.id,
+          email: user.email,
+          error: error instanceof Error ? error.message : "Unknown error"
+        });
+      }
+    }
+
+    result.errorCount = result.errors.length;
+
+    return { success: true, result };
+  } catch (error) {
+    console.error("Error recording net worth snapshots for all users:", error);
+    return { success: false, error: "Failed to record net worth snapshots" };
+  }
+}
+
 /**
  * Record a new net worth snapshot
  */

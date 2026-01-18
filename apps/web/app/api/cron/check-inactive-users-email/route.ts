@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processInactiveUsersForEmailNotifications } from "../../../actions/checkins";
+import { recordNetworthSnapshotForAllUsers } from "../../../(dashboard)/worth/actions/networth-history";
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,21 +10,44 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    console.log("Starting cron job: check-inactive-users-email");
-    
-    const result = await processInactiveUsersForEmailNotifications();
-    
-    console.log("Cron job completed:", result);
-    
+    console.log("Starting cron job: check-inactive-users-email and record net worth snapshot");
+
+    const inactiveUsersResult = await processInactiveUsersForEmailNotifications();
+    const networthResult = await recordNetworthSnapshotForAllUsers("AUTOMATIC", new Date());
+
+    console.log("Cron job completed:", {
+      inactiveUsersResult,
+      networthResult
+    });
+
+    const inactiveUsersSummary = {
+      processedUsers: inactiveUsersResult.processedUsers,
+      emailsSent: inactiveUsersResult.emailsSent,
+      notificationsCreated: inactiveUsersResult.notificationsCreated,
+      errorCount: inactiveUsersResult.errors?.length || 0,
+      errors: (inactiveUsersResult.errors || []).slice(0, 5)
+    };
+
+    const networthSummary = networthResult.success && networthResult.result
+      ? {
+          processedUsers: networthResult.result.processedUsers,
+          successfulRecords: networthResult.result.successfulRecords,
+          errorCount: networthResult.result.errorCount,
+          errors: networthResult.result.errors.slice(0, 5)
+        }
+      : {
+          error: networthResult.error || "Failed to record net worth snapshots"
+        };
+
+    const hasInactiveUserErrors = inactiveUsersSummary.errorCount > 0;
+    const hasNetworthErrors = !networthResult.success || (networthResult.result?.errorCount || 0) > 0;
+
     return NextResponse.json({
-      success: true,
-      message: "Inactive users email notification process completed",
+      success: !hasInactiveUserErrors && !hasNetworthErrors,
+      message: "Daily cron jobs completed",
       result: {
-        processedUsers: result.processedUsers,
-        emailsSent: result.emailsSent,
-        notificationsCreated: result.notificationsCreated,
-        errorCount: result.errors.length,
-        errors: result.errors.slice(0, 5) // Only return first 5 errors to avoid large response
+        inactiveUsers: inactiveUsersSummary,
+        networthSnapshots: networthSummary
       }
     });
 

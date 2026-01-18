@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { recordNetworthSnapshotForUser } from "../../../(dashboard)/worth/actions/networth-history";
-import prisma from "@repo/db/client";
+import { recordNetworthSnapshotForAllUsers } from "../../../(dashboard)/worth/actions/networth-history";
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,67 +10,25 @@ export async function GET(request: NextRequest) {
     }
 
     console.log("Starting cron job: record-networth-snapshot");
-    
-    // Get all active users
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        email: true,
-        name: true
-      }
-    });
 
-    console.log(`Found ${users.length} users to process`);
-
-    const results = {
-      processedUsers: 0,
-      successfulRecords: 0,
-      errors: [] as Array<{ userId: number; email: string | null; error: string }>
-    };
-
-    // Process each user to record their net worth snapshot
-    for (const user of users) {
-      try {
-        results.processedUsers++;
-        
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Set to start of day for consistent snapshots
-
-        // Record net worth snapshot for this user
-        const recordResult = await recordNetworthSnapshotForUser(user.id, "AUTOMATIC", today);
-        
-        if (recordResult.success) {
-          console.log(`Successfully recorded net worth for user ${user.id}`);
-          results.successfulRecords++;
-        } else {
-          console.error(`Failed to record net worth for user ${user.id}:`, recordResult.error);
-          results.errors.push({
-            userId: user.id,
-            email: user.email,
-            error: recordResult.error || "Unknown error"
-          });
-        }
-
-      } catch (error) {
-        console.error(`Error processing user ${user.id}:`, error);
-        results.errors.push({
-          userId: user.id,
-          email: user.email,
-          error: error instanceof Error ? error.message : "Unknown error"
-        });
-      }
+    const snapshotResult = await recordNetworthSnapshotForAllUsers("AUTOMATIC", new Date());
+    if (!snapshotResult.success || !snapshotResult.result) {
+      return NextResponse.json({
+        success: false,
+        error: snapshotResult.error || "Failed to record net worth snapshots"
+      }, { status: 500 });
     }
-    
-    console.log("Cron job completed:", results);
-    
+
+    console.log("Cron job completed:", snapshotResult.result);
+
     return NextResponse.json({
       success: true,
       message: "Net worth snapshot recording completed",
       result: {
-        processedUsers: results.processedUsers,
-        successfulRecords: results.successfulRecords,
-        errorCount: results.errors.length,
-        errors: results.errors.slice(0, 5) // Only return first 5 errors to avoid large response
+        processedUsers: snapshotResult.result.processedUsers,
+        successfulRecords: snapshotResult.result.successfulRecords,
+        errorCount: snapshotResult.result.errorCount,
+        errors: snapshotResult.result.errors.slice(0, 5) // Only return first 5 errors to avoid large response
       }
     });
 
