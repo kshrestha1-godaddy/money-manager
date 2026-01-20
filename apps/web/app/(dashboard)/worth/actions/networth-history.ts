@@ -6,13 +6,7 @@ import { getUserIdFromSession } from "../../../utils/auth";
 import { getCurrentNetWorth, NetWorthSnapshot } from "./net-worth";
 import prisma from "@repo/db/client";
 import { NetWorthRecordType, Account, Investment, Debt, DebtRepayment, NetWorthInclusion } from "@prisma/client";
-import { getUserAccounts } from "../../accounts/actions/accounts";
-import { getUserInvestments } from "../../investments/actions/investments";
-import { getUserDebts } from "../../debts/actions/debts";
-import { getWithheldAmountsByBank } from "../../accounts/actions/accounts";
-import { getNetWorthInclusions } from "../../../actions/net-worth-inclusions";
 import { calculateRemainingWithInterest } from "../../../utils/interestCalculation";
-import { getUserCurrency } from "../../../actions/currency";
 
 export interface NetworthHistoryRecord {
   id: number;
@@ -47,12 +41,40 @@ export async function calculateNetworthForUser(userId: number): Promise<{ succes
       prisma.account.findMany({ where: { userId } }),
       prisma.investment.findMany({ where: { userId } }),
       prisma.debt.findMany({ where: { userId }, include: { repayments: true } }),
-      prisma.account.findMany({ 
-        where: { userId },
-        select: { bankName: true, balance: true }
-      }).then((accounts: Array<{ bankName: string; balance: any }>) => {
-        // Calculate withheld amounts by bank (simplified version)
+      // Calculate withheld amounts from investments (same logic as getWithheldAmountsByBank)
+      prisma.investment.findMany({
+        where: {
+          userId: userId,
+          deductFromAccount: true, // Only include investments marked as withheld
+          accountId: {
+            not: null // Only include investments linked to accounts
+          }
+        },
+        include: {
+          account: {
+            select: {
+              bankName: true
+            }
+          }
+        }
+      }).then((withheldInvestments) => {
         const withheldByBank: Record<string, number> = {};
+        
+        withheldInvestments.forEach(investment => {
+          if (investment.account) {
+            const bankName = investment.account.bankName;
+            
+            // Calculate investment amount using simplified formula: quantity × purchasePrice
+            const amount = parseFloat(investment.quantity.toString()) * parseFloat(investment.purchasePrice.toString());
+            
+            if (withheldByBank[bankName]) {
+              withheldByBank[bankName] += amount;
+            } else {
+              withheldByBank[bankName] = amount;
+            }
+          }
+        });
+
         return withheldByBank;
       }),
       prisma.netWorthInclusion.findMany({ where: { userId } }),
@@ -82,8 +104,30 @@ export async function calculateNetworthForUser(userId: number): Promise<{ succes
       });
     }
 
+    // Calculate free account balances (excluding withheld amounts)
+    const accountsWithFreeBalance = accounts.map((account: Account) => {
+      const bankName = account.bankName;
+      const withheldAmountForBank = withheldAmounts[bankName] || 0;
+      
+      if (withheldAmountForBank === 0) {
+        return account;
+      }
+
+      // Calculate proportional withheld amount for this account
+      const accountsInBank = accounts.filter((acc: Account) => acc.bankName === bankName);
+      const totalBankBalance = accountsInBank.reduce((sum: number, acc: Account) => sum + Number(acc.balance || 0), 0);
+      const accountProportion = totalBankBalance > 0 ? Number(account.balance || 0) / totalBankBalance : 0;
+      const accountWithheldAmount = withheldAmountForBank * accountProportion;
+      const freeBalance = Number(account.balance || 0) - accountWithheldAmount;
+
+      return {
+        ...account,
+        balance: freeBalance
+      };
+    });
+
     // Filter based on inclusions (default to included if no explicit setting)
-    const includedAccounts = accounts.filter((account: Account) => {
+    const includedAccounts = accountsWithFreeBalance.filter((account) => {
       const isIncluded = inclusionMaps.accounts.get(account.id);
       return isIncluded === undefined ? true : isIncluded;
     });
@@ -99,7 +143,7 @@ export async function calculateNetworthForUser(userId: number): Promise<{ succes
     });
 
     // Calculate totals
-    const totalAccountBalance = includedAccounts.reduce((sum: number, account: Account) => sum + Number(account.balance || 0), 0);
+    const totalAccountBalance = includedAccounts.reduce((sum: number, account) => sum + Number(account.balance || 0), 0);
 
     const totalInvestmentCost = includedInvestments.reduce((sum: number, investment: Investment) => {
       return sum + (Number(investment.quantity) * Number(investment.purchasePrice));
