@@ -139,6 +139,25 @@ export async function createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'up
                 }
             });
 
+            // Create TransactionImage record if receipt URL is provided
+            if (data.receipt) {
+                try {
+                    await tx.transactionImage.create({
+                        data: {
+                            imageUrl: data.receipt,
+                            fileName: `expense-receipt-${expense.id}`,
+                            transactionType: 'EXPENSE',
+                            transactionId: expense.id,
+                            description: `Receipt for ${data.title}`,
+                            userId: userId
+                        }
+                    });
+                } catch (imageError) {
+                    console.error('Failed to create transaction image record:', imageError);
+                    // Don't fail the entire transaction if image record creation fails
+                }
+            }
+
             // Update the account balance (decrease by expense amount, convert to user's currency)
             if (data.accountId) {
                 const userCurrency = user?.currency || 'USD';
@@ -277,6 +296,41 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
                 }
             });
 
+            // Handle TransactionImage updates if receipt changed
+            if (data.receipt !== undefined) {
+                // First, deactivate any existing images for this expense
+                await tx.transactionImage.updateMany({
+                    where: {
+                        transactionType: 'EXPENSE',
+                        transactionId: id,
+                        userId: userId,
+                        isActive: true
+                    },
+                    data: {
+                        isActive: false
+                    }
+                });
+
+                // Create new image record if new receipt URL is provided
+                if (data.receipt) {
+                    try {
+                        await tx.transactionImage.create({
+                            data: {
+                                imageUrl: data.receipt,
+                                fileName: `expense-receipt-${expense.id}`,
+                                transactionType: 'EXPENSE',
+                                transactionId: expense.id,
+                                description: `Receipt for ${data.title || expense.title}`,
+                                userId: userId
+                            }
+                        });
+                    } catch (imageError) {
+                        console.error('Failed to create transaction image record during update:', imageError);
+                        // Don't fail the entire transaction if image record creation fails
+                    }
+                }
+            }
+
             // Handle account balance changes (convert currencies)
             const userCurrency = user?.currency || 'USD';
             const oldAmount = parseFloat(existingExpense.amount.toString());
@@ -408,6 +462,15 @@ export async function deleteExpense(id: number) {
             if (!existingExpense) {
                 throw new Error("Expense not found or unauthorized");
             }
+
+            // Delete any associated transaction images from database
+            await tx.transactionImage.deleteMany({
+                where: {
+                    transactionType: 'EXPENSE',
+                    transactionId: id,
+                    userId: userId
+                }
+            });
 
             // Delete the expense
             await tx.expense.delete({
@@ -864,6 +927,15 @@ export async function bulkDeleteExpenses(expenseIds: number[]) {
 
         // Use a transaction to ensure both expense deletion and account balance updates
         await prisma.$transaction(async (tx) => {
+            // Delete any associated transaction images from database
+            await tx.transactionImage.deleteMany({
+                where: {
+                    transactionType: 'EXPENSE',
+                    transactionId: { in: expenseIds },
+                    userId: userId
+                }
+            });
+
             // Delete the expenses
             await tx.expense.deleteMany({
                 where: { 

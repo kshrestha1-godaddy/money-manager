@@ -101,6 +101,7 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
                 user: { connect: { id: userId } },
                 tags: data.tags,
                 location: data.location,
+                receipt: data.receipt,
                 notes: data.notes,
                 isRecurring: data.isRecurring,
                 recurringFrequency: data.recurringFrequency
@@ -118,6 +119,25 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
                     user: true
                 }
             });
+
+            // Create TransactionImage record if receipt URL is provided
+            if (data.receipt) {
+                try {
+                    await tx.transactionImage.create({
+                        data: {
+                            imageUrl: data.receipt,
+                            fileName: `income-receipt-${income.id}`,
+                            transactionType: 'INCOME',
+                            transactionId: income.id,
+                            description: `Document for ${data.title}`,
+                            userId: userId
+                        }
+                    });
+                } catch (imageError) {
+                    console.error('Failed to create transaction image record:', imageError);
+                    // Don't fail the entire transaction if image record creation fails
+                }
+            }
 
             // adding the amount to the account balance (convert to user's currency)
             if (data.accountId) {
@@ -208,6 +228,7 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
         }
         if (data.tags !== undefined) updateData.tags = data.tags;
         if (data.location !== undefined) updateData.location = data.location;
+        if (data.receipt !== undefined) updateData.receipt = data.receipt;
         if (data.notes !== undefined) updateData.notes = data.notes;
         if (data.isRecurring !== undefined) updateData.isRecurring = data.isRecurring;
         if (data.recurringFrequency !== undefined) updateData.recurringFrequency = data.recurringFrequency;
@@ -222,6 +243,41 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
                     user: true
                 }
             });
+
+            // Handle TransactionImage updates if receipt changed
+            if (data.receipt !== undefined) {
+                // First, deactivate any existing images for this income
+                await tx.transactionImage.updateMany({
+                    where: {
+                        transactionType: 'INCOME',
+                        transactionId: id,
+                        userId: userId,
+                        isActive: true
+                    },
+                    data: {
+                        isActive: false
+                    }
+                });
+
+                // Create new image record if new receipt URL is provided
+                if (data.receipt) {
+                    try {
+                        await tx.transactionImage.create({
+                            data: {
+                                imageUrl: data.receipt,
+                                fileName: `income-receipt-${income.id}`,
+                                transactionType: 'INCOME',
+                                transactionId: income.id,
+                                description: `Document for ${data.title || income.title}`,
+                                userId: userId
+                            }
+                        });
+                    } catch (imageError) {
+                        console.error('Failed to create transaction image record during update:', imageError);
+                        // Don't fail the entire transaction if image record creation fails
+                    }
+                }
+            }
 
             const userCurrency = user?.currency || 'USD';
             const oldAmount = parseFloat(existingIncome.amount.toString());
@@ -311,6 +367,15 @@ export async function deleteIncome(id: number) {
         });
 
         await prisma.$transaction(async (tx) => {
+            // Delete any associated transaction images from database
+            await tx.transactionImage.deleteMany({
+                where: {
+                    transactionType: 'INCOME',
+                    transactionId: id,
+                    userId: userId
+                }
+            });
+
             await tx.income.delete({ where: { id } });
 
             if (existingIncome.accountId) {
@@ -498,6 +563,15 @@ export async function bulkDeleteIncomes(incomeIds: number[]) {
     }
 
     await prisma.$transaction(async (tx) => {
+        // Delete any associated transaction images from database
+        await tx.transactionImage.deleteMany({
+            where: {
+                transactionType: 'INCOME',
+                transactionId: { in: incomeIds },
+                userId: userId
+            }
+        });
+
         await tx.income.deleteMany({
             where: { id: { in: incomeIds }, userId }
         });

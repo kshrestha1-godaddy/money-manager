@@ -19,6 +19,7 @@ export interface BaseFormData {
     tags: string;
     location: string;
     notes: string;
+    receipt?: string;
     isRecurring: boolean;
     recurringFrequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
 }
@@ -48,6 +49,7 @@ export function initializeFormData(defaultDate: boolean = true, defaultCurrency:
         tags: '',
         location: '',
         notes: '',
+        receipt: '',
         isRecurring: false,
         recurringFrequency: 'MONTHLY'
     };
@@ -164,6 +166,7 @@ export function transformFormData(
         tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(Boolean) : [],
         location: formData.location ? formData.location.split(',').map(loc => loc.trim()).filter(Boolean) : [],
         notes: formData.notes || undefined,
+        receipt: formData.receipt || undefined,
         isRecurring: formData.isRecurring,
         recurringFrequency: formData.isRecurring ? formData.recurringFrequency : undefined
     };
@@ -194,6 +197,7 @@ export function extractFormData(item: any): BaseFormData {
         tags: Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || ''),
         location: Array.isArray(item.location) ? item.location.join(', ') : (item.location || ''),
         notes: item.notes !== null && item.notes !== undefined ? String(item.notes) : '',
+        receipt: item.receipt || '',
         isRecurring: item.isRecurring || false,
         recurringFrequency: (item.recurringFrequency || 'MONTHLY') as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY'
     };

@@ -73,6 +73,7 @@ export interface Income {
   userId: number;
   tags: string[];
   location: string[];
+  receipt?: string;
   notes?: string;
   isRecurring: boolean;
   recurringFrequency?: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
@@ -156,4 +157,22 @@ export interface DashboardStats {
   savingsRate: number;
   totalInvestments: number;
   recentTransactions: Transaction[];
-} 
+}
+
+export interface TransactionImage {
+  id: number;
+  imageUrl: string;
+  fileName: string;
+  fileSize?: number;
+  mimeType?: string;
+  transactionType: TransactionImageType;
+  transactionId: number;
+  description?: string;
+  isActive: boolean;
+  uploadedAt: Date;
+  userId: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type TransactionImageType = 'EXPENSE' | 'INCOME' | 'INVESTMENT' | 'DEBT' | 'LOAN'; 

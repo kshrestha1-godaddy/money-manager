@@ -5,6 +5,7 @@ import { Category } from "../../types/financial";
 import { AccountInterface } from "../../types/accounts";
 import { EnhancedTagsInput } from "./EnhancedTagsInput";
 import { EnhancedLocationInput } from "./EnhancedLocationInput";
+import { TransactionImageUpload } from "./TransactionImageUpload";
 import { DUAL_CURRENCIES, formatDualCurrency, convertDualCurrency, SUPPORTED_CURRENCIES } from "../../utils/currency";
 import { 
     BaseFormData, 
@@ -183,6 +184,18 @@ export function FinancialForm({
                     onChange={(value) => handleInputChange('location', value)}
                     transactionType={transactionType}
                     disabled={disabled}
+                />
+            </div>
+
+            <div>
+                <label className={labelClasses}>
+                    {transactionType === 'EXPENSE' ? 'Receipt Image' : 'Document Image'}
+                </label>
+                <TransactionImageUpload
+                    value={formData.receipt}
+                    onChange={(value) => handleInputChange('receipt', value)}
+                    disabled={disabled}
+                    transactionType={transactionType}
                 />
             </div>
 

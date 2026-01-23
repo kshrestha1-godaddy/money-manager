@@ -19,6 +19,7 @@ import {
     ElectricityData, 
 } from "./ElectricityFields";
 import { GoldFields, GoldData } from "./GoldFields";
+import { ImageUpload } from "./ImageUpload";
 
 interface ExpenseFormProps {
     formData: BaseFormData;
@@ -357,6 +358,15 @@ export function ExpenseForm({
                     value={formData.location}
                     onChange={(value) => handleInputChange('location', value)}
                     transactionType="EXPENSE"
+                    disabled={disabled}
+                />
+            </div>
+
+            <div>
+                <label className={labelClasses}>Receipt Image</label>
+                <ImageUpload
+                    value={formData.receipt}
+                    onChange={(value) => handleInputChange('receipt', value)}
                     disabled={disabled}
                 />
             </div>
