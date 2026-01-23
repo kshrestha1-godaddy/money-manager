@@ -47,6 +47,7 @@ model User {
   notes Note[]
   chatThreads ChatThread[]
   networthHistory NetworthHistory[]
+  transactionImages TransactionImage[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -879,4 +880,39 @@ model NetworthHistory {
 enum NetWorthRecordType {
   AUTOMATIC  // Created by cron job
   MANUAL     // Created by user action
+}
+
+model TransactionImage {
+  id              Int                    @id @default(autoincrement())
+  imageUrl        String                 // Vercel blob URL
+  fileName        String                 // Original filename
+  fileSize        Int?                   // Size in bytes
+  mimeType        String?                // MIME type (image/jpeg, image/png, etc.)
+  transactionType TransactionImageType   // Type of transaction this image belongs to
+  transactionId   Int                    // ID of the related transaction
+  description     String?                // Optional description of the image
+  isActive        Boolean                @default(true) // For soft delete
+  uploadedAt      DateTime               @default(now()) // When the image was uploaded
+  
+  // Relationships
+  user            User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          Int
+  
+  // Metadata
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  
+  // Indexes for efficient querying
+  @@index([userId, transactionType])
+  @@index([transactionType, transactionId])
+  @@index([userId, uploadedAt])
+  @@index([userId, isActive])
+}
+
+enum TransactionImageType {
+  EXPENSE
+  INCOME
+  INVESTMENT
+  DEBT
+  LOAN
 }
