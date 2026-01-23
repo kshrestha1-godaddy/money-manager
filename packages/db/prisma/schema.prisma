@@ -147,6 +147,7 @@ model Income {
   userId Int
   tags String[]
   location String[] // Locations where the income occurred
+  receipt String? // URL to receipt/document image
   notes String? // User notes/remarks for the income
   isRecurring Boolean @default(false)
   recurringFrequency RecurringFrequency?
