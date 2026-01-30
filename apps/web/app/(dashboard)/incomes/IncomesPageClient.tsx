@@ -22,6 +22,7 @@ import { useTimezone } from '../../providers/TimezoneProvider';
 import { DisappearingNotification, NotificationData } from '../../components/DisappearingNotification';
 import { BUTTON_COLORS, TEXT_COLORS, CONTAINER_COLORS, LOADING_COLORS, UI_STYLES } from '../../config/colorConfig';
 import { convertForDisplaySync } from '../../utils/currencyDisplay';
+import { getCategoriesWithFrequency, CategoryWithFrequencyData } from '../../utils/categoryFrequency';
 
 const pageContainer = CONTAINER_COLORS.page;
 const loadingContainer = LOADING_COLORS.container;
@@ -125,6 +126,11 @@ export default function IncomesPageClient() {
     onNotification: setNotification,
     userCurrency: userCurrency
   });
+
+  // Sort categories by frequency for the add/edit modals (last 6 months)
+  const categoriesWithFrequency = useMemo(() => {
+    return getCategoriesWithFrequency(categories, allIncomes);
+  }, [categories, allIncomes]);
 
   const handleBookmarkToggle = async (income: Income) => {
     try {
@@ -247,7 +253,11 @@ export default function IncomesPageClient() {
       hasPageFilters: hasActiveFilters,
       pageStartDate: startDate,
       pageEndDate: endDate,
-      userThresholds,
+      userThresholds: userThresholds ? {
+        autoBookmarkEnabled: userThresholds.autoBookmarkEnabled,
+        income: userThresholds.incomeThreshold,
+        expense: userThresholds.expenseThreshold
+      } : undefined,
       thresholdsLoading
     }),
     [chartItems, userCurrency, hasActiveFilters, startDate, endDate, userThresholds, thresholdsLoading]
@@ -402,8 +412,8 @@ export default function IncomesPageClient() {
         />
       </Suspense>
 
-      <AddIncomeModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAdd={handleAddItem} categories={categories} accounts={accounts} />
-      <EditIncomeModal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setItemToEdit(null); }} onEdit={handleEditItem} categories={categories} accounts={accounts} income={itemToEdit} />
+      <AddIncomeModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAdd={handleAddItem} categories={categoriesWithFrequency} accounts={accounts} />
+      <EditIncomeModal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setItemToEdit(null); }} onEdit={handleEditItem} categories={categoriesWithFrequency} accounts={accounts} income={itemToEdit} />
       <ViewIncomeModal isOpen={isViewModalOpen} onClose={() => { setIsViewModalOpen(false); setItemToView(null); }} onEdit={openEditModal} income={itemToView} />
       <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setItemToDelete(null); }} onConfirm={handleDeleteItem} />
       <AddCategoryModal isOpen={isAddCategoryModalOpen} onClose={() => setIsAddCategoryModalOpen(false)} onAdd={handleAddCategory} onDelete={handleDeleteCategory} type="INCOME" categories={categories} />

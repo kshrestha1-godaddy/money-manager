@@ -4,12 +4,13 @@ import React from "react";
 import { FinancialModal } from "../../../components/shared/FinancialModal";
 import { Income, Category } from "../../../types/financial";
 import { AccountInterface } from "../../../types/accounts";
+import { CategoryWithFrequencyData } from "../../../utils/categoryFrequency";
 
 interface AddIncomeModalProps {
     isOpen: boolean;
     onClose: () => void;
     onAdd: (income: Omit<Income, 'id' | 'createdAt' | 'updatedAt'>) => void;
-    categories: Category[];
+    categories: CategoryWithFrequencyData[];
     accounts: AccountInterface[];
 }
 

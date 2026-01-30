@@ -26,6 +26,7 @@ import { useTimezone } from '../../providers/TimezoneProvider';
 import { DisappearingNotification, NotificationData } from '../../components/DisappearingNotification';
 import { useState } from 'react';
 import { convertForDisplaySync } from '../../utils/currencyDisplay';
+import { getCategoriesWithFrequency, CategoryWithFrequencyData } from '../../utils/categoryFrequency';
 import {
   BUTTON_COLORS,
   TEXT_COLORS,
@@ -136,6 +137,11 @@ export default function ExpensesPageClient() {
     onNotification: setNotification,
     userCurrency: userCurrency
   });
+
+  // Sort categories by frequency for the add/edit modals (last 6 months)
+  const categoriesWithFrequency = useMemo(() => {
+    return getCategoriesWithFrequency(categories, allExpenses);
+  }, [categories, allExpenses]);
 
   const handleBookmarkToggle = async (expense: Expense) => {
     try {
@@ -258,7 +264,11 @@ export default function ExpensesPageClient() {
       hasPageFilters: hasActiveFilters,
       pageStartDate: startDate,
       pageEndDate: endDate,
-      userThresholds,
+      userThresholds: userThresholds ? {
+        autoBookmarkEnabled: userThresholds.autoBookmarkEnabled,
+        income: userThresholds.incomeThreshold,
+        expense: userThresholds.expenseThreshold
+      } : undefined,
       thresholdsLoading
     }),
     [chartItems, userCurrency, hasActiveFilters, startDate, endDate, userThresholds, thresholdsLoading]
@@ -413,8 +423,8 @@ export default function ExpensesPageClient() {
         />
       </Suspense>
 
-      <AddExpenseModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAdd={handleAddItem} categories={categories} accounts={accounts} />
-      <EditExpenseModal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setItemToEdit(null); }} onEdit={handleEditItem} categories={categories} accounts={accounts} expense={itemToEdit} />
+      <AddExpenseModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAdd={handleAddItem} categories={categoriesWithFrequency} accounts={accounts} />
+      <EditExpenseModal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setItemToEdit(null); }} onEdit={handleEditItem} categories={categoriesWithFrequency} accounts={accounts} expense={itemToEdit} />
       <ViewExpenseModal isOpen={isViewModalOpen} onClose={() => { setIsViewModalOpen(false); setItemToView(null); }} onEdit={openEditModal} expense={itemToView} />
       <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setItemToDelete(null); }} onConfirm={handleDeleteItem} />
       <AddCategoryModal isOpen={isAddCategoryModalOpen} onClose={() => setIsAddCategoryModalOpen(false)} onAdd={handleAddCategory} onDelete={handleDeleteCategory} type="EXPENSE" categories={categories} />

@@ -3,6 +3,7 @@
 import React from "react";
 import { Category } from "../../types/financial";
 import { AccountInterface } from "../../types/accounts";
+import { CategoryWithFrequencyData } from "../../utils/categoryFrequency";
 import { EnhancedTagsInput } from "./EnhancedTagsInput";
 import { EnhancedLocationInput } from "./EnhancedLocationInput";
 import { TransactionImageUpload } from "./TransactionImageUpload";
@@ -21,7 +22,7 @@ import {
 interface FinancialFormProps {
     formData: BaseFormData;
     onFormDataChange: (data: BaseFormData) => void;
-    categories: Category[];
+    categories: CategoryWithFrequencyData[];
     accounts: AccountInterface[];
     transactionType: TransactionType;
     disabled?: boolean;
@@ -144,7 +145,7 @@ export function FinancialForm({
                     <option value="">Select a category</option>
                     {categories.map(category => (
                         <option key={category.id} value={category.id}>
-                            {category.name}
+                            {category.name}{category.frequency > 0 ? ` (${category.frequency})` : ''}
                         </option>
                     ))}
                 </select>

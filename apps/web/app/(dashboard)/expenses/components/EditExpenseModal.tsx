@@ -3,12 +3,13 @@
 import { FinancialModal } from "../../../components/shared/FinancialModal";
 import { Expense, Category } from "../../../types/financial";
 import { AccountInterface } from "../../../types/accounts";
+import { CategoryWithFrequencyData } from "../../../utils/categoryFrequency";
 
 interface EditExpenseModalProps {
     isOpen: boolean;
     onClose: () => void;
     onEdit: (id: number, expense: Partial<Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>>) => void;
-    categories: Category[];
+    categories: CategoryWithFrequencyData[];
     accounts: AccountInterface[];
     expense: Expense | null;
 }

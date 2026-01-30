@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Expense, Category } from "../../../types/financial";
 import { AccountInterface } from "../../../types/accounts";
+import { CategoryWithFrequencyData } from "../../../utils/categoryFrequency";
 import { ExpenseForm } from "./ExpenseForm";
 import { useCurrency } from "../../../providers/CurrencyProvider";
 import { getUserDualCurrency } from "../../../utils/currency";
@@ -18,7 +19,7 @@ interface AddExpenseModalProps {
     isOpen: boolean;
     onClose: () => void;
     onAdd: (expense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => void;
-    categories: Category[];
+    categories: CategoryWithFrequencyData[];
     accounts: AccountInterface[];
 }
 

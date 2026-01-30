@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Category } from "../../../types/financial";
 import { AccountInterface } from "../../../types/accounts";
+import { CategoryWithFrequencyData } from "../../../utils/categoryFrequency";
 import { EnhancedTagsInput } from "../../../components/shared/EnhancedTagsInput";
 import { EnhancedLocationInput } from "../../../components/shared/EnhancedLocationInput";
 import { DUAL_CURRENCIES, formatDualCurrency, convertDualCurrency, SUPPORTED_CURRENCIES } from "../../../utils/currency";
@@ -24,7 +25,7 @@ import { ImageUpload } from "./ImageUpload";
 interface ExpenseFormProps {
     formData: BaseFormData;
     onFormDataChange: (data: BaseFormData) => void;
-    categories: Category[];
+    categories: CategoryWithFrequencyData[];
     accounts: AccountInterface[];
     disabled?: boolean;
 }
@@ -300,7 +301,7 @@ export function ExpenseForm({
                     <option value="">Select a category</option>
                     {categories.map(category => (
                         <option key={category.id} value={category.id}>
-                            {category.name}
+                            {category.name}{category.frequency > 0 ? ` (${category.frequency})` : ''}
                         </option>
                     ))}
                 </select>

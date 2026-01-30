@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Category } from "../../types/financial";
 import { AccountInterface } from "../../types/accounts";
+import { CategoryWithFrequencyData } from "../../utils/categoryFrequency";
 import { FinancialForm } from "./FinancialForm";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { getUserSupportedCurrency } from "../../utils/currency";
@@ -24,7 +25,7 @@ interface FinancialModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSubmit: (data: any) => void;
-    categories: Category[];
+    categories: CategoryWithFrequencyData[];
     accounts: AccountInterface[];
     transactionType: TransactionType;
     transaction?: any;
