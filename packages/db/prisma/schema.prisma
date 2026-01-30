@@ -48,6 +48,9 @@ model User {
   chatThreads ChatThread[]
   networthHistory NetworthHistory[]
   transactionImages TransactionImage[]
+  goals Goal[]
+  goalPhases GoalPhase[]
+  goalProgress GoalProgress[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -90,6 +93,7 @@ model Account {
   debtRepayments DebtRepayment[]
   loanRepayments LoanRepayment[]
   accountThreshold AccountThreshold[]
+  goals Goal[] // Goals linked to this account
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -916,4 +920,154 @@ enum TransactionImageType {
   INVESTMENT
   DEBT
   LOAN
+}
+
+model Goal {
+  id                   Int           @id @default(autoincrement())
+  title                String        // Name of the goal
+  description          String?       // Detailed description of the goal
+  
+  // Financial aspects
+  targetAmount         Decimal?      // Target financial amount (optional)
+  currentAmount        Decimal       @default(0) // Current progress amount
+  currency             String        @default("USD")
+  
+  // Timeline
+  startDate            DateTime      // When the goal begins
+  targetCompletionDate DateTime?     // Expected completion date
+  actualCompletionDate DateTime?     // Actual completion date
+  
+  // Goal metadata
+  priority             Int           @default(1) // Priority/sequence number (1 = highest)
+  status               GoalStatus    @default(PLANNING)
+  category             String?       // Custom category (e.g., "Emergency Fund", "Investment")
+  tags                 String[]      // Custom tags for organization
+  color                String        @default("#6366f1") // Visual color for the goal
+  
+  // Context and notes
+  notes                String?       // Additional notes
+  successCriteria      String?       // What defines success for this goal
+  
+  // Optional financial relationships
+  account              Account?      @relation(fields: [accountId], references: [id])
+  accountId            Int?          // Link to specific account if applicable
+  
+  // Risk and liquidity (following existing patterns)
+  riskLevel            RiskLevel     @default(LOW)
+  isPublic             Boolean       @default(false) // Whether goal is shareable/public
+  
+  // Relationships
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId               Int
+  phases               GoalPhase[]   // Different phases (Dev, Prod, Post)
+  progress             GoalProgress[] // Progress tracking over time
+  
+  // Standard timestamps
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  
+  // Indexes for efficient queries
+  @@index([userId, status])
+  @@index([userId, startDate])
+  @@index([userId, priority])
+  @@index([userId, category])
+  @@index([userId, createdAt])
+}
+
+model GoalPhase {
+  id                   Int           @id @default(autoincrement())
+  name                 String        // Phase name (e.g., "Dev", "Prod", "Post")
+  description          String?       // Phase description
+  
+  // Timeline for this phase
+  plannedStartDate     DateTime      // When this phase should start
+  plannedEndDate       DateTime      // When this phase should end
+  actualStartDate      DateTime?     // When this phase actually started
+  actualEndDate        DateTime?     // When this phase actually ended
+  
+  // Phase progress
+  status               GoalPhaseStatus @default(PLANNED)
+  progressPercentage   Int           @default(0) // 0-100
+  
+  // Phase metadata
+  sequenceOrder        Int           // Order within the goal (1, 2, 3...)
+  estimatedDuration    Int?          // Estimated duration in days
+  actualDuration       Int?          // Actual duration in days
+  
+  // Context
+  notes                String?       // Phase-specific notes
+  requirements         String?       // What needs to be done in this phase
+  deliverables         String?       // Expected outcomes from this phase
+  
+  // Relationships
+  goal                 Goal          @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  goalId               Int
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId               Int
+  progress             GoalProgress[] // Progress entries for this phase
+  
+  // Standard timestamps
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  
+  // Indexes
+  @@index([goalId, sequenceOrder])
+  @@index([userId, status])
+  @@index([goalId, plannedStartDate])
+  @@unique([goalId, sequenceOrder]) // Ensure unique sequence per goal
+}
+
+model GoalProgress {
+  id                   Int           @id @default(autoincrement())
+  
+  // Progress tracking
+  progressPercentage   Int           // Overall progress percentage (0-100)
+  amountProgress       Decimal?      // Amount progress if goal has target amount
+  milestoneReached     String?       // Description of milestone reached
+  
+  // Progress context
+  notes                String?       // Progress notes
+  challenges           String?       // Challenges faced
+  nextSteps            String?       // Next planned actions
+  
+  // Progress metadata
+  progressDate         DateTime      @default(now()) // Date of this progress entry
+  isAutomaticUpdate    Boolean       @default(false) // Was this auto-calculated or manual entry
+  
+  // Optional phase context
+  phase                GoalPhase?    @relation(fields: [phaseId], references: [id])
+  phaseId              Int?          // Which phase this progress relates to
+  
+  // Relationships
+  goal                 Goal          @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  goalId               Int
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId               Int
+  
+  // Standard timestamps
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  
+  // Indexes
+  @@index([goalId, progressDate])
+  @@index([userId, progressDate])
+  @@index([goalId, createdAt])
+}
+
+enum GoalStatus {
+  PLANNING     // Goal is being planned/designed
+  ACTIVE       // Goal is actively being worked on
+  ON_HOLD      // Goal is temporarily paused
+  COMPLETED    // Goal has been achieved
+  CANCELLED    // Goal has been cancelled
+  OVERDUE      // Goal has passed its target completion date
+}
+
+enum GoalPhaseStatus {
+  PLANNED      // Phase is planned but not started
+  IN_PROGRESS  // Phase is currently active
+  COMPLETED    // Phase is completed
+  BLOCKED      // Phase is blocked by dependencies
+  CANCELLED    // Phase has been cancelled
+  OVERDUE      // Phase has passed its planned end date
 }
