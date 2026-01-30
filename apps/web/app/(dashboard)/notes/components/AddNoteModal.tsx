@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createNote, CreateNoteData } from "../actions/notes";
 import { Note } from "@prisma/client";
+import { NoteImageUpload } from "./NoteImageUpload";
 
 interface AddNoteModalProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ export function AddNoteModal({ isOpen, onClose, onSuccess }: AddNoteModalProps) 
     content: "",
     color: "#fbbf24",
     tags: "",
+    imageUrl: "",
     reminderDate: "",
   });
 
@@ -53,6 +55,7 @@ export function AddNoteModal({ isOpen, onClose, onSuccess }: AddNoteModalProps) 
           .split(",")
           .map(tag => tag.trim())
           .filter(tag => tag.length > 0),
+        imageUrl: formData.imageUrl || undefined,
         reminderDate: formData.reminderDate ? new Date(formData.reminderDate) : undefined,
       };
 
@@ -65,6 +68,7 @@ export function AddNoteModal({ isOpen, onClose, onSuccess }: AddNoteModalProps) 
           content: "",
           color: "#fbbf24",
           tags: "",
+          imageUrl: "",
           reminderDate: "",
         });
         onSuccess(result.note);
@@ -92,6 +96,7 @@ export function AddNoteModal({ isOpen, onClose, onSuccess }: AddNoteModalProps) 
         content: "",
         color: "#fbbf24",
         tags: "",
+        imageUrl: "",
         reminderDate: "",
       });
       onClose();
@@ -157,6 +162,18 @@ export function AddNoteModal({ isOpen, onClose, onSuccess }: AddNoteModalProps) 
                 rows={6}
                 className="block w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#705ba0] focus:border-[#705ba0] text-base resize-vertical"
                 placeholder="Write your note content here..."
+                disabled={isSubmitting}
+              />
+            </div>
+
+            {/* Image Upload */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Attach Image (Optional)
+              </label>
+              <NoteImageUpload
+                value={formData.imageUrl}
+                onChange={(value) => handleInputChange("imageUrl", value)}
                 disabled={isSubmitting}
               />
             </div>

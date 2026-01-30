@@ -62,14 +62,40 @@ export function ViewNoteModal({ note, isOpen, onClose, onEdit }: ViewNoteModalPr
           </div>
 
           {/* Content */}
-          <div className="space-y-2">
+          <div className="space-y-6">
             {/* Note Content */}
             {note.content && (
               <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Content</h3>
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-gray-900 whitespace-pre-wrap leading-relaxed">
                     {note.content}
                   </p>
+                </div>
+              </div>
+            )}
+
+            {/* Attached Image */}
+            {note.imageUrl && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Attached Image</h3>
+                <div className="relative rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+                  <img
+                    src={note.imageUrl}
+                    alt="Note attachment"
+                    className="w-full h-auto max-h-96 object-contain bg-gray-50"
+                    onError={(e) => {
+                      // Hide image if it fails to load
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                  {/* Optional: Add a button to view in full size */}
+                  <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center opacity-0 hover:opacity-100 cursor-pointer"
+                       onClick={() => note.imageUrl && window.open(note.imageUrl, '_blank')}>
+                    <div className="bg-white bg-opacity-90 px-3 py-1 rounded-full text-sm font-medium text-gray-700">
+                      View Full Size
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Note } from "@prisma/client";
 import { createNote, updateNote, CreateNoteData, UpdateNoteData } from "../actions/notes";
+import { NoteImageUpload } from "./NoteImageUpload";
 
 interface NoteFormProps {
   note?: Note;
@@ -27,6 +28,7 @@ export function NoteForm({ note, onSubmit, onCancel }: NoteFormProps) {
     content: note?.content || "",
     color: note?.color || "#fbbf24",
     tags: note?.tags.join(", ") || "",
+    imageUrl: note?.imageUrl || "",
     reminderDate: note?.reminderDate ? new Date(note.reminderDate).toISOString().slice(0, 16) : "",
   });
 
@@ -54,6 +56,7 @@ export function NoteForm({ note, onSubmit, onCancel }: NoteFormProps) {
           .split(",")
           .map(tag => tag.trim())
           .filter(tag => tag.length > 0),
+        imageUrl: formData.imageUrl || undefined,
         reminderDate: formData.reminderDate ? new Date(formData.reminderDate) : undefined,
       };
 
@@ -113,6 +116,18 @@ export function NoteForm({ note, onSubmit, onCancel }: NoteFormProps) {
             rows={4}
             className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#705ba0] focus:border-[#705ba0]"
             placeholder="Write your note content here..."
+          />
+        </div>
+
+        {/* Image Upload */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Attach Image (Optional)
+          </label>
+          <NoteImageUpload
+            value={formData.imageUrl}
+            onChange={(value) => handleInputChange("imageUrl", value)}
+            disabled={isSubmitting}
           />
         </div>
 

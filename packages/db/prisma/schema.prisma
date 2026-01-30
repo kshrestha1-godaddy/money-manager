@@ -742,6 +742,7 @@ model Note {
   isPinned Boolean @default(false)
   isArchived Boolean @default(false)
   tags String[]
+  imageUrl String? // Optional image attachment URL
   
   // Financial context - optional relationships to financial entities
   relatedExpenseId Int?

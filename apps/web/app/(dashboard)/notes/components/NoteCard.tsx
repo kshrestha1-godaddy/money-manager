@@ -23,7 +23,7 @@ export function NoteCard({ note, onUpdated, onDeleted, onView }: NoteCardProps) 
     try {
       const result = await toggleNotePin(note.id);
       if (result.success && result.note) {
-        onUpdated(result.note);
+        onUpdated(result.note as Note);
       }
     } catch (error) {
       console.error("Error toggling pin:", error);
@@ -37,7 +37,7 @@ export function NoteCard({ note, onUpdated, onDeleted, onView }: NoteCardProps) 
     try {
       const result = await toggleNoteArchive(note.id);
       if (result.success && result.note) {
-        onUpdated(result.note);
+        onUpdated(result.note as Note);
       }
     } catch (error) {
       console.error("Error toggling archive:", error);
@@ -182,6 +182,38 @@ export function NoteCard({ note, onUpdated, onDeleted, onView }: NoteCardProps) 
           <p className="text-gray-700 text-sm leading-relaxed line-clamp-4 whitespace-pre-wrap mb-3">
             {note.content}
           </p>
+        )}
+
+        {/* Attached Image */}
+        {note.imageUrl && (
+          <div className="mb-3">
+            <div className="relative rounded-lg overflow-hidden border border-gray-200">
+              <img
+                src={note.imageUrl}
+                alt="Note attachment"
+                className="w-full h-32 object-cover bg-gray-100 cursor-pointer hover:opacity-95 transition-opacity"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (note.imageUrl) {
+                    window.open(note.imageUrl, '_blank');
+                  }
+                }}
+                onError={(e) => {
+                  // Hide image container if image fails to load
+                  (e.target as HTMLElement).parentElement?.parentElement?.remove();
+                }}
+              />
+              {/* Image overlay with view icon */}
+              <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center opacity-0 hover:opacity-100">
+                <div className="bg-white bg-opacity-90 p-2 rounded-full">
+                  <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Properties Section */}

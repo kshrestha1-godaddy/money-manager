@@ -14,6 +14,7 @@ export interface CreateNoteData {
   content?: string;
   color?: string;
   tags?: string[];
+  imageUrl?: string;
   reminderDate?: Date;
   relatedExpenseId?: number;
   relatedIncomeId?: number;
@@ -31,7 +32,6 @@ export interface UpdateNoteData extends CreateNoteData {
 
 export async function createNote(data: CreateNoteData) {
   try {
-    console.log("Creating note with data:", data);
     
     const session = await getServerSession(authOptions);
     if (!session) {
@@ -39,9 +39,7 @@ export async function createNote(data: CreateNoteData) {
       return { success: false, error: "Unauthorized" };
     }
 
-    console.log("Session found:", session.user?.id);
     const userId = getUserIdFromSession(session.user.id);
-    console.log("User ID:", userId);
 
     const note = await prisma.note.create({
       data: {
@@ -49,6 +47,7 @@ export async function createNote(data: CreateNoteData) {
         content: data.content,
         color: data.color || "#fbbf24",
         tags: data.tags || [],
+        imageUrl: data.imageUrl,
         reminderDate: data.reminderDate,
         relatedExpenseId: data.relatedExpenseId,
         relatedIncomeId: data.relatedIncomeId,
@@ -96,6 +95,7 @@ export async function updateNote(data: UpdateNoteData) {
         content: data.content,
         color: data.color,
         tags: data.tags,
+        imageUrl: data.imageUrl,
         reminderDate: data.reminderDate,
         isPinned: data.isPinned,
         isArchived: data.isArchived,
