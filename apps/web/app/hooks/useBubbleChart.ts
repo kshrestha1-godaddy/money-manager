@@ -48,8 +48,8 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
   const [excludedCategories, setExcludedCategories] = useState<Set<string>>(new Set());
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
-  const [minAverage, setMinAverage] = useState<number>(5000);
-  const [maxAverage, setMaxAverage] = useState<number>(300000);
+  const [minAverage, setMinAverage] = useState<number>(0);
+  const [maxAverage, setMaxAverage] = useState<number>(Infinity);
 
   // Responsive dimensions with memoization
   const dimensions = useMemo(() => {
@@ -192,7 +192,7 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
         Math.round(category.averageAmount * 100) / 100,
         category.transactionCount,
         category.name,
-        Math.round(category.totalAmount * 150) / 100 // Increase bubble size by 50%
+        Math.round(category.totalAmount * 100) / 100 // Use actual total amount for bubble size
       ]);
     });
 
@@ -376,8 +376,8 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
   }, []);
 
   const resetAverageFilters = useCallback(() => {
-    setMinAverage(5000);
-    setMaxAverage(300000);
+    setMinAverage(0);
+    setMaxAverage(Infinity);
   }, []);
 
   // Calculate threshold line position
