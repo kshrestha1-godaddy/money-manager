@@ -7,6 +7,7 @@ import { formatDate } from "../../utils/date";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { CurrencyAmount } from "./CurrencyAmount";
 import { getTransactionImages } from "../../actions/transaction-images";
+import { Map, MapMarker, MarkerContent } from "@/components/ui/map";
 
 type Transaction = Income | Expense;
 
@@ -119,6 +120,14 @@ export function TransactionViewModal({
     };
 
     if (!isOpen || !transaction) return null;
+    
+    const transactionLocation = transaction.transactionLocation;
+    const coordinates = transactionLocation
+        ? {
+            latitude: Number(transactionLocation.latitude),
+            longitude: Number(transactionLocation.longitude)
+        }
+        : null;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -280,6 +289,29 @@ export function TransactionViewModal({
                             </div>
                         </div>
                     </div>
+
+                    {coordinates && (
+                        <div className="mb-8">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-3">Map Location</h3>
+                            <div className="rounded-lg overflow-hidden border border-gray-200">
+                                <div className="h-[240px] w-full">
+                                    <Map center={[coordinates.longitude, coordinates.latitude]} zoom={15}>
+                                        <MapMarker
+                                            longitude={coordinates.longitude}
+                                            latitude={coordinates.latitude}
+                                        >
+                                            <MarkerContent>
+                                                <div className="w-3 h-3 rounded-full bg-blue-600 border-2 border-white shadow-sm" />
+                                            </MarkerContent>
+                                        </MapMarker>
+                                    </Map>
+                                </div>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-2">
+                                {coordinates.latitude.toFixed(6)}, {coordinates.longitude.toFixed(6)}
+                            </p>
+                        </div>
+                    )}
 
                     {/* Notes */}
                     {transaction.notes && (
