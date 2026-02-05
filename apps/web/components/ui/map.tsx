@@ -1062,8 +1062,8 @@ type MapClusterLayerProps<
   clusterColors?: [string, string, string];
   /** Point count thresholds for color/size steps: [medium, large] (default: [100, 750]) */
   clusterThresholds?: [number, number];
-  /** Color for unclustered individual points (default: "#3b82f6") */
-  pointColor?: string;
+  /** Color or expression for unclustered individual points (default: "#3b82f6") */
+  pointColor?: string | MapLibreGL.ExpressionSpecification;
   /** Callback when an unclustered point is clicked */
   onPointClick?: (
     feature: GeoJSON.Feature<GeoJSON.Point, P>,
@@ -1228,7 +1228,11 @@ function MapClusterLayer<
 
     // Update unclustered point layer color
     if (map.getLayer(unclusteredLayerId) && prev.pointColor !== pointColor) {
-      map.setPaintProperty(unclusteredLayerId, "circle-color", pointColor);
+      map.setPaintProperty(
+        unclusteredLayerId,
+        "circle-color",
+        pointColor as MapLibreGL.ExpressionSpecification | string
+      );
     }
 
     stylePropsRef.current = { clusterColors, clusterThresholds, pointColor };
@@ -1258,6 +1262,7 @@ function MapClusterLayer<
       if (!features.length) return;
 
       const feature = features[0];
+      if (!feature) return;
       const clusterId = feature.properties?.cluster_id as number;
       const pointCount = feature.properties?.point_count as number;
       const coordinates = (feature.geometry as GeoJSON.Point).coordinates as [
@@ -1287,6 +1292,7 @@ function MapClusterLayer<
       if (!onPointClick || !e.features?.length) return;
 
       const feature = e.features[0];
+      if (!feature) return;
       const coordinates = (
         feature.geometry as GeoJSON.Point
       ).coordinates.slice() as [number, number];

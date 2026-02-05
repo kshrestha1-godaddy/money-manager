@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { Map, MapControls, MapMarker, MarkerContent, MarkerTooltip } from "@/components/ui/map";
+import { Map, MapClusterLayer, MapControls, MapPopup } from "@/components/ui/map";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { DEFAULT_LOCATION } from "../../../utils/locationDefaults";
+import type { ExpressionSpecification } from "maplibre-gl";
 
 interface LocationChartProps {
   currency: string;
@@ -26,111 +27,8 @@ function formatAmount(amount: number, type: "income" | "expense", currency: stri
   return `${sign}${amount.toLocaleString()} ${currency}`;
 }
 
-function getMarkerColor(type: "income" | "expense") {
-  return type === "income" ? "bg-green-500" : "bg-red-500";
-}
-
 function getAmountColor(type: "income" | "expense") {
   return type === "income" ? "text-green-600" : "text-red-600";
-}
-
-function getTooltipAnchor(index: number) {
-  const anchors = [
-    "top",
-    "bottom",
-    "left",
-    "right",
-    "top-left",
-    "top-right",
-    "bottom-left",
-    "bottom-right"
-  ] as const;
-  return anchors[index % anchors.length];
-}
-
-function getTooltipOffset(index: number) {
-  return 16 + (index % 3) * 6;
-}
-
-function TransactionMarker({
-  transaction,
-  currency,
-  index,
-}: {
-  transaction: TransactionLocationPoint;
-  currency: string;
-  index: number;
-}) {
-  const markerColor = getMarkerColor(transaction.type);
-  const amountColor = getAmountColor(transaction.type);
-  const tooltipAnchor = getTooltipAnchor(index);
-  const tooltipOffset = getTooltipOffset(index);
-
-  return (
-    <MapMarker
-      key={transaction.id}
-      longitude={transaction.longitude}
-      latitude={transaction.latitude}
-    >
-      <MarkerContent>
-        <div className={`w-4 h-4 rounded-full border-2 border-white shadow-lg ${markerColor}`} />
-      </MarkerContent>
-      <MarkerTooltip anchor={tooltipAnchor} offset={tooltipOffset}>
-        <div className="p-2 min-w-[200px]">
-          <div className="font-semibold text-sm">{transaction.name}</div>
-          <div className="text-xs text-gray-600 mb-1">{transaction.category}</div>
-          <div className="text-xs text-gray-500 mb-2">{transaction.date}</div>
-          <div className={`text-sm font-medium ${amountColor}`}>
-            {formatAmount(transaction.amount, transaction.type, currency)}
-          </div>
-        </div>
-      </MarkerTooltip>
-    </MapMarker>
-  );
-}
-
-function getLocationKey(latitude: number, longitude: number) {
-  return `${latitude.toFixed(6)}:${longitude.toFixed(6)}`;
-}
-
-function spreadOverlappingLocations(points: TransactionLocationPoint[]) {
-  const groups = new globalThis.Map<string, TransactionLocationPoint[]>();
-
-  points.forEach((point) => {
-    const key = getLocationKey(point.latitude, point.longitude);
-    const group = groups.get(key) ?? [];
-    group.push(point);
-    groups.set(key, group);
-  });
-
-  return Array.from(groups.values()).flatMap((group: TransactionLocationPoint[]) => {
-    if (group.length === 1) return group;
-
-    const radius = 0.00035;
-    const step = (Math.PI * 2) / group.length;
-
-    return group.map((point: TransactionLocationPoint, index: number) => {
-      const angle = step * index;
-      return {
-        ...point,
-        latitude: point.latitude + Math.sin(angle) * radius,
-        longitude: point.longitude + Math.cos(angle) * radius
-      };
-    });
-  });
-}
-
-function UserLocationMarker({ location }: { location: { longitude: number; latitude: number } }) {
-  return (
-    <MapMarker longitude={location.longitude} latitude={location.latitude}>
-      <MarkerContent>
-        <div className="relative">
-          <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-lg animate-pulse" />
-          <div className="absolute inset-0 w-4 h-4 rounded-full bg-blue-500 opacity-25 animate-ping" />
-        </div>
-      </MarkerContent>
-    </MapMarker>
-  );
 }
 
 function Legend() {
@@ -150,7 +48,23 @@ function Legend() {
 
 export function LocationChart({ currency, heightClass = "h-[400px]" }: LocationChartProps) {
   const [userLocation, setUserLocation] = useState<{ longitude: number; latitude: number } | null>(null);
+  const [selectedPoint, setSelectedPoint] = useState<{
+    coordinates: [number, number];
+    properties: TransactionLocationPoint;
+  } | null>(null);
   const { filteredIncomes, filteredExpenses } = useChartData();
+  const pointColorExpression = useMemo<ExpressionSpecification>(
+    () => [
+      "match",
+      ["get", "type"],
+      "income",
+      "#22c55e",
+      "expense",
+      "#ef4444",
+      "#3b82f6",
+    ],
+    []
+  );
 
   const transactions = useMemo<TransactionLocationPoint[]>(() => {
     const incomeLocations = filteredIncomes
@@ -184,11 +98,6 @@ export function LocationChart({ currency, heightClass = "h-[400px]" }: LocationC
     );
   }, [filteredIncomes, filteredExpenses]);
 
-  const displayTransactions = useMemo(
-    () => spreadOverlappingLocations(transactions),
-    [transactions]
-  );
-
   const firstLocation = transactions[0];
   const defaultCenter: [number, number] = firstLocation
     ? [firstLocation.longitude, firstLocation.latitude]
@@ -215,18 +124,54 @@ export function LocationChart({ currency, heightClass = "h-[400px]" }: LocationC
           center={userLocation ? [userLocation.longitude, userLocation.latitude] : defaultCenter} 
           zoom={minimalZoom}
         >
-          {/* Transaction markers */}
-          {displayTransactions.map((transaction, index) => (
-            <TransactionMarker
-              key={transaction.id}
-              transaction={transaction}
-              currency={currency}
-              index={index}
-            />
-          ))}
+          <MapClusterLayer<TransactionLocationPoint>
+            data={{
+              type: "FeatureCollection",
+              features: transactions.map((transaction) => ({
+                type: "Feature",
+                properties: transaction,
+                geometry: {
+                  type: "Point",
+                  coordinates: [transaction.longitude, transaction.latitude],
+                },
+              })),
+            }}
+            clusterRadius={50}
+            clusterMaxZoom={14}
+            clusterColors={["#22c55e", "#eab308", "#ef4444"]}
+            pointColor={pointColorExpression}
+            onPointClick={(feature, coordinates) => {
+              setSelectedPoint({
+                coordinates,
+                properties: feature.properties,
+              });
+            }}
+          />
 
-          {/* User location marker */}
-          {userLocation && <UserLocationMarker location={userLocation} />}
+          {selectedPoint && (
+            <MapPopup
+              key={`${selectedPoint.coordinates[0]}-${selectedPoint.coordinates[1]}`}
+              longitude={selectedPoint.coordinates[0]}
+              latitude={selectedPoint.coordinates[1]}
+              onClose={() => setSelectedPoint(null)}
+              closeOnClick={false}
+              focusAfterOpen={false}
+              closeButton={false}
+            >
+              <div className="space-y-1 p-1 min-w-[200px]">
+                <div className="font-semibold text-sm">{selectedPoint.properties.name}</div>
+                <div className="text-xs text-gray-600">{selectedPoint.properties.category}</div>
+                <div className="text-xs text-gray-500">{selectedPoint.properties.date}</div>
+                <div className={`text-sm font-medium ${getAmountColor(selectedPoint.properties.type)}`}>
+                  {formatAmount(
+                    selectedPoint.properties.amount,
+                    selectedPoint.properties.type,
+                    currency
+                  )}
+                </div>
+              </div>
+            </MapPopup>
+          )}
 
           <MapControls 
             position="bottom-right"
