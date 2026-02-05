@@ -98,7 +98,7 @@ export function DashboardCharts({
       {/* Sixth Row: Location Chart (Full Width) */}
       <div className="w-full min-h-[500px]">
         <div key="location-chart" className="h-full">
-          <LocationChart currency={currency} heightClass="h-[1000px]" />
+          <LocationChart currency={currency} heightClass="h-[1200px]" />
         </div>
       </div>
 
