@@ -272,15 +272,40 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
         if (data.recurringFrequency !== undefined) updateData.recurringFrequency = data.recurringFrequency;
 
         const result = await prisma.$transaction(async (tx) => {
+            // Handle transaction location update if provided
+            if ((data as any).transactionLocationId !== undefined) {
+                const locationId = (data as any).transactionLocationId;
+                updateData.transactionLocation = locationId
+                    ? { connect: { id: locationId } }
+                    : { disconnect: true };
+            } else if ((data as any).transactionLocation?.id === -1) {
+                const newLocationData = (data as any).transactionLocation;
+                const newLocation = await tx.transactionLocation.create({
+                    data: {
+                        latitude: newLocationData.latitude,
+                        longitude: newLocationData.longitude,
+                        userId: userId
+                    }
+                });
+                updateData.transactionLocation = { connect: { id: newLocation.id } };
+            } else if ((data as any).transactionLocation === null) {
+                updateData.transactionLocation = { disconnect: true };
+            }
+
             const income = await tx.income.update({
                 where: { id },
                 data: updateData,
                 include: {
                     category: true,
                     account: true,
-                    user: true
+                    user: true,
+                    transactionLocation: true
                 }
             });
+
+            if (income.transactionLocation) {
+                income.transactionLocation = serializeTransactionLocation(income.transactionLocation);
+            }
 
             // Handle TransactionImage updates if receipt changed
             if (data.receipt !== undefined) {

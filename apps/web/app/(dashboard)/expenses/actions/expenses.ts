@@ -51,7 +51,8 @@ export async function getExpenses() {
             include: {
                 category: true,
                 account: true,
-                user: true
+                user: true,
+                transactionLocation: true
             },
             orderBy: {
                 date: 'desc'
@@ -81,6 +82,9 @@ export async function getExpenses() {
             tags: expense.tags || [],
             location: expense.location || [],
             notes: expense.notes || null, // Explicitly handle notes
+            transactionLocation: expense.transactionLocation
+                ? serializeTransactionLocation(expense.transactionLocation)
+                : null,
             // Convert account balance from Decimal to number
             account: expense.account ? {
                 ...expense.account,
@@ -321,6 +325,26 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
 
         // Use a transaction to handle expense update and account balance changes
         const result = await prisma.$transaction(async (tx) => {
+            // Handle transaction location update if provided
+            if ((data as any).transactionLocationId !== undefined) {
+                const locationId = (data as any).transactionLocationId;
+                updateData.transactionLocation = locationId
+                    ? { connect: { id: locationId } }
+                    : { disconnect: true };
+            } else if ((data as any).transactionLocation?.id === -1) {
+                const newLocationData = (data as any).transactionLocation;
+                const newLocation = await tx.transactionLocation.create({
+                    data: {
+                        latitude: newLocationData.latitude,
+                        longitude: newLocationData.longitude,
+                        userId: userId
+                    }
+                });
+                updateData.transactionLocation = { connect: { id: newLocation.id } };
+            } else if ((data as any).transactionLocation === null) {
+                updateData.transactionLocation = { disconnect: true };
+            }
+
             // Update the expense
             const expense = await tx.expense.update({
                 where: { id },
@@ -564,7 +588,8 @@ export async function getExpensesByCategory(categoryId: number) {
             include: {
                 category: true,
                 account: true,
-                user: true
+                user: true,
+                transactionLocation: true
             },
             orderBy: {
                 date: 'desc'
@@ -579,6 +604,9 @@ export async function getExpensesByCategory(categoryId: number) {
             date: new Date(expense.date),
             createdAt: new Date(expense.createdAt),
             updatedAt: new Date(expense.updatedAt),
+            transactionLocation: expense.transactionLocation
+                ? serializeTransactionLocation(expense.transactionLocation)
+                : null,
             // Convert account balance from Decimal to number
             account: expense.account ? {
                 ...expense.account,
@@ -614,7 +642,8 @@ export async function getExpensesByDateRange(startDate: Date, endDate: Date) {
             include: {
                 category: true,
                 account: true,
-                user: true
+                user: true,
+                transactionLocation: true
             },
             orderBy: {
                 date: 'desc'
@@ -629,6 +658,9 @@ export async function getExpensesByDateRange(startDate: Date, endDate: Date) {
             date: new Date(expense.date),
             createdAt: new Date(expense.createdAt),
             updatedAt: new Date(expense.updatedAt),
+            transactionLocation: expense.transactionLocation
+                ? serializeTransactionLocation(expense.transactionLocation)
+                : null,
             // Convert account balance from Decimal to number
             account: expense.account ? {
                 ...expense.account,
