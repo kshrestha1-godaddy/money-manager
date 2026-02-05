@@ -34,9 +34,37 @@ function getAmountColor(type: "income" | "expense") {
   return type === "income" ? "text-green-600" : "text-red-600";
 }
 
-function TransactionMarker({ transaction, currency }: { transaction: TransactionLocationPoint; currency: string }) {
+function getTooltipAnchor(index: number) {
+  const anchors = [
+    "top",
+    "bottom",
+    "left",
+    "right",
+    "top-left",
+    "top-right",
+    "bottom-left",
+    "bottom-right"
+  ] as const;
+  return anchors[index % anchors.length];
+}
+
+function getTooltipOffset(index: number) {
+  return 16 + (index % 3) * 6;
+}
+
+function TransactionMarker({
+  transaction,
+  currency,
+  index,
+}: {
+  transaction: TransactionLocationPoint;
+  currency: string;
+  index: number;
+}) {
   const markerColor = getMarkerColor(transaction.type);
   const amountColor = getAmountColor(transaction.type);
+  const tooltipAnchor = getTooltipAnchor(index);
+  const tooltipOffset = getTooltipOffset(index);
 
   return (
     <MapMarker
@@ -47,7 +75,7 @@ function TransactionMarker({ transaction, currency }: { transaction: Transaction
       <MarkerContent>
         <div className={`w-4 h-4 rounded-full border-2 border-white shadow-lg ${markerColor}`} />
       </MarkerContent>
-      <MarkerTooltip>
+      <MarkerTooltip anchor={tooltipAnchor} offset={tooltipOffset}>
         <div className="p-2 min-w-[200px]">
           <div className="font-semibold text-sm">{transaction.name}</div>
           <div className="text-xs text-gray-600 mb-1">{transaction.category}</div>
@@ -59,6 +87,37 @@ function TransactionMarker({ transaction, currency }: { transaction: Transaction
       </MarkerTooltip>
     </MapMarker>
   );
+}
+
+function getLocationKey(latitude: number, longitude: number) {
+  return `${latitude.toFixed(6)}:${longitude.toFixed(6)}`;
+}
+
+function spreadOverlappingLocations(points: TransactionLocationPoint[]) {
+  const groups = new globalThis.Map<string, TransactionLocationPoint[]>();
+
+  points.forEach((point) => {
+    const key = getLocationKey(point.latitude, point.longitude);
+    const group = groups.get(key) ?? [];
+    group.push(point);
+    groups.set(key, group);
+  });
+
+  return Array.from(groups.values()).flatMap((group: TransactionLocationPoint[]) => {
+    if (group.length === 1) return group;
+
+    const radius = 0.00035;
+    const step = (Math.PI * 2) / group.length;
+
+    return group.map((point: TransactionLocationPoint, index: number) => {
+      const angle = step * index;
+      return {
+        ...point,
+        latitude: point.latitude + Math.sin(angle) * radius,
+        longitude: point.longitude + Math.cos(angle) * radius
+      };
+    });
+  });
 }
 
 function UserLocationMarker({ location }: { location: { longitude: number; latitude: number } }) {
@@ -125,6 +184,11 @@ export function LocationChart({ currency, heightClass = "h-[400px]" }: LocationC
     );
   }, [filteredIncomes, filteredExpenses]);
 
+  const displayTransactions = useMemo(
+    () => spreadOverlappingLocations(transactions),
+    [transactions]
+  );
+
   const firstLocation = transactions[0];
   const defaultCenter: [number, number] = firstLocation
     ? [firstLocation.longitude, firstLocation.latitude]
@@ -152,11 +216,12 @@ export function LocationChart({ currency, heightClass = "h-[400px]" }: LocationC
           zoom={minimalZoom}
         >
           {/* Transaction markers */}
-          {transactions.map((transaction) => (
+          {displayTransactions.map((transaction, index) => (
             <TransactionMarker
               key={transaction.id}
               transaction={transaction}
               currency={currency}
+              index={index}
             />
           ))}
 
