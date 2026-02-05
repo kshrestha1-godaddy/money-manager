@@ -8,6 +8,7 @@ import { IncomePieChart } from "../charts/IncomePieChart";
 import { CategoryTrendChart } from "../charts/CategoryTrendChart";
 import { CustomCalendarChart } from "../charts/CustomCalendarChart";
 import { CashFlowSankeyChart } from "../charts/CashFlowSankeyChart";
+import { LocationChart } from "../charts/LocationChart";
 import { RecentTransactions } from "./RecentTransactions";
 
 interface DashboardChartsProps {
@@ -94,7 +95,12 @@ export function DashboardCharts({
         </div>
       </div>
 
-
+      {/* Sixth Row: Location Chart (Full Width) */}
+      <div className="w-full min-h-[500px]">
+        <div key="location-chart" className="h-full">
+          <LocationChart currency={currency} heightClass="h-[1000px]" />
+        </div>
+      </div>
 
     </div>
   );
