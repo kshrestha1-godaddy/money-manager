@@ -1,16 +1,18 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Category } from "../../types/financial";
 import { AccountInterface } from "../../types/accounts";
 import { CategoryWithFrequencyData } from "../../utils/categoryFrequency";
 import { EnhancedTagsInput } from "./EnhancedTagsInput";
 import { EnhancedLocationInput } from "./EnhancedLocationInput";
+import { TransactionLocationSelector } from "./TransactionLocationSelector";
 import { TransactionImageUpload } from "./TransactionImageUpload";
 import { DUAL_CURRENCIES, formatDualCurrency, convertDualCurrency, SUPPORTED_CURRENCIES } from "../../utils/currency";
 import { 
     BaseFormData, 
     TransactionType,
+    TransactionLocation,
     getTransactionPlaceholders,
     inputClasses, 
     selectClasses, 
@@ -37,6 +39,7 @@ export function FinancialForm({
     disabled = false 
 }: FinancialFormProps) {
     const placeholders = getTransactionPlaceholders(transactionType);
+
 
     const handleInputChange = (field: keyof BaseFormData, value: any) => {
         onFormDataChange({
@@ -174,6 +177,17 @@ export function FinancialForm({
                 <EnhancedTagsInput
                     value={formData.tags}
                     onChange={(value) => handleInputChange('tags', value)}
+                    transactionType={transactionType}
+                    disabled={disabled}
+                />
+            </div>
+
+            <div>
+                <TransactionLocationSelector
+                    value={formData.transactionLocation}
+                    onChange={(value) => {
+                        handleInputChange('transactionLocation', value);
+                    }}
                     transactionType={transactionType}
                     disabled={disabled}
                 />

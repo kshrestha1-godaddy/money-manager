@@ -6,9 +6,11 @@ import { AccountInterface } from "../../../types/accounts";
 import { CategoryWithFrequencyData } from "../../../utils/categoryFrequency";
 import { EnhancedTagsInput } from "../../../components/shared/EnhancedTagsInput";
 import { EnhancedLocationInput } from "../../../components/shared/EnhancedLocationInput";
+import { TransactionLocationSelector } from "../../../components/shared/TransactionLocationSelector";
 import { DUAL_CURRENCIES, formatDualCurrency, convertDualCurrency, SUPPORTED_CURRENCIES } from "../../../utils/currency";
 import { 
     BaseFormData, 
+    TransactionLocation,
     inputClasses, 
     selectClasses, 
     textareaClasses, 
@@ -37,6 +39,8 @@ export function ExpenseForm({
     accounts, 
     disabled = false 
 }: ExpenseFormProps) {
+    // Location state
+
     // Category-specific data state
     const [electricityData, setElectricityData] = useState<ElectricityData>({
         previousUnits: '',
@@ -62,6 +66,7 @@ export function ExpenseForm({
     // Get current selected category
     const selectedCategory = categories.find(cat => cat.id === parseInt(formData.categoryId));
     const categoryName = selectedCategory?.name?.toLowerCase();
+
 
     const handleInputChange = (field: keyof BaseFormData, value: any) => {
         onFormDataChange({
@@ -349,6 +354,17 @@ export function ExpenseForm({
                 <EnhancedTagsInput
                     value={formData.tags}
                     onChange={(value) => handleInputChange('tags', value)}
+                    transactionType="EXPENSE"
+                    disabled={disabled}
+                />
+            </div>
+
+            <div>
+                <TransactionLocationSelector
+                    value={formData.transactionLocation}
+                    onChange={(value) => {
+                        handleInputChange('transactionLocation', value);
+                    }}
                     transactionType="EXPENSE"
                     disabled={disabled}
                 />

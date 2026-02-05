@@ -5,6 +5,16 @@ import { Expense } from "../../../types/financial";
 import prisma from "@repo/db/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
+
+// Helper function to serialize transaction location data
+function serializeTransactionLocation(location: any) {
+    if (!location) return null;
+    return {
+        ...location,
+        latitude: location.latitude ? Number(location.latitude) : null,
+        longitude: location.longitude ? Number(location.longitude) : null,
+    };
+}
 import { 
     parseCSV, 
     parseDate, 
@@ -124,6 +134,26 @@ export async function createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'up
                 recurringFrequency: data.recurringFrequency
             };
 
+            // Handle transaction location
+            if ((data as any).transactionLocationId && (data as any).transactionLocationId !== -1) {
+                createData.transactionLocation = {
+                    connect: { id: (data as any).transactionLocationId }
+                };
+            } else if ((data as any).transactionLocation && (data as any).transactionLocation.id === -1) {
+                // Create new transaction location
+                const newLocationData = (data as any).transactionLocation;
+                const newLocation = await tx.transactionLocation.create({
+                    data: {
+                        latitude: newLocationData.latitude,
+                        longitude: newLocationData.longitude,
+                        userId: userId
+                    }
+                });
+                createData.transactionLocation = {
+                    connect: { id: newLocation.id }
+                };
+            }
+
             if (data.accountId) {
                 createData.account = {
                     connect: { id: data.accountId }
@@ -135,9 +165,15 @@ export async function createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'up
                 include: {
                     category: true,
                     account: true,
-                    user: true
+                    user: true,
+                    transactionLocation: true
                 }
             });
+
+            // Serialize the transaction location to avoid Decimal serialization issues
+            if (expense.transactionLocation) {
+                expense.transactionLocation = serializeTransactionLocation(expense.transactionLocation);
+            }
 
             // Create TransactionImage record if receipt URL is provided
             if (data.receipt) {
@@ -292,9 +328,15 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
                 include: {
                     category: true,
                     account: true,
-                    user: true
+                    user: true,
+                    transactionLocation: true
                 }
             });
+
+            // Serialize the transaction location to avoid Decimal serialization issues
+            if (expense.transactionLocation) {
+                expense.transactionLocation = serializeTransactionLocation(expense.transactionLocation);
+            }
 
             // Handle TransactionImage updates if receipt changed
             if (data.receipt !== undefined) {
@@ -848,8 +890,21 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
                         // Create bookmark if needed
                         if (validatedRow.data.isBookmarked) {
                             try {
-                                await tx.transactionBookmark.create({
-                                    data: {
+                                await tx.transactionBookmark.upsert({
+                                    where: {
+                                        transactionType_transactionId_userId: {
+                                            transactionType: 'EXPENSE',
+                                            transactionId: expense.id,
+                                            userId: userId
+                                        }
+                                    },
+                                    update: {
+                                        title: expense.title,
+                                        description: expense.description,
+                                        notes: expense.notes,
+                                        tags: expense.tags,
+                                    },
+                                    create: {
                                         transactionType: 'EXPENSE',
                                         transactionId: expense.id,
                                         title: expense.title,
@@ -1058,9 +1113,15 @@ export async function importCorrectedRow(
                 include: {
                     category: true,
                     account: true,
-                    user: true
+                    user: true,
+                    transactionLocation: true
                 }
             });
+
+            // Serialize the transaction location to avoid Decimal serialization issues
+            if (expense.transactionLocation) {
+                expense.transactionLocation = serializeTransactionLocation(expense.transactionLocation);
+            }
 
             // Update account balance if account is specified (convert to user's currency)
             if (expenseData.accountId) {

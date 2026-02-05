@@ -11,6 +11,16 @@ import { parseCategoriesCSV, type ParsedCategoryData } from "../../../utils/csvI
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { autoBookmarkHighValueTransaction, handleBookmarkOnAmountChange } from "../../../utils/autoBookmarkUtils";
 
+// Helper function to serialize transaction location data
+function serializeTransactionLocation(location: any) {
+    if (!location) return null;
+    return {
+        ...location,
+        latitude: location.latitude ? Number(location.latitude) : null,
+        longitude: location.longitude ? Number(location.longitude) : null,
+    };
+}
+
 // Helper function to revalidate all income-related paths
 const revalidateIncomePaths = () => {
     revalidatePath("/(dashboard)/incomes");
@@ -50,9 +60,17 @@ export async function getIncomes() {
             include: {
                 category: true,
                 account: true,
-                user: true
+                user: true,
+                transactionLocation: true
             },
             orderBy: { date: 'desc' }
+        });
+
+        // Serialize transaction locations to avoid Decimal serialization issues
+        incomes.forEach(income => {
+            if (income.transactionLocation) {
+                income.transactionLocation = serializeTransactionLocation(income.transactionLocation);
+            }
         });
 
         // Get all bookmarks for this user's incomes
@@ -106,6 +124,26 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
                 isRecurring: data.isRecurring,
                 recurringFrequency: data.recurringFrequency
             };
+
+            // Handle transaction location
+            if ((data as any).transactionLocationId && (data as any).transactionLocationId !== -1) {
+                createData.transactionLocation = {
+                    connect: { id: (data as any).transactionLocationId }
+                };
+            } else if ((data as any).transactionLocation && (data as any).transactionLocation.id === -1) {
+                // Create new transaction location
+                const newLocationData = (data as any).transactionLocation;
+                const newLocation = await tx.transactionLocation.create({
+                    data: {
+                        latitude: newLocationData.latitude,
+                        longitude: newLocationData.longitude,
+                        userId: userId
+                    }
+                });
+                createData.transactionLocation = {
+                    connect: { id: newLocation.id }
+                };
+            }
 
             if (data.accountId) {
                 createData.account = { connect: { id: data.accountId } };
@@ -411,9 +449,17 @@ export async function getIncomesByCategory(categoryId: number) {
             include: {
                 category: true,
                 account: true,
-                user: true
+                user: true,
+                transactionLocation: true
             },
             orderBy: { date: 'desc' }
+        });
+
+        // Serialize transaction locations to avoid Decimal serialization issues
+        incomes.forEach(income => {
+            if (income.transactionLocation) {
+                income.transactionLocation = serializeTransactionLocation(income.transactionLocation);
+            }
         });
 
         return incomes.map(getDisplayIncome);
@@ -438,9 +484,17 @@ export async function getIncomesByDateRange(startDate: Date, endDate: Date) {
             include: {
                 category: true,
                 account: true,
-                user: true
+                user: true,
+                transactionLocation: true
             },
             orderBy: { date: 'desc' }
+        });
+
+        // Serialize transaction locations to avoid Decimal serialization issues
+        incomes.forEach(income => {
+            if (income.transactionLocation) {
+                income.transactionLocation = serializeTransactionLocation(income.transactionLocation);
+            }
         });
 
         return incomes.map(getDisplayIncome);
@@ -694,8 +748,21 @@ async function processIncomeRow(
     // Create bookmark if needed
     if (isBookmarked && createdIncome) {
         try {
-            await prisma.transactionBookmark.create({
-                data: {
+            await prisma.transactionBookmark.upsert({
+                where: {
+                    transactionType_transactionId_userId: {
+                        transactionType: 'INCOME',
+                        transactionId: createdIncome.id,
+                        userId: userId
+                    }
+                },
+                update: {
+                    title: createdIncome.title,
+                    description: createdIncome.description,
+                    notes: createdIncome.notes,
+                    tags: createdIncome.tags,
+                },
+                create: {
                     transactionType: 'INCOME',
                     transactionId: createdIncome.id,
                     title: createdIncome.title,

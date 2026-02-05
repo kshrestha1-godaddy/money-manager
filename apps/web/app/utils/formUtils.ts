@@ -7,6 +7,16 @@ import { Category } from '../types/financial';
 import { AccountInterface } from '../types/accounts';
 import { DualCurrency, SupportedCurrency, convertToAccountCurrency, getUserSupportedCurrency } from './currency';
 
+// Transaction Location interface
+export interface TransactionLocation {
+    id: number;
+    latitude: number;
+    longitude: number;
+    userId?: number;
+    createdAt?: Date;
+    updatedAt?: Date;
+}
+
 // Common form data interface for expenses/incomes
 export interface BaseFormData {
     title: string;
@@ -22,6 +32,7 @@ export interface BaseFormData {
     receipt?: string;
     isRecurring: boolean;
     recurringFrequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+    transactionLocation?: TransactionLocation | null;
 }
 
 // Transaction type for generic operations
@@ -51,7 +62,8 @@ export function initializeFormData(defaultDate: boolean = true, defaultCurrency:
         notes: '',
         receipt: '',
         isRecurring: false,
-        recurringFrequency: 'MONTHLY'
+        recurringFrequency: 'MONTHLY',
+        transactionLocation: null
     };
 }
 
@@ -168,7 +180,9 @@ export function transformFormData(
         notes: formData.notes || undefined,
         receipt: formData.receipt || undefined,
         isRecurring: formData.isRecurring,
-        recurringFrequency: formData.isRecurring ? formData.recurringFrequency : undefined
+        recurringFrequency: formData.isRecurring ? formData.recurringFrequency : undefined,
+        transactionLocation: formData.transactionLocation || undefined,
+        transactionLocationId: formData.transactionLocation?.id && formData.transactionLocation.id !== -1 ? formData.transactionLocation.id : undefined
     };
 }
 
@@ -199,7 +213,8 @@ export function extractFormData(item: any): BaseFormData {
         notes: item.notes !== null && item.notes !== undefined ? String(item.notes) : '',
         receipt: item.receipt || '',
         isRecurring: item.isRecurring || false,
-        recurringFrequency: (item.recurringFrequency || 'MONTHLY') as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY'
+        recurringFrequency: (item.recurringFrequency || 'MONTHLY') as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY',
+        transactionLocation: item.transactionLocation || null
     };
 }
 
