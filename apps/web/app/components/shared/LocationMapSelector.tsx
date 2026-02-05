@@ -165,7 +165,11 @@ export function LocationMapSelector({
     if (embedded) {
         return (
             <div className="h-full w-full">
-                <Map center={mapCenter} zoom={15}>
+                <Map 
+                    key={`${selectedLocation.lat}-${selectedLocation.lng}`}
+                    center={mapCenter} 
+                    zoom={10}
+                >
                     {mapMarkers}
                 </Map>
             </div>
@@ -190,7 +194,11 @@ export function LocationMapSelector({
 
                 {/* Map Container */}
                 <div className="h-[500px] w-full">
-                    <Map center={mapCenter} zoom={15}>
+                    <Map 
+                        key={`${selectedLocation.lat}-${selectedLocation.lng}`}
+                        center={mapCenter} 
+                        zoom={15}
+                    >
                         {mapMarkers}
                     </Map>
                 </div>

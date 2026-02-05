@@ -5,7 +5,6 @@ import { Category } from "../../types/financial";
 import { AccountInterface } from "../../types/accounts";
 import { CategoryWithFrequencyData } from "../../utils/categoryFrequency";
 import { EnhancedTagsInput } from "./EnhancedTagsInput";
-import { EnhancedLocationInput } from "./EnhancedLocationInput";
 import { TransactionLocationSelector } from "./TransactionLocationSelector";
 import { TransactionImageUpload } from "./TransactionImageUpload";
 import { DUAL_CURRENCIES, formatDualCurrency, convertDualCurrency, SUPPORTED_CURRENCIES } from "../../utils/currency";
@@ -192,14 +191,6 @@ export function FinancialForm({
                 />
             </div>
 
-            <div>
-                <EnhancedLocationInput
-                    value={formData.location}
-                    onChange={(value) => handleInputChange('location', value)}
-                    transactionType={transactionType}
-                    disabled={disabled}
-                />
-            </div>
 
             <div>
                 <label className={labelClasses}>

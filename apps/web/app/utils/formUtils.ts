@@ -27,7 +27,6 @@ export interface BaseFormData {
     categoryId: string;
     accountId: string;
     tags: string;
-    location: string;
     notes: string;
     receipt?: string;
     isRecurring: boolean;
@@ -58,7 +57,6 @@ export function initializeFormData(defaultDate: boolean = true, defaultCurrency:
         categoryId: '',
         accountId: '',
         tags: '',
-        location: '',
         notes: '',
         receipt: '',
         isRecurring: false,
@@ -176,7 +174,6 @@ export function transformFormData(
         accountId: accountId,
         userId,
         tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(Boolean) : [],
-        location: formData.location ? formData.location.split(',').map(loc => loc.trim()).filter(Boolean) : [],
         notes: formData.notes || undefined,
         receipt: formData.receipt || undefined,
         isRecurring: formData.isRecurring,
@@ -209,7 +206,6 @@ export function extractFormData(item: any): BaseFormData {
         categoryId: item.categoryId?.toString() || '',
         accountId: !item.accountId ? '0' : item.accountId.toString(),
         tags: Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || ''),
-        location: Array.isArray(item.location) ? item.location.join(', ') : (item.location || ''),
         notes: item.notes !== null && item.notes !== undefined ? String(item.notes) : '',
         receipt: item.receipt || '',
         isRecurring: item.isRecurring || false,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, Bell, Earth, DollarSign, Calendar, TrendingUp, Shield, Settings, Bookmark } from "lucide-react";
+import { Save, Bell, Earth, DollarSign, Calendar, TrendingUp, Shield, Settings, Bookmark, MapPin } from "lucide-react";
 import {
     getNotificationSettings,
     updateNotificationSettings,
@@ -10,6 +10,9 @@ import {
     AccountThresholdData
 } from "../../actions/notifications";
 import { useCurrency } from "../../providers/CurrencyProvider";
+import { LocationMapSelector } from "../shared/LocationMapSelector";
+import { DEFAULT_LOCATION } from "../../utils/locationDefaults";
+import { createSavedLocation, deleteSavedLocation, getSavedLocations, SavedLocationData } from "../../actions/saved-locations";
 
 interface SettingsGroup {
     title: string;
@@ -30,8 +33,17 @@ interface SettingsGroup {
 export function NotificationSettings() {
     const [settings, setSettings] = useState<NotificationSettingsData | null>(null);
     const [availableAccounts, setAvailableAccounts] = useState<AccountThresholdData[]>([]);
+    const [savedLocations, setSavedLocations] = useState<SavedLocationData[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setSaving] = useState(false);
+    const [isSavingLocation, setIsSavingLocation] = useState(false);
+    const [isLoadingLocations, setIsLoadingLocations] = useState(true);
+    const [locationName, setLocationName] = useState("");
+    const [locationMessage, setLocationMessage] = useState<string | null>(null);
+    const [locationCoordinates, setLocationCoordinates] = useState({
+        latitude: DEFAULT_LOCATION.latitude,
+        longitude: DEFAULT_LOCATION.longitude
+    });
     const [saveMessage, setSaveMessage] = useState<string | null>(null);
     const { currency } = useCurrency();
 
@@ -39,6 +51,7 @@ export function NotificationSettings() {
     useEffect(() => {
         loadSettings();
         loadAvailableAccounts();
+        loadSavedLocations();
     }, []);
 
     const loadSettings = async () => {
@@ -61,6 +74,19 @@ export function NotificationSettings() {
         } catch (error) {
             console.error("Failed to load accounts:", error);
             setAvailableAccounts([]);
+        }
+    };
+
+    const loadSavedLocations = async () => {
+        try {
+            setIsLoadingLocations(true);
+            const locations = await getSavedLocations();
+            setSavedLocations(locations);
+        } catch (error) {
+            console.error("Failed to load saved locations:", error);
+            setSavedLocations([]);
+        } finally {
+            setIsLoadingLocations(false);
         }
     };
 
@@ -137,6 +163,43 @@ export function NotificationSettings() {
             setTimeout(() => setSaveMessage(null), 3000);
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleSaveLocation = async () => {
+        if (!locationName.trim()) {
+            setLocationMessage("Location name is required.");
+            setTimeout(() => setLocationMessage(null), 3000);
+            return;
+        }
+
+        try {
+            setIsSavingLocation(true);
+            await createSavedLocation({
+                name: locationName.trim(),
+                latitude: locationCoordinates.latitude,
+                longitude: locationCoordinates.longitude
+            });
+            setLocationName("");
+            setLocationMessage("Saved location added.");
+            await loadSavedLocations();
+        } catch (error) {
+            console.error("Failed to save location:", error);
+            setLocationMessage("Failed to save location. Please try again.");
+        } finally {
+            setIsSavingLocation(false);
+            setTimeout(() => setLocationMessage(null), 3000);
+        }
+    };
+
+    const handleDeleteLocation = async (locationId: number) => {
+        try {
+            await deleteSavedLocation(locationId);
+            await loadSavedLocations();
+        } catch (error) {
+            console.error("Failed to delete location:", error);
+            setLocationMessage("Failed to delete location. Please try again.");
+            setTimeout(() => setLocationMessage(null), 3000);
         }
     };
 
@@ -495,6 +558,138 @@ export function NotificationSettings() {
                     </div>
                 </div>
             )}
+
+            {/* Saved Locations Section */}
+            <div className="bg-white rounded-lg border">
+                <div className="p-6 border-b border-gray-100">
+                    <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+                            <MapPin className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="text-lg font-medium text-gray-900">Saved Locations</h3>
+                            <p className="text-sm text-gray-500">Create reusable locations for income and expense entries</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-6 space-y-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-900 mb-1">Location name</label>
+                                <input
+                                    type="text"
+                                    value={locationName}
+                                    onChange={(event) => setLocationName(event.target.value)}
+                                    placeholder="Home, Office, Favorite cafe"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-900 mb-1">Latitude</label>
+                                    <input
+                                        type="number"
+                                        value={locationCoordinates.latitude}
+                                        onChange={(event) => setLocationCoordinates((prev) => ({
+                                            ...prev,
+                                            latitude: parseFloat(event.target.value) || 0
+                                        }))}
+                                        step="0.000001"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-900 mb-1">Longitude</label>
+                                    <input
+                                        type="number"
+                                        value={locationCoordinates.longitude}
+                                        onChange={(event) => setLocationCoordinates((prev) => ({
+                                            ...prev,
+                                            longitude: parseFloat(event.target.value) || 0
+                                        }))}
+                                        step="0.000001"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={handleSaveLocation}
+                                    disabled={isSavingLocation}
+                                    className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isSavingLocation ? "Saving..." : "Save location"}
+                                </button>
+                                {locationMessage && (
+                                    <span className="text-sm text-gray-500">{locationMessage}</span>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-900">Pick on map</label>
+                            <div className="h-[260px] w-full border border-gray-300 rounded-lg overflow-hidden">
+                                <LocationMapSelector
+                                    isOpen={true}
+                                    latitude={locationCoordinates.latitude}
+                                    longitude={locationCoordinates.longitude}
+                                    onLocationSelect={(lat, lng) => setLocationCoordinates({ latitude: lat, longitude: lng })}
+                                    onClose={() => {}}
+                                    embedded={true}
+                                />
+                            </div>
+                            <p className="text-xs text-gray-500">
+                                Click or drag the marker to set coordinates.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="border-t border-gray-100 pt-6">
+                        <h4 className="text-sm font-medium text-gray-900 mb-3">Your saved locations</h4>
+                        {isLoadingLocations ? (
+                            <div className="h-24 bg-gray-100 rounded-lg animate-pulse" />
+                        ) : savedLocations.length === 0 ? (
+                            <div className="text-sm text-gray-500">No saved locations yet.</div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full text-sm">
+                                    <thead>
+                                        <tr className="text-left text-gray-500">
+                                            <th className="py-2 pr-4 font-medium">Name</th>
+                                            <th className="py-2 pr-4 font-medium">Latitude</th>
+                                            <th className="py-2 pr-4 font-medium">Longitude</th>
+                                            <th className="py-2 font-medium">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {savedLocations.map((location) => (
+                                            <tr key={location.id} className="text-gray-700">
+                                                <td className="py-2 pr-4 font-medium text-gray-900">{location.name}</td>
+                                                <td className="py-2 pr-4">{location.latitude.toFixed(6)}</td>
+                                                <td className="py-2 pr-4">{location.longitude.toFixed(6)}</td>
+                                                <td className="py-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteLocation(location.id)}
+                                                        className="text-sm text-red-600 hover:text-red-700"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
         </div>
     );
 } 

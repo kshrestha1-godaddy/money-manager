@@ -5,7 +5,6 @@ import { Category } from "../../../types/financial";
 import { AccountInterface } from "../../../types/accounts";
 import { CategoryWithFrequencyData } from "../../../utils/categoryFrequency";
 import { EnhancedTagsInput } from "../../../components/shared/EnhancedTagsInput";
-import { EnhancedLocationInput } from "../../../components/shared/EnhancedLocationInput";
 import { TransactionLocationSelector } from "../../../components/shared/TransactionLocationSelector";
 import { DUAL_CURRENCIES, formatDualCurrency, convertDualCurrency, SUPPORTED_CURRENCIES } from "../../../utils/currency";
 import { 
@@ -369,14 +368,6 @@ export function ExpenseForm({
                 />
             </div>
 
-            <div>
-                <EnhancedLocationInput
-                    value={formData.location}
-                    onChange={(value) => handleInputChange('location', value)}
-                    transactionType="EXPENSE"
-                    disabled={disabled}
-                />
-            </div>
 
             <div>
                 <label className={labelClasses}>Receipt Image</label>
