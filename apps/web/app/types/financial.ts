@@ -55,6 +55,8 @@ export interface Expense {
   isRecurring: boolean;
   recurringFrequency?: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
   isBookmarked?: boolean;
+  transactionLocation?: TransactionLocation | null;
+  transactionLocationId?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -78,8 +80,19 @@ export interface Income {
   isRecurring: boolean;
   recurringFrequency?: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
   isBookmarked?: boolean;
+  transactionLocation?: TransactionLocation | null;
+  transactionLocationId?: number | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface TransactionLocation {
+  id: number;
+  latitude: number;
+  longitude: number;
+  userId?: number;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface Investment {

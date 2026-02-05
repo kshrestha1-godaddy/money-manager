@@ -365,7 +365,6 @@ export function ExpenseForm({
                     onChange={(value) => {
                         handleInputChange('transactionLocation', value);
                     }}
-                    transactionType="EXPENSE"
                     disabled={disabled}
                 />
             </div>

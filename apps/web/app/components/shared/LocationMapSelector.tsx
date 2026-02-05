@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Map, MapMarker, MarkerContent, MarkerPopup, useMap } from "@/components/ui/map";
 import { MapPin, X } from "lucide-react";
+import { DEFAULT_LOCATION } from "../../utils/locationDefaults";
 
 interface LocationMapSelectorProps {
     latitude?: number;
@@ -21,40 +22,39 @@ export function LocationMapSelector({
     isOpen,
     embedded = false 
 }: LocationMapSelectorProps) {
-    const [selectedLocation, setSelectedLocation] = useState({
-        lat: latitude || 27.735863, // Default to Kathmandu, Nepal
-        lng: longitude || 85.356584
-    });
+    const initialLocation = useMemo(() => ({
+        lat: latitude ?? DEFAULT_LOCATION.latitude,
+        lng: longitude ?? DEFAULT_LOCATION.longitude
+    }), [latitude, longitude]);
+
+    const [selectedLocation, setSelectedLocation] = useState(initialLocation);
 
     const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
 
     // Get user's current location on component mount
     useEffect(() => {
-        if (isOpen && navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const userLat = position.coords.latitude;
-                    const userLng = position.coords.longitude;
-                    setUserLocation({ lat: userLat, lng: userLng });
-                    
-                    // If no initial location provided, use user's location
-                    if (!latitude && !longitude) {
-                        setSelectedLocation({ lat: userLat, lng: userLng });
-                    }
-                },
-                (error) => {
-                    console.log('Geolocation error:', error);
-                    // Keep default location if geolocation fails
+        if (!isOpen || !navigator.geolocation) return;
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const userLat = position.coords.latitude;
+                const userLng = position.coords.longitude;
+                setUserLocation({ lat: userLat, lng: userLng });
+
+                if (latitude === undefined || longitude === undefined) {
+                    setSelectedLocation({ lat: userLat, lng: userLng });
                 }
-            );
-        }
+            },
+            (error) => {
+                console.log('Geolocation error:', error);
+            }
+        );
     }, [isOpen, latitude, longitude]);
 
     // Update selected location when props change
     useEffect(() => {
-        if (latitude && longitude) {
-            setSelectedLocation({ lat: latitude, lng: longitude });
-        }
+        if (latitude === undefined || longitude === undefined) return;
+        setSelectedLocation({ lat: latitude, lng: longitude });
     }, [latitude, longitude]);
 
     // Map click handler component
@@ -80,29 +80,22 @@ export function LocationMapSelector({
         return null;
     }
 
-    const handleMapClick = (lat: number, lng: number) => {
-        const newLocation = { lat, lng };
-        setSelectedLocation(newLocation);
-        // Auto-select location in embedded mode
-        if (embedded) {
-            onLocationSelect(lat, lng);
-        }
-    };
+    const updateSelectedLocation = useCallback((lat: number, lng: number) => {
+        setSelectedLocation({ lat, lng });
+        if (embedded) onLocationSelect(lat, lng);
+    }, [embedded, onLocationSelect]);
 
-    const handleMarkerDragEnd = (lngLat: { lng: number; lat: number }) => {
-        const newLocation = { lat: lngLat.lat, lng: lngLat.lng };
-        setSelectedLocation(newLocation);
-        // Auto-select location in embedded mode
-        if (embedded) {
-            onLocationSelect(newLocation.lat, newLocation.lng);
-        }
-    };
+    const handleMapClick = useCallback((lat: number, lng: number) => {
+        updateSelectedLocation(lat, lng);
+    }, [updateSelectedLocation]);
+
+    const handleMarkerDragEnd = useCallback((lngLat: { lng: number; lat: number }) => {
+        updateSelectedLocation(lngLat.lat, lngLat.lng);
+    }, [updateSelectedLocation]);
 
     const handleSelectLocation = () => {
         onLocationSelect(selectedLocation.lat, selectedLocation.lng);
-        if (!embedded) {
-            onClose();
-        }
+        if (!embedded) onClose();
     };
 
     const handleUseCurrentLocation = () => {
@@ -113,65 +106,67 @@ export function LocationMapSelector({
 
     if (!isOpen) return null;
 
-    // Embedded mode - render map directly without modal
+    const mapCenter = [selectedLocation.lng, selectedLocation.lat] as [number, number];
+
+    const mapMarkers = (
+        <>
+            <MapClickHandler onMapClick={handleMapClick} />
+            <MapMarker
+                draggable
+                longitude={selectedLocation.lng}
+                latitude={selectedLocation.lat}
+                onDragEnd={handleMarkerDragEnd}
+            >
+                <MarkerContent>
+                    <div className="cursor-move">
+                        <MapPin
+                            className="fill-red-500 stroke-white"
+                            size={32}
+                        />
+                    </div>
+                </MarkerContent>
+                <MarkerPopup>
+                    <div className="space-y-1">
+                        <p className="font-medium text-foreground">Selected Location</p>
+                        <p className="text-xs text-muted-foreground">
+                            {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
+                        </p>
+                        <p className="text-xs text-blue-600">
+                            Click anywhere on the map or drag this marker
+                        </p>
+                    </div>
+                </MarkerPopup>
+            </MapMarker>
+
+            {userLocation && (
+                <MapMarker
+                    longitude={userLocation.lng}
+                    latitude={userLocation.lat}
+                >
+                    <MarkerContent>
+                        <div className="relative">
+                            <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg"></div>
+                            <div className="absolute inset-0 w-4 h-4 bg-blue-500 rounded-full animate-ping opacity-75"></div>
+                        </div>
+                    </MarkerContent>
+                    <MarkerPopup>
+                        <div className="space-y-1">
+                            <p className="font-medium text-foreground">Your Location</p>
+                            <p className="text-xs text-muted-foreground">
+                                {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
+                            </p>
+                        </div>
+                    </MarkerPopup>
+                </MapMarker>
+            )}
+        </>
+    );
+
     if (embedded) {
         return (
             <div className="h-full w-full">
-                <Map 
-                    center={[selectedLocation.lng, selectedLocation.lat]} 
-                    zoom={15}
-                >
-                    <MapClickHandler onMapClick={handleMapClick} />
-                    {/* Selected Location Marker */}
-                    <MapMarker
-                        draggable
-                        longitude={selectedLocation.lng}
-                        latitude={selectedLocation.lat}
-                        onDragEnd={handleMarkerDragEnd}
-                    >
-                        <MarkerContent>
-                            <div className="cursor-move">
-                                <MapPin
-                                    className="fill-red-500 stroke-white"
-                                    size={32}
-                                />
-                            </div>
-                        </MarkerContent>
-                        <MarkerPopup>
-                            <div className="space-y-1">
-                                <p className="font-medium text-foreground">Selected Location</p>
-                                <p className="text-xs text-muted-foreground">
-                                    {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
-                                </p>
-                                <p className="text-xs text-blue-600">
-                                    Click anywhere on the map or drag this marker
-                                </p>
-                            </div>
-                        </MarkerPopup>
-                    </MapMarker>
-
-                    {/* User's Current Location Marker (if available) */}
-                    {userLocation && (
-                        <MapMarker
-                            longitude={userLocation.lng}
-                            latitude={userLocation.lat}
-                        >
-                            <MarkerContent>
-                                <div className="relative">
-                                    <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg"></div>
-                                    <div className="absolute inset-0 w-4 h-4 bg-blue-500 rounded-full animate-ping opacity-75"></div>
-                                </div>
-                            </MarkerContent>
-                            <MarkerPopup>
-                                <div className="space-y-1">
-                                    <p className="font-medium text-foreground">Your Location</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
-                                    </p>
-                                </div>
-                            </MarkerPopup>
-                        </MapMarker>
-                    )}
+                <Map center={mapCenter} zoom={15}>
+                    {mapMarkers}
                 </Map>
             </div>
         );
@@ -195,61 +190,8 @@ export function LocationMapSelector({
 
                 {/* Map Container */}
                 <div className="h-[500px] w-full">
-                    <Map 
-                        center={[selectedLocation.lng, selectedLocation.lat]} 
-                        zoom={15}
-                    >
-                        <MapClickHandler onMapClick={handleMapClick} />
-                        {/* Selected Location Marker */}
-                        <MapMarker
-                            draggable
-                            longitude={selectedLocation.lng}
-                            latitude={selectedLocation.lat}
-                            onDragEnd={handleMarkerDragEnd}
-                        >
-                            <MarkerContent>
-                                <div className="cursor-move">
-                                    <MapPin
-                                        className="fill-red-500 stroke-white"
-                                        size={32}
-                                    />
-                                </div>
-                            </MarkerContent>
-                            <MarkerPopup>
-                                <div className="space-y-1">
-                                    <p className="font-medium text-foreground">Selected Location</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
-                                    </p>
-                                    <p className="text-xs text-blue-600">
-                                        Click anywhere on the map or drag this marker
-                                    </p>
-                                </div>
-                            </MarkerPopup>
-                        </MapMarker>
-
-                        {/* User's Current Location Marker (if available) */}
-                        {userLocation && (
-                            <MapMarker
-                                longitude={userLocation.lng}
-                                latitude={userLocation.lat}
-                            >
-                                <MarkerContent>
-                                    <div className="relative">
-                                        <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg"></div>
-                                        <div className="absolute inset-0 w-4 h-4 bg-blue-500 rounded-full animate-ping opacity-75"></div>
-                                    </div>
-                                </MarkerContent>
-                                <MarkerPopup>
-                                    <div className="space-y-1">
-                                        <p className="font-medium text-foreground">Your Location</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
-                                        </p>
-                                    </div>
-                                </MarkerPopup>
-                            </MapMarker>
-                        )}
+                    <Map center={mapCenter} zoom={15}>
+                        {mapMarkers}
                     </Map>
                 </div>
 

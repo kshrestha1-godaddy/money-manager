@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { labelClasses } from "../../utils/formUtils";
 import { LocationMapSelector } from "./LocationMapSelector";
+import { DEFAULT_LOCATION } from "../../utils/locationDefaults";
 
 interface TransactionLocation {
     id: number;
@@ -16,7 +17,6 @@ interface TransactionLocation {
 interface TransactionLocationSelectorProps {
     value?: TransactionLocation | null;
     onChange: (location: TransactionLocation | null) => void;
-    transactionType: 'EXPENSE' | 'INCOME';
     disabled?: boolean;
 }
 
@@ -24,35 +24,24 @@ interface TransactionLocationSelectorProps {
 export function TransactionLocationSelector({ 
     value, 
     onChange, 
-    transactionType, 
     disabled = false
 }: TransactionLocationSelectorProps) {
-    const [newLocation, setNewLocation] = useState<Partial<TransactionLocation>>({
-        latitude: 27.735863,
-        longitude: 85.356584
-    });
+    const defaultLocation = useMemo<TransactionLocation>(() => ({
+        id: -1,
+        latitude: DEFAULT_LOCATION.latitude,
+        longitude: DEFAULT_LOCATION.longitude
+    }), []);
+
+    const currentLocation = value ?? defaultLocation;
 
     // Initialize with default location if no value is provided
     useEffect(() => {
-        if (!value) {
-            const defaultLocation: TransactionLocation = {
-                id: -1,
-                latitude: 27.735863,
-                longitude: 85.356584
-            };
-            onChange(defaultLocation);
-        }
-    }, [value, onChange]);
+        if (!value) onChange(defaultLocation);
+    }, [value, onChange, defaultLocation]);
 
 
 
     const handleMapLocationSelect = (lat: number, lng: number) => {
-        const updatedLocation = {
-            latitude: lat,
-            longitude: lng
-        };
-        setNewLocation(updatedLocation);
-
         // Create a simple location object with just coordinates
         const locationData: TransactionLocation = {
             id: -1, // Temporary ID for new locations
@@ -74,8 +63,8 @@ export function TransactionLocationSelector({
                 <div className="h-[300px] w-full border border-gray-300 rounded-lg overflow-hidden">
                     <LocationMapSelector
                         isOpen={true}
-                        latitude={newLocation.latitude ? Number(newLocation.latitude) : undefined}
-                        longitude={newLocation.longitude ? Number(newLocation.longitude) : undefined}
+                        latitude={currentLocation.latitude}
+                        longitude={currentLocation.longitude}
                         onLocationSelect={handleMapLocationSelect}
                         onClose={() => {}} // Empty function since map is always visible
                         embedded={true} // New prop to indicate embedded mode
@@ -84,10 +73,10 @@ export function TransactionLocationSelector({
             </div>
 
             {/* GPS Coordinates Display */}
-            {newLocation.latitude && newLocation.longitude && (
+            {currentLocation.latitude && currentLocation.longitude && (
                 <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded-md">
                     <p className="text-xs text-green-700">
-                        📍 Location set: {Number(newLocation.latitude).toFixed(6)}, {Number(newLocation.longitude).toFixed(6)}
+                        📍 Location set: {Number(currentLocation.latitude).toFixed(6)}, {Number(currentLocation.longitude).toFixed(6)}
                     </p>
                 </div>
             )}

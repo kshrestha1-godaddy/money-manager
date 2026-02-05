@@ -188,7 +188,6 @@ export function FinancialForm({
                     onChange={(value) => {
                         handleInputChange('transactionLocation', value);
                     }}
-                    transactionType={transactionType}
                     disabled={disabled}
                 />
             </div>
