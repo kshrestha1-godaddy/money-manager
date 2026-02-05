@@ -154,8 +154,8 @@ export function LocationChart({ currency, heightClass = "h-[400px]" }: LocationC
               longitude={selectedPoint.coordinates[0]}
               latitude={selectedPoint.coordinates[1]}
               onClose={() => setSelectedPoint(null)}
-              closeOnClick={false}
-              focusAfterOpen={false}
+              closeOnClick={true}
+              focusAfterOpen={true}
               closeButton={false}
             >
               <div className="space-y-1 p-1 min-w-[200px]">
