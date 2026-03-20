@@ -58,6 +58,14 @@ const AMOUNT_VALUE_FORMATTER = new Intl.NumberFormat('en-US', {
     maximumFractionDigits: 2
 });
 
+function formatDateNumericOnly(date: Date): string {
+    return new Date(date).toLocaleDateString('en-US', {
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric'
+    });
+}
+
 export function FinancialList({ 
     transactions, 
     transactionType,
@@ -154,6 +162,38 @@ export function FinancialList({
 
     const amountHeaderLabel = `Amount (${selectedCurrency.toUpperCase()})`;
 
+    const tableSummary = useMemo(() => {
+        if (transactions.length === 0) {
+            return {
+                totalAmount: '0.00',
+                dateRangeText: '—',
+                uniqueCategoryCount: 0
+            };
+        }
+
+        const totalAmount = transactions.reduce(
+            (sum, t) => sum + convertForDisplaySync(t.amount, t.currency, selectedCurrency),
+            0
+        );
+
+        const times = transactions.map((t) => new Date(t.date).getTime());
+        const minTime = Math.min(...times);
+        const maxTime = Math.max(...times);
+        const minDate = new Date(minTime);
+        const maxDate = new Date(maxTime);
+        const startStr = formatDateNumericOnly(minDate);
+        const endStr = formatDateNumericOnly(maxDate);
+        const dateRangeText = startStr === endStr ? startStr : `${startStr} – ${endStr}`;
+
+        const uniqueCategoryCount = new Set(transactions.map((t) => t.category.name)).size;
+
+        return {
+            totalAmount: AMOUNT_VALUE_FORMATTER.format(totalAmount),
+            dateRangeText,
+            uniqueCategoryCount
+        };
+    }, [transactions, selectedCurrency]);
+
     const sortedTransactions = useMemo(() => {
         return [...transactions].sort((a, b) => {
             let aValue: any;
@@ -228,6 +268,9 @@ export function FinancialList({
     const emptyMessage = transactionType === 'EXPENSE' ? 'No expenses found' : 'No incomes found';
     const emptySubtext = transactionType === 'EXPENSE' ? 'Start tracking your expenses to see them here.' : 'Start tracking your income sources to see them here.';
     const amountColorClass = transactionType === 'EXPENSE' ? 'text-red-600' : 'text-green-600';
+
+    const summaryFooterColSpan =
+        8 + (showBulkActions ? 1 : 0) + (onBookmark ? 1 : 0);
 
     if (transactions.length === 0) {
         return (
@@ -446,6 +489,47 @@ export function FinancialList({
                             />
                         ))}
                     </tbody>
+                    <tfoot>
+                        <tr className="bg-transparent">
+                            <td colSpan={summaryFooterColSpan} className="p-0 border-0">
+                                <div className="flex flex-col gap-0.5 py-1">
+                                    <div className="h-px w-full bg-gray-300" />
+                                    <div className="h-px w-full bg-gray-300" />
+                                </div>
+                            </td>
+                        </tr>
+                        <tr className="bg-transparent">
+                            {showBulkActions && (
+                                <td className="px-6 py-4" style={{ width: `${columnWidths.checkbox}px` }} />
+                            )}
+                            {onBookmark && (
+                                <td className="px-1 py-4" style={{ width: `${columnWidths.bookmark}px` }} />
+                            )}
+                            <td className="px-6 py-4" style={{ width: `${columnWidths.title}px` }} />
+                            <td className="px-6 py-4 text-sm text-gray-800" style={{ width: `${columnWidths.category}px` }}>
+                                <span className="font-medium tabular-nums">{tableSummary.uniqueCategoryCount}</span>
+                                <span className="text-gray-500 font-normal"> unique</span>
+                            </td>
+                            <td className="px-6 py-4" style={{ width: `${columnWidths.account}px` }} />
+                            <td className="px-6 py-4 text-sm text-gray-800" style={{ width: `${columnWidths.date}px` }}>
+                                <span className="whitespace-normal break-words">{tableSummary.dateRangeText}</span>
+                            </td>
+                            <td className="px-6 py-4" style={{ width: `${columnWidths.tags}px` }} />
+                            <td className="px-6 py-4" style={{ width: `${columnWidths.notes}px` }} />
+                            <td className={`px-6 py-4 text-sm font-semibold text-right tabular-nums ${amountColorClass}`} style={{ width: `${columnWidths.amount}px` }}>
+                                {tableSummary.totalAmount}
+                            </td>
+                            <td className="px-6 py-4" style={{ width: `${columnWidths.actions}px` }} />
+                        </tr>
+                        <tr className="bg-transparent">
+                            <td colSpan={summaryFooterColSpan} className="p-0 border-0">
+                                <div className="flex flex-col gap-0.5 py-1">
+                                    <div className="h-px w-full bg-gray-300" />
+                                    <div className="h-px w-full bg-gray-300" />
+                                </div>
+                            </td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
             
