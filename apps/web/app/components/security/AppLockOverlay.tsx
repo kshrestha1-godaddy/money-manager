@@ -2,11 +2,22 @@
 
 import { FormEvent, useState } from "react";
 import { useAppLock } from "../../providers/AppLockProvider";
+import { getRandomUnlockDialogMessage, UnlockDialogMessage } from "../../config/unlock-dialog-messages";
+import { useEffect } from "react";
 
 export function AppLockOverlay() {
     const { isInitialized, isUnlocked, unlock } = useAppLock();
     const [password, setPassword] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
+    const [message, setMessage] = useState<UnlockDialogMessage>(getRandomUnlockDialogMessage());
+
+    useEffect(() => {
+        if (isUnlocked) return;
+
+        setMessage(getRandomUnlockDialogMessage());
+        setPassword("");
+        setErrorMessage("");
+    }, [isUnlocked]);
 
     const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -34,11 +45,11 @@ export function AppLockOverlay() {
     if (isUnlocked) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
+        <div className="fixed inset-0 z-[100] bg-black/55 backdrop-blur-xl flex items-center justify-center px-4">
             <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-gray-100 p-6">
-                <h2 className="text-xl font-semibold text-gray-900">Do I remember you?</h2>
+                <h2 className="text-xl font-semibold text-gray-900">{message.title}</h2>
                 <p className="mt-2 text-sm text-gray-600">
-                    Enter the entry password to unlock this application.
+                    {message.subtitle}
                 </p>
 
                 <form onSubmit={handleSubmit} className="mt-5 space-y-3">
