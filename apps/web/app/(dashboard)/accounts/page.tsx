@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useQuery } from '@tanstack/react-query';
 import { AccountTable } from "./components/AccountTable";
+import { BulkAdjustBalancesModal } from "./components/BulkAdjustBalancesModal";
 import { AddAccountModal } from "./components/AddAccountModal";
 import { EditAccountModal } from "./components/EditAccountModal";
 import { DeleteAccountModal } from "./components/DeleteAccountModal";
@@ -14,7 +15,7 @@ import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { BankBalanceChart } from "./components/BankBalanceChart";
 import { useOptimizedAccounts } from "../../hooks/useOptimizedAccounts";
-import { getUserAccounts, getWithheldAmountsByBank } from "./actions/accounts";
+import { getWithheldAmountsByBank } from "./actions/accounts";
 import { 
     getSummaryCardClasses,
     BUTTON_COLORS,
@@ -81,6 +82,8 @@ export default function Accounts() {
         setIsImportModalOpen,
         isTransferModalOpen,
         setIsTransferModalOpen,
+        isBulkBalancesModalOpen,
+        setIsBulkBalancesModalOpen,
 
         // Filter states
         selectedAccounts,
@@ -114,6 +117,7 @@ export default function Accounts() {
         handleBulkImportSuccess,
         handleExportToCSV,
         handleTransfer,
+        handleBulkBalanceUpdate,
         handleAccountSelect,
         handleSelectAll,
         clearFilters,
@@ -122,19 +126,13 @@ export default function Accounts() {
         openDeleteModal,
         openShareModal,
         isImporting,
+        allAccounts,
+        isBulkBalanceSaving,
     } = useOptimizedAccounts();
 
     // The accounts from the hook are already filtered
     const filteredAccounts = accounts;
     const filteredTotalBalance = totalBalance;
-
-    // Get unique bank names and account types for filters from the hook's allAccounts
-    // We need to get all accounts for the filter options, not just filtered ones
-    const { data: allAccountsData } = useQuery({
-        queryKey: ['accounts'],
-        queryFn: getUserAccounts,
-    });
-    const allAccounts = allAccountsData && !('error' in allAccountsData) ? allAccountsData : [];
 
     // Fetch withheld amounts from investments
     const { data: withheldAmounts = {} } = useQuery({
@@ -412,17 +410,32 @@ export default function Accounts() {
                     onShare={openShareModal}
                     withheldAmounts={withheldAmounts}
                     headerActions={
-                        <button
-                            onClick={() => setIsTransferModalOpen(true)}
-                            className={`${primaryButton} flex items-center space-x-2 disabled:opacity-50`}
-                            disabled={filteredAccounts.length < 2}
-                            title={filteredAccounts.length < 2 ? "You need at least 2 accounts to transfer money" : "Transfer money between accounts"}
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                            </svg>
-                            <span>Self Transfer of Money</span>
-                        </button>
+                        <div className="flex flex-wrap items-center gap-2 justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setIsBulkBalancesModalOpen(true)}
+                                className={`${secondaryBlueButton} flex items-center space-x-2 disabled:opacity-50`}
+                                disabled={allAccounts.length === 0}
+                                title="Adjust balances for all accounts in one place"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 7h16M4 12h16M4 17h10" />
+                                </svg>
+                                <span>Adjust balances</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setIsTransferModalOpen(true)}
+                                className={`${primaryButton} flex items-center space-x-2 disabled:opacity-50`}
+                                disabled={filteredAccounts.length < 2}
+                                title={filteredAccounts.length < 2 ? "You need at least 2 accounts to transfer money" : "Transfer money between accounts"}
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                </svg>
+                                <span>Self Transfer of Money</span>
+                            </button>
+                        </div>
                     }
                 />
             )}
@@ -484,6 +497,16 @@ export default function Accounts() {
                 onClose={() => setIsTransferModalOpen(false)}
                 onTransfer={handleTransfer}
                 accounts={allAccounts}
+            />
+
+            <BulkAdjustBalancesModal
+                isOpen={isBulkBalancesModalOpen}
+                onClose={() => setIsBulkBalancesModalOpen(false)}
+                accounts={allAccounts}
+                withheldAmounts={withheldAmounts}
+                currency={userCurrency}
+                onApply={handleBulkBalanceUpdate}
+                isSaving={isBulkBalanceSaving}
             />
         </div>
     );

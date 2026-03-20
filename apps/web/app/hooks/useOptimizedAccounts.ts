@@ -9,7 +9,8 @@ import {
     bulkDeleteAccounts,
     bulkCreateAccounts,
     transferMoney,
-    getWithheldAmountsByBank
+    getWithheldAmountsByBank,
+    bulkUpdateAccountBalances
 } from "../(dashboard)/accounts/actions/accounts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
 import { exportAccountsToCSV } from "../utils/csv";
@@ -40,6 +41,8 @@ interface UseOptimizedAccountsReturn {
     setIsImportModalOpen: (open: boolean) => void;
     isTransferModalOpen: boolean;
     setIsTransferModalOpen: (open: boolean) => void;
+    isBulkBalancesModalOpen: boolean;
+    setIsBulkBalancesModalOpen: (open: boolean) => void;
 
     // Filter states
     selectedAccounts: Set<number>;
@@ -77,6 +80,7 @@ interface UseOptimizedAccountsReturn {
     handleBulkImportSuccess: (accounts: ParsedAccountData[]) => void;
     handleExportToCSV: () => void;
     handleTransfer: (transfer: TransferData) => Promise<void>;
+    handleBulkBalanceUpdate: (updates: { id: number; balance: number }[]) => Promise<void>;
     handleAccountSelect: (accountId: number, checked: boolean) => void;
     handleSelectAll: (checked: boolean) => void;
     clearFilters: () => void;
@@ -87,9 +91,13 @@ interface UseOptimizedAccountsReturn {
 
     // Import status
     isImporting: boolean;
+    isBulkBalanceSaving: boolean;
 
     // Query invalidation helper
     invalidateQueries: () => void;
+
+    /** All accounts (unfiltered) — use for bulk balance modal, transfers, etc. */
+    allAccounts: AccountInterface[];
 }
 
 export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
@@ -109,6 +117,7 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+    const [isBulkBalancesModalOpen, setIsBulkBalancesModalOpen] = useState(false);
 
     // Filter states
     const [selectedAccounts, setSelectedAccounts] = useState<Set<number>>(new Set());
@@ -346,6 +355,20 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         },
     });
 
+    const bulkBalanceMutation = useMutation({
+        mutationFn: (updates: { id: number; balance: number }[]) => bulkUpdateAccountBalances(updates),
+        onSuccess: (updatedList: AccountInterface[]) => {
+            queryClient.setQueryData(QUERY_KEYS.accounts, updatedList);
+            triggerBalanceRefresh();
+            setIsBulkBalancesModalOpen(false);
+            setError(null);
+        },
+        onError: (err: Error) => {
+            console.error("Error bulk updating balances:", err);
+            setError(`Failed to update balances: ${err.message}`);
+        },
+    });
+
     const transferMutation = useMutation({
         mutationFn: ({ fromAccountId, toAccountId, amount, notes }: TransferData) =>
             transferMoney(fromAccountId, toAccountId, amount, notes),
@@ -491,6 +514,22 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         });
     }, [transferMutation]);
 
+    const handleBulkBalanceUpdate = useCallback(
+        async (updates: { id: number; balance: number }[]) => {
+            if (updates.length === 0) {
+                setIsBulkBalancesModalOpen(false);
+                return;
+            }
+            return new Promise<void>((resolve, reject) => {
+                bulkBalanceMutation.mutate(updates, {
+                    onSuccess: () => resolve(),
+                    onError: (error) => reject(error),
+                });
+            });
+        },
+        [bulkBalanceMutation]
+    );
+
     const handleExportToCSV = useCallback(() => {
         const result = exportAccountsToCSV(filteredAccounts);
         if (!result.success) {
@@ -535,6 +574,8 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         setIsImportModalOpen,
         isTransferModalOpen,
         setIsTransferModalOpen,
+        isBulkBalancesModalOpen,
+        setIsBulkBalancesModalOpen,
 
         // Filter states
         selectedAccounts,
@@ -572,6 +613,7 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         handleBulkImportSuccess,
         handleExportToCSV,
         handleTransfer,
+        handleBulkBalanceUpdate,
         handleAccountSelect,
         handleSelectAll,
         clearFilters,
@@ -582,8 +624,11 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
 
         // Import status
         isImporting: bulkCreateMutation.isPending,
+        isBulkBalanceSaving: bulkBalanceMutation.isPending,
 
         // Query invalidation helper
         invalidateQueries,
+
+        allAccounts,
     };
 } 

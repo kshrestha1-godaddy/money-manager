@@ -232,6 +232,67 @@ export async function updateAccount(id: number, account: Partial<Omit<AccountInt
     }
 }
 
+export async function bulkUpdateAccountBalances(updates: { id: number; balance: number }[]) {
+    try {
+        const session = await getAuthenticatedSession();
+        const userId = getUserIdFromSession(session.user.id);
+
+        if (updates.length === 0) {
+            const accounts = await prisma.account.findMany({ where: { userId } });
+            return accounts.map((account) => ({
+                ...account,
+                balance: account.balance ? decimalToNumber(account.balance, "balance") : undefined,
+                accountOpeningDate: new Date(account.accountOpeningDate),
+                createdAt: new Date(account.createdAt),
+                updatedAt: new Date(account.updatedAt),
+                appUsername: account.appUsername || undefined,
+                appPassword: account.appPassword || undefined,
+                appPin: account.appPin || undefined,
+                notes: account.notes || undefined,
+                nickname: account.nickname || undefined,
+            })) as AccountInterface[];
+        }
+
+        const ids = [...new Set(updates.map((u) => u.id))];
+        const owned = await prisma.account.findMany({
+            where: { userId, id: { in: ids } },
+            select: { id: true },
+        });
+
+        if (owned.length !== ids.length) {
+            throw new Error("One or more accounts were not found or are not yours");
+        }
+
+        await prisma.$transaction(
+            updates.map((u) =>
+                prisma.account.update({
+                    where: { id: u.id },
+                    data: { balance: u.balance },
+                })
+            )
+        );
+
+        const refreshed = await prisma.account.findMany({ where: { userId } });
+
+        return refreshed.map((account) => ({
+            ...account,
+            balance: account.balance ? decimalToNumber(account.balance, "balance") : undefined,
+            accountOpeningDate: new Date(account.accountOpeningDate),
+            createdAt: new Date(account.createdAt),
+            updatedAt: new Date(account.updatedAt),
+            appUsername: account.appUsername || undefined,
+            appPassword: account.appPassword || undefined,
+            appPin: account.appPin || undefined,
+            notes: account.notes || undefined,
+            nickname: account.nickname || undefined,
+        })) as AccountInterface[];
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed to update balances";
+        console.error("bulkUpdateAccountBalances:", error);
+        throw new Error(message);
+    }
+}
+
 export async function deleteAccount(id: number) {
     try {
         const session = await getAuthenticatedSession();
