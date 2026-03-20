@@ -472,7 +472,13 @@ export default function InvestmentsPageClient() {
         )}
 
         <AddInvestmentModal isOpen={modal.type === 'add'} onClose={closeModal} onAdd={(data) => handleModalAction('add', data)} />
-        <EditInvestmentModal investment={modal.investment || null} isOpen={modal.type === 'edit'} onClose={closeModal} onEdit={(id, data) => handleModalAction('edit', data)} />
+        <EditInvestmentModal
+          key={modal.type === 'edit' && modal.investment ? `edit-investment-${modal.investment.id}` : 'edit-investment-closed'}
+          investment={modal.investment || null}
+          isOpen={modal.type === 'edit'}
+          onClose={closeModal}
+          onEdit={(id, data) => handleModalAction('edit', data)}
+        />
         <DeleteInvestmentModal investment={modal.investment || null} isOpen={modal.type === 'delete'} onClose={closeModal} onConfirm={() => handleModalAction('delete')} />
         <ViewInvestmentModal investment={modal.investment || null} isOpen={modal.type === 'view'} onClose={closeModal} onEdit={(investment) => openModal('edit', investment)} />
         <UnifiedBulkImportModal 

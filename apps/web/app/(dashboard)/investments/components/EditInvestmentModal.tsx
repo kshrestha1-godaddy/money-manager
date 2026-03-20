@@ -1,10 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { InvestmentInterface } from "../../../types/investments";
 import { getUserAccounts } from "../../accounts/actions/accounts";
 import { formatCurrency } from "../../../utils/currency";
 import { useCurrency } from "../../../providers/CurrencyProvider";
+import {
+    normalizeInvestmentType,
+    isDepositStyleType,
+    isProvidentOrSafeType,
+    isSymbolApplicableType,
+    isQuantityBasedInvestmentType,
+    requiresCurrentPriceField,
+    getInvestmentTypeLabel,
+} from "../utils/investmentTypeUi";
 
 interface EditInvestmentModalProps {
     investment: InvestmentInterface | null;
@@ -26,7 +35,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
     
     const [formData, setFormData] = useState({
         name: "",
-        type: "STOCKS",
+        type: "STOCKS" as InvestmentInterface["type"],
         symbol: "",
         quantity: "",
         purchasePrice: "",
@@ -51,28 +60,38 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
         }
     }, [isOpen]);
 
+    const investmentSyncKey = useMemo(() => {
+        if (!investment) return "";
+        const updated =
+            investment.updatedAt instanceof Date
+                ? investment.updatedAt.getTime()
+                : String(investment.updatedAt ?? "");
+        return `${investment.id}-${updated}-${investment.type}`;
+    }, [investment]);
+
     useEffect(() => {
-        if (investment && isOpen) {
-            setFormData({
-                name: investment.name,
-                type: investment.type,
-                symbol: investment.symbol || "",
-                quantity: investment.quantity.toString(),
-                purchasePrice: investment.purchasePrice.toString(),
-                currentPrice: investment.currentPrice.toString(),
-                //@ts-ignore
-                purchaseDate: investment.purchaseDate ? new Date(investment.purchaseDate).toISOString().split('T')[0] : "",
-                accountId: investment.accountId?.toString() || "",
-                notes: investment.notes ?? "",
-                // Fixed Deposit specific fields
-                interestRate: investment.interestRate?.toString() || "",
-                //@ts-ignore
-                maturityDate: investment.maturityDate ? new Date(investment.maturityDate).toISOString().split('T')[0] : "",
-                // Account deduction control
-                deductFromAccount: investment.deductFromAccount ?? true,
-            });
-        }
-    }, [investment, isOpen]);
+        if (!investment || !isOpen) return;
+
+        const normalizedType = normalizeInvestmentType(investment.type);
+        setFormData({
+            name: investment.name,
+            type: normalizedType,
+            symbol: investment.symbol || "",
+            quantity: investment.quantity.toString(),
+            purchasePrice: investment.purchasePrice.toString(),
+            currentPrice: investment.currentPrice.toString(),
+            purchaseDate: investment.purchaseDate
+                ? new Date(investment.purchaseDate).toISOString().split("T")[0]
+                : "",
+            accountId: investment.accountId?.toString() || "",
+            notes: investment.notes ?? "",
+            interestRate: investment.interestRate?.toString() || "",
+            maturityDate: investment.maturityDate
+                ? new Date(investment.maturityDate).toISOString().split("T")[0]
+                : "",
+            deductFromAccount: investment.deductFromAccount ?? true,
+        });
+    }, [investmentSyncKey, isOpen]);
 
     const loadAccounts = async () => {
         try {
@@ -101,18 +120,20 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
         e.preventDefault();
         if (!investment) return;
 
+        const resolvedType = normalizeInvestmentType(investment.type);
+        const isQuantityBased = isQuantityBasedInvestmentType(resolvedType);
+        const needsCurrentPrice = requiresCurrentPriceField(resolvedType);
+
         setLoading(true);
         setError(null);
 
         try {
-            // Validation
             if (!formData.name.trim()) {
                 setError("Investment name is required");
                 return;
             }
-            
-            // Simplified validation - no category-specific checks
-            if (!formData.quantity || parseFloat(formData.quantity) <= 0) {
+
+            if (isQuantityBased && (!formData.quantity || parseFloat(formData.quantity) <= 0)) {
                 setError("Quantity must be greater than 0");
                 return;
             }
@@ -120,44 +141,51 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                 setError("Purchase price must be greater than 0");
                 return;
             }
-            if (!formData.currentPrice || parseFloat(formData.currentPrice) < 0) {
+            if (needsCurrentPrice && (!formData.currentPrice || parseFloat(formData.currentPrice) < 0)) {
                 setError("Current price must be 0 or greater");
                 return;
             }
-            
-            // Account selection is now optional for all investment types
-            // Users can choose to link an account or track investments independently
 
-            // No balance validation needed since we're only marking for withholding, not actually deducting
-
-            const investmentData: any = {
+            const purchasePriceNum = parseFloat(formData.purchasePrice || "0");
+            const investmentData: Record<string, unknown> = {
                 name: formData.name.trim(),
-                type: formData.type as 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'EMERGENCY_FUND' | 'MARRIAGE' | 'VACATION' | 'OTHER',
+                type: resolvedType,
                 symbol: formData.symbol.trim() || undefined,
-                quantity: parseFloat(formData.quantity),
-                purchasePrice: parseFloat(formData.purchasePrice),
-                currentPrice: parseFloat(formData.currentPrice),
-                purchaseDate: new Date(formData.purchaseDate + 'T00:00:00'),
-                accountId: formData.accountId ? parseInt(formData.accountId) : null,
+                quantity: isQuantityBased ? parseFloat(formData.quantity || "0") : 1,
+                purchasePrice: purchasePriceNum,
+                currentPrice: needsCurrentPrice
+                    ? parseFloat(formData.currentPrice || "0")
+                    : purchasePriceNum,
+                purchaseDate: new Date(`${formData.purchaseDate}T00:00:00`),
+                accountId: formData.accountId ? parseInt(formData.accountId, 10) : null,
                 notes: formData.notes.trim() || undefined,
                 deductFromAccount: formData.deductFromAccount,
             };
 
-            // Add type-specific fields
-            if (formData.type === 'FIXED_DEPOSIT') {
+            if (resolvedType === "FIXED_DEPOSIT") {
                 investmentData.interestRate = parseFloat(formData.interestRate || "0");
-                investmentData.maturityDate = formData.maturityDate ? new Date(formData.maturityDate + 'T00:00:00') : undefined;
-            } else if (formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') {
-                // Optional interest rate and maturity date for these types
+                investmentData.maturityDate = formData.maturityDate
+                    ? new Date(`${formData.maturityDate}T00:00:00`)
+                    : undefined;
+            } else if (
+                resolvedType === "PROVIDENT_FUNDS" ||
+                resolvedType === "SAFE_KEEPINGS" ||
+                resolvedType === "EMERGENCY_FUND" ||
+                resolvedType === "MARRIAGE" ||
+                resolvedType === "VACATION"
+            ) {
                 if (formData.interestRate) {
                     investmentData.interestRate = parseFloat(formData.interestRate);
                 }
                 if (formData.maturityDate) {
-                    investmentData.maturityDate = new Date(formData.maturityDate + 'T00:00:00');
+                    investmentData.maturityDate = new Date(`${formData.maturityDate}T00:00:00`);
                 }
             }
 
-            await onEdit(investment.id, investmentData);
+            await onEdit(
+                investment.id,
+                investmentData as Partial<Omit<InvestmentInterface, "id" | "userId" | "createdAt" | "updatedAt" | "account">>
+            );
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to update investment");
         } finally {
@@ -174,23 +202,9 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
         setError(null);
     };
 
-    const investmentTypes = [
-        { value: 'STOCKS', label: 'Stocks' },
-        { value: 'CRYPTO', label: 'Cryptocurrency' },
-        { value: 'MUTUAL_FUNDS', label: 'Mutual Funds' },
-        { value: 'BONDS', label: 'Bonds' },
-        { value: 'REAL_ESTATE', label: 'Real Estate' },
-        { value: 'GOLD', label: 'Gold' },
-        { value: 'FIXED_DEPOSIT', label: 'Fixed Deposit' },
-        { value: 'EMERGENCY_FUND', label: 'Emergency Fund' },
-        { value: 'MARRIAGE', label: 'Marriage' },
-        { value: 'VACATION', label: 'Vacation' },
-        { value: 'PROVIDENT_FUNDS', label: 'Provident Funds' },
-        { value: 'SAFE_KEEPINGS', label: 'Safe Keepings' },
-        { value: 'OTHER', label: 'Other' },
-    ];
-
     if (!isOpen || !investment) return null;
+
+    const resolvedType = normalizeInvestmentType(investment.type);
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -227,26 +241,15 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                         />
                     </div>
 
-                    <div>
-                        <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
-                            Investment Type *
-                        </label>
-                        <select
-                            id="type"
-                            value={formData.type}
-                            onChange={(e) => handleInputChange("type", e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        >
-                            {investmentTypes.map(type => (
-                                <option key={type.value} value={type.value}>
-                                    {type.label}
-                                </option>
-                            ))}
-                        </select>
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+                        <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Investment type</p>
+                        <p className="text-sm font-semibold text-gray-900">{getInvestmentTypeLabel(resolvedType)}</p>
+                        <p className="mt-1 text-xs text-gray-500">
+                            Fields match this category. To use another type, delete and add a new investment.
+                        </p>
                     </div>
 
-                    {formData.type !== 'FIXED_DEPOSIT' && formData.type !== 'PROVIDENT_FUNDS' && formData.type !== 'SAFE_KEEPINGS' && (
+                    {isSymbolApplicableType(resolvedType) && (
                         <div>
                             <label htmlFor="symbol" className="block text-sm font-medium text-gray-700 mb-1">
                                 Symbol (Optional)
@@ -262,7 +265,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                         </div>
                     )}
 
-                    {(formData.type === 'FIXED_DEPOSIT' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') ? (
+                    {isDepositStyleType(resolvedType) ? (
                         <>
                             <div>
                                 <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 mb-1">
@@ -315,7 +318,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                                 </div>
                             </div>
                         </>
-                    ) : formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' ? (
+                    ) : isProvidentOrSafeType(resolvedType) ? (
                         <>
                             <div>
                                 <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 mb-1">
@@ -425,7 +428,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
 
                     <div>
                         <label htmlFor="purchaseDate" className="block text-sm font-medium text-gray-700 mb-1">
-                            {(formData.type === 'FIXED_DEPOSIT' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') ? 'Deposit Date *' : 'Purchase Date *'}
+                            {isDepositStyleType(resolvedType) ? "Deposit Date *" : "Purchase Date *"}
                         </label>
                         <input
                             type="date"
