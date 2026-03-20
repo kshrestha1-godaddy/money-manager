@@ -11,6 +11,7 @@ import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { NotificationBell } from "./notification/NotificationBell";
 import { CheckinButton } from "./CheckinButton";
+import { formatLockCountdown, useAppLock } from "../providers/AppLockProvider";
 
 export default function NavBar() {
   const { data: session, status } = useSession();
@@ -18,6 +19,7 @@ export default function NavBar() {
   const { currency: selectedCurrency, updateCurrency } = useCurrency();
   const { totalBalance, loading: balanceLoading } = useTotalBalance();
   const { openExpenseModal, openIncomeModal } = useModals();
+  const { isUnlocked, remainingMs, lockNow } = useAppLock();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const currentDate = new Date();
@@ -118,6 +120,19 @@ export default function NavBar() {
 
         {/* Right side: Calendar, Quick Actions, Currency, Logout and Profile Icon */}
         <div className="flex items-center space-x-4 flex-shrink-0 pr-4">
+          {isUnlocked && (
+            <div className="hidden lg:flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5">
+              <span className="text-xs font-semibold text-blue-700">
+                Auto lock in {formatLockCountdown(remainingMs)}
+              </span>
+              <button
+                onClick={lockNow}
+                className="text-xs font-medium text-blue-700 hover:text-blue-900 underline underline-offset-2"
+              >
+                Lock now
+              </button>
+            </div>
+          )}
 
           {/* Quick Action Buttons - Only shown for authenticated users */}
           {status === "authenticated" && (

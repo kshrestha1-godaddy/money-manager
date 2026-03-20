@@ -9,26 +9,31 @@ import { ModalsProvider } from "./providers/ModalsProvider";
 import { NotificationProvider } from "./components/notification/NotificationProvider";
 import { TutorialProvider } from "./providers/TutorialProvider";
 import { WelcomeBackProvider } from "./providers/WelcomeBackProvider";
+import { AppLockProvider } from "./providers/AppLockProvider";
+import { AppLockOverlay } from "./components/security/AppLockOverlay";
 
 export const Providers = ({ children }: { children: React.ReactNode }) => {
     return (
         // wrapping all the pages with the providers
         <SessionProvider>
-            <WelcomeBackProvider>
-                <NotificationProvider>
-                    <QueryProvider>
-                        <CurrencyProvider>
-                            <TimezoneProvider>
-                                <ModalsProvider>
-                                    <TutorialProvider>
-                                        {children}
-                                    </TutorialProvider>
-                                </ModalsProvider>
-                            </TimezoneProvider>
-                        </CurrencyProvider>
-                    </QueryProvider>
-                </NotificationProvider>
-            </WelcomeBackProvider>
+            <AppLockProvider>
+                <WelcomeBackProvider>
+                    <NotificationProvider>
+                        <QueryProvider>
+                            <CurrencyProvider>
+                                <TimezoneProvider>
+                                    <ModalsProvider>
+                                        <TutorialProvider>
+                                            {children}
+                                            <AppLockOverlay />
+                                        </TutorialProvider>
+                                    </ModalsProvider>
+                                </TimezoneProvider>
+                            </CurrencyProvider>
+                        </QueryProvider>
+                    </NotificationProvider>
+                </WelcomeBackProvider>
+            </AppLockProvider>
         </SessionProvider>
     );
 };
