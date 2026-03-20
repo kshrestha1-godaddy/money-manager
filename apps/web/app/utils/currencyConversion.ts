@@ -7,6 +7,8 @@ interface ConversionRates {
   [currency: string]: number;
 }
 
+export const SUPPORTED_CURRENCIES = ['USD', 'INR', 'NPR'] as const;
+
 // Static conversion rates based on:
 // 1 INR = 1.6 NPR
 // 1 USD = 140 NPR
@@ -27,6 +29,26 @@ const STATIC_RATES: { [sourceCurrency: string]: ConversionRates } = {
     npr: 1
   }
 };
+
+export function convertCurrencySync(
+  amount: number,
+  sourceCurrency: string,
+  destinationCurrency: string
+): number {
+  if (sourceCurrency.toLowerCase() === destinationCurrency.toLowerCase()) return amount;
+
+  const source = sourceCurrency.toLowerCase();
+  const destination = destinationCurrency.toLowerCase();
+  const rates = STATIC_RATES[source];
+  const rate = rates?.[destination];
+
+  if (rate === undefined) {
+    console.warn(`Sync conversion not available for ${sourceCurrency.toUpperCase()} to ${destinationCurrency.toUpperCase()}, supported currencies: ${SUPPORTED_CURRENCIES.join(', ')}`);
+    return amount;
+  }
+
+  return amount * rate;
+}
 
 /**
  * Gets conversion rates from static rate table
@@ -147,7 +169,7 @@ export async function convertCurrencyFormatted(
  * @returns Promise<string[]> - Array of available currency codes
  */
 export async function getAvailableCurrencies(baseCurrency: string = 'usd'): Promise<string[]> {
-  return Object.keys(STATIC_RATES).map(currency => currency.toUpperCase()).sort();
+  return [...SUPPORTED_CURRENCIES];
 }
 
 /**

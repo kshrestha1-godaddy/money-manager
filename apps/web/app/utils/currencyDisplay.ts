@@ -3,7 +3,7 @@
  * Handles currency conversion for UI display purposes
  */
 
-import { convertCurrency } from './currencyConversion';
+import { convertCurrency, convertCurrencySync } from './currencyConversion';
 import { formatCurrency, SupportedCurrency } from './currency';
 
 /**
@@ -103,42 +103,5 @@ export function convertForDisplaySync(
     storedCurrency: string,
     userCurrency: string
 ): number {
-    // If currencies are the same, no conversion needed
-    if (storedCurrency.toLowerCase() === userCurrency.toLowerCase()) {
-        return amount;
-    }
-
-    // Static conversion rates based on:
-    // 1 INR = 1.6 NPR
-    // 1 USD = 140 NPR
-    const CONVERSION_RATES: { [key: string]: { [key: string]: number } } = {
-        usd: {
-            usd: 1,
-            inr: 87.5,           // 1 USD = 140 NPR, 1 INR = 1.6 NPR, so 1 USD = 140/1.6 = 87.5 INR
-            npr: 140             // 1 USD = 140 NPR
-        },
-        inr: {
-            usd: 0.011428571,    // 1 INR = 1.6/140 = 0.011428571 USD
-            inr: 1,
-            npr: 1.6             // 1 INR = 1.6 NPR
-        },
-        npr: {
-            usd: 0.007142857,    // 1 NPR = 1/140 = 0.007142857 USD
-            inr: 0.625,          // 1 NPR = 1/1.6 = 0.625 INR
-            npr: 1
-        }
-    };
-
-    const sourceCurrency = storedCurrency.toLowerCase();
-    const targetCurrency = userCurrency.toLowerCase();
-
-    // Check if we have conversion rates for both currencies
-    if (CONVERSION_RATES[sourceCurrency] && CONVERSION_RATES[sourceCurrency][targetCurrency] !== undefined) {
-        const rate = CONVERSION_RATES[sourceCurrency][targetCurrency];
-        return amount * rate;
-    }
-
-    // If conversion not supported, log warning and return original amount
-    console.warn(`Sync conversion not available for ${storedCurrency} to ${userCurrency}, supported currencies: USD, INR, NPR`);
-    return amount;
+    return convertCurrencySync(amount, storedCurrency, userCurrency);
 }

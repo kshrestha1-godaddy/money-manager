@@ -2,13 +2,12 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { Bookmark, BookmarkCheck } from "lucide-react";
-import { formatCurrency } from "../../utils/currency";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { formatDate } from "../../utils/date";
 import { TransactionType } from "../../utils/formUtils";
+import { SUPPORTED_CURRENCIES } from "../../utils/currencyConversion";
 import { Pagination } from "./Pagination";
 import { CompactPagination } from "./CompactPagination";
-import { CurrencyAmount } from "./CurrencyAmount";
 
 interface FinancialTransaction {
     id: number;
@@ -54,6 +53,11 @@ interface FinancialListProps {
 type SortField = 'title' | 'category' | 'account' | 'date' | 'amount';
 type SortDirection = 'asc' | 'desc';
 
+const AMOUNT_VALUE_FORMATTER = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+});
+
 export function FinancialList({ 
     transactions, 
     transactionType,
@@ -69,6 +73,7 @@ export function FinancialList({
     onBulkDelete,
     onClearSelection
 }: FinancialListProps) {
+    const [selectedCurrency, setSelectedCurrency] = useState(currency);
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
     const [currentPage, setCurrentPage] = useState(1);
@@ -78,13 +83,13 @@ export function FinancialList({
     const [columnWidths, setColumnWidths] = useState({
         checkbox: 20,
         bookmark: 20,
-        title: 180,
+        title: 270,
         category: 130,
         account: 192,
-        date: 170,
-        tags: 110,
-        notes: 280,
-        amount: 128,
+        date: 130,
+        tags: 90,
+        notes: 190,
+        amount: 100,
         actions: 70
     });
     
@@ -136,12 +141,18 @@ export function FinancialList({
         }
     }, [resizing, handleMouseMove, handleMouseUp]);
 
+    useEffect(() => {
+        setSelectedCurrency(currency);
+    }, [currency]);
+
     const getSortIcon = (field: SortField) => {
         if (sortField !== field) {
             return <span className="text-gray-400">↕</span>;
         }
         return sortDirection === 'asc' ? <span className="text-blue-600">↑</span> : <span className="text-blue-600">↓</span>;
     };
+
+    const amountHeaderLabel = `Amount (${selectedCurrency.toUpperCase()})`;
 
     const sortedTransactions = useMemo(() => {
         return [...transactions].sort((a, b) => {
@@ -168,8 +179,8 @@ export function FinancialList({
                     bValue = new Date(b.date);
                     break;
                 case 'amount':
-                    aValue = convertForDisplaySync(a.amount, a.currency, currency);
-                    bValue = convertForDisplaySync(b.amount, b.currency, currency);
+                    aValue = convertForDisplaySync(a.amount, a.currency, selectedCurrency);
+                    bValue = convertForDisplaySync(b.amount, b.currency, selectedCurrency);
                     break;
                 default:
                     return 0;
@@ -183,7 +194,7 @@ export function FinancialList({
             }
             return 0;
         });
-    }, [transactions, sortField, sortDirection, currency]);
+    }, [transactions, sortField, sortDirection, selectedCurrency]);
 
     // Paginated transactions
     const paginatedTransactions = useMemo(() => {
@@ -257,6 +268,23 @@ export function FinancialList({
                                 </button>
                             </div>
                         )}
+                        <div className="flex items-center space-x-2">
+                            <label htmlFor={`${transactionType.toLowerCase()}-display-currency`} className="text-sm text-gray-600">
+                                Currency
+                            </label>
+                            <select
+                                id={`${transactionType.toLowerCase()}-display-currency`}
+                                value={selectedCurrency}
+                                onChange={(event) => setSelectedCurrency(event.target.value)}
+                                className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                            >
+                                {SUPPORTED_CURRENCIES.map((currencyOption) => (
+                                    <option key={currencyOption} value={currencyOption}>
+                                        {currencyOption}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                         {/* Pagination */}
                         <CompactPagination
                             currentPage={currentPage}
@@ -382,7 +410,7 @@ export function FinancialList({
                                 onClick={() => handleSort('amount')}
                             >
                                 <div className="flex items-center justify-between">
-                                    <span>Amount</span>
+                                    <span>{amountHeaderLabel}</span>
                                     {getSortIcon('amount')}
                                 </div>
                                 <div 
@@ -404,7 +432,7 @@ export function FinancialList({
                                 key={transaction.id} 
                                 transaction={transaction} 
                                 transactionType={transactionType}
-                                currency={currency}
+                                currency={selectedCurrency}
                                 onEdit={onEdit}
                                 onView={onView}
                                 onDelete={onDelete}
@@ -607,13 +635,8 @@ function FinancialRow({
                     <span className="text-xs text-gray-400">No notes</span>
                 )}
             </td>
-            <td className={`px-6 py-4 text-sm font-medium text-right ${amountColorClass}`} style={{ width: `${columnWidths.amount}px` }}>
-                <CurrencyAmount
-                    amount={transaction.amount}
-                    storedCurrency={transaction.currency}
-                    userCurrency={currency || 'USD'}
-                    showOriginal={false}
-                />
+            <td className={`px-6 py-4 text-sm font-medium text-right tabular-nums ${amountColorClass}`} style={{ width: `${columnWidths.amount}px` }}>
+                {AMOUNT_VALUE_FORMATTER.format(convertForDisplaySync(transaction.amount, transaction.currency, currency || 'USD'))}
             </td>
             <td className="px-6 py-4 text-right text-sm font-medium" style={{ width: `${columnWidths.actions}px` }}>
                 <div className="flex justify-end space-x-2">
