@@ -74,11 +74,13 @@ function formatDateIso(date: Date | string): string {
     return `${y}-${m}-${day}`;
 }
 
-function escapeCsvField(value: string | number | undefined | null): string {
-    if (value === undefined || value === null) return "";
-    const s = String(value);
-    if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-    return s;
+/**
+ * RFC 4180–style quoting for every cell so commas, newlines, or special
+ * characters in titles/notes/account text cannot shift columns in Sheets/Excel.
+ */
+function csvQuoteCell(value: string | number | undefined | null): string {
+    const s = String(value ?? "");
+    return `"${s.replace(/"/g, '""')}"`;
 }
 
 /** Plain decimal for CSV (no locale grouping) so spreadsheets parse amounts reliably */
@@ -97,6 +99,8 @@ function buildCsvFromTransactions(
     transactionType: TransactionType
 ): string {
     const typeLabel = transactionType === "EXPENSE" ? "Expense" : "Income";
+    const displayCurrencySafe = (displayCurrency || "USD").trim();
+    const displayCurrencyCode = displayCurrencySafe.toUpperCase();
     const headers = [
         "Type",
         "Title",
@@ -108,7 +112,7 @@ function buildCsvFromTransactions(
         "Notes",
         "Original currency",
         "Amount (original)",
-        `Amount (${displayCurrency.toUpperCase()})`,
+        `Amount (${displayCurrencyCode})`,
         "Recurring",
         "Bookmarked",
     ];
@@ -117,8 +121,9 @@ function buildCsvFromTransactions(
         const displayAmount = convertForDisplaySync(
             t.amount,
             t.currency,
-            displayCurrency
+            displayCurrencySafe
         );
+        const currencyCode = (t.currency ?? "").trim();
         lines.push([
             typeLabel,
             t.title,
@@ -128,7 +133,7 @@ function buildCsvFromTransactions(
             formatAccountForCsv(t),
             t.tags.join("; "),
             t.notes ?? "",
-            t.currency.trim(),
+            currencyCode,
             formatAmountCsvPlain(t.amount),
             formatAmountCsvPlain(displayAmount),
             t.isRecurring ? "Yes" : "No",
@@ -136,7 +141,7 @@ function buildCsvFromTransactions(
         ]);
     });
     return lines
-        .map((line) => line.map((cell) => escapeCsvField(cell)).join(","))
+        .map((line) => line.map((cell) => csvQuoteCell(cell)).join(","))
         .join("\r\n");
 }
 
