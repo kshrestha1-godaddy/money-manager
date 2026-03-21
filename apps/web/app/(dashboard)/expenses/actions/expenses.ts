@@ -755,6 +755,7 @@ async function validateAndTransformRow(
 
     const locationEntries = mergeLocationAndLinksFromRow(rowData.location || '', rowData.links || '');
     const mapCoords = parseOptionalMapCoordinates(rowData);
+    const receiptRaw = (rowData.receipt || '').trim();
 
     return {
         title: rowData.title,
@@ -771,6 +772,7 @@ async function validateAndTransformRow(
             ? { id: -1, latitude: mapCoords.latitude, longitude: mapCoords.longitude }
             : undefined,
         notes: rowData.notes || '',
+        receipt: receiptRaw || undefined,
         isRecurring: rowData.isrecurring?.toLowerCase() === 'true' || false,
         recurringFrequency: rowData.recurringfrequency || null,
         isBookmarked,
@@ -898,6 +900,10 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
                             isRecurring: validatedRow.data.isRecurring || false
                         };
 
+                        if (validatedRow.data.receipt) {
+                            createData.receipt = validatedRow.data.receipt;
+                        }
+
                         if (validatedRow.data.accountId) {
                             createData.account = {
                                 connect: { id: validatedRow.data.accountId }
@@ -923,6 +929,23 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
                         const expense = await tx.expense.create({
                             data: createData
                         });
+
+                        if (validatedRow.data.receipt) {
+                            try {
+                                await tx.transactionImage.create({
+                                    data: {
+                                        imageUrl: validatedRow.data.receipt,
+                                        fileName: `expense-receipt-${expense.id}`,
+                                        transactionType: 'EXPENSE',
+                                        transactionId: expense.id,
+                                        description: `Receipt for ${validatedRow.data.title}`,
+                                        userId
+                                    }
+                                });
+                            } catch (imageError) {
+                                console.error('Failed to create transaction image during bulk import:', imageError);
+                            }
+                        }
 
                         // Update account balance if account is specified (convert to user's currency)
                         if (validatedRow.data.accountId) {
@@ -1151,6 +1174,10 @@ export async function importCorrectedRow(
                 isRecurring: expenseData.isRecurring || false
             };
 
+            if (expenseData.receipt) {
+                createData.receipt = expenseData.receipt;
+            }
+
             if (expenseData.accountId) {
                 createData.account = {
                     connect: { id: expenseData.accountId }
@@ -1182,6 +1209,23 @@ export async function importCorrectedRow(
             // Serialize the transaction location to avoid Decimal serialization issues
             if (expense.transactionLocation) {
                 expense.transactionLocation = serializeTransactionLocation(expense.transactionLocation);
+            }
+
+            if (expenseData.receipt) {
+                try {
+                    await tx.transactionImage.create({
+                        data: {
+                            imageUrl: expenseData.receipt,
+                            fileName: `expense-receipt-${expense.id}`,
+                            transactionType: 'EXPENSE',
+                            transactionId: expense.id,
+                            description: `Receipt for ${expenseData.title}`,
+                            userId
+                        }
+                    });
+                } catch (imageError) {
+                    console.error('Failed to create transaction image during corrected import:', imageError);
+                }
             }
 
             // Update account balance if account is specified (convert to user's currency)

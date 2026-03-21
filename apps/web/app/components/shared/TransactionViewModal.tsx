@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Income, Expense, TransactionImage, TransactionImageType } from "../../types/financial";
 import { formatCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
@@ -54,6 +54,32 @@ export function TransactionViewModal({
         imageLabel: 'Document Images'
     };
 
+    /** API returns TransactionImage rows; `receipt` on the transaction is a separate field used by CSV/export and legacy rows. */
+    const displayImages = useMemo(() => {
+        if (!transaction) return images;
+        const url = typeof transaction.receipt === 'string' ? transaction.receipt.trim() : '';
+        if (!url) return images;
+        if (images.some((img) => (img.imageUrl || '').trim() === url)) return images;
+        const uploadedAt =
+            transaction.createdAt instanceof Date
+                ? transaction.createdAt
+                : new Date(transaction.createdAt);
+        const synthetic: TransactionImage = {
+            id: -1,
+            imageUrl: url,
+            fileName: 'receipt',
+            transactionType,
+            transactionId: transaction.id,
+            description: '',
+            isActive: true,
+            uploadedAt,
+            userId: 0,
+            createdAt: uploadedAt,
+            updatedAt: uploadedAt,
+        };
+        return [synthetic, ...images];
+    }, [images, transaction, transactionType]);
+
     // Fetch transaction images when modal opens and transaction changes
     useEffect(() => {
         if (isOpen && transaction) {
@@ -81,7 +107,7 @@ export function TransactionViewModal({
 
         document.addEventListener('keydown', handleKeyPress);
         return () => document.removeEventListener('keydown', handleKeyPress);
-    }, [selectedImageIndex, images.length]);
+    }, [selectedImageIndex, displayImages.length]);
 
     const fetchTransactionImages = async () => {
         if (!transaction) return;
@@ -108,7 +134,7 @@ export function TransactionViewModal({
     };
 
     const nextImage = () => {
-        if (selectedImageIndex !== null && selectedImageIndex < images.length - 1) {
+        if (selectedImageIndex !== null && selectedImageIndex < displayImages.length - 1) {
             setSelectedImageIndex(selectedImageIndex + 1);
         }
     };
@@ -331,10 +357,13 @@ export function TransactionViewModal({
                                 <div className={`animate-spin rounded-full h-8 w-8 border-b-2 ${theme.spinnerClass}`}></div>
                                 <span className="ml-2 text-gray-600">Loading images...</span>
                             </div>
-                        ) : images.length > 0 ? (
+                        ) : displayImages.length > 0 ? (
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                {images.map((image, index) => (
-                                    <div key={image.id} className="relative group">
+                                {displayImages.map((image, index) => (
+                                    <div
+                                        key={image.id === -1 ? `receipt-url-${image.imageUrl}` : image.id}
+                                        className="relative group"
+                                    >
                                         <div 
                                             className="aspect-square bg-gray-100 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
                                             onClick={() => openImageModal(index)}
@@ -408,11 +437,11 @@ export function TransactionViewModal({
             </div>
 
             {/* Image Lightbox Modal */}
-            {selectedImageIndex !== null && images[selectedImageIndex] && (
+            {selectedImageIndex !== null && displayImages[selectedImageIndex] && (
                 <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center p-4 z-[60]">
                     <div className="relative max-w-7xl max-h-[90vh] w-full h-full flex items-center justify-center">
                         {/* Navigation buttons */}
-                        {images.length > 1 && (
+                        {displayImages.length > 1 && (
                             <>
                                 <button
                                     onClick={prevImage}
@@ -425,7 +454,7 @@ export function TransactionViewModal({
                                 </button>
                                 <button
                                     onClick={nextImage}
-                                    disabled={selectedImageIndex === images.length - 1}
+                                    disabled={selectedImageIndex === displayImages.length - 1}
                                     className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-75 disabled:opacity-50 disabled:cursor-not-allowed z-10"
                                 >
                                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -446,28 +475,28 @@ export function TransactionViewModal({
                         </button>
 
                         {/* Image counter */}
-                        {images.length > 1 && (
+                        {displayImages.length > 1 && (
                             <div className="absolute top-4 left-4 bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm z-10">
-                                {selectedImageIndex + 1} of {images.length}
+                                {selectedImageIndex + 1} of {displayImages.length}
                             </div>
                         )}
 
                         {/* Main image */}
                         <div className="relative flex items-center justify-center w-full h-full">
                             <img
-                                src={images[selectedImageIndex].imageUrl}
-                                alt={images[selectedImageIndex].description || `${theme.imageLabel} ${selectedImageIndex + 1}`}
+                                src={displayImages[selectedImageIndex].imageUrl}
+                                alt={displayImages[selectedImageIndex].description || `${theme.imageLabel} ${selectedImageIndex + 1}`}
                                 className="max-w-full max-h-full object-contain rounded-lg"
                                 onClick={closeImageModal}
                             />
                         </div>
 
                         {/* Image info */}
-                        {images[selectedImageIndex].description && (
+                        {displayImages[selectedImageIndex].description && (
                             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg max-w-md text-center">
-                                <p className="text-sm">{images[selectedImageIndex].description}</p>
+                                <p className="text-sm">{displayImages[selectedImageIndex].description}</p>
                                 <p className="text-xs text-gray-300 mt-1">
-                                    Uploaded: {formatDate(images[selectedImageIndex].uploadedAt)}
+                                    Uploaded: {formatDate(displayImages[selectedImageIndex].uploadedAt)}
                                 </p>
                             </div>
                         )}
