@@ -36,6 +36,8 @@ export interface ImportExpenseRow {
     categoryId: number;
     accountId?: number | null;
     tags?: string[];
+    location: string[];
+    transactionLocation?: { id: number; latitude: number; longitude: number };
     notes?: string;
     isRecurring?: boolean;
     recurringFrequency?: string | null;

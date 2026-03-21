@@ -7,6 +7,7 @@ import {
     formatDateForExport, 
     formatTimestampForExport, 
     formatArrayForExport, 
+    splitLocationFieldForExport,
     generateCsvContent, 
     downloadCsvFile, 
     generateCsvFilename,
@@ -37,6 +38,7 @@ interface BaseFinancialItem {
     } | null;
     tags: string[];
     location: string[];
+    transactionLocation?: { latitude: number; longitude: number } | null;
     notes?: string | null;
     isRecurring: boolean;
     recurringFrequency?: string | null;
@@ -76,6 +78,9 @@ const STANDARD_HEADERS = [
     'Account Number',
     'Tags',
     'Location',
+    'Links',
+    'Latitude',
+    'Longitude',
     'Notes',
     'Is Recurring',
     'Recurring Frequency',
@@ -85,15 +90,23 @@ const STANDARD_HEADERS = [
 ];
 
 const EXPENSE_HEADERS = [
-    ...STANDARD_HEADERS.slice(0, 13), // Up to Location (now includes Currency)
-    'Receipt', // Add receipt field for expenses
-    ...STANDARD_HEADERS.slice(13) // Notes, Is Recurring, Recurring Frequency, Is Bookmarked, and timestamps
+    ...STANDARD_HEADERS.slice(0, 13), // Through Tags
+    ...STANDARD_HEADERS.slice(13, 17), // Location, Links, Latitude, Longitude
+    'Receipt',
+    ...STANDARD_HEADERS.slice(17), // Notes through Updated At
 ];
 
 /**
  * Convert financial item to CSV row data
  */
 function convertItemToRow(item: BaseFinancialItem | ExpenseItem, includeReceipt: boolean = false): (string | number)[] {
+    const { locationText, linksText } = splitLocationFieldForExport(item.location || []);
+    const tl = item.transactionLocation;
+    const latStr =
+        tl != null && Number.isFinite(Number(tl.latitude)) ? safeStringify(tl.latitude) : '';
+    const lngStr =
+        tl != null && Number.isFinite(Number(tl.longitude)) ? safeStringify(tl.longitude) : '';
+
     const baseRow = [
         safeStringify(item.id),
         safeStringify(item.title),
@@ -108,20 +121,21 @@ function convertItemToRow(item: BaseFinancialItem | ExpenseItem, includeReceipt:
         safeStringify(item.account?.accountType || ''),
         safeStringify(item.account?.accountNumber || ''),
         formatArrayForExport(item.tags || []),
-        formatArrayForExport(item.location || [])
+        locationText,
+        linksText,
+        latStr,
+        lngStr
     ];
 
-    // Add receipt field for expenses
     if (includeReceipt) {
         baseRow.push(safeStringify((item as ExpenseItem).receipt || ''));
     }
 
-    // Add remaining fields
     baseRow.push(
         safeStringify(item.notes || ''),
         item.isRecurring ? 'Yes' : 'No',
         safeStringify(item.recurringFrequency || ''),
-        item.isBookmarked ? 'Yes' : 'No', // Add bookmark status
+        item.isBookmarked ? 'Yes' : 'No',
         formatTimestampForExport(item.createdAt),
         formatTimestampForExport(item.updatedAt)
     );

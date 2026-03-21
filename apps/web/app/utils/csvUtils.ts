@@ -234,6 +234,31 @@ export function parseLocations(locationsString: string): string[] {
         .filter(Boolean);
 }
 
+/** Merge optional Location and Links CSV columns into the stored `location` string array */
+export function mergeLocationAndLinksFromRow(
+    locationCell: string,
+    linksCell: string
+): string[] {
+    return [...parseLocations(locationCell), ...parseLocations(linksCell)].filter(Boolean);
+}
+
+/** Parse map coordinates from normalized CSV row keys (latitude/longitude, map lat/lng, lng alias) */
+export function parseOptionalMapCoordinates(row: Record<string, string>): {
+    latitude: number;
+    longitude: number;
+} | null {
+    const latStr = (row.latitude || row.maplatitude || '').trim();
+    const lngStr = (row.longitude || row.maplongitude || row.lng || '').trim();
+    if (!latStr || !lngStr) return null;
+
+    const latitude = Number(latStr);
+    const longitude = Number(lngStr);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
+
+    return { latitude, longitude };
+}
+
 // Format date to YYYY-MM-DD in local timezone (avoids timezone issues)
 export function formatDateForCSV(date: Date): string {
     if (!date || !(date instanceof Date) || isNaN(date.getTime())) {

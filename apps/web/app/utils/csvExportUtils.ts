@@ -44,6 +44,25 @@ export function formatArrayForExport(arr: string[]): string {
         .join(',');
 }
 
+/** Split stored location entries into plain text vs http(s) links for separate CSV columns */
+export function splitLocationFieldForExport(parts: string[] | null | undefined): {
+    locationText: string;
+    linksText: string;
+} {
+    const places: string[] = [];
+    const links: string[] = [];
+    for (const raw of parts || []) {
+        const s = String(raw).trim();
+        if (!s) continue;
+        if (/^https?:\/\//i.test(s)) links.push(s);
+        else places.push(s);
+    }
+    return {
+        locationText: formatArrayForExport(places),
+        linksText: formatArrayForExport(links),
+    };
+}
+
 // Helper to safely convert value to string and handle nulls/undefined
 export function safeStringify(value: any): string {
     if (value === null || value === undefined) {

@@ -6,7 +6,7 @@ import prisma from "@repo/db/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
 import { getUserIdFromSession } from "../../../utils/auth";
-import { parseCSV, parseTags } from "../../../utils/csvUtils";
+import { parseCSV, parseTags, mergeLocationAndLinksFromRow, parseOptionalMapCoordinates } from "../../../utils/csvUtils";
 import { parseCategoriesCSV, type ParsedCategoryData } from "../../../utils/csvImportCategories";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { autoBookmarkHighValueTransaction, handleBookmarkOnAmountChange } from "../../../utils/autoBookmarkUtils";
@@ -28,24 +28,27 @@ const revalidateIncomePaths = () => {
 };
 
 // Helper function to transform Prisma income to Income type
-const getDisplayIncome = (prismaIncome: any): Income => ({
-    ...prismaIncome,
-    amount: parseFloat(prismaIncome.amount.toString()),
-    currency: prismaIncome.currency,
-    date: new Date(prismaIncome.date),
-    createdAt: new Date(prismaIncome.createdAt),
-    updatedAt: new Date(prismaIncome.updatedAt),
-    // Ensure tags and location are arrays
-    tags: prismaIncome.tags || [],
-    location: prismaIncome.location || [],
-    account: prismaIncome.account ? {
-        ...prismaIncome.account,
-        balance: parseFloat(prismaIncome.account.balance.toString()),
-        accountOpeningDate: new Date(prismaIncome.account.accountOpeningDate),
-        createdAt: new Date(prismaIncome.account.createdAt),
-        updatedAt: new Date(prismaIncome.account.updatedAt)
-    } : null
-});
+const getDisplayIncome = (prismaIncome: any): Income => {
+    const { transactionLocation: rawTl, ...rest } = prismaIncome;
+    return {
+        ...rest,
+        amount: parseFloat(prismaIncome.amount.toString()),
+        currency: prismaIncome.currency,
+        date: new Date(prismaIncome.date),
+        createdAt: new Date(prismaIncome.createdAt),
+        updatedAt: new Date(prismaIncome.updatedAt),
+        tags: prismaIncome.tags || [],
+        location: prismaIncome.location || [],
+        transactionLocation: rawTl ? serializeTransactionLocation(rawTl) : null,
+        account: prismaIncome.account ? {
+            ...prismaIncome.account,
+            balance: parseFloat(prismaIncome.account.balance.toString()),
+            accountOpeningDate: new Date(prismaIncome.account.accountOpeningDate),
+            createdAt: new Date(prismaIncome.account.createdAt),
+            updatedAt: new Date(prismaIncome.account.updatedAt)
+        } : null
+    };
+};
 
 
 export async function getIncomes() {
@@ -154,7 +157,8 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
                 include: {
                     category: true,
                     account: true,
-                    user: true
+                    user: true,
+                    transactionLocation: true
                 }
             });
 
@@ -747,6 +751,9 @@ async function processIncomeRow(
                          rowObj.isbookmarked?.toLowerCase() === 'true' || 
                          false;
 
+    const locationEntries = mergeLocationAndLinksFromRow(rowObj.location || '', rowObj.links || '');
+    const mapCoords = parseOptionalMapCoordinates(rowObj);
+
     const incomeData: any = {
         title: rowObj.title,
         description: rowObj.description || undefined,
@@ -755,11 +762,16 @@ async function processIncomeRow(
         date: date,
         categoryId: category.id,
         tags: tags,
+        location: locationEntries,
         notes: rowObj.notes || undefined,
         isRecurring: isRecurring,
         // "Recurring Frequency" header becomes "recurringfrequency" after normalization
         recurringFrequency: isRecurring ? (rowObj.recurringfrequency?.toUpperCase() as any || 'MONTHLY') : undefined
     };
+
+    if (mapCoords) {
+        incomeData.transactionLocation = { id: -1, latitude: mapCoords.latitude, longitude: mapCoords.longitude };
+    }
 
     if (accountId && accountId !== '') {
         const selectedAccount = accounts.find(a => a.id === parseInt(accountId));

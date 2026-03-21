@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { Bookmark, Download } from "lucide-react";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
+import { splitLocationFieldForExport } from "../../utils/csvExportUtils";
 import { formatDate } from "../../utils/date";
 import { TransactionType } from "../../utils/formUtils";
 import { SUPPORTED_CURRENCIES } from "../../utils/currencyConversion";
@@ -28,6 +29,8 @@ interface FinancialTransaction {
         accountType: string;
     } | null;
     tags: string[];
+    location?: string[];
+    transactionLocation?: { latitude: number; longitude: number } | null;
     notes?: string;
     isRecurring: boolean;
     recurringFrequency?: string;
@@ -109,6 +112,10 @@ function buildCsvFromTransactions(
         "Date",
         "Account",
         "Tags",
+        "Location",
+        "Links",
+        "Latitude",
+        "Longitude",
         "Notes",
         "Original currency",
         "Amount (original)",
@@ -124,6 +131,17 @@ function buildCsvFromTransactions(
             displayCurrencySafe
         );
         const currencyCode = (t.currency ?? "").trim();
+        const { locationText, linksText } = splitLocationFieldForExport(t.location);
+        const lat =
+            t.transactionLocation != null &&
+            Number.isFinite(Number(t.transactionLocation.latitude))
+                ? String(t.transactionLocation.latitude)
+                : "";
+        const lng =
+            t.transactionLocation != null &&
+            Number.isFinite(Number(t.transactionLocation.longitude))
+                ? String(t.transactionLocation.longitude)
+                : "";
         lines.push([
             typeLabel,
             t.title,
@@ -132,6 +150,10 @@ function buildCsvFromTransactions(
             formatDateIso(t.date),
             formatAccountForCsv(t),
             t.tags.join("; "),
+            locationText,
+            linksText,
+            lat,
+            lng,
             t.notes ?? "",
             currencyCode,
             formatAmountCsvPlain(t.amount),
@@ -492,11 +514,11 @@ export function FinancialList({
                                 />
                             </th>
                             <th 
-                                className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.category}px` }}
                                 onClick={() => handleSort('category')}
                             >
-                                <div className="flex items-center justify-center gap-2">
+                                <div className="flex items-center justify-start gap-2">
                                     <span>Category</span>
                                     {getSortIcon('category')}
                                 </div>
@@ -612,7 +634,7 @@ export function FinancialList({
                                 <td className="px-1 py-4 text-center" style={{ width: `${columnWidths.bookmark}px` }} />
                             )}
                             <td className="px-6 py-4 text-left" style={{ width: `${columnWidths.title}px` }} />
-                            <td className="px-6 py-4 text-sm text-gray-800 text-center" style={{ width: `${columnWidths.category}px` }}>
+                            <td className="px-6 py-4 text-sm text-gray-800 text-left" style={{ width: `${columnWidths.category}px` }}>
                                 <span className="font-medium tabular-nums">{tableSummary.uniqueCategoryCount}</span>
                                 <span className="text-gray-500 font-normal"> unique</span>
                             </td>
@@ -778,8 +800,8 @@ function FinancialRow({
                     )}
                 </div>
             </td>
-            <td className="px-6 py-4 text-center align-top" style={{ width: `${columnWidths.category}px` }}>
-                <div className="flex items-center justify-center gap-2">
+            <td className="px-6 py-4 text-left align-top" style={{ width: `${columnWidths.category}px` }}>
+                <div className="flex items-center justify-start gap-2">
                     <div 
                         className="w-3 h-3 rounded-full flex-shrink-0"
                         style={{ backgroundColor: transaction.category.color }}

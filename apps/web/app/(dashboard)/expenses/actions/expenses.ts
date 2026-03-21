@@ -20,7 +20,9 @@ import {
     parseDate, 
     parseAmount, 
     parseTags, 
-    mapRowToObject 
+    mapRowToObject,
+    mergeLocationAndLinksFromRow,
+    parseOptionalMapCoordinates
 } from "../../../utils/csvUtils";
 import { 
     parseCategoriesCSV, 
@@ -751,6 +753,9 @@ async function validateAndTransformRow(
                          rowData.isbookmarked?.toLowerCase() === 'true' || 
                          false;
 
+    const locationEntries = mergeLocationAndLinksFromRow(rowData.location || '', rowData.links || '');
+    const mapCoords = parseOptionalMapCoordinates(rowData);
+
     return {
         title: rowData.title,
         description: rowData.description || '',
@@ -761,6 +766,10 @@ async function validateAndTransformRow(
         categoryId: category.id,
         accountId,
         tags,
+        location: locationEntries,
+        transactionLocation: mapCoords
+            ? { id: -1, latitude: mapCoords.latitude, longitude: mapCoords.longitude }
+            : undefined,
         notes: rowData.notes || '',
         isRecurring: rowData.isrecurring?.toLowerCase() === 'true' || false,
         recurringFrequency: rowData.recurringfrequency || null,
@@ -871,7 +880,6 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
             try {
                 await prisma.$transaction(async (tx) => {
                     for (const validatedRow of batch) {
-                        // Create expense using relational approach to match the include statement
                         const createData: any = {
                             title: validatedRow.data.title,
                             description: validatedRow.data.description,
@@ -885,6 +893,7 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
                                 connect: { id: userId }
                             },
                             tags: validatedRow.data.tags,
+                            location: validatedRow.data.location,
                             notes: validatedRow.data.notes,
                             isRecurring: validatedRow.data.isRecurring || false
                         };
@@ -897,6 +906,18 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
 
                         if (validatedRow.data.recurringFrequency) {
                             createData.recurringFrequency = validatedRow.data.recurringFrequency;
+                        }
+
+                        if (validatedRow.data.transactionLocation) {
+                            const { latitude, longitude } = validatedRow.data.transactionLocation;
+                            const newLoc = await tx.transactionLocation.create({
+                                data: {
+                                    latitude,
+                                    longitude,
+                                    userId
+                                }
+                            });
+                            createData.transactionLocation = { connect: { id: newLoc.id } };
                         }
 
                         const expense = await tx.expense.create({
@@ -1112,7 +1133,6 @@ export async function importCorrectedRow(
                 user?.currency
             );
 
-            // Create expense using relational approach to match the include statement
             const createData: any = {
                 title: expenseData.title,
                 description: expenseData.description,
@@ -1126,6 +1146,7 @@ export async function importCorrectedRow(
                     connect: { id: userId }
                 },
                 tags: expenseData.tags,
+                location: expenseData.location,
                 notes: expenseData.notes,
                 isRecurring: expenseData.isRecurring || false
             };
@@ -1138,6 +1159,14 @@ export async function importCorrectedRow(
 
             if (expenseData.recurringFrequency) {
                 createData.recurringFrequency = expenseData.recurringFrequency;
+            }
+
+            if (expenseData.transactionLocation) {
+                const { latitude, longitude } = expenseData.transactionLocation;
+                const newLoc = await tx.transactionLocation.create({
+                    data: { latitude, longitude, userId }
+                });
+                createData.transactionLocation = { connect: { id: newLoc.id } };
             }
 
             const expense = await tx.expense.create({
