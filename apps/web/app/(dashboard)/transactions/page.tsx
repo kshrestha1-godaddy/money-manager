@@ -10,6 +10,7 @@ import { useCurrency } from "../../providers/CurrencyProvider";
 import { getAllTransactions } from "./actions/transactions";
 import { createTransactionBookmark, deleteTransactionBookmarkByTransaction } from "./actions/transaction-bookmarks";
 import { TransactionPDFReportGenerator } from "../../components/TransactionPDFReportGenerator";
+import { BalanceSheetCsvExport } from "../../components/BalanceSheetCsvExport";
 import { CompactPagination } from "../../components/shared/CompactPagination";
 
 const ITEMS_PER_PAGE = 25;
@@ -164,7 +165,7 @@ export default function TransactionsPage() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900">All Transactions</h1>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 flex-wrap">
                     <TransactionPDFReportGenerator
                         transactions={filteredTransactions}
                         totalIncome={totalIncome}
@@ -177,7 +178,7 @@ export default function TransactionsPage() {
                         startDate={startDate}
                         endDate={endDate}
                     />
-
+                    <BalanceSheetCsvExport transactions={transactions} />
                 </div>
             </div>
             <div className="text-sm text-gray-500">
