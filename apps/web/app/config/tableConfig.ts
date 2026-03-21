@@ -11,40 +11,40 @@ export const TABLE_COLUMN_WIDTHS = {
 
   // Account table column widths
   accounts: {
-    checkbox: 30,
+    checkbox: 48,
     accountDetails: 180,
     bankBranch: 260,
-    accountNumber: 180,
-    openingDate: 140,
-    balance: 160,
-    freeBalance: 160,
-    actions: 280,
+    openingDate: 120,
+    accountNumber: 160,
+    balance: 100,
+    freeBalance: 100,
+    actions: 248,
   },
 
   // Debt table column widths
   debts: {
-    checkbox: 30,
+    checkbox: 48,
     borrowerDetails: 180,
-    amountStatus: 140,
-    interestProgress: 300,
-    dates: 200,
-    remaining: 160,
-    actions: 240,
+    amountStatus: 130,
+    interestProgress: 280,
+    dates: 160,
+    remaining: 100,
+    actions: 248,
   },
 
   // Investment table column widths
   investments: {
-    checkbox: 40,
-    investment: 280,
-    type: 140,
+    checkbox: 48,
+    investment: 260,
+    type: 130,
     bank: 160,
-    quantityInterest: 200,
-    purchasePrincipal: 180,
-    currentValue: 160,
-    totalValue: 140,
-    gainLoss: 160,
-    purchaseDate: 140,
-    actions: 240,
+    quantityInterest: 180,
+    purchasePrincipal: 140,
+    currentValue: 110,
+    totalValue: 100,
+    gainLoss: 110,
+    purchaseDate: 120,
+    actions: 248,
   },
 };
 

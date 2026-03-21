@@ -7,7 +7,6 @@ import { formatCurrency } from "../../../utils/currency";
 import { useCurrency } from "../../../providers/CurrencyProvider";
 import { calculateInterest, calculateRemainingWithInterest } from "../../../utils/interestCalculation";
 import { getDefaultColumnWidths, getMinColumnWidth, type DebtColumnWidths } from "../../../config/tableConfig";
-import { COLORS, getActionButtonClasses, getStatusClasses } from "../../../config/colorConfig";
 
 type SortField = 'borrowerName' | 'amount' | 'dueDate' | 'lentDate' | 'remaining';
 type SortDirection = 'asc' | 'desc';
@@ -206,7 +205,7 @@ export function DebtTable({
                             <tr>
                                 {showBulkActions && (
                                     <th 
-                                        className="px-6 py-3 text-left relative border-r border-gray-200"
+                                        className="px-2 py-3 text-center relative border-r border-gray-200"
                                         style={{ width: `${columnWidths.checkbox}px` }}
                                     >
                                         <input
@@ -229,7 +228,7 @@ export function DebtTable({
                                     style={{ width: `${columnWidths.borrowerDetails}px` }}
                                     onClick={() => handleSort('borrowerName')}
                                 >
-                                    <div className="flex items-center space-x-1">
+                                    <div className="flex items-center justify-start gap-2">
                                         <span>Borrower Details</span>
                                         {getSortIcon('borrowerName')}
                                     </div>
@@ -239,11 +238,11 @@ export function DebtTable({
                                     />
                                 </th>
                                 <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                    className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                     style={{ width: `${columnWidths.amountStatus}px` }}
                                     onClick={() => handleSort('amount')}
                                 >
-                                    <div className="flex items-center space-x-1">
+                                    <div className="flex items-center justify-center gap-2">
                                         <span>Amount & Status</span>
                                         {getSortIcon('amount')}
                                     </div>
@@ -253,7 +252,7 @@ export function DebtTable({
                                     />
                                 </th>
                                 <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200"
+                                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200"
                                     style={{ width: `${columnWidths.interestProgress}px` }}
                                 >
                                     Interest & Progress
@@ -263,11 +262,11 @@ export function DebtTable({
                                     />
                                 </th>
                                 <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                    className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                     style={{ width: `${columnWidths.dates}px` }}
                                     onClick={() => handleSort('dueDate')}
                                 >
-                                    <div className="flex items-center space-x-1">
+                                    <div className="flex items-center justify-center gap-2">
                                         <span>Dates</span>
                                         {getSortIcon('dueDate')}
                                     </div>
@@ -277,11 +276,11 @@ export function DebtTable({
                                     />
                                 </th>
                                 <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                    className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                     style={{ width: `${columnWidths.remaining}px` }}
                                     onClick={() => handleSort('remaining')}
                                 >
-                                    <div className="flex items-center space-x-1">
+                                    <div className="flex items-center justify-center gap-2">
                                         <span>Remaining</span>
                                         {getSortIcon('remaining')}
                                     </div>
@@ -291,7 +290,7 @@ export function DebtTable({
                                     />
                                 </th>
                                 <th 
-                                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                    className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
                                     style={{ width: `${columnWidths.actions}px` }}
                                 >
                                     Actions
@@ -414,16 +413,16 @@ function DebtRow({
     return (
         <tr className={`hover:bg-gray-50 ${isOverdue ? 'bg-red-50' : ''} ${isSelected ? 'bg-blue-50' : ''}`}>
             {showCheckbox && (
-                <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.checkbox}px` }}>
+                <td className="px-2 py-4 text-center whitespace-nowrap" style={{ width: `${columnWidths.checkbox}px` }}>
                     <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={handleSelect}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mx-auto"
                     />
                 </td>
             )}
-            <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.borrowerDetails}px` }}>
+            <td className="px-6 py-4 text-left align-top" style={{ width: `${columnWidths.borrowerDetails}px` }}>
                 <div>
                     <div className="text-sm font-medium text-gray-900 break-words">
                         {debt.borrowerName}
@@ -436,8 +435,8 @@ function DebtRow({
                     )}
                 </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.amountStatus}px` }}>
-                <div>
+            <td className="px-4 py-4 align-top" style={{ width: `${columnWidths.amountStatus}px` }}>
+                <div className="flex flex-col items-center text-center">
                     <div className="text-sm font-medium text-gray-900 break-words">
                         {formatCurrency(debt.amount, currency)}
                     </div>
@@ -456,8 +455,8 @@ function DebtRow({
                     </span>
                 </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.interestProgress}px` }}>
-                <div>
+            <td className="px-4 py-4 align-top text-left" style={{ width: `${columnWidths.interestProgress}px` }}>
+                <div className="w-full min-w-0 flex flex-col text-left">
                     <div className="text-sm text-gray-900">
                         {debt.interestRate}% interest
                         {interestCalc.interestAmount > 0 && (
@@ -482,8 +481,8 @@ function DebtRow({
                     </div>
                 </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.dates}px` }}>
-                <div>
+            <td className="px-4 py-4 align-top" style={{ width: `${columnWidths.dates}px` }}>
+                <div className="flex flex-col items-center text-center">
                     <div className="text-sm text-gray-900 break-words">
                         Lent: {formatDate(debt.lentDate)}
                     </div>
@@ -497,41 +496,45 @@ function DebtRow({
                     )}
                 </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.remaining}px` }}>
-                <div className={`text-sm font-medium break-words ${remainingCalc.remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-center tabular-nums align-top" style={{ width: `${columnWidths.remaining}px` }}>
+                <span className={remainingCalc.remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}>
                     {formatCurrency(remainingCalc.remainingAmount, currency)}
-                </div>
+                </span>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" style={{ width: `${columnWidths.actions}px` }}>
-                <div className="flex justify-end space-x-1">
+            <td className="px-3 py-4 whitespace-nowrap text-center text-sm font-medium align-top" style={{ width: `${columnWidths.actions}px` }}>
+                <div className="flex justify-center flex-nowrap gap-1">
                     {onViewDetails && (
                         <button 
+                            type="button"
                             onClick={handleViewDetails}
-                            className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-800 transition-colors"
+                            className="inline-flex shrink-0 items-center px-2 py-1 rounded-md text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-800 transition-colors"
                         >
                             View
                         </button>
                     )}
                     {onAddRepayment && remainingCalc.remainingAmount > 0 && (
                         <button 
+                            type="button"
                             onClick={handleAddRepayment}
-                            className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-green-600 bg-green-50 hover:bg-green-100 hover:text-green-800 transition-colors"
+                            className="inline-flex shrink-0 items-center px-2 py-1 rounded-md text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 hover:text-green-800 transition-colors"
                         >
                             Repay
                         </button>
                     )}
                     {onEdit && (
                         <button 
+                            type="button"
                             onClick={handleEdit}
-                            className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-800 transition-colors"
+                            className="inline-flex shrink-0 items-center px-2 py-1 rounded-md text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-800 transition-colors"
                         >
                             Edit
                         </button>
                     )}
                     {onDelete && (
                         <button 
+                            type="button"
                             onClick={handleDelete}
-                            className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-800 transition-colors"
+                            className="inline-flex shrink-0 items-center px-2 py-1 rounded-md text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-800 transition-colors"
                         >
                             Delete
                         </button>

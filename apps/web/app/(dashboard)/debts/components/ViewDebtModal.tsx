@@ -292,16 +292,16 @@ export function ViewDebtModal({ debtId, isOpen, onClose, onEdit, onAddRepayment,
                                             <table className="min-w-full table-auto divide-y divide-gray-200">
                                                 <thead className="bg-gray-50">
                                                     <tr>
-                                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '150px' }}>
+                                                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '150px' }}>
                                                             Date
                                                         </th>
-                                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '180px' }}>
+                                                        <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '180px' }}>
                                                             Amount
                                                         </th>
                                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '250px' }}>
                                                             Notes
                                                         </th>
-                                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '120px' }}>
+                                                        <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '120px' }}>
                                                             Actions
                                                         </th>
                                                     </tr>
@@ -318,18 +318,18 @@ export function ViewDebtModal({ debtId, isOpen, onClose, onEdit, onAddRepayment,
                                                                 : 'opacity-100 transform scale-100'
                                                         }`}
                                                     >
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style={{ width: '150px' }}>
+                                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center align-top" style={{ width: '150px' }}>
                                                             <div className="break-words">{repayment.repaymentDate.toLocaleDateString()}</div>
                                                         </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap" style={{ width: '180px' }}>
-                                                            <span className="text-sm font-medium text-green-600 break-words block">
+                                                        <td className="px-3 py-4 whitespace-nowrap text-center align-top tabular-nums" style={{ width: '180px' }}>
+                                                            <span className="text-sm font-medium text-green-600 break-words inline-block">
                                                                 {formatCurrency(repayment.amount, userCurrency)}
                                                             </span>
                                                         </td>
-                                                        <td className="px-6 py-4 text-sm text-gray-500" style={{ minWidth: '250px' }}>
+                                                        <td className="px-6 py-4 text-sm text-gray-500 text-left align-top" style={{ minWidth: '250px' }}>
                                                             <div className="break-words">{repayment.notes || '-'}</div>
                                                         </td>
-                                                        <td className="px-6 py-4 text-sm text-gray-500" style={{ width: '120px' }}>
+                                                        <td className="px-3 py-4 text-sm text-gray-500 text-center align-top" style={{ width: '120px' }}>
                                                             {deletingRepayments.has(repayment.id) ? (
                                                                 <span className="text-gray-500 flex items-center">
                                                                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

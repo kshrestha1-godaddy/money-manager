@@ -5,7 +5,8 @@ import { InvestmentInterface } from "../../../types/investments";
 import { formatCurrency } from "../../../utils/currency";
 import { useCurrency } from "../../../providers/CurrencyProvider";
 import { getDefaultColumnWidths, getMinColumnWidth, type InvestmentColumnWidths } from "../../../config/tableConfig";
-import { COLORS, getActionButtonClasses, getGainLossClasses } from "../../../config/colorConfig";
+import { getActionButtonClasses } from "../../../config/colorConfig";
+import { cn } from "@/lib/utils";
 
 interface InvestmentTableProps {
     investments: InvestmentInterface[];
@@ -184,7 +185,7 @@ export function InvestmentTable({
                     <tr>
                         {showBulkActions && (
                             <th 
-                                className="px-6 py-3 text-left relative border-r border-gray-200"
+                                className="px-2 py-3 text-center relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.checkbox}px` }}
                             >
                                 <input
@@ -207,7 +208,7 @@ export function InvestmentTable({
                             style={{ width: `${columnWidths.investment}px` }}
                             onClick={() => handleSort('name')}
                         >
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-start gap-2">
                                 <span>Investment</span>
                                 {getSortIcon('name')}
                             </div>
@@ -217,11 +218,11 @@ export function InvestmentTable({
                             />
                         </th>
                         <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
+                            className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
                             style={{ width: `${columnWidths.type}px` }}
                             onClick={() => handleSort('type')}
                         >
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-center gap-2">
                                 <span>Type</span>
                                 {getSortIcon('type')}
                             </div>
@@ -235,7 +236,7 @@ export function InvestmentTable({
                             style={{ width: `${columnWidths.bank}px` }}
                             onClick={() => handleSort('bank')}
                         >
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-start gap-2">
                                 <span>Bank</span>
                                 {getSortIcon('bank')}
                             </div>
@@ -245,11 +246,11 @@ export function InvestmentTable({
                             />
                         </th>
                         <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
+                            className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
                             style={{ width: `${columnWidths.quantityInterest}px` }}
                             onClick={() => handleSort('quantity')}
                         >
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-center gap-2">
                                 <span>Quantity/Interest</span>
                                 {getSortIcon('quantity')}
                             </div>
@@ -259,11 +260,11 @@ export function InvestmentTable({
                             />
                         </th>
                         <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
+                            className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
                             style={{ width: `${columnWidths.purchasePrincipal}px` }}
                             onClick={() => handleSort('purchasePrice')}
                         >
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-center gap-2">
                                 <span>Purchase/Principal</span>
                                 {getSortIcon('purchasePrice')}
                             </div>
@@ -273,11 +274,11 @@ export function InvestmentTable({
                             />
                         </th>
                         <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
+                            className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
                             style={{ width: `${columnWidths.currentValue}px` }}
                             onClick={() => handleSort('currentPrice')}
                         >
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-center gap-2">
                                 <span>Current Value</span>
                                 {getSortIcon('currentPrice')}
                             </div>
@@ -287,11 +288,11 @@ export function InvestmentTable({
                             />
                         </th>
                         <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
+                            className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
                             style={{ width: `${columnWidths.totalValue}px` }}
                             onClick={() => handleSort('totalValue')}
                         >
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-center gap-2">
                                 <span>Total Value</span>
                                 {getSortIcon('totalValue')}
                             </div>
@@ -301,11 +302,11 @@ export function InvestmentTable({
                             />
                         </th>
                         <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
+                            className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
                             style={{ width: `${columnWidths.gainLoss}px` }}
                             onClick={() => handleSort('gain')}
                         >
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-center gap-2">
                                 <span>Gain/Loss</span>
                                 {getSortIcon('gain')}
                             </div>
@@ -315,11 +316,11 @@ export function InvestmentTable({
                             />
                         </th>
                         <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
+                            className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
                             style={{ width: `${columnWidths.purchaseDate}px` }}
                             onClick={() => handleSort('purchaseDate')}
                         >
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-center gap-2">
                                 <span>Purchase Date</span>
                                 {getSortIcon('purchaseDate')}
                             </div>
@@ -329,7 +330,7 @@ export function InvestmentTable({
                             />
                         </th>
                         <th 
-                            className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
                             style={{ width: `${columnWidths.actions}px` }}
                         >
                             Actions
@@ -409,16 +410,16 @@ function InvestmentRow({
     return (
         <tr className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
             {showCheckbox && (
-                <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.checkbox}px` }}>
+                <td className="px-2 py-4 text-center whitespace-nowrap" style={{ width: `${columnWidths.checkbox}px` }}>
                     <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={handleSelect}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mx-auto"
                     />
                 </td>
             )}
-            <td className="px-6 py-4" style={{ width: `${columnWidths.investment}px` }}>
+            <td className="px-6 py-4 text-left align-top" style={{ width: `${columnWidths.investment}px` }}>
                 <div>
                     <div className="text-sm font-medium text-gray-900 break-words leading-tight">
                         {investment.name}
@@ -430,8 +431,8 @@ function InvestmentRow({
                     )}
                 </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap" style={{ width: `${columnWidths.type}px` }}>
-                <div className="flex flex-col gap-1 items-start">
+            <td className="px-4 py-4 align-top" style={{ width: `${columnWidths.type}px` }}>
+                <div className="flex flex-col gap-1 items-center text-center">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 w-fit">
                     {formatType(investment.type)}
                 </span>
@@ -442,7 +443,7 @@ function InvestmentRow({
                     )}
                 </div>
             </td>
-            <td className="px-6 py-4" style={{ width: `${columnWidths.bank}px` }}>
+            <td className="px-6 py-4 text-left align-top" style={{ width: `${columnWidths.bank}px` }}>
                 <div className="text-sm text-gray-900 break-words">
                     {investment.account?.bankName || (
                         <span className="text-gray-400 italic">No bank linked</span>
@@ -454,9 +455,9 @@ function InvestmentRow({
                     </div>
                 )}
             </td>
-            <td className="px-6 py-4 text-sm text-gray-900" style={{ width: `${columnWidths.quantityInterest}px` }}>
+            <td className="px-4 py-4 text-sm text-gray-900 text-center align-top" style={{ width: `${columnWidths.quantityInterest}px` }}>
                 {investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' || investment.type === 'EMERGENCY_FUND' || investment.type === 'MARRIAGE' || investment.type === 'VACATION' ? (
-                    <div className="space-y-1">
+                    <div className="flex flex-col items-center space-y-1">
                         {investment.interestRate && (
                             <div className="font-medium">{investment.interestRate}% p.a.</div>
                         )}
@@ -473,10 +474,10 @@ function InvestmentRow({
                         )}
                     </div>
                 ) : (
-                    <div className="font-medium">{investment.quantity}</div>
+                    <div className="font-medium tabular-nums">{investment.quantity}</div>
                 )}
             </td>
-            <td className="px-6 py-4 text-sm text-gray-900" style={{ width: `${columnWidths.purchasePrincipal}px` }}>
+            <td className="px-3 py-4 text-sm text-gray-900 text-center tabular-nums align-top" style={{ width: `${columnWidths.purchasePrincipal}px` }}>
                 <div className="break-words">
                     <div className="font-medium">{formatCurrency(investment.purchasePrice, currency)}</div>
                     {investment.type === 'FIXED_DEPOSIT' && (
@@ -487,7 +488,7 @@ function InvestmentRow({
                     )}
                 </div>
             </td>
-            <td className="px-6 py-4 text-sm text-gray-900" style={{ width: `${columnWidths.currentValue}px` }}>
+            <td className="px-3 py-4 text-sm text-gray-900 text-center tabular-nums align-top" style={{ width: `${columnWidths.currentValue}px` }}>
                 {investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' || investment.type === 'EMERGENCY_FUND' || investment.type === 'MARRIAGE' || investment.type === 'VACATION' ? (
                     <div className="space-y-1">
                         <div className="break-words font-medium">{formatCurrency(investment.currentPrice, currency)}</div>
@@ -497,10 +498,10 @@ function InvestmentRow({
                     <div className="break-words font-medium">{formatCurrency(investment.currentPrice, currency)}</div>
                 )}
             </td>
-            <td className="px-6 py-4 text-sm font-medium text-gray-900" style={{ width: `${columnWidths.totalValue}px` }}>
+            <td className="px-3 py-4 text-sm font-medium text-gray-900 text-center tabular-nums align-top" style={{ width: `${columnWidths.totalValue}px` }}>
                 <div className="break-words">{formatCurrency(totalValue, currency)}</div>
             </td>
-            <td className="px-6 py-4 text-sm" style={{ width: `${columnWidths.gainLoss}px` }}>
+            <td className="px-3 py-4 text-sm text-center tabular-nums align-top" style={{ width: `${columnWidths.gainLoss}px` }}>
                 <div className="space-y-1">
                     <div className={`font-medium break-words ${getGainColor(gain)}`}>
                         {formatCurrency(gain, currency)}
@@ -510,7 +511,7 @@ function InvestmentRow({
                     </div>
                 </div>
             </td>
-            <td className="px-6 py-4 text-sm text-gray-900" style={{ width: `${columnWidths.purchaseDate}px` }}>
+            <td className="px-4 py-4 text-sm text-gray-900 text-center align-top" style={{ width: `${columnWidths.purchaseDate}px` }}>
                 <div className="space-y-1">
                     <div className="break-words font-medium">{new Date(investment.purchaseDate).toLocaleDateString()}</div>
                     {investment.type === 'FIXED_DEPOSIT' && (
@@ -521,23 +522,35 @@ function InvestmentRow({
                     )}
                 </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" style={{ width: `${columnWidths.actions}px` }}>
-                <div className="flex justify-end space-x-1">
+            <td className="px-3 py-4 whitespace-nowrap text-center text-sm font-medium align-top" style={{ width: `${columnWidths.actions}px` }}>
+                <div className="flex justify-center flex-nowrap gap-1">
                     <button 
+                        type="button"
                         onClick={() => onViewDetails(investment)}
-                        className={getActionButtonClasses('view', 'investments')}
+                        className={cn(
+                            getActionButtonClasses('view', 'investments'),
+                            'shrink-0 px-2 py-1 text-xs'
+                        )}
                     >
                         View
                     </button>
                     <button 
+                        type="button"
                         onClick={() => onEdit(investment)}
-                        className={getActionButtonClasses('edit', 'investments')}
+                        className={cn(
+                            getActionButtonClasses('edit', 'investments'),
+                            'shrink-0 px-2 py-1 text-xs'
+                        )}
                     >
                         Edit
                     </button>
                     <button 
+                        type="button"
                         onClick={() => onDelete(investment)}
-                        className={getActionButtonClasses('delete', 'investments')}
+                        className={cn(
+                            getActionButtonClasses('delete', 'investments'),
+                            'shrink-0 px-2 py-1 text-xs'
+                        )}
                     >
                         Delete
                     </button>

@@ -6,7 +6,8 @@ import { formatDate } from "../../../utils/date";
 import { formatCurrency } from "../../../utils/currency";
 import { useCurrency } from "../../../providers/CurrencyProvider";
 import { getDefaultColumnWidths, getMinColumnWidth, type AccountColumnWidths } from "../../../config/tableConfig";
-import { COLORS, getActionButtonClasses } from "../../../config/colorConfig";
+import { getActionButtonClasses } from "../../../config/colorConfig";
+import { cn } from "@/lib/utils";
 
 // Function to mask account number
 const maskAccountNumber = (accountNumber: string) => {
@@ -314,7 +315,7 @@ export function AccountTable({
                         <tr>
                             {showBulkActions && (
                                 <th 
-                                    className="px-6 py-3 text-left relative border-r border-gray-200"
+                                    className="px-2 py-3 text-center relative border-r border-gray-200"
                                     style={{ width: `${columnWidths.checkbox}px` }}
                                 >
                                     <input
@@ -337,7 +338,7 @@ export function AccountTable({
                                 style={{ width: `${columnWidths.accountDetails}px` }}
                                 onClick={() => handleSort('holderName')}
                             >
-                                <div className="flex items-center space-x-1">
+                                <div className="flex items-center justify-start gap-2">
                                     <span>Account Details</span>
                                     {getSortIcon('holderName')}
                                 </div>
@@ -351,7 +352,7 @@ export function AccountTable({
                                 style={{ width: `${columnWidths.bankBranch}px` }}
                                 onClick={() => handleSort('bankName')}
                             >
-                                <div className="flex items-center space-x-1">
+                                <div className="flex items-center justify-start gap-2">
                                     <span>Bank & Branch</span>
                                     {getSortIcon('bankName')}
                                 </div>
@@ -361,25 +362,11 @@ export function AccountTable({
                                 />
                             </th>
                             <th 
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
-                                style={{ width: `${columnWidths.accountNumber}px` }}
-                                onClick={() => handleSort('accountNumber')}
-                            >
-                                <div className="flex items-center space-x-1">
-                                    <span>Account Number</span>
-                                    {getSortIcon('accountNumber')}
-                                </div>
-                                <div 
-                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
-                                    onMouseDown={(e) => handleMouseDown(e, 'accountNumber')}
-                                />
-                            </th>
-                            <th 
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.openingDate}px` }}
                                 onClick={() => handleSort('accountOpeningDate')}
                             >
-                                <div className="flex items-center space-x-1">
+                                <div className="flex items-center justify-center gap-2">
                                     <span>Opening Date</span>
                                     {getSortIcon('accountOpeningDate')}
                                 </div>
@@ -389,11 +376,25 @@ export function AccountTable({
                                 />
                             </th>
                             <th 
-                                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                style={{ width: `${columnWidths.accountNumber}px` }}
+                                onClick={() => handleSort('accountNumber')}
+                            >
+                                <div className="flex items-center justify-center gap-2">
+                                    <span>Account Number</span>
+                                    {getSortIcon('accountNumber')}
+                                </div>
+                                <div 
+                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                    onMouseDown={(e) => handleMouseDown(e, 'accountNumber')}
+                                />
+                            </th>
+                            <th 
+                                className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.balance}px` }}
                                 onClick={() => handleSort('balance')}
                             >
-                                <div className="flex items-center justify-end space-x-1">
+                                <div className="flex items-center justify-center gap-2">
                                     <span>Balance</span>
                                     {getSortIcon('balance')}
                                 </div>
@@ -403,11 +404,11 @@ export function AccountTable({
                                 />
                             </th>
                             <th 
-                                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.freeBalance}px` }}
                                 onClick={() => handleSort('freeBalance')}
                             >
-                                <div className="flex items-center justify-end space-x-1">
+                                <div className="flex items-center justify-center gap-2">
                                     <span>Free Balance</span>
                                     {getSortIcon('freeBalance')}
                                 </div>
@@ -417,7 +418,7 @@ export function AccountTable({
                                 />
                             </th>
                             <th 
-                                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
                                 style={{ width: `${columnWidths.actions}px` }}
                             >
                                 Actions
@@ -527,14 +528,14 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShar
         <tr className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
             {showCheckbox && (
                 <td 
-                    className="px-6 py-4 whitespace-nowrap truncate"
+                    className="px-2 py-4 text-center whitespace-nowrap"
                     style={{ width: `${columnWidths.checkbox}px` }}
                 >
                     <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={handleSelect}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mx-auto"
                     />
                 </td>
             )}
@@ -569,16 +570,23 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShar
                 </div>
             </td>
             <td 
-                className="px-6 py-4 whitespace-nowrap"
+                className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center truncate"
+                style={{ width: `${columnWidths.openingDate}px` }}
+            >
+                {formatDate(account.accountOpeningDate)}
+            </td>
+            <td 
+                className="px-4 py-4 whitespace-nowrap"
                 style={{ width: `${columnWidths.accountNumber}px` }}
             >
-                <div className="flex items-center space-between">
-                    <div className="text-sm text-gray-900 font-mono truncate">
+                <div className="flex items-center justify-center gap-2">
+                    <div className="text-sm text-gray-900 font-mono truncate min-w-0">
                         {isAccountNumberVisible ? account.accountNumber : maskAccountNumber(account.accountNumber)}
                     </div>
                     <button
+                        type="button"
                         onClick={() => toggleAccountNumberVisibility(account.id)}
-                        className="ml-2 p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all duration-200"
+                        className="shrink-0 p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all duration-200"
                         title={isAccountNumberVisible ? 'Hide account number (auto-hides in 5s)' : 'Show account number'}
                     >
                         {isAccountNumberVisible ? (
@@ -595,13 +603,7 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShar
                 </div>
             </td>
             <td 
-                className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 truncate"
-                style={{ width: `${columnWidths.openingDate}px` }}
-            >
-                {formatDate(account.accountOpeningDate)}
-            </td>
-            <td 
-                className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right truncate"
+                className="px-3 py-4 whitespace-nowrap text-sm font-medium text-center tabular-nums truncate"
                 style={{ width: `${columnWidths.balance}px` }}
             >
                 {account.balance !== undefined ? (
@@ -613,7 +615,7 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShar
                 )}
             </td>
             <td 
-                className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right truncate"
+                className="px-3 py-4 whitespace-nowrap text-sm font-medium text-center tabular-nums truncate"
                 style={{ width: `${columnWidths.freeBalance}px` }}
             >
                 {account.balance !== undefined ? (
@@ -625,38 +627,54 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShar
                 )}
             </td>
             <td 
-                className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"
+                className="px-3 py-4 whitespace-nowrap text-center text-sm font-medium"
                 style={{ width: `${columnWidths.actions}px` }}
             >
-                <div className="flex justify-end space-x-2">
+                <div className="flex justify-center flex-nowrap gap-1">
                     {onShare && (
                         <button 
+                            type="button"
                             onClick={handleShare}
-                            className={getActionButtonClasses('share', 'accounts')}
+                            className={cn(
+                                getActionButtonClasses('share', 'accounts'),
+                                'shrink-0 px-2 py-1 text-xs'
+                            )}
                         >
                             Share
                         </button>
                     )}
                     {onViewDetails && (
                         <button 
+                            type="button"
                             onClick={handleViewDetails}
-                            className={getActionButtonClasses('view', 'accounts')}
+                            className={cn(
+                                getActionButtonClasses('view', 'accounts'),
+                                'shrink-0 px-2 py-1 text-xs'
+                            )}
                         >
                             View
                         </button>
                     )}
                     {onEdit && (
                         <button 
+                            type="button"
                             onClick={handleEdit}
-                            className={getActionButtonClasses('edit', 'accounts')}
+                            className={cn(
+                                getActionButtonClasses('edit', 'accounts'),
+                                'shrink-0 px-2 py-1 text-xs'
+                            )}
                         >
                             Edit
                         </button>
                     )}
                     {onDelete && (
                         <button 
+                            type="button"
                             onClick={handleDelete}
-                            className={getActionButtonClasses('delete', 'accounts')}
+                            className={cn(
+                                getActionButtonClasses('delete', 'accounts'),
+                                'shrink-0 px-2 py-1 text-xs'
+                            )}
                         >
                             Delete
                         </button>
