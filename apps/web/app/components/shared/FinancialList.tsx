@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
-import { Bookmark, BookmarkCheck } from "lucide-react";
+import { Bookmark, Download } from "lucide-react";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { formatDate } from "../../utils/date";
 import { TransactionType } from "../../utils/formUtils";
@@ -64,6 +64,80 @@ function formatDateNumericOnly(date: Date): string {
         day: 'numeric',
         year: 'numeric'
     });
+}
+
+function formatDateIso(date: Date | string): string {
+    const d = date instanceof Date ? date : new Date(date);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+}
+
+function escapeCsvField(value: string | number | undefined | null): string {
+    if (value === undefined || value === null) return "";
+    const s = String(value);
+    if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+}
+
+/** Plain decimal for CSV (no locale grouping) so spreadsheets parse amounts reliably */
+function formatAmountCsvPlain(n: number): string {
+    return (Math.round(n * 100) / 100).toFixed(2);
+}
+
+function formatAccountForCsv(transaction: FinancialTransaction): string {
+    if (!transaction.account) return "Cash";
+    return `${transaction.account.bankName} | ${transaction.account.holderName} (${transaction.account.accountType})`;
+}
+
+function buildCsvFromTransactions(
+    rows: FinancialTransaction[],
+    displayCurrency: string,
+    transactionType: TransactionType
+): string {
+    const typeLabel = transactionType === "EXPENSE" ? "Expense" : "Income";
+    const headers = [
+        "Type",
+        "Title",
+        "Description",
+        "Category",
+        "Account",
+        "Date",
+        "Tags",
+        "Notes",
+        "Original currency",
+        "Amount (original)",
+        `Amount (${displayCurrency.toUpperCase()})`,
+        "Recurring",
+        "Bookmarked",
+    ];
+    const lines: string[][] = [headers];
+    rows.forEach((t) => {
+        const displayAmount = convertForDisplaySync(
+            t.amount,
+            t.currency,
+            displayCurrency
+        );
+        lines.push([
+            typeLabel,
+            t.title,
+            t.description ?? "",
+            t.category.name,
+            formatAccountForCsv(t),
+            formatDateIso(t.date),
+            t.tags.join("; "),
+            t.notes ?? "",
+            t.currency.trim(),
+            formatAmountCsvPlain(t.amount),
+            formatAmountCsvPlain(displayAmount),
+            t.isRecurring ? "Yes" : "No",
+            t.isBookmarked ? "Yes" : "No",
+        ]);
+    });
+    return lines
+        .map((line) => line.map((cell) => escapeCsvField(cell)).join(","))
+        .join("\r\n");
 }
 
 export function FinancialList({ 
@@ -236,6 +310,26 @@ export function FinancialList({
         });
     }, [transactions, sortField, sortDirection, selectedCurrency]);
 
+    const handleDownloadCsv = useCallback(() => {
+        const csv = buildCsvFromTransactions(
+            sortedTransactions,
+            selectedCurrency,
+            transactionType
+        );
+        const blob = new Blob(["\uFEFF", csv], {
+            type: "text/csv;charset=utf-8",
+        });
+        const link = document.createElement("a");
+        const prefix =
+            transactionType === "EXPENSE" ? "expenses" : "incomes";
+        link.download = `${prefix}-filtered-${new Date().toISOString().split("T")[0]}.csv`;
+        link.href = URL.createObjectURL(blob);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+    }, [sortedTransactions, selectedCurrency, transactionType]);
+
     // Paginated transactions
     const paginatedTransactions = useMemo(() => {
         const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -311,22 +405,32 @@ export function FinancialList({
                                 </button>
                             </div>
                         )}
-                        <div className="flex items-center space-x-2">
-                            <label htmlFor={`${transactionType.toLowerCase()}-display-currency`} className="text-sm text-gray-600">
-                                Currency
-                            </label>
-                            <select
-                                id={`${transactionType.toLowerCase()}-display-currency`}
-                                value={selectedCurrency}
-                                onChange={(event) => setSelectedCurrency(event.target.value)}
-                                className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex items-center space-x-2">
+                                <label htmlFor={`${transactionType.toLowerCase()}-display-currency`} className="text-sm text-gray-600">
+                                    Currency
+                                </label>
+                                <select
+                                    id={`${transactionType.toLowerCase()}-display-currency`}
+                                    value={selectedCurrency}
+                                    onChange={(event) => setSelectedCurrency(event.target.value)}
+                                    className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                >
+                                    {SUPPORTED_CURRENCIES.map((currencyOption) => (
+                                        <option key={currencyOption} value={currencyOption}>
+                                            {currencyOption}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleDownloadCsv}
+                                className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                             >
-                                {SUPPORTED_CURRENCIES.map((currencyOption) => (
-                                    <option key={currencyOption} value={currencyOption}>
-                                        {currencyOption}
-                                    </option>
-                                ))}
-                            </select>
+                                <Download className="h-4 w-4 shrink-0" aria-hidden />
+                                Download CSV
+                            </button>
                         </div>
                         {/* Pagination */}
                         <CompactPagination

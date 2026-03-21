@@ -9,6 +9,22 @@ interface ConversionRates {
 
 export const SUPPORTED_CURRENCIES = ['USD', 'INR', 'NPR'] as const;
 
+/**
+ * Normalizes currency codes from DB/UI (trim whitespace, lowercase).
+ * Prevents failed rate lookups when codes are stored as "INR " etc., which
+ * would otherwise fall back to returning the unconverted amount.
+ */
+export function normalizeCurrencyCode(code: string | undefined | null): string {
+  if (code == null || typeof code !== "string") return "";
+  const t = code.trim().toLowerCase();
+  if (!t) return "";
+  const aliases: Record<string, string> = {
+    rs: "inr",
+    nrs: "npr",
+  };
+  return aliases[t] ?? t;
+}
+
 // Static conversion rates based on:
 // 1 INR = 1.6 NPR
 // 1 USD = 140 NPR
@@ -35,15 +51,25 @@ export function convertCurrencySync(
   sourceCurrency: string,
   destinationCurrency: string
 ): number {
-  if (sourceCurrency.toLowerCase() === destinationCurrency.toLowerCase()) return amount;
+  const source = normalizeCurrencyCode(sourceCurrency);
+  const destination = normalizeCurrencyCode(destinationCurrency);
 
-  const source = sourceCurrency.toLowerCase();
-  const destination = destinationCurrency.toLowerCase();
+  if (!source || !destination) {
+    console.warn(
+      `Sync conversion skipped: invalid currency (source=${String(sourceCurrency)}, dest=${String(destinationCurrency)})`
+    );
+    return amount;
+  }
+
+  if (source === destination) return amount;
+
   const rates = STATIC_RATES[source];
   const rate = rates?.[destination];
 
   if (rate === undefined) {
-    console.warn(`Sync conversion not available for ${sourceCurrency.toUpperCase()} to ${destinationCurrency.toUpperCase()}, supported currencies: ${SUPPORTED_CURRENCIES.join(', ')}`);
+    console.warn(
+      `Sync conversion not available for ${source.toUpperCase()} to ${destination.toUpperCase()}, supported currencies: ${SUPPORTED_CURRENCIES.join(", ")}`
+    );
     return amount;
   }
 
@@ -56,7 +82,7 @@ export function convertCurrencySync(
  * @returns Promise<ConversionRates> - Object containing conversion rates
  */
 async function fetchConversionRates(sourceCurrency: string): Promise<ConversionRates> {
-  const source = sourceCurrency.toLowerCase();
+  const source = normalizeCurrencyCode(sourceCurrency);
   
   // Check if we have rates for this currency
   if (!STATIC_RATES[source]) {
@@ -87,15 +113,18 @@ export async function convertCurrency(
     throw new Error('Source and destination currencies are required');
   }
   
-  // Normalize currency codes to lowercase
-  const source = sourceCurrency.toLowerCase();
-  const destination = destinationCurrency.toLowerCase();
-  
+  const source = normalizeCurrencyCode(sourceCurrency);
+  const destination = normalizeCurrencyCode(destinationCurrency);
+
+  if (!source || !destination) {
+    throw new Error("Source and destination currencies are required");
+  }
+
   // If same currency, return the original amount
   if (source === destination) {
     return amount;
   }
-  
+
   try {
     // Fetch conversion rates from source currency
     const rates = await fetchConversionRates(source);
