@@ -112,8 +112,8 @@ export default function ExpensesPageClient() {
     handleExportToCSV,
     searchTerm,
     setSearchTerm,
-    selectedCategory,
-    setSelectedCategory,
+    selectedCategories,
+    setSelectedCategories,
     selectedBank,
     setSelectedBank,
     startDate,
@@ -192,18 +192,23 @@ export default function ExpensesPageClient() {
     // Handle date filter URL parameters
     const urlStartDate = searchParams.get('startDate');
     const urlEndDate = searchParams.get('endDate');
+    const urlCategories = searchParams.get('categories');
     const urlCategory = searchParams.get('category');
-    
+
     if (urlStartDate) {
       setStartDate(urlStartDate);
     }
     if (urlEndDate) {
       setEndDate(urlEndDate);
     }
-    if (urlCategory) {
-      setSelectedCategory(urlCategory);
+    if (urlCategories) {
+      setSelectedCategories(
+        urlCategories.split(',').map((s) => s.trim()).filter(Boolean)
+      );
+    } else if (urlCategory) {
+      setSelectedCategories([urlCategory]);
     }
-  }, [searchParams, setIsAddModalOpen, setStartDate, setEndDate, setSelectedCategory]);
+  }, [searchParams, setIsAddModalOpen, setStartDate, setEndDate, setSelectedCategories]);
 
   // Use timezone-aware date calculations to match notification system
   const now = new Date();
@@ -373,8 +378,8 @@ export default function ExpensesPageClient() {
       <FinancialFilters
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
+        selectedCategories={selectedCategories}
+        onCategoriesChange={setSelectedCategories}
         selectedBank={selectedBank}
         onBankChange={setSelectedBank}
         startDate={startDate}

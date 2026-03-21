@@ -44,7 +44,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
 
   // Filter states
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedBank, setSelectedBank] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [startDate, setStartDate] = useState<string>("");
@@ -227,8 +227,15 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
 
   // Filter logic (memoized for performance)
   const hasActiveFilters = useMemo(() => {
-    return !!(searchTerm || selectedCategory || selectedBank || startDate || endDate || showBookmarkedOnly);
-  }, [searchTerm, selectedCategory, selectedBank, startDate, endDate, showBookmarkedOnly]);
+    return !!(
+      searchTerm ||
+      selectedCategories.length > 0 ||
+      selectedBank ||
+      startDate ||
+      endDate ||
+      showBookmarkedOnly
+    );
+  }, [searchTerm, selectedCategories, selectedBank, startDate, endDate, showBookmarkedOnly]);
   
   const filteredItems = useMemo(() => {
     return items.filter(item => {
@@ -240,8 +247,10 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
         item.category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (item.tags && item.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())));
                           
-      // Category filtering
-      const matchesCategory = !selectedCategory || item.category.name === selectedCategory;
+      // Category filtering (empty = all categories)
+      const matchesCategory =
+        selectedCategories.length === 0 ||
+        selectedCategories.includes(item.category.name);
       
       // Bank filtering
       const matchesBank = !selectedBank || (item.account && item.account.bankName === selectedBank);
@@ -272,7 +281,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
 
       return matchesSearch && matchesCategory && matchesBank && matchesDateRange && matchesBookmark;
     });
-  }, [items, searchTerm, selectedCategory, selectedBank, startDate, endDate, showBookmarkedOnly]);
+  }, [items, searchTerm, selectedCategories, selectedBank, startDate, endDate, showBookmarkedOnly]);
 
   // Memoized calculations with currency conversion
   const totalAmount = useMemo(() => 
@@ -394,7 +403,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
 
   const clearFilters = useCallback(() => {
     setSearchTerm("");
-    setSelectedCategory("");
+    setSelectedCategories([]);
     setSelectedBank("");
     setStartDate("");
     setEndDate("");
@@ -429,8 +438,8 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
 
     // Filter states
     selectedItems,
-    selectedCategory,
-    setSelectedCategory,
+    selectedCategories,
+    setSelectedCategories,
     selectedBank,
     setSelectedBank,
     searchTerm,
