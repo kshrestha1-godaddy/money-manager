@@ -102,8 +102,8 @@ function buildCsvFromTransactions(
         "Title",
         "Description",
         "Category",
-        "Account",
         "Date",
+        "Account",
         "Tags",
         "Notes",
         "Original currency",
@@ -124,8 +124,8 @@ function buildCsvFromTransactions(
             t.title,
             t.description ?? "",
             t.category.name,
-            formatAccountForCsv(t),
             formatDateIso(t.date),
+            formatAccountForCsv(t),
             t.tags.join("; "),
             t.notes ?? "",
             t.currency.trim(),
@@ -165,14 +165,14 @@ export function FinancialList({
     const [columnWidths, setColumnWidths] = useState({
         checkbox: 20,
         bookmark: 20,
-        title: 270,
+        date: 120,
+        title: 260,
         category: 130,
-        account: 192,
-        date: 130,
+        account: 180,
         tags: 90,
         notes: 190,
         amount: 100,
-        actions: 70
+        actions: 52
     });
     
     const tableRef = useRef<HTMLTableElement>(null);
@@ -407,9 +407,6 @@ export function FinancialList({
                         )}
                         <div className="flex flex-wrap items-center gap-3">
                             <div className="flex items-center space-x-2">
-                                <label htmlFor={`${transactionType.toLowerCase()}-display-currency`} className="text-sm text-gray-600">
-                                    Currency
-                                </label>
                                 <select
                                     id={`${transactionType.toLowerCase()}-display-currency`}
                                     value={selectedCurrency}
@@ -504,6 +501,20 @@ export function FinancialList({
                                 />
                             </th>
                             <th 
+                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
+                                style={{ width: `${columnWidths.date}px` }}
+                                onClick={() => handleSort('date')}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span>Date</span>
+                                    {getSortIcon('date')}
+                                </div>
+                                <div 
+                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                    onMouseDown={(e) => handleMouseDown(e, 'date')}
+                                />
+                            </th>
+                            <th 
                                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.account}px` }}
                                 onClick={() => handleSort('account')}
@@ -515,20 +526,6 @@ export function FinancialList({
                                 <div 
                                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
                                     onMouseDown={(e) => handleMouseDown(e, 'account')}
-                                />
-                            </th>
-                            <th 
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
-                                style={{ width: `${columnWidths.date}px` }}
-                                onClick={() => handleSort('date')}
-                            >
-                                <div className="flex items-center justify-between">
-                                    <span>Date</span>
-                                    {getSortIcon('date')}
-                                </div>
-                                <div 
-                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
-                                    onMouseDown={(e) => handleMouseDown(e, 'date')}
                                 />
                             </th>
                             <th 
@@ -566,7 +563,7 @@ export function FinancialList({
                                 />
                             </th>
                             <th 
-                                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
                                 style={{ width: `${columnWidths.actions}px` }}
                             >
                                 Actions
@@ -614,16 +611,16 @@ export function FinancialList({
                                 <span className="font-medium tabular-nums">{tableSummary.uniqueCategoryCount}</span>
                                 <span className="text-gray-500 font-normal"> unique</span>
                             </td>
-                            <td className="px-6 py-4" style={{ width: `${columnWidths.account}px` }} />
-                            <td className="px-6 py-4 text-sm text-gray-800" style={{ width: `${columnWidths.date}px` }}>
+                            <td className="px-4 py-4 text-sm text-gray-800" style={{ width: `${columnWidths.date}px` }}>
                                 <span className="whitespace-normal break-words">{tableSummary.dateRangeText}</span>
                             </td>
+                            <td className="px-6 py-4" style={{ width: `${columnWidths.account}px` }} />
                             <td className="px-6 py-4" style={{ width: `${columnWidths.tags}px` }} />
                             <td className="px-6 py-4" style={{ width: `${columnWidths.notes}px` }} />
                             <td className={`px-6 py-4 text-sm font-semibold text-right tabular-nums ${amountColorClass}`} style={{ width: `${columnWidths.amount}px` }}>
                                 {tableSummary.totalAmount}
                             </td>
-                            <td className="px-6 py-4" style={{ width: `${columnWidths.actions}px` }} />
+                            <td className="px-2 py-4" style={{ width: `${columnWidths.actions}px` }} />
                         </tr>
                         <tr className="bg-transparent">
                             <td colSpan={summaryFooterColSpan} className="p-0 border-0">
@@ -785,6 +782,9 @@ function FinancialRow({
                     <span className="text-sm text-gray-900 break-words">{transaction.category.name}</span>
                 </div>
             </td>
+            <td className="px-4 py-4 text-sm text-gray-900 whitespace-nowrap" style={{ width: `${columnWidths.date}px` }}>
+                {formatDate(transaction.date)}
+            </td>
             <td className="px-6 py-4 text-sm text-gray-900" style={{ width: `${columnWidths.account}px` }}>
                 {transaction.account ? (
                     <div>
@@ -798,9 +798,6 @@ function FinancialRow({
                         Cash
                     </span>
                 )}
-            </td>
-            <td className="px-6 py-4 text-sm text-gray-900" style={{ width: `${columnWidths.date}px` }}>
-                {formatDate(transaction.date)}
             </td>
             <td className="px-6 py-4" style={{ width: `${columnWidths.tags}px` }}>
                 <div className="flex flex-wrap gap-1">
