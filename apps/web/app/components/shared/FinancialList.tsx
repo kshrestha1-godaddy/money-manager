@@ -168,7 +168,7 @@ export function FinancialList({
     
     // Column resizing state
     const [columnWidths, setColumnWidths] = useState({
-        checkbox: 20,
+        checkbox: 48,
         bookmark: 20,
         date: 120,
         title: 260,
@@ -176,8 +176,8 @@ export function FinancialList({
         account: 180,
         tags: 90,
         notes: 190,
-        amount: 100,
-        actions: 52
+        amount: 86,
+        actions: 200
     });
     
     const tableRef = useRef<HTMLTableElement>(null);
@@ -451,7 +451,7 @@ export function FinancialList({
                         <tr>
                             {showBulkActions && (
                                 <th 
-                                    className="px-6 py-4 text-left relative border-r border-gray-200"
+                                    className="px-2 py-3 text-center relative border-r border-gray-200"
                                     style={{ width: `${columnWidths.checkbox}px` }}
                                 >
                                     <input
@@ -482,7 +482,7 @@ export function FinancialList({
                                 style={{ width: `${columnWidths.title}px` }}
                                 onClick={() => handleSort('title')}
                             >
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-start gap-2">
                                     <span>{transactionType === 'EXPENSE' ? 'Expense' : 'Income'}</span>
                                     {getSortIcon('title')}
                                 </div>
@@ -492,11 +492,11 @@ export function FinancialList({
                                 />
                             </th>
                             <th 
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
+                                className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.category}px` }}
                                 onClick={() => handleSort('category')}
                             >
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-center gap-2">
                                     <span>Category</span>
                                     {getSortIcon('category')}
                                 </div>
@@ -506,11 +506,11 @@ export function FinancialList({
                                 />
                             </th>
                             <th 
-                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
+                                className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.date}px` }}
                                 onClick={() => handleSort('date')}
                             >
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-center gap-2">
                                     <span>Date</span>
                                     {getSortIcon('date')}
                                 </div>
@@ -524,7 +524,7 @@ export function FinancialList({
                                 style={{ width: `${columnWidths.account}px` }}
                                 onClick={() => handleSort('account')}
                             >
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-start gap-2">
                                     <span>Account</span>
                                     {getSortIcon('account')}
                                 </div>
@@ -534,7 +534,7 @@ export function FinancialList({
                                 />
                             </th>
                             <th 
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200"
+                                className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.tags}px` }}
                             >
                                 Tags
@@ -544,7 +544,7 @@ export function FinancialList({
                                 />
                             </th>
                             <th 
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200"
+                                className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.notes}px` }}
                             >
                                 Notes
@@ -554,11 +554,11 @@ export function FinancialList({
                                 />
                             </th>
                             <th 
-                                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
+                                className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.amount}px` }}
                                 onClick={() => handleSort('amount')}
                             >
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-center gap-2">
                                     <span>{amountHeaderLabel}</span>
                                     {getSortIcon('amount')}
                                 </div>
@@ -568,7 +568,7 @@ export function FinancialList({
                                 />
                             </th>
                             <th 
-                                className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
                                 style={{ width: `${columnWidths.actions}px` }}
                             >
                                 Actions
@@ -606,26 +606,26 @@ export function FinancialList({
                         </tr>
                         <tr className="bg-transparent">
                             {showBulkActions && (
-                                <td className="px-6 py-4" style={{ width: `${columnWidths.checkbox}px` }} />
+                                <td className="px-2 py-4 text-center" style={{ width: `${columnWidths.checkbox}px` }} />
                             )}
                             {onBookmark && (
-                                <td className="px-1 py-4" style={{ width: `${columnWidths.bookmark}px` }} />
+                                <td className="px-1 py-4 text-center" style={{ width: `${columnWidths.bookmark}px` }} />
                             )}
-                            <td className="px-6 py-4" style={{ width: `${columnWidths.title}px` }} />
-                            <td className="px-6 py-4 text-sm text-gray-800" style={{ width: `${columnWidths.category}px` }}>
+                            <td className="px-6 py-4 text-left" style={{ width: `${columnWidths.title}px` }} />
+                            <td className="px-6 py-4 text-sm text-gray-800 text-center" style={{ width: `${columnWidths.category}px` }}>
                                 <span className="font-medium tabular-nums">{tableSummary.uniqueCategoryCount}</span>
                                 <span className="text-gray-500 font-normal"> unique</span>
                             </td>
-                            <td className="px-4 py-4 text-sm text-gray-800" style={{ width: `${columnWidths.date}px` }}>
+                            <td className="px-4 py-4 text-sm text-gray-800 text-center" style={{ width: `${columnWidths.date}px` }}>
                                 <span className="whitespace-normal break-words">{tableSummary.dateRangeText}</span>
                             </td>
-                            <td className="px-6 py-4" style={{ width: `${columnWidths.account}px` }} />
-                            <td className="px-6 py-4" style={{ width: `${columnWidths.tags}px` }} />
-                            <td className="px-6 py-4" style={{ width: `${columnWidths.notes}px` }} />
-                            <td className={`px-6 py-4 text-sm font-semibold text-right tabular-nums ${amountColorClass}`} style={{ width: `${columnWidths.amount}px` }}>
+                            <td className="px-6 py-4 text-left" style={{ width: `${columnWidths.account}px` }} />
+                            <td className="px-6 py-4 text-center" style={{ width: `${columnWidths.tags}px` }} />
+                            <td className="px-6 py-4 text-center" style={{ width: `${columnWidths.notes}px` }} />
+                            <td className={`px-3 py-4 text-sm font-semibold text-center tabular-nums ${amountColorClass}`} style={{ width: `${columnWidths.amount}px` }}>
                                 {tableSummary.totalAmount}
                             </td>
-                            <td className="px-2 py-4" style={{ width: `${columnWidths.actions}px` }} />
+                            <td className="px-3 py-4 text-center" style={{ width: `${columnWidths.actions}px` }} />
                         </tr>
                         <tr className="bg-transparent">
                             <td colSpan={summaryFooterColSpan} className="p-0 border-0">
@@ -731,12 +731,12 @@ function FinancialRow({
     return (
         <tr className={`hover:bg-[#ece3f4] hover:shadow-sm transition-colors duration-150 ${getRowBackgroundClass()}`}>
             {showCheckbox && (
-                <td className="px-6 py-4" style={{ width: `${columnWidths.checkbox}px` }}>
+                <td className="px-2 py-4 text-center" style={{ width: `${columnWidths.checkbox}px` }}>
                     <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={handleSelect}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mx-auto"
                     />
                 </td>
             )}
@@ -759,7 +759,7 @@ function FinancialRow({
                     </button>
                 </td>
             )}
-            <td className="px-6 py-4" style={{ width: `${columnWidths.title}px` }}>
+            <td className="px-6 py-4 text-left align-top" style={{ width: `${columnWidths.title}px` }}>
                 <div>
                     <div className="text-sm font-medium text-gray-900 break-words">
                         {transaction.title}
@@ -778,19 +778,19 @@ function FinancialRow({
                     )}
                 </div>
             </td>
-            <td className="px-6 py-4" style={{ width: `${columnWidths.category}px` }}>
-                <div className="flex items-center">
+            <td className="px-6 py-4 text-center align-top" style={{ width: `${columnWidths.category}px` }}>
+                <div className="flex items-center justify-center gap-2">
                     <div 
-                        className="w-3 h-3 rounded-full mr-2 flex-shrink-0"
+                        className="w-3 h-3 rounded-full flex-shrink-0"
                         style={{ backgroundColor: transaction.category.color }}
                     ></div>
                     <span className="text-sm text-gray-900 break-words">{transaction.category.name}</span>
                 </div>
             </td>
-            <td className="px-4 py-4 text-sm text-gray-900 whitespace-nowrap" style={{ width: `${columnWidths.date}px` }}>
+            <td className="px-4 py-4 text-sm text-gray-900 whitespace-nowrap text-center align-top" style={{ width: `${columnWidths.date}px` }}>
                 {formatDate(transaction.date)}
             </td>
-            <td className="px-6 py-4 text-sm text-gray-900" style={{ width: `${columnWidths.account}px` }}>
+            <td className="px-6 py-4 text-sm text-gray-900 text-left align-top" style={{ width: `${columnWidths.account}px` }}>
                 {transaction.account ? (
                     <div>
                         <div className="font-medium break-words">{transaction.account.bankName}</div>
@@ -804,8 +804,8 @@ function FinancialRow({
                     </span>
                 )}
             </td>
-            <td className="px-6 py-4" style={{ width: `${columnWidths.tags}px` }}>
-                <div className="flex flex-wrap gap-1">
+            <td className="px-6 py-4 text-center align-top" style={{ width: `${columnWidths.tags}px` }}>
+                <div className="flex flex-wrap gap-1 justify-center">
                     {transaction.tags.map((tag, index) => (
                         <span
                             key={index}
@@ -816,37 +816,40 @@ function FinancialRow({
                     ))}
                 </div>
             </td>
-            <td className="px-6 py-4" style={{ width: `${columnWidths.notes}px` }}>
+            <td className="px-6 py-4 text-center align-top" style={{ width: `${columnWidths.notes}px` }}>
                 {transaction.notes ? (
-                    <div className="text-sm text-gray-600 break-words">
+                    <div className="text-sm text-gray-600 break-words text-center">
                         {transaction.notes}
                     </div>
                 ) : (
                     <span className="text-xs text-gray-400">No notes</span>
                 )}
             </td>
-            <td className={`px-6 py-4 text-sm font-medium text-right tabular-nums ${amountColorClass}`} style={{ width: `${columnWidths.amount}px` }}>
+            <td className={`px-3 py-4 text-sm font-medium text-center tabular-nums align-top ${amountColorClass}`} style={{ width: `${columnWidths.amount}px` }}>
                 {AMOUNT_VALUE_FORMATTER.format(convertForDisplaySync(transaction.amount, transaction.currency, currency || 'USD'))}
             </td>
-            <td className="px-6 py-4 text-right text-sm font-medium" style={{ width: `${columnWidths.actions}px` }}>
-                <div className="flex justify-end space-x-2">
+            <td className="px-3 py-4 text-center text-sm font-medium align-top" style={{ width: `${columnWidths.actions}px` }}>
+                <div className="flex justify-center flex-nowrap gap-1">
                     {onView && (
                         <button 
+                            type="button"
                             onClick={handleView}
-                            className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-800 transition-colors"
+                            className="inline-flex shrink-0 items-center px-2 py-1 rounded-md text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-800 transition-colors"
                         >
                             View
                         </button>
                     )}
                     <button 
+                        type="button"
                         onClick={handleEdit}
-                        className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-800 transition-colors"
+                        className="inline-flex shrink-0 items-center px-2 py-1 rounded-md text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-800 transition-colors"
                     >
                         Edit
                     </button>
                     <button 
+                        type="button"
                         onClick={handleDelete}
-                        className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-800 transition-colors"
+                        className="inline-flex shrink-0 items-center px-2 py-1 rounded-md text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-800 transition-colors"
                     >
                         Delete
                     </button>
