@@ -23,15 +23,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    console.log("Starting cron job: check-inactive-users-email and record net worth snapshot");
+    console.log(
+      "Starting cron job: inactive-user emails, net worth snapshots, weekly data export (if scheduled day)"
+    );
 
     const inactiveUsersResult = await processInactiveUsersForEmailNotifications();
     const networthResult = await recordNetworthSnapshotForAllUsers("AUTOMATIC", new Date());
-
-    console.log("Cron job completed:", {
-      inactiveUsersResult,
-      networthResult
-    });
 
     const inactiveUsersSummary = {
       processedUsers: inactiveUsersResult.processedUsers,
@@ -77,6 +74,12 @@ export async function GET(request: NextRequest) {
     const weeklyHadErrors =
       weeklyDataExport.ran &&
       (weeklyDataExport.errors?.length ?? 0) > 0;
+
+    console.log("Cron job completed:", {
+      inactiveUsers: inactiveUsersSummary,
+      networthSnapshots: networthSummary,
+      weeklyDataExport,
+    });
 
     return NextResponse.json({
       success: !hasInactiveUserErrors && !hasNetworthErrors && !weeklyHadErrors,
