@@ -9,11 +9,18 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+export interface EmailAttachment {
+  filename: string;
+  content: string | Buffer;
+  contentType?: string;
+}
+
 export interface EmailOptions {
   to: string;
   subject: string;
   text?: string;
   html?: string;
+  attachments?: EmailAttachment[];
 }
 
 export async function sendEmail(options: EmailOptions) {
@@ -24,6 +31,11 @@ export async function sendEmail(options: EmailOptions) {
       subject: options.subject,
       text: options.text,
       html: options.html,
+      attachments: options.attachments?.map((a) => ({
+        filename: a.filename,
+        content: a.content,
+        contentType: a.contentType ?? "application/octet-stream",
+      })),
     });
 
     console.log("Message sent: %s", info.messageId);
@@ -725,4 +737,59 @@ export async function sendInactivityReminderEmail(email: string, name?: string, 
     text,
     html
   });
-} 
+}
+
+export interface WeeklyDataExportEmailParams {
+  to: string;
+  userName?: string;
+  attachmentCount: number;
+  attachments: { filename: string; content: string }[];
+}
+
+/** Full “export all” CSV set as attachments (same as dashboard export). */
+export async function sendWeeklyDataExportEmail(params: WeeklyDataExportEmailParams) {
+  const firstName = params.userName?.split(" ")[0] || "there";
+  const dateLabel = new Date().toISOString().slice(0, 10);
+
+  const subject = `MoneyManager weekly data backup — ${dateLabel}`;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9fafb; padding: 20px;">
+      <div style="background-color: white; border-radius: 16px; padding: 32px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08);">
+        <h1 style="color: #1f2937; margin: 0 0 12px 0; font-size: 22px;">Weekly data backup</h1>
+        <p style="color: #4b5563; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">
+          Hi ${firstName},
+        </p>
+        <p style="color: #4b5563; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">
+          Attached are <strong>${params.attachmentCount}</strong> CSV file(s) with your MoneyManager data for <strong>${dateLabel}</strong>
+          (accounts, transactions, categories, bookmarks, activity log sample, net worth history, and related tables).
+        </p>
+        <p style="color: #6b7280; font-size: 13px; line-height: 1.5; margin: 0;">
+          Store these files securely. You can import or archive them as you prefer.
+        </p>
+      </div>
+    </div>
+  `;
+
+  const text = `
+MoneyManager weekly data backup — ${dateLabel}
+
+Hi ${firstName},
+
+Attached are ${params.attachmentCount} CSV file(s) with your MoneyManager data for ${dateLabel}.
+
+Store these files securely.
+  `.trim();
+
+  return sendEmail({
+    to: params.to,
+    subject,
+    text,
+    html,
+    attachments: params.attachments.map((a) => ({
+      filename: a.filename,
+      content: a.content,
+      contentType: "text/csv; charset=utf-8",
+    })),
+  });
+}
