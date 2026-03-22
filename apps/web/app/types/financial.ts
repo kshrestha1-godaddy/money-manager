@@ -31,6 +31,7 @@ export interface Category {
   type: 'EXPENSE' | 'INCOME';
   color: string;
   icon?: string;
+  includedInBudget?: boolean;
   userId: number;
   createdAt: Date;
   updatedAt: Date;

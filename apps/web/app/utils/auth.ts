@@ -57,6 +57,23 @@ export async function getAuthenticatedSession() {
 }
 
 /**
+ * Session user id for DB queries (exports, lists). Rejects missing/invalid ids so
+ * data access never runs with NaN or another user's scope by mistake.
+ */
+export async function getVerifiedUserIdForDataAccess(): Promise<number> {
+    const session = await getAuthenticatedSession();
+    const rawId = session.user?.id;
+    if (rawId == null || rawId === "") {
+        throw new Error("Unauthorized");
+    }
+    const userId = getUserIdFromSession(String(rawId));
+    if (!Number.isInteger(userId) || userId < 1) {
+        throw new Error("Unauthorized");
+    }
+    return userId;
+}
+
+/**
  * Standard error response format
  */
 export function createErrorResponse(message: string) {

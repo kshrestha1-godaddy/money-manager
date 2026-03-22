@@ -19,6 +19,14 @@ import { getInvestmentTargetProgress } from '../../investments/actions/investmen
 import { getPasswords } from '../../passwords/actions/passwords';
 import { getCategories } from '../../../actions/categories';
 import { useOptimizedWorth } from '../../../hooks/useOptimizedWorth';
+import { SUPPLEMENTAL_EXPORT_PIECES } from '../../../actions/supplemental-export-pieces.shared';
+import { fetchSupplementalExportPiece } from '../../../actions/supplemental-export-pieces';
+import { downloadCSVFile } from '../../../utils/csv/csvExportCore';
+import { sanitizeExportDateStrForFilename } from '../../../utils/exportFilename';
+
+function delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export function ExportAllButton() {
     const [isExporting, setIsExporting] = useState(false);
@@ -28,6 +36,8 @@ export function ExportAllButton() {
         try {
             setIsExporting(true);
 
+            // Every server action below resolves the user from the session only (no client-supplied user id).
+            // Rows are always scoped with where: { userId } (or equivalent) on the server.
             // Fetch logged-in user's data
             const accountsResponse = await getUserAccounts();
             const accounts = Array.isArray(accountsResponse) ? accountsResponse : [];
@@ -47,42 +57,68 @@ export function ExportAllButton() {
             const investments = investmentsResponse.data || [];
             const investmentTargets = investmentTargetsResponse.data || [];
 
-            // Generate date string for filenames
-            const dateStr = new Date().toISOString().split('T')[0];
+            const dateStr = sanitizeExportDateStrForFilename(
+                new Date().toISOString().slice(0, 10)
+            );
 
-            // Export each type of data
+            const supplementalFailures: string[] = [];
+            for (const piece of SUPPLEMENTAL_EXPORT_PIECES) {
+                const res = await fetchSupplementalExportPiece(piece, dateStr);
+                if ('csv' in res) {
+                    downloadCSVFile(res.csv, res.filename);
+                    await delay(160);
+                } else {
+                    supplementalFailures.push(`${piece}: ${res.error}`);
+                }
+            }
+            if (supplementalFailures.length > 0) {
+                console.warn('Some supplemental exports failed:', supplementalFailures);
+            }
+
+            // Export each type of data (stagger downloads so the browser does not block them)
             if (accounts.length > 0) {
                 exportAccountsToCSV(accounts, `accounts_${dateStr}.csv`);
+                await delay(160);
             }
             if (debts.length > 0) {
                 exportDebtsToCSV(debts, `debts_${dateStr}.csv`);
+                await delay(160);
             }
             if (debtRepayments.length > 0) {
                 exportDebtRepaymentsToCSV(debtRepayments, `debt_repayments_${dateStr}.csv`);
+                await delay(160);
             }
             if (expenses.length > 0) {
                 exportExpensesToCSV(expenses, `expenses_${dateStr}.csv`);
+                await delay(160);
             }
             if (incomes.length > 0) {
                 exportIncomesToCSV(incomes, `incomes_${dateStr}.csv`);
+                await delay(160);
             }
             if (investments.length > 0) {
                 exportInvestmentsToCSV(investments, `investments_${dateStr}.csv`);
+                await delay(160);
             }
             if (investmentTargets.length > 0) {
                 exportInvestmentTargetsToCSV(investmentTargets, `investment_targets_${dateStr}.csv`);
+                await delay(160);
             }
             if (passwords.length > 0) {
                 exportPasswordsToCSV(passwords, `passwords_${dateStr}.csv`);
+                await delay(160);
             }
             if (allCategories.length > 0) {
                 exportCategoriesToCsv(allCategories, `all_categories_${dateStr}.csv`);
+                await delay(160);
             }
             if (incomeCategories.length > 0) {
                 exportCategoriesToCsv(incomeCategories, `income_categories_${dateStr}.csv`);
+                await delay(160);
             }
             if (expenseCategories.length > 0) {
                 exportCategoriesToCsv(expenseCategories, `expense_categories_${dateStr}.csv`);
+                await delay(160);
             }
             
             // Export net worth data

@@ -21,6 +21,7 @@ const CATEGORY_HEADERS = [
     'Type',
     'Color',
     'Icon',
+    'Included In Budget',
     'User ID',
     'Created At',
     'Updated At'
@@ -36,6 +37,7 @@ function convertCategoryToRow(category: Category): (string | number)[] {
         safeStringify(category.type),
         safeStringify(category.color),
         safeStringify(category.icon || ''),
+        category.includedInBudget === false ? 'No' : 'Yes',
         safeStringify(category.userId),
         formatTimestampForExport(category.createdAt),
         formatTimestampForExport(category.updatedAt)
