@@ -383,9 +383,32 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
             const oldAmountConverted = convertForDisplaySync(oldAmount, oldCurrency, userCurrency);
             const newAmountConverted = convertForDisplaySync(newAmount, newCurrency, userCurrency);
 
-            if (data.amount !== undefined && oldAccountId === newAccountId && oldAccountId) {
+            // Same linked account: adjust balance when amount or currency changes (edit modal may send both).
+            const incomeValueChangedForBalance =
+                data.amount !== undefined || data.currency !== undefined;
+
+            if (
+                incomeValueChangedForBalance &&
+                oldAccountId === newAccountId &&
+                oldAccountId
+            ) {
                 const amountDifference = newAmountConverted - oldAmountConverted;
                 if (amountDifference !== 0) {
+                    const nominalAmountChanged =
+                        data.amount !== undefined &&
+                        parseFloat(String(data.amount)) !== oldAmount;
+                    const currencyCodeChanged =
+                        data.currency !== undefined &&
+                        data.currency !== oldCurrency;
+                    const updateReason =
+                        nominalAmountChanged && currencyCodeChanged
+                            ? "income_update_amount_currency"
+                            : currencyCodeChanged
+                              ? "income_update_currency"
+                              : nominalAmountChanged
+                                ? "income_update_amount"
+                                : "income_update_display_adjustment";
+
                     await tx.account.update({
                         where: { id: oldAccountId },
                         data: { balance: { increment: amountDifference } }
@@ -409,7 +432,7 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
                             transactionTitle: income.title,
                             transactionAmountOriginal: newAmount,
                             transactionCurrency: newCurrency,
-                            reason: "income_update_amount",
+                            reason: updateReason,
                         });
                     }
                 }

@@ -437,10 +437,32 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
             const oldAmountConverted = convertForDisplaySync(oldAmount, oldCurrency, userCurrency);
             const newAmountConverted = convertForDisplaySync(newAmount, newCurrency, userCurrency);
 
-            // If amount changed and same account
-            if (data.amount !== undefined && oldAccountId === newAccountId && oldAccountId) {
+            // Same linked account: adjust balance when amount or currency changes (edit modal may send both).
+            const expenseValueChangedForBalance =
+                data.amount !== undefined || data.currency !== undefined;
+
+            if (
+                expenseValueChangedForBalance &&
+                oldAccountId === newAccountId &&
+                oldAccountId
+            ) {
                 const amountDifference = newAmountConverted - oldAmountConverted;
                 if (amountDifference !== 0) {
+                    const nominalAmountChanged =
+                        data.amount !== undefined &&
+                        parseFloat(String(data.amount)) !== oldAmount;
+                    const currencyCodeChanged =
+                        data.currency !== undefined &&
+                        data.currency !== oldCurrency;
+                    const updateReason =
+                        nominalAmountChanged && currencyCodeChanged
+                            ? "expense_update_amount_currency"
+                            : currencyCodeChanged
+                              ? "expense_update_currency"
+                              : nominalAmountChanged
+                                ? "expense_update_amount"
+                                : "expense_update_display_adjustment";
+
                     // For expenses: if amount increased, decrease balance more; if decreased, increase balance
                     await tx.account.update({
                         where: { id: oldAccountId },
@@ -469,7 +491,7 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
                             transactionTitle: expense.title,
                             transactionAmountOriginal: newAmount,
                             transactionCurrency: newCurrency,
-                            reason: "expense_update_amount",
+                            reason: updateReason,
                         });
                     }
                 }
