@@ -6,6 +6,7 @@ import {
     ActivitySeverity,
     ActivityStatus,
 } from "@prisma/client";
+import { decimalToNumber } from "./auth";
 
 /** Income / expense balance lines (existing rows in DB use this) */
 export const INCOME_EXPENSE_ACCOUNT_BALANCE_SOURCE = "income_expense_account_balance" as const;
@@ -134,6 +135,18 @@ export async function logAccountBalanceFromTransaction(
     const description = buildLedgerDescription(input);
     const source = ledgerMetadataSource(input.entityType);
 
+    const accountRow = await tx.account.findUnique({
+        where: { id: input.accountId },
+        select: { balance: true },
+    });
+    let accountBalanceAfterUserCurrency: number | undefined;
+    let accountBalanceBeforeUserCurrency: number | undefined;
+    if (accountRow) {
+        const after = decimalToNumber(accountRow.balance, "account balance");
+        accountBalanceAfterUserCurrency = after;
+        accountBalanceBeforeUserCurrency = after - input.balanceDeltaUserCurrency;
+    }
+
     await tx.activityLog.create({
         data: {
             userId: input.userId,
@@ -153,6 +166,13 @@ export async function logAccountBalanceFromTransaction(
                 transactionTitle: input.transactionTitle,
                 transactionAmountOriginal: input.transactionAmountOriginal,
                 transactionCurrency: input.transactionCurrency,
+                ...(accountBalanceBeforeUserCurrency !== undefined &&
+                accountBalanceAfterUserCurrency !== undefined
+                    ? {
+                          accountBalanceBeforeUserCurrency,
+                          accountBalanceAfterUserCurrency,
+                      }
+                    : {}),
                 ...(input.extraMetadata ?? {}),
             },
             category: input.category,

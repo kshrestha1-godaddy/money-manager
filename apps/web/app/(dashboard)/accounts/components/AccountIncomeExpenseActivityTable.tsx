@@ -27,6 +27,15 @@ function formatDateTime(iso: string): string {
     });
 }
 
+function optionalMetadataNumber(value: unknown): number | null {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim() !== "") {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : null;
+    }
+    return null;
+}
+
 function parseMetadata(row: IncomeExpenseAccountActivityRow) {
     const m = row.metadata || {};
     const balanceDelta =
@@ -39,7 +48,18 @@ function parseMetadata(row: IncomeExpenseAccountActivityRow) {
         typeof m.transactionAmountOriginal === "number" ? m.transactionAmountOriginal : null;
     const txCur =
         typeof m.transactionCurrency === "string" ? m.transactionCurrency : userCurrency;
-    return { balanceDelta, userCurrency, accountLabel, transactionTitle, txAmt, txCur };
+    const balanceBefore = optionalMetadataNumber(m.accountBalanceBeforeUserCurrency);
+    const balanceAfter = optionalMetadataNumber(m.accountBalanceAfterUserCurrency);
+    return {
+        balanceDelta,
+        userCurrency,
+        accountLabel,
+        transactionTitle,
+        txAmt,
+        txCur,
+        balanceBefore,
+        balanceAfter,
+    };
 }
 
 function entityTypeBadgeClass(entityType: string): string {
@@ -111,8 +131,10 @@ function buildBalanceActivityCsv(rows: IncomeExpenseAccountActivityRow[]): strin
         "Transaction",
         "Entry amount",
         "Entry currency",
+        "Previous balance",
         "Balance delta",
-        "Balance delta currency",
+        "New balance",
+        "Balance currency",
         "Reason",
         "Description",
     ];
@@ -131,7 +153,9 @@ function buildBalanceActivityCsv(rows: IncomeExpenseAccountActivityRow[]): strin
             meta.transactionTitle,
             meta.txAmt !== null ? formatAmountCsvPlain(meta.txAmt) : "",
             meta.txCur,
+            meta.balanceBefore !== null ? formatAmountCsvPlain(meta.balanceBefore) : "",
             meta.balanceDelta !== null ? formatAmountCsvPlain(meta.balanceDelta) : "",
+            meta.balanceAfter !== null ? formatAmountCsvPlain(meta.balanceAfter) : "",
             meta.userCurrency,
             reason,
             row.description,
@@ -266,9 +290,7 @@ export function AccountIncomeExpenseActivityTable() {
                 <div className="min-w-0 flex-1">
                     <h2 className={UI_STYLES.chart.title}>Balance activity log</h2>
                     <p className="text-sm text-gray-600">
-                        Income, expenses, lending, and investment activity that moved money in or out of a
-                        linked account. “Balance Δ” uses your display currency where applicable; investments
-                        use purchase cost (quantity × purchase price) when “deduct from account” applies.
+                        Income, expenses, lending, and investment activity that moved money in or out.
                     </p>
                 </div>
                 <button
@@ -384,14 +406,20 @@ export function AccountIncomeExpenseActivityTable() {
                             <th className="px-4 py-3 text-right font-semibold text-gray-700">
                                 Entry amount
                             </th>
+                            <th className="px-4 py-3 text-right font-semibold text-gray-700">
+                                Previous balance
+                            </th>
                             <th className="px-4 py-3 text-right font-semibold text-gray-700">Balance Δ</th>
+                            <th className="px-4 py-3 text-right font-semibold text-gray-700">
+                                New balance
+                            </th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 bg-white">
                         {filteredRows.length === 0 ? (
                             <tr>
                                 <td
-                                    colSpan={7}
+                                    colSpan={9}
                                     className="px-4 py-10 text-center text-sm text-gray-600"
                                 >
                                     No entries match your filters.{" "}
@@ -413,6 +441,8 @@ export function AccountIncomeExpenseActivityTable() {
                                     transactionTitle,
                                     txAmt,
                                     txCur,
+                                    balanceBefore,
+                                    balanceAfter,
                                 } = parseMetadata(row);
                                 const deltaColor =
                                     balanceDelta === null
@@ -451,11 +481,21 @@ export function AccountIncomeExpenseActivityTable() {
                                         <td className="whitespace-nowrap px-4 py-3 text-right text-gray-700">
                                             {txAmt !== null ? formatCurrency(txAmt, txCur) : "—"}
                                         </td>
+                                        <td className="whitespace-nowrap px-4 py-3 text-right text-gray-700">
+                                            {balanceBefore !== null
+                                                ? formatCurrency(balanceBefore, userCurrency)
+                                                : "—"}
+                                        </td>
                                         <td
                                             className={`whitespace-nowrap px-4 py-3 text-right font-medium ${deltaColor}`}
                                         >
                                             {balanceDelta !== null
                                                 ? formatCurrency(balanceDelta, userCurrency)
+                                                : "—"}
+                                        </td>
+                                        <td className="whitespace-nowrap px-4 py-3 text-right text-gray-700">
+                                            {balanceAfter !== null
+                                                ? formatCurrency(balanceAfter, userCurrency)
                                                 : "—"}
                                         </td>
                                     </tr>
