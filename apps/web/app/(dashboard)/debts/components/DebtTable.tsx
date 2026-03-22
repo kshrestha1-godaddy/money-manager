@@ -154,6 +154,98 @@ export function DebtTable({
         return sorted;
     }, [debts, sortField, sortDirection]);
 
+    const tableFooterSummary = useMemo(() => {
+        if (sortedDebts.length === 0) {
+            return {
+                totalPrincipal: 0,
+                totalInterest: 0,
+                totalWithInterest: 0,
+                totalRemaining: 0,
+                debtCount: 0,
+                lentRangeText: "—",
+                dueRangeText: null as string | null,
+            };
+        }
+
+        let totalPrincipal = 0;
+        let totalInterest = 0;
+        let totalWithInterest = 0;
+        let totalRemaining = 0;
+        const lentTimes: number[] = [];
+        const dueTimes: number[] = [];
+        const now = new Date();
+
+        for (const debt of sortedDebts) {
+            const interestCalc = calculateInterest(
+                debt.amount,
+                debt.interestRate,
+                debt.lentDate instanceof Date ? debt.lentDate : new Date(debt.lentDate),
+                debt.dueDate
+                    ? debt.dueDate instanceof Date
+                        ? debt.dueDate
+                        : new Date(debt.dueDate)
+                    : undefined,
+                now
+            );
+            const remainingCalc = calculateRemainingWithInterest(
+                debt.amount,
+                debt.interestRate,
+                debt.lentDate instanceof Date ? debt.lentDate : new Date(debt.lentDate),
+                debt.dueDate
+                    ? debt.dueDate instanceof Date
+                        ? debt.dueDate
+                        : new Date(debt.dueDate)
+                    : undefined,
+                debt.repayments || [],
+                now,
+                debt.status
+            );
+
+            totalPrincipal += debt.amount;
+            totalInterest += interestCalc.interestAmount;
+            totalWithInterest += interestCalc.totalAmountWithInterest;
+            totalRemaining += remainingCalc.remainingAmount;
+
+            const lent = debt.lentDate instanceof Date ? debt.lentDate : new Date(debt.lentDate);
+            lentTimes.push(lent.getTime());
+            if (debt.dueDate) {
+                const due = debt.dueDate instanceof Date ? debt.dueDate : new Date(debt.dueDate);
+                dueTimes.push(due.getTime());
+            }
+        }
+
+        const minLent = lentTimes.length ? new Date(Math.min(...lentTimes)) : null;
+        const maxLent = lentTimes.length ? new Date(Math.max(...lentTimes)) : null;
+        const minDue = dueTimes.length ? new Date(Math.min(...dueTimes)) : null;
+        const maxDue = dueTimes.length ? new Date(Math.max(...dueTimes)) : null;
+
+        let lentRangeText = "—";
+        if (minLent && maxLent) {
+            const a = formatDate(minLent);
+            const b = formatDate(maxLent);
+            lentRangeText = a === b ? a : `${a} – ${b}`;
+        }
+
+        let dueRangeText: string | null = null;
+        if (minDue && maxDue) {
+            const a = formatDate(minDue);
+            const b = formatDate(maxDue);
+            dueRangeText = a === b ? a : `${a} – ${b}`;
+        }
+
+        return {
+            totalPrincipal,
+            totalInterest,
+            totalWithInterest,
+            totalRemaining,
+            debtCount: sortedDebts.length,
+            lentRangeText,
+            dueRangeText,
+        };
+    }, [sortedDebts]);
+
+    const summaryFooterColSpan = 7 + (showBulkActions ? 1 : 0);
+
     const handleSort = (field: SortField) => {
         if (field === sortField) {
             setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -314,6 +406,123 @@ export function DebtTable({
                                 />
                             ))}
                         </tbody>
+                        <tfoot>
+                            <tr className="bg-transparent">
+                                <td colSpan={summaryFooterColSpan} className="p-0 border-0">
+                                    <div className="flex flex-col gap-0.5 py-1">
+                                        <div className="h-px w-full bg-gray-300" />
+                                        <div className="h-px w-full bg-gray-300" />
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr className="bg-gray-50/80">
+                                {showBulkActions && (
+                                    <td
+                                        className="px-2 py-4 text-center"
+                                        style={{ width: `${columnWidths.checkbox}px` }}
+                                    />
+                                )}
+                                <td
+                                    className="px-6 py-4 text-left text-sm font-semibold text-gray-900"
+                                    style={{ width: `${columnWidths.borrowerDetails}px` }}
+                                >
+                                    Total
+                                    <div className="text-xs font-normal text-gray-500 mt-0.5">
+                                        {tableFooterSummary.debtCount}{" "}
+                                        {tableFooterSummary.debtCount === 1 ? "loan" : "loans"}
+                                    </div>
+                                </td>
+                                <td
+                                    className="px-4 py-4 align-top text-center"
+                                    style={{ width: `${columnWidths.amountStatus}px` }}
+                                >
+                                    <div className="flex flex-col items-center text-center text-sm">
+                                        <div className="font-semibold text-gray-900 tabular-nums">
+                                            {formatCurrency(
+                                                tableFooterSummary.totalPrincipal,
+                                                userCurrency
+                                            )}
+                                        </div>
+                                        {tableFooterSummary.totalInterest > 0 && (
+                                            <>
+                                                <div className="text-xs text-gray-600 tabular-nums">
+                                                    +{" "}
+                                                    {formatCurrency(
+                                                        tableFooterSummary.totalInterest,
+                                                        userCurrency
+                                                    )}{" "}
+                                                    interest
+                                                </div>
+                                                <div className="text-xs font-semibold text-blue-600 tabular-nums">
+                                                    ={" "}
+                                                    {formatCurrency(
+                                                        tableFooterSummary.totalWithInterest,
+                                                        userCurrency
+                                                    )}{" "}
+                                                    combined
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                </td>
+                                <td
+                                    className="px-4 py-4 text-center text-sm text-gray-400"
+                                    style={{ width: `${columnWidths.interestProgress}px` }}
+                                >
+                                    —
+                                </td>
+                                <td
+                                    className="px-4 py-4 text-center text-sm text-gray-800"
+                                    style={{ width: `${columnWidths.dates}px` }}
+                                >
+                                    <div className="space-y-1 break-words">
+                                        <div>
+                                            <span className="text-gray-500 text-xs">Lent: </span>
+                                            <span className="tabular-nums">
+                                                {tableFooterSummary.lentRangeText}
+                                            </span>
+                                        </div>
+                                        {tableFooterSummary.dueRangeText ? (
+                                            <div>
+                                                <span className="text-gray-500 text-xs">Due: </span>
+                                                <span className="tabular-nums">
+                                                    {tableFooterSummary.dueRangeText}
+                                                </span>
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                </td>
+                                <td
+                                    className="px-3 py-4 text-center text-sm font-semibold tabular-nums"
+                                    style={{ width: `${columnWidths.remaining}px` }}
+                                >
+                                    <span
+                                        className={
+                                            tableFooterSummary.totalRemaining > 0
+                                                ? "text-red-600"
+                                                : "text-green-600"
+                                        }
+                                    >
+                                        {formatCurrency(
+                                            tableFooterSummary.totalRemaining,
+                                            userCurrency
+                                        )}
+                                    </span>
+                                </td>
+                                <td
+                                    className="px-3 py-4 text-center"
+                                    style={{ width: `${columnWidths.actions}px` }}
+                                />
+                            </tr>
+                            <tr className="bg-transparent">
+                                <td colSpan={summaryFooterColSpan} className="p-0 border-0">
+                                    <div className="flex flex-col gap-0.5 py-1">
+                                        <div className="h-px w-full bg-gray-300" />
+                                        <div className="h-px w-full bg-gray-300" />
+                                    </div>
+                                </td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
         </div>

@@ -17,7 +17,7 @@ import { useCurrency } from "../../providers/CurrencyProvider";
 import { useOptimizedInvestments } from "./hooks/useOptimizedInvestments";
 import { InvestmentInterface } from "../../types/investments";
 import { useOptimizedInvestmentTargets } from "./hooks/useOptimizedInvestmentTargets";  
-import { Plus, Upload, TrendingUp, TrendingDown, DollarSign, Target, Info } from "lucide-react";
+import { Plus, Upload, TrendingUp, TrendingDown, DollarSign, Target, Info, ChevronDown } from "lucide-react";
 import { getGainLossClasses, BUTTON_COLORS, TEXT_COLORS, CONTAINER_COLORS, INPUT_COLORS, LOADING_COLORS, ICON_COLORS, UI_STYLES } from "../../config/colorConfig";
 import { ChartAnimationProvider } from "../../hooks/useChartAnimationContext";
 import { InvestmentTypePolarChart } from "./charts/InvestmentTypePolarChart";
@@ -67,6 +67,8 @@ export default function InvestmentsPageClient() {
   const [bulkDeleteInvestments, setBulkDeleteInvestments] = useState<InvestmentInterface[]>([]);
   const [isBulkDeleteTargetsModalOpen, setIsBulkDeleteTargetsModalOpen] = useState(false);
   const [notification, setNotification] = useState<NotificationData | null>(null);
+  const [typeMenuOpen, setTypeMenuOpen] = useState(false);
+  const typeMenuRef = useRef<HTMLDivElement>(null);
 
   const {
     targets: actualTargets,
@@ -107,8 +109,8 @@ export default function InvestmentsPageClient() {
     closeModal,
     searchTerm,
     setSearchTerm,
-    selectedType,
-    setSelectedType,
+    selectedTypes,
+    setSelectedTypes,
     selectedBank,
     setSelectedBank,
     startDate,
@@ -138,6 +140,20 @@ export default function InvestmentsPageClient() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!typeMenuOpen) return;
+    function handlePointerDown(event: MouseEvent) {
+      if (
+        typeMenuRef.current &&
+        !typeMenuRef.current.contains(event.target as Node)
+      ) {
+        setTypeMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [typeMenuOpen]);
+
   const debouncedSetSearchTerm = useCallback((value: string) => {
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     debounceTimeoutRef.current = setTimeout(() => setSearchTerm(value), 200);
@@ -154,6 +170,28 @@ export default function InvestmentsPageClient() {
   }, [setEndDate]);
 
   const formatType = (type: string) => type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+
+  function investmentTypeFilterSummary(types: string[]): string {
+    if (types.length === 0) return "All types";
+    if (types.length === 1) return formatType(types[0]!);
+    return `${types.length} types`;
+  }
+
+  function toggleInvestmentType(type: string) {
+    if (selectedTypes.includes(type)) {
+      setSelectedTypes(selectedTypes.filter((t) => t !== type));
+    } else {
+      setSelectedTypes([...selectedTypes, type]);
+    }
+  }
+
+  function clearInvestmentTypeSelection() {
+    setSelectedTypes([]);
+  }
+
+  function selectAllInvestmentTypes() {
+    setSelectedTypes([...uniqueTypes]);
+  }
 
   const openAddTargetModal = useCallback(() => openTargetModal('create'), [openTargetModal]);
   const openEditTargetModal = useCallback((investmentType: string) => {
@@ -383,14 +421,67 @@ export default function InvestmentsPageClient() {
               <label className={labelText}>Search Investments</label>
               <input type="text" placeholder="Search by name, symbol, notes..." value={searchTerm} onChange={e => debouncedSetSearchTerm(e.target.value)} className={standardInput} />
             </div>
-            <div>
-              <label className={labelText}>Filter by Type</label>
-              <select value={selectedType} onChange={e => setSelectedType(e.target.value)} className={standardInput}>
-                <option value="">All Types</option>
-                {uniqueTypes.map(type => (
-                  <option key={type} value={type}>{formatType(type)}</option>
-                ))}
-              </select>
+            <div className="relative min-w-[180px]" ref={typeMenuRef}>
+              <label className={labelText} id="investment-type-filter-label">
+                Filter by Type
+              </label>
+              <button
+                type="button"
+                aria-expanded={typeMenuOpen}
+                aria-haspopup="listbox"
+                aria-labelledby="investment-type-filter-label"
+                onClick={() => setTypeMenuOpen((o) => !o)}
+                className={`${standardInput} flex h-10 w-full items-center justify-between gap-2 text-left`}
+              >
+                <span className="min-w-0 truncate">
+                  {investmentTypeFilterSummary(selectedTypes)}
+                </span>
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 opacity-60 transition-transform ${typeMenuOpen ? "rotate-180" : ""}`}
+                  aria-hidden
+                />
+              </button>
+              {typeMenuOpen ? (
+                <div
+                  role="listbox"
+                  aria-multiselectable
+                  className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+                >
+                  <div className="flex flex-wrap gap-2 border-b border-gray-100 px-2 py-2">
+                    <button
+                      type="button"
+                      onClick={clearInvestmentTypeSelection}
+                      className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                    >
+                      All (no filter)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={selectAllInvestmentTypes}
+                      className="text-xs font-medium text-gray-600 hover:text-gray-900"
+                    >
+                      Select all
+                    </button>
+                  </div>
+                  {uniqueTypes.map((type) => {
+                    const checked = selectedTypes.includes(type);
+                    return (
+                      <label
+                        key={type}
+                        className="flex cursor-pointer items-center gap-2 px-3 py-2 hover:bg-gray-50"
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          checked={checked}
+                          onChange={() => toggleInvestmentType(type)}
+                        />
+                        <span className="text-sm text-gray-900">{formatType(type)}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
             <div>
               <label className={labelText}>Filter by Bank</label>

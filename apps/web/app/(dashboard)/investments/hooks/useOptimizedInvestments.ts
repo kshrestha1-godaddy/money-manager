@@ -88,7 +88,7 @@ export function useOptimizedInvestments() {
 
     // Filter states
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedType, setSelectedType] = useState('');
+    const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
     const [selectedBank, setSelectedBank] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -114,7 +114,8 @@ export function useOptimizedInvestments() {
                 investment.symbol?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 investment.notes?.toLowerCase().includes(searchTerm.toLowerCase());
             
-            const matchesType = selectedType === "" || investment.type === selectedType;
+            const matchesType =
+                selectedTypes.length === 0 || selectedTypes.includes(investment.type);
             
             const matchesBank = selectedBank === "" || 
                 (investment.account?.bankName?.toLowerCase() === selectedBank.toLowerCase()) ||
@@ -137,7 +138,7 @@ export function useOptimizedInvestments() {
             
             return matchesSearch && matchesType && matchesBank && matchesDateRange;
         });
-    }, [investments, searchTerm, selectedType, selectedBank, startDate, endDate]);
+    }, [investments, searchTerm, selectedTypes, selectedBank, startDate, endDate]);
 
     // Calculate summary statistics
     const {
@@ -221,8 +222,8 @@ export function useOptimizedInvestments() {
 
     // Check if filters are active
     const hasActiveFilters = useMemo(() => {
-        return searchTerm !== '' || selectedType !== '' || selectedBank !== '' || startDate !== '' || endDate !== '';
-    }, [searchTerm, selectedType, selectedBank, startDate, endDate]);
+        return searchTerm !== '' || selectedTypes.length > 0 || selectedBank !== '' || startDate !== '' || endDate !== '';
+    }, [searchTerm, selectedTypes, selectedBank, startDate, endDate]);
 
     // Organize investments by sections
     const sections = useMemo((): InvestmentSection[] => {
@@ -532,7 +533,7 @@ export function useOptimizedInvestments() {
     // Filter handlers
     const clearFilters = useCallback(() => {
         setSearchTerm('');
-        setSelectedType('');
+        setSelectedTypes([]);
         setSelectedBank('');
         setStartDate('');
         setEndDate('');
@@ -572,8 +573,8 @@ export function useOptimizedInvestments() {
         // Filter states
         searchTerm,
         setSearchTerm,
-        selectedType,
-        setSelectedType,
+        selectedTypes,
+        setSelectedTypes,
         selectedBank,
         setSelectedBank,
         startDate,

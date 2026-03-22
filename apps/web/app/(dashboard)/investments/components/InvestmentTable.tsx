@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { InvestmentInterface } from "../../../types/investments";
 import { formatCurrency } from "../../../utils/currency";
 import { useCurrency } from "../../../providers/CurrencyProvider";
@@ -157,6 +157,36 @@ export function InvestmentTable({
         if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
         return 0;
     });
+
+    const tableFooterSummary = useMemo(() => {
+        if (sortedInvestments.length === 0) {
+            return {
+                totalCost: 0,
+                totalValue: 0,
+                totalGain: 0,
+                gainPct: 0,
+                positionCount: 0,
+            };
+        }
+        let totalCost = 0;
+        let totalValue = 0;
+        for (const inv of sortedInvestments) {
+            totalCost += inv.quantity * inv.purchasePrice;
+            totalValue += inv.quantity * inv.currentPrice;
+        }
+        const totalGain = totalValue - totalCost;
+        const gainPct = totalCost > 0 ? (totalGain / totalCost) * 100 : 0;
+        return {
+            totalCost,
+            totalValue,
+            totalGain,
+            gainPct,
+            positionCount: sortedInvestments.length,
+        };
+    }, [sortedInvestments]);
+
+    const summaryFooterColSpan =
+        10 + (showBulkActions ? 1 : 0);
 
     const getSortIcon = (field: SortField) => {
         if (sortField !== field) return '⇅';
@@ -365,6 +395,98 @@ export function InvestmentTable({
                         );
                     })}
                 </tbody>
+                <tfoot>
+                    <tr className="bg-transparent">
+                        <td colSpan={summaryFooterColSpan} className="p-0 border-0">
+                            <div className="flex flex-col gap-0.5 py-1">
+                                <div className="h-px w-full bg-gray-300" />
+                            </div>
+                        </td>
+                    </tr>
+                    <tr className="bg-gray-50/80">
+                        {showBulkActions && (
+                            <td
+                                className="px-2 py-4 text-center"
+                                style={{ width: `${columnWidths.checkbox}px` }}
+                            />
+                        )}
+                        <td
+                            className="px-6 py-4 text-left text-sm font-semibold text-gray-900"
+                            style={{ width: `${columnWidths.investment}px` }}
+                        >
+                            Total
+                        </td>
+                        <td
+                            className="px-4 py-4"
+                            style={{ width: `${columnWidths.type}px` }}
+                        />
+                        <td
+                            className="px-6 py-4"
+                            style={{ width: `${columnWidths.bank}px` }}
+                        />
+                        <td
+                            className="px-4 py-4 text-center text-sm text-gray-800 tabular-nums"
+                            style={{ width: `${columnWidths.quantityInterest}px` }}
+                        >
+                            <span className="font-medium">{tableFooterSummary.positionCount}</span>
+                            <span className="text-gray-500 font-normal">
+                                {" "}
+                                {tableFooterSummary.positionCount === 1 ? "position" : "positions"}
+                            </span>
+                        </td>
+                        <td
+                            className="px-3 py-4 text-center text-sm font-semibold text-gray-900 tabular-nums"
+                            style={{ width: `${columnWidths.purchasePrincipal}px` }}
+                        >
+                            {formatCurrency(tableFooterSummary.totalCost, userCurrency)}
+                        </td>
+                        <td
+                            className="px-3 py-4 text-center text-sm text-gray-400"
+                            style={{ width: `${columnWidths.currentValue}px` }}
+                        >
+                            —
+                        </td>
+                        <td
+                            className="px-3 py-4 text-center text-sm font-semibold text-gray-900 tabular-nums"
+                            style={{ width: `${columnWidths.totalValue}px` }}
+                        >
+                            {formatCurrency(tableFooterSummary.totalValue, userCurrency)}
+                        </td>
+                        <td
+                            className="px-3 py-4 text-center text-sm tabular-nums"
+                            style={{ width: `${columnWidths.gainLoss}px` }}
+                        >
+                            <div className="space-y-1">
+                                <div
+                                    className={`font-semibold break-words ${getGainColor(tableFooterSummary.totalGain)}`}
+                                >
+                                    {formatCurrency(tableFooterSummary.totalGain, userCurrency)}
+                                </div>
+                                <div
+                                    className={`text-xs break-words ${getGainColor(tableFooterSummary.totalGain)}`}
+                                >
+                                    ({tableFooterSummary.gainPct >= 0 ? "+" : ""}
+                                    {tableFooterSummary.gainPct.toFixed(2)}%)
+                                </div>
+                            </div>
+                        </td>
+                        <td
+                            className="px-4 py-4"
+                            style={{ width: `${columnWidths.purchaseDate}px` }}
+                        />
+                        <td
+                            className="px-3 py-4 text-center"
+                            style={{ width: `${columnWidths.actions}px` }}
+                        />
+                    </tr>
+                    <tr className="bg-transparent">
+                        <td colSpan={summaryFooterColSpan} className="p-0 border-0">
+                            <div className="flex flex-col gap-0.5 py-1">
+                                <div className="h-px w-full bg-gray-300" />
+                            </div>
+                        </td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
     );
