@@ -297,6 +297,47 @@ export async function updateDebt(id: number, debt: Partial<Omit<DebtInterface, '
                 throw new Error("Debt not found or unauthorized");
             }
 
+            const oldAccountId = existingDebt.accountId;
+            const oldPrincipal = decimalToNumber(existingDebt.amount, "old debt amount");
+            const newAccountId =
+                debt.accountId !== undefined ? debt.accountId : existingDebt.accountId;
+            const newPrincipal =
+                debt.amount !== undefined
+                    ? debt.amount
+                    : oldPrincipal;
+
+            const sameLinkedAccount =
+                (oldAccountId ?? null) === (newAccountId ?? null);
+
+            // Require enough balance when we take more from an account (lend more or link a new account).
+            if (sameLinkedAccount && newAccountId && newPrincipal > oldPrincipal) {
+                const lendMore = newPrincipal - oldPrincipal;
+                const account = await tx.account.findUnique({
+                    where: { id: newAccountId },
+                    select: { balance: true, bankName: true },
+                });
+                if (!account) throw new Error("Selected account not found");
+                const currentBalance = decimalToNumber(account.balance, "account balance");
+                if (currentBalance < lendMore) {
+                    throw new Error(
+                        `Insufficient balance in ${account.bankName}. Available: ${currentBalance}, Required: ${lendMore}`
+                    );
+                }
+            }
+            if (!sameLinkedAccount && newAccountId) {
+                const account = await tx.account.findUnique({
+                    where: { id: newAccountId },
+                    select: { balance: true, bankName: true },
+                });
+                if (!account) throw new Error("Selected account not found");
+                const currentBalance = decimalToNumber(account.balance, "account balance");
+                if (currentBalance < newPrincipal) {
+                    throw new Error(
+                        `Insufficient balance in ${account.bankName}. Available: ${currentBalance}, Required: ${newPrincipal}`
+                    );
+                }
+            }
+
             // Update the debt
             const updatedDebt = await tx.debt.update({
                 where: { id },
@@ -306,24 +347,25 @@ export async function updateDebt(id: number, debt: Partial<Omit<DebtInterface, '
                 },
             });
 
-            // Handle account balance changes if amount changed
-            if (debt.amount !== undefined && debt.amount !== parseFloat(existingDebt.amount.toString())) {
-                const oldAmount = decimalToNumber(existingDebt.amount, 'old debt amount');
-                const newAmount = debt.amount;
-                const amountDifference = newAmount - oldAmount;
+            const borrowerLabel = updatedDebt.borrowerName;
 
-                if (existingDebt.accountId && amountDifference !== 0) {
-                    // For debts: if amount increased, decrease balance more; if decreased, increase balance
-                    await tx.account.update({
-                        where: { id: existingDebt.accountId },
-                        data: {
-                            balance: {
-                                decrement: amountDifference
-                            }
-                        }
-                    });
+            // Keep linked-account balances aligned with principal + which account funded the loan.
+            if (sameLinkedAccount && newAccountId) {
+                const principalDelta = newPrincipal - oldPrincipal;
+                if (principalDelta !== 0) {
+                    if (principalDelta > 0) {
+                        await tx.account.update({
+                            where: { id: newAccountId },
+                            data: { balance: { decrement: principalDelta } },
+                        });
+                    } else {
+                        await tx.account.update({
+                            where: { id: newAccountId },
+                            data: { balance: { increment: -principalDelta } },
+                        });
+                    }
                     const acc = await tx.account.findUnique({
-                        where: { id: existingDebt.accountId },
+                        where: { id: newAccountId },
                         select: { bankName: true, holderName: true },
                     });
                     if (acc) {
@@ -333,15 +375,72 @@ export async function updateDebt(id: number, debt: Partial<Omit<DebtInterface, '
                             entityType: ActivityEntityType.DEBT,
                             entityId: id,
                             category: ActivityCategory.TRANSACTION,
-                            accountId: existingDebt.accountId,
+                            accountId: newAccountId,
                             accountBankName: acc.bankName,
                             holderName: acc.holderName,
-                            balanceDeltaUserCurrency: -amountDifference,
+                            balanceDeltaUserCurrency: -principalDelta,
                             userCurrency,
-                            transactionTitle: `Lent to ${updatedDebt.borrowerName}`,
-                            transactionAmountOriginal: newAmount,
+                            transactionTitle: `Lent to ${borrowerLabel}`,
+                            transactionAmountOriginal: newPrincipal,
                             transactionCurrency: userCurrency,
                             reason: "debt_update_principal",
+                        });
+                    }
+                }
+            } else if (!sameLinkedAccount) {
+                if (oldAccountId) {
+                    await tx.account.update({
+                        where: { id: oldAccountId },
+                        data: { balance: { increment: oldPrincipal } },
+                    });
+                    const accOld = await tx.account.findUnique({
+                        where: { id: oldAccountId },
+                        select: { bankName: true, holderName: true },
+                    });
+                    if (accOld) {
+                        await logAccountBalanceFromTransaction(tx, {
+                            userId,
+                            action: ActivityAction.UPDATE,
+                            entityType: ActivityEntityType.DEBT,
+                            entityId: id,
+                            category: ActivityCategory.TRANSACTION,
+                            accountId: oldAccountId,
+                            accountBankName: accOld.bankName,
+                            holderName: accOld.holderName,
+                            balanceDeltaUserCurrency: oldPrincipal,
+                            userCurrency,
+                            transactionTitle: `Lent to ${borrowerLabel}`,
+                            transactionAmountOriginal: oldPrincipal,
+                            transactionCurrency: userCurrency,
+                            reason: "debt_update_account_from",
+                        });
+                    }
+                }
+                if (newAccountId) {
+                    await tx.account.update({
+                        where: { id: newAccountId },
+                        data: { balance: { decrement: newPrincipal } },
+                    });
+                    const accNew = await tx.account.findUnique({
+                        where: { id: newAccountId },
+                        select: { bankName: true, holderName: true },
+                    });
+                    if (accNew) {
+                        await logAccountBalanceFromTransaction(tx, {
+                            userId,
+                            action: ActivityAction.UPDATE,
+                            entityType: ActivityEntityType.DEBT,
+                            entityId: id,
+                            category: ActivityCategory.TRANSACTION,
+                            accountId: newAccountId,
+                            accountBankName: accNew.bankName,
+                            holderName: accNew.holderName,
+                            balanceDeltaUserCurrency: -newPrincipal,
+                            userCurrency,
+                            transactionTitle: `Lent to ${borrowerLabel}`,
+                            transactionAmountOriginal: newPrincipal,
+                            transactionCurrency: userCurrency,
+                            reason: "debt_update_account_to",
                         });
                     }
                 }
