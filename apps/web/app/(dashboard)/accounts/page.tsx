@@ -14,6 +14,7 @@ import { TransferModal } from "./components/TransferModal";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { BankBalanceChart } from "./components/BankBalanceChart";
+import { AccountIncomeExpenseActivityTable } from "./components/AccountIncomeExpenseActivityTable";
 import { useOptimizedAccounts } from "../../hooks/useOptimizedAccounts";
 import { getWithheldAmountsByBank } from "./actions/accounts";
 import { 
@@ -439,6 +440,8 @@ export default function Accounts() {
                     }
                 />
             )}
+
+            {!loading && <AccountIncomeExpenseActivityTable />}
 
             {/* Modals */}
             <AddAccountModal

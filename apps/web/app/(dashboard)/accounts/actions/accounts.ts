@@ -8,6 +8,18 @@ import {
     createErrorResponse,
     decimalToNumber 
 } from "../../../utils/auth";
+import { ACCOUNT_BALANCE_ACTIVITY_SOURCES } from "../../../utils/accountActivityLog";
+
+export interface IncomeExpenseAccountActivityRow {
+    id: number;
+    createdAt: string;
+    action: string;
+    entityType: string;
+    entityId: number | null;
+    description: string;
+    category: string;
+    metadata: Record<string, unknown> | null;
+}
 
 export async function getAllAccounts(): Promise<AccountInterface[]> {
     try {
@@ -695,5 +707,42 @@ export async function transferMoney(fromAccountId: number, toAccountId: number, 
     } catch (error: any) {
         console.error(`Failed to transfer money:`, error);
         throw error;
+    }
+}
+
+export async function getIncomeExpenseAccountBalanceActivityLogs(
+    limit: number = 150
+): Promise<IncomeExpenseAccountActivityRow[]> {
+    try {
+        const session = await getAuthenticatedSession();
+        const userId = getUserIdFromSession(session.user.id);
+
+        const rows = await prisma.activityLog.findMany({
+            where: {
+                userId,
+                OR: ACCOUNT_BALANCE_ACTIVITY_SOURCES.map((source) => ({
+                    metadata: {
+                        path: ["source"],
+                        equals: source,
+                    },
+                })),
+            },
+            orderBy: { createdAt: "desc" },
+            take: Math.min(Math.max(limit, 1), 500),
+        });
+
+        return rows.map((r) => ({
+            id: r.id,
+            createdAt: r.createdAt.toISOString(),
+            action: r.action,
+            entityType: r.entityType,
+            entityId: r.entityId,
+            description: r.description,
+            category: r.category,
+            metadata: r.metadata as Record<string, unknown> | null,
+        }));
+    } catch (error) {
+        console.error("Failed to fetch account balance activity logs:", error);
+        throw new Error("Failed to fetch account activity");
     }
 }

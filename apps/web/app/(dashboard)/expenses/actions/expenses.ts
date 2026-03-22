@@ -36,6 +36,12 @@ import {
 import { getUserIdFromSession } from "../../../utils/auth";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { autoBookmarkHighValueTransaction, handleBookmarkOnAmountChange } from "../../../utils/autoBookmarkUtils";
+import { logAccountBalanceFromTransaction } from "../../../utils/accountActivityLog";
+import {
+    ActivityAction,
+    ActivityCategory,
+    ActivityEntityType,
+} from "@prisma/client";
 
 export async function getExpenses() {
     try {
@@ -214,6 +220,25 @@ export async function createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'up
                         }
                     }
                 });
+
+                if (expense.account) {
+                    await logAccountBalanceFromTransaction(tx, {
+                        userId,
+                        action: ActivityAction.CREATE,
+                        entityType: ActivityEntityType.EXPENSE,
+                        entityId: expense.id,
+                        category: ActivityCategory.TRANSACTION,
+                        accountId: data.accountId,
+                        accountBankName: expense.account.bankName,
+                        holderName: expense.account.holderName,
+                        balanceDeltaUserCurrency: -convertedAmount,
+                        userCurrency,
+                        transactionTitle: data.title,
+                        transactionAmountOriginal: data.amount,
+                        transactionCurrency,
+                        reason: "expense_create",
+                    });
+                }
             }
 
             return expense;
@@ -415,15 +440,39 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
             // If amount changed and same account
             if (data.amount !== undefined && oldAccountId === newAccountId && oldAccountId) {
                 const amountDifference = newAmountConverted - oldAmountConverted;
-                // For expenses: if amount increased, decrease balance more; if decreased, increase balance
-                await tx.account.update({
-                    where: { id: oldAccountId },
-                    data: {
-                        balance: {
-                            decrement: amountDifference
+                if (amountDifference !== 0) {
+                    // For expenses: if amount increased, decrease balance more; if decreased, increase balance
+                    await tx.account.update({
+                        where: { id: oldAccountId },
+                        data: {
+                            balance: {
+                                decrement: amountDifference
+                            }
                         }
+                    });
+                    const acc = await tx.account.findUnique({
+                        where: { id: oldAccountId },
+                        select: { bankName: true, holderName: true },
+                    });
+                    if (acc) {
+                        await logAccountBalanceFromTransaction(tx, {
+                            userId,
+                            action: ActivityAction.UPDATE,
+                            entityType: ActivityEntityType.EXPENSE,
+                            entityId: id,
+                            category: ActivityCategory.TRANSACTION,
+                            accountId: oldAccountId,
+                            accountBankName: acc.bankName,
+                            holderName: acc.holderName,
+                            balanceDeltaUserCurrency: -amountDifference,
+                            userCurrency,
+                            transactionTitle: expense.title,
+                            transactionAmountOriginal: newAmount,
+                            transactionCurrency: newCurrency,
+                            reason: "expense_update_amount",
+                        });
                     }
-                });
+                }
             }
             // If account changed
             else if (data.accountId !== undefined && oldAccountId !== newAccountId) {
@@ -437,6 +486,28 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
                             }
                         }
                     });
+                    const accOld = await tx.account.findUnique({
+                        where: { id: oldAccountId },
+                        select: { bankName: true, holderName: true },
+                    });
+                    if (accOld) {
+                        await logAccountBalanceFromTransaction(tx, {
+                            userId,
+                            action: ActivityAction.UPDATE,
+                            entityType: ActivityEntityType.EXPENSE,
+                            entityId: id,
+                            category: ActivityCategory.TRANSACTION,
+                            accountId: oldAccountId,
+                            accountBankName: accOld.bankName,
+                            holderName: accOld.holderName,
+                            balanceDeltaUserCurrency: oldAmountConverted,
+                            userCurrency,
+                            transactionTitle: expense.title,
+                            transactionAmountOriginal: oldAmount,
+                            transactionCurrency: oldCurrency,
+                            reason: "expense_update_account_from",
+                        });
+                    }
                 }
                 // Subtract from new account
                 if (newAccountId) {
@@ -448,6 +519,28 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
                             }
                         }
                     });
+                    const accNew = await tx.account.findUnique({
+                        where: { id: newAccountId },
+                        select: { bankName: true, holderName: true },
+                    });
+                    if (accNew) {
+                        await logAccountBalanceFromTransaction(tx, {
+                            userId,
+                            action: ActivityAction.UPDATE,
+                            entityType: ActivityEntityType.EXPENSE,
+                            entityId: id,
+                            category: ActivityCategory.TRANSACTION,
+                            accountId: newAccountId,
+                            accountBankName: accNew.bankName,
+                            holderName: accNew.holderName,
+                            balanceDeltaUserCurrency: -newAmountConverted,
+                            userCurrency,
+                            transactionTitle: expense.title,
+                            transactionAmountOriginal: newAmount,
+                            transactionCurrency: newCurrency,
+                            reason: "expense_update_account_to",
+                        });
+                    }
                 }
             }
 
@@ -559,6 +652,28 @@ export async function deleteExpense(id: number) {
                         }
                     }
                 });
+                const acc = await tx.account.findUnique({
+                    where: { id: existingExpense.accountId },
+                    select: { bankName: true, holderName: true },
+                });
+                if (acc) {
+                    await logAccountBalanceFromTransaction(tx, {
+                        userId,
+                        action: ActivityAction.DELETE,
+                        entityType: ActivityEntityType.EXPENSE,
+                        entityId: id,
+                        category: ActivityCategory.TRANSACTION,
+                        accountId: existingExpense.accountId,
+                        accountBankName: acc.bankName,
+                        holderName: acc.holderName,
+                        balanceDeltaUserCurrency: convertedAmount,
+                        userCurrency,
+                        transactionTitle: existingExpense.title,
+                        transactionAmountOriginal: expenseAmount,
+                        transactionCurrency: existingExpense.currency,
+                        reason: "expense_delete",
+                    });
+                }
             }
         });
 
@@ -961,6 +1076,29 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
                                     }
                                 }
                             });
+                            const accRow = await tx.account.findUnique({
+                                where: { id: validatedRow.data.accountId },
+                                select: { bankName: true, holderName: true },
+                            });
+                            if (accRow) {
+                                await logAccountBalanceFromTransaction(tx, {
+                                    userId,
+                                    action: ActivityAction.CREATE,
+                                    entityType: ActivityEntityType.EXPENSE,
+                                    entityId: expense.id,
+                                    category: ActivityCategory.TRANSACTION,
+                                    accountId: validatedRow.data.accountId,
+                                    accountBankName: accRow.bankName,
+                                    holderName: accRow.holderName,
+                                    balanceDeltaUserCurrency: -convertedAmount,
+                                    userCurrency,
+                                    transactionTitle: validatedRow.data.title,
+                                    transactionAmountOriginal: validatedRow.data.amount,
+                                    transactionCurrency,
+                                    reason: "expense_import_csv",
+                                    extraMetadata: { importRow: validatedRow.rowIndex },
+                                });
+                            }
                         }
 
                         // Create bookmark if needed
@@ -1089,6 +1227,15 @@ export async function bulkDeleteExpenses(expenseIds: number[]) {
             });
 
             // Apply account balance updates
+            const accountExpenseIds = new Map<number, number[]>();
+            existingExpenses.forEach((exp) => {
+                if (exp.accountId) {
+                    const list = accountExpenseIds.get(exp.accountId) || [];
+                    list.push(exp.id);
+                    accountExpenseIds.set(exp.accountId, list);
+                }
+            });
+
             for (const [accountId, totalAmount] of accountUpdates) {
                 await tx.account.update({
                     where: { id: accountId },
@@ -1098,6 +1245,30 @@ export async function bulkDeleteExpenses(expenseIds: number[]) {
                         }
                     }
                 });
+                const acc = await tx.account.findUnique({
+                    where: { id: accountId },
+                    select: { bankName: true, holderName: true },
+                });
+                const expIds = accountExpenseIds.get(accountId) || [];
+                if (acc) {
+                    await logAccountBalanceFromTransaction(tx, {
+                        userId,
+                        action: ActivityAction.BULK_DELETE,
+                        entityType: ActivityEntityType.EXPENSE,
+                        entityId: null,
+                        category: ActivityCategory.BULK_OPERATION,
+                        accountId,
+                        accountBankName: acc.bankName,
+                        holderName: acc.holderName,
+                        balanceDeltaUserCurrency: totalAmount,
+                        userCurrency,
+                        transactionTitle: `${expIds.length} expense record(s) deleted`,
+                        transactionAmountOriginal: totalAmount,
+                        transactionCurrency: userCurrency,
+                        reason: "bulk_delete_expense",
+                        extraMetadata: { expenseIds: expIds },
+                    });
+                }
             }
         });
 
@@ -1242,6 +1413,24 @@ export async function importCorrectedRow(
                         }
                     }
                 });
+                if (expense.account) {
+                    await logAccountBalanceFromTransaction(tx, {
+                        userId,
+                        action: ActivityAction.CREATE,
+                        entityType: ActivityEntityType.EXPENSE,
+                        entityId: expense.id,
+                        category: ActivityCategory.TRANSACTION,
+                        accountId: expenseData.accountId,
+                        accountBankName: expense.account.bankName,
+                        holderName: expense.account.holderName,
+                        balanceDeltaUserCurrency: -convertedAmount,
+                        userCurrency,
+                        transactionTitle: expenseData.title,
+                        transactionAmountOriginal: expenseData.amount,
+                        transactionCurrency,
+                        reason: "expense_import_corrected_row",
+                    });
+                }
             }
 
             return expense;

@@ -10,6 +10,12 @@ import { parseCSV, parseTags, mergeLocationAndLinksFromRow, parseOptionalMapCoor
 import { parseCategoriesCSV, type ParsedCategoryData } from "../../../utils/csvImportCategories";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { autoBookmarkHighValueTransaction, handleBookmarkOnAmountChange } from "../../../utils/autoBookmarkUtils";
+import { logAccountBalanceFromTransaction } from "../../../utils/accountActivityLog";
+import {
+    ActivityAction,
+    ActivityCategory,
+    ActivityEntityType,
+} from "@prisma/client";
 
 // Helper function to serialize transaction location data
 function serializeTransactionLocation(location: any) {
@@ -191,6 +197,25 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
                     where: { id: data.accountId },
                     data: { balance: { increment: convertedAmount } }
                 });
+
+                if (income.account) {
+                    await logAccountBalanceFromTransaction(tx, {
+                        userId,
+                        action: ActivityAction.CREATE,
+                        entityType: ActivityEntityType.INCOME,
+                        entityId: income.id,
+                        category: ActivityCategory.TRANSACTION,
+                        accountId: data.accountId,
+                        accountBankName: income.account.bankName,
+                        holderName: income.account.holderName,
+                        balanceDeltaUserCurrency: convertedAmount,
+                        userCurrency,
+                        transactionTitle: data.title,
+                        transactionAmountOriginal: data.amount,
+                        transactionCurrency,
+                        reason: "income_create",
+                    });
+                }
             }
 
             return income;
@@ -360,22 +385,90 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
 
             if (data.amount !== undefined && oldAccountId === newAccountId && oldAccountId) {
                 const amountDifference = newAmountConverted - oldAmountConverted;
-                await tx.account.update({
-                    where: { id: oldAccountId },
-                    data: { balance: { increment: amountDifference } }
-                });
+                if (amountDifference !== 0) {
+                    await tx.account.update({
+                        where: { id: oldAccountId },
+                        data: { balance: { increment: amountDifference } }
+                    });
+                    const acc = await tx.account.findUnique({
+                        where: { id: oldAccountId },
+                        select: { bankName: true, holderName: true },
+                    });
+                    if (acc) {
+                        await logAccountBalanceFromTransaction(tx, {
+                            userId,
+                            action: ActivityAction.UPDATE,
+                            entityType: ActivityEntityType.INCOME,
+                            entityId: id,
+                            category: ActivityCategory.TRANSACTION,
+                            accountId: oldAccountId,
+                            accountBankName: acc.bankName,
+                            holderName: acc.holderName,
+                            balanceDeltaUserCurrency: amountDifference,
+                            userCurrency,
+                            transactionTitle: income.title,
+                            transactionAmountOriginal: newAmount,
+                            transactionCurrency: newCurrency,
+                            reason: "income_update_amount",
+                        });
+                    }
+                }
             } else if (data.accountId !== undefined && oldAccountId !== newAccountId) {
                 if (oldAccountId) {
                     await tx.account.update({
                         where: { id: oldAccountId },
                         data: { balance: { decrement: oldAmountConverted } }
                     });
+                    const accOld = await tx.account.findUnique({
+                        where: { id: oldAccountId },
+                        select: { bankName: true, holderName: true },
+                    });
+                    if (accOld) {
+                        await logAccountBalanceFromTransaction(tx, {
+                            userId,
+                            action: ActivityAction.UPDATE,
+                            entityType: ActivityEntityType.INCOME,
+                            entityId: id,
+                            category: ActivityCategory.TRANSACTION,
+                            accountId: oldAccountId,
+                            accountBankName: accOld.bankName,
+                            holderName: accOld.holderName,
+                            balanceDeltaUserCurrency: -oldAmountConverted,
+                            userCurrency,
+                            transactionTitle: income.title,
+                            transactionAmountOriginal: oldAmount,
+                            transactionCurrency: oldCurrency,
+                            reason: "income_update_account_from",
+                        });
+                    }
                 }
                 if (newAccountId) {
                     await tx.account.update({
                         where: { id: newAccountId },
                         data: { balance: { increment: newAmountConverted } }
                     });
+                    const accNew = await tx.account.findUnique({
+                        where: { id: newAccountId },
+                        select: { bankName: true, holderName: true },
+                    });
+                    if (accNew) {
+                        await logAccountBalanceFromTransaction(tx, {
+                            userId,
+                            action: ActivityAction.UPDATE,
+                            entityType: ActivityEntityType.INCOME,
+                            entityId: id,
+                            category: ActivityCategory.TRANSACTION,
+                            accountId: newAccountId,
+                            accountBankName: accNew.bankName,
+                            holderName: accNew.holderName,
+                            balanceDeltaUserCurrency: newAmountConverted,
+                            userCurrency,
+                            transactionTitle: income.title,
+                            transactionAmountOriginal: newAmount,
+                            transactionCurrency: newCurrency,
+                            reason: "income_update_account_to",
+                        });
+                    }
                 }
             }
 
@@ -454,6 +547,28 @@ export async function deleteIncome(id: number) {
                     where: { id: existingIncome.accountId },
                     data: { balance: { decrement: convertedAmount } }
                 });
+                const acc = await tx.account.findUnique({
+                    where: { id: existingIncome.accountId },
+                    select: { bankName: true, holderName: true },
+                });
+                if (acc) {
+                    await logAccountBalanceFromTransaction(tx, {
+                        userId,
+                        action: ActivityAction.DELETE,
+                        entityType: ActivityEntityType.INCOME,
+                        entityId: id,
+                        category: ActivityCategory.TRANSACTION,
+                        accountId: existingIncome.accountId,
+                        accountBankName: acc.bankName,
+                        holderName: acc.holderName,
+                        balanceDeltaUserCurrency: -convertedAmount,
+                        userCurrency,
+                        transactionTitle: existingIncome.title,
+                        transactionAmountOriginal: incomeAmount,
+                        transactionCurrency: existingIncome.currency,
+                        reason: "income_delete",
+                    });
+                }
             }
         });
 
@@ -645,6 +760,12 @@ export async function bulkDeleteIncomes(incomeIds: number[]) {
         throw new Error("Some incomes not found or unauthorized");
     }
 
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { currency: true },
+    });
+    const userCurrency = user?.currency || "USD";
+
     await prisma.$transaction(async (tx) => {
         // Delete any associated transaction images from database
         await tx.transactionImage.deleteMany({
@@ -660,11 +781,17 @@ export async function bulkDeleteIncomes(incomeIds: number[]) {
         });
 
         const accountUpdates = new Map<number, number>();
-        
-        existingIncomes.forEach(income => {
+        const accountIncomeIds = new Map<number, number[]>();
+
+        existingIncomes.forEach((income) => {
             if (income.accountId) {
+                const amt = parseFloat(income.amount.toString());
+                const converted = convertForDisplaySync(amt, income.currency, userCurrency);
                 const currentTotal = accountUpdates.get(income.accountId) || 0;
-                accountUpdates.set(income.accountId, currentTotal + parseFloat(income.amount.toString()));
+                accountUpdates.set(income.accountId, currentTotal + converted);
+                const ids = accountIncomeIds.get(income.accountId) || [];
+                ids.push(income.id);
+                accountIncomeIds.set(income.accountId, ids);
             }
         });
 
@@ -673,6 +800,30 @@ export async function bulkDeleteIncomes(incomeIds: number[]) {
                 where: { id: accountId },
                 data: { balance: { decrement: totalAmount } }
             });
+            const acc = await tx.account.findUnique({
+                where: { id: accountId },
+                select: { bankName: true, holderName: true },
+            });
+            const idsForAccount = accountIncomeIds.get(accountId) || [];
+            if (acc) {
+                await logAccountBalanceFromTransaction(tx, {
+                    userId,
+                    action: ActivityAction.BULK_DELETE,
+                    entityType: ActivityEntityType.INCOME,
+                    entityId: null,
+                    category: ActivityCategory.BULK_OPERATION,
+                    accountId,
+                    accountBankName: acc.bankName,
+                    holderName: acc.holderName,
+                    balanceDeltaUserCurrency: -totalAmount,
+                    userCurrency,
+                    transactionTitle: `${idsForAccount.length} income record(s) deleted`,
+                    transactionAmountOriginal: totalAmount,
+                    transactionCurrency: userCurrency,
+                    reason: "bulk_delete_income",
+                    extraMetadata: { incomeIds: idsForAccount },
+                });
+            }
         }
     });
 

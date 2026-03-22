@@ -13,6 +13,12 @@ import {
 import { parseDebtsCSV, ParsedDebtData, parseRepaymentsCSV, ParsedRepaymentData } from "../../../utils/csvImportDebts";
 import { ImportResult } from "../../../types/bulkImport";
 import { calculateRemainingWithInterest, determineDebtStatus } from "../../../utils/interestCalculation";
+import { logAccountBalanceFromTransaction } from "../../../utils/accountActivityLog";
+import {
+    ActivityAction,
+    ActivityCategory,
+    ActivityEntityType,
+} from "@prisma/client";
 
 export async function getUserDebts(): Promise<{ data?: DebtInterface[], error?: string }> {
     try {
@@ -117,6 +123,13 @@ export async function createDebt(debt: Omit<DebtInterface, 'id' | 'userId' | 'cr
             where: {
                 id: userId,
             },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                number: true,
+                currency: true,
+            },
         });
 
         if (!user) {
@@ -148,7 +161,7 @@ export async function createDebt(debt: Omit<DebtInterface, 'id' | 'userId' | 'cr
             if (debt.accountId) {
                 const account = await tx.account.findUnique({
                     where: { id: debt.accountId },
-                    select: { balance: true, bankName: true }
+                    select: { balance: true, bankName: true, holderName: true },
                 });
 
                 if (!account) {
@@ -172,16 +185,41 @@ export async function createDebt(debt: Omit<DebtInterface, 'id' | 'userId' | 'cr
                 },
             });
 
+            const userCurrency = user.currency || "USD";
+            const principal = decimalToNumber(debt.amount, "debt amount");
+
             // Update the account balance (decrease by debt amount) if accountId is provided
             if (debt.accountId) {
                 await tx.account.update({
                     where: { id: debt.accountId },
                     data: {
                         balance: {
-                            decrement: debt.amount
-                        }
-                    }
+                            decrement: debt.amount,
+                        },
+                    },
                 });
+                const acc = await tx.account.findUnique({
+                    where: { id: debt.accountId },
+                    select: { bankName: true, holderName: true },
+                });
+                if (acc) {
+                    await logAccountBalanceFromTransaction(tx, {
+                        userId,
+                        action: ActivityAction.CREATE,
+                        entityType: ActivityEntityType.DEBT,
+                        entityId: newDebt.id,
+                        category: ActivityCategory.TRANSACTION,
+                        accountId: debt.accountId,
+                        accountBankName: acc.bankName,
+                        holderName: acc.holderName,
+                        balanceDeltaUserCurrency: -principal,
+                        userCurrency,
+                        transactionTitle: `Lent to ${debt.borrowerName}`,
+                        transactionAmountOriginal: principal,
+                        transactionCurrency: userCurrency,
+                        reason: "debt_create",
+                    });
+                }
             }
 
             return newDebt;
@@ -239,6 +277,12 @@ export async function updateDebt(id: number, debt: Partial<Omit<DebtInterface, '
             validateNumber(debt.interestRate, 'interest rate');
         }
 
+        const userRow = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { currency: true },
+        });
+        const userCurrency = userRow?.currency || "USD";
+
         // Use a transaction to handle debt update and account balance changes
         const result = await prisma.$transaction(async (tx) => {
             // Verify the debt belongs to the user
@@ -268,7 +312,7 @@ export async function updateDebt(id: number, debt: Partial<Omit<DebtInterface, '
                 const newAmount = debt.amount;
                 const amountDifference = newAmount - oldAmount;
 
-                if (existingDebt.accountId) {
+                if (existingDebt.accountId && amountDifference !== 0) {
                     // For debts: if amount increased, decrease balance more; if decreased, increase balance
                     await tx.account.update({
                         where: { id: existingDebt.accountId },
@@ -278,6 +322,28 @@ export async function updateDebt(id: number, debt: Partial<Omit<DebtInterface, '
                             }
                         }
                     });
+                    const acc = await tx.account.findUnique({
+                        where: { id: existingDebt.accountId },
+                        select: { bankName: true, holderName: true },
+                    });
+                    if (acc) {
+                        await logAccountBalanceFromTransaction(tx, {
+                            userId,
+                            action: ActivityAction.UPDATE,
+                            entityType: ActivityEntityType.DEBT,
+                            entityId: id,
+                            category: ActivityCategory.TRANSACTION,
+                            accountId: existingDebt.accountId,
+                            accountBankName: acc.bankName,
+                            holderName: acc.holderName,
+                            balanceDeltaUserCurrency: -amountDifference,
+                            userCurrency,
+                            transactionTitle: `Lent to ${updatedDebt.borrowerName}`,
+                            transactionAmountOriginal: newAmount,
+                            transactionCurrency: userCurrency,
+                            reason: "debt_update_principal",
+                        });
+                    }
                 }
             }
 
@@ -318,6 +384,12 @@ export async function deleteDebt(id: number) {
         const session = await getAuthenticatedSession();
         const userId = getUserIdFromSession(session.user.id);
 
+        const userRow = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { currency: true },
+        });
+        const userCurrency = userRow?.currency || "USD";
+
         // Use a transaction to handle debt deletion and account balance restoration
         const result = await prisma.$transaction(async (tx) => {
             // Verify the debt belongs to the user and get its details
@@ -339,14 +411,37 @@ export async function deleteDebt(id: number) {
 
             // Restore the account balance if accountId is provided
             if (existingDebt.accountId) {
+                const principal = decimalToNumber(existingDebt.amount, "debt amount");
                 await tx.account.update({
                     where: { id: existingDebt.accountId },
                     data: {
                         balance: {
-                            increment: decimalToNumber(existingDebt.amount, 'debt amount')
-                        }
-                    }
+                            increment: principal,
+                        },
+                    },
                 });
+                const acc = await tx.account.findUnique({
+                    where: { id: existingDebt.accountId },
+                    select: { bankName: true, holderName: true },
+                });
+                if (acc) {
+                    await logAccountBalanceFromTransaction(tx, {
+                        userId,
+                        action: ActivityAction.DELETE,
+                        entityType: ActivityEntityType.DEBT,
+                        entityId: id,
+                        category: ActivityCategory.TRANSACTION,
+                        accountId: existingDebt.accountId,
+                        accountBankName: acc.bankName,
+                        holderName: acc.holderName,
+                        balanceDeltaUserCurrency: principal,
+                        userCurrency,
+                        transactionTitle: `Lent to ${existingDebt.borrowerName}`,
+                        transactionAmountOriginal: principal,
+                        transactionCurrency: userCurrency,
+                        reason: "debt_delete",
+                    });
+                }
             }
 
             return existingDebt;
@@ -371,6 +466,12 @@ export async function addRepayment(debtId: number, amount: number, notes?: strin
         
         // Validate repayment amount
         validateNumber(amount, 'repayment amount');
+
+        const userRow = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { currency: true },
+        });
+        const userCurrency = userRow?.currency || "USD";
 
         // Use a transaction to ensure debt, repayment, and account balance are updated atomically
         const result = await prisma.$transaction(async (tx) => {
@@ -471,6 +572,29 @@ export async function addRepayment(debtId: number, amount: number, notes?: strin
                         }
                     }
                 });
+                const acc = await tx.account.findUnique({
+                    where: { id: accountId },
+                    select: { bankName: true, holderName: true },
+                });
+                if (acc) {
+                    await logAccountBalanceFromTransaction(tx, {
+                        userId,
+                        action: ActivityAction.CREATE,
+                        entityType: ActivityEntityType.DEBT_REPAYMENT,
+                        entityId: repayment.id,
+                        category: ActivityCategory.TRANSACTION,
+                        accountId,
+                        accountBankName: acc.bankName,
+                        holderName: acc.holderName,
+                        balanceDeltaUserCurrency: amount,
+                        userCurrency,
+                        transactionTitle: `Repayment from ${existingDebt.borrowerName}`,
+                        transactionAmountOriginal: amount,
+                        transactionCurrency: userCurrency,
+                        reason: "debt_repayment_create",
+                        extraMetadata: { debtId: debtId },
+                    });
+                }
             }
 
             return repayment;
@@ -500,6 +624,12 @@ export async function deleteRepayment(repaymentId: number, debtId: number) {
     try {
         const session = await getAuthenticatedSession();
         const userId = getUserIdFromSession(session.user.id);
+
+        const userRow = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { currency: true },
+        });
+        const userCurrency = userRow?.currency || "USD";
 
         // Use a transaction to ensure repayment deletion and account balance update are atomic
         const result = await prisma.$transaction(async (tx) => {
@@ -568,14 +698,38 @@ export async function deleteRepayment(repaymentId: number, debtId: number) {
 
             // Restore the account balance (subtract repayment amount) if accountId is provided
             if (repaymentToDelete.accountId) {
+                const repAmt = decimalToNumber(repaymentToDelete.amount, "repayment amount");
                 await tx.account.update({
                     where: { id: repaymentToDelete.accountId },
                     data: {
                         balance: {
-                            decrement: decimalToNumber(repaymentToDelete.amount, 'repayment amount')
-                        }
-                    }
+                            decrement: repAmt,
+                        },
+                    },
                 });
+                const acc = await tx.account.findUnique({
+                    where: { id: repaymentToDelete.accountId },
+                    select: { bankName: true, holderName: true },
+                });
+                if (acc) {
+                    await logAccountBalanceFromTransaction(tx, {
+                        userId,
+                        action: ActivityAction.DELETE,
+                        entityType: ActivityEntityType.DEBT_REPAYMENT,
+                        entityId: repaymentId,
+                        category: ActivityCategory.TRANSACTION,
+                        accountId: repaymentToDelete.accountId,
+                        accountBankName: acc.bankName,
+                        holderName: acc.holderName,
+                        balanceDeltaUserCurrency: -repAmt,
+                        userCurrency,
+                        transactionTitle: `Repayment from ${existingDebt.borrowerName}`,
+                        transactionAmountOriginal: repAmt,
+                        transactionCurrency: userCurrency,
+                        reason: "debt_repayment_delete",
+                        extraMetadata: { debtId: debtId },
+                    });
+                }
             }
 
             return repaymentToDelete;
@@ -892,6 +1046,12 @@ export async function bulkDeleteDebts(debtIds: number[]) {
             throw new Error("Some debts not found or unauthorized");
         }
 
+        const userRow = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { currency: true },
+        });
+        const userCurrency = userRow?.currency || "USD";
+
         // Use a transaction to handle debt deletion and account balance restoration
         await prisma.$transaction(async (tx) => {
             // Delete the debts (this will cascade delete repayments)
@@ -904,12 +1064,16 @@ export async function bulkDeleteDebts(debtIds: number[]) {
 
             // Restore account balances (increase by debt amounts since debts are removed)
             const accountUpdates = new Map<number, number>();
+            const accountDebtIds = new Map<number, number[]>();
             
             existingDebts.forEach(debt => {
                 if (debt.accountId) {
                     const debtAmount = decimalToNumber(debt.amount, 'debt amount');
                     const currentTotal = accountUpdates.get(debt.accountId) || 0;
                     accountUpdates.set(debt.accountId, currentTotal + debtAmount);
+                    const ids = accountDebtIds.get(debt.accountId) || [];
+                    ids.push(debt.id);
+                    accountDebtIds.set(debt.accountId, ids);
                 }
             });
 
@@ -923,6 +1087,30 @@ export async function bulkDeleteDebts(debtIds: number[]) {
                         }
                     }
                 });
+                const acc = await tx.account.findUnique({
+                    where: { id: accountId },
+                    select: { bankName: true, holderName: true },
+                });
+                const dIds = accountDebtIds.get(accountId) || [];
+                if (acc) {
+                    await logAccountBalanceFromTransaction(tx, {
+                        userId,
+                        action: ActivityAction.BULK_DELETE,
+                        entityType: ActivityEntityType.DEBT,
+                        entityId: null,
+                        category: ActivityCategory.BULK_OPERATION,
+                        accountId,
+                        accountBankName: acc.bankName,
+                        holderName: acc.holderName,
+                        balanceDeltaUserCurrency: totalAmount,
+                        userCurrency,
+                        transactionTitle: `${dIds.length} lending record(s) deleted`,
+                        transactionAmountOriginal: totalAmount,
+                        transactionCurrency: userCurrency,
+                        reason: "bulk_delete_debt",
+                        extraMetadata: { debtIds: dIds },
+                    });
+                }
             }
         });
 
