@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Bookmark } from "lucide-react";
-import { Transaction } from "../../types/financial";
+import { Transaction, UnifiedTransactionType } from "../../types/financial";
+import type { BookmarkableTransactionType } from "../../types/transaction-bookmarks";
 import { formatDate } from "../../utils/date";
 import { formatCurrency } from "../../utils/currency";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
@@ -15,11 +16,71 @@ import { CompactPagination } from "../../components/shared/CompactPagination";
 
 const ITEMS_PER_PAGE = 25;
 
+function parseBookmarkableTransactionId(
+    compositeId: string | number
+): { transactionType: BookmarkableTransactionType; transactionId: number } | null {
+    const s = String(compositeId);
+    const idx = s.indexOf("-");
+    if (idx <= 0) return null;
+    const prefix = s.slice(0, idx).toUpperCase();
+    const numericId = parseInt(s.slice(idx + 1), 10);
+    if (!Number.isFinite(numericId)) return null;
+    if (
+        prefix === "EXPENSE" ||
+        prefix === "INCOME" ||
+        prefix === "DEBT" ||
+        prefix === "INVESTMENT"
+    ) {
+        return { transactionType: prefix as BookmarkableTransactionType, transactionId: numericId };
+    }
+    return null;
+}
+
+function transactionRowVisuals(type: UnifiedTransactionType): {
+    circleClass: string;
+    icon: string;
+    amountClass: string;
+    prefix: string;
+} {
+    if (type === "INCOME") {
+        return {
+            circleClass: "bg-green-500",
+            icon: "↗",
+            amountClass: "text-green-600",
+            prefix: "+",
+        };
+    }
+    if (type === "EXPENSE") {
+        return {
+            circleClass: "bg-red-500",
+            icon: "↙",
+            amountClass: "text-red-600",
+            prefix: "-",
+        };
+    }
+    if (type === "DEBT") {
+        return {
+            circleClass: "bg-amber-500",
+            icon: "◎",
+            amountClass: "text-amber-700",
+            prefix: "-",
+        };
+    }
+    return {
+        circleClass: "bg-indigo-500",
+        icon: "◇",
+        amountClass: "text-indigo-600",
+        prefix: "-",
+    };
+}
+
 export default function TransactionsPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
-    const [selectedType, setSelectedType] = useState<"ALL" | "INCOME" | "EXPENSE">("ALL");
+    const [selectedType, setSelectedType] = useState<
+        "ALL" | UnifiedTransactionType
+    >("ALL");
     const [selectedCategory, setSelectedCategory] = useState("");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
@@ -98,7 +159,7 @@ export default function TransactionsPage() {
     // Calculate totals (for all filtered transactions, not just current page)
     const totalAmount = filteredTransactions.reduce((sum, t) => {
         const convertedAmount = convertForDisplaySync(t.amount, t.currency, userCurrency);
-        return t.type === 'INCOME' ? sum + convertedAmount : sum - convertedAmount;
+        return t.type === "INCOME" ? sum + convertedAmount : sum - convertedAmount;
     }, 0);
     
     const totalIncome = filteredTransactions
@@ -109,7 +170,21 @@ export default function TransactionsPage() {
         }, 0);
     
     const totalExpenses = filteredTransactions
-        .filter(t => t.type === 'EXPENSE')
+        .filter((t) => t.type === "EXPENSE")
+        .reduce((sum, t) => {
+            const convertedAmount = convertForDisplaySync(t.amount, t.currency, userCurrency);
+            return sum + convertedAmount;
+        }, 0);
+
+    const totalLending = filteredTransactions
+        .filter((t) => t.type === "DEBT")
+        .reduce((sum, t) => {
+            const convertedAmount = convertForDisplaySync(t.amount, t.currency, userCurrency);
+            return sum + convertedAmount;
+        }, 0);
+
+    const totalInvested = filteredTransactions
+        .filter((t) => t.type === "INVESTMENT")
         .reduce((sum, t) => {
             const convertedAmount = convertForDisplaySync(t.amount, t.currency, userCurrency);
             return sum + convertedAmount;
@@ -124,20 +199,22 @@ export default function TransactionsPage() {
     // Handle bookmark toggle
     const handleBookmarkToggle = async (transaction: Transaction) => {
         try {
-            // Extract the actual transaction ID from the string ID
-            const idParts = transaction.id.toString().split('-');
-            const transactionId = parseInt(idParts[1] || '0');
-            
+            const parsed = parseBookmarkableTransactionId(transaction.id);
+            if (!parsed) return;
+
             if (transaction.isBookmarked) {
-                await deleteTransactionBookmarkByTransaction(transaction.type, transactionId);
+                await deleteTransactionBookmarkByTransaction(
+                    parsed.transactionType,
+                    parsed.transactionId
+                );
             } else {
                 await createTransactionBookmark({
-                    transactionType: transaction.type,
-                    transactionId: transactionId,
+                    transactionType: parsed.transactionType,
+                    transactionId: parsed.transactionId,
                     title: transaction.title,
                     description: transaction.description || undefined,
                     notes: transaction.notes || undefined,
-                    tags: transaction.tags || []
+                    tags: transaction.tags || [],
                 });
             }
             
@@ -190,7 +267,7 @@ export default function TransactionsPage() {
 
             {/* Summary Stats */}
             <div className="bg-white rounded-lg shadow p-4 sm:p-6">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6">
                     <div className="text-center sm:text-left">
                         <p className="text-sm font-medium text-gray-600">Net Amount</p>
                         <p className="text-lg sm:text-2xl font-bold text-blue-600">
@@ -207,6 +284,18 @@ export default function TransactionsPage() {
                         <p className="text-sm font-medium text-gray-600">Total Expenses</p>
                         <p className="text-lg sm:text-2xl font-bold text-red-600">
                             -{formatCurrency(totalExpenses, userCurrency)}
+                        </p>
+                    </div>
+                    <div className="text-center sm:text-left">
+                        <p className="text-sm font-medium text-gray-600">Lending (principal)</p>
+                        <p className="text-lg sm:text-2xl font-bold text-amber-700">
+                            -{formatCurrency(totalLending, userCurrency)}
+                        </p>
+                    </div>
+                    <div className="text-center sm:text-left">
+                        <p className="text-sm font-medium text-gray-600">Investments (cost)</p>
+                        <p className="text-lg sm:text-2xl font-bold text-indigo-600">
+                            -{formatCurrency(totalInvested, userCurrency)}
                         </p>
                     </div>
                     <div className="text-center sm:text-left">
@@ -237,12 +326,16 @@ export default function TransactionsPage() {
                         </label>
                         <select
                             value={selectedType}
-                            onChange={(e) => setSelectedType(e.target.value as "ALL" | "INCOME" | "EXPENSE")}
+                            onChange={(e) =>
+                                setSelectedType(e.target.value as "ALL" | UnifiedTransactionType)
+                            }
                             className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                         >
                             <option value="ALL">All Types</option>
                             <option value="INCOME">Income</option>
                             <option value="EXPENSE">Expense</option>
+                            <option value="DEBT">Lending (debt)</option>
+                            <option value="INVESTMENT">Investment</option>
                         </select>
                     </div>
                     <div className="min-w-[120px]">
@@ -339,7 +432,7 @@ export default function TransactionsPage() {
                         <h3 className="text-lg font-medium text-gray-900 mb-2">No transactions found</h3>
                         <p className="text-gray-500">
                             {transactions.length === 0 
-                                ? "Start by adding some income or expenses."
+                                ? "Start by adding income, expenses, lendings, or investments."
                                 : "Try adjusting your filters to see more results."
                             }
                         </p>
@@ -377,7 +470,9 @@ export default function TransactionsPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {paginatedTransactions.map((transaction) => (
+                                    {paginatedTransactions.map((transaction) => {
+                                        const rowUi = transactionRowVisuals(transaction.type);
+                                        return (
                                         <tr key={transaction.id} className="hover:bg-gray-50">
                                             <td className="px-1 py-4 text-center">
                                                 <button 
@@ -398,10 +493,10 @@ export default function TransactionsPage() {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center">
-                                                    <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-white text-sm ${
-                                                        transaction.type === 'INCOME' ? 'bg-green-500' : 'bg-red-500'
-                                                    }`}>
-                                                        {transaction.type === 'INCOME' ? '↗' : '↙'}
+                                                    <div
+                                                        className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-white text-sm ${rowUi.circleClass}`}
+                                                    >
+                                                        {rowUi.icon}
                                                     </div>
                                                     <div className="ml-4">
                                                         <div className="text-sm font-medium text-gray-900">
@@ -449,13 +544,22 @@ export default function TransactionsPage() {
                                                     {transaction.notes || '-'}
                                                 </div>
                                             </td>
-                                            <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-right ${
-                                                transaction.type === 'INCOME' ? 'text-green-600' : 'text-red-600'
-                                            }`}>
-                                                {transaction.type === 'INCOME' ? '+' : '-'}{formatCurrency(convertForDisplaySync(transaction.amount, transaction.currency, userCurrency), userCurrency)}
+                                            <td
+                                                className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-right ${rowUi.amountClass}`}
+                                            >
+                                                {rowUi.prefix}
+                                                {formatCurrency(
+                                                    convertForDisplaySync(
+                                                        transaction.amount,
+                                                        transaction.currency,
+                                                        userCurrency
+                                                    ),
+                                                    userCurrency
+                                                )}
                                             </td>
                                         </tr>
-                                    ))}
+                                    );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

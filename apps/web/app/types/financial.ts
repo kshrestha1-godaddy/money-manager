@@ -147,9 +147,11 @@ export interface Subscriber {
   updatedAt: Date;
 }
 
+export type UnifiedTransactionType = 'EXPENSE' | 'INCOME' | 'DEBT' | 'INVESTMENT';
+
 export interface Transaction {
   id: string | number;
-  type: 'EXPENSE' | 'INCOME';
+  type: UnifiedTransactionType;
   title: string;
   amount: number;
   currency: string;

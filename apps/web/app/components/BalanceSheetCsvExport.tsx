@@ -127,12 +127,14 @@ export function BalanceSheetCsvExport({ transactions }: BalanceSheetCsvExportPro
                 transaction.currency,
                 displayCurrency
             );
-            const debit =
-                transaction.type === "EXPENSE" ? formatAmountForCsv(displayAmount) : "";
-            const credit =
-                transaction.type === "INCOME" ? formatAmountForCsv(displayAmount) : "";
-            runningBalance +=
-                transaction.type === "INCOME" ? displayAmount : -displayAmount;
+            const isIncome = transaction.type === "INCOME";
+            const isOutflow =
+                transaction.type === "EXPENSE" ||
+                transaction.type === "DEBT" ||
+                transaction.type === "INVESTMENT";
+            const debit = isOutflow ? formatAmountForCsv(displayAmount) : "";
+            const credit = isIncome ? formatAmountForCsv(displayAmount) : "";
+            runningBalance += isIncome ? displayAmount : -displayAmount;
 
             rows.push([
                 String(index + 1),
@@ -154,7 +156,12 @@ export function BalanceSheetCsvExport({ transactions }: BalanceSheetCsvExportPro
         });
 
         const totalDebit = sorted
-            .filter((t) => t.type === "EXPENSE")
+            .filter(
+                (t) =>
+                    t.type === "EXPENSE" ||
+                    t.type === "DEBT" ||
+                    t.type === "INVESTMENT"
+            )
             .reduce(
                 (sum, t) =>
                     sum +

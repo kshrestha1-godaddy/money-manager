@@ -2,7 +2,25 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Transaction } from "../../../types/financial";
+import { Transaction, UnifiedTransactionType } from "../../../types/financial";
+
+function recentTxRowStyle(type: UnifiedTransactionType): {
+    circle: string;
+    icon: string;
+    amount: string;
+    prefix: string;
+} {
+    if (type === "INCOME") {
+        return { circle: "bg-green-500", icon: "↗", amount: "text-green-600", prefix: "+" };
+    }
+    if (type === "EXPENSE") {
+        return { circle: "bg-red-500", icon: "↙", amount: "text-red-600", prefix: "-" };
+    }
+    if (type === "DEBT") {
+        return { circle: "bg-amber-500", icon: "◎", amount: "text-amber-700", prefix: "-" };
+    }
+    return { circle: "bg-indigo-500", icon: "◇", amount: "text-indigo-600", prefix: "-" };
+}
 import { formatDate } from "../../../utils/date";
 import { formatCurrency } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
@@ -69,7 +87,7 @@ export function RecentTransactions() {
                 <div className="p-6 sm:p-8 text-center">
                     <div className="text-gray-400 text-3xl sm:text-4xl mb-4">📝</div>
                     <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">No transactions found</h3>
-                    <p className="text-gray-500 text-sm sm:text-base">Start by adding some income or expenses to see recent activity.</p>
+                    <p className="text-gray-500 text-sm sm:text-base">Add income, expenses, lendings, or investments to see recent activity.</p>
                 </div>
             </div>
         );
@@ -84,14 +102,16 @@ export function RecentTransactions() {
             {/* Mobile Card View */}
             {isMobile ? (
                 <div className="p-3 space-y-2">
-                    {transactions.map((transaction) => (
+                    {transactions.map((transaction) => {
+                        const rs = recentTxRowStyle(transaction.type);
+                        return (
                         <div key={transaction.id} className="border border-gray-200 rounded-lg p-3">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center flex-1 min-w-0">
-                                    <div className={`flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-white text-xs ${
-                                        transaction.type === 'INCOME' ? 'bg-green-500' : 'bg-red-500'
-                                    }`}>
-                                        {transaction.type === 'INCOME' ? '↗' : '↙'}
+                                    <div
+                                        className={`flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-white text-xs ${rs.circle}`}
+                                    >
+                                        {rs.icon}
                                     </div>
                                     <div className="ml-2 flex-1 min-w-0">
                                         <div className="text-sm font-medium text-gray-900 truncate">
@@ -102,14 +122,14 @@ export function RecentTransactions() {
                                         </div>
                                     </div>
                                 </div>
-                                <div className={`text-sm font-medium ml-2 ${
-                                    transaction.type === 'INCOME' ? 'text-green-600' : 'text-red-600'
-                                }`}>
-                                    {transaction.type === 'INCOME' ? '+' : '-'}{formatCurrency(convertForDisplaySync(transaction.amount, transaction.currency, userCurrency), userCurrency)}
+                                <div className={`text-sm font-medium ml-2 ${rs.amount}`}>
+                                    {rs.prefix}
+                                    {formatCurrency(convertForDisplaySync(transaction.amount, transaction.currency, userCurrency), userCurrency)}
                                 </div>
                             </div>
                         </div>
-                    ))}
+                    );
+                    })}
                 </div>
             ) : (
                 /* Desktop Table View */
@@ -135,14 +155,16 @@ export function RecentTransactions() {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {transactions.map((transaction) => (
+                            {transactions.map((transaction) => {
+                                const rs = recentTxRowStyle(transaction.type);
+                                return (
                                 <tr key={transaction.id} className="hover:bg-gray-50">
                                     <td className="px-4 py-3 whitespace-nowrap">
                                         <div className="flex items-center">
-                                            <div className={`flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-white text-xs ${
-                                                transaction.type === 'INCOME' ? 'bg-green-500' : 'bg-red-500'
-                                            }`}>
-                                                {transaction.type === 'INCOME' ? '↗' : '↙'}
+                                            <div
+                                                className={`flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-white text-xs ${rs.circle}`}
+                                            >
+                                                {rs.icon}
                                             </div>
                                             <div className="ml-3">
                                                 <div className="text-sm font-medium text-gray-900 truncate max-w-48">
@@ -160,13 +182,13 @@ export function RecentTransactions() {
                                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                                         {formatDate(transaction.date)}
                                     </td>
-                                    <td className={`px-4 py-3 whitespace-nowrap text-sm font-medium text-right ${
-                                        transaction.type === 'INCOME' ? 'text-green-600' : 'text-red-600'
-                                    }`}>
-                                        {transaction.type === 'INCOME' ? '+' : '-'}{formatCurrency(convertForDisplaySync(transaction.amount, transaction.currency, userCurrency), userCurrency)}
+                                    <td className={`px-4 py-3 whitespace-nowrap text-sm font-medium text-right ${rs.amount}`}>
+                                        {rs.prefix}
+                                        {formatCurrency(convertForDisplaySync(transaction.amount, transaction.currency, userCurrency), userCurrency)}
                                     </td>
                                 </tr>
-                            ))}
+                            );
+                            })}
                         </tbody>
                     </table>
                 </div>

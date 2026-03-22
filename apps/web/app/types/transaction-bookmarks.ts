@@ -1,6 +1,8 @@
+export type BookmarkableTransactionType = 'INCOME' | 'EXPENSE' | 'DEBT' | 'INVESTMENT';
+
 export interface TransactionBookmark {
   id: number;
-  transactionType: 'INCOME' | 'EXPENSE';
+  transactionType: BookmarkableTransactionType;
   transactionId: number;
   title: string;
   description?: string | null;
@@ -12,7 +14,7 @@ export interface TransactionBookmark {
 }
 
 export type TransactionBookmarkFormData = {
-  transactionType: 'INCOME' | 'EXPENSE';
+  transactionType: BookmarkableTransactionType;
   transactionId: number;
   title: string;
   description?: string;

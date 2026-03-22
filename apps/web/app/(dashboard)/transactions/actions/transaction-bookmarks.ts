@@ -1,8 +1,25 @@
 "use server";
 
-import { TransactionBookmark, TransactionBookmarkFormData, TransactionBookmarkUpdateData, BookmarkedTransaction } from "../../../types/transaction-bookmarks";
+import {
+    TransactionBookmark,
+    TransactionBookmarkFormData,
+    TransactionBookmarkUpdateData,
+    BookmarkedTransaction,
+    BookmarkableTransactionType,
+} from "../../../types/transaction-bookmarks";
 import prisma from "@repo/db/client";
-import { getAuthenticatedSession, getUserIdFromSession } from "../../../utils/auth";
+import {
+    getAuthenticatedSession,
+    getUserIdFromSession,
+    decimalToNumber,
+} from "../../../utils/auth";
+
+function formatInvestmentCategoryLabel(type: string): string {
+    return type
+        .replace(/_/g, " ")
+        .toLowerCase()
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 export async function getTransactionBookmarks(): Promise<TransactionBookmark[]> {
     try {
@@ -21,7 +38,7 @@ export async function getTransactionBookmarks(): Promise<TransactionBookmark[]> 
         return bookmarks.map(bookmark => ({
             ...bookmark,
             userId: bookmark.userId,
-            transactionType: bookmark.transactionType as "EXPENSE" | "INCOME"
+            transactionType: bookmark.transactionType as BookmarkableTransactionType
         }));
     } catch (error) {
         console.error("Error fetching transaction bookmarks:", error);
@@ -45,43 +62,102 @@ export async function getBookmarkedTransactions(): Promise<BookmarkedTransaction
 
         const bookmarkedTransactions: BookmarkedTransaction[] = [];
 
-        for (const bookmark of bookmarks) {
-            let transaction = null;
-            
-            if (bookmark.transactionType === 'INCOME') {
-                transaction = await prisma.income.findUnique({
-                    where: { id: bookmark.transactionId },
-                    include: {
-                        category: true,
-                        account: true
-                    }
-                });
-            } else if (bookmark.transactionType === 'EXPENSE') {
-                transaction = await prisma.expense.findUnique({
-                    where: { id: bookmark.transactionId },
-                    include: {
-                        category: true,
-                        account: true
-                    }
-                });
-            }
+        function wrapBookmark(
+            b: (typeof bookmarks)[number],
+            payload: BookmarkedTransaction["transaction"]
+        ): BookmarkedTransaction {
+            return {
+                bookmark: {
+                    ...b,
+                    userId: b.userId,
+                    transactionType: b.transactionType as BookmarkableTransactionType,
+                },
+                transaction: payload,
+            };
+        }
 
-            if (transaction) {
-                bookmarkedTransactions.push({
-                    bookmark: {
-                        ...bookmark,
-                        userId: bookmark.userId,
-                        transactionType: bookmark.transactionType as "EXPENSE" | "INCOME"
-                    },
-                    transaction: {
-                        id: transaction.id,
-                        title: transaction.title,
-                        amount: Number(transaction.amount),
-                        date: transaction.date,
-                        category: transaction.category,
-                        account: transaction.account
-                    }
+        for (const bookmark of bookmarks) {
+            if (bookmark.transactionType === "INCOME") {
+                const row = await prisma.income.findUnique({
+                    where: { id: bookmark.transactionId },
+                    include: { category: true, account: true },
                 });
+                if (row) {
+                    bookmarkedTransactions.push(
+                        wrapBookmark(bookmark, {
+                            id: row.id,
+                            title: row.title,
+                            amount: decimalToNumber(row.amount, "income amount"),
+                            date: row.date,
+                            category: row.category,
+                            account: row.account,
+                        })
+                    );
+                }
+            } else if (bookmark.transactionType === "EXPENSE") {
+                const row = await prisma.expense.findUnique({
+                    where: { id: bookmark.transactionId },
+                    include: { category: true, account: true },
+                });
+                if (row) {
+                    bookmarkedTransactions.push(
+                        wrapBookmark(bookmark, {
+                            id: row.id,
+                            title: row.title,
+                            amount: decimalToNumber(row.amount, "expense amount"),
+                            date: row.date,
+                            category: row.category,
+                            account: row.account,
+                        })
+                    );
+                }
+            } else if (bookmark.transactionType === "DEBT") {
+                const row = await prisma.debt.findUnique({
+                    where: { id: bookmark.transactionId },
+                    include: { account: true },
+                });
+                if (row) {
+                    bookmarkedTransactions.push(
+                        wrapBookmark(bookmark, {
+                            id: row.id,
+                            title: `Lent to ${row.borrowerName}`,
+                            amount: decimalToNumber(row.amount, "debt amount"),
+                            date: row.lentDate,
+                            category: {
+                                id: 0,
+                                name: "Lending",
+                                color: "#d97706",
+                            },
+                            account: row.account,
+                        })
+                    );
+                }
+            } else if (bookmark.transactionType === "INVESTMENT") {
+                const row = await prisma.investment.findUnique({
+                    where: { id: bookmark.transactionId },
+                    include: { account: true },
+                });
+                if (row) {
+                    const qty = decimalToNumber(row.quantity, "investment quantity");
+                    const price = decimalToNumber(
+                        row.purchasePrice,
+                        "investment purchase price"
+                    );
+                    bookmarkedTransactions.push(
+                        wrapBookmark(bookmark, {
+                            id: row.id,
+                            title: row.name,
+                            amount: qty * price,
+                            date: row.purchaseDate,
+                            category: {
+                                id: 0,
+                                name: formatInvestmentCategoryLabel(row.type),
+                                color: "#4f46e5",
+                            },
+                            account: row.account,
+                        })
+                    );
+                }
             }
         }
 
@@ -127,7 +203,7 @@ export async function createTransactionBookmark(data: TransactionBookmarkFormDat
         return {
             ...bookmark,
             userId: bookmark.userId,
-            transactionType: bookmark.transactionType as "EXPENSE" | "INCOME"
+            transactionType: bookmark.transactionType as BookmarkableTransactionType
         };
     } catch (error) {
         console.error("Error creating transaction bookmark:", error);
@@ -171,7 +247,7 @@ export async function updateTransactionBookmark(data: TransactionBookmarkUpdateD
         return {
             ...updatedBookmark,
             userId: updatedBookmark.userId,
-            transactionType: updatedBookmark.transactionType as "EXPENSE" | "INCOME"
+            transactionType: updatedBookmark.transactionType as BookmarkableTransactionType
         };
     } catch (error) {
         console.error("Error updating transaction bookmark:", error);
@@ -208,7 +284,7 @@ export async function deleteTransactionBookmark(id: number): Promise<void> {
 }
 
 export async function deleteTransactionBookmarkByTransaction(
-    transactionType: 'INCOME' | 'EXPENSE',
+    transactionType: BookmarkableTransactionType,
     transactionId: number
 ): Promise<void> {
     try {
@@ -229,7 +305,7 @@ export async function deleteTransactionBookmarkByTransaction(
 }
 
 export async function isTransactionBookmarked(
-    transactionType: 'INCOME' | 'EXPENSE',
+    transactionType: BookmarkableTransactionType,
     transactionId: number
 ): Promise<boolean> {
     try {

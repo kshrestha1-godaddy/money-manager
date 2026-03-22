@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { FileText, Loader2 } from "lucide-react";
-import { Transaction } from "../types/financial";
+import { Transaction, UnifiedTransactionType } from "../types/financial";
+
+function pdfOutflowAmountClass(type: UnifiedTransactionType): string {
+    if (type === "EXPENSE") return "expense";
+    if (type === "DEBT") return "debt";
+    return "investment";
+}
 import { useCurrency } from "../providers/CurrencyProvider";
 import { formatDate } from "../utils/date";
 import { formatCurrency } from "../utils/currency";
@@ -229,6 +235,16 @@ export function TransactionPDFReportGenerator({
                             background: #fee2e2;
                             color: #991b1b;
                         }
+                        .type-debt {
+                            background: #fef3c7;
+                            color: #92400e;
+                        }
+                        .type-investment {
+                            background: #e0e7ff;
+                            color: #3730a3;
+                        }
+                        .debt { color: #d97706; }
+                        .investment { color: #4f46e5; }
                         .filters-box {
                             background: #fffbeb;
                             border: 1px solid #fbbf24;
@@ -372,7 +388,7 @@ export function TransactionPDFReportGenerator({
                                     </td>
                                     <td>${transaction.category}</td>
                                     <td>${transaction.account}</td>
-                                    <td style="text-align: right; font-weight: 600;" class="${transaction.type === 'INCOME' ? 'income' : 'expense'}">
+                                    <td style="text-align: right; font-weight: 600;" class="${transaction.type === 'INCOME' ? 'income' : pdfOutflowAmountClass(transaction.type)}">
                                         ${transaction.type === 'INCOME' ? '+' : '-'}${formatCurrency(transaction.amount, currency)}
                                     </td>
                                 </tr>
