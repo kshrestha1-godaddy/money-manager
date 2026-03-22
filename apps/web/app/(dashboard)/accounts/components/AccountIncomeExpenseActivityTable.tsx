@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download } from "lucide-react";
+import { ChevronDown, Download, RefreshCw } from "lucide-react";
 import {
     getIncomeExpenseAccountBalanceActivityLogs,
     type IncomeExpenseAccountActivityRow,
@@ -12,6 +12,145 @@ import { INPUT_COLORS, TEXT_COLORS, UI_STYLES } from "../../../config/colorConfi
 
 const standardInput = INPUT_COLORS.standard;
 const labelText = TEXT_COLORS.label;
+
+const ACTIVITY_TYPE_FILTER_OPTIONS: { value: string; label: string }[] = [
+    { value: "INCOME", label: "Income" },
+    { value: "EXPENSE", label: "Expense" },
+    { value: "DEBT", label: "Debt" },
+    { value: "DEBT_REPAYMENT", label: "Repayment" },
+    { value: "INVESTMENT", label: "Invest" },
+];
+
+const ACTIVITY_ACTION_FILTER_OPTIONS: { value: string; label: string }[] = [
+    { value: "CREATE", label: "Create" },
+    { value: "UPDATE", label: "Update" },
+    { value: "DELETE", label: "Delete" },
+];
+
+function actionMatchesMultiSelect(rowAction: string, selected: string[]): boolean {
+    if (selected.length === 0) return true;
+    return selected.some((f) => {
+        if (f === "DELETE") {
+            return rowAction === "DELETE" || rowAction === "BULK_DELETE";
+        }
+        return rowAction === f;
+    });
+}
+
+interface ActivityFilterMultiDropdownProps<T extends string | number> {
+    id: string;
+    label: string;
+    options: { value: T; label: string }[];
+    selected: T[];
+    onChange: (next: T[]) => void;
+    emptySummary: string;
+    pluralNoun: string;
+}
+
+function ActivityFilterMultiDropdown<T extends string | number>({
+    id,
+    label,
+    options,
+    selected,
+    onChange,
+    emptySummary,
+    pluralNoun,
+}: ActivityFilterMultiDropdownProps<T>) {
+    const [open, setOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!open) return;
+        function handlePointerDown(event: MouseEvent) {
+            if (
+                containerRef.current &&
+                !containerRef.current.contains(event.target as Node)
+            ) {
+                setOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handlePointerDown);
+        return () => document.removeEventListener("mousedown", handlePointerDown);
+    }, [open]);
+
+    const summary = useMemo(() => {
+        if (selected.length === 0) return emptySummary;
+        if (selected.length === 1) {
+            const v = selected[0];
+            const opt = options.find((o) => o.value === v);
+            return opt?.label ?? String(v);
+        }
+        return `${selected.length} ${pluralNoun}`;
+    }, [selected, options, emptySummary, pluralNoun]);
+
+    function toggle(value: T) {
+        if (selected.includes(value)) {
+            onChange(selected.filter((x) => x !== value));
+        } else {
+            onChange([...selected, value]);
+        }
+    }
+
+    return (
+        <div ref={containerRef} className="relative min-w-0">
+            <label className={`${labelText} block`} htmlFor={id}>
+                {label}
+            </label>
+            <button
+                id={id}
+                type="button"
+                aria-expanded={open}
+                aria-haspopup="listbox"
+                onClick={() => setOpen((o) => !o)}
+                className={`mt-1 flex w-full min-h-[2.5rem] cursor-pointer items-center justify-between gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+            >
+                <span className="truncate">{summary}</span>
+                <ChevronDown
+                    className={`h-4 w-4 shrink-0 text-gray-500 transition-transform ${open ? "rotate-180" : ""}`}
+                    aria-hidden
+                />
+            </button>
+            {open ? (
+                <div
+                    role="listbox"
+                    aria-multiselectable="true"
+                    className="absolute left-0 right-0 z-50 mt-1 max-h-56 overflow-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+                >
+                    <div className="flex flex-wrap gap-2 border-b border-gray-100 px-2 py-2">
+                        <button
+                            type="button"
+                            className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                            onClick={() => onChange([])}
+                        >
+                            Clear ({emptySummary})
+                        </button>
+                        <button
+                            type="button"
+                            className="text-xs font-medium text-gray-600 hover:text-gray-900"
+                            onClick={() => onChange(options.map((o) => o.value))}
+                        >
+                            Select all
+                        </button>
+                    </div>
+                    {options.map((opt) => (
+                        <label
+                            key={String(opt.value)}
+                            className="flex cursor-pointer items-center gap-2 px-3 py-2 hover:bg-gray-50"
+                        >
+                            <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                checked={selected.includes(opt.value)}
+                                onChange={() => toggle(opt.value)}
+                            />
+                            <span className="text-sm text-gray-900">{opt.label}</span>
+                        </label>
+                    ))}
+                </div>
+            ) : null}
+        </div>
+    );
+}
 
 function formatAction(action: string): string {
     return action
@@ -94,12 +233,44 @@ function isRowInDateRange(iso: string, from: string, to: string): boolean {
     return true;
 }
 
-function actionMatchesFilter(rowAction: string, filter: string): boolean {
-    if (!filter) return true;
-    if (filter === "DELETE") {
-        return rowAction === "DELETE" || rowAction === "BULK_DELETE";
-    }
-    return rowAction === filter;
+function entityTypeSearchLabel(entityType: string): string {
+    if (entityType === "DEBT_REPAYMENT") return "REPAYMENT";
+    if (entityType === "INVESTMENT") return "INVEST";
+    return entityType;
+}
+
+function rowMatchesSearch(row: IncomeExpenseAccountActivityRow, raw: string): boolean {
+    const q = raw.trim().toLowerCase();
+    if (!q) return true;
+    const m = row.metadata || {};
+    const haystack = [
+        row.description,
+        typeof m.accountLabel === "string" ? m.accountLabel : "",
+        typeof m.transactionTitle === "string" ? m.transactionTitle : "",
+        typeof m.reason === "string" ? m.reason : "",
+        row.entityType,
+        entityTypeSearchLabel(row.entityType),
+        row.action,
+        formatAction(row.action),
+        formatDateTime(row.createdAt),
+        row.createdAt,
+        String(row.id),
+        typeof m.balanceDeltaUserCurrency === "number"
+            ? String(m.balanceDeltaUserCurrency)
+            : "",
+        typeof m.transactionAmountOriginal === "number"
+            ? String(m.transactionAmountOriginal)
+            : "",
+        typeof m.accountBalanceBeforeUserCurrency === "number"
+            ? String(m.accountBalanceBeforeUserCurrency)
+            : "",
+        typeof m.accountBalanceAfterUserCurrency === "number"
+            ? String(m.accountBalanceAfterUserCurrency)
+            : "",
+    ]
+        .join(" ")
+        .toLowerCase();
+    return haystack.includes(q);
 }
 
 /**
@@ -169,11 +340,12 @@ function buildBalanceActivityCsv(rows: IncomeExpenseAccountActivityRow[]): strin
 export function AccountIncomeExpenseActivityTable() {
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
-    const [accountId, setAccountId] = useState("");
-    const [typeFilter, setTypeFilter] = useState("");
-    const [actionFilter, setActionFilter] = useState("");
+    const [selectedAccountIds, setSelectedAccountIds] = useState<number[]>([]);
+    const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+    const [selectedActions, setSelectedActions] = useState<string[]>([]);
+    const [searchText, setSearchText] = useState("");
 
-    const { data, isLoading, isError, error, refetch } = useQuery({
+    const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
         queryKey: ["account-balance-activity"],
         queryFn: () => getIncomeExpenseAccountBalanceActivityLogs(500),
     });
@@ -195,6 +367,11 @@ export function AccountIncomeExpenseActivityTable() {
             .map(([id, label]) => ({ id, label }));
     }, [data]);
 
+    const accountOptionsForDropdown = useMemo(
+        () => accountOptions.map(({ id, label }) => ({ value: id, label })),
+        [accountOptions]
+    );
+
     const filteredRows = useMemo(() => {
         if (!data?.length) return [];
         const rangeFrom =
@@ -203,29 +380,34 @@ export function AccountIncomeExpenseActivityTable() {
             dateFrom && dateTo && dateFrom > dateTo ? dateFrom : dateTo;
         return data.filter((row) => {
             if (!isRowInDateRange(row.createdAt, rangeFrom, rangeTo)) return false;
-            if (accountId) {
+            if (selectedAccountIds.length > 0) {
                 const id = rowAccountId(row);
-                if (id === null || String(id) !== accountId) return false;
+                if (id === null || !selectedAccountIds.includes(id)) return false;
             }
-            if (typeFilter && row.entityType !== typeFilter) return false;
-            if (!actionMatchesFilter(row.action, actionFilter)) return false;
+            if (selectedTypes.length > 0 && !selectedTypes.includes(row.entityType)) {
+                return false;
+            }
+            if (!actionMatchesMultiSelect(row.action, selectedActions)) return false;
+            if (!rowMatchesSearch(row, searchText)) return false;
             return true;
         });
-    }, [data, dateFrom, dateTo, accountId, typeFilter, actionFilter]);
+    }, [data, dateFrom, dateTo, selectedAccountIds, selectedTypes, selectedActions, searchText]);
 
     const hasActiveFilters =
         Boolean(dateFrom) ||
         Boolean(dateTo) ||
-        Boolean(accountId) ||
-        Boolean(typeFilter) ||
-        Boolean(actionFilter);
+        selectedAccountIds.length > 0 ||
+        selectedTypes.length > 0 ||
+        selectedActions.length > 0 ||
+        Boolean(searchText.trim());
 
     function clearFilters() {
         setDateFrom("");
         setDateTo("");
-        setAccountId("");
-        setTypeFilter("");
-        setActionFilter("");
+        setSelectedAccountIds([]);
+        setSelectedTypes([]);
+        setSelectedActions([]);
+        setSearchText("");
     }
 
     const handleDownloadCsv = useCallback(() => {
@@ -293,19 +475,48 @@ export function AccountIncomeExpenseActivityTable() {
                         Income, expenses, lending, and investment activity that moved money in or out.
                     </p>
                 </div>
-                <button
-                    type="button"
-                    onClick={handleDownloadCsv}
-                    disabled={filteredRows.length === 0}
-                    className="inline-flex h-9 shrink-0 items-center gap-1.5 self-start rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:pointer-events-none disabled:opacity-50"
-                >
-                    <Download className="h-4 w-4 shrink-0" aria-hidden />
-                    Download CSV
-                </button>
+                <div className="flex shrink-0 flex-wrap items-center gap-2 self-start">
+                    <button
+                        type="button"
+                        onClick={() => refetch()}
+                        disabled={isFetching}
+                        aria-busy={isFetching}
+                        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:pointer-events-none disabled:opacity-50"
+                    >
+                        <RefreshCw
+                            className={`h-4 w-4 shrink-0 ${isFetching ? "animate-spin" : ""}`}
+                            aria-hidden
+                        />
+                        Refresh
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleDownloadCsv}
+                        disabled={filteredRows.length === 0}
+                        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:pointer-events-none disabled:opacity-50"
+                    >
+                        <Download className="h-4 w-4 shrink-0" aria-hidden />
+                        Download CSV
+                    </button>
+                </div>
             </div>
 
-            <div className="mb-4 grid gap-3 rounded-lg border border-gray-200 bg-gray-50/80 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-                <div className="xl:col-span-1">
+            <div className="mb-4 grid gap-3 rounded-lg border border-gray-200 bg-gray-50/80 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-12">
+                <div className="min-w-0 sm:col-span-2 lg:col-span-3 xl:col-span-3">
+                    <label className={labelText} htmlFor="activity-search">
+                        Search
+                    </label>
+                    <input
+                        id="activity-search"
+                        type="search"
+                        value={searchText}
+                        onChange={(e) => setSearchText(e.target.value)}
+                        placeholder="Description, account, transaction…"
+                        autoComplete="off"
+                        className={standardInput}
+                    />
+                </div>
+                <div className="xl:col-span-2">
                     <label className={labelText} htmlFor="activity-filter-date-from">
                         From date
                     </label>
@@ -317,7 +528,7 @@ export function AccountIncomeExpenseActivityTable() {
                         className={standardInput}
                     />
                 </div>
-                <div className="xl:col-span-1">
+                <div className="xl:col-span-2">
                     <label className={labelText} htmlFor="activity-filter-date-to">
                         To date
                     </label>
@@ -329,58 +540,39 @@ export function AccountIncomeExpenseActivityTable() {
                         className={standardInput}
                     />
                 </div>
-                <div className="xl:col-span-2">
-                    <label className={labelText} htmlFor="activity-filter-account">
-                        Account
-                    </label>
-                    <select
+                <div className="min-w-0 xl:col-span-2">
+                    <ActivityFilterMultiDropdown
                         id="activity-filter-account"
-                        value={accountId}
-                        onChange={(e) => setAccountId(e.target.value)}
-                        className={standardInput}
-                    >
-                        <option value="">All accounts</option>
-                        {accountOptions.map(({ id, label }) => (
-                            <option key={id} value={String(id)}>
-                                {label}
-                            </option>
-                        ))}
-                    </select>
+                        label="Account"
+                        options={accountOptionsForDropdown}
+                        selected={selectedAccountIds}
+                        onChange={setSelectedAccountIds}
+                        emptySummary="All accounts"
+                        pluralNoun="accounts"
+                    />
                 </div>
-                <div>
-                    <label className={labelText} htmlFor="activity-filter-type">
-                        Type
-                    </label>
-                    <select
+                <div className="min-w-0 xl:col-span-1">
+                    <ActivityFilterMultiDropdown
                         id="activity-filter-type"
-                        value={typeFilter}
-                        onChange={(e) => setTypeFilter(e.target.value)}
-                        className={standardInput}
-                    >
-                        <option value="">All types</option>
-                        <option value="INCOME">Income</option>
-                        <option value="EXPENSE">Expense</option>
-                        <option value="DEBT">Debt</option>
-                        <option value="DEBT_REPAYMENT">Repayment</option>
-                        <option value="INVESTMENT">Invest</option>
-                    </select>
+                        label="Type"
+                        options={ACTIVITY_TYPE_FILTER_OPTIONS}
+                        selected={selectedTypes}
+                        onChange={setSelectedTypes}
+                        emptySummary="All types"
+                        pluralNoun="types"
+                    />
                 </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-end xl:flex-col xl:items-stretch">
+                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-end xl:col-span-2 xl:flex-col xl:items-stretch">
                     <div className="min-w-0 flex-1">
-                        <label className={labelText} htmlFor="activity-filter-action">
-                            Action
-                        </label>
-                        <select
+                        <ActivityFilterMultiDropdown
                             id="activity-filter-action"
-                            value={actionFilter}
-                            onChange={(e) => setActionFilter(e.target.value)}
-                            className={standardInput}
-                        >
-                            <option value="">All actions</option>
-                            <option value="CREATE">Create</option>
-                            <option value="UPDATE">Update</option>
-                            <option value="DELETE">Delete</option>
-                        </select>
+                            label="Action"
+                            options={ACTIVITY_ACTION_FILTER_OPTIONS}
+                            selected={selectedActions}
+                            onChange={setSelectedActions}
+                            emptySummary="All actions"
+                            pluralNoun="actions"
+                        />
                     </div>
                     {hasActiveFilters ? (
                         <button
