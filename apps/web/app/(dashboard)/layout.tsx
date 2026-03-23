@@ -55,7 +55,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         <SidebarItem 
                             href="/budget" 
                             icon={<BudgetIcon />} 
-                            title="Budget Tracking" 
+                            title="Budgets" 
                             id="budget-nav-item"
                         />
                         {/* Finance Section - with separator */}
