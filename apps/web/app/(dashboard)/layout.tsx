@@ -50,7 +50,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         <SidebarItem
                             href="/scheduled-payments"
                             icon={<ScheduledPaymentsIcon />}
-                            title="Scheduled payments"
+                            title="Scheduled"
                         />
                         <SidebarItem 
                             href="/budget" 

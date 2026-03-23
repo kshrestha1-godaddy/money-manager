@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   getScheduledPayments,
@@ -11,6 +11,7 @@ import {
 import { ScheduledPaymentItem } from "../../types/scheduled-payment";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
+import { useTimezone } from "../../providers/TimezoneProvider";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import {
   BUTTON_COLORS,
@@ -28,6 +29,14 @@ import {
 import { AccountInterface } from "../../types/accounts";
 import { SchedulePaymentModal } from "../expenses/components/SchedulePaymentModal";
 import { DisappearingNotification, NotificationData } from "../../components/DisappearingNotification";
+import { ScheduledPaymentsChart } from "./components/ScheduledPaymentsChart";
+import { UpcomingScheduleCalendar } from "./components/UpcomingScheduleCalendar";
+import { ScheduledPaymentsFilters } from "./components/ScheduledPaymentsFilters";
+import {
+  accountDisplay,
+  recurringDisplay,
+  matchesSearch,
+} from "./scheduled-payment-helpers";
 
 const pageContainer = CONTAINER_COLORS.page;
 const loadingContainer = LOADING_COLORS.container;
@@ -47,12 +56,20 @@ function statusLabel(item: ScheduledPaymentItem, now: Date): string {
 
 export default function ScheduledPaymentsPageClient() {
   const { currency: userCurrency } = useCurrency();
+  const { timezone: userTimezone } = useTimezone();
   const [items, setItems] = useState<ScheduledPaymentItem[]>([]);
   const [categoriesWithFrequency, setCategoriesWithFrequency] = useState<CategoryWithFrequencyData[]>([]);
   const [accounts, setAccounts] = useState<AccountInterface[]>([]);
   const [loading, setLoading] = useState(true);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [notification, setNotification] = useState<NotificationData | null>(null);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>([]);
+  const [selectedRecurring, setSelectedRecurring] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -78,6 +95,71 @@ export default function ScheduledPaymentsPageClient() {
   }, [load]);
 
   const now = new Date();
+
+  const filterOptions = useMemo(() => {
+    const categoryNames = [...new Set(items.map((i) => i.category.name))].sort();
+    const categoryOptions = categoryNames.map((name) => ({ value: name, label: name }));
+
+    const accountKeys = [...new Set(items.map(accountDisplay))].sort();
+    const accountOptions = accountKeys.map((k) => ({ value: k, label: k }));
+
+    const currencyKeys = [...new Set(items.map((i) => i.currency))].sort();
+    const currencyOptions = currencyKeys.map((c) => ({ value: c, label: c }));
+
+    const recurringKeys = [...new Set(items.map(recurringDisplay))].sort((a, b) => {
+      const order = (x: string) =>
+        x === "One-time" ? 0 : x === "Daily" ? 1 : x === "Weekly" ? 2 : x === "Monthly" ? 3 : 4;
+      return order(a) - order(b);
+    });
+    const recurringOptions = recurringKeys.map((r) => ({ value: r, label: r }));
+
+    return { categoryOptions, accountOptions, currencyOptions, recurringOptions };
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    const nowInner = new Date();
+    return items.filter((item) => {
+      if (!matchesSearch(item, searchQuery)) return false;
+      if (selectedCategories.length > 0 && !selectedCategories.includes(item.category.name)) {
+        return false;
+      }
+      const acc = accountDisplay(item);
+      if (selectedAccounts.length > 0 && !selectedAccounts.includes(acc)) return false;
+      const st = statusLabel(item, nowInner);
+      if (selectedStatuses.length > 0 && !selectedStatuses.includes(st)) return false;
+      if (selectedCurrencies.length > 0 && !selectedCurrencies.includes(item.currency)) {
+        return false;
+      }
+      const rec = recurringDisplay(item);
+      if (selectedRecurring.length > 0 && !selectedRecurring.includes(rec)) return false;
+      return true;
+    });
+  }, [
+    items,
+    searchQuery,
+    selectedCategories,
+    selectedAccounts,
+    selectedStatuses,
+    selectedCurrencies,
+    selectedRecurring,
+  ]);
+
+  const hasActiveFilters =
+    searchQuery.trim().length > 0 ||
+    selectedCategories.length > 0 ||
+    selectedAccounts.length > 0 ||
+    selectedStatuses.length > 0 ||
+    selectedCurrencies.length > 0 ||
+    selectedRecurring.length > 0;
+
+  function clearFilters() {
+    setSearchQuery("");
+    setSelectedCategories([]);
+    setSelectedAccounts([]);
+    setSelectedStatuses([]);
+    setSelectedCurrencies([]);
+    setSelectedRecurring([]);
+  }
 
   const handleDelete = async (id: number) => {
     if (!confirm("Cancel this scheduled payment?")) return;
@@ -140,7 +222,32 @@ export default function ScheduledPaymentsPageClient() {
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+      <ScheduledPaymentsChart items={filteredItems} userCurrency={userCurrency} now={now} />
+
+      <ScheduledPaymentsFilters
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        categoryOptions={filterOptions.categoryOptions}
+        selectedCategories={selectedCategories}
+        onCategoriesChange={setSelectedCategories}
+        accountOptions={filterOptions.accountOptions}
+        selectedAccounts={selectedAccounts}
+        onAccountsChange={setSelectedAccounts}
+        selectedStatuses={selectedStatuses}
+        onStatusesChange={setSelectedStatuses}
+        currencyOptions={filterOptions.currencyOptions}
+        selectedCurrencies={selectedCurrencies}
+        onCurrenciesChange={setSelectedCurrencies}
+        recurringOptions={filterOptions.recurringOptions}
+        selectedRecurring={selectedRecurring}
+        onRecurringChange={setSelectedRecurring}
+        onClearFilters={clearFilters}
+        hasActiveFilters={hasActiveFilters}
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start mb-6">
+        <div className="min-w-0">
+          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50 text-left text-gray-600">
             <tr>
@@ -162,8 +269,21 @@ export default function ScheduledPaymentsPageClient() {
                   one.
                 </td>
               </tr>
+            ) : filteredItems.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                  No scheduled payments match your filters.{" "}
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="font-medium text-blue-600 hover:text-blue-800"
+                  >
+                    Clear filters
+                  </button>
+                </td>
+              </tr>
             ) : (
-              items.map((item) => {
+              filteredItems.map((item) => {
                 const displayAmount = convertForDisplaySync(
                   item.amount,
                   item.currency,
@@ -187,11 +307,7 @@ export default function ScheduledPaymentsPageClient() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-gray-700">{item.category.name}</td>
-                    <td className="px-4 py-3 text-gray-700">
-                      {item.account
-                        ? `${item.account.bankName} — ${item.account.holderName}`
-                        : "Cash"}
-                    </td>
+                    <td className="px-4 py-3 text-gray-700">{accountDisplay(item)}</td>
                     <td className="px-4 py-3">
                       <span
                         className={
@@ -247,6 +363,17 @@ export default function ScheduledPaymentsPageClient() {
             )}
           </tbody>
         </table>
+          </div>
+        </div>
+
+        <div className="min-w-0">
+          <UpcomingScheduleCalendar
+            items={filteredItems}
+            userCurrency={userCurrency}
+            userTimezone={userTimezone}
+            now={now}
+          />
+        </div>
       </div>
 
       <SchedulePaymentModal
