@@ -44,26 +44,15 @@ function getBucket(p: ScheduledPaymentItem, now: Date): PaymentBucket {
   return "awaiting";
 }
 
-function bucketLabel(bucket: PaymentBucket): string {
-  if (bucket === "upcoming") return "Up";
-  if (bucket === "awaiting") return "Due";
-  return "";
-}
-
-function bucketLabelClass(bucket: PaymentBucket): string {
-  if (bucket === "upcoming") return "text-blue-800";
-  if (bucket === "awaiting") return "text-amber-900";
-  return "text-emerald-800";
-}
-
-function paymentCardClass(bucket: PaymentBucket): string {
+function paymentRowClass(bucket: PaymentBucket): string {
+  const base = "rounded-md border px-1.5 py-1 shadow-sm";
   if (bucket === "upcoming") {
-    return "border-blue-200 bg-blue-50/95 text-blue-950 shadow-sm";
+    return `${base} border-blue-200 bg-blue-50/95 text-blue-950`;
   }
   if (bucket === "awaiting") {
-    return "border-amber-200 bg-amber-50/95 text-amber-950 shadow-sm";
+    return `${base} border-amber-200 bg-amber-50/95 text-amber-950`;
   }
-  return "border-emerald-200 bg-emerald-50/95 text-emerald-950 shadow-sm";
+  return `${base} border-emerald-200 bg-emerald-50/95 text-emerald-950`;
 }
 
 function sortPaymentsForDay(list: ScheduledPaymentItem[], now: Date): ScheduledPaymentItem[] {
@@ -80,15 +69,7 @@ function sortPaymentsForDay(list: ScheduledPaymentItem[], now: Date): ScheduledP
   });
 }
 
-function cellWrapperClass(isToday: boolean, hasPayments: boolean): string {
-  if (isToday) {
-    return "border-blue-400 bg-blue-50/80 ring-1 ring-blue-200";
-  }
-  if (hasPayments) {
-    return "border-blue-200 bg-[#eff6ff]/80";
-  }
-  return "border-gray-100 bg-white";
-}
+const cellClass = "border-gray-100 bg-white";
 
 export function UpcomingScheduleCalendar({
   items,
@@ -154,7 +135,7 @@ export function UpcomingScheduleCalendar({
       <h3 className={chartTitle}>Scheduled payments calendar</h3>
       <p className="text-sm text-gray-600 mb-3">
         Each payment appears on its <span className="font-medium text-gray-800">due date</span> in{" "}
-        <span className="font-medium text-gray-800">{userTimezone}</span>. Today is outlined in blue.
+        <span className="font-medium text-gray-800">{userTimezone}</span>. Row colors match status in the legend.
       </p>
       <div className="flex flex-wrap gap-2 mb-4 text-[11px] text-gray-600">
         <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-blue-900">
@@ -233,14 +214,13 @@ export function UpcomingScheduleCalendar({
           return (
             <div
               key={cell.dateKey}
-              className={`rounded-lg border p-1 text-left flex flex-col min-h-[72px] ${cellWrapperClass(
-                isToday,
-                hasAny
-              )}`}
+              className={`rounded-lg border p-1 text-left flex flex-col min-h-[72px] ${cellClass}`}
             >
               <span
                 className={`text-xs font-semibold shrink-0 mb-1 ${
-                  isToday ? "text-blue-700" : "text-gray-800"
+                  isToday
+                    ? "inline-flex h-6 min-w-7 items-center justify-center rounded-full border-2 border-blue-500 px-1 text-blue-700 tabular-nums"
+                    : "text-gray-800"
                 }`}
               >
                 {cell.day}
@@ -257,22 +237,15 @@ export function UpcomingScheduleCalendar({
                     return (
                       <div
                         key={p.id}
-                        className={`rounded-md border px-1.5 py-1 ${paymentCardClass(bucket)}`}
+                        className={paymentRowClass(bucket)}
                         title={`${p.title} — ${formatCurrency(converted, userCurrency)}`}
                       >
-                        <p
-                          className={`text-[9px] font-bold uppercase tracking-wide leading-none ${bucketLabelClass(
-                            bucket
-                          )}`}
-                        >
-                          {bucketLabel(bucket)}
-                        </p>
-                        <div className="mt-0.5 flex items-start justify-between gap-1.5 min-w-0">
-                          <p className="text-[10px] font-medium leading-snug text-gray-900 line-clamp-2 min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-1.5 min-w-0">
+                          <p className="text-[10px] font-medium leading-snug line-clamp-2 min-w-0 flex-1">
                             {p.title}
                           </p>
                           <div className="shrink-0 text-right leading-tight">
-                            <p className="text-[10px] font-semibold tabular-nums text-gray-900 whitespace-nowrap">
+                            <p className="text-[10px] font-semibold tabular-nums whitespace-nowrap">
                               {formatCurrency(converted, userCurrency)}
                             </p>
                             {p.currency !== userCurrency ? (
