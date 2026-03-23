@@ -248,11 +248,6 @@ export function UpcomingScheduleCalendar({
                             <p className="text-[10px] font-semibold tabular-nums whitespace-nowrap">
                               {formatCurrency(converted, userCurrency)}
                             </p>
-                            {p.currency !== userCurrency ? (
-                              <p className="text-[8px] font-normal text-gray-500">
-                                {p.currency}
-                              </p>
-                            ) : null}
                           </div>
                         </div>
                       </div>

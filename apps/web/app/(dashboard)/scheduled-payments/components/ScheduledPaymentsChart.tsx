@@ -10,21 +10,29 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
+import { RefreshCw } from "lucide-react";
 import { formatCurrency } from "../../../utils/currency";
 import { ScheduledPaymentItem } from "../../../types/scheduled-payment";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
-import { CONTAINER_COLORS, TEXT_COLORS } from "../../../config/colorConfig";
+import { BUTTON_COLORS, CONTAINER_COLORS } from "../../../config/colorConfig";
 
 const card = `${CONTAINER_COLORS.whiteWithPadding} text-left`;
-const chartTitle = TEXT_COLORS.chartTitle;
 
 interface ScheduledPaymentsChartProps {
   items: ScheduledPaymentItem[];
   userCurrency: string;
   now: Date;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
-export function ScheduledPaymentsChart({ items, userCurrency, now }: ScheduledPaymentsChartProps) {
+export function ScheduledPaymentsChart({
+  items,
+  userCurrency,
+  now,
+  onRefresh,
+  isRefreshing = false,
+}: ScheduledPaymentsChartProps) {
   let upcomingTotal = 0;
   let previousTotal = 0;
   let upcomingCount = 0;
@@ -56,9 +64,28 @@ export function ScheduledPaymentsChart({ items, userCurrency, now }: ScheduledPa
     },
   ];
 
+  const secondaryOutline = BUTTON_COLORS.secondaryBlue;
+
   return (
     <div className={`${card} mb-6`}>
-      <h3 className={chartTitle}>Scheduled payments overview</h3>
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <h3 className="text-lg font-semibold text-gray-900 m-0">Scheduled payments overview</h3>
+        {onRefresh ? (
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            className={`${secondaryOutline} inline-flex items-center gap-2 shrink-0 disabled:opacity-50`}
+            aria-busy={isRefreshing}
+          >
+            <RefreshCw
+              className={`h-4 w-4 shrink-0 ${isRefreshing ? "animate-spin" : ""}`}
+              aria-hidden
+            />
+            Refresh
+          </button>
+        ) : null}
+      </div>
       <p className="text-sm text-gray-600 mb-4">
         Total amounts in {userCurrency} for items in your current filter.{" "}
         <span className="text-gray-700">

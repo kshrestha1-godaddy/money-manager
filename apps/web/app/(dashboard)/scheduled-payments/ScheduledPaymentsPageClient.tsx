@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { RefreshCw } from "lucide-react";
 import {
   getScheduledPayments,
   deleteScheduledPayment,
@@ -44,6 +45,7 @@ const loadingText = LOADING_COLORS.text;
 const pageTitle = TEXT_COLORS.title;
 const pageSubtitle = TEXT_COLORS.subtitle;
 const primaryButton = BUTTON_COLORS.primary;
+const secondaryOutlineButton = BUTTON_COLORS.secondaryBlue;
 
 function statusLabel(item: ScheduledPaymentItem, now: Date): string {
   if (item.resolution === "ACCEPTED") return "Accepted";
@@ -59,6 +61,7 @@ export default function ScheduledPaymentsPageClient() {
   const [categoriesWithFrequency, setCategoriesWithFrequency] = useState<CategoryWithFrequencyData[]>([]);
   const [accounts, setAccounts] = useState<AccountInterface[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [notification, setNotification] = useState<NotificationData | null>(null);
 
@@ -69,8 +72,13 @@ export default function ScheduledPaymentsPageClient() {
   const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>([]);
   const [selectedRecurring, setSelectedRecurring] = useState<string[]>([]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+    if (silent) {
+      setIsRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     try {
       const [scheduledData, expenseCategories, accResult] = await Promise.all([
         getScheduledPayments(),
@@ -84,7 +92,11 @@ export default function ScheduledPaymentsPageClient() {
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      if (silent) {
+        setIsRefreshing(false);
+      } else {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -171,7 +183,7 @@ export default function ScheduledPaymentsPageClient() {
     if (!confirm("Cancel this scheduled payment?")) return;
     try {
       await deleteScheduledPayment(id);
-      await load();
+      await load({ silent: true });
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to delete");
     }
@@ -180,7 +192,7 @@ export default function ScheduledPaymentsPageClient() {
   const handleAccept = async (id: number) => {
     try {
       await acceptScheduledPayment(id);
-      await load();
+      await load({ silent: true });
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to accept");
     }
@@ -189,7 +201,7 @@ export default function ScheduledPaymentsPageClient() {
   const handleReject = async (id: number) => {
     try {
       await rejectScheduledPayment(id);
-      await load();
+      await load({ silent: true });
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to reject");
     }
@@ -217,6 +229,19 @@ export default function ScheduledPaymentsPageClient() {
         <div className={UI_STYLES.header.buttonGroup}>
           <button
             type="button"
+            onClick={() => void load({ silent: true })}
+            disabled={isRefreshing}
+            className={`${secondaryOutlineButton} inline-flex items-center gap-2 disabled:opacity-50`}
+            aria-busy={isRefreshing}
+          >
+            <RefreshCw
+              className={`h-4 w-4 shrink-0 ${isRefreshing ? "animate-spin" : ""}`}
+              aria-hidden
+            />
+            Refresh
+          </button>
+          <button
+            type="button"
             onClick={() => setIsScheduleModalOpen(true)}
             className={primaryButton}
           >
@@ -225,7 +250,13 @@ export default function ScheduledPaymentsPageClient() {
         </div>
       </div>
 
-      <ScheduledPaymentsChart items={filteredItems} userCurrency={userCurrency} now={now} />
+      <ScheduledPaymentsChart
+        items={filteredItems}
+        userCurrency={userCurrency}
+        now={now}
+        onRefresh={() => void load({ silent: true })}
+        isRefreshing={isRefreshing}
+      />
 
       <ScheduledPaymentsFilters
         searchQuery={searchQuery}
@@ -304,11 +335,8 @@ export default function ScheduledPaymentsPageClient() {
                     <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
                       {new Date(item.scheduledAt).toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 text-gray-900">
+                    <td className="px-4 py-3 text-gray-900 whitespace-nowrap tabular-nums">
                       {formatCurrency(displayAmount, userCurrency)}
-                      {item.currency !== userCurrency && (
-                        <span className="text-gray-500 text-xs ml-1">({item.currency})</span>
-                      )}
                     </td>
                     <td className="px-4 py-3 text-gray-700">{item.category.name}</td>
                     <td className="px-4 py-3 text-gray-700">{accountDisplay(item)}</td>
@@ -404,7 +432,7 @@ export default function ScheduledPaymentsPageClient() {
             message: "Payment scheduled successfully.",
             type: "success",
           });
-          load();
+          void load({ silent: true });
         }}
         categories={categoriesWithFrequency}
         accounts={accounts}

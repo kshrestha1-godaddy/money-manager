@@ -218,7 +218,6 @@ export async function createScheduledPayment(input: CreateScheduledPaymentInput)
     include: includeRelations,
   });
 
-  revalidatePath("/scheduled-payments");
   revalidatePath("/expenses");
   return toScheduledPaymentItem(row as never);
 }
@@ -237,7 +236,6 @@ export async function deleteScheduledPayment(id: number) {
   }
 
   await prisma.scheduledPayment.delete({ where: { id } });
-  revalidatePath("/scheduled-payments");
   revalidatePath("/expenses");
 }
 
@@ -300,7 +298,6 @@ export async function acceptScheduledPayment(id: number) {
     recurringFrequency: sp.recurringFrequency,
   });
 
-  revalidatePath("/scheduled-payments");
   revalidatePath("/expenses");
   revalidatePath("/accounts");
   revalidatePath("/dashboard");
@@ -341,7 +338,6 @@ export async function rejectScheduledPayment(id: number) {
     recurringFrequency: sp.recurringFrequency,
   });
 
-  revalidatePath("/scheduled-payments");
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
 }
