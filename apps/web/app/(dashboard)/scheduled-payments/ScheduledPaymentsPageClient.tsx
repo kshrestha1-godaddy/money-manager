@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import {
   getScheduledPayments,
   deleteScheduledPayment,
@@ -45,7 +44,6 @@ const loadingText = LOADING_COLORS.text;
 const pageTitle = TEXT_COLORS.title;
 const pageSubtitle = TEXT_COLORS.subtitle;
 const primaryButton = BUTTON_COLORS.primary;
-const secondaryBlueButton = BUTTON_COLORS.secondaryBlue;
 
 function statusLabel(item: ScheduledPaymentItem, now: Date): string {
   if (item.resolution === "ACCEPTED") return "Accepted";
@@ -152,6 +150,14 @@ export default function ScheduledPaymentsPageClient() {
     selectedCurrencies.length > 0 ||
     selectedRecurring.length > 0;
 
+  const tableSummary = useMemo(() => {
+    let total = 0;
+    for (const item of filteredItems) {
+      total += convertForDisplaySync(item.amount, item.currency, userCurrency);
+    }
+    return { count: filteredItems.length, total };
+  }, [filteredItems, userCurrency]);
+
   function clearFilters() {
     setSearchQuery("");
     setSelectedCategories([]);
@@ -212,13 +218,10 @@ export default function ScheduledPaymentsPageClient() {
           <button
             type="button"
             onClick={() => setIsScheduleModalOpen(true)}
-            className={secondaryBlueButton}
+            className={primaryButton}
           >
             Schedule payment
           </button>
-          <Link href="/expenses" className={`${primaryButton} text-center inline-flex items-center justify-center`}>
-            Back to expenses
-          </Link>
         </div>
       </div>
 
@@ -256,6 +259,7 @@ export default function ScheduledPaymentsPageClient() {
               <th className="px-4 py-3 font-medium">Amount</th>
               <th className="px-4 py-3 font-medium">Category</th>
               <th className="px-4 py-3 font-medium">Account</th>
+              <th className="px-4 py-3 font-medium">Recurrence</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Actions</th>
             </tr>
@@ -263,7 +267,7 @@ export default function ScheduledPaymentsPageClient() {
           <tbody className="divide-y divide-gray-100">
             {items.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                   No scheduled payments yet. Use{" "}
                   <span className="font-medium text-gray-700">Schedule payment</span> above to add
                   one.
@@ -271,7 +275,7 @@ export default function ScheduledPaymentsPageClient() {
               </tr>
             ) : filteredItems.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                   No scheduled payments match your filters.{" "}
                   <button
                     type="button"
@@ -308,6 +312,9 @@ export default function ScheduledPaymentsPageClient() {
                     </td>
                     <td className="px-4 py-3 text-gray-700">{item.category.name}</td>
                     <td className="px-4 py-3 text-gray-700">{accountDisplay(item)}</td>
+                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                      {recurringDisplay(item)}
+                    </td>
                     <td className="px-4 py-3">
                       <span
                         className={
@@ -322,11 +329,6 @@ export default function ScheduledPaymentsPageClient() {
                       >
                         {label}
                       </span>
-                      {item.isRecurring && item.recurringFrequency && (
-                        <span className="block text-xs text-gray-500">
-                          Repeats {item.recurringFrequency.toLowerCase()}
-                        </span>
-                      )}
                     </td>
                     <td className="px-4 py-3 space-x-2 whitespace-nowrap">
                       {canDecide && (
@@ -362,6 +364,23 @@ export default function ScheduledPaymentsPageClient() {
               })
             )}
           </tbody>
+          {filteredItems.length > 0 ? (
+            <tfoot className="border-t border-gray-200 bg-gray-50/90">
+              <tr>
+                <td
+                  colSpan={2}
+                  className="px-4 py-3 text-left text-sm font-medium text-gray-900"
+                >
+                  Total ({tableSummary.count}{" "}
+                  {tableSummary.count === 1 ? "payment" : "payments"})
+                </td>
+                <td className="px-4 py-3 text-sm font-semibold tabular-nums text-gray-900">
+                  {formatCurrency(tableSummary.total, userCurrency)}
+                </td>
+                <td colSpan={5} className="px-4 py-3" aria-hidden />
+              </tr>
+            </tfoot>
+          ) : null}
         </table>
           </div>
         </div>

@@ -18,6 +18,8 @@ interface MultiSelectDropdownProps {
   selected: string[];
   onChange: (selected: string[]) => void;
   summaryEmpty?: string;
+  /** Replaces default wrapper sizing (e.g. narrow filter chips in a single row). */
+  className?: string;
 }
 
 function summary(selected: string[], options: Option[], emptyLabel: string): string {
@@ -36,6 +38,7 @@ export function MultiSelectDropdown({
   selected,
   onChange,
   summaryEmpty = "All",
+  className,
 }: MultiSelectDropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -66,7 +69,10 @@ export function MultiSelectDropdown({
   }
 
   return (
-    <div className="relative flex-1 min-w-[160px]" ref={ref}>
+    <div
+      className={className ?? "relative flex-1 min-w-[160px]"}
+      ref={ref}
+    >
       <label className={labelText}>{label}</label>
       <button
         type="button"
