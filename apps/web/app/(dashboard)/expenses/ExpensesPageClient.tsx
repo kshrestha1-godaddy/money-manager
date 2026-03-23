@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Info } from 'lucide-react';
 import { useOptimizedFinancialData } from '../../hooks/useOptimizedFinancialData';
@@ -24,7 +24,6 @@ import { Expense } from '../../types/financial';
 import { useCurrency } from '../../providers/CurrencyProvider';
 import { useTimezone } from '../../providers/TimezoneProvider';
 import { DisappearingNotification, NotificationData } from '../../components/DisappearingNotification';
-import { useState } from 'react';
 import { convertForDisplaySync } from '../../utils/currencyDisplay';
 import { getCategoriesWithFrequency, CategoryWithFrequencyData } from '../../utils/categoryFrequency';
 import {

@@ -53,6 +53,7 @@ model User {
   goals Goal[]
   goalPhases GoalPhase[]
   goalProgress GoalProgress[]
+  scheduledPayments ScheduledPayment[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -96,6 +97,7 @@ model Account {
   loanRepayments LoanRepayment[]
   accountThreshold AccountThreshold[]
   goals Goal[] // Goals linked to this account
+  scheduledPayments ScheduledPayment[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -111,6 +113,7 @@ model Category {
   userId Int
   expenses Expense[]
   incomes Income[]
+  scheduledPayments ScheduledPayment[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -136,8 +139,37 @@ model Expense {
   recurringFrequency RecurringFrequency?
   transactionLocation TransactionLocation? @relation(fields: [transactionLocationId], references: [id])
   transactionLocationId Int?
+  fulfilledScheduledPayment ScheduledPayment?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model ScheduledPayment {
+  id Int @id @default(autoincrement())
+  title String
+  description String?
+  amount Decimal
+  currency String @default("USD")
+  scheduledAt DateTime
+  category Category @relation(fields: [categoryId], references: [id])
+  categoryId Int
+  account Account? @relation(fields: [accountId], references: [id])
+  accountId Int?
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId Int
+  tags String[]
+  notes String?
+  isRecurring Boolean @default(false)
+  recurringFrequency RecurringFrequency?
+  resolution ScheduledPaymentResolution?
+  resolvedAt DateTime?
+  createdExpense Expense? @relation(fields: [createdExpenseId], references: [id])
+  createdExpenseId Int? @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, scheduledAt])
+  @@index([userId, resolution])
 }
 
 model Income {
@@ -466,6 +498,11 @@ enum RecurringFrequency {
   WEEKLY
   MONTHLY
   YEARLY
+}
+
+enum ScheduledPaymentResolution {
+  ACCEPTED
+  REJECTED
 }
 
 enum InvestmentType {

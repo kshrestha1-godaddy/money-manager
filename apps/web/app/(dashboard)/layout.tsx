@@ -7,6 +7,7 @@ import { TutorialButton } from "../components/TutorialButton";
 import { CurrencyConverterButton } from "../components/CurrencyConverterButton";
 import { CalculatorButton } from "../components/CalculatorButton";
 import { InactivityWarning } from "../components/InactivityWarning";
+import { PendingScheduledPaymentsPrompt } from "../components/PendingScheduledPaymentsPrompt";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -45,6 +46,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             icon={<ExpensesIcon />} 
                             title="Expenses" 
                             id="expenses-nav-item"
+                        />
+                        <SidebarItem
+                            href="/scheduled-payments"
+                            icon={<ScheduledPaymentsIcon />}
+                            title="Scheduled payments"
                         />
                         <SidebarItem 
                             href="/budget" 
@@ -129,6 +135,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             
             {/* Inactivity Warning - shows warnings when users are approaching password sharing threshold */}
             {!isChatPage && <InactivityWarning />}
+            {!isChatPage && <PendingScheduledPaymentsPrompt />}
         </div>
     );
 }
@@ -289,4 +296,12 @@ function TransactionsIcon() {
     );
 }
 
+function ScheduledPaymentsIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 3.75h-3m3 0v3m0-3L16.5 7.5" />
+        </svg>
+    );
+}
 
