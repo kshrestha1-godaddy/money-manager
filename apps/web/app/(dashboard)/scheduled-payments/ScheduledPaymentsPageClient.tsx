@@ -279,20 +279,32 @@ export default function ScheduledPaymentsPageClient() {
         hasActiveFilters={hasActiveFilters}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start mb-6">
-        <div className="min-w-0">
-          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-        <table className="min-w-full text-sm">
+      <div className="grid grid-cols-1 min-[1200px]:grid-cols-2 gap-6 items-start mb-6">
+        <div className="min-w-0 w-full">
+          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm overscroll-x-contain">
+        <table className="w-full min-w-[860px] table-fixed text-sm">
+          <colgroup>
+            <col className="w-[13%]" />
+            <col className="w-[14%]" />
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+            <col className="w-[18%]" />
+            <col className="w-[9%]" />
+            <col className="w-[12%]" />
+            <col className="w-[14%]" />
+          </colgroup>
           <thead className="bg-gray-50 text-left text-gray-600">
             <tr>
-              <th className="px-4 py-3 font-medium">Title</th>
-              <th className="px-4 py-3 font-medium">When</th>
-              <th className="px-4 py-3 font-medium">Amount</th>
-              <th className="px-4 py-3 font-medium">Category</th>
-              <th className="px-4 py-3 font-medium">Account</th>
-              <th className="px-4 py-3 font-medium">Recurrence</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Actions</th>
+              <th className="px-3 py-3 font-medium sm:px-4">Title</th>
+              <th className="px-3 py-3 font-medium sm:px-4">When</th>
+              <th className="px-3 py-3 font-medium sm:px-4">Amount</th>
+              <th className="px-3 py-3 font-medium sm:px-4">Category</th>
+              <th className="px-3 py-3 font-medium sm:px-4">Account</th>
+              <th className="px-3 py-3 font-medium sm:px-4">Recurrence</th>
+              <th className="px-3 py-3 font-medium sm:px-4">Status</th>
+              <th className="sticky right-0 z-20 min-w-[8.5rem] border-l border-gray-200 bg-gray-50 px-3 py-3 font-medium shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.08)] sm:min-w-[9.5rem] sm:px-4">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -330,22 +342,34 @@ export default function ScheduledPaymentsPageClient() {
                 const canDelete = !item.resolution;
 
                 return (
-                  <tr key={item.id} className="hover:bg-gray-50/80">
-                    <td className="px-4 py-3 font-medium text-gray-900">{item.title}</td>
-                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                  <tr key={item.id} className="group hover:bg-gray-50/80">
+                    <td className="max-w-0 px-3 py-3 font-medium text-gray-900 sm:px-4">
+                      <span className="block truncate" title={item.title}>
+                        {item.title}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-gray-700 whitespace-nowrap sm:px-4">
                       {new Date(item.scheduledAt).toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 text-gray-900 whitespace-nowrap tabular-nums">
+                    <td className="px-3 py-3 text-gray-900 whitespace-nowrap tabular-nums sm:px-4">
                       {formatCurrency(displayAmount, userCurrency)}
                     </td>
-                    <td className="px-4 py-3 text-gray-700">{item.category.name}</td>
-                    <td className="px-4 py-3 text-gray-700">{accountDisplay(item)}</td>
-                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                    <td className="max-w-0 px-3 py-3 text-gray-700 sm:px-4">
+                      <span className="block truncate" title={item.category.name}>
+                        {item.category.name}
+                      </span>
+                    </td>
+                    <td className="max-w-0 px-3 py-3 text-gray-700 sm:px-4">
+                      <span className="block truncate" title={accountDisplay(item)}>
+                        {accountDisplay(item)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-gray-700 whitespace-nowrap sm:px-4">
                       {recurringDisplay(item)}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="max-w-0 px-3 py-3 sm:px-4">
                       <span
-                        className={
+                        className={`block truncate ${
                           label === "Accepted"
                             ? "text-green-700"
                             : label === "Rejected"
@@ -353,12 +377,14 @@ export default function ScheduledPaymentsPageClient() {
                               : label === "Awaiting confirmation"
                                 ? "text-amber-700"
                                 : "text-gray-700"
-                        }
+                        }`}
+                        title={label}
                       >
                         {label}
                       </span>
                     </td>
-                    <td className="px-4 py-3 space-x-2 whitespace-nowrap">
+                    <td className="sticky right-0 z-10 min-w-[8.5rem] border-l border-gray-100 bg-white px-3 py-3 shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] group-hover:bg-gray-50/80 sm:min-w-[9.5rem] sm:px-4">
+                      <div className="flex flex-nowrap items-center gap-x-2">
                       {canDecide && (
                         <>
                           <button
@@ -386,6 +412,7 @@ export default function ScheduledPaymentsPageClient() {
                           Cancel
                         </button>
                       )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -397,15 +424,19 @@ export default function ScheduledPaymentsPageClient() {
               <tr>
                 <td
                   colSpan={2}
-                  className="px-4 py-3 text-left text-sm font-medium text-gray-900"
+                  className="px-3 py-3 text-left text-sm font-medium text-gray-900 sm:px-4"
                 >
                   Total ({tableSummary.count}{" "}
                   {tableSummary.count === 1 ? "payment" : "payments"})
                 </td>
-                <td className="px-4 py-3 text-sm font-semibold tabular-nums text-gray-900">
+                <td className="px-3 py-3 text-sm font-semibold tabular-nums text-gray-900 sm:px-4">
                   {formatCurrency(tableSummary.total, userCurrency)}
                 </td>
-                <td colSpan={5} className="px-4 py-3" aria-hidden />
+                <td colSpan={4} className="px-3 py-3 sm:px-4" aria-hidden />
+                <td
+                  className="sticky right-0 z-10 border-l border-gray-200 bg-gray-50 px-3 py-3 shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:px-4"
+                  aria-hidden
+                />
               </tr>
             </tfoot>
           ) : null}
