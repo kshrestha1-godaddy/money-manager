@@ -29,7 +29,7 @@ const MONTH_NAMES = [
   "December",
 ];
 
-type PaymentBucket = "upcoming" | "awaiting" | "completed";
+type CalendarRowKind = "upcoming" | "awaiting" | "accepted" | "rejected";
 
 interface UpcomingScheduleCalendarProps {
   items: ScheduledPaymentItem[];
@@ -38,33 +38,38 @@ interface UpcomingScheduleCalendarProps {
   now: Date;
 }
 
-function getBucket(p: ScheduledPaymentItem, now: Date): PaymentBucket {
-  if (p.resolution) return "completed";
+function getCalendarRowKind(p: ScheduledPaymentItem, now: Date): CalendarRowKind {
+  if (p.resolution === "ACCEPTED") return "accepted";
+  if (p.resolution === "REJECTED") return "rejected";
   if (p.scheduledAt > now) return "upcoming";
   return "awaiting";
 }
 
-function paymentRowClass(bucket: PaymentBucket): string {
+function paymentRowClass(kind: CalendarRowKind): string {
   const base = "rounded-md border px-1.5 py-1 shadow-sm";
-  if (bucket === "upcoming") {
+  if (kind === "upcoming") {
     return `${base} border-blue-200 bg-blue-50/95 text-blue-950`;
   }
-  if (bucket === "awaiting") {
+  if (kind === "awaiting") {
     return `${base} border-amber-200 bg-amber-50/95 text-amber-950`;
   }
-  return `${base} border-emerald-200 bg-emerald-50/95 text-emerald-950`;
+  if (kind === "accepted") {
+    return `${base} border-emerald-200 bg-emerald-50/95 text-emerald-950`;
+  }
+  return `${base} border-gray-200 bg-white text-gray-800`;
 }
 
 function sortPaymentsForDay(list: ScheduledPaymentItem[], now: Date): ScheduledPaymentItem[] {
-  const order: Record<PaymentBucket, number> = {
+  const order: Record<CalendarRowKind, number> = {
     upcoming: 0,
     awaiting: 1,
-    completed: 2,
+    accepted: 2,
+    rejected: 3,
   };
   return [...list].sort((a, b) => {
-    const ba = getBucket(a, now);
-    const bb = getBucket(b, now);
-    if (ba !== bb) return order[ba] - order[bb];
+    const ka = getCalendarRowKind(a, now);
+    const kb = getCalendarRowKind(b, now);
+    if (ka !== kb) return order[ka] - order[kb];
     return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
   });
 }
@@ -132,12 +137,8 @@ export function UpcomingScheduleCalendar({
 
   return (
     <div className={card}>
-      <h3 className={chartTitle}>Scheduled payments calendar</h3>
-      <p className="text-sm text-gray-600 mb-3">
-        Each payment appears on its <span className="font-medium text-gray-800">due date</span> in{" "}
-        <span className="font-medium text-gray-800">{userTimezone}</span>. Row colors match status in the legend.
-      </p>
-      <div className="flex flex-wrap gap-2 mb-4 text-[11px] text-gray-600">
+      <h3 className={chartTitle}>Calendar</h3>
+      <div className="flex flex-wrap gap-2 mb-4 mt-1 text-[11px] text-gray-600">
         <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-blue-900">
           <span className="h-2 w-2 rounded-full bg-blue-500" aria-hidden />
           Upcoming
@@ -148,7 +149,11 @@ export function UpcomingScheduleCalendar({
         </span>
         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-900">
           <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden />
-          Completed
+          Accepted
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2 py-0.5 text-gray-800">
+          <span className="h-2 w-2 rounded-full bg-gray-400 ring-1 ring-gray-300" aria-hidden />
+          Rejected
         </span>
       </div>
 
@@ -228,7 +233,7 @@ export function UpcomingScheduleCalendar({
               {hasAny ? (
                 <div className="flex flex-col gap-1 min-h-0 flex-1 max-h-[220px] overflow-y-auto overflow-x-hidden pr-0.5">
                   {list.map((p) => {
-                    const bucket = getBucket(p, now);
+                    const rowKind = getCalendarRowKind(p, now);
                     const converted = convertForDisplaySync(
                       p.amount,
                       p.currency,
@@ -237,7 +242,7 @@ export function UpcomingScheduleCalendar({
                     return (
                       <div
                         key={p.id}
-                        className={paymentRowClass(bucket)}
+                        className={paymentRowClass(rowKind)}
                         title={`${p.title} — ${formatCurrency(converted, userCurrency)}`}
                       >
                         <div className="flex items-start justify-between gap-1.5 min-w-0">

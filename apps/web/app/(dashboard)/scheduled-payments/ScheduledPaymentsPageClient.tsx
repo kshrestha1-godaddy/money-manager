@@ -43,7 +43,6 @@ const loadingContainer = LOADING_COLORS.container;
 const loadingSpinner = LOADING_COLORS.spinner;
 const loadingText = LOADING_COLORS.text;
 const pageTitle = TEXT_COLORS.title;
-const pageSubtitle = TEXT_COLORS.subtitle;
 const primaryButton = BUTTON_COLORS.primary;
 const secondaryOutlineButton = BUTTON_COLORS.secondaryBlue;
 
@@ -221,10 +220,6 @@ export default function ScheduledPaymentsPageClient() {
       <div className={UI_STYLES.header.container}>
         <div>
           <h1 className={pageTitle}>Scheduled payments</h1>
-          <p className={pageSubtitle}>
-            Plan future expenses and advances. When the time passes, you will be prompted to accept
-            or reject each payment.
-          </p>
         </div>
         <div className={UI_STYLES.header.buttonGroup}>
           <button
@@ -250,13 +245,25 @@ export default function ScheduledPaymentsPageClient() {
         </div>
       </div>
 
-      <ScheduledPaymentsChart
-        items={filteredItems}
-        userCurrency={userCurrency}
-        now={now}
-        onRefresh={() => void load({ silent: true })}
-        isRefreshing={isRefreshing}
-      />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+        <div className="min-w-0 flex h-full min-h-0 flex-col">
+          <ScheduledPaymentsChart
+            items={filteredItems}
+            userCurrency={userCurrency}
+            now={now}
+            onRefresh={() => void load({ silent: true })}
+            isRefreshing={isRefreshing}
+          />
+        </div>
+        <div className="min-w-0 flex flex-col">
+          <UpcomingScheduleCalendar
+            items={filteredItems}
+            userCurrency={userCurrency}
+            userTimezone={userTimezone}
+            now={now}
+          />
+        </div>
+      </div>
 
       <ScheduledPaymentsFilters
         searchQuery={searchQuery}
@@ -279,18 +286,18 @@ export default function ScheduledPaymentsPageClient() {
         hasActiveFilters={hasActiveFilters}
       />
 
-      <div className="grid grid-cols-1 min-[1200px]:grid-cols-2 gap-6 items-start mb-6">
-        <div className="min-w-0 w-full">
+      <div className="w-full min-w-0">
           <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm overscroll-x-contain">
-        <table className="w-full min-w-[860px] table-fixed text-sm">
+        <table className="w-full min-w-[940px] table-fixed text-sm">
           <colgroup>
-            <col className="w-[13%]" />
-            <col className="w-[14%]" />
-            <col className="w-[10%]" />
-            <col className="w-[10%]" />
-            <col className="w-[18%]" />
-            <col className="w-[9%]" />
             <col className="w-[12%]" />
+            <col className="w-[12%]" />
+            <col className="w-[9%]" />
+            <col className="w-[9%]" />
+            <col className="w-[15%]" />
+            <col className="w-[11%]" />
+            <col className="w-[8%]" />
+            <col className="w-[10%]" />
             <col className="w-[14%]" />
           </colgroup>
           <thead className="bg-gray-50 text-left text-gray-600">
@@ -300,6 +307,7 @@ export default function ScheduledPaymentsPageClient() {
               <th className="px-3 py-3 font-medium sm:px-4">Amount</th>
               <th className="px-3 py-3 font-medium sm:px-4">Category</th>
               <th className="px-3 py-3 font-medium sm:px-4">Account</th>
+              <th className="px-3 py-3 font-medium sm:px-4">Notes</th>
               <th className="px-3 py-3 font-medium sm:px-4">Recurrence</th>
               <th className="px-3 py-3 font-medium sm:px-4">Status</th>
               <th className="sticky right-0 z-20 min-w-[8.5rem] border-l border-gray-200 bg-gray-50 px-3 py-3 font-medium shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.08)] sm:min-w-[9.5rem] sm:px-4">
@@ -310,7 +318,7 @@ export default function ScheduledPaymentsPageClient() {
           <tbody className="divide-y divide-gray-100">
             {items.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
                   No scheduled payments yet. Use{" "}
                   <span className="font-medium text-gray-700">Schedule payment</span> above to add
                   one.
@@ -318,7 +326,7 @@ export default function ScheduledPaymentsPageClient() {
               </tr>
             ) : filteredItems.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
                   No scheduled payments match your filters.{" "}
                   <button
                     type="button"
@@ -363,6 +371,15 @@ export default function ScheduledPaymentsPageClient() {
                       <span className="block truncate" title={accountDisplay(item)}>
                         {accountDisplay(item)}
                       </span>
+                    </td>
+                    <td className="max-w-0 px-3 py-3 text-gray-600 sm:px-4">
+                      {item.notes?.trim() ? (
+                        <span className="block truncate" title={item.notes}>
+                          {item.notes}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="px-3 py-3 text-gray-700 whitespace-nowrap sm:px-4">
                       {recurringDisplay(item)}
@@ -432,7 +449,7 @@ export default function ScheduledPaymentsPageClient() {
                 <td className="px-3 py-3 text-sm font-semibold tabular-nums text-gray-900 sm:px-4">
                   {formatCurrency(tableSummary.total, userCurrency)}
                 </td>
-                <td colSpan={4} className="px-3 py-3 sm:px-4" aria-hidden />
+                <td colSpan={5} className="px-3 py-3 sm:px-4" aria-hidden />
                 <td
                   className="sticky right-0 z-10 border-l border-gray-200 bg-gray-50 px-3 py-3 shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:px-4"
                   aria-hidden
@@ -442,16 +459,6 @@ export default function ScheduledPaymentsPageClient() {
           ) : null}
         </table>
           </div>
-        </div>
-
-        <div className="min-w-0">
-          <UpcomingScheduleCalendar
-            items={filteredItems}
-            userCurrency={userCurrency}
-            userTimezone={userTimezone}
-            now={now}
-          />
-        </div>
       </div>
 
       <SchedulePaymentModal

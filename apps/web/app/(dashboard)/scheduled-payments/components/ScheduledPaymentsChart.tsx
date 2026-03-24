@@ -26,6 +26,46 @@ interface ScheduledPaymentsChartProps {
   isRefreshing?: boolean;
 }
 
+interface StatusSlice {
+  count: number;
+  amount: number;
+}
+
+function aggregateByStatus(
+  items: ScheduledPaymentItem[],
+  userCurrency: string,
+  now: Date
+): {
+  upcoming: StatusSlice;
+  awaiting: StatusSlice;
+  accepted: StatusSlice;
+  rejected: StatusSlice;
+} {
+  const upcoming: StatusSlice = { count: 0, amount: 0 };
+  const awaiting: StatusSlice = { count: 0, amount: 0 };
+  const accepted: StatusSlice = { count: 0, amount: 0 };
+  const rejected: StatusSlice = { count: 0, amount: 0 };
+
+  for (const item of items) {
+    const converted = convertForDisplaySync(item.amount, item.currency, userCurrency);
+    if (item.scheduledAt > now) {
+      upcoming.count += 1;
+      upcoming.amount += converted;
+    } else if (item.resolution === "ACCEPTED") {
+      accepted.count += 1;
+      accepted.amount += converted;
+    } else if (item.resolution === "REJECTED") {
+      rejected.count += 1;
+      rejected.amount += converted;
+    } else {
+      awaiting.count += 1;
+      awaiting.amount += converted;
+    }
+  }
+
+  return { upcoming, awaiting, accepted, rejected };
+}
+
 export function ScheduledPaymentsChart({
   items,
   userCurrency,
@@ -64,12 +104,51 @@ export function ScheduledPaymentsChart({
     },
   ];
 
+  const byStatus = aggregateByStatus(items, userCurrency, now);
+
   const secondaryOutline = BUTTON_COLORS.secondaryBlue;
 
+  const summaryRows: {
+    key: string;
+    label: string;
+    slice: StatusSlice;
+    barClass: string;
+    dotClass: string;
+  }[] = [
+    {
+      key: "upcoming",
+      label: "Upcoming",
+      slice: byStatus.upcoming,
+      barClass: "border-blue-200 bg-blue-50/80",
+      dotClass: "bg-blue-500",
+    },
+    {
+      key: "awaiting",
+      label: "Awaiting action",
+      slice: byStatus.awaiting,
+      barClass: "border-amber-200 bg-amber-50/80",
+      dotClass: "bg-amber-500",
+    },
+    {
+      key: "accepted",
+      label: "Accepted",
+      slice: byStatus.accepted,
+      barClass: "border-emerald-200 bg-emerald-50/80",
+      dotClass: "bg-emerald-500",
+    },
+    {
+      key: "rejected",
+      label: "Rejected",
+      slice: byStatus.rejected,
+      barClass: "border-gray-200 bg-white",
+      dotClass: "bg-gray-400 ring-1 ring-gray-300",
+    },
+  ];
+
   return (
-    <div className={`${card} mb-6`}>
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 m-0">Scheduled payments overview</h3>
+    <div className={`${card} flex h-full min-h-0 flex-col`}>
+      <div className="flex flex-wrap items-start justify-between gap-3 shrink-0">
+        <h3 className="text-lg font-semibold text-gray-900 m-0">Overview</h3>
         {onRefresh ? (
           <button
             type="button"
@@ -86,14 +165,7 @@ export function ScheduledPaymentsChart({
           </button>
         ) : null}
       </div>
-      <p className="text-sm text-gray-600 mb-4">
-        Total amounts in {userCurrency} for items in your current filter.{" "}
-        <span className="text-gray-700">
-          Upcoming: future-dated schedules ({upcomingCount}). Previous: on or before today (
-          {previousCount}).
-        </span>
-      </p>
-      <div className="h-[280px] w-full min-h-[240px]">
+      <div className="mt-4 h-[260px] w-full shrink-0 min-h-[200px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
@@ -118,6 +190,31 @@ export function ScheduledPaymentsChart({
             </Bar>
           </BarChart>
         </ResponsiveContainer>
+      </div>
+
+      <div className="mt-4 flex min-h-0 flex-1 flex-col border-t border-gray-100 pt-4">
+        <h4 className="text-sm font-semibold text-gray-900">Summary</h4>
+        <ul className="mt-3 grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+          {summaryRows.map((row) => (
+            <li
+              key={row.key}
+              className={`flex flex-col rounded-lg border px-3 py-2.5 ${row.barClass}`}
+            >
+              <div className="flex items-center gap-2">
+                <span className={`h-2 w-2 shrink-0 rounded-full ${row.dotClass}`} aria-hidden />
+                <span className="text-xs font-medium text-gray-800">{row.label}</span>
+              </div>
+              <div className="mt-2 flex items-baseline justify-between gap-2">
+                <span className="text-lg font-semibold tabular-nums text-gray-900">
+                  {formatCurrency(Math.round(row.slice.amount * 100) / 100, userCurrency)}
+                </span>
+                <span className="text-xs text-gray-600">
+                  {row.slice.count} {row.slice.count === 1 ? "payment" : "payments"}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );
