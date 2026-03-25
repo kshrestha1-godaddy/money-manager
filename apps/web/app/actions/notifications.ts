@@ -10,7 +10,7 @@ import {
 import { getUserCurrency } from "../actions/currency";
 import { getUserTimezone } from "../actions/timezone";
 import { formatCurrency } from "../utils/currency";
-import { convertForDisplaySync } from "../utils/currencyDisplay";
+import { convertForDisplayWithDbRates } from "../utils/currencyDisplayServer";
 import { formatDateInTimezone } from "../utils/timezone";
 
 // Types for notifications
@@ -714,11 +714,11 @@ export async function checkSpendingAlerts(userId: number): Promise<void> {
         });
         
         // Calculate total spent with currency conversion (using EXACT same method as UI)
-        // Note: expense.amount is Decimal from DB, convert to number like getExpenses() does
-        const totalSpent = currentMonthExpenses.reduce((sum: number, expense) => {
+        let totalSpent = 0;
+        for (const expense of currentMonthExpenses) {
             const amount = parseFloat(expense.amount.toString());
-            return sum + convertForDisplaySync(amount, expense.currency, currency);
-        }, 0);
+            totalSpent += await convertForDisplayWithDbRates(amount, expense.currency, currency);
+        }
         
         const percentageSpent = (totalSpent / monthlyLimit) * 100;
         if (percentageSpent >= 90) {

@@ -5,8 +5,6 @@ import { getAuthenticatedSession, getUserIdFromSession, decimalToNumber } from "
 import { formatLocalDateKey, formatDateKeyInTimezone } from "../../../utils/calendarDateUtils";
 import { formatDateInTimezone } from "../../../utils/timezone";
 import { CalendarDebtEvent } from "../../../types/transaction-bookmarks";
-import { convertForDisplaySync } from "../../../utils/currencyDisplay";
-
 export async function getActiveDebtsWithDueDates(): Promise<CalendarDebtEvent[]> {
   try {
     const session = await getAuthenticatedSession();

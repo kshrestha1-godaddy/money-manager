@@ -4,7 +4,8 @@ import prisma from "@repo/db/client";
 import { BudgetTarget } from "../types/financial";
 import { BudgetComparisonData, BudgetTargetFormData } from "../hooks/useBudgetTracking";
 import { getAuthenticatedSession, getUserIdFromSession } from "../utils/auth";
-import { convertForDisplaySync } from "../utils/currencyDisplay";
+import { getCurrencyRateConfigQuery } from "../data/currency-rate-config";
+import { convertCurrencySync } from "../utils/currencyConversion";
 import { ImportResult } from "../types/bulkImport";
 import { parseCSV } from "../utils/csvUtils";
 
@@ -193,6 +194,7 @@ export async function getBudgetComparison(
             select: { currency: true }
         });
         const userCurrency = user?.currency || 'USD';
+        const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery();
 
         // Get all user's categories that are included in budget (both expense and income)
         const categories = await prisma.category.findMany({
@@ -316,7 +318,7 @@ export async function getBudgetComparison(
             const totalAmount = relevantTransactions.reduce((sum, transaction) => {
                 const amount = parseFloat(transaction.amount.toString());
                 const transactionCurrency = transaction.currency || 'USD';
-                const convertedAmount = convertForDisplaySync(amount, transactionCurrency, userCurrency);
+                const convertedAmount = convertCurrencySync(amount, transactionCurrency, userCurrency, conversionMatrix);
                 return sum + convertedAmount;
             }, 0);
             const transactionCount = relevantTransactions.length;

@@ -3,21 +3,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ArrowLeftRight, RefreshCw } from 'lucide-react';
+import { buildUsdBaseExchangeRates, type UsdBaseCurrencyCode } from '../utils/currencyRates';
+import { useCurrency } from '../providers/CurrencyProvider';
 
 interface CurrencyConverterModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-// Exchange rates relative to USD (as of reference)
-// You can update these rates or fetch from an API
-const EXCHANGE_RATES = {
-  USD: 1,
-  INR: 83.12, // 1 USD = 83.12 INR
-  NPR: 133.00, // 1 USD = 133.00 NPR
-};
-
-type Currency = keyof typeof EXCHANGE_RATES;
+type Currency = UsdBaseCurrencyCode;
 
 const CURRENCIES: Currency[] = ['USD', 'INR', 'NPR'];
 
@@ -34,6 +28,12 @@ const CURRENCY_NAMES = {
 };
 
 export function CurrencyConverterModal({ isOpen, onClose }: CurrencyConverterModalProps) {
+  const { currencyRateAnchors } = useCurrency();
+  const EXCHANGE_RATES = useMemo(
+    () => buildUsdBaseExchangeRates(currencyRateAnchors),
+    [currencyRateAnchors]
+  );
+
   const [amount, setAmount] = useState<string>('100');
   const [fromCurrency, setFromCurrency] = useState<Currency>('INR');
   const [toCurrency, setToCurrency] = useState<Currency>('NPR');

@@ -11,7 +11,8 @@ import { getUserAccounts, getWithheldAmountsByBank } from "../../accounts/action
 import { getBudgetTargets } from "../../../actions/budget-targets";
 import { getCurrentNetWorth } from "../../worth/actions/net-worth";
 import { getTransactionsByDateRange } from "../../transactions/actions/transactions";
-import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import { getCurrencyRateConfigQuery } from "../../../data/currency-rate-config";
+import { convertCurrencySync } from "../../../utils/currencyConversion";
 import { formatDate } from "../../../utils/date";
 import { getUserCurrency } from "../../../actions/currency";
 import { calculateRemainingWithInterest } from "../../../utils/interestCalculation";
@@ -47,6 +48,7 @@ export async function getFinancialDataForChat(request: FinancialDataRequest) {
     
     // Get user's preferred currency from database
     const currency = await getUserCurrency();
+    const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery();
 
     // Fetch data in parallel - income/expenses/transactions are date-dependent
     const [incomes, expenses, transactions, debtsResult, investmentsResult, investmentTargetsResult, accountsResult, budgetTargetsResult, withheldAmountsResult, netWorthResult] = await Promise.all([
@@ -104,11 +106,11 @@ export async function getFinancialDataForChat(request: FinancialDataRequest) {
 
     // Calculate summary
     const totalIncome = incomes.reduce((sum, income) => {
-      return sum + convertForDisplaySync(income.amount, income.currency, currency);
+      return sum + convertCurrencySync(income.amount, income.currency, currency, conversionMatrix);
     }, 0);
 
     const totalExpenses = expenses.reduce((sum, expense) => {
-      return sum + convertForDisplaySync(expense.amount, expense.currency, currency);
+      return sum + convertCurrencySync(expense.amount, expense.currency, currency, conversionMatrix);
     }, 0);
 
     // Calculate debt totals (money lent out) - all current debts

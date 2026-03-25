@@ -5,7 +5,8 @@ import { getAuthenticatedSession, getUserIdFromSession } from "../../../utils/au
 import { formatDate } from "../../../utils/date";
 import { formatDateInTimezone } from "../../../utils/timezone";
 import { CalendarBookmarkEvent } from "../../../types/transaction-bookmarks";
-import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import { getCurrencyRateConfigQuery } from "../../../data/currency-rate-config";
+import { convertCurrencySync } from "../../../utils/currencyConversion";
 
 export async function getBookmarkedTransactionsForCalendar(): Promise<CalendarBookmarkEvent[]> {
   try {
@@ -23,7 +24,8 @@ export async function getBookmarkedTransactionsForCalendar(): Promise<CalendarBo
     }
     
     const userCurrency = user.currency;
-    
+    const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery();
+
     const bookmarks = await prisma.transactionBookmark.findMany({
       where: {
         userId: userId
@@ -62,10 +64,11 @@ export async function getBookmarkedTransactionsForCalendar(): Promise<CalendarBo
         const dateKey = formatDate(transactionDate);
         
         // Convert amount to user's preferred currency
-        const convertedAmount = convertForDisplaySync(
+        const convertedAmount = convertCurrencySync(
           Number(transaction.amount),
           transaction.currency,
-          userCurrency
+          userCurrency,
+          conversionMatrix
         );
         
         calendarEvents.push({
@@ -108,7 +111,8 @@ export async function getBookmarkedTransactionsForDateRange(
     }
     
     const userCurrency = user.currency;
-    
+    const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery();
+
     // Parse the date range
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -167,10 +171,11 @@ export async function getBookmarkedTransactionsForDateRange(
         const dateKey = formatDate(transactionDate);
         
         // Convert amount to user's preferred currency
-        const convertedAmount = convertForDisplaySync(
+        const convertedAmount = convertCurrencySync(
           Number(transaction.amount),
           transaction.currency,
-          userCurrency
+          userCurrency,
+          conversionMatrix
         );
         
         calendarEvents.push({
@@ -212,7 +217,8 @@ export async function getBookmarkedTransactionsForCalendarInTimezone(timezone: s
     }
     
     const userCurrency = user.currency;
-    
+    const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery();
+
     const bookmarks = await prisma.transactionBookmark.findMany({
       where: {
         userId: userId
@@ -255,10 +261,11 @@ export async function getBookmarkedTransactionsForCalendarInTimezone(timezone: s
         });
         
         // Convert amount to user's preferred currency
-        const convertedAmount = convertForDisplaySync(
+        const convertedAmount = convertCurrencySync(
           Number(transaction.amount),
           transaction.currency,
-          userCurrency
+          userCurrency,
+          conversionMatrix
         );
         
         calendarEvents.push({
@@ -302,7 +309,8 @@ export async function getBookmarkedTransactionsForDateRangeInTimezone(
     }
     
     const userCurrency = user.currency;
-    
+    const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery();
+
     // Parse the date range
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -365,10 +373,11 @@ export async function getBookmarkedTransactionsForDateRangeInTimezone(
         });
         
         // Convert amount to user's preferred currency
-        const convertedAmount = convertForDisplaySync(
+        const convertedAmount = convertCurrencySync(
           Number(transaction.amount),
           transaction.currency,
-          userCurrency
+          userCurrency,
+          conversionMatrix
         );
         
         calendarEvents.push({

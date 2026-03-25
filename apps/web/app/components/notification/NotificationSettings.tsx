@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, Bell, Earth, DollarSign, Calendar, TrendingUp, Shield, Settings, Bookmark, MapPin } from "lucide-react";
+import { Save, Bell, Earth, DollarSign, Calendar, TrendingUp, Shield, Settings, Bookmark, MapPin, Coins } from "lucide-react";
 import {
     getNotificationSettings,
     updateNotificationSettings,
@@ -13,6 +13,7 @@ import { useCurrency } from "../../providers/CurrencyProvider";
 import { LocationMapSelector } from "../shared/LocationMapSelector";
 import { DEFAULT_LOCATION } from "../../utils/locationDefaults";
 import { createSavedLocation, deleteSavedLocation, getSavedLocations, SavedLocationData } from "../../actions/saved-locations";
+import { getCurrencyRateConfig, updateCurrencyRateConfig } from "../../actions/currency-rates";
 
 interface SettingsGroup {
     title: string;
@@ -45,14 +46,49 @@ export function NotificationSettings() {
         longitude: DEFAULT_LOCATION.longitude
     });
     const [saveMessage, setSaveMessage] = useState<string | null>(null);
-    const { currency } = useCurrency();
+    const [rateInrToNpr, setRateInrToNpr] = useState<number>(1.6);
+    const [rateNprPerUsd, setRateNprPerUsd] = useState<number>(140);
+    const [rateMessage, setRateMessage] = useState<string | null>(null);
+    const [isSavingRates, setIsSavingRates] = useState(false);
+    const { currency, refreshCurrencyRates } = useCurrency();
 
     // Load settings on mount
     useEffect(() => {
         loadSettings();
         loadAvailableAccounts();
         loadSavedLocations();
+        loadCurrencyRates();
     }, []);
+
+    const loadCurrencyRates = async () => {
+        try {
+            const r = await getCurrencyRateConfig();
+            setRateInrToNpr(r.inrToNpr);
+            setRateNprPerUsd(r.nprPerUsd);
+        } catch (error) {
+            console.error("Failed to load exchange rates:", error);
+        }
+    };
+
+    const handleSaveExchangeRates = async () => {
+        try {
+            setIsSavingRates(true);
+            setRateMessage(null);
+            await updateCurrencyRateConfig({
+                inrToNpr: rateInrToNpr,
+                nprPerUsd: rateNprPerUsd,
+            });
+            await refreshCurrencyRates();
+            setRateMessage("Exchange rates saved. Amounts across the app will use these values.");
+            setTimeout(() => setRateMessage(null), 4000);
+        } catch (error) {
+            console.error("Failed to save exchange rates:", error);
+            setRateMessage("Could not save exchange rates. Please try again.");
+            setTimeout(() => setRateMessage(null), 4000);
+        } finally {
+            setIsSavingRates(false);
+        }
+    };
 
     const loadSettings = async () => {
         try {
@@ -146,7 +182,7 @@ export function NotificationSettings() {
         if (!settings) return;
 
         try {
-            setSaving(true);
+            setIsSaving(true);
             await updateNotificationSettings(settings);
             setSaveMessage("Settings saved successfully!");
             
@@ -162,7 +198,7 @@ export function NotificationSettings() {
             setSaveMessage("Failed to save settings. Please try again.");
             setTimeout(() => setSaveMessage(null), 3000);
         } finally {
-            setSaving(false);
+            setIsSaving(false);
         }
     };
 
@@ -401,6 +437,68 @@ export function NotificationSettings() {
                         Changes are saved automatically when you click "Save Settings"
                     </div>
                 </div>
+            </div>
+
+            {/* Exchange rates (app-wide) */}
+            <div className="bg-white rounded-lg border border-amber-100 shadow-sm">
+                <div className="p-6 border-b border-gray-100">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="flex items-center space-x-3">
+                            <div className="p-2 bg-amber-50 rounded-lg text-amber-700">
+                                <Coins className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-medium text-gray-900">Exchange rates (USD / INR / NPR)</h3>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    These anchors drive all currency conversion in the app. Implied: 1 USD = (NPR per USD ÷ INR→NPR) INR.
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleSaveExchangeRates}
+                            disabled={isSavingRates}
+                            className="inline-flex items-center justify-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-md text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isSavingRates ? "Saving…" : "Save exchange rates"}
+                        </button>
+                    </div>
+                </div>
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-900 mb-1">
+                            INR → NPR (1 INR = ? NPR)
+                        </label>
+                        <input
+                            type="number"
+                            step="0.0001"
+                            min={0.0001}
+                            value={rateInrToNpr}
+                            onChange={(e) => setRateInrToNpr(parseFloat(e.target.value) || 0)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-900 mb-1">
+                            USD → NPR (1 USD = ? NPR)
+                        </label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            min={0.01}
+                            value={rateNprPerUsd}
+                            onChange={(e) => setRateNprPerUsd(parseFloat(e.target.value) || 0)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        />
+                    </div>
+                </div>
+                {rateMessage && (
+                    <div className="px-6 pb-6">
+                        <p className={`text-sm ${rateMessage.includes("saved") ? "text-green-600" : "text-red-600"}`}>
+                            {rateMessage}
+                        </p>
+                    </div>
+                )}
             </div>
 
             {/* Settings Groups - Grid Layout */}

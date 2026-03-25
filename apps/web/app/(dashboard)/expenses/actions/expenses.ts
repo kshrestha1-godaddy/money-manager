@@ -34,7 +34,7 @@ import {
     BulkOperationResult 
 } from "../../../types/bulkImport";
 import { getUserIdFromSession } from "../../../utils/auth";
-import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import { convertForDisplayWithDbRates } from "../../../utils/currencyDisplayServer";
 import { autoBookmarkHighValueTransaction, handleBookmarkOnAmountChange } from "../../../utils/autoBookmarkUtils";
 import { logAccountBalanceFromTransaction } from "../../../utils/accountActivityLog";
 import {
@@ -210,7 +210,7 @@ export async function createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'up
             if (data.accountId) {
                 const userCurrency = user?.currency || 'USD';
                 const transactionCurrency = data.currency || userCurrency;
-                const convertedAmount = convertForDisplaySync(data.amount, transactionCurrency, userCurrency);
+                const convertedAmount = await convertForDisplayWithDbRates(data.amount, transactionCurrency, userCurrency);
                 
                 await tx.account.update({
                     where: { id: data.accountId },
@@ -434,8 +434,8 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
             const newAccountId = data.accountId !== undefined ? data.accountId : oldAccountId;
 
             // Convert amounts to user's currency for account balance updates
-            const oldAmountConverted = convertForDisplaySync(oldAmount, oldCurrency, userCurrency);
-            const newAmountConverted = convertForDisplaySync(newAmount, newCurrency, userCurrency);
+            const oldAmountConverted = await convertForDisplayWithDbRates(oldAmount, oldCurrency, userCurrency);
+            const newAmountConverted = await convertForDisplayWithDbRates(newAmount, newCurrency, userCurrency);
 
             // Same linked account: adjust balance when amount or currency changes (edit modal may send both).
             const expenseValueChangedForBalance =
@@ -664,7 +664,7 @@ export async function deleteExpense(id: number) {
             if (existingExpense.accountId) {
                 const userCurrency = user?.currency || 'USD';
                 const expenseAmount = parseFloat(existingExpense.amount.toString());
-                const convertedAmount = convertForDisplaySync(expenseAmount, existingExpense.currency, userCurrency);
+                const convertedAmount = await convertForDisplayWithDbRates(expenseAmount, existingExpense.currency, userCurrency);
                 
                 await tx.account.update({
                     where: { id: existingExpense.accountId },
@@ -1088,7 +1088,7 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
                         if (validatedRow.data.accountId) {
                             const userCurrency = user?.currency || 'USD';
                             const transactionCurrency = validatedRow.data.currency || userCurrency;
-                            const convertedAmount = convertForDisplaySync(validatedRow.data.amount, transactionCurrency, userCurrency);
+                            const convertedAmount = await convertForDisplayWithDbRates(validatedRow.data.amount, transactionCurrency, userCurrency);
                             
                             await tx.account.update({
                                 where: { id: validatedRow.data.accountId },
@@ -1239,14 +1239,14 @@ export async function bulkDeleteExpenses(expenseIds: number[]) {
             const accountUpdates = new Map<number, number>();
             const userCurrency = user?.currency || 'USD';
             
-            existingExpenses.forEach(expense => {
+            for (const expense of existingExpenses) {
                 if (expense.accountId) {
                     const expenseAmount = parseFloat(expense.amount.toString());
-                    const convertedAmount = convertForDisplaySync(expenseAmount, expense.currency, userCurrency);
+                    const convertedAmount = await convertForDisplayWithDbRates(expenseAmount, expense.currency, userCurrency);
                     const currentTotal = accountUpdates.get(expense.accountId) || 0;
                     accountUpdates.set(expense.accountId, currentTotal + convertedAmount);
                 }
-            });
+            }
 
             // Apply account balance updates
             const accountExpenseIds = new Map<number, number[]>();
@@ -1425,7 +1425,7 @@ export async function importCorrectedRow(
             if (expenseData.accountId) {
                 const userCurrency = user?.currency || 'USD';
                 const transactionCurrency = expenseData.currency || userCurrency;
-                const convertedAmount = convertForDisplaySync(expenseData.amount, transactionCurrency, userCurrency);
+                const convertedAmount = await convertForDisplayWithDbRates(expenseData.amount, transactionCurrency, userCurrency);
                 
                 await tx.account.update({
                     where: { id: expenseData.accountId },

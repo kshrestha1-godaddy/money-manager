@@ -2,7 +2,8 @@
 
 import prisma from "@repo/db/client";
 import { getAuthenticatedSession, getUserIdFromSession } from "../utils/auth";
-import { convertForDisplaySync } from "../utils/currencyDisplay";
+import { getCurrencyRateConfigQuery } from "../data/currency-rate-config";
+import { convertCurrencySync } from "../utils/currencyConversion";
 
 export interface CategoryTrendData {
   categoryName: string;
@@ -31,6 +32,7 @@ export async function getCategoryHistoricalTrends(
       select: { currency: true }
     });
     const userCurrency = user?.currency || 'USD';
+    const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery();
 
     // Get categories that are included in budget
     const categories = await prisma.category.findMany({
@@ -144,7 +146,7 @@ export async function getCategoryHistoricalTrends(
             actualAmount = monthExpenses.reduce((sum, expense) => {
               const amount = parseFloat(expense.amount.toString());
               const transactionCurrency = expense.currency || 'USD';
-              const convertedAmount = convertForDisplaySync(amount, transactionCurrency, userCurrency);
+              const convertedAmount = convertCurrencySync(amount, transactionCurrency, userCurrency, conversionMatrix);
               return sum + convertedAmount;
             }, 0);
           } else if (category.type === 'INCOME') {
@@ -158,7 +160,7 @@ export async function getCategoryHistoricalTrends(
             actualAmount = monthIncomes.reduce((sum, income) => {
               const amount = parseFloat(income.amount.toString());
               const transactionCurrency = income.currency || 'USD';
-              const convertedAmount = convertForDisplaySync(amount, transactionCurrency, userCurrency);
+              const convertedAmount = convertCurrencySync(amount, transactionCurrency, userCurrency, conversionMatrix);
               return sum + convertedAmount;
             }, 0);
           }

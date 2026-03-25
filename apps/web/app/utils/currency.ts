@@ -1,3 +1,8 @@
+import { INR_TO_NPR_RATE, NPR_TO_INR_RATE } from "./currencyRates";
+import { getEffectiveInrToNprRate } from "./currencyConversion";
+
+export { INR_TO_NPR_RATE, NPR_TO_INR_RATE };
+
 export interface Currency {
   code: string;
   name: string;
@@ -48,11 +53,6 @@ export type SupportedCurrency = typeof SUPPORTED_CURRENCIES[number];
 export const DUAL_CURRENCIES = ['INR', 'NPR'] as const;
 export type DualCurrency = typeof DUAL_CURRENCIES[number];
 
-// Exchange rate: 1 INR = 1.6 NPR (approximate)
-// This should ideally be fetched from an API, but for now using a fixed rate
-export const INR_TO_NPR_RATE = 1.6;
-export const NPR_TO_INR_RATE = 1 / INR_TO_NPR_RATE;
-
 /**
  * Convert amount from one dual currency to another
  */
@@ -64,15 +64,21 @@ export function convertDualCurrency(
     if (fromCurrency === toCurrency) {
         return amount;
     }
-    
-    if (fromCurrency === 'INR' && toCurrency === 'NPR') {
-        return amount * INR_TO_NPR_RATE;
+
+    const inrToNpr =
+        typeof window !== "undefined"
+            ? getEffectiveInrToNprRate()
+            : INR_TO_NPR_RATE;
+    const nprToInr = 1 / inrToNpr;
+
+    if (fromCurrency === "INR" && toCurrency === "NPR") {
+        return amount * inrToNpr;
     }
-    
-    if (fromCurrency === 'NPR' && toCurrency === 'INR') {
-        return amount * NPR_TO_INR_RATE;
+
+    if (fromCurrency === "NPR" && toCurrency === "INR") {
+        return amount * nprToInr;
     }
-    
+
     return amount;
 }
 

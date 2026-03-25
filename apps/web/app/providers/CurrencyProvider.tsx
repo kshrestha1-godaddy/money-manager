@@ -3,11 +3,20 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useSession } from "next-auth/react";
 import { getUserCurrency, updateUserCurrency } from "../actions/currency";
+import { getCurrencyRateConfig } from "../actions/currency-rates";
+import { setClientCurrencyConversionMatrix } from "../utils/currencyConversion";
+import {
+  DEFAULT_CURRENCY_ANCHORS,
+  type CurrencyRateAnchors,
+} from "../utils/currencyRates";
 
 interface CurrencyContextType {
   currency: string;
   updateCurrency: (newCurrency: string) => Promise<void>;
   isLoading: boolean;
+  currencyRateAnchors: CurrencyRateAnchors;
+  isRatesLoading: boolean;
+  refreshCurrencyRates: () => Promise<void>;
 }
 
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
@@ -25,18 +34,45 @@ interface CurrencyProviderProps {
 }
 
 export function CurrencyProvider({ children }: CurrencyProviderProps) {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const [currency, setCurrency] = useState("USD");
   const [isLoading, setIsLoading] = useState(true);
+  const [currencyRateAnchors, setCurrencyRateAnchors] = useState<CurrencyRateAnchors>({
+    ...DEFAULT_CURRENCY_ANCHORS,
+  });
+  const [isRatesLoading, setIsRatesLoading] = useState(true);
 
-  // Load user's currency preference on mount or when session changes
+  function applyRateAnchors(anchors: CurrencyRateAnchors) {
+    setCurrencyRateAnchors(anchors);
+    setClientCurrencyConversionMatrix(anchors.inrToNpr, anchors.nprPerUsd);
+  }
+
+  const refreshCurrencyRates = async () => {
+    const rates = await getCurrencyRateConfig();
+    applyRateAnchors(rates);
+  };
+
   useEffect(() => {
     if (status === "authenticated") {
-      getUserCurrency()
-        .then(setCurrency)
-        .finally(() => setIsLoading(false));
+      setIsLoading(true);
+      setIsRatesLoading(true);
+      Promise.all([getUserCurrency(), getCurrencyRateConfig()])
+        .then(([userCurrency, rates]) => {
+          setCurrency(userCurrency);
+          applyRateAnchors(rates);
+        })
+        .catch((error) => {
+          console.error("Failed to load currency preferences:", error);
+          applyRateAnchors(DEFAULT_CURRENCY_ANCHORS);
+        })
+        .finally(() => {
+          setIsLoading(false);
+          setIsRatesLoading(false);
+        });
     } else {
       setIsLoading(false);
+      setIsRatesLoading(false);
+      applyRateAnchors(DEFAULT_CURRENCY_ANCHORS);
     }
   }, [status]);
 
@@ -51,7 +87,16 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
   };
 
   return (
-    <CurrencyContext.Provider value={{ currency, updateCurrency, isLoading }}>
+    <CurrencyContext.Provider
+      value={{
+        currency,
+        updateCurrency,
+        isLoading,
+        currencyRateAnchors,
+        isRatesLoading,
+        refreshCurrencyRates,
+      }}
+    >
       {children}
     </CurrencyContext.Provider>
   );

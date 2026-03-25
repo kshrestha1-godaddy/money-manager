@@ -8,7 +8,7 @@ import { authOptions } from "../../../lib/auth";
 import { getUserIdFromSession } from "../../../utils/auth";
 import { parseCSV, parseTags, mergeLocationAndLinksFromRow, parseOptionalMapCoordinates } from "../../../utils/csvUtils";
 import { parseCategoriesCSV, type ParsedCategoryData } from "../../../utils/csvImportCategories";
-import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import { convertForDisplayWithDbRates } from "../../../utils/currencyDisplayServer";
 import { autoBookmarkHighValueTransaction, handleBookmarkOnAmountChange } from "../../../utils/autoBookmarkUtils";
 import { logAccountBalanceFromTransaction } from "../../../utils/accountActivityLog";
 import {
@@ -191,7 +191,7 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
             if (data.accountId) {
                 const userCurrency = user?.currency || 'USD';
                 const transactionCurrency = data.currency || userCurrency;
-                const convertedAmount = convertForDisplaySync(data.amount, transactionCurrency, userCurrency);
+                const convertedAmount = await convertForDisplayWithDbRates(data.amount, transactionCurrency, userCurrency);
                 
                 await tx.account.update({
                     where: { id: data.accountId },
@@ -380,8 +380,8 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
             const newAccountId = data.accountId !== undefined ? data.accountId : oldAccountId;
 
             // Convert amounts to user's currency for account balance updates
-            const oldAmountConverted = convertForDisplaySync(oldAmount, oldCurrency, userCurrency);
-            const newAmountConverted = convertForDisplaySync(newAmount, newCurrency, userCurrency);
+            const oldAmountConverted = await convertForDisplayWithDbRates(oldAmount, oldCurrency, userCurrency);
+            const newAmountConverted = await convertForDisplayWithDbRates(newAmount, newCurrency, userCurrency);
 
             // Same linked account: adjust balance when amount or currency changes (edit modal may send both).
             const incomeValueChangedForBalance =
@@ -564,7 +564,7 @@ export async function deleteIncome(id: number) {
             if (existingIncome.accountId) {
                 const userCurrency = user?.currency || 'USD';
                 const incomeAmount = parseFloat(existingIncome.amount.toString());
-                const convertedAmount = convertForDisplaySync(incomeAmount, existingIncome.currency, userCurrency);
+                const convertedAmount = await convertForDisplayWithDbRates(incomeAmount, existingIncome.currency, userCurrency);
                 
                 await tx.account.update({
                     where: { id: existingIncome.accountId },
@@ -806,17 +806,17 @@ export async function bulkDeleteIncomes(incomeIds: number[]) {
         const accountUpdates = new Map<number, number>();
         const accountIncomeIds = new Map<number, number[]>();
 
-        existingIncomes.forEach((income) => {
+        for (const income of existingIncomes) {
             if (income.accountId) {
                 const amt = parseFloat(income.amount.toString());
-                const converted = convertForDisplaySync(amt, income.currency, userCurrency);
+                const converted = await convertForDisplayWithDbRates(amt, income.currency, userCurrency);
                 const currentTotal = accountUpdates.get(income.accountId) || 0;
                 accountUpdates.set(income.accountId, currentTotal + converted);
                 const ids = accountIncomeIds.get(income.accountId) || [];
                 ids.push(income.id);
                 accountIncomeIds.set(income.accountId, ids);
             }
-        });
+        }
 
         for (const [accountId, totalAmount] of accountUpdates) {
             await tx.account.update({
