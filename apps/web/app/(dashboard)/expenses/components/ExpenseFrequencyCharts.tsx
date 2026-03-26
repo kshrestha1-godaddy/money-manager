@@ -79,78 +79,111 @@ function toNum(v: unknown): number {
   return 0;
 }
 
-/** Data labels inside each bar: transaction count + account total spend (Waterfall-style; see WaterfallChart LabelList). */
-function createAccountBarInsideLabelRenderer(userCurrency: string) {
-  return function AccountBarInsideLabels(props: Record<string, unknown>) {
+function formatBarAmount(amount: number, currencyCode: string): string {
+  // Use user's selected currency formatting instead of hardcoded prefix.
+  return formatCurrency(amount, currencyCode).replace(/\u00A0/g, " ");
+}
+
+interface AccountBarShapeContext {
+  userCurrency: string;
+  xAxisY: number;
+}
+
+function createAccountBarShapeRenderer(context: AccountBarShapeContext) {
+  return function AccountBarShape(props: Record<string, unknown>) {
+    const { userCurrency, xAxisY } = context;
     const x = toNum(props.x);
     const y = toNum(props.y);
     const width = toNum(props.width);
     const height = toNum(props.height);
-    const value = typeof props.value === "number" ? props.value : toNum(props.value);
+    const value = toNum(props.value);
     const payload = props.payload as AccountBarRow | undefined;
-    if (!payload) return null;
+    if (!payload || width <= 0 || height <= 0) return null;
+
     const count = payload.count ?? value ?? 0;
-    const amtStr = formatCurrency(payload.totalAmount, userCurrency);
-    const pct = payload.percentOfTotal.toFixed(1);
+    const amtStr = formatBarAmount(payload.totalAmount, userCurrency);
+    const labelText = `${amtStr} (${count} x)`;
     const cy = y + height / 2;
     const shadow = "0 1px 2px rgba(0,0,0,0.45)";
-    const minInsidePx = 48;
-    const pad = 7;
+    const minInsidePx = 108;
+    const lineX = x + width;
+    const hasGuideLine = xAxisY > y;
+    const axisValueY = xAxisY + 14;
+    const fill = (props.fill as string | undefined) ?? "#6366f1";
+    const radius = Math.min(6, height / 2);
 
-    if (width < minInsidePx) {
-      return (
-        <text
-          x={x + width + 6}
-          y={cy}
-          fill="#374151"
-          fontSize={10}
-          textAnchor="start"
-          dominantBaseline="middle"
-        >
-          <tspan fontWeight={700}>{`${count}x`}</tspan>
-          <tspan fill="#6b7280">{` · ${pct}% · `}</tspan>
-          <tspan fill="#dc2626" fontWeight={600}>
-            {amtStr}
-          </tspan>
-        </text>
-      );
-    }
-
-    const tight = width < 120;
-    const countSize = tight ? 10 : 11;
-    const amtSize = tight ? 9 : 10;
-    const lineGap = tight ? 5 : 6;
-    const tx = x + width - pad;
+    const tight = width < 170;
+    const labelSize = tight ? 9 : 10;
+    const tx = x + width / 2;
 
     return (
       <g className="pointer-events-none">
-        <text
-          x={tx}
-          y={cy - lineGap}
-          textAnchor="end"
-          dominantBaseline="middle"
-          fill="#ffffff"
-          fontSize={countSize}
-          fontWeight={700}
-          style={{ textShadow: shadow }}
-        >
-          {`${count}x`}
-        </text>
-        <text
-          x={tx}
-          y={cy + lineGap + (tight ? 1 : 2)}
-          textAnchor="end"
-          dominantBaseline="middle"
-          fill="#ffffff"
-          fontSize={amtSize}
-          fontWeight={600}
-          style={{ textShadow: shadow }}
-        >
-          {amtStr}
-        </text>
+        <path
+          d={`
+            M ${x},${y}
+            h ${Math.max(width - radius, 0)}
+            q ${radius},0 ${radius},${radius}
+            v ${Math.max(height - 2 * radius, 0)}
+            q 0,${radius} -${radius},${radius}
+            h -${Math.max(width - radius, 0)}
+            z
+          `}
+          fill={fill}
+        />
+
+        {hasGuideLine ? (
+          <g>
+            <line
+              x1={lineX}
+              y1={y}
+              x2={lineX}
+              y2={xAxisY}
+              stroke="#94a3b8"
+              strokeDasharray="3 3"
+              strokeWidth={1}
+              opacity={0.9}
+            />
+            <text
+              x={lineX}
+              y={axisValueY}
+              textAnchor="middle"
+              dominantBaseline="hanging"
+              fill="#6b7280"
+              fontSize={9}
+              fontWeight={600}
+            >
+              {count}
+            </text>
+          </g>
+        ) : null}
+
+        {width >= minInsidePx ? (
+          <text
+            x={tx}
+            y={cy}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill="#ffffff"
+            fontSize={labelSize}
+            fontWeight={700}
+            style={{ textShadow: shadow }}
+          >
+            {labelText}
+          </text>
+        ) : null}
       </g>
     );
   };
+}
+
+function buildCountAxisTicks(maxCount: number): number[] {
+  const max = Math.max(1, maxCount);
+  const padded = Math.ceil(max * 1.08);
+  const step = Math.max(1, Math.ceil(padded / 6));
+  const ticks: number[] = [0];
+  for (let v = step; v < padded; v += step) ticks.push(v);
+  if (ticks[ticks.length - 1] !== padded) ticks.push(padded);
+  return ticks;
 }
 
 function accountTickValue(payload: unknown): string {
@@ -241,15 +274,10 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
     [accountByFrequency]
   );
 
-  const accountXTicks = useMemo(() => {
-    const max = Math.max(1, accountChartMaxCount);
-    const padded = Math.ceil(max * 1.08);
-    const step = Math.max(1, Math.ceil(padded / 6));
-    const ticks: number[] = [0];
-    for (let v = step; v < padded; v += step) ticks.push(v);
-    if (ticks[ticks.length - 1] !== padded) ticks.push(padded);
-    return ticks;
-  }, [accountChartMaxCount]);
+  const accountXTicks = useMemo(
+    () => buildCountAxisTicks(accountChartMaxCount),
+    [accountChartMaxCount]
+  );
 
   const accountXDomainMax = useMemo(
     () => Math.max(accountXTicks[accountXTicks.length - 1] ?? 1, 1),
@@ -396,12 +424,24 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
     [userCurrency]
   );
 
-  const accountBarLabelRenderer = useMemo(
-    () => createAccountBarInsideLabelRenderer(userCurrency),
-    [userCurrency]
+  /** Same pixel height for bar chart and donut so the two visuals align (no extra empty band under the pie). */
+  const sharedChartHeight = useMemo(
+    () => Math.min(480, Math.max(240, accountByFrequency.length * 44)),
+    [accountByFrequency.length]
   );
 
-  const barHeight = Math.min(480, Math.max(240, accountByFrequency.length * 44));
+  const accountXAxisY = useMemo(() => Math.max(sharedChartHeight - 28, 0), [sharedChartHeight]);
+
+  const accountBarShapeRenderer = useMemo(
+    () => createAccountBarShapeRenderer({ userCurrency, xAxisY: accountXAxisY }),
+    [accountXAxisY, userCurrency]
+  );
+
+  /** Keep both chart cards exactly same container height on desktop. */
+  const sharedContainerHeight = useMemo(
+    () => sharedChartHeight + 190,
+    [sharedChartHeight]
+  );
 
   const accountSpendTotal = useMemo(
     () => accountByFrequency.reduce((s, r) => s + r.totalAmount, 0),
@@ -474,8 +514,11 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
   ]);
 
   return (
-    <div className="grid grid-cols-1 gap-6 mb-6 lg:grid-cols-2">
-      <div className="w-full rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+    <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-stretch">
+      <div
+        className="flex w-full flex-col rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6"
+        style={{ height: sharedContainerHeight }}
+      >
         <h3 className="mb-4 text-lg font-semibold text-gray-900">Expenses by account</h3>
         <p className="mb-4 text-sm text-gray-500">
           Frequency and total spend per account (converted to {userCurrency}). Bar labels follow the waterfall style:{" "}
@@ -484,9 +527,9 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
         {accountByFrequency.length === 0 ? (
           <p className="py-12 text-center text-sm text-gray-500">No expenses in this view.</p>
         ) : (
-          <div className="min-w-0 w-full overflow-x-auto" style={{ minWidth: 520 }}>
+          <div className="min-w-0 w-full flex-1 overflow-x-auto" style={{ minWidth: 520 }}>
             <SummaryStrip items={accountSummaryItems} />
-            <ResponsiveContainer width="100%" height={barHeight}>
+            <ResponsiveContainer width="100%" height={sharedChartHeight}>
               <BarChart
                 layout="vertical"
                 data={accountByFrequency}
@@ -531,27 +574,29 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
                       : "";
                     return [
                       `${value} txns (${pct}% of ${totalCount}) · ${spend}`,
-                      "This account",
+                      "",
                     ];
                   }}
-                  labelFormatter={(label) => `Account: ${label}`}
+                  labelFormatter={(label) => `${label}`}
                   contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb" }}
                 />
-                <Bar dataKey="count" name="Count" fill="#6366f1" radius={[0, 6, 6, 0]} maxBarSize={34}>
-                  <LabelList
-                    dataKey="count"
-                    // Recharts LabelList content props use string | number for SVG coords; renderer normalizes.
-                    content={accountBarLabelRenderer as never}
-                    position="insideEnd"
-                  />
-                </Bar>
+                <Bar
+                  dataKey="count"
+                  name="Count"
+                  fill="#6366f1"
+                  maxBarSize={34}
+                  shape={accountBarShapeRenderer as never}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
         )}
       </div>
 
-      <div className="w-full rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+      <div
+        className="flex w-full flex-col rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6"
+        style={{ height: sharedContainerHeight }}
+      >
         <h3 className="mb-1 text-lg font-semibold text-gray-900">
           Need vs wants
           {totalCount > 0 ? (
@@ -570,16 +615,16 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
         ) : needWantByFrequency.length === 0 ? (
           <p className="py-12 text-center text-sm text-gray-500">No tagged data to display.</p>
         ) : (
-          <div className="px-1 py-2">
+          <div className="min-w-0 flex-1 px-0">
             <SummaryStrip items={needWantSummaryItems} />
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-3">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start lg:gap-3">
               <div
-                className="flex h-80 w-full items-center justify-center lg:col-span-2 lg:h-96"
+                className="flex w-full items-start justify-center lg:col-span-2"
                 role="img"
                 aria-label="Need versus wants donut chart"
               >
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height={sharedChartHeight}>
                   <PieChart>
                     <defs>
                       <pattern
@@ -657,9 +702,12 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
                 </ResponsiveContainer>
               </div>
 
-              <div className="space-y-2 lg:col-span-1">
+              <div className="space-y-2 lg:col-span-1 lg:max-w-sm lg:self-start">
                 <h4 className="text-xs font-medium text-gray-900">Breakdown</h4>
-                <div className="max-h-80 space-y-2 overflow-y-auto pr-1 sm:max-h-96">
+                <div
+                  className="space-y-2 overflow-y-auto pr-1"
+                  style={{ maxHeight: sharedChartHeight }}
+                >
                   {needWantByFrequency.map((entry) => (
                     <div key={entry.name} className="flex items-start justify-between gap-2">
                       <div className="flex min-w-0 items-center gap-2">
