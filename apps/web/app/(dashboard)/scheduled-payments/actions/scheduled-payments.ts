@@ -222,6 +222,70 @@ export async function createScheduledPayment(input: CreateScheduledPaymentInput)
   return toScheduledPaymentItem(row as never);
 }
 
+export interface UpdateScheduledPaymentInput {
+  id: number;
+  title: string;
+  description?: string;
+  amount: number;
+  currency: string;
+  scheduledAt: Date;
+  categoryId: number;
+  accountId: number | null;
+  tags?: string[];
+  notes?: string;
+  isRecurring?: boolean;
+  recurringFrequency?: RecurringFrequency;
+}
+
+export async function updateScheduledPayment(input: UpdateScheduledPaymentInput) {
+  const session = await getServerSession(authOptions);
+  if (!session) throw new Error("Unauthorized");
+  const userId = getUserIdFromSession(session.user.id);
+
+  const existing = await prisma.scheduledPayment.findFirst({
+    where: { id: input.id, userId },
+  });
+  if (!existing) throw new Error("Scheduled payment not found");
+  if (existing.resolution !== null) {
+    throw new Error("Cannot edit a scheduled payment that was already accepted or rejected");
+  }
+
+  const category = await prisma.category.findFirst({
+    where: { id: input.categoryId, userId, type: "EXPENSE" },
+  });
+  if (!category) throw new Error("Invalid expense category");
+
+  if (input.accountId) {
+    const account = await prisma.account.findFirst({
+      where: { id: input.accountId, userId },
+    });
+    if (!account) throw new Error("Invalid account");
+  }
+
+  const isRecurring = Boolean(input.isRecurring && input.recurringFrequency);
+
+  const row = await prisma.scheduledPayment.update({
+    where: { id: input.id },
+    data: {
+      title: input.title.trim(),
+      description: input.description?.trim() || null,
+      amount: input.amount,
+      currency: input.currency,
+      scheduledAt: input.scheduledAt,
+      categoryId: input.categoryId,
+      accountId: input.accountId ?? null,
+      tags: input.tags ?? [],
+      notes: input.notes?.trim() || null,
+      isRecurring,
+      recurringFrequency: isRecurring ? input.recurringFrequency : null,
+    },
+    include: includeRelations,
+  });
+
+  revalidatePath("/expenses");
+  return toScheduledPaymentItem(row as never);
+}
+
 export async function deleteScheduledPayment(id: number) {
   const session = await getServerSession(authOptions);
   if (!session) throw new Error("Unauthorized");

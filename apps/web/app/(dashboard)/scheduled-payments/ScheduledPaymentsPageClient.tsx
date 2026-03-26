@@ -62,6 +62,7 @@ export default function ScheduledPaymentsPageClient() {
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<ScheduledPaymentItem | null>(null);
   const [notification, setNotification] = useState<NotificationData | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -237,7 +238,10 @@ export default function ScheduledPaymentsPageClient() {
           </button>
           <button
             type="button"
-            onClick={() => setIsScheduleModalOpen(true)}
+            onClick={() => {
+              setEditingItem(null);
+              setIsScheduleModalOpen(true);
+            }}
             className={primaryButton}
           >
             Schedule payment
@@ -310,7 +314,7 @@ export default function ScheduledPaymentsPageClient() {
               <th className="px-3 py-3 font-medium sm:px-4">Notes</th>
               <th className="px-3 py-3 font-medium sm:px-4">Recurrence</th>
               <th className="px-3 py-3 font-medium sm:px-4">Status</th>
-              <th className="sticky right-0 z-20 min-w-[8.5rem] border-l border-gray-200 bg-gray-50 px-3 py-3 font-medium shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.08)] sm:min-w-[9.5rem] sm:px-4">
+              <th className="sticky right-0 z-20 min-w-[10rem] border-l border-gray-200 bg-gray-50 px-3 py-3 text-center font-medium shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.08)] sm:min-w-[12rem] sm:px-4">
                 Actions
               </th>
             </tr>
@@ -348,6 +352,7 @@ export default function ScheduledPaymentsPageClient() {
                 const canDecide =
                   !item.resolution && item.scheduledAt <= now;
                 const canDelete = !item.resolution;
+                const canEdit = !item.resolution;
 
                 return (
                   <tr key={item.id} className="group hover:bg-gray-50/80">
@@ -400,8 +405,8 @@ export default function ScheduledPaymentsPageClient() {
                         {label}
                       </span>
                     </td>
-                    <td className="sticky right-0 z-10 min-w-[8.5rem] border-l border-gray-100 bg-white px-3 py-3 shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] group-hover:bg-gray-50/80 sm:min-w-[9.5rem] sm:px-4">
-                      <div className="flex flex-nowrap items-center gap-x-2">
+                    <td className="sticky right-0 z-10 min-w-[10rem] border-l border-gray-100 bg-white px-3 py-3 text-center align-middle shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] group-hover:bg-gray-50/80 sm:min-w-[12rem] sm:px-4">
+                      <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
                       {canDecide && (
                         <>
                           <button
@@ -419,6 +424,18 @@ export default function ScheduledPaymentsPageClient() {
                             Reject
                           </button>
                         </>
+                      )}
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingItem(item);
+                            setIsScheduleModalOpen(true);
+                          }}
+                          className="text-gray-800 hover:underline font-medium"
+                        >
+                          Edit
+                        </button>
                       )}
                       {canDelete && (
                         <button
@@ -451,7 +468,7 @@ export default function ScheduledPaymentsPageClient() {
                 </td>
                 <td colSpan={5} className="px-3 py-3 sm:px-4" aria-hidden />
                 <td
-                  className="sticky right-0 z-10 border-l border-gray-200 bg-gray-50 px-3 py-3 shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:px-4"
+                  className="sticky right-0 z-10 border-l border-gray-200 bg-gray-50 px-3 py-3 text-center shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:px-4"
                   aria-hidden
                 />
               </tr>
@@ -463,11 +480,18 @@ export default function ScheduledPaymentsPageClient() {
 
       <SchedulePaymentModal
         isOpen={isScheduleModalOpen}
-        onClose={() => setIsScheduleModalOpen(false)}
+        onClose={() => {
+          setEditingItem(null);
+          setIsScheduleModalOpen(false);
+        }}
+        editingItem={editingItem}
         onCreated={() => {
+          const wasEdit = Boolean(editingItem);
           setNotification({
-            title: "Scheduled",
-            message: "Payment scheduled successfully.",
+            title: wasEdit ? "Updated" : "Scheduled",
+            message: wasEdit
+              ? "Scheduled payment updated."
+              : "Payment scheduled successfully.",
             type: "success",
           });
           void load({ silent: true });

@@ -12,7 +12,11 @@ import {
   labelClasses,
   checkboxClasses,
 } from "../../../utils/formUtils";
-import { createScheduledPayment } from "../../scheduled-payments/actions/scheduled-payments";
+import {
+  createScheduledPayment,
+  updateScheduledPayment,
+} from "../../scheduled-payments/actions/scheduled-payments";
+import { ScheduledPaymentItem } from "../../../types/scheduled-payment";
 
 const RECURRING_OPTIONS = ["DAILY", "WEEKLY", "MONTHLY", "YEARLY"] as const;
 type RecurringChoice = (typeof RECURRING_OPTIONS)[number];
@@ -23,6 +27,7 @@ interface SchedulePaymentModalProps {
   onCreated: () => void;
   categories: CategoryWithFrequencyData[];
   accounts: AccountInterface[];
+  editingItem?: ScheduledPaymentItem | null;
 }
 
 function defaultLocalDatetime(): string {
@@ -31,12 +36,19 @@ function defaultLocalDatetime(): string {
   return d.toISOString().slice(0, 16);
 }
 
+function toLocalDatetimeInput(d: Date): string {
+  const x = new Date(d.getTime());
+  x.setMinutes(x.getMinutes() - x.getTimezoneOffset());
+  return x.toISOString().slice(0, 16);
+}
+
 export function SchedulePaymentModal({
   isOpen,
   onClose,
   onCreated,
   categories,
   accounts,
+  editingItem = null,
 }: SchedulePaymentModalProps) {
   const { currency: userCurrency } = useCurrency();
   const defaultCurrency = getUserDualCurrency(userCurrency);
@@ -54,11 +66,32 @@ export function SchedulePaymentModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      setAmountCurrency(getUserDualCurrency(userCurrency));
+    if (!isOpen) return;
+    if (editingItem) {
+      setTitle(editingItem.title);
+      setAmount(String(editingItem.amount));
+      setAmountCurrency(editingItem.currency);
+      setCategoryId(String(editingItem.categoryId));
+      setAccountId(editingItem.accountId ? String(editingItem.accountId) : "0");
+      setNotes(editingItem.notes ?? "");
+      setScheduledAtLocal(toLocalDatetimeInput(new Date(editingItem.scheduledAt)));
+      setIsRecurring(editingItem.isRecurring);
+      const rf = editingItem.recurringFrequency;
+      setRecurringFrequency(
+        rf && RECURRING_OPTIONS.includes(rf as RecurringChoice) ? (rf as RecurringChoice) : "MONTHLY"
+      );
+    } else {
+      setTitle("");
+      setAmount("");
+      setCategoryId("");
+      setAccountId("0");
+      setNotes("");
       setScheduledAtLocal(defaultLocalDatetime());
+      setIsRecurring(false);
+      setRecurringFrequency("MONTHLY");
+      setAmountCurrency(getUserDualCurrency(userCurrency));
     }
-  }, [isOpen, userCurrency]);
+  }, [isOpen, editingItem, userCurrency]);
 
   const handleClose = () => {
     setTitle("");
@@ -95,7 +128,7 @@ export function SchedulePaymentModal({
 
     setIsSubmitting(true);
     try {
-      await createScheduledPayment({
+      const payload = {
         title: title.trim(),
         amount: n,
         currency: amountCurrency,
@@ -104,13 +137,20 @@ export function SchedulePaymentModal({
         accountId: accountId === "0" ? null : parseInt(accountId, 10),
         notes: notes.trim() || undefined,
         isRecurring,
-        recurringFrequency: isRecurring ? (recurringFrequency as "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY") : undefined,
-      });
+        recurringFrequency: isRecurring
+          ? (recurringFrequency as "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY")
+          : undefined,
+      };
+      if (editingItem) {
+        await updateScheduledPayment({ id: editingItem.id, ...payload });
+      } else {
+        await createScheduledPayment(payload);
+      }
       onCreated();
       handleClose();
     } catch (err) {
       console.error(err);
-      alert(err instanceof Error ? err.message : "Failed to schedule payment");
+      alert(err instanceof Error ? err.message : "Failed to save scheduled payment");
     } finally {
       setIsSubmitting(false);
     }
@@ -118,11 +158,15 @@ export function SchedulePaymentModal({
 
   if (!isOpen) return null;
 
+  const isEdit = Boolean(editingItem);
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">Schedule payment</h2>
+          <h2 className="text-xl font-semibold text-gray-900">
+            {isEdit ? "Edit scheduled payment" : "Schedule payment"}
+          </h2>
           <button
             type="button"
             onClick={handleClose}
@@ -132,11 +176,17 @@ export function SchedulePaymentModal({
             ×
           </button>
         </div>
-        <p className="text-sm text-gray-600 mb-4">
-          After the scheduled date and time, you will be asked to accept or reject this payment on
-          your next visit. If you accept, the amount is recorded as an expense and deducted from the
-          selected account (if any).
-        </p>
+        {!isEdit ? (
+          <p className="text-sm text-gray-600 mb-4">
+            After the scheduled date and time, you will be asked to accept or reject this payment on
+            your next visit. If you accept, the amount is recorded as an expense and deducted from the
+            selected account (if any).
+          </p>
+        ) : (
+          <p className="text-sm text-gray-600 mb-4">
+            You can change details until you accept or reject this payment.
+          </p>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className={labelClasses}>Title</label>
@@ -273,7 +323,7 @@ export function SchedulePaymentModal({
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Saving…" : "Schedule"}
+              {isSubmitting ? "Saving…" : isEdit ? "Save changes" : "Schedule"}
             </button>
           </div>
         </form>
