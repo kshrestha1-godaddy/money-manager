@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Download } from "lucide-react";
 import {
   Bar,
@@ -22,17 +22,14 @@ import {
   TEXT_COLORS,
   UI_STYLES,
 } from "../../config/colorConfig";
+import { CalculatorInputsFields } from "./components/CalculatorInputsFields";
 import { SavedPresetsSection } from "./components/SavedPresetsSection";
+import { clampYears } from "./calculator-input-utils";
 import {
   updateAnnuityCalculatorPresetProgress,
   type AnnuityCalculatorPresetDTO,
 } from "./actions/annuity-calculator-presets";
-import type {
-  CalculationType,
-  CalculatorInputs,
-  CompoundingFrequency,
-  FixedDepositInterestMode,
-} from "./types";
+import type { CalculatorInputs, CompoundingFrequency } from "./types";
 import { DEFAULT_ANNUITY_INPUTS, normalizeAnnuityInputs } from "./types";
 
 interface MonthlyAnnuityRow {
@@ -65,10 +62,15 @@ export default function AnnuityPageClient() {
   const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_ANNUITY_INPUTS);
   const [selectedCurrency, setSelectedCurrency] = useState(userCurrency || "USD");
   const [trackedPresetId, setTrackedPresetId] = useState<number | null>(null);
-  const [trackedPresetTitle, setTrackedPresetTitle] = useState("");
   const [trackedInputsSnapshot, setTrackedInputsSnapshot] = useState<CalculatorInputs | null>(null);
   const [trackedCompletedMonths, setTrackedCompletedMonths] = useState<number[]>([]);
   const [progressSavingMonth, setProgressSavingMonth] = useState<number | null>(null);
+  /** Mirrors `trackedCompletedMonths` so toggles always read the latest list (state updates are async; closure was stale). */
+  const trackedCompletedMonthsRef = useRef<number[]>([]);
+
+  useEffect(() => {
+    trackedCompletedMonthsRef.current = trackedCompletedMonths;
+  }, [trackedCompletedMonths]);
 
   useEffect(() => {
     setSelectedCurrency(userCurrency || "USD");
@@ -85,16 +87,17 @@ export default function AnnuityPageClient() {
   const showMonthProgressColumn = trackedPresetId !== null && inputsMatchTrackedPreset;
 
   const handleLoadPreset = useCallback((preset: AnnuityCalculatorPresetDTO) => {
+    const months = [...preset.completedMonths];
+    trackedCompletedMonthsRef.current = months;
     setInputs(preset.inputs);
     setTrackedPresetId(preset.id);
-    setTrackedPresetTitle(preset.title);
     setTrackedInputsSnapshot(normalizeAnnuityInputs(preset.inputs));
-    setTrackedCompletedMonths([...preset.completedMonths]);
+    setTrackedCompletedMonths(months);
   }, []);
 
   const handleStopTrackingPreset = useCallback(() => {
+    trackedCompletedMonthsRef.current = [];
     setTrackedPresetId(null);
-    setTrackedPresetTitle("");
     setTrackedInputsSnapshot(null);
     setTrackedCompletedMonths([]);
   }, []);
@@ -110,25 +113,24 @@ export default function AnnuityPageClient() {
     async (month: number) => {
       if (trackedPresetId == null || !inputsMatchTrackedPreset) return;
 
-      let previousSnapshot: number[] = [];
-      let nextSnapshot: number[] = [];
+      const presetId = trackedPresetId;
+      const previous = trackedCompletedMonthsRef.current;
+      const has = previous.includes(month);
+      const next = has
+        ? previous.filter((m) => m !== month)
+        : [...previous, month].sort((a, b) => a - b);
 
-      setTrackedCompletedMonths((previous) => {
-        previousSnapshot = previous;
-        const has = previous.includes(month);
-        nextSnapshot = has
-          ? previous.filter((m) => m !== month)
-          : [...previous, month].sort((a, b) => a - b);
-        return nextSnapshot;
-      });
-
+      trackedCompletedMonthsRef.current = next;
+      setTrackedCompletedMonths(next);
       setProgressSavingMonth(month);
       try {
-        const updated = await updateAnnuityCalculatorPresetProgress(trackedPresetId, nextSnapshot);
+        const updated = await updateAnnuityCalculatorPresetProgress(presetId, next);
+        trackedCompletedMonthsRef.current = updated.completedMonths;
         setTrackedCompletedMonths(updated.completedMonths);
       } catch (errorUnknown) {
         console.error(errorUnknown);
-        setTrackedCompletedMonths(previousSnapshot);
+        trackedCompletedMonthsRef.current = previous;
+        setTrackedCompletedMonths(previous);
       } finally {
         setProgressSavingMonth(null);
       }
@@ -242,150 +244,32 @@ export default function AnnuityPageClient() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8 lg:items-start">
-        <section className="bg-white rounded-lg shadow overflow-hidden min-w-0">
-        <div className="px-6 py-5 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Calculator Inputs</h2>
-          <p className="mt-1 text-sm text-gray-600">
+      {/* lg: saved panel height matches calculator via absolute positioning (in-flow height = calculator only). */}
+      <div className="relative w-full">
+        <section className="mb-6 w-full min-w-0 rounded-xl border border-slate-200/90 bg-white shadow-sm overflow-hidden lg:mb-0 lg:w-[calc((100%-2rem)/3)]">
+        <div className="px-4 py-4 sm:px-5 sm:py-5 border-b border-slate-100 bg-slate-50/60">
+          <h2 className="text-lg font-semibold text-slate-900">Calculator Inputs</h2>
+          <p className="mt-1 text-sm text-slate-600">
             Configure your investment type and compounding setup. Interest is applied at the end of each selected compounding period.
           </p>
         </div>
-        <div className="px-6 py-5">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <InfoLabel
-              label="Calculation Type"
-              description="Choose the calculator mode: standard annuity, target annuity (find required monthly contribution), or fixed deposit."
-            />
-            <select
-              value={inputs.calculationType}
-              onChange={(event) =>
-                setInputs((previous) => ({
-                  ...previous,
-                  calculationType: event.target.value as CalculationType,
-                }))
-              }
-              className={standardInput}
-            >
-              <option value="annuity">Annuity (Monthly Investment)</option>
-              <option value="annuity-target-future-value">
-                Annuity Target (Find Monthly Investment)
-              </option>
-              <option value="fixed-deposit">Fixed Deposit</option>
-            </select>
-          </div>
-          <NumericInput
-            label={
-              inputs.calculationType === "annuity-target-future-value"
-                ? "Current Balance (Optional)"
-                : "Initial Balance"
-            }
-            description={
-              inputs.calculationType === "annuity-target-future-value"
-                ? "Money you already have invested now. This amount also grows with compounding and reduces required monthly contribution."
-                : "Starting amount at month 0 before new deposits and future interest are applied."
-            }
-            value={inputs.initialBalance}
-            onChange={(value) => setInputs((previous) => ({ ...previous, initialBalance: value }))}
-            min={0}
-            step={100}
-            className={standardInput}
+        <div className="px-4 py-4 sm:px-5 sm:py-5">
+          <CalculatorInputsFields
+            inputs={inputs}
+            onInputsChange={setInputs}
+            inputClassName={standardInput}
+            layout="stacked"
           />
-          {inputs.calculationType === "annuity" ? (
-            <NumericInput
-              label="Monthly Investment"
-              description="Amount invested at the beginning of each month."
-              value={inputs.monthlyInvestment}
-              onChange={(value) => setInputs((previous) => ({ ...previous, monthlyInvestment: value }))}
-              min={0}
-              step={100}
-              className={standardInput}
-            />
-          ) : inputs.calculationType === "annuity-target-future-value" ? (
-            <NumericInput
-              label="Target Future Value"
-              description="Goal amount you want to reach at the end of the selected time period."
-              value={inputs.targetFutureValue}
-              onChange={(value) => setInputs((previous) => ({ ...previous, targetFutureValue: value }))}
-              min={0}
-              step={1000}
-              className={standardInput}
-            />
-          ) : (
-            <div>
-              <InfoLabel
-                label="Fixed Deposit Interest Handling"
-                description="Choose whether each compounding period's interest is added back into principal (compounding) or kept separate (simple-style accrual)."
-              />
-              <select
-                value={inputs.fixedDepositInterestMode}
-                onChange={(event) =>
-                  setInputs((previous) => ({
-                    ...previous,
-                    fixedDepositInterestMode: event.target.value as FixedDepositInterestMode,
-                  }))
-                }
-                className={standardInput}
-              >
-                <option value="add-to-principal">Interest Added to Principal</option>
-                <option value="not-added-to-principal">Interest Not Added to Principal</option>
-              </select>
-            </div>
-          )}
-          <NumericInput
-            label="Annual Interest Rate (%)"
-            description="Nominal yearly interest rate used to derive the per-compounding-period rate."
-            value={inputs.annualInterestRatePercent}
-            onChange={(value) =>
-              setInputs((previous) => ({ ...previous, annualInterestRatePercent: value }))
-            }
-            min={0}
-            step={0.1}
-            className={standardInput}
-          />
-          <NumericInput
-            label="Years"
-            description="Total investment duration in years. The table shows all months in this period."
-            value={inputs.years}
-            onChange={(value) => setInputs((previous) => ({ ...previous, years: clampYears(value) }))}
-            min={1}
-            max={100}
-            step={1}
-            className={standardInput}
-          />
-          <div>
-            <InfoLabel
-              label="Compounding Frequency"
-              description="How often interest is applied to the balance: annually (every 12 months) or quarterly (every 3 months)."
-            />
-            <select
-              value={effectiveCompoundingFrequency}
-              onChange={(event) =>
-                setInputs((previous) => ({
-                  ...previous,
-                  compoundingFrequency: event.target.value as CompoundingFrequency,
-                }))
-              }
-              className={standardInput}
-            >
-              <option value="annual">Annually</option>
-              <option value="quarterly">Quarterly</option>
-            </select>
-            {inputs.calculationType === "annuity-target-future-value" ? (
-              <p className="mt-1 text-xs text-gray-500">
-                Target mode calculates required monthly investment for the selected compounding frequency.
-              </p>
-            ) : null}
-          </div>
-        </div>
         </div>
         </section>
 
-        <SavedPresetsSection
-          currentInputs={inputs}
-          onLoadPreset={handleLoadPreset}
-          onPresetDeleted={handlePresetDeleted}
-        />
+        <div className="flex min-h-0 min-w-0 flex-col overflow-hidden lg:absolute lg:inset-y-0 lg:left-[calc((100%-2rem)/3+2rem)] lg:right-0 lg:h-full">
+          <SavedPresetsSection
+            currentInputs={inputs}
+            onLoadPreset={handleLoadPreset}
+            onPresetDeleted={handlePresetDeleted}
+          />
+        </div>
       </div>
 
       <section className="mt-6 bg-white rounded-lg shadow overflow-hidden">
@@ -555,36 +439,6 @@ export default function AnnuityPageClient() {
             Calculator figures are denominated in {baseCurrency}. Choosing another currency converts amounts using the
             same rates as elsewhere in the app (see currency settings).
           </p>
-          {trackedPresetId != null ? (
-            <div
-              className={`mt-4 flex flex-col gap-2 rounded-md border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between ${
-                inputsMatchTrackedPreset
-                  ? "border-emerald-200 bg-emerald-50/90 text-emerald-950"
-                  : "border-amber-200 bg-amber-50/90 text-amber-950"
-              }`}
-            >
-              <p>
-                {inputsMatchTrackedPreset ? (
-                  <>
-                    <span className="font-medium">Tracking scenario:</span> {trackedPresetTitle}. Tick{" "}
-                    <span className="font-medium">Done</span> for each month you have completed.
-                  </>
-                ) : (
-                  <>
-                    <span className="font-medium">Scenario loaded:</span> {trackedPresetTitle}. Calculator inputs no
-                    longer match this scenario — checkboxes are hidden. Load the scenario again or stop tracking.
-                  </>
-                )}
-              </p>
-              <button
-                type="button"
-                onClick={handleStopTrackingPreset}
-                className="shrink-0 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-800 hover:bg-gray-50"
-              >
-                Stop tracking
-              </button>
-            </div>
-          ) : null}
         </div>
         <table className="min-w-full divide-y divide-gray-200 table-auto">
           <thead className="bg-gray-50">
@@ -696,69 +550,6 @@ export default function AnnuityPageClient() {
   );
 }
 
-interface NumericInputProps {
-  label: string;
-  description: string;
-  value: number;
-  onChange: (value: number) => void;
-  min?: number;
-  max?: number;
-  step?: number;
-  className: string;
-}
-
-function NumericInput({
-  label,
-  description,
-  value,
-  onChange,
-  min,
-  max,
-  step,
-  className,
-}: NumericInputProps) {
-  return (
-    <div>
-      <InfoLabel label={label} description={description} />
-      <input
-        type="number"
-        value={value}
-        min={min}
-        max={max}
-        step={step}
-        onChange={(event) => onChange(parseSafeNumber(event.target.value))}
-        className={className}
-      />
-    </div>
-  );
-}
-
-interface InfoLabelProps {
-  label: string;
-  description: string;
-}
-
-function InfoLabel({ label, description }: InfoLabelProps) {
-  return (
-    <div className="mb-1 flex items-center gap-2">
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
-      <div className="group relative inline-flex">
-        <button
-          type="button"
-          tabIndex={0}
-          aria-label={`${label} information`}
-          className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-gray-300 bg-gray-50 text-[10px] font-semibold text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-        >
-          i
-        </button>
-        <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-64 -translate-x-1/2 rounded-md bg-gray-900 px-3 py-2 text-xs text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
-          {description}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 interface SummaryCardProps {
   title: string;
   value: string;
@@ -843,18 +634,6 @@ function formatChartAxisValue(value: number, currency: string): string {
   if (absoluteValue >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (absoluteValue >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
   return formatCurrency(value, currency);
-}
-
-function parseSafeNumber(value: string): number {
-  const parsedValue = Number.parseFloat(value);
-  return Number.isFinite(parsedValue) ? parsedValue : 0;
-}
-
-function clampYears(years: number): number {
-  if (!Number.isFinite(years)) return 1;
-  if (years < 1) return 1;
-  if (years > 100) return 100;
-  return Math.floor(years);
 }
 
 function getInterestSharePercent(finalBalance: number, totalInterest: number): number {

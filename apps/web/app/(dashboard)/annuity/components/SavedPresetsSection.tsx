@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Pencil, Plus, Trash2, Upload } from "lucide-react";
-import { BUTTON_COLORS } from "../../../config/colorConfig";
+import { Bookmark, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { BUTTON_COLORS, INPUT_COLORS } from "../../../config/colorConfig";
+import { CalculatorInputsFields } from "./CalculatorInputsFields";
 import type { CalculatorInputs } from "../types";
-import { normalizeAnnuityInputs } from "../types";
+import { DEFAULT_ANNUITY_INPUTS, normalizeAnnuityInputs } from "../types";
 import {
   createAnnuityCalculatorPreset,
   deleteAnnuityCalculatorPreset,
@@ -12,9 +13,11 @@ import {
   updateAnnuityCalculatorPreset,
   type AnnuityCalculatorPresetDTO,
 } from "../actions/annuity-calculator-presets";
+import { getPresetInputsDetailRows } from "../saved-preset-inputs-summary";
 
 const primaryButton = BUTTON_COLORS.primary;
 const secondaryBlueButton = BUTTON_COLORS.secondaryBlue;
+const modalInputClassName = INPUT_COLORS.standard;
 const dangerStyle =
   "inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100";
 
@@ -34,6 +37,7 @@ export function SavedPresetsSection({ currentInputs, onLoadPreset, onPresetDelet
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [notes, setNotes] = useState("");
+  const [modalInputs, setModalInputs] = useState<CalculatorInputs>(DEFAULT_ANNUITY_INPUTS);
   const [saving, setSaving] = useState(false);
 
   const loadPresets = useCallback(async () => {
@@ -61,6 +65,7 @@ export function SavedPresetsSection({ currentInputs, onLoadPreset, onPresetDelet
     setTitle("");
     setDescription("");
     setNotes("");
+    setModalInputs(normalizeAnnuityInputs(currentInputs));
     setModalOpen(true);
   }
 
@@ -71,6 +76,7 @@ export function SavedPresetsSection({ currentInputs, onLoadPreset, onPresetDelet
     setTitle(preset.title);
     setDescription(preset.description ?? "");
     setNotes(preset.notes ?? "");
+    setModalInputs(normalizeAnnuityInputs(preset.inputs));
     setModalOpen(true);
   }
 
@@ -82,20 +88,21 @@ export function SavedPresetsSection({ currentInputs, onLoadPreset, onPresetDelet
     }
     setSaving(true);
     setError(null);
+    const inputsToSave = normalizeAnnuityInputs(modalInputs);
     try {
       if (modalMode === "create") {
         await createAnnuityCalculatorPreset({
           title: trimmedTitle,
           description: description.trim() || undefined,
           notes: notes.trim() || undefined,
-          inputs: currentInputs,
+          inputs: inputsToSave,
         });
       } else if (editingId != null) {
         await updateAnnuityCalculatorPreset(editingId, {
           title: trimmedTitle,
           description: description.trim() || null,
           notes: notes.trim() || null,
-          inputs: currentInputs,
+          inputs: inputsToSave,
         });
       }
       setModalOpen(false);
@@ -121,13 +128,25 @@ export function SavedPresetsSection({ currentInputs, onLoadPreset, onPresetDelet
   }
 
   return (
-    <section className="bg-white rounded-lg shadow overflow-hidden min-w-0 h-full flex flex-col">
-      <div className="px-6 py-5 border-b border-gray-200 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">Saved scenarios</h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Save calculator inputs with a title and notes, then load them anytime.
-          </p>
+    <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200/90 bg-gradient-to-b from-slate-50/90 to-white shadow-sm lg:h-full">
+      <div className="flex shrink-0 flex-col gap-3 border-b border-slate-200/80 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-3.5">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
+            <Bookmark className="h-3.5 w-3.5" aria-hidden />
+          </span>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base font-semibold text-slate-900 sm:text-lg">Saved scenarios</h2>
+              {!loading && presets.length > 0 ? (
+                <span className="inline-flex items-center rounded-full bg-slate-200/80 px-2 py-0.5 text-xs font-medium text-slate-700 tabular-nums">
+                  {presets.length}
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-0.5 text-xs text-slate-600 sm:text-sm">
+              Load a snapshot into the calculator or track monthly progress.
+            </p>
+          </div>
         </div>
         <button type="button" onClick={openCreateModal} className={primaryButton}>
           <span className="inline-flex items-center gap-2">
@@ -138,106 +157,142 @@ export function SavedPresetsSection({ currentInputs, onLoadPreset, onPresetDelet
       </div>
 
       {error ? (
-        <div className="px-6 py-3 text-sm text-red-700 bg-red-50 border-b border-red-100">{error}</div>
+        <div className="shrink-0 px-3 py-2 text-sm text-red-800 bg-red-50 border-b border-red-100 sm:px-4">
+          {error}
+        </div>
       ) : null}
 
-      <div className="overflow-x-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {loading ? (
-          <div className="px-6 py-12 text-center text-sm text-gray-500">Loading saved scenarios…</div>
+          <div className="px-4 py-12 text-center text-sm text-slate-500">Loading saved scenarios…</div>
         ) : presets.length === 0 ? (
-          <div className="px-6 py-12 text-center text-sm text-gray-500">
-            No saved scenarios yet. Configure the calculator above, then click &quot;Save current as new&quot;.
+          <div className="mx-3 my-4 rounded-lg border border-dashed border-slate-200 bg-slate-50/50 px-4 py-10 text-center sm:mx-4">
+            <p className="text-sm text-slate-600">
+              No scenarios yet. Set up the calculator on the left, then save it here.
+            </p>
           </div>
         ) : (
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Title
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Description
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Notes
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 whitespace-nowrap">
-                  Progress
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 whitespace-nowrap">
-                  Updated
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
-              {presets.map((preset) => {
-                const normalized = normalizeAnnuityInputs(preset.inputs);
-                const totalMonths = Math.max(1, normalized.years) * 12;
-                const doneCount = preset.completedMonths.length;
-                return (
-                <tr key={preset.id} className="hover:bg-gray-50/80">
-                  <td className="px-4 py-3 font-medium text-gray-900 max-w-[200px]">
-                    <span className="line-clamp-2 break-words">{preset.title}</span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 max-w-[240px]">
-                    <span className="line-clamp-2 break-words">{preset.description || "—"}</span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 max-w-[240px]">
-                    <span className="line-clamp-2 break-words">{preset.notes || "—"}</span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 tabular-nums text-xs whitespace-nowrap" title="Months marked complete vs schedule length">
-                    {doneCount} / {totalMonths}
-                  </td>
-                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-xs">
-                    {new Date(preset.updatedAt).toLocaleDateString(undefined, {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <div className="inline-flex flex-wrap items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => onLoadPreset(preset)}
-                        className={secondaryBlueButton}
-                        title="Load these inputs into the calculator and enable month progress checkboxes"
-                      >
-                        <span className="inline-flex items-center gap-1 text-xs">
-                          <Upload className="h-3.5 w-3.5" aria-hidden />
-                          Load
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(preset)}
-                        className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-50"
-                        title="Edit title, description, notes; saves current calculator values"
-                      >
-                        <Pencil className="h-3.5 w-3.5" aria-hidden />
-                        Edit
-                      </button>
-                      <button type="button" onClick={() => void handleDelete(preset.id)} className={dangerStyle}>
-                        <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                        Delete
-                      </button>
+          <ul className="list-none space-y-3 px-3 py-3 sm:space-y-3 sm:px-4 sm:py-3">
+            {presets.map((preset) => {
+              const normalized = normalizeAnnuityInputs(preset.inputs);
+              const totalMonths = Math.max(1, normalized.years) * 12;
+              const doneCount = preset.completedMonths.length;
+              const inputRows = getPresetInputsDetailRows(preset.inputs);
+              const progressPct = totalMonths > 0 ? Math.round((doneCount / totalMonths) * 100) : 0;
+              const updatedAt = new Date(preset.updatedAt as Date | string);
+              const hasDesc = Boolean(preset.description?.trim());
+              const hasNotes = Boolean(preset.notes?.trim());
+              return (
+                <li key={preset.id}>
+                  <article className="overflow-hidden rounded-lg border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-900/[0.04] transition hover:ring-slate-900/[0.08]">
+                    <div className="border-l-[3px] border-indigo-500">
+                      <div className="flex flex-col gap-2 border-b border-slate-100 bg-slate-50/50 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-sm font-semibold leading-snug text-slate-900 break-words">
+                            {preset.title}
+                          </h3>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 sm:text-xs">
+                            <time dateTime={updatedAt.toISOString()}>
+                              {updatedAt.toLocaleDateString(undefined, {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </time>
+                            <span
+                              className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800 ring-1 ring-emerald-600/12"
+                              title="Months completed vs schedule length"
+                            >
+                              <span className="tabular-nums">
+                                {doneCount}/{totalMonths} mo
+                              </span>
+                              <span className="text-emerald-600/70">·</span>
+                              <span className="tabular-nums">{progressPct}%</span>
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => onLoadPreset(preset)}
+                            className={secondaryBlueButton}
+                            title="Load into calculator"
+                          >
+                            <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs">
+                              <Upload className="h-3.5 w-3.5" aria-hidden />
+                              Load
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(preset)}
+                            className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-800 shadow-sm hover:bg-slate-50 sm:text-xs"
+                            title="Edit scenario"
+                          >
+                            <Pencil className="h-3.5 w-3.5" aria-hidden />
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleDelete(preset.id)}
+                            className={dangerStyle}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 p-3 lg:grid-cols-2 lg:gap-4">
+                        <div className="min-w-0">
+                          <div className="overflow-hidden rounded-md border border-slate-200">
+                            <table className="w-full text-[11px] sm:text-xs">
+                              <tbody>
+                                {inputRows.map((row, index) => (
+                                  <tr
+                                    key={row.label}
+                                    className={index % 2 === 0 ? "bg-white" : "bg-slate-50/80"}
+                                  >
+                                    <th
+                                      scope="row"
+                                      className="w-[40%] max-w-[10rem] px-2 py-1 text-left font-normal text-slate-600 align-top"
+                                    >
+                                      {row.label}
+                                    </th>
+                                    <td className="px-2 py-1 text-right font-medium text-slate-900 tabular-nums break-words sm:text-left">
+                                      {row.value}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                        {(hasDesc || hasNotes) && (
+                          <div className="min-w-0 space-y-2 text-xs text-slate-700">
+                            {hasDesc ? (
+                              <p className="line-clamp-3 leading-relaxed">{preset.description!.trim()}</p>
+                            ) : null}
+                            {hasNotes ? (
+                              <p className="line-clamp-3 whitespace-pre-wrap leading-relaxed text-slate-600">
+                                {preset.notes!.trim()}
+                              </p>
+                            ) : null}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </td>
-                </tr>
+                  </article>
+                </li>
               );
-              })}
-            </tbody>
-          </table>
+            })}
+          </ul>
         )}
       </div>
 
       {modalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
           <div
-            className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6"
+            className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6"
             role="dialog"
             aria-modal="true"
             aria-labelledby="preset-modal-title"
@@ -247,8 +302,8 @@ export function SavedPresetsSection({ currentInputs, onLoadPreset, onPresetDelet
             </h3>
             <p className="mt-1 text-sm text-gray-600">
               {modalMode === "edit"
-                ? "Updates title, description, and notes. Stored calculator values are replaced with your current form above."
-                : "Saves a snapshot of the calculator inputs you have set now."}
+                ? "Update metadata and the calculator numbers stored for this scenario. The main calculator on the page is unchanged unless you load this scenario after saving."
+                : "When you open this dialog, values start from your current main calculator. Adjust anything below before saving."}
             </p>
             <div className="mt-4 space-y-3">
               <div>
@@ -282,6 +337,19 @@ export function SavedPresetsSection({ currentInputs, onLoadPreset, onPresetDelet
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   placeholder="Reminders, assumptions, links… (optional)"
                   maxLength={5000}
+                />
+              </div>
+            </div>
+            <div className="mt-6 border-t border-gray-200 pt-5">
+              <h4 className="text-sm font-semibold text-gray-900">Calculator inputs</h4>
+              <p className="mt-1 text-xs text-gray-500">
+                These values are saved with the scenario and used when you click Load.
+              </p>
+              <div className="mt-3">
+                <CalculatorInputsFields
+                  inputs={modalInputs}
+                  onInputsChange={setModalInputs}
+                  inputClassName={modalInputClassName}
                 />
               </div>
             </div>
