@@ -272,8 +272,8 @@ export default function AnnuityPageClient() {
           Full monthly breakdown with growth, {periodConfig.periodLabelLowercase} interest events, and running balance.
           Rows at month {highlightedMonthsText} are marked with top and bottom separators.
         </p>
-        <div className="mt-4 max-h-[520px] overflow-auto rounded-md border border-gray-100">
-          <table className="w-full min-w-[1000px] table-auto text-sm">
+        <div className="mt-4 rounded-md border border-gray-100">
+          <table className="w-full table-auto text-sm">
             <thead className="sticky top-0 bg-white">
               <tr className="border-b border-gray-200 text-left text-gray-600">
                 <th className="px-3 py-2">Month</th>
