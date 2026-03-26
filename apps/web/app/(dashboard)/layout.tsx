@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { PiggyBank } from "lucide-react";
 import { SidebarItem } from "../components/sidebar/SidebarItem";
 import { TutorialOverlay } from "../components/TutorialOverlay";
 import { TutorialButton } from "../components/TutorialButton";
@@ -34,6 +35,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             icon={<NetWorthIcon />}
                             title="Net Worth"
                         />
+                            {/* Finance Section - with separator */}
+                            <SidebarItem 
+                                href="/accounts" 
+                                icon={<AccountsIcon />} 
+                                title="Accounts" 
+                                showSeparator={false} 
+                                id="accounts-nav-item"
+                            />
                         <SidebarItem 
                             href="/incomes" 
                             icon={<IncomesIcon />} 
@@ -50,6 +59,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         <SidebarItem
                             href="/scheduled-payments"
                             icon={<ScheduledPaymentsIcon />}
+                            showSeparator={true}
                             title="Scheduled"
                         />
                         <SidebarItem 
@@ -58,22 +68,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             title="Budgets" 
                             id="budget-nav-item"
                         />
-                        {/* Finance Section - with separator */}
-                        <SidebarItem 
-                            href="/accounts" 
-                            icon={<AccountsIcon />} 
-                            title="Accounts" 
-                            showSeparator={true} 
-                            id="accounts-nav-item"
-                        />
                         <SidebarItem 
                             href="/debts" 
                             icon={<DebtsIcon />} 
+                            showSeparator={true}
                             title="Lendings" 
                         />
                         <SidebarItem 
                             href="/investments" 
                             icon={<InvestmentsIcon />} 
+                            showSeparator={true}
                             title="Investments" 
                         />
                         <SidebarItem
@@ -243,9 +247,7 @@ function InvestmentsIcon() {
 
 function AnnuityIcon() {
     return (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-        </svg>
+        <PiggyBank className="size-6 shrink-0" strokeWidth={1.5} aria-hidden />
     );
 }
 

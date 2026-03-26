@@ -6,6 +6,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Legend,
   ResponsiveContainer,
   Tooltip,
@@ -181,8 +182,10 @@ export default function AnnuityPageClient() {
     return rows.map((row) => {
       const interestBase = Math.max(0, row.totalInterestGained);
       const principalBase = Math.max(0, roundCurrency(row.finalBalance - interestBase));
+      const monthDone = trackedCompletedMonths.includes(row.month);
       return {
         month: row.month,
+        monthDone,
         principal: roundCurrency(
           convertForDisplaySync(principalBase, baseCurrency, displayCurrency)
         ),
@@ -194,7 +197,7 @@ export default function AnnuityPageClient() {
         ),
       };
     });
-  }, [rows, baseCurrency, selectedCurrency]);
+  }, [rows, baseCurrency, selectedCurrency, trackedCompletedMonths]);
 
   const chartXTicks = useMemo(() => {
     const monthCount = rows.length;
@@ -386,14 +389,30 @@ export default function AnnuityPageClient() {
                       fill="#6366f1"
                       name="Investment (principal)"
                       radius={[0, 0, 0, 0]}
-                    />
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell
+                          key={`principal-${entry.month}-${index}`}
+                          stroke={entry.monthDone ? "#ea580c" : undefined}
+                          strokeWidth={entry.monthDone ? 2 : 0}
+                        />
+                      ))}
+                    </Bar>
                     <Bar
                       dataKey="interest"
                       stackId="balance"
                       fill="#059669"
                       name="Interest accrued"
                       radius={[4, 4, 0, 0]}
-                    />
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell
+                          key={`interest-${entry.month}-${index}`}
+                          stroke={entry.monthDone ? "#ea580c" : undefined}
+                          strokeWidth={entry.monthDone ? 2 : 0}
+                        />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>

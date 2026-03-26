@@ -16,10 +16,12 @@ import {
 import { getPresetInputsDetailRows } from "../saved-preset-inputs-summary";
 
 const primaryButton = BUTTON_COLORS.primary;
-const secondaryBlueButton = BUTTON_COLORS.secondaryBlue;
 const modalInputClassName = INPUT_COLORS.standard;
+/** Compact outline actions (Load, Edit) — same padding as Delete row. */
+const scenarioOutlineButton =
+  "inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-800 shadow-sm hover:bg-slate-50 sm:text-xs";
 const dangerStyle =
-  "inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100";
+  "inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-medium text-red-700 hover:bg-red-100 sm:text-xs";
 
 interface SavedPresetsSectionProps {
   currentInputs: CalculatorInputs;
@@ -215,21 +217,19 @@ export function SavedPresetsSection({ currentInputs, onLoadPreset, onPresetDelet
                           <button
                             type="button"
                             onClick={() => onLoadPreset(preset)}
-                            className={secondaryBlueButton}
+                            className={scenarioOutlineButton}
                             title="Load into calculator"
                           >
-                            <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs">
-                              <Upload className="h-3.5 w-3.5" aria-hidden />
-                              Load
-                            </span>
+                            <Upload className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                            Load
                           </button>
                           <button
                             type="button"
                             onClick={() => openEditModal(preset)}
-                            className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-800 shadow-sm hover:bg-slate-50 sm:text-xs"
+                            className={scenarioOutlineButton}
                             title="Edit scenario"
                           >
-                            <Pencil className="h-3.5 w-3.5" aria-hidden />
+                            <Pencil className="h-3.5 w-3.5 shrink-0" aria-hidden />
                             Edit
                           </button>
                           <button
