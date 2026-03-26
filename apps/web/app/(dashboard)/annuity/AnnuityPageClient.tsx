@@ -1,8 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Download } from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency } from "../../utils/currency";
+import { convertForDisplaySync } from "../../utils/currencyDisplay";
+import { SUPPORTED_CURRENCIES } from "../../utils/currencyConversion";
 import {
   CONTAINER_COLORS,
   INPUT_COLORS,
@@ -37,14 +50,18 @@ interface CalculatorInputs {
 }
 
 const pageContainer = CONTAINER_COLORS.page;
-const cardLargeContainer = CONTAINER_COLORS.cardLarge;
-const whiteContainer = CONTAINER_COLORS.white;
 const pageTitle = TEXT_COLORS.title;
 const pageSubtitle = TEXT_COLORS.subtitle;
-const cardTitle = TEXT_COLORS.cardTitle;
-const cardSubtitle = TEXT_COLORS.cardSubtitle;
-const cardValue = TEXT_COLORS.cardValue;
 const standardInput = INPUT_COLORS.standard;
+
+function formatAmountForDisplay(
+  amount: number,
+  baseCurrencyCode: string,
+  displayCurrencyCode: string
+): string {
+  const converted = convertForDisplaySync(amount, baseCurrencyCode, displayCurrencyCode);
+  return formatCurrency(converted, displayCurrencyCode);
+}
 
 const DEFAULT_INPUTS: CalculatorInputs = {
   calculationType: "annuity",
@@ -60,6 +77,11 @@ const DEFAULT_INPUTS: CalculatorInputs = {
 export default function AnnuityPageClient() {
   const { currency: userCurrency } = useCurrency();
   const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_INPUTS);
+  const [selectedCurrency, setSelectedCurrency] = useState(userCurrency || "USD");
+
+  useEffect(() => {
+    setSelectedCurrency(userCurrency || "USD");
+  }, [userCurrency]);
 
   const effectiveCompoundingFrequency: CompoundingFrequency = inputs.compoundingFrequency;
 
@@ -97,6 +119,65 @@ export default function AnnuityPageClient() {
     return "12, 24, 36...";
   }, [periodConfig.periodMonths]);
 
+  const baseCurrency = (userCurrency || "USD").trim();
+
+  const chartData = useMemo(() => {
+    const displayCurrency = (selectedCurrency || baseCurrency).trim();
+    return rows.map((row) => {
+      const interestBase = Math.max(0, row.totalInterestGained);
+      const principalBase = Math.max(0, roundCurrency(row.finalBalance - interestBase));
+      return {
+        month: row.month,
+        principal: roundCurrency(
+          convertForDisplaySync(principalBase, baseCurrency, displayCurrency)
+        ),
+        interest: roundCurrency(
+          convertForDisplaySync(interestBase, baseCurrency, displayCurrency)
+        ),
+        finalBalance: roundCurrency(
+          convertForDisplaySync(row.finalBalance, baseCurrency, displayCurrency)
+        ),
+      };
+    });
+  }, [rows, baseCurrency, selectedCurrency]);
+
+  const chartXTicks = useMemo(() => {
+    const monthCount = rows.length;
+    if (monthCount === 0) return [];
+    if (monthCount <= 24) return rows.map((row) => row.month);
+    const ticks: number[] = [1];
+    for (let monthNumber = 12; monthNumber < monthCount; monthNumber += 12) {
+      ticks.push(monthNumber);
+    }
+    if (ticks[ticks.length - 1] !== monthCount) ticks.push(monthCount);
+    return ticks;
+  }, [rows]);
+
+  const chartScrollWidth = useMemo(() => {
+    return Math.max(800, rows.length * 5);
+  }, [rows.length]);
+
+  const handleDownloadCsv = useCallback(() => {
+    const csvContent = buildCsvFromCalculationRows(
+      rows,
+      inputs,
+      periodConfig,
+      selectedCurrency,
+      baseCurrency
+    );
+    const blob = new Blob(["\uFEFF", csvContent], {
+      type: "text/csv;charset=utf-8",
+    });
+    const link = document.createElement("a");
+    const modeName = inputs.calculationType.replace(/-/g, "_");
+    link.download = `${modeName}-schedule-${new Date().toISOString().split("T")[0]}.csv`;
+    link.href = URL.createObjectURL(blob);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+  }, [rows, inputs, periodConfig, selectedCurrency, baseCurrency]);
+
   return (
     <div className={pageContainer}>
       <div className={UI_STYLES.header.container}>
@@ -108,13 +189,15 @@ export default function AnnuityPageClient() {
         </div>
       </div>
 
-      <div className={`${whiteContainer} p-6`}>
-        <h2 className="text-lg font-semibold text-gray-900">Calculator Inputs</h2>
-        <p className="mt-1 text-sm text-gray-600">
-          Configure your investment type and compounding setup. Interest is applied at the end of each selected compounding period.
-        </p>
-
-        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
+      <section className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-5 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">Calculator Inputs</h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Configure your investment type and compounding setup. Interest is applied at the end of each selected compounding period.
+          </p>
+        </div>
+        <div className="px-6 py-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
           <div>
             <InfoLabel
               label="Calculation Type"
@@ -241,7 +324,8 @@ export default function AnnuityPageClient() {
             ) : null}
           </div>
         </div>
-      </div>
+        </div>
+      </section>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-4">
         <SummaryCard
@@ -252,25 +336,25 @@ export default function AnnuityPageClient() {
           }
           value={
             inputs.calculationType === "annuity-target-future-value"
-              ? formatCurrency(effectiveMonthlyInvestment, userCurrency)
-              : formatCurrency(totals.principal, userCurrency)
+              ? formatAmountForDisplay(effectiveMonthlyInvestment, baseCurrency, selectedCurrency)
+              : formatAmountForDisplay(totals.principal, baseCurrency, selectedCurrency)
           }
           subtitle={
             inputs.calculationType === "annuity"
               ? "Initial + monthly deposits"
               : inputs.calculationType === "annuity-target-future-value"
-              ? `To target ${formatCurrency(inputs.targetFutureValue, userCurrency)}`
+              ? `To target ${formatAmountForDisplay(inputs.targetFutureValue, baseCurrency, selectedCurrency)}`
               : "Initial fixed deposit amount"
           }
         />
         <SummaryCard
           title="Total Interest"
-          value={formatCurrency(totals.totalInterest, userCurrency)}
+          value={formatAmountForDisplay(totals.totalInterest, baseCurrency, selectedCurrency)}
           subtitle={`After ${totals.totalMonths} months`}
         />
         <SummaryCard
           title="Final Balance"
-          value={formatCurrency(totals.finalBalance, userCurrency)}
+          value={formatAmountForDisplay(totals.finalBalance, baseCurrency, selectedCurrency)}
           subtitle={`At end of year ${inputs.years}`}
         />
         <SummaryCard
@@ -280,81 +364,221 @@ export default function AnnuityPageClient() {
         />
       </div>
 
-      <div className={`${whiteContainer} mt-6 p-6`}>
-        <h2 className="text-lg font-semibold text-gray-900">Month-by-Month Detailed Table</h2>
-        <p className="mt-1 text-sm text-gray-600">
-          Full monthly breakdown with growth, {periodConfig.periodLabelLowercase} interest events, and running balance.
-          Rows at month {highlightedMonthsText} are marked with top and bottom separators.
-        </p>
-        <div className="mt-4 rounded-md border border-gray-100">
-          <table className="w-full table-auto text-sm">
-            <thead className="sticky top-0 bg-white">
-              <tr className="border-b border-gray-200 text-left text-gray-600">
-                <th className="px-3 py-2">Month</th>
-                <th className="px-3 py-2">Year</th>
+      <section className="mt-6 bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-5 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">Balance over time</h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Stacked bars: principal (initial + contributions) and cumulative interest. Total bar height is final balance for each month.
+          </p>
+        </div>
+        <div className="px-4 py-4 sm:px-6 sm:pb-6">
+          {rows.length === 0 ? (
+            <div className="flex h-64 items-center justify-center text-sm text-gray-500">
+              Adjust inputs to see the chart.
+            </div>
+          ) : (
+            <div className="w-full overflow-x-auto pb-2">
+              <div style={{ width: chartScrollWidth, minWidth: "100%" }} className="h-[min(420px,70vh)] min-h-[280px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={chartData}
+                    margin={{ top: 8, right: 12, left: 4, bottom: 28 }}
+                    barCategoryGap="10%"
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                    <XAxis
+                      dataKey="month"
+                      ticks={chartXTicks}
+                      tick={{ fontSize: 10 }}
+                      stroke="#6b7280"
+                      label={{ value: "Month", position: "insideBottom", offset: -4, fill: "#6b7280", fontSize: 11 }}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10 }}
+                      stroke="#6b7280"
+                      width={56}
+                      tickFormatter={(value) => formatChartAxisValue(value, selectedCurrency)}
+                    />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const data = payload[0]?.payload as {
+                          month: number;
+                          principal: number;
+                          interest: number;
+                          finalBalance: number;
+                        };
+                        return (
+                          <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-lg">
+                            <p className="font-semibold text-gray-900">Month {data.month}</p>
+                            <p className="mt-1 text-gray-700">
+                              Final balance:{" "}
+                              <span className="font-medium tabular-nums">
+                                {formatCurrency(data.finalBalance, selectedCurrency)}
+                              </span>
+                            </p>
+                            <p className="text-indigo-700">
+                              Investment (principal):{" "}
+                              <span className="font-medium tabular-nums">
+                                {formatCurrency(data.principal, selectedCurrency)}
+                              </span>
+                            </p>
+                            <p className="text-emerald-700">
+                              Interest accrued:{" "}
+                              <span className="font-medium tabular-nums">
+                                {formatCurrency(data.interest, selectedCurrency)}
+                              </span>
+                            </p>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }} />
+                    <Bar
+                      dataKey="principal"
+                      stackId="balance"
+                      fill="#6366f1"
+                      name="Investment (principal)"
+                      radius={[0, 0, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="interest"
+                      stackId="balance"
+                      fill="#059669"
+                      name="Interest accrued"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="mt-6 bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-5 border-b border-gray-200">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Month-by-Month Detailed Table</h2>
+              <p className="mt-1 text-sm text-gray-600">
+                Full monthly breakdown with growth, {periodConfig.periodLabelLowercase} interest events, and running balance.
+                Rows at month {highlightedMonthsText} are marked with top and bottom separators.
+              </p>
+            </div>
+            <div className="flex flex-shrink-0 flex-wrap items-center gap-3">
+              <select
+                value={selectedCurrency}
+                onChange={(event) => setSelectedCurrency(event.target.value)}
+                className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                aria-label="Display currency"
+              >
+                {SUPPORTED_CURRENCIES.map((currencyOption) => (
+                  <option key={currencyOption} value={currencyOption}>
+                    {currencyOption}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={handleDownloadCsv}
+                className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                <Download className="h-4 w-4 shrink-0" aria-hidden />
+                Download CSV
+              </button>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-gray-500">
+            Calculator figures are denominated in {baseCurrency}. Choosing another currency converts amounts using the
+            same rates as elsewhere in the app (see currency settings).
+          </p>
+        </div>
+        <table className="min-w-full divide-y divide-gray-200 table-auto">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Month</th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Year</th>
                 {inputs.calculationType !== "fixed-deposit" ? (
-                  <th className="px-3 py-2">Investment Amount</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Investment Amount
+                </th>
                 ) : null}
-                <th className="px-3 py-2">Interest Base</th>
-                <th className="px-3 py-2">{periodConfig.interestColumnLabel}</th>
-                <th className="px-3 py-2">Interest Accrued</th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Interest Base
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                {periodConfig.interestColumnLabel}
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Interest Accrued
+              </th>
                 {inputs.calculationType !== "fixed-deposit" ? (
-                  <th className="px-3 py-2">Total Investment</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Total Investment
+                </th>
                 ) : null}
-                <th className="px-3 py-2">Final Balance</th>
-              </tr>
-            </thead>
-            <tbody>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Final Balance
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200 bg-white text-sm">
               {rows.map((row) => {
                 const isCompoundingMonth = row.month % periodConfig.periodMonths === 0;
                 return (
                 <tr
                   key={row.month}
-                  className={`text-gray-800 ${
+                  className={`transition-colors ${
                     isCompoundingMonth
-                      ? "border-y-2 border-gray-400 bg-gray-50"
-                      : "border-b border-gray-100"
+                      ? "bg-indigo-50/70 border-y-2 border-indigo-300"
+                      : row.month % 2 === 0
+                      ? "bg-gray-50/60"
+                      : "bg-white"
                   }`}
                 >
-                  <td className="px-3 py-2">{row.month}</td>
-                  <td className="px-3 py-2">{row.year}</td>
+                  <td className="px-4 py-3 text-gray-900 tabular-nums">{row.month}</td>
+                  <td className="px-4 py-3 text-gray-700 tabular-nums">{row.year}</td>
                   {inputs.calculationType !== "fixed-deposit" ? (
-                    <td className="px-3 py-2">
-                      {formatCurrency(row.investmentAmount, userCurrency)}
+                    <td className="px-4 py-3 text-gray-800 tabular-nums">
+                      {formatAmountForDisplay(row.investmentAmount, baseCurrency, selectedCurrency)}
                     </td>
                   ) : null}
-                  <td className="px-3 py-2">
-                    {formatCurrency(row.interestCalculationBase, userCurrency)}
+                  <td className="px-4 py-3 text-gray-800 tabular-nums">
+                    {formatAmountForDisplay(row.interestCalculationBase, baseCurrency, selectedCurrency)}
                   </td>
                   <td
-                    className={`px-3 py-2 ${
-                      row.interestGainedPeriod > 0 ? "text-emerald-700" : "text-gray-500"
+                    className={`px-4 py-3 tabular-nums ${
+                      row.interestGainedPeriod > 0 ? "text-emerald-700 font-medium" : "text-gray-500"
                     }`}
                   >
-                    {formatCurrency(row.interestGainedPeriod, userCurrency)}
+                    {formatAmountForDisplay(row.interestGainedPeriod, baseCurrency, selectedCurrency)}
                   </td>
                   <td
-                    className={`px-3 py-2 ${
-                      row.totalInterestGained > 0 ? "text-emerald-700" : "text-gray-500"
+                    className={`px-4 py-3 tabular-nums ${
+                      row.totalInterestGained > 0 ? "text-emerald-700 font-medium" : "text-gray-500"
                     }`}
                   >
-                    {formatCurrency(row.totalInterestGained, userCurrency)}
+                    {formatAmountForDisplay(row.totalInterestGained, baseCurrency, selectedCurrency)}
                   </td>
                   {inputs.calculationType !== "fixed-deposit" ? (
-                    <td className="px-3 py-2">
-                      {formatCurrency(row.accumulatedInvestment, userCurrency)}
+                    <td className="px-4 py-3 text-gray-800 tabular-nums">
+                      {formatAmountForDisplay(row.accumulatedInvestment, baseCurrency, selectedCurrency)}
                     </td>
                   ) : null}
-                  <td className={`px-3 py-2 ${isCompoundingMonth ? "font-semibold" : ""}`}>
-                    {formatCurrency(row.finalBalance, userCurrency)}
+                  <td
+                    className={`px-4 py-3 tabular-nums ${
+                      isCompoundingMonth ? "font-semibold text-gray-900" : "text-gray-700"
+                    }`}
+                  >
+                    {formatAmountForDisplay(row.finalBalance, baseCurrency, selectedCurrency)}
                   </td>
                 </tr>
               );
             })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+          </tbody>
+        </table>
+      </section>
     </div>
   );
 }
@@ -410,7 +634,7 @@ function InfoLabel({ label, description }: InfoLabelProps) {
           type="button"
           tabIndex={0}
           aria-label={`${label} information`}
-          className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-gray-300 text-[10px] font-semibold text-gray-600 hover:bg-gray-100"
+          className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-gray-300 bg-gray-50 text-[10px] font-semibold text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
         >
           i
         </button>
@@ -430,11 +654,11 @@ interface SummaryCardProps {
 
 function SummaryCard({ title, value, subtitle }: SummaryCardProps) {
   return (
-    <div className={`${cardLargeContainer} relative`}>
-      <div className="flex h-full flex-col items-center justify-center pt-2 text-center">
-        <h3 className={`${cardTitle} mb-2`}>{title}</h3>
-        <p className={`${cardValue} mb-1`}>{value}</p>
-        <p className={cardSubtitle}>{subtitle}</p>
+    <div className="bg-white rounded-lg shadow border border-gray-100 px-5 py-4">
+      <div className="flex h-full flex-col">
+        <h3 className="text-sm font-medium text-gray-500">{title}</h3>
+        <p className="mt-2 text-2xl font-semibold text-gray-900 tabular-nums">{value}</p>
+        <p className="mt-1 text-xs text-gray-500">{subtitle}</p>
       </div>
     </div>
   );
@@ -499,6 +723,13 @@ function calculateMonthlyAnnuityRows(
 
 function roundCurrency(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function formatChartAxisValue(value: number, currency: string): string {
+  const absoluteValue = Math.abs(value);
+  if (absoluteValue >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (absoluteValue >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+  return formatCurrency(value, currency);
 }
 
 function parseSafeNumber(value: string): number {
@@ -573,4 +804,60 @@ function getCompoundingConfig(frequency: CompoundingFrequency): CompoundingConfi
     periodLabelLowercase: "annual",
     interestColumnLabel: "Interest Gained (Annual)",
   };
+}
+
+function csvQuoteCell(value: string | number | undefined | null): string {
+  const normalizedValue = String(value ?? "");
+  return `"${normalizedValue.replace(/"/g, '""')}"`;
+}
+
+function formatAmountCsvPlain(value: number): string {
+  return (Math.round(value * 100) / 100).toFixed(2);
+}
+
+function buildCsvFromCalculationRows(
+  rows: MonthlyAnnuityRow[],
+  inputs: CalculatorInputs,
+  periodConfig: CompoundingConfig,
+  displayCurrency: string,
+  baseCurrency: string
+): string {
+  const convert = (amount: number) =>
+    convertForDisplaySync(amount, baseCurrency, displayCurrency);
+
+  const headers = [
+    "Month",
+    "Year",
+    ...(inputs.calculationType !== "fixed-deposit" ? ["Investment Amount"] : []),
+    "Interest Base",
+    periodConfig.interestColumnLabel,
+    "Interest Accrued",
+    ...(inputs.calculationType !== "fixed-deposit" ? ["Total Investment"] : []),
+    "Final Balance",
+    "Currency",
+  ];
+
+  const lines: string[][] = [headers];
+
+  rows.forEach((row) => {
+    lines.push([
+      String(row.month),
+      String(row.year),
+      ...(inputs.calculationType !== "fixed-deposit"
+        ? [formatAmountCsvPlain(convert(row.investmentAmount))]
+        : []),
+      formatAmountCsvPlain(convert(row.interestCalculationBase)),
+      formatAmountCsvPlain(convert(row.interestGainedPeriod)),
+      formatAmountCsvPlain(convert(row.totalInterestGained)),
+      ...(inputs.calculationType !== "fixed-deposit"
+        ? [formatAmountCsvPlain(convert(row.accumulatedInvestment))]
+        : []),
+      formatAmountCsvPlain(convert(row.finalBalance)),
+      displayCurrency.toUpperCase(),
+    ]);
+  });
+
+  return lines
+    .map((line) => line.map((cell) => csvQuoteCell(cell)).join(","))
+    .join("\r\n");
 }
