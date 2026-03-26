@@ -116,7 +116,10 @@ export default function AnnuityPageClient() {
 
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Calculation Type</label>
+            <InfoLabel
+              label="Calculation Type"
+              description="Choose the calculator mode: standard annuity, target annuity (find required monthly contribution), or fixed deposit."
+            />
             <select
               value={inputs.calculationType}
               onChange={(event) =>
@@ -140,6 +143,11 @@ export default function AnnuityPageClient() {
                 ? "Current Balance (Optional)"
                 : "Initial Balance"
             }
+            description={
+              inputs.calculationType === "annuity-target-future-value"
+                ? "Money you already have invested now. This amount also grows with compounding and reduces required monthly contribution."
+                : "Starting amount at month 0 before new deposits and future interest are applied."
+            }
             value={inputs.initialBalance}
             onChange={(value) => setInputs((previous) => ({ ...previous, initialBalance: value }))}
             min={0}
@@ -149,6 +157,7 @@ export default function AnnuityPageClient() {
           {inputs.calculationType === "annuity" ? (
             <NumericInput
               label="Monthly Investment"
+              description="Amount invested at the beginning of each month."
               value={inputs.monthlyInvestment}
               onChange={(value) => setInputs((previous) => ({ ...previous, monthlyInvestment: value }))}
               min={0}
@@ -158,6 +167,7 @@ export default function AnnuityPageClient() {
           ) : inputs.calculationType === "annuity-target-future-value" ? (
             <NumericInput
               label="Target Future Value"
+              description="Goal amount you want to reach at the end of the selected time period."
               value={inputs.targetFutureValue}
               onChange={(value) => setInputs((previous) => ({ ...previous, targetFutureValue: value }))}
               min={0}
@@ -166,9 +176,10 @@ export default function AnnuityPageClient() {
             />
           ) : (
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Fixed Deposit Interest Handling
-              </label>
+              <InfoLabel
+                label="Fixed Deposit Interest Handling"
+                description="Choose whether each compounding period's interest is added back into principal (compounding) or kept separate (simple-style accrual)."
+              />
               <select
                 value={inputs.fixedDepositInterestMode}
                 onChange={(event) =>
@@ -186,6 +197,7 @@ export default function AnnuityPageClient() {
           )}
           <NumericInput
             label="Annual Interest Rate (%)"
+            description="Nominal yearly interest rate used to derive the per-compounding-period rate."
             value={inputs.annualInterestRatePercent}
             onChange={(value) =>
               setInputs((previous) => ({ ...previous, annualInterestRatePercent: value }))
@@ -196,6 +208,7 @@ export default function AnnuityPageClient() {
           />
           <NumericInput
             label="Years"
+            description="Total investment duration in years. The table shows all months in this period."
             value={inputs.years}
             onChange={(value) => setInputs((previous) => ({ ...previous, years: clampYears(value) }))}
             min={1}
@@ -204,9 +217,10 @@ export default function AnnuityPageClient() {
             className={standardInput}
           />
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Compounding Frequency
-            </label>
+            <InfoLabel
+              label="Compounding Frequency"
+              description="How often interest is applied to the balance: annually (every 12 months) or quarterly (every 3 months)."
+            />
             <select
               value={effectiveCompoundingFrequency}
               onChange={(event) =>
@@ -347,6 +361,7 @@ export default function AnnuityPageClient() {
 
 interface NumericInputProps {
   label: string;
+  description: string;
   value: number;
   onChange: (value: number) => void;
   min?: number;
@@ -357,6 +372,7 @@ interface NumericInputProps {
 
 function NumericInput({
   label,
+  description,
   value,
   onChange,
   min,
@@ -366,7 +382,7 @@ function NumericInput({
 }: NumericInputProps) {
   return (
     <div>
-      <label className="mb-1 block text-sm font-medium text-gray-700">{label}</label>
+      <InfoLabel label={label} description={description} />
       <input
         type="number"
         value={value}
@@ -376,6 +392,32 @@ function NumericInput({
         onChange={(event) => onChange(parseSafeNumber(event.target.value))}
         className={className}
       />
+    </div>
+  );
+}
+
+interface InfoLabelProps {
+  label: string;
+  description: string;
+}
+
+function InfoLabel({ label, description }: InfoLabelProps) {
+  return (
+    <div className="mb-1 flex items-center gap-2">
+      <label className="block text-sm font-medium text-gray-700">{label}</label>
+      <div className="group relative inline-flex">
+        <button
+          type="button"
+          tabIndex={0}
+          aria-label={`${label} information`}
+          className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-gray-300 text-[10px] font-semibold text-gray-600 hover:bg-gray-100"
+        >
+          i
+        </button>
+        <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-64 -translate-x-1/2 rounded-md bg-gray-900 px-3 py-2 text-xs text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+          {description}
+        </div>
+      </div>
     </div>
   );
 }
