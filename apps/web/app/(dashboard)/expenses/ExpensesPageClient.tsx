@@ -9,6 +9,7 @@ import { AddExpenseModal } from './components/AddExpenseModal';
 import { EditExpenseModal } from './components/EditExpenseModal';
 import { ViewExpenseModal } from './components/ViewExpenseModal';
 import { ExpenseBubbleChart } from './components/ExpenseBubbleChart';
+import { ExpenseFrequencyCharts } from './components/ExpenseFrequencyCharts';
 import { UnifiedBulkImportModal } from '../../components/shared/UnifiedBulkImportModal';
 import { expenseImportConfig } from '../../config/bulkImportConfig';
 import { DeleteConfirmationModal } from '../../components/DeleteConfirmationModal';
@@ -367,6 +368,8 @@ export default function ExpensesPageClient() {
       </div>
 
       <FinancialAreaChart {...chartProps} />
+
+      <ExpenseFrequencyCharts expenses={filteredExpenses} />
 
       <ExpenseBubbleChart 
         expenses={expenses}
