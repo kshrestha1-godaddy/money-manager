@@ -22,6 +22,18 @@ import {
   TEXT_COLORS,
   UI_STYLES,
 } from "../../config/colorConfig";
+import { SavedPresetsSection } from "./components/SavedPresetsSection";
+import {
+  updateAnnuityCalculatorPresetProgress,
+  type AnnuityCalculatorPresetDTO,
+} from "./actions/annuity-calculator-presets";
+import type {
+  CalculationType,
+  CalculatorInputs,
+  CompoundingFrequency,
+  FixedDepositInterestMode,
+} from "./types";
+import { DEFAULT_ANNUITY_INPUTS, normalizeAnnuityInputs } from "./types";
 
 interface MonthlyAnnuityRow {
   month: number;
@@ -32,21 +44,6 @@ interface MonthlyAnnuityRow {
   totalInterestGained: number;
   accumulatedInvestment: number;
   finalBalance: number;
-}
-
-type CompoundingFrequency = "annual" | "quarterly";
-type CalculationType = "annuity" | "annuity-target-future-value" | "fixed-deposit";
-type FixedDepositInterestMode = "add-to-principal" | "not-added-to-principal";
-
-interface CalculatorInputs {
-  calculationType: CalculationType;
-  initialBalance: number;
-  monthlyInvestment: number;
-  targetFutureValue: number;
-  annualInterestRatePercent: number;
-  years: number;
-  compoundingFrequency: CompoundingFrequency;
-  fixedDepositInterestMode: FixedDepositInterestMode;
 }
 
 const pageContainer = CONTAINER_COLORS.page;
@@ -63,25 +60,81 @@ function formatAmountForDisplay(
   return formatCurrency(converted, displayCurrencyCode);
 }
 
-const DEFAULT_INPUTS: CalculatorInputs = {
-  calculationType: "annuity",
-  initialBalance: 0,
-  monthlyInvestment: 5000,
-  targetFutureValue: 10000000,
-  annualInterestRatePercent: 10,
-  years: 15,
-  compoundingFrequency: "annual",
-  fixedDepositInterestMode: "add-to-principal",
-};
-
 export default function AnnuityPageClient() {
   const { currency: userCurrency } = useCurrency();
-  const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_INPUTS);
+  const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_ANNUITY_INPUTS);
   const [selectedCurrency, setSelectedCurrency] = useState(userCurrency || "USD");
+  const [trackedPresetId, setTrackedPresetId] = useState<number | null>(null);
+  const [trackedPresetTitle, setTrackedPresetTitle] = useState("");
+  const [trackedInputsSnapshot, setTrackedInputsSnapshot] = useState<CalculatorInputs | null>(null);
+  const [trackedCompletedMonths, setTrackedCompletedMonths] = useState<number[]>([]);
+  const [progressSavingMonth, setProgressSavingMonth] = useState<number | null>(null);
 
   useEffect(() => {
     setSelectedCurrency(userCurrency || "USD");
   }, [userCurrency]);
+
+  const inputsMatchTrackedPreset = useMemo(() => {
+    if (trackedPresetId == null || !trackedInputsSnapshot) return false;
+    return (
+      JSON.stringify(normalizeAnnuityInputs(inputs)) ===
+      JSON.stringify(normalizeAnnuityInputs(trackedInputsSnapshot))
+    );
+  }, [trackedPresetId, trackedInputsSnapshot, inputs]);
+
+  const showMonthProgressColumn = trackedPresetId !== null && inputsMatchTrackedPreset;
+
+  const handleLoadPreset = useCallback((preset: AnnuityCalculatorPresetDTO) => {
+    setInputs(preset.inputs);
+    setTrackedPresetId(preset.id);
+    setTrackedPresetTitle(preset.title);
+    setTrackedInputsSnapshot(normalizeAnnuityInputs(preset.inputs));
+    setTrackedCompletedMonths([...preset.completedMonths]);
+  }, []);
+
+  const handleStopTrackingPreset = useCallback(() => {
+    setTrackedPresetId(null);
+    setTrackedPresetTitle("");
+    setTrackedInputsSnapshot(null);
+    setTrackedCompletedMonths([]);
+  }, []);
+
+  const handlePresetDeleted = useCallback(
+    (id: number) => {
+      if (id === trackedPresetId) handleStopTrackingPreset();
+    },
+    [trackedPresetId, handleStopTrackingPreset]
+  );
+
+  const handleToggleMonthDone = useCallback(
+    async (month: number) => {
+      if (trackedPresetId == null || !inputsMatchTrackedPreset) return;
+
+      let previousSnapshot: number[] = [];
+      let nextSnapshot: number[] = [];
+
+      setTrackedCompletedMonths((previous) => {
+        previousSnapshot = previous;
+        const has = previous.includes(month);
+        nextSnapshot = has
+          ? previous.filter((m) => m !== month)
+          : [...previous, month].sort((a, b) => a - b);
+        return nextSnapshot;
+      });
+
+      setProgressSavingMonth(month);
+      try {
+        const updated = await updateAnnuityCalculatorPresetProgress(trackedPresetId, nextSnapshot);
+        setTrackedCompletedMonths(updated.completedMonths);
+      } catch (errorUnknown) {
+        console.error(errorUnknown);
+        setTrackedCompletedMonths(previousSnapshot);
+      } finally {
+        setProgressSavingMonth(null);
+      }
+    },
+    [trackedPresetId, inputsMatchTrackedPreset]
+  );
 
   const effectiveCompoundingFrequency: CompoundingFrequency = inputs.compoundingFrequency;
 
@@ -189,7 +242,8 @@ export default function AnnuityPageClient() {
         </div>
       </div>
 
-      <section className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8 lg:items-start">
+        <section className="bg-white rounded-lg shadow overflow-hidden min-w-0">
         <div className="px-6 py-5 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">Calculator Inputs</h2>
           <p className="mt-1 text-sm text-gray-600">
@@ -197,7 +251,7 @@ export default function AnnuityPageClient() {
           </p>
         </div>
         <div className="px-6 py-5">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <InfoLabel
               label="Calculation Type"
@@ -325,42 +379,12 @@ export default function AnnuityPageClient() {
           </div>
         </div>
         </div>
-      </section>
+        </section>
 
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-4">
-        <SummaryCard
-          title={
-            inputs.calculationType === "annuity-target-future-value"
-              ? "Required Monthly Investment"
-              : "Total Principal"
-          }
-          value={
-            inputs.calculationType === "annuity-target-future-value"
-              ? formatAmountForDisplay(effectiveMonthlyInvestment, baseCurrency, selectedCurrency)
-              : formatAmountForDisplay(totals.principal, baseCurrency, selectedCurrency)
-          }
-          subtitle={
-            inputs.calculationType === "annuity"
-              ? "Initial + monthly deposits"
-              : inputs.calculationType === "annuity-target-future-value"
-              ? `To target ${formatAmountForDisplay(inputs.targetFutureValue, baseCurrency, selectedCurrency)}`
-              : "Initial fixed deposit amount"
-          }
-        />
-        <SummaryCard
-          title="Total Interest"
-          value={formatAmountForDisplay(totals.totalInterest, baseCurrency, selectedCurrency)}
-          subtitle={`After ${totals.totalMonths} months`}
-        />
-        <SummaryCard
-          title="Final Balance"
-          value={formatAmountForDisplay(totals.finalBalance, baseCurrency, selectedCurrency)}
-          subtitle={`At end of year ${inputs.years}`}
-        />
-        <SummaryCard
-          title="Interest Share"
-          value={`${getInterestSharePercent(totals.finalBalance, totals.totalInterest).toFixed(2)}%`}
-          subtitle="Interest as share of final balance"
+        <SavedPresetsSection
+          currentInputs={inputs}
+          onLoadPreset={handleLoadPreset}
+          onPresetDeleted={handlePresetDeleted}
         />
       </div>
 
@@ -370,6 +394,44 @@ export default function AnnuityPageClient() {
           <p className="mt-1 text-sm text-gray-600">
             Stacked bars: principal (initial + contributions) and cumulative interest. Total bar height is final balance for each month.
           </p>
+        </div>
+        <div className="px-4 py-4 sm:px-6 border-b border-gray-100 bg-gray-50/50">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <SummaryCard
+              title={
+                inputs.calculationType === "annuity-target-future-value"
+                  ? "Required Monthly Investment"
+                  : "Total Principal"
+              }
+              value={
+                inputs.calculationType === "annuity-target-future-value"
+                  ? formatAmountForDisplay(effectiveMonthlyInvestment, baseCurrency, selectedCurrency)
+                  : formatAmountForDisplay(totals.principal, baseCurrency, selectedCurrency)
+              }
+              subtitle={
+                inputs.calculationType === "annuity"
+                  ? "Initial + monthly deposits"
+                  : inputs.calculationType === "annuity-target-future-value"
+                  ? `To target ${formatAmountForDisplay(inputs.targetFutureValue, baseCurrency, selectedCurrency)}`
+                  : "Initial fixed deposit amount"
+              }
+            />
+            <SummaryCard
+              title="Total Interest"
+              value={formatAmountForDisplay(totals.totalInterest, baseCurrency, selectedCurrency)}
+              subtitle={`After ${totals.totalMonths} months`}
+            />
+            <SummaryCard
+              title="Final Balance"
+              value={formatAmountForDisplay(totals.finalBalance, baseCurrency, selectedCurrency)}
+              subtitle={`At end of year ${inputs.years}`}
+            />
+            <SummaryCard
+              title="Interest Share"
+              value={`${getInterestSharePercent(totals.finalBalance, totals.totalInterest).toFixed(2)}%`}
+              subtitle="Interest as share of final balance"
+            />
+          </div>
         </div>
         <div className="px-4 py-4 sm:px-6 sm:pb-6">
           {rows.length === 0 ? (
@@ -493,10 +555,48 @@ export default function AnnuityPageClient() {
             Calculator figures are denominated in {baseCurrency}. Choosing another currency converts amounts using the
             same rates as elsewhere in the app (see currency settings).
           </p>
+          {trackedPresetId != null ? (
+            <div
+              className={`mt-4 flex flex-col gap-2 rounded-md border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between ${
+                inputsMatchTrackedPreset
+                  ? "border-emerald-200 bg-emerald-50/90 text-emerald-950"
+                  : "border-amber-200 bg-amber-50/90 text-amber-950"
+              }`}
+            >
+              <p>
+                {inputsMatchTrackedPreset ? (
+                  <>
+                    <span className="font-medium">Tracking scenario:</span> {trackedPresetTitle}. Tick{" "}
+                    <span className="font-medium">Done</span> for each month you have completed.
+                  </>
+                ) : (
+                  <>
+                    <span className="font-medium">Scenario loaded:</span> {trackedPresetTitle}. Calculator inputs no
+                    longer match this scenario — checkboxes are hidden. Load the scenario again or stop tracking.
+                  </>
+                )}
+              </p>
+              <button
+                type="button"
+                onClick={handleStopTrackingPreset}
+                className="shrink-0 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-800 hover:bg-gray-50"
+              >
+                Stop tracking
+              </button>
+            </div>
+          ) : null}
         </div>
         <table className="min-w-full divide-y divide-gray-200 table-auto">
           <thead className="bg-gray-50">
             <tr>
+              {showMonthProgressColumn ? (
+                <th
+                  className="w-14 px-2 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500"
+                  scope="col"
+                >
+                  Done
+                </th>
+              ) : null}
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Month</th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Year</th>
                 {inputs.calculationType !== "fixed-deposit" ? (
@@ -526,6 +626,7 @@ export default function AnnuityPageClient() {
           <tbody className="divide-y divide-gray-200 bg-white text-sm">
               {rows.map((row) => {
                 const isCompoundingMonth = row.month % periodConfig.periodMonths === 0;
+                const isDone = trackedCompletedMonths.includes(row.month);
                 return (
                 <tr
                   key={row.month}
@@ -537,6 +638,18 @@ export default function AnnuityPageClient() {
                       : "bg-white"
                   }`}
                 >
+                  {showMonthProgressColumn ? (
+                    <td className="px-2 py-3 text-center align-middle">
+                      <input
+                        type="checkbox"
+                        checked={isDone}
+                        disabled={progressSavingMonth === row.month}
+                        onChange={() => void handleToggleMonthDone(row.month)}
+                        className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                        aria-label={`Mark month ${row.month} as done`}
+                      />
+                    </td>
+                  ) : null}
                   <td className="px-4 py-3 text-gray-900 tabular-nums">{row.month}</td>
                   <td className="px-4 py-3 text-gray-700 tabular-nums">{row.year}</td>
                   {inputs.calculationType !== "fixed-deposit" ? (

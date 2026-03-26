@@ -54,6 +54,7 @@ model User {
   goalPhases GoalPhase[]
   goalProgress GoalProgress[]
   scheduledPayments ScheduledPayment[]
+  annuityCalculatorPresets AnnuityCalculatorPreset[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -1153,4 +1154,22 @@ enum GoalPhaseStatus {
   BLOCKED      // Phase is blocked by dependencies
   CANCELLED    // Phase has been cancelled
   OVERDUE      // Phase has passed its planned end date
+}
+
+/// Saved annuity / fixed-deposit calculator scenarios per user (title, notes, full input payload as JSON).
+model AnnuityCalculatorPreset {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?  @db.Text
+  notes        String?  @db.Text
+  inputsJson          Json
+  /// Month numbers (1-based) the user marked complete while following this scenario (max: years × 12 from inputs).
+  completedMonthsJson Json     @default("[]")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, updatedAt])
 }
