@@ -439,7 +439,7 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
 
   /** Keep both chart cards exactly same container height on desktop. */
   const sharedContainerHeight = useMemo(
-    () => sharedChartHeight + 190,
+    () => sharedChartHeight + 260,
     [sharedChartHeight]
   );
 
