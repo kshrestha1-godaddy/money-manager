@@ -505,65 +505,68 @@ export default function LifeEventsPageClient() {
                               : "border-gray-200"
                           }`}
                         >
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div className="min-w-0 flex-1">
-                              {item.eventEndDate ? (
-                                <div className="space-y-1 text-xs font-medium text-gray-500">
-                                  <p>
-                                    <span className="text-gray-600">Commence:</span>{" "}
-                                    <span className="uppercase tracking-wide">
-                                      {formatLifeEventDate(item.eventDate)}
-                                    </span>
-                                  </p>
-                                  <p>
-                                    <span className="text-gray-600">End:</span>{" "}
-                                    <span className="uppercase tracking-wide">
-                                      {formatLifeEventDate(item.eventEndDate)}
-                                    </span>
-                                  </p>
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
+                                <div className="flex shrink-0 flex-col items-center justify-center self-stretch rounded-md border border-gray-200 bg-gray-50/70 px-3 py-2.5 text-center sm:w-56">
+                                  {item.eventEndDate ? (
+                                    <div className="space-y-1 text-xs text-gray-600">
+                                      <p className="font-medium">
+                                        Start: <span className="font-semibold text-gray-900">{formatLifeEventDate(item.eventDate)}</span>
+                                      </p>
+                                      <p className="font-medium">
+                                        End: <span className="font-semibold text-gray-900">{formatLifeEventDate(item.eventEndDate)}</span>
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <p className="text-sm font-semibold text-gray-900">{formatLifeEventDate(item.eventDate)}</p>
+                                  )}
                                 </div>
-                              ) : (
-                                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                                  {formatLifeEventDate(item.eventDate)}
-                                </p>
-                              )}
-                              <h3 className="mt-1 text-base font-semibold text-gray-900">{item.title}</h3>
-                              <span
-                                className={`mt-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${categoryBadgeClass[item.category]}`}
-                              >
-                                {LIFE_EVENT_CATEGORY_LABELS[item.category]}
-                              </span>
-                              {item.location ? (
-                                <p className="mt-2 text-sm text-gray-600">
-                                  <span className="font-medium text-gray-700">Location: </span>
-                                  {item.location}
-                                </p>
-                              ) : null}
-                              {item.description ? (
-                                <p className="mt-2 whitespace-pre-wrap text-sm text-gray-700">{item.description}</p>
-                              ) : null}
-                              {item.tags.length > 0 ? (
-                                <div className="mt-2 flex flex-wrap gap-1.5">
-                                  {item.tags.map((t) => (
+
+                                <div className="min-w-0 flex-1">
+                                  <h3 className="text-base font-semibold text-gray-900">{item.title}</h3>
+                                  <div className="mt-2 flex flex-wrap items-center gap-2">
                                     <span
-                                      key={t}
-                                      className="rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-700"
+                                      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${categoryBadgeClass[item.category]}`}
                                     >
-                                      {t}
+                                      {LIFE_EVENT_CATEGORY_LABELS[item.category]}
                                     </span>
-                                  ))}
+                                    {item.location ? (
+                                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                                        {item.location}
+                                      </span>
+                                    ) : null}
+                                  </div>
+
+                                  {item.description ? (
+                                    <p className="mt-2 whitespace-pre-wrap text-sm text-gray-700">
+                                      {item.description}
+                                    </p>
+                                  ) : null}
+                                  {item.tags.length > 0 ? (
+                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                      {item.tags.map((t) => (
+                                        <span
+                                          key={t}
+                                          className="rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-700"
+                                        >
+                                          {t}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                  {item.externalLink ? (
+                                    <a
+                                      href={item.externalLink}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="mt-2 inline-block text-sm font-medium text-brand-600 hover:text-brand-700 hover:underline"
+                                    >
+                                      Open link
+                                    </a>
+                                  ) : null}
                                 </div>
-                              ) : null}
-                              {item.externalLink ? (
-                                <a
-                                  href={item.externalLink}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="mt-2 inline-block text-sm font-medium text-brand-600 hover:text-brand-700 hover:underline"
-                                >
-                                  Open link
-                                </a>
-                              ) : null}
+                              </div>
                             </div>
                             <div className="flex shrink-0 gap-1 sm:flex-col">
                               <button
