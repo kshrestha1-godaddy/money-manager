@@ -24,9 +24,12 @@ import {
 const card = `${CONTAINER_COLORS.whiteWithPadding} text-left`;
 
 const BUBBLE_RADIUS = 13;
-const Y_STEP = 0.045;
+const Y_STEP = 0.062;
+const STACK_ROW_PX = 18;
 const ESTIMATED_CHART_WIDTH_PX = 720;
 const ESTIMATED_TICK_LABEL_WIDTH_PX = 56;
+const POINT_X_GAP_FACTOR = 2.8;
+const POINT_MIN_GAP_MS = 18 * 3600 * 1000;
 const MIN_VIRTUAL_TIMELINE_WIDTH_PX = 960;
 const MAX_VIRTUAL_TIMELINE_WIDTH_PX = 2600;
 const PX_PER_EVENT_FOR_VIRTUAL_WIDTH = 110;
@@ -112,8 +115,8 @@ function buildTimelinePoints(pointItems: LifeEventItem[], chartWidthPx: number):
   const pad = Math.max(86400000 * 30, (maxX - minX) * 0.05);
   const domainWidth = maxX - minX + 2 * pad;
   const gapMs = Math.max(
-    domainWidth * ((2 * BUBBLE_RADIUS) / Math.max(chartWidthPx, ESTIMATED_CHART_WIDTH_PX)),
-    6 * 3600 * 1000
+    domainWidth * ((POINT_X_GAP_FACTOR * BUBBLE_RADIUS) / Math.max(chartWidthPx, ESTIMATED_CHART_WIDTH_PX)),
+    POINT_MIN_GAP_MS
   );
 
   const layerBuckets = new Map<number, number[]>();
@@ -261,7 +264,7 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
     [tickLaneMap]
   );
 
-  const bottomExtra = Math.max(maxLayer, maxTickLane) * 14;
+  const bottomExtra = Math.max(maxLayer, maxTickLane) * STACK_ROW_PX;
   const chartMargin = useMemo(
     () => ({
       top:
@@ -383,7 +386,7 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
       if (!Number.isFinite(n)) return null;
       const pointLayer = pointLayerByX.get(n) ?? 0;
       const tickLane = tickLaneMap.get(n) ?? 0;
-      const dy = 10 + Math.max(pointLayer, tickLane) * 14;
+      const dy = 10 + Math.max(pointLayer, tickLane) * STACK_ROW_PX;
       return (
         <text x={x} y={y} dy={dy} textAnchor="middle" fill="#4b5563" fontSize={10}>
           {formatTickDateUtc(n)}
