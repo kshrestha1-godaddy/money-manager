@@ -94,6 +94,9 @@ export default function LifeEventsPageClient() {
 
   const grouped = useMemo(() => groupEventsByYearAndMonth(filteredItems), [filteredItems]);
 
+  /** Matches `groupEventsByYearAndMonth` (UTC date parts on stored event dates). */
+  const timelineCurrentYear = new Date().getUTCFullYear();
+
   async function handleFormSubmit(payload: Parameters<typeof createLifeEvent>[0]) {
     const result = editing
       ? await updateLifeEvent(editing.id, payload)
@@ -216,7 +219,7 @@ export default function LifeEventsPageClient() {
             <details
               key={year}
               className="group rounded-lg border border-gray-200 bg-white shadow-sm"
-              open
+              open={year === timelineCurrentYear}
             >
               <summary className="cursor-pointer list-none px-4 py-3 font-semibold text-gray-900 marker:content-none [&::-webkit-details-marker]:hidden">
                 <span className="inline-flex items-center gap-2">
