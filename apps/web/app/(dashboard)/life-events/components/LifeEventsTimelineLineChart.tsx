@@ -25,15 +25,17 @@ const card = `${CONTAINER_COLORS.whiteWithPadding} text-left`;
 
 const BUBBLE_RADIUS = 13;
 const Y_STEP = 0.062;
-const STACK_ROW_PX = 18;
 const ESTIMATED_CHART_WIDTH_PX = 720;
-const ESTIMATED_TICK_LABEL_WIDTH_PX = 56;
 const POINT_X_GAP_FACTOR = 2.8;
 const POINT_MIN_GAP_MS = 18 * 3600 * 1000;
 const MIN_VIRTUAL_TIMELINE_WIDTH_PX = 960;
 const MAX_VIRTUAL_TIMELINE_WIDTH_PX = 2600;
 const PX_PER_EVENT_FOR_VIRTUAL_WIDTH = 110;
-const TICK_LABEL_MIN_GAP_PX = 72;
+const TICK_LABEL_MIN_GAP_PX = 80;
+/** All date labels share one baseline (no per-tick vertical stagger). */
+const X_AXIS_DATE_LABEL_DY = 14;
+/** Space reserved for the bottom date axis (single row). */
+const X_AXIS_HEIGHT = 44;
 /** Top margin when there are no range bars (year labels only need the default plot padding). */
 const CHART_MARGIN_TOP_NO_GANTT = 32;
 /**
@@ -257,34 +259,6 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
     [timeBounds]
   );
 
-  const tickLaneMap = useMemo(() => {
-    const out = new Map<number, number>();
-    if (tickXs.length === 0) return out;
-
-    const domainWidth = timeBounds.maxX - timeBounds.minX + 2 * xPad;
-    const minGapMs = Math.max(
-      domainWidth * (ESTIMATED_TICK_LABEL_WIDTH_PX / Math.max(virtualChartWidth, ESTIMATED_CHART_WIDTH_PX)),
-      86400000 * 7
-    );
-    const laneEnds: number[] = [];
-
-    for (const x of tickXs) {
-      let lane = 0;
-      while (lane < laneEnds.length && x - laneEnds[lane]! < minGapMs) lane++;
-      if (lane === laneEnds.length) laneEnds.push(x);
-      else laneEnds[lane] = x;
-      out.set(x, lane);
-    }
-
-    return out;
-  }, [tickXs, timeBounds, xPad, virtualChartWidth]);
-
-  const maxTickLane = useMemo(
-    () => Math.max(0, ...Array.from(tickLaneMap.values()), 0),
-    [tickLaneMap]
-  );
-
-  const bottomExtra = Math.max(maxLayer, maxTickLane) * STACK_ROW_PX;
   const chartMargin = useMemo(
     () => ({
       top:
@@ -387,16 +361,6 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
     return out;
   }, [tickXs, timeBounds, xPad, virtualChartWidth]);
 
-  const pointLayerByX = useMemo(() => {
-    const map = new Map<number, number>();
-    for (const d of data) {
-      if (d.item.id === PHANTOM_POINT_ID) continue;
-      const prev = map.get(d.x) ?? 0;
-      map.set(d.x, Math.max(prev, d.layer));
-    }
-    return map;
-  }, [data]);
-
   const renderEventAxisTick = useCallback(
     (props: { x?: number; y?: number; payload?: { value?: number } | number }) => {
       const x = props.x ?? 0;
@@ -404,16 +368,13 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
       const raw = props.payload;
       const n = typeof raw === "number" ? raw : Number(raw?.value);
       if (!Number.isFinite(n)) return null;
-      const pointLayer = pointLayerByX.get(n) ?? 0;
-      const tickLane = tickLaneMap.get(n) ?? 0;
-      const dy = 10 + Math.max(pointLayer, tickLane) * STACK_ROW_PX;
       return (
-        <text x={x} y={y} dy={dy} textAnchor="middle" fill="#4b5563" fontSize={10}>
+        <text x={x} y={y} dy={X_AXIS_DATE_LABEL_DY} textAnchor="middle" fill="#4b5563" fontSize={10}>
           {formatTickDateUtc(n)}
         </text>
       );
     },
-    [pointLayerByX, tickLaneMap]
+    []
   );
 
   const ganttLayer = useMemo(() => {
@@ -573,7 +534,7 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
       <h3 className="mb-1 text-sm font-semibold text-gray-900">Events over time</h3>
       <p className="mb-3 text-xs text-gray-500">
         Single-day events appear as bubbles on the line; date ranges appear as Gantt-style bars above. Overlapping
-        bubbles stack upward; axis labels shift down to match.
+        bubbles stack upward. Close dates on the axis may be thinned to keep labels readable.
       </p>
       <div className="h-[24rem] w-full min-h-[22rem] overflow-x-auto">
         <div className="h-full" style={{ minWidth: `${virtualChartWidth}px` }}>
@@ -591,7 +552,7 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
                 tick={renderEventAxisTick}
                 angle={0}
                 interval={0}
-                height={38 + bottomExtra}
+                height={X_AXIS_HEIGHT}
                 stroke="#6b7280"
               />
             <YAxis type="number" dataKey="y" domain={yDomain} hide />

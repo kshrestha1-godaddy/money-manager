@@ -151,8 +151,10 @@ export function groupEventsByYearAndMonth(events: LifeEventItem[]): YearMonthGro
 }
 
 export function parseTagsInput(raw: string): string[] {
+  if (!raw?.trim()) return [];
+  const separator = raw.includes(",") ? "," : ";";
   return raw
-    .split(",")
+    .split(separator)
     .map((t) => t.trim())
     .filter(Boolean);
 }

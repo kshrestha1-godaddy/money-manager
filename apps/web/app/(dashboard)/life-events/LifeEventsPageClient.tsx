@@ -1,13 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, ChevronDown, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import type { ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Check, ChevronDown, Download, Eye, Loader2, Pencil, Plus, RefreshCw, Trash2, Upload, X } from "lucide-react";
 import type { LifeEventCategory } from "@prisma/client";
 import type { LifeEventItem } from "../../types/life-event";
 import {
   createLifeEvent,
   deleteLifeEvent,
+  deleteLifeEvents,
   getLifeEvents,
+  importLifeEvents,
   updateLifeEvent,
 } from "./actions/life-events";
 import {
@@ -19,6 +22,7 @@ import {
   matchesLifeEventSearch,
 } from "./life-event-helpers";
 import { LifeEventsCharts } from "./components/LifeEventsCharts";
+import { LifeEventDetailModal } from "./components/LifeEventDetailModal";
 import { LifeEventFormModal } from "./components/LifeEventFormModal";
 import { LifeEventsSummarySection } from "./components/LifeEventsSummarySection";
 import { LifeEventsTimelineLineChart } from "./components/LifeEventsTimelineLineChart";
@@ -30,6 +34,7 @@ import {
   UI_STYLES,
 } from "../../config/colorConfig";
 import { DisappearingNotification, NotificationData } from "../../components/DisappearingNotification";
+import { exportLifeEventsToCsvFile, parseLifeEventsCsvText } from "../../utils/lifeEventsCsv";
 
 const pageContainer = CONTAINER_COLORS.page;
 const loadingContainer = LOADING_COLORS.container;
@@ -38,6 +43,7 @@ const loadingText = LOADING_COLORS.text;
 const pageTitle = TEXT_COLORS.title;
 const primaryButton = BUTTON_COLORS.primary;
 const secondaryOutlineButton = BUTTON_COLORS.secondaryBlue;
+const dangerButton = BUTTON_COLORS.danger;
 const MONTH_OPTIONS = [
   { value: 0, label: "January" },
   { value: 1, label: "February" },
@@ -77,10 +83,14 @@ export default function LifeEventsPageClient() {
   const [selectedMonth, setSelectedMonth] = useState<number | "ALL">("ALL");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<LifeEventItem | null>(null);
+  const [viewingDetail, setViewingDetail] = useState<LifeEventItem | null>(null);
   const [notification, setNotification] = useState<NotificationData | null>(null);
   const [openYearState, setOpenYearState] = useState<Record<number, boolean>>({});
   const [openMonthState, setOpenMonthState] = useState<Record<string, boolean>>({});
   const [focusedEventId, setFocusedEventId] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
+  const [isImporting, setIsImporting] = useState(false);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
@@ -155,6 +165,45 @@ export default function LifeEventsPageClient() {
   }, [items, searchQuery, selectedCategories, selectedYear, selectedMonth]);
 
   const grouped = useMemo(() => groupEventsByYearAndMonth(filteredItems), [filteredItems]);
+
+  const visibleIds = useMemo(() => filteredItems.map((i) => i.id), [filteredItems]);
+
+  useEffect(() => {
+    const visible = new Set(filteredItems.map((i) => i.id));
+    setSelectedIds((prev) => {
+      const next = new Set([...prev].filter((id) => visible.has(id)));
+      if (next.size === prev.size && [...prev].every((id) => next.has(id))) return prev;
+      return next;
+    });
+  }, [filteredItems]);
+
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+
+  const toggleSelectAllVisible = useCallback(() => {
+    setSelectedIds((prev) => {
+      const everyVisible = visibleIds.length > 0 && visibleIds.every((id) => prev.has(id));
+      if (everyVisible) {
+        const next = new Set(prev);
+        visibleIds.forEach((id) => next.delete(id));
+        return next;
+      }
+      return new Set([...prev, ...visibleIds]);
+    });
+  }, [visibleIds]);
+
+  const toggleRowSelection = useCallback((id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
 
   /** Matches `groupEventsByYearAndMonth` (UTC date parts on stored event dates). */
   const timelineCurrentYear = new Date().getUTCFullYear();
@@ -262,7 +311,33 @@ export default function LifeEventsPageClient() {
       setNotification({ title: "Error", message: result.error, type: "error" });
       return;
     }
+    setSelectedIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    setFocusedEventId((prev) => (prev === id ? null : prev));
     setNotification({ title: "Deleted", message: "Life event deleted.", type: "success" });
+    await load({ silent: true });
+  }
+
+  async function handleBulkDelete() {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    if (!confirm(`Delete ${ids.length} life event(s)? This cannot be undone.`)) return;
+    const result = await deleteLifeEvents(ids);
+    if ("error" in result && result.error) {
+      setNotification({ title: "Error", message: result.error, type: "error" });
+      return;
+    }
+    setSelectedIds(new Set());
+    setFocusedEventId((prev) => (prev != null && ids.includes(prev) ? null : prev));
+    setNotification({
+      title: "Deleted",
+      message: `${result.deleted} life event(s) deleted.`,
+      type: "success",
+    });
     await load({ silent: true });
   }
 
@@ -274,6 +349,97 @@ export default function LifeEventsPageClient() {
   function openEdit(item: LifeEventItem) {
     setEditing(item);
     setModalOpen(true);
+  }
+
+  function openViewDetail(item: LifeEventItem) {
+    setViewingDetail(item);
+  }
+
+  function handleEditFromDetail() {
+    if (!viewingDetail) return;
+    const item = viewingDetail;
+    setViewingDetail(null);
+    setEditing(item);
+    setModalOpen(true);
+  }
+
+  function handleExportLifeEvents() {
+    if (items.length === 0) {
+      setNotification({
+        title: "Nothing to export",
+        message: "Add life events first.",
+        type: "info",
+      });
+      return;
+    }
+    exportLifeEventsToCsvFile(items);
+    setNotification({
+      title: "Exported",
+      message: "Life events CSV downloaded.",
+      type: "success",
+    });
+  }
+
+  function handleImportClick() {
+    importFileInputRef.current?.click();
+  }
+
+  async function handleImportFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setIsImporting(true);
+    try {
+      const text = await file.text();
+      const parsed = parseLifeEventsCsvText(text);
+      if (!parsed.ok) {
+        setNotification({
+          title: "Import failed",
+          message: parsed.error,
+          type: "error",
+        });
+        return;
+      }
+
+      const result = await importLifeEvents(parsed.rows);
+      if ("error" in result && result.error) {
+        setNotification({
+          title: "Import failed",
+          message: result.error,
+          type: "error",
+        });
+        return;
+      }
+
+      const { created, updated, skipped, errors } = result;
+      const summaryParts = [`Created ${created}`, `updated ${updated}`];
+      if (skipped > 0) summaryParts.push(`skipped ${skipped} empty row(s)`);
+      let message = `${summaryParts.join(", ")}.`;
+      if (errors.length > 0) {
+        const sample = errors
+          .slice(0, 3)
+          .map((e) => `Row ${e.rowNumber}: ${e.message}`)
+          .join("; ");
+        message += ` ${errors.length} row(s) failed${errors.length > 3 ? " (showing first 3)" : ""}: ${sample}${errors.length > 3 ? "…" : ""}`;
+      }
+
+      setNotification({
+        title: errors.length > 0 ? "Import finished with issues" : "Import complete",
+        message,
+        type: errors.length > 0 ? "warning" : "success",
+        duration: errors.length > 0 ? 12_000 : 5000,
+      });
+      await load({ silent: true });
+    } catch (e) {
+      console.error(e);
+      setNotification({
+        title: "Import failed",
+        message: e instanceof Error ? e.message : "Unexpected error while importing",
+        type: "error",
+      });
+    } finally {
+      setIsImporting(false);
+    }
   }
 
   if (loading) {
@@ -299,6 +465,15 @@ export default function LifeEventsPageClient() {
           </p>
         </div>
         <div className={UI_STYLES.header.buttonGroup}>
+          <input
+            ref={importFileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden
+            onChange={handleImportFileChange}
+          />
           <button
             type="button"
             onClick={() => void load({ silent: true })}
@@ -311,6 +486,28 @@ export default function LifeEventsPageClient() {
               aria-hidden
             />
             Refresh
+          </button>
+          <button
+            type="button"
+            onClick={handleExportLifeEvents}
+            className={`${secondaryOutlineButton} inline-flex items-center gap-2`}
+          >
+            <Download className="h-4 w-4 shrink-0" aria-hidden />
+            Export
+          </button>
+          <button
+            type="button"
+            onClick={handleImportClick}
+            disabled={isImporting}
+            className={`${secondaryOutlineButton} inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50`}
+            aria-busy={isImporting}
+          >
+            {isImporting ? (
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+            ) : (
+              <Upload className="h-4 w-4 shrink-0" aria-hidden />
+            )}
+            Import
           </button>
           <button type="button" onClick={openCreate} className={`inline-flex items-center gap-2 ${primaryButton}`}>
             <Plus className="h-4 w-4 shrink-0" aria-hidden />
@@ -331,7 +528,35 @@ export default function LifeEventsPageClient() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-semibold text-gray-900">Timeline</h2>
           {grouped.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {visibleIds.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={toggleSelectAllVisible}
+                  className={`${secondaryOutlineButton} inline-flex items-center gap-1.5 text-sm`}
+                >
+                  {allVisibleSelected ? "Deselect visible" : "Select all visible"}
+                </button>
+              ) : null}
+              {selectedIds.size > 0 ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={clearSelection}
+                    className={`${secondaryOutlineButton} inline-flex items-center gap-1.5 text-sm`}
+                  >
+                    Clear selection
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleBulkDelete()}
+                    className={`${dangerButton} inline-flex items-center gap-1.5 text-sm`}
+                  >
+                    <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
+                    Delete selected ({selectedIds.size})
+                  </button>
+                </>
+              ) : null}
               <button
                 type="button"
                 onClick={expandAllTimelineSections}
@@ -505,9 +730,18 @@ export default function LifeEventsPageClient() {
                               : "border-gray-200"
                           }`}
                         >
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
+                                <label className="flex shrink-0 cursor-pointer items-center justify-center self-start sm:self-stretch">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedIds.has(item.id)}
+                                    onChange={() => toggleRowSelection(item.id)}
+                                    className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                                    aria-label={`Select “${item.title}”`}
+                                  />
+                                </label>
                                 <div className="flex shrink-0 flex-col items-center justify-center self-stretch rounded-md border border-gray-200 bg-gray-50/70 px-3 py-2.5 text-center sm:w-56">
                                   {item.eventEndDate ? (
                                     <div className="space-y-1 text-xs text-gray-600">
@@ -568,7 +802,15 @@ export default function LifeEventsPageClient() {
                                 </div>
                               </div>
                             </div>
-                            <div className="flex shrink-0 gap-1 sm:flex-col">
+                            <div className="flex shrink-0 flex-row items-center gap-0.5 sm:gap-1">
+                              <button
+                                type="button"
+                                onClick={() => openViewDetail(item)}
+                                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-brand-600"
+                                aria-label="View details"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => openEdit(item)}
@@ -598,6 +840,13 @@ export default function LifeEventsPageClient() {
           ))
         )}
       </div>
+
+      <LifeEventDetailModal
+        event={viewingDetail}
+        isOpen={viewingDetail != null}
+        onClose={() => setViewingDetail(null)}
+        onEdit={handleEditFromDetail}
+      />
 
       <LifeEventFormModal
         isOpen={modalOpen}

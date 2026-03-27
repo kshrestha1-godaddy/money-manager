@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import prisma from "@repo/db/client";
-import type { LifeEventCategory } from "@prisma/client";
+import { LifeEventCategory } from "@prisma/client";
 import { getVerifiedUserIdForDataAccess } from "../../../utils/auth";
 import type { LifeEventItem } from "../../../types/life-event";
+import { getLifeEventCsvField } from "../../../utils/lifeEventsCsv";
 import { normalizeExternalLink, parseDateInputToUtcNoon, parseTagsInput } from "../life-event-helpers";
 
 function mapRow(row: {
@@ -156,5 +157,174 @@ export async function deleteLifeEvent(id: number): Promise<{ ok: true } | { erro
   } catch (e) {
     console.error(e);
     return { error: e instanceof Error ? e.message : "Failed to delete life event" };
+  }
+}
+
+export async function deleteLifeEvents(
+  ids: number[]
+): Promise<{ ok: true; deleted: number } | { error: string }> {
+  try {
+    const userId = await getVerifiedUserIdForDataAccess();
+    const unique = [...new Set(ids)].filter((id) => Number.isFinite(id) && id > 0);
+    if (unique.length === 0) return { error: "No events selected" };
+
+    const result = await prisma.lifeEvent.deleteMany({
+      where: { userId, id: { in: unique } },
+    });
+    revalidatePath("/life-events");
+    return { ok: true, deleted: result.count };
+  } catch (e) {
+    console.error(e);
+    return { error: e instanceof Error ? e.message : "Failed to delete life events" };
+  }
+}
+
+const LIFE_EVENT_CATEGORY_SET = new Set<string>(Object.values(LifeEventCategory));
+
+function isLifeEventCategory(value: string): value is LifeEventCategory {
+  return LIFE_EVENT_CATEGORY_SET.has(value);
+}
+
+function isBlankLifeEventCsvRow(row: Record<string, string>): boolean {
+  return Object.values(row).every((v) => !String(v ?? "").trim());
+}
+
+function normalizeLifeEventImportRow(
+  row: Record<string, string>
+):
+  | {
+      ok: true;
+      rowId: number | null;
+      form: {
+        title: string;
+        eventDate: string;
+        eventEndDate: string;
+        description: string;
+        location: string;
+        category: LifeEventCategory;
+        tags: string;
+        externalLink: string;
+      };
+    }
+  | { ok: false; error: string } {
+  const title = getLifeEventCsvField(row, "title").trim();
+  if (!title) return { ok: false, error: "Title is required" };
+
+  const eventDate = getLifeEventCsvField(row, "event_date", "eventdate").trim();
+  if (!eventDate) return { ok: false, error: "event_date is required" };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) {
+    return { ok: false, error: "event_date must be YYYY-MM-DD" };
+  }
+
+  const eventEndRaw = getLifeEventCsvField(row, "event_end_date", "eventenddate").trim();
+  if (eventEndRaw && !/^\d{4}-\d{2}-\d{2}$/.test(eventEndRaw)) {
+    return { ok: false, error: "event_end_date must be YYYY-MM-DD or empty" };
+  }
+
+  const categoryStr = getLifeEventCsvField(row, "category").trim();
+  if (!categoryStr) return { ok: false, error: "category is required" };
+  if (!isLifeEventCategory(categoryStr)) {
+    return { ok: false, error: `Invalid category: ${categoryStr}` };
+  }
+
+  const idStr = getLifeEventCsvField(row, "id").trim();
+  let rowId: number | null = null;
+  if (idStr) {
+    const n = parseInt(idStr, 10);
+    if (!Number.isFinite(n) || n <= 0) {
+      return { ok: false, error: "id must be a positive integer when set" };
+    }
+    rowId = n;
+  }
+
+  return {
+    ok: true,
+    rowId,
+    form: {
+      title,
+      eventDate,
+      eventEndDate: eventEndRaw,
+      description: getLifeEventCsvField(row, "description").trim(),
+      location: getLifeEventCsvField(row, "location").trim(),
+      category: categoryStr,
+      tags: getLifeEventCsvField(row, "tags").trim(),
+      externalLink: getLifeEventCsvField(row, "external_link", "externallink").trim(),
+    },
+  };
+}
+
+export interface LifeEventImportRowError {
+  /** 1-based line number in the file (header is line 1). */
+  rowNumber: number;
+  message: string;
+}
+
+export async function importLifeEvents(
+  rows: Record<string, string>[]
+): Promise<
+  | {
+      ok: true;
+      created: number;
+      updated: number;
+      skipped: number;
+      errors: LifeEventImportRowError[];
+    }
+  | { error: string }
+> {
+  try {
+    await getVerifiedUserIdForDataAccess();
+    if (!rows.length) return { error: "No data rows in file" };
+
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+    const errors: LifeEventImportRowError[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]!;
+      if (isBlankLifeEventCsvRow(row)) {
+        skipped++;
+        continue;
+      }
+
+      const parsed = normalizeLifeEventImportRow(row);
+      if (!parsed.ok) {
+        errors.push({ rowNumber: i + 2, message: parsed.error });
+        continue;
+      }
+
+      const { rowId, form } = parsed;
+
+      if (rowId) {
+        const up = await updateLifeEvent(rowId, form);
+        if ("error" in up && up.error) {
+          if (up.error === "Event not found") {
+            const cr = await createLifeEvent(form);
+            if ("error" in cr && cr.error) {
+              errors.push({ rowNumber: i + 2, message: cr.error });
+            } else {
+              created++;
+            }
+          } else {
+            errors.push({ rowNumber: i + 2, message: up.error });
+          }
+        } else {
+          updated++;
+        }
+      } else {
+        const cr = await createLifeEvent(form);
+        if ("error" in cr && cr.error) {
+          errors.push({ rowNumber: i + 2, message: cr.error });
+        } else {
+          created++;
+        }
+      }
+    }
+
+    revalidatePath("/life-events");
+    return { ok: true, created, updated, skipped, errors };
+  } catch (e) {
+    console.error(e);
+    return { error: e instanceof Error ? e.message : "Failed to import life events" };
   }
 }
