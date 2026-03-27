@@ -2,7 +2,7 @@
 
 import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, Download, Eye, Loader2, Pencil, Plus, RefreshCw, Trash2, Upload, X } from "lucide-react";
+import { Download, Eye, Loader2, Pencil, Plus, RefreshCw, Trash2, Upload, X } from "lucide-react";
 import type { LifeEventCategory } from "@prisma/client";
 import type { LifeEventItem } from "../../types/life-event";
 import {
@@ -18,10 +18,12 @@ import {
   formatLifeEventDate,
   getUtcMonthsForEvent,
   groupEventsByYearAndMonth,
+  LIFE_EVENT_CATEGORY_CHART_COLORS,
   LIFE_EVENT_CATEGORY_LABELS,
   LIFE_EVENT_CATEGORY_ORDER,
   matchesLifeEventSearch,
 } from "./life-event-helpers";
+import { MultiselectFilterDropdown, MultiselectFilterRow } from "./components/MultiselectFilterDropdown";
 import { LifeEventsCharts } from "./components/LifeEventsCharts";
 import { DeleteSelectedLifeEventsModal } from "./components/DeleteSelectedLifeEventsModal";
 import { LifeEventDetailModal } from "./components/LifeEventDetailModal";
@@ -61,6 +63,14 @@ const MONTH_OPTIONS = [
   { value: 11, label: "December" },
 ];
 
+/** Small legend dots for month rows (distinct hues). */
+const MONTH_DOT_COLORS = [
+  "#dc2626", "#ea580c", "#ca8a04", "#16a34a", "#0d9488", "#0284c7",
+  "#4f46e5", "#7c3aed", "#c026d3", "#db2777", "#e11d48", "#64748b",
+];
+
+const YEAR_DOT_COLOR = "#64748b";
+
 const categoryBadgeClass: Record<LifeEventCategory, string> = {
   EDUCATION: "bg-indigo-100 text-indigo-800",
   COLLEGE: "bg-violet-100 text-violet-800",
@@ -81,8 +91,8 @@ export default function LifeEventsPageClient() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<LifeEventCategory[]>([]);
-  const [selectedYear, setSelectedYear] = useState<number | "ALL">("ALL");
-  const [selectedMonth, setSelectedMonth] = useState<number | "ALL">("ALL");
+  const [selectedYears, setSelectedYears] = useState<number[]>([]);
+  const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<LifeEventItem | null>(null);
   const [viewingDetail, setViewingDetail] = useState<LifeEventItem | null>(null);
@@ -132,11 +142,11 @@ export default function LifeEventsPageClient() {
     const months = new Set<number>();
     for (const item of items) {
       for (const { year, monthIndex } of getUtcMonthsForEvent(item)) {
-        if (selectedYear === "ALL" || year === selectedYear) months.add(monthIndex);
+        if (selectedYears.length === 0 || selectedYears.includes(year)) months.add(monthIndex);
       }
     }
     return MONTH_OPTIONS.filter((m) => months.has(m.value));
-  }, [items, selectedYear]);
+  }, [items, selectedYears]);
 
   const categoryFilterLabel = useMemo(() => {
     if (selectedCategories.length === 0) return "All categories";
@@ -147,13 +157,29 @@ export default function LifeEventsPageClient() {
     return `${selectedCategories.length} categories selected`;
   }, [selectedCategories]);
 
+  const yearFilterLabel = useMemo(() => {
+    if (selectedYears.length === 0) return "All years";
+    const sorted = [...selectedYears].sort((a, b) => b - a);
+    if (sorted.length === 1) return String(sorted[0]);
+    if (sorted.length === 2) return `${sorted[0]}, ${sorted[1]}`;
+    return `${sorted.length} years selected`;
+  }, [selectedYears]);
+
+  const monthFilterLabel = useMemo(() => {
+    if (selectedMonths.length === 0) return "All months";
+    const labels = MONTH_OPTIONS.filter((m) => selectedMonths.includes(m.value)).map((m) => m.label);
+    if (labels.length === 1) return labels[0]!;
+    if (labels.length === 2) return `${labels[0]}, ${labels[1]}`;
+    return `${selectedMonths.length} months selected`;
+  }, [selectedMonths]);
+
   const hasActiveFilters = useMemo(
     () =>
       searchQuery.trim().length > 0 ||
       selectedCategories.length > 0 ||
-      selectedYear !== "ALL" ||
-      selectedMonth !== "ALL",
-    [searchQuery, selectedCategories, selectedYear, selectedMonth]
+      selectedYears.length > 0 ||
+      selectedMonths.length > 0,
+    [searchQuery, selectedCategories, selectedYears.length, selectedMonths.length]
   );
 
   const filteredItems = useMemo(() => {
@@ -162,11 +188,22 @@ export default function LifeEventsPageClient() {
       if (selectedCategories.length > 0 && !selectedCategories.includes(item.category)) return false;
 
       const eventMonths = getUtcMonthsForEvent(item);
-      if (selectedYear !== "ALL" && !eventMonths.some((m) => m.year === selectedYear)) return false;
-      if (selectedMonth !== "ALL" && !eventMonths.some((m) => m.monthIndex === selectedMonth)) return false;
+      if (selectedYears.length > 0 && selectedMonths.length > 0) {
+        if (
+          !eventMonths.some(
+            (m) => selectedYears.includes(m.year) && selectedMonths.includes(m.monthIndex)
+          )
+        ) {
+          return false;
+        }
+      } else if (selectedYears.length > 0) {
+        if (!eventMonths.some((m) => selectedYears.includes(m.year))) return false;
+      } else if (selectedMonths.length > 0) {
+        if (!eventMonths.some((m) => selectedMonths.includes(m.monthIndex))) return false;
+      }
       return true;
     });
-  }, [items, searchQuery, selectedCategories, selectedYear, selectedMonth]);
+  }, [items, searchQuery, selectedCategories, selectedYears, selectedMonths]);
 
   const grouped = useMemo(() => groupEventsByYearAndMonth(filteredItems), [filteredItems]);
 
@@ -280,11 +317,25 @@ export default function LifeEventsPageClient() {
     );
   }
 
+  function toggleYear(year: number) {
+    setSelectedYears((prev) =>
+      prev.includes(year) ? prev.filter((y) => y !== year) : [...prev, year].sort((a, b) => b - a)
+    );
+  }
+
+  function toggleMonth(monthIndex: number) {
+    setSelectedMonths((prev) =>
+      prev.includes(monthIndex)
+        ? prev.filter((m) => m !== monthIndex)
+        : [...prev, monthIndex].sort((a, b) => a - b)
+    );
+  }
+
   function clearFilters() {
     setSearchQuery("");
     setSelectedCategories([]);
-    setSelectedYear("ALL");
-    setSelectedMonth("ALL");
+    setSelectedYears([]);
+    setSelectedMonths([]);
   }
 
   async function handleFormSubmit(payload: Parameters<typeof createLifeEvent>[0]) {
@@ -558,75 +609,54 @@ export default function LifeEventsPageClient() {
                 className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               />
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">Filter by category</label>
-              <details className="group relative">
-                <summary className="inline-flex w-full cursor-pointer list-none items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm text-gray-900 marker:content-none focus:outline-none focus:ring-1 focus:ring-brand-500 group-open:border-brand-500 [&::-webkit-details-marker]:hidden">
-                  <span className="truncate">{categoryFilterLabel}</span>
-                  <ChevronDown className="h-4 w-4 shrink-0 text-gray-400 transition-transform group-open:rotate-180" />
-                </summary>
-                <div className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-md border border-gray-200 bg-white p-2 shadow-lg">
-                  {LIFE_EVENT_CATEGORY_ORDER.map((c) => {
-                    const checked = selectedCategories.includes(c);
-                    return (
-                      <label
-                        key={c}
-                        className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-                      >
-                        <span>{LIFE_EVENT_CATEGORY_LABELS[c]}</span>
-                        <span className="relative">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleCategory(c)}
-                            className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                          />
-                          {checked ? (
-                            <Check className="pointer-events-none absolute left-0 top-0 h-4 w-4 text-brand-600" />
-                          ) : null}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </details>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">Year</label>
-              <select
-                value={selectedYear === "ALL" ? "ALL" : String(selectedYear)}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setSelectedYear(value === "ALL" ? "ALL" : Number(value));
-                }}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-              >
-                <option value="ALL">All years</option>
-                {availableYears.map((y) => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">Month</label>
-              <select
-                value={selectedMonth === "ALL" ? "ALL" : String(selectedMonth)}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setSelectedMonth(value === "ALL" ? "ALL" : Number(value));
-                }}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-              >
-                <option value="ALL">All months</option>
-                {availableMonths.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <MultiselectFilterDropdown
+              label="Filter by category"
+              summaryText={categoryFilterLabel}
+              onClearFilter={() => setSelectedCategories([])}
+              onSelectAllInList={() => setSelectedCategories([...LIFE_EVENT_CATEGORY_ORDER])}
+            >
+              {LIFE_EVENT_CATEGORY_ORDER.map((c) => (
+                <MultiselectFilterRow
+                  key={c}
+                  checked={selectedCategories.includes(c)}
+                  onToggle={() => toggleCategory(c)}
+                  dotColor={LIFE_EVENT_CATEGORY_CHART_COLORS[c]}
+                  label={LIFE_EVENT_CATEGORY_LABELS[c]}
+                />
+              ))}
+            </MultiselectFilterDropdown>
+            <MultiselectFilterDropdown
+              label="Year"
+              summaryText={yearFilterLabel}
+              onClearFilter={() => setSelectedYears([])}
+              onSelectAllInList={() => setSelectedYears([...availableYears])}
+            >
+              {availableYears.map((y) => (
+                <MultiselectFilterRow
+                  key={y}
+                  checked={selectedYears.includes(y)}
+                  onToggle={() => toggleYear(y)}
+                  dotColor={YEAR_DOT_COLOR}
+                  label={String(y)}
+                />
+              ))}
+            </MultiselectFilterDropdown>
+            <MultiselectFilterDropdown
+              label="Month"
+              summaryText={monthFilterLabel}
+              onClearFilter={() => setSelectedMonths([])}
+              onSelectAllInList={() => setSelectedMonths(availableMonths.map((m) => m.value))}
+            >
+              {availableMonths.map((m) => (
+                <MultiselectFilterRow
+                  key={m.value}
+                  checked={selectedMonths.includes(m.value)}
+                  onToggle={() => toggleMonth(m.value)}
+                  dotColor={MONTH_DOT_COLORS[m.value % MONTH_DOT_COLORS.length]!}
+                  label={m.label}
+                />
+              ))}
+            </MultiselectFilterDropdown>
             <button
               type="button"
               onClick={clearFilters}
