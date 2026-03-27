@@ -27,6 +27,10 @@ const BUBBLE_RADIUS = 13;
 const Y_STEP = 0.045;
 const ESTIMATED_CHART_WIDTH_PX = 720;
 const ESTIMATED_TICK_LABEL_WIDTH_PX = 56;
+const MIN_VIRTUAL_TIMELINE_WIDTH_PX = 960;
+const MAX_VIRTUAL_TIMELINE_WIDTH_PX = 2600;
+const PX_PER_EVENT_FOR_VIRTUAL_WIDTH = 110;
+const TICK_LABEL_MIN_GAP_PX = 72;
 /** Top margin when there are no range bars (year labels only need the default plot padding). */
 const CHART_MARGIN_TOP_NO_GANTT = 32;
 /**
@@ -98,7 +102,7 @@ interface TimelinePoint {
   letter: string;
 }
 
-function buildTimelinePoints(pointItems: LifeEventItem[]): TimelinePoint[] {
+function buildTimelinePoints(pointItems: LifeEventItem[], chartWidthPx: number): TimelinePoint[] {
   if (pointItems.length === 0) return [];
   const sorted = [...pointItems].sort(
     (a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime()
@@ -108,7 +112,7 @@ function buildTimelinePoints(pointItems: LifeEventItem[]): TimelinePoint[] {
   const pad = Math.max(86400000 * 30, (maxX - minX) * 0.05);
   const domainWidth = maxX - minX + 2 * pad;
   const gapMs = Math.max(
-    domainWidth * ((2 * BUBBLE_RADIUS) / ESTIMATED_CHART_WIDTH_PX),
+    domainWidth * ((2 * BUBBLE_RADIUS) / Math.max(chartWidthPx, ESTIMATED_CHART_WIDTH_PX)),
     6 * 3600 * 1000
   );
 
@@ -195,12 +199,21 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
   const ganttHeight =
     rangeEvents.length === 0 ? 0 : (maxRangeLane + 1) * GANTT_ROW + GANTT_PAD;
 
+  const virtualChartWidth = useMemo(
+    () =>
+      Math.max(
+        MIN_VIRTUAL_TIMELINE_WIDTH_PX,
+        Math.min(MAX_VIRTUAL_TIMELINE_WIDTH_PX, items.length * PX_PER_EVENT_FOR_VIRTUAL_WIDTH)
+      ),
+    [items.length]
+  );
+
   const data = useMemo((): TimelinePoint[] => {
-    const built = buildTimelinePoints(pointItems);
+    const built = buildTimelinePoints(pointItems, virtualChartWidth);
     if (built.length > 0) return built;
     if (items.length === 0) return [];
     return [phantomTimelinePoint(getTimelineTimeBounds(items))];
-  }, [pointItems, items]);
+  }, [pointItems, items, virtualChartWidth]);
 
   const tickXs = useMemo(() => {
     const xs = new Set<number>();
@@ -227,7 +240,7 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
 
     const domainWidth = timeBounds.maxX - timeBounds.minX + 2 * xPad;
     const minGapMs = Math.max(
-      domainWidth * (ESTIMATED_TICK_LABEL_WIDTH_PX / ESTIMATED_CHART_WIDTH_PX),
+      domainWidth * (ESTIMATED_TICK_LABEL_WIDTH_PX / Math.max(virtualChartWidth, ESTIMATED_CHART_WIDTH_PX)),
       86400000 * 7
     );
     const laneEnds: number[] = [];
@@ -241,7 +254,7 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
     }
 
     return out;
-  }, [tickXs, timeBounds, xPad]);
+  }, [tickXs, timeBounds, xPad, virtualChartWidth]);
 
   const maxTickLane = useMemo(
     () => Math.max(0, ...Array.from(tickLaneMap.values()), 0),
@@ -328,6 +341,28 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
     }
     return out;
   }, [timeBounds]);
+
+  const axisTickXs = useMemo(() => {
+    if (tickXs.length <= 2) return tickXs;
+    const domainWidth = timeBounds.maxX - timeBounds.minX + 2 * xPad;
+    const minGapMs = Math.max(
+      domainWidth * (TICK_LABEL_MIN_GAP_PX / Math.max(virtualChartWidth, ESTIMATED_CHART_WIDTH_PX)),
+      86400000 * 10
+    );
+    const out: number[] = [];
+    let last = Number.NEGATIVE_INFINITY;
+    for (let i = 0; i < tickXs.length; i++) {
+      const x = tickXs[i]!;
+      const isFirst = i === 0;
+      const isLast = i === tickXs.length - 1;
+      if (isFirst || isLast || x - last >= minGapMs) {
+        out.push(x);
+        last = x;
+      }
+    }
+    if (out[out.length - 1] !== tickXs[tickXs.length - 1]) out.push(tickXs[tickXs.length - 1]!);
+    return out;
+  }, [tickXs, timeBounds, xPad, virtualChartWidth]);
 
   const pointLayerByX = useMemo(() => {
     const map = new Map<number, number>();
@@ -437,7 +472,7 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
 
       return (
         <g>
-          {tickXs.map((xVal) => {
+          {axisTickXs.map((xVal) => {
             const x = left + scale(xVal);
             return (
               <line
@@ -484,7 +519,7 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
     }
 
     return VerticalReferenceLayer;
-  }, [tickXs, yearBoundaryXs]);
+  }, [axisTickXs, yearBoundaryXs]);
 
   if (items.length === 0) {
     return null;
@@ -499,24 +534,25 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
         Single-day events appear as bubbles on the line; date ranges appear as Gantt-style bars above. Overlapping
         bubbles stack upward; axis labels shift down to match.
       </p>
-      <div className="h-[24rem] w-full min-h-[22rem]">
-        <ResponsiveContainer width="100%" height="100%">
-          <ScatterChart margin={chartMargin}>
+      <div className="h-[24rem] w-full min-h-[22rem] overflow-x-auto">
+        <div className="h-full" style={{ minWidth: `${virtualChartWidth}px` }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <ScatterChart margin={chartMargin}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <Customized component={verticalReferenceLayer} />
             <ReferenceLine y={0} stroke="#a78bfa" strokeWidth={2} />
             <Customized component={ganttLayer} />
-            <XAxis
-              type="number"
-              dataKey="x"
-              domain={[minX - xPad, maxX + xPad]}
-              ticks={tickXs}
-              tick={renderEventAxisTick}
-              angle={0}
-              interval={0}
-              height={38 + bottomExtra}
-              stroke="#6b7280"
-            />
+              <XAxis
+                type="number"
+                dataKey="x"
+                domain={[minX - xPad, maxX + xPad]}
+                ticks={axisTickXs}
+                tick={renderEventAxisTick}
+                angle={0}
+                interval={0}
+                height={38 + bottomExtra}
+                stroke="#6b7280"
+              />
             <YAxis type="number" dataKey="y" domain={yDomain} hide />
             <Tooltip
               cursor={{ stroke: "#c4b5fd", strokeWidth: 1 }}
@@ -541,8 +577,9 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
               }}
             />
             <Scatter data={data} fill="transparent" shape={<CustomDot />} isAnimationActive={false} />
-          </ScatterChart>
-        </ResponsiveContainer>
+            </ScatterChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );
