@@ -13,23 +13,13 @@ import {
 import type { LifeEventCategory } from "@prisma/client";
 import type { LifeEventItem } from "../../../types/life-event";
 import { CONTAINER_COLORS } from "../../../config/colorConfig";
-import { LIFE_EVENT_CATEGORY_LABELS, LIFE_EVENT_CATEGORY_ORDER } from "../life-event-helpers";
+import {
+  LIFE_EVENT_CATEGORY_CHART_COLORS,
+  LIFE_EVENT_CATEGORY_LABELS,
+  LIFE_EVENT_CATEGORY_ORDER,
+} from "../life-event-helpers";
 
 const card = `${CONTAINER_COLORS.whiteWithPadding} text-left`;
-
-const CATEGORY_CHART_COLORS: Record<LifeEventCategory, string> = {
-  EDUCATION: "#6366f1",
-  COLLEGE: "#4f46e5",
-  UNIVERSITY: "#7c3aed",
-  SCHOOL: "#8b5cf6",
-  CAREER: "#0ea5e9",
-  TRAVEL: "#14b8a6",
-  PERSONAL: "#a855f7",
-  LEGAL: "#f97316",
-  DOCUMENTS: "#64748b",
-  MARRIAGE: "#ec4899",
-  OTHER: "#94a3b8",
-};
 
 function aggregateByYear(items: LifeEventItem[]): { year: string; count: number }[] {
   const map = new Map<number, number>();
@@ -115,7 +105,7 @@ export function LifeEventsCharts({ items }: LifeEventsChartsProps) {
               />
               <Bar dataKey="count" name="Events" radius={[0, 4, 4, 0]}>
                 {byCategory.map((entry) => (
-                  <Cell key={entry.category} fill={CATEGORY_CHART_COLORS[entry.category]} />
+                  <Cell key={entry.category} fill={LIFE_EVENT_CATEGORY_CHART_COLORS[entry.category]} />
                 ))}
               </Bar>
             </BarChart>

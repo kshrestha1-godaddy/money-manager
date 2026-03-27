@@ -19,6 +19,7 @@ import {
 } from "./life-event-helpers";
 import { LifeEventsCharts } from "./components/LifeEventsCharts";
 import { LifeEventFormModal } from "./components/LifeEventFormModal";
+import { LifeEventsTimelineLineChart } from "./components/LifeEventsTimelineLineChart";
 import {
   BUTTON_COLORS,
   CONTAINER_COLORS,
@@ -59,6 +60,9 @@ export default function LifeEventsPageClient() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<LifeEventItem | null>(null);
   const [notification, setNotification] = useState<NotificationData | null>(null);
+  const [openYearState, setOpenYearState] = useState<Record<number, boolean>>({});
+  const [openMonthState, setOpenMonthState] = useState<Record<string, boolean>>({});
+  const [focusedEventId, setFocusedEventId] = useState<number | null>(null);
 
   const load = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
@@ -96,6 +100,26 @@ export default function LifeEventsPageClient() {
 
   /** Matches `groupEventsByYearAndMonth` (UTC date parts on stored event dates). */
   const timelineCurrentYear = new Date().getUTCFullYear();
+
+  function isYearOpen(year: number): boolean {
+    return openYearState[year] ?? year === timelineCurrentYear;
+  }
+
+  function isMonthOpen(year: number, monthIndex: number): boolean {
+    return openMonthState[`${year}-${monthIndex}`] ?? true;
+  }
+
+  const handleTimelineBubbleSelect = useCallback((item: LifeEventItem) => {
+    const d = new Date(item.eventDate);
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth();
+    setOpenYearState((prev) => ({ ...prev, [y]: true }));
+    setOpenMonthState((prev) => ({ ...prev, [`${y}-${m}`]: true }));
+    setFocusedEventId(item.id);
+    window.setTimeout(() => {
+      document.getElementById(`life-event-${item.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 200);
+  }, []);
 
   async function handleFormSubmit(payload: Parameters<typeof createLifeEvent>[0]) {
     const result = editing
@@ -202,11 +226,14 @@ export default function LifeEventsPageClient() {
         </div>
       </div>
 
-      <div className="mb-8">
+      <div className="mb-8 space-y-4">
         <LifeEventsCharts items={filteredItems} />
+        {filteredItems.length > 0 ? (
+          <LifeEventsTimelineLineChart items={filteredItems} onBubbleSelect={handleTimelineBubbleSelect} />
+        ) : null}
       </div>
 
-      <div className="space-y-4">
+      <div id="life-events-timeline" className="space-y-4">
         <h2 className="text-lg font-semibold text-gray-900">Timeline</h2>
         {grouped.length === 0 ? (
           <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/80 p-8 text-center text-sm text-gray-600">
@@ -219,7 +246,11 @@ export default function LifeEventsPageClient() {
             <details
               key={year}
               className="group rounded-lg border border-gray-200 bg-white shadow-sm"
-              open={year === timelineCurrentYear}
+              open={isYearOpen(year)}
+              onToggle={(e) => {
+                const next = e.currentTarget.open;
+                setOpenYearState((prev) => ({ ...prev, [year]: next }));
+              }}
             >
               <summary className="cursor-pointer list-none px-4 py-3 font-semibold text-gray-900 marker:content-none [&::-webkit-details-marker]:hidden">
                 <span className="inline-flex items-center gap-2">
@@ -232,7 +263,16 @@ export default function LifeEventsPageClient() {
               </summary>
               <div className="border-t border-gray-100 px-2 pb-3 pt-1">
                 {months.map(({ monthLabel, monthIndex, events }) => (
-                  <details key={`${year}-${monthIndex}`} className="mt-2 rounded-md border border-gray-100 bg-gray-50/50" open>
+                  <details
+                    key={`${year}-${monthIndex}`}
+                    className="mt-2 rounded-md border border-gray-100 bg-gray-50/50"
+                    open={isMonthOpen(year, monthIndex)}
+                    onToggle={(e) => {
+                      const k = `${year}-${monthIndex}`;
+                      const nextOpen = e.currentTarget.open;
+                      setOpenMonthState((prev) => ({ ...prev, [k]: nextOpen }));
+                    }}
+                  >
                     <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-gray-800 marker:content-none [&::-webkit-details-marker]:hidden">
                       <span className="inline-flex items-center gap-2">
                         <span className="text-gray-400">▸</span>
@@ -243,8 +283,13 @@ export default function LifeEventsPageClient() {
                     <ul className="space-y-3 border-t border-gray-100 p-3">
                       {events.map((item) => (
                         <li
+                          id={`life-event-${item.id}`}
                           key={item.id}
-                          className="relative rounded-lg border border-gray-200 bg-white p-4 pl-6 shadow-sm before:absolute before:left-2 before:top-4 before:h-[calc(100%-1rem)] before:w-0.5 before:bg-brand-200 before:content-['']"
+                          className={`relative scroll-mt-24 rounded-lg border bg-white p-4 pl-6 shadow-sm before:absolute before:left-2 before:top-4 before:h-[calc(100%-1rem)] before:w-0.5 before:bg-brand-200 before:content-[''] ${
+                            focusedEventId === item.id
+                              ? "border-brand-500 ring-2 ring-brand-400/60 ring-offset-2"
+                              : "border-gray-200"
+                          }`}
                         >
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                             <div className="min-w-0 flex-1">
