@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Check, ChevronDown, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import type { LifeEventCategory } from "@prisma/client";
 import type { LifeEventItem } from "../../types/life-event";
 import {
@@ -12,6 +12,7 @@ import {
 } from "./actions/life-events";
 import {
   formatLifeEventDate,
+  getUtcMonthsForEvent,
   groupEventsByYearAndMonth,
   LIFE_EVENT_CATEGORY_LABELS,
   LIFE_EVENT_CATEGORY_ORDER,
@@ -37,6 +38,20 @@ const loadingText = LOADING_COLORS.text;
 const pageTitle = TEXT_COLORS.title;
 const primaryButton = BUTTON_COLORS.primary;
 const secondaryOutlineButton = BUTTON_COLORS.secondaryBlue;
+const MONTH_OPTIONS = [
+  { value: 0, label: "January" },
+  { value: 1, label: "February" },
+  { value: 2, label: "March" },
+  { value: 3, label: "April" },
+  { value: 4, label: "May" },
+  { value: 5, label: "June" },
+  { value: 6, label: "July" },
+  { value: 7, label: "August" },
+  { value: 8, label: "September" },
+  { value: 9, label: "October" },
+  { value: 10, label: "November" },
+  { value: 11, label: "December" },
+];
 
 const categoryBadgeClass: Record<LifeEventCategory, string> = {
   EDUCATION: "bg-indigo-100 text-indigo-800",
@@ -57,7 +72,9 @@ export default function LifeEventsPageClient() {
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<LifeEventCategory | "ALL">("ALL");
+  const [selectedCategories, setSelectedCategories] = useState<LifeEventCategory[]>([]);
+  const [selectedYear, setSelectedYear] = useState<number | "ALL">("ALL");
+  const [selectedMonth, setSelectedMonth] = useState<number | "ALL">("ALL");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<LifeEventItem | null>(null);
   const [notification, setNotification] = useState<NotificationData | null>(null);
@@ -89,13 +106,53 @@ export default function LifeEventsPageClient() {
     load();
   }, [load]);
 
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    for (const item of items) {
+      for (const { year } of getUtcMonthsForEvent(item)) years.add(year);
+    }
+    return [...years].sort((a, b) => b - a);
+  }, [items]);
+
+  const availableMonths = useMemo(() => {
+    const months = new Set<number>();
+    for (const item of items) {
+      for (const { year, monthIndex } of getUtcMonthsForEvent(item)) {
+        if (selectedYear === "ALL" || year === selectedYear) months.add(monthIndex);
+      }
+    }
+    return MONTH_OPTIONS.filter((m) => months.has(m.value));
+  }, [items, selectedYear]);
+
+  const categoryFilterLabel = useMemo(() => {
+    if (selectedCategories.length === 0) return "All categories";
+    if (selectedCategories.length === 1) return LIFE_EVENT_CATEGORY_LABELS[selectedCategories[0]!];
+    if (selectedCategories.length === 2) {
+      return selectedCategories.map((c) => LIFE_EVENT_CATEGORY_LABELS[c]).join(", ");
+    }
+    return `${selectedCategories.length} categories selected`;
+  }, [selectedCategories]);
+
+  const hasActiveFilters = useMemo(
+    () =>
+      searchQuery.trim().length > 0 ||
+      selectedCategories.length > 0 ||
+      selectedYear !== "ALL" ||
+      selectedMonth !== "ALL",
+    [searchQuery, selectedCategories, selectedYear, selectedMonth]
+  );
+
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       if (!matchesLifeEventSearch(item, searchQuery)) return false;
-      if (categoryFilter !== "ALL" && item.category !== categoryFilter) return false;
+      if (selectedCategories.length > 0 && !selectedCategories.includes(item.category)) return false;
+
+      const eventMonths = getUtcMonthsForEvent(item);
+      if (selectedYear !== "ALL" && !eventMonths.some((m) => m.year === selectedYear)) return false;
+      if (selectedMonth !== "ALL" && !eventMonths.some((m) => m.monthIndex === selectedMonth)) return false;
       return true;
     });
-  }, [items, searchQuery, categoryFilter]);
+  }, [items, searchQuery, selectedCategories, selectedYear, selectedMonth]);
 
   const grouped = useMemo(() => groupEventsByYearAndMonth(filteredItems), [filteredItems]);
 
@@ -111,16 +168,40 @@ export default function LifeEventsPageClient() {
   }
 
   const handleTimelineBubbleSelect = useCallback((item: LifeEventItem) => {
-    const d = new Date(item.eventDate);
-    const y = d.getUTCFullYear();
-    const m = d.getUTCMonth();
-    setOpenYearState((prev) => ({ ...prev, [y]: true }));
-    setOpenMonthState((prev) => ({ ...prev, [`${y}-${m}`]: true }));
+    const start = new Date(item.eventDate);
+    const startYear = start.getUTCFullYear();
+    const startMonth = start.getUTCMonth();
+    const openYears = new Set<number>([startYear]);
+    const openMonthKeys = new Set<string>([`${startYear}-${startMonth}`]);
+
+    if (item.eventEndDate) {
+      const end = new Date(item.eventEndDate);
+      const endYear = end.getUTCFullYear();
+      const endMonth = end.getUTCMonth();
+      openYears.add(endYear);
+      openMonthKeys.add(`${endYear}-${endMonth}`);
+    }
+
+    const nextYears: Record<number, boolean> = {};
+    const nextMonths: Record<string, boolean> = {};
+
+    for (const g of grouped) {
+      nextYears[g.year] = openYears.has(g.year);
+      for (const m of g.months) {
+        const k = `${g.year}-${m.monthIndex}`;
+        nextMonths[k] = openMonthKeys.has(k);
+      }
+    }
+
+    setOpenYearState(nextYears);
+    setOpenMonthState(nextMonths);
     setFocusedEventId(item.id);
     window.setTimeout(() => {
-      document.getElementById(`life-event-${item.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      document
+        .getElementById(`life-event-${item.id}-${startYear}-${startMonth}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 200);
-  }, []);
+  }, [grouped]);
 
   const expandAllTimelineSections = useCallback(() => {
     const nextYears: Record<number, boolean> = {};
@@ -147,6 +228,19 @@ export default function LifeEventsPageClient() {
     setOpenYearState(nextYears);
     setOpenMonthState(nextMonths);
   }, [grouped]);
+
+  function toggleCategory(category: LifeEventCategory) {
+    setSelectedCategories((prev) =>
+      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]
+    );
+  }
+
+  function clearFilters() {
+    setSearchQuery("");
+    setSelectedCategories([]);
+    setSelectedYear("ALL");
+    setSelectedMonth("ALL");
+  }
 
   async function handleFormSubmit(payload: Parameters<typeof createLifeEvent>[0]) {
     const result = editing
@@ -225,34 +319,6 @@ export default function LifeEventsPageClient() {
         </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="relative lg:col-span-2">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search title, notes, location, tags, links, category…"
-            className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500">Category</label>
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value as LifeEventCategory | "ALL")}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-          >
-            <option value="ALL">All categories</option>
-            {LIFE_EVENT_CATEGORY_ORDER.map((c) => (
-              <option key={c} value={c}>
-                {LIFE_EVENT_CATEGORY_LABELS[c]}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
       <div className="mb-8 space-y-4">
         <LifeEventsCharts items={filteredItems} />
         {filteredItems.length > 0 ? (
@@ -282,6 +348,97 @@ export default function LifeEventsPageClient() {
               </button>
             </div>
           ) : null}
+        </div>
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(260px,2fr)_minmax(220px,1.6fr)_minmax(120px,0.8fr)_minmax(140px,0.9fr)_auto] lg:items-end">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Search timeline</label>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by title, description, tags..."
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Filter by category</label>
+              <details className="group relative">
+                <summary className="inline-flex w-full cursor-pointer list-none items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm text-gray-900 marker:content-none focus:outline-none focus:ring-1 focus:ring-brand-500 group-open:border-brand-500 [&::-webkit-details-marker]:hidden">
+                  <span className="truncate">{categoryFilterLabel}</span>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-gray-400 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-md border border-gray-200 bg-white p-2 shadow-lg">
+                  {LIFE_EVENT_CATEGORY_ORDER.map((c) => {
+                    const checked = selectedCategories.includes(c);
+                    return (
+                      <label
+                        key={c}
+                        className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <span>{LIFE_EVENT_CATEGORY_LABELS[c]}</span>
+                        <span className="relative">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleCategory(c)}
+                            className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                          />
+                          {checked ? (
+                            <Check className="pointer-events-none absolute left-0 top-0 h-4 w-4 text-brand-600" />
+                          ) : null}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </details>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Year</label>
+              <select
+                value={selectedYear === "ALL" ? "ALL" : String(selectedYear)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSelectedYear(value === "ALL" ? "ALL" : Number(value));
+                }}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              >
+                <option value="ALL">All years</option>
+                {availableYears.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Month</label>
+              <select
+                value={selectedMonth === "ALL" ? "ALL" : String(selectedMonth)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSelectedMonth(value === "ALL" ? "ALL" : Number(value));
+                }}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              >
+                <option value="ALL">All months</option>
+                {availableMonths.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={clearFilters}
+              disabled={!hasActiveFilters}
+              className={`${secondaryOutlineButton} inline-flex h-9 items-center gap-1.5 whitespace-nowrap px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50`}
+            >
+              Clear filters
+            </button>
+          </div>
         </div>
         {grouped.length === 0 ? (
           <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/80 p-8 text-center text-sm text-gray-600">
@@ -340,7 +497,7 @@ export default function LifeEventsPageClient() {
                     <ul className="space-y-3 border-t border-gray-100 p-3">
                       {events.map((item) => (
                         <li
-                          id={`life-event-${item.id}`}
+                          id={`life-event-${item.id}-${year}-${monthIndex}`}
                           key={`${item.id}-${year}-${monthIndex}`}
                           className={`relative scroll-mt-24 rounded-lg border bg-white p-4 pl-6 shadow-sm before:absolute before:left-2 before:top-4 before:h-[calc(100%-1rem)] before:w-0.5 before:bg-brand-200 before:content-[''] ${
                             focusedEventId === item.id

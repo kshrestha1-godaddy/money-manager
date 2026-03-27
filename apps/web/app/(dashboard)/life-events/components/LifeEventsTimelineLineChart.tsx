@@ -257,9 +257,10 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
           : YEAR_LABEL_BAND_PX + GANTT_TOP_INSET_PX + ganttHeight + GANTT_TO_PLOT_GAP_PX,
       right: 12,
       left: 8,
-      bottom: 42 + bottomExtra,
+      // Keep bottom margin stable; dynamic stacking is already handled by XAxis height.
+      bottom: 32,
     }),
-    [bottomExtra, ganttHeight, rangeEvents.length]
+    [ganttHeight, rangeEvents.length]
   );
 
   const yDomain = useMemo((): [number, number] => {
