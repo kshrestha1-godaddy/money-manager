@@ -179,6 +179,28 @@ export async function deleteLifeEvents(
   }
 }
 
+/** Same value as app screen lock (`NEXT_PUBLIC_APP_ENTRY_PASSWORD`, default in dev). */
+function getAppEntryPassword(): string {
+  return process.env.NEXT_PUBLIC_APP_ENTRY_PASSWORD || "moneymanager";
+}
+
+export async function deleteLifeEventsWithPassword(
+  ids: number[],
+  screenLockPassword: string
+): Promise<{ ok: true; deleted: number } | { error: string }> {
+  try {
+    const expected = getAppEntryPassword();
+    const input = screenLockPassword.trim();
+    if (input !== expected) {
+      return { error: "Incorrect screen lock password" };
+    }
+    return deleteLifeEvents(ids);
+  } catch (e) {
+    console.error(e);
+    return { error: e instanceof Error ? e.message : "Failed to delete life events" };
+  }
+}
+
 const LIFE_EVENT_CATEGORY_SET = new Set<string>(Object.values(LifeEventCategory));
 
 function isLifeEventCategory(value: string): value is LifeEventCategory {

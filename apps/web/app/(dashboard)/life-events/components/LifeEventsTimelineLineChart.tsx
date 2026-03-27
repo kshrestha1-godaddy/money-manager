@@ -71,6 +71,19 @@ function formatTickDateUtc(ts: number): string {
   );
 }
 
+/** One x-axis candidate per UTC month: the latest range endpoint (start or end) that falls in that month. */
+function collapseToLatestPerUtcMonth(timestamps: number[]): number[] {
+  if (timestamps.length === 0) return [];
+  const byMonth = new Map<string, number>();
+  for (const ts of timestamps) {
+    const d = new Date(ts);
+    const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
+    const prev = byMonth.get(key);
+    if (prev === undefined || ts > prev) byMonth.set(key, ts);
+  }
+  return [...byMonth.values()].sort((a, b) => a - b);
+}
+
 function getTimelineTimeBounds(items: LifeEventItem[]): { minX: number; maxX: number } {
   let minT = Infinity;
   let maxT = -Infinity;
@@ -240,17 +253,16 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
     return [phantomTimelinePoint(getTimelineTimeBounds(items))];
   }, [pointItems, items, virtualChartWidth]);
 
+  /** X-axis date labels only for range (Gantt) events—single-day bubbles never get axis ticks. */
   const tickXs = useMemo(() => {
     const xs = new Set<number>();
-    for (const d of data) {
-      if (d.item.id !== PHANTOM_POINT_ID) xs.add(d.x);
-    }
     for (const r of rangeEvents) {
       xs.add(new Date(r.eventDate).getTime());
       xs.add(new Date(r.eventEndDate!).getTime());
     }
-    return [...xs].sort((a, b) => a - b);
-  }, [data, rangeEvents]);
+    const sorted = [...xs].sort((a, b) => a - b);
+    return collapseToLatestPerUtcMonth(sorted);
+  }, [rangeEvents]);
 
   const maxLayer = useMemo(() => Math.max(0, ...data.map((d) => d.layer)), [data]);
 
@@ -339,6 +351,7 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
     return out;
   }, [timeBounds]);
 
+  /** After one label per UTC month (range endpoints only), thin further if many months would crowd the axis. */
   const axisTickXs = useMemo(() => {
     if (tickXs.length <= 2) return tickXs;
     const domainWidth = timeBounds.maxX - timeBounds.minX + 2 * xPad;
@@ -360,6 +373,13 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
     if (out[out.length - 1] !== tickXs[tickXs.length - 1]) out.push(tickXs[tickXs.length - 1]!);
     return out;
   }, [tickXs, timeBounds, xPad, virtualChartWidth]);
+
+  /** When there are no range-based axis labels, keep domain ticks so the axis still lays out (no visible labels). */
+  const xAxisTicksForDomain = useMemo(() => {
+    if (axisTickXs.length > 0) return axisTickXs;
+    const { minX: lo, maxX: hi } = timeBounds;
+    return [lo - xPad, hi + xPad];
+  }, [axisTickXs, timeBounds, xPad]);
 
   const renderEventAxisTick = useCallback(
     (props: { x?: number; y?: number; payload?: { value?: number } | number }) => {
@@ -534,7 +554,8 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
       <h3 className="mb-1 text-sm font-semibold text-gray-900">Events over time</h3>
       <p className="mb-3 text-xs text-gray-500">
         Single-day events appear as bubbles on the line; date ranges appear as Gantt-style bars above. Overlapping
-        bubbles stack upward. Close dates on the axis may be thinned to keep labels readable.
+        bubbles stack upward. Dates on the bottom axis apply only to range events (commence/end); single-day events
+        use tooltips and the timeline list for exact dates.
       </p>
       <div className="h-[24rem] w-full min-h-[22rem] overflow-x-auto">
         <div className="h-full" style={{ minWidth: `${virtualChartWidth}px` }}>
@@ -548,11 +569,12 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
                 type="number"
                 dataKey="x"
                 domain={[minX - xPad, maxX + xPad]}
-                ticks={axisTickXs}
-                tick={renderEventAxisTick}
+                ticks={xAxisTicksForDomain}
+                tick={axisTickXs.length > 0 ? renderEventAxisTick : false}
+                tickLine={axisTickXs.length > 0}
                 angle={0}
                 interval={0}
-                height={X_AXIS_HEIGHT}
+                height={axisTickXs.length > 0 ? X_AXIS_HEIGHT : 12}
                 stroke="#6b7280"
               />
             <YAxis type="number" dataKey="y" domain={yDomain} hide />

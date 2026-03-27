@@ -8,9 +8,10 @@ import type { LifeEventItem } from "../../types/life-event";
 import {
   createLifeEvent,
   deleteLifeEvent,
-  deleteLifeEvents,
+  deleteLifeEventsWithPassword,
   getLifeEvents,
   importLifeEvents,
+  type LifeEventImportRowError,
   updateLifeEvent,
 } from "./actions/life-events";
 import {
@@ -22,6 +23,7 @@ import {
   matchesLifeEventSearch,
 } from "./life-event-helpers";
 import { LifeEventsCharts } from "./components/LifeEventsCharts";
+import { DeleteSelectedLifeEventsModal } from "./components/DeleteSelectedLifeEventsModal";
 import { LifeEventDetailModal } from "./components/LifeEventDetailModal";
 import { LifeEventFormModal } from "./components/LifeEventFormModal";
 import { LifeEventsSummarySection } from "./components/LifeEventsSummarySection";
@@ -90,6 +92,8 @@ export default function LifeEventsPageClient() {
   const [focusedEventId, setFocusedEventId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
   const [isImporting, setIsImporting] = useState(false);
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
+  const [bulkDeleteIds, setBulkDeleteIds] = useState<number[]>([]);
   const importFileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async (options?: { silent?: boolean }) => {
@@ -168,6 +172,13 @@ export default function LifeEventsPageClient() {
 
   const visibleIds = useMemo(() => filteredItems.map((i) => i.id), [filteredItems]);
 
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+
+  const selectAllVisible = useCallback(() => {
+    setSelectedIds(new Set(visibleIds));
+  }, [visibleIds]);
+
   useEffect(() => {
     const visible = new Set(filteredItems.map((i) => i.id));
     setSelectedIds((prev) => {
@@ -176,21 +187,6 @@ export default function LifeEventsPageClient() {
       return next;
     });
   }, [filteredItems]);
-
-  const allVisibleSelected =
-    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
-
-  const toggleSelectAllVisible = useCallback(() => {
-    setSelectedIds((prev) => {
-      const everyVisible = visibleIds.length > 0 && visibleIds.every((id) => prev.has(id));
-      if (everyVisible) {
-        const next = new Set(prev);
-        visibleIds.forEach((id) => next.delete(id));
-        return next;
-      }
-      return new Set([...prev, ...visibleIds]);
-    });
-  }, [visibleIds]);
 
   const toggleRowSelection = useCallback((id: number) => {
     setSelectedIds((prev) => {
@@ -322,15 +318,19 @@ export default function LifeEventsPageClient() {
     await load({ silent: true });
   }
 
-  async function handleBulkDelete() {
+  function openBulkDeleteModal() {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
-    if (!confirm(`Delete ${ids.length} life event(s)? This cannot be undone.`)) return;
-    const result = await deleteLifeEvents(ids);
-    if ("error" in result && result.error) {
-      setNotification({ title: "Error", message: result.error, type: "error" });
-      return;
+    setBulkDeleteIds(ids);
+    setBulkDeleteModalOpen(true);
+  }
+
+  async function handleBulkDeleteConfirm(screenLockPassword: string) {
+    const result = await deleteLifeEventsWithPassword(bulkDeleteIds, screenLockPassword);
+    if ("error" in result) {
+      throw new Error(result.error);
     }
+    const ids = bulkDeleteIds;
     setSelectedIds(new Set());
     setFocusedEventId((prev) => (prev != null && ids.includes(prev) ? null : prev));
     setNotification({
@@ -402,7 +402,7 @@ export default function LifeEventsPageClient() {
       }
 
       const result = await importLifeEvents(parsed.rows);
-      if ("error" in result && result.error) {
+      if ("error" in result) {
         setNotification({
           title: "Import failed",
           message: result.error,
@@ -418,7 +418,7 @@ export default function LifeEventsPageClient() {
       if (errors.length > 0) {
         const sample = errors
           .slice(0, 3)
-          .map((e) => `Row ${e.rowNumber}: ${e.message}`)
+          .map((row: LifeEventImportRowError) => `Row ${row.rowNumber}: ${row.message}`)
           .join("; ");
         message += ` ${errors.length} row(s) failed${errors.length > 3 ? " (showing first 3)" : ""}: ${sample}${errors.length > 3 ? "…" : ""}`;
       }
@@ -430,7 +430,7 @@ export default function LifeEventsPageClient() {
         duration: errors.length > 0 ? 12_000 : 5000,
       });
       await load({ silent: true });
-    } catch (e) {
+    } catch (e: unknown) {
       console.error(e);
       setNotification({
         title: "Import failed",
@@ -528,35 +528,7 @@ export default function LifeEventsPageClient() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-semibold text-gray-900">Timeline</h2>
           {grouped.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-2">
-              {visibleIds.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={toggleSelectAllVisible}
-                  className={`${secondaryOutlineButton} inline-flex items-center gap-1.5 text-sm`}
-                >
-                  {allVisibleSelected ? "Deselect visible" : "Select all visible"}
-                </button>
-              ) : null}
-              {selectedIds.size > 0 ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={clearSelection}
-                    className={`${secondaryOutlineButton} inline-flex items-center gap-1.5 text-sm`}
-                  >
-                    Clear selection
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleBulkDelete()}
-                    className={`${dangerButton} inline-flex items-center gap-1.5 text-sm`}
-                  >
-                    <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
-                    Delete selected ({selectedIds.size})
-                  </button>
-                </>
-              ) : null}
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={expandAllTimelineSections}
@@ -665,6 +637,39 @@ export default function LifeEventsPageClient() {
             </button>
           </div>
         </div>
+        {items.length > 0 ? (
+          <div className="flex flex-wrap justify-end gap-2">
+            {visibleIds.length > 0 ? (
+              <button
+                type="button"
+                onClick={selectAllVisible}
+                disabled={allVisibleSelected}
+                className={`${secondaryOutlineButton} inline-flex items-center gap-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-50`}
+              >
+                Select all
+              </button>
+            ) : null}
+            {selectedIds.size > 0 ? (
+              <>
+                <button
+                  type="button"
+                  onClick={clearSelection}
+                  className={`${secondaryOutlineButton} inline-flex items-center gap-1.5 text-sm`}
+                >
+                  Clear selection
+                </button>
+                <button
+                  type="button"
+                  onClick={openBulkDeleteModal}
+                  className={`${dangerButton} inline-flex items-center gap-1.5 text-sm`}
+                >
+                  <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
+                  Delete selected ({selectedIds.size})
+                </button>
+              </>
+            ) : null}
+          </div>
+        ) : null}
         {grouped.length === 0 ? (
           <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/80 p-8 text-center text-sm text-gray-600">
             {items.length === 0
@@ -846,6 +851,13 @@ export default function LifeEventsPageClient() {
         isOpen={viewingDetail != null}
         onClose={() => setViewingDetail(null)}
         onEdit={handleEditFromDetail}
+      />
+
+      <DeleteSelectedLifeEventsModal
+        isOpen={bulkDeleteModalOpen}
+        onClose={() => setBulkDeleteModalOpen(false)}
+        selectedCount={bulkDeleteIds.length}
+        onConfirm={handleBulkDeleteConfirm}
       />
 
       <LifeEventFormModal
