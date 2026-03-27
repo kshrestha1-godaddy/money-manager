@@ -239,13 +239,15 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   
   const filteredItems = useMemo(() => {
     return items.filter(item => {
-      // Search term filtering
-      const matchesSearch = !searchTerm || 
-        item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.tags && item.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())));
+      const q = searchTerm.toLowerCase();
+      // Search term filtering (includes location strings from expense/income rows)
+      const matchesSearch = !searchTerm ||
+        item.title.toLowerCase().includes(q) ||
+        item.description?.toLowerCase().includes(q) ||
+        item.notes?.toLowerCase().includes(q) ||
+        item.category.name.toLowerCase().includes(q) ||
+        (item.tags && item.tags.some((tag) => tag.toLowerCase().includes(q))) ||
+        (item.location?.some((loc) => loc.toLowerCase().includes(q)) ?? false);
                           
       // Category filtering (empty = all categories)
       const matchesCategory =

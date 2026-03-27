@@ -47,6 +47,7 @@ function mapExpenseToTransaction(
         description: expense.description || undefined,
         notes: expense.notes || undefined,
         tags: expense.tags,
+        location: expense.location ?? undefined,
         isBookmarked: bookmarkMap.get(`expense-${expense.id}`) || false,
     };
 }
@@ -67,6 +68,7 @@ function mapIncomeToTransaction(
         description: income.description || undefined,
         notes: income.notes || undefined,
         tags: income.tags,
+        location: income.location ?? undefined,
         isBookmarked: bookmarkMap.get(`income-${income.id}`) || false,
     };
 }

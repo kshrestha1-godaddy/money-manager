@@ -112,13 +112,15 @@ export default function TransactionsPage() {
 
     // Filter transactions
     const filteredTransactions = transactions.filter(transaction => {
-        const matchesSearch = 
-            transaction.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            transaction.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            transaction.account.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (transaction.description && transaction.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (transaction.notes && transaction.notes.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (transaction.tags && transaction.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())));
+        const q = searchTerm.toLowerCase();
+        const matchesSearch =
+            transaction.title.toLowerCase().includes(q) ||
+            transaction.category.toLowerCase().includes(q) ||
+            transaction.account.toLowerCase().includes(q) ||
+            (transaction.description && transaction.description.toLowerCase().includes(q)) ||
+            (transaction.notes && transaction.notes.toLowerCase().includes(q)) ||
+            (transaction.tags && transaction.tags.some((tag) => tag.toLowerCase().includes(q))) ||
+            (transaction.location?.some((loc) => loc.toLowerCase().includes(q)) ?? false);
         
         const matchesType = selectedType === "ALL" || transaction.type === selectedType;
         

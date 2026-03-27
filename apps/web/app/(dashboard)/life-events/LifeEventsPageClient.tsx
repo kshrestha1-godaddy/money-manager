@@ -121,6 +121,32 @@ export default function LifeEventsPageClient() {
     }, 200);
   }, []);
 
+  const expandAllTimelineSections = useCallback(() => {
+    const nextYears: Record<number, boolean> = {};
+    const nextMonths: Record<string, boolean> = {};
+    for (const g of grouped) {
+      nextYears[g.year] = true;
+      for (const m of g.months) {
+        nextMonths[`${g.year}-${m.monthIndex}`] = true;
+      }
+    }
+    setOpenYearState(nextYears);
+    setOpenMonthState(nextMonths);
+  }, [grouped]);
+
+  const collapseAllTimelineSections = useCallback(() => {
+    const nextYears: Record<number, boolean> = {};
+    const nextMonths: Record<string, boolean> = {};
+    for (const g of grouped) {
+      nextYears[g.year] = false;
+      for (const m of g.months) {
+        nextMonths[`${g.year}-${m.monthIndex}`] = false;
+      }
+    }
+    setOpenYearState(nextYears);
+    setOpenMonthState(nextMonths);
+  }, [grouped]);
+
   async function handleFormSubmit(payload: Parameters<typeof createLifeEvent>[0]) {
     const result = editing
       ? await updateLifeEvent(editing.id, payload)
@@ -234,7 +260,27 @@ export default function LifeEventsPageClient() {
       </div>
 
       <div id="life-events-timeline" className="space-y-4">
-        <h2 className="text-lg font-semibold text-gray-900">Timeline</h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">Timeline</h2>
+          {grouped.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={expandAllTimelineSections}
+                className={`${secondaryOutlineButton} inline-flex items-center gap-1.5 text-sm`}
+              >
+                Expand all
+              </button>
+              <button
+                type="button"
+                onClick={collapseAllTimelineSections}
+                className={`${secondaryOutlineButton} inline-flex items-center gap-1.5 text-sm`}
+              >
+                Collapse all
+              </button>
+            </div>
+          ) : null}
+        </div>
         {grouped.length === 0 ? (
           <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/80 p-8 text-center text-sm text-gray-600">
             {items.length === 0
