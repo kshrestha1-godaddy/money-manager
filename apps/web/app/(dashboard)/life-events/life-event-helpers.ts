@@ -8,30 +8,49 @@ export const LIFE_EVENT_CATEGORY_LABELS: Record<LifeEventCategory, string> = {
   TRAVEL: "Travel",
   PERSONAL: "Personal",
   LEGAL: "Legal",
+  DOCUMENTS: "Documents",
+  COLLEGE: "College",
+  UNIVERSITY: "University",
+  SCHOOL: "School",
+  MARRIAGE: "Marriage",
   OTHER: "Other",
 };
 
 export const LIFE_EVENT_CATEGORY_ORDER: LifeEventCategory[] = [
   "EDUCATION",
+  "COLLEGE",
+  "UNIVERSITY",
+  "SCHOOL",
   "CAREER",
   "TRAVEL",
   "PERSONAL",
   "LEGAL",
+  "DOCUMENTS",
+  "MARRIAGE",
   "OTHER",
 ];
 
 export function matchesLifeEventSearch(item: LifeEventItem, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
+
+  const linkRaw = (item.externalLink ?? "").trim();
+  const linkLower = linkRaw.toLowerCase();
+  const linkForSearch = linkLower.replace(/^https?:\/\//, "").replace(/^www\./, "");
+
   const hay = [
     item.title,
     item.description ?? "",
     item.location ?? "",
     item.category,
+    LIFE_EVENT_CATEGORY_LABELS[item.category],
     ...item.tags,
+    linkLower,
+    linkForSearch,
   ]
     .join(" ")
     .toLowerCase();
+
   return hay.includes(q);
 }
 

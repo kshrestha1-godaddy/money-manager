@@ -38,10 +38,15 @@ const secondaryOutlineButton = BUTTON_COLORS.secondaryBlue;
 
 const categoryBadgeClass: Record<LifeEventCategory, string> = {
   EDUCATION: "bg-indigo-100 text-indigo-800",
+  COLLEGE: "bg-violet-100 text-violet-800",
+  UNIVERSITY: "bg-purple-100 text-purple-800",
+  SCHOOL: "bg-fuchsia-100 text-fuchsia-800",
   CAREER: "bg-sky-100 text-sky-800",
   TRAVEL: "bg-teal-100 text-teal-800",
-  PERSONAL: "bg-purple-100 text-purple-800",
+  PERSONAL: "bg-rose-100 text-rose-800",
   LEGAL: "bg-orange-100 text-orange-800",
+  DOCUMENTS: "bg-slate-200 text-slate-800",
+  MARRIAGE: "bg-pink-100 text-pink-800",
   OTHER: "bg-slate-100 text-slate-700",
 };
 
@@ -173,7 +178,7 @@ export default function LifeEventsPageClient() {
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search title, notes, location, tags, category…"
+            placeholder="Search title, notes, location, tags, links, category…"
             className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
           />
         </div>
