@@ -19,6 +19,7 @@ import {
 } from "./life-event-helpers";
 import { LifeEventsCharts } from "./components/LifeEventsCharts";
 import { LifeEventFormModal } from "./components/LifeEventFormModal";
+import { LifeEventsSummarySection } from "./components/LifeEventsSummarySection";
 import { LifeEventsTimelineLineChart } from "./components/LifeEventsTimelineLineChart";
 import {
   BUTTON_COLORS,
@@ -257,6 +258,7 @@ export default function LifeEventsPageClient() {
         {filteredItems.length > 0 ? (
           <LifeEventsTimelineLineChart items={filteredItems} onBubbleSelect={handleTimelineBubbleSelect} />
         ) : null}
+        <LifeEventsSummarySection items={filteredItems} />
       </div>
 
       <div id="life-events-timeline" className="space-y-4">
@@ -295,7 +297,11 @@ export default function LifeEventsPageClient() {
               open={isYearOpen(year)}
               onToggle={(e) => {
                 const next = e.currentTarget.open;
-                setOpenYearState((prev) => ({ ...prev, [year]: next }));
+                setOpenYearState((prev) => {
+                  const prevOpen = prev[year] ?? year === timelineCurrentYear;
+                  if (prevOpen === next) return prev;
+                  return { ...prev, [year]: next };
+                });
               }}
             >
               <summary className="cursor-pointer list-none px-4 py-3 font-semibold text-gray-900 marker:content-none [&::-webkit-details-marker]:hidden">
@@ -307,6 +313,7 @@ export default function LifeEventsPageClient() {
                   </span>
                 </span>
               </summary>
+              {isYearOpen(year) ? (
               <div className="border-t border-gray-100 px-2 pb-3 pt-1">
                 {months.map(({ monthLabel, monthIndex, events }) => (
                   <details
@@ -316,7 +323,11 @@ export default function LifeEventsPageClient() {
                     onToggle={(e) => {
                       const k = `${year}-${monthIndex}`;
                       const nextOpen = e.currentTarget.open;
-                      setOpenMonthState((prev) => ({ ...prev, [k]: nextOpen }));
+                      setOpenMonthState((prev) => {
+                        const prevOpen = prev[k] ?? true;
+                        if (prevOpen === nextOpen) return prev;
+                        return { ...prev, [k]: nextOpen };
+                      });
                     }}
                   >
                     <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-gray-800 marker:content-none [&::-webkit-details-marker]:hidden">
@@ -330,7 +341,7 @@ export default function LifeEventsPageClient() {
                       {events.map((item) => (
                         <li
                           id={`life-event-${item.id}`}
-                          key={item.id}
+                          key={`${item.id}-${year}-${monthIndex}`}
                           className={`relative scroll-mt-24 rounded-lg border bg-white p-4 pl-6 shadow-sm before:absolute before:left-2 before:top-4 before:h-[calc(100%-1rem)] before:w-0.5 before:bg-brand-200 before:content-[''] ${
                             focusedEventId === item.id
                               ? "border-brand-500 ring-2 ring-brand-400/60 ring-offset-2"
@@ -339,9 +350,26 @@ export default function LifeEventsPageClient() {
                         >
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                             <div className="min-w-0 flex-1">
-                              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                                {formatLifeEventDate(item.eventDate)}
-                              </p>
+                              {item.eventEndDate ? (
+                                <div className="space-y-1 text-xs font-medium text-gray-500">
+                                  <p>
+                                    <span className="text-gray-600">Commence:</span>{" "}
+                                    <span className="uppercase tracking-wide">
+                                      {formatLifeEventDate(item.eventDate)}
+                                    </span>
+                                  </p>
+                                  <p>
+                                    <span className="text-gray-600">End:</span>{" "}
+                                    <span className="uppercase tracking-wide">
+                                      {formatLifeEventDate(item.eventEndDate)}
+                                    </span>
+                                  </p>
+                                </div>
+                              ) : (
+                                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                                  {formatLifeEventDate(item.eventDate)}
+                                </p>
+                              )}
                               <h3 className="mt-1 text-base font-semibold text-gray-900">{item.title}</h3>
                               <span
                                 className={`mt-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${categoryBadgeClass[item.category]}`}
@@ -405,6 +433,7 @@ export default function LifeEventsPageClient() {
                   </details>
                 ))}
               </div>
+              ) : null}
             </details>
           ))
         )}

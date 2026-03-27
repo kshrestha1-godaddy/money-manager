@@ -153,12 +153,28 @@ function createCategoryBarShape(totalEvents: number) {
 }
 
 function aggregateByYear(items: LifeEventItem[]): { year: string; count: number }[] {
-  const map = new Map<number, number>();
-  for (const item of items) {
-    const y = new Date(item.eventDate).getUTCFullYear();
-    map.set(y, (map.get(y) ?? 0) + 1);
+  const yearCounts = new Map<number, number>();
+
+  function addYear(year: number, amount: number) {
+    yearCounts.set(year, (yearCounts.get(year) ?? 0) + amount);
   }
-  return [...map.entries()]
+
+  for (const item of items) {
+    if (item.eventEndDate) {
+      const startYear = new Date(item.eventDate).getUTCFullYear();
+      const endYear = new Date(item.eventEndDate).getUTCFullYear();
+      if (startYear === endYear) {
+        addYear(startYear, 2);
+      } else {
+        addYear(startYear, 1);
+        addYear(endYear, 1);
+      }
+    } else {
+      addYear(new Date(item.eventDate).getUTCFullYear(), 1);
+    }
+  }
+
+  return [...yearCounts.entries()]
     .sort((a, b) => a[0] - b[0])
     .map(([year, count]) => ({ year: String(year), count }));
 }
@@ -167,7 +183,8 @@ function aggregateByCategory(items: LifeEventItem[]): { name: string; category: 
   const map = new Map<LifeEventCategory, number>();
   for (const c of LIFE_EVENT_CATEGORY_ORDER) map.set(c, 0);
   for (const item of items) {
-    map.set(item.category, (map.get(item.category) ?? 0) + 1);
+    const delta = item.eventEndDate ? 2 : 1;
+    map.set(item.category, (map.get(item.category) ?? 0) + delta);
   }
   return LIFE_EVENT_CATEGORY_ORDER.map((category) => ({
     category,
@@ -183,7 +200,7 @@ interface LifeEventsChartsProps {
 export function LifeEventsCharts({ items }: LifeEventsChartsProps) {
   const byYear = aggregateByYear(items);
   const byCategory = aggregateByCategory(items);
-  const totalEvents = items.length;
+  const totalEvents = items.reduce((sum, item) => sum + (item.eventEndDate ? 2 : 1), 0);
 
   const yearBarShape = useMemo(
     () => createYearBarShape(totalEvents),
@@ -207,7 +224,8 @@ export function LifeEventsCharts({ items }: LifeEventsChartsProps) {
       <div className={card}>
         <h3 className="mb-1 text-sm font-semibold text-gray-900">Events per year</h3>
         <p className="mb-3 text-xs text-gray-500">
-          Share of all events (%) inside each bar when space allows.
+          Counts event points per calendar year: single-day events count once; range events count as two points
+          (start + end only). % is share of all points.
         </p>
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
@@ -234,7 +252,8 @@ export function LifeEventsCharts({ items }: LifeEventsChartsProps) {
       <div className={card}>
         <h3 className="mb-1 text-sm font-semibold text-gray-900">Events by category</h3>
         <p className="mb-3 text-xs text-gray-500">
-          Count and % of all events—inside each bar (right-aligned), hidden if the bar is too narrow.
+          Count and % of all event points (single-day=1, range start+end=2), inside each bar (right-aligned), hidden
+          if the bar is too narrow.
         </p>
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">

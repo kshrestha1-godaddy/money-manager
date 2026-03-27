@@ -1193,6 +1193,8 @@ enum LifeEventCategory {
 model LifeEvent {
   id           Int               @id @default(autoincrement())
   eventDate    DateTime
+  /// When set, event spans [eventDate, eventEndDate] inclusive (UTC). When null, single-day event.
+  eventEndDate DateTime?
   title        String
   description  String?           @db.Text
   location     String?

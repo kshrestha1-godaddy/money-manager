@@ -16,6 +16,7 @@ interface LifeEventFormModalProps {
   onSubmit: (payload: {
     title: string;
     eventDate: string;
+    eventEndDate: string;
     description: string;
     location: string;
     category: LifeEventCategory;
@@ -27,6 +28,7 @@ interface LifeEventFormModalProps {
 const emptyForm = () => ({
   title: "",
   eventDate: "",
+  eventEndDate: "",
   description: "",
   location: "",
   category: "OTHER" as LifeEventCategory,
@@ -46,6 +48,7 @@ export function LifeEventFormModal({ isOpen, onClose, editing, onSubmit }: LifeE
       setForm({
         title: editing.title,
         eventDate: dateInputFromEventDate(editing.eventDate),
+        eventEndDate: editing.eventEndDate ? dateInputFromEventDate(editing.eventEndDate) : "",
         description: editing.description ?? "",
         location: editing.location ?? "",
         category: editing.category,
@@ -57,7 +60,7 @@ export function LifeEventFormModal({ isOpen, onClose, editing, onSubmit }: LifeE
       const y = today.getFullYear();
       const m = String(today.getMonth() + 1).padStart(2, "0");
       const d = String(today.getDate()).padStart(2, "0");
-      setForm({ ...emptyForm(), eventDate: `${y}-${m}-${d}` });
+      setForm({ ...emptyForm(), eventDate: `${y}-${m}-${d}`, eventEndDate: "" });
     }
   }, [isOpen, editing]);
 
@@ -106,15 +109,28 @@ export function LifeEventFormModal({ isOpen, onClose, editing, onSubmit }: LifeE
             />
           </div>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Date</label>
-            <input
-              required
-              type="date"
-              value={form.eventDate}
-              onChange={(e) => setForm((f) => ({ ...f, eventDate: e.target.value }))}
-              className="w-full rounded-lg border border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 focus:border-brand-500 focus:ring-brand-500"
-            />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Start date</label>
+              <input
+                required
+                type="date"
+                value={form.eventDate}
+                onChange={(e) => setForm((f) => ({ ...f, eventDate: e.target.value }))}
+                className="w-full rounded-lg border border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 focus:border-brand-500 focus:ring-brand-500"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">End date (optional)</label>
+              <input
+                type="date"
+                value={form.eventEndDate}
+                min={form.eventDate || undefined}
+                onChange={(e) => setForm((f) => ({ ...f, eventEndDate: e.target.value }))}
+                className="w-full rounded-lg border border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 focus:border-brand-500 focus:ring-brand-500"
+              />
+              <p className="mt-1 text-xs text-gray-500">Leave empty for a single day. Set both for a range (e.g. college years).</p>
+            </div>
           </div>
 
           <div>

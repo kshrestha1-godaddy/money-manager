@@ -10,6 +10,7 @@ import { normalizeExternalLink, parseDateInputToUtcNoon, parseTagsInput } from "
 function mapRow(row: {
   id: number;
   eventDate: Date;
+  eventEndDate: Date | null;
   title: string;
   description: string | null;
   location: string | null;
@@ -22,6 +23,7 @@ function mapRow(row: {
   return {
     id: row.id,
     eventDate: new Date(row.eventDate),
+    eventEndDate: row.eventEndDate ? new Date(row.eventEndDate) : null,
     title: row.title,
     description: row.description,
     location: row.location,
@@ -42,9 +44,16 @@ export async function getLifeEvents(): Promise<LifeEventItem[]> {
   return rows.map(mapRow);
 }
 
+function parseOptionalEndDate(raw: string | undefined): Date | null {
+  const t = raw?.trim();
+  if (!t) return null;
+  return parseDateInputToUtcNoon(t);
+}
+
 export async function createLifeEvent(form: {
   title: string;
   eventDate: string;
+  eventEndDate: string;
   description: string;
   location: string;
   category: LifeEventCategory;
@@ -59,12 +68,18 @@ export async function createLifeEvent(form: {
 
     const tags = parseTagsInput(form.tags);
     const externalLink = normalizeExternalLink(form.externalLink);
+    const start = parseDateInputToUtcNoon(form.eventDate.trim());
+    const end = parseOptionalEndDate(form.eventEndDate);
+    if (end && end.getTime() < start.getTime()) {
+      return { error: "End date must be on or after the start date" };
+    }
 
     await prisma.lifeEvent.create({
       data: {
         userId,
         title,
-        eventDate: parseDateInputToUtcNoon(form.eventDate.trim()),
+        eventDate: start,
+        eventEndDate: end,
         description: form.description.trim() || null,
         location: form.location.trim() || null,
         category: form.category,
@@ -85,6 +100,7 @@ export async function updateLifeEvent(
   form: {
     title: string;
     eventDate: string;
+    eventEndDate: string;
     description: string;
     location: string;
     category: LifeEventCategory;
@@ -100,12 +116,18 @@ export async function updateLifeEvent(
 
     const tags = parseTagsInput(form.tags);
     const externalLink = normalizeExternalLink(form.externalLink);
+    const start = parseDateInputToUtcNoon(form.eventDate.trim());
+    const end = parseOptionalEndDate(form.eventEndDate);
+    if (end && end.getTime() < start.getTime()) {
+      return { error: "End date must be on or after the start date" };
+    }
 
     const result = await prisma.lifeEvent.updateMany({
       where: { id, userId },
       data: {
         title,
-        eventDate: parseDateInputToUtcNoon(form.eventDate.trim()),
+        eventDate: start,
+        eventEndDate: end,
         description: form.description.trim() || null,
         location: form.location.trim() || null,
         category: form.category,
