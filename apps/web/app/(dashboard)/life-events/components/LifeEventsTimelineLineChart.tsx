@@ -48,8 +48,16 @@ const GANTT_TO_PLOT_GAP_PX = 12;
 /** Year text row above the Gantt band. */
 const YEAR_LABEL_TEXT_Y = 14;
 const GANTT_BAR_H = 10;
-const GANTT_ROW = 14;
-const GANTT_PAD = 4;
+/** Space above each bar for the title (10px font + breathing room). */
+const GANTT_TITLE_ABOVE_PX = 14;
+/** Gap between the bottom of a bar and the title band of the next stacked range. */
+const GANTT_STACK_GAP_PX = 10;
+/** Vertical distance between the same point on consecutive lanes (title + bar + gap). */
+const GANTT_LANE_STRIDE = GANTT_TITLE_ABOVE_PX + GANTT_BAR_H + GANTT_STACK_GAP_PX;
+/** Offset from the Gantt band start to the first bar’s top (padding below year labels). */
+const GANTT_FIRST_BAR_TOP_OFFSET_PX = 4;
+/** Padding below the last bar before the scatter plot. */
+const GANTT_STACK_BOTTOM_PAD_PX = 8;
 /** Phantom scatter point when only range events exist (keeps axes/scales valid). */
 const PHANTOM_POINT_ID = -1;
 
@@ -75,6 +83,13 @@ function getTimelineTimeBounds(items: LifeEventItem[]): { minX: number; maxX: nu
     return { minX: n, maxX: n };
   }
   return { minX: minT, maxX: maxT };
+}
+
+function truncateGanttTitle(title: string, barWidthPx: number): string {
+  const maxChars = Math.max(6, Math.min(48, Math.floor(barWidthPx / 5.5)));
+  const t = title.trim();
+  if (t.length <= maxChars) return t;
+  return `${t.slice(0, Math.max(1, maxChars - 1))}…`;
 }
 
 function assignRangeLanes(events: LifeEventItem[]): Map<number, number> {
@@ -200,7 +215,12 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
   );
 
   const ganttHeight =
-    rangeEvents.length === 0 ? 0 : (maxRangeLane + 1) * GANTT_ROW + GANTT_PAD;
+    rangeEvents.length === 0
+      ? 0
+      : GANTT_FIRST_BAR_TOP_OFFSET_PX +
+        maxRangeLane * GANTT_LANE_STRIDE +
+        GANTT_BAR_H +
+        GANTT_STACK_BOTTOM_PAD_PX;
 
   const virtualChartWidth = useMemo(
     () =>
@@ -417,8 +437,14 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
             const x1 = left + scale(e);
             const w = Math.max(Math.abs(x1 - x0), 3);
             const barX = Math.min(x0, x1);
-            const barY = YEAR_LABEL_BAND_PX + GANTT_TOP_INSET_PX + 2 + lane * GANTT_ROW;
+            const barY =
+              YEAR_LABEL_BAND_PX +
+              GANTT_TOP_INSET_PX +
+              GANTT_FIRST_BAR_TOP_OFFSET_PX +
+              lane * GANTT_LANE_STRIDE;
             const fill = LIFE_EVENT_CATEGORY_CHART_COLORS[ev.category];
+            const label = truncateGanttTitle(ev.title, w);
+            const labelY = barY - 5;
             return (
               <g key={ev.id}>
                 <rect
@@ -445,6 +471,18 @@ export function LifeEventsTimelineLineChart({ items, onBubbleSelect }: LifeEvent
                     }
                   }}
                 />
+                <text
+                  x={barX + w / 2}
+                  y={labelY}
+                  textAnchor="middle"
+                  dominantBaseline="auto"
+                  fill="#1e293b"
+                  fontSize={10}
+                  fontWeight={600}
+                  style={{ pointerEvents: "none" }}
+                >
+                  {label}
+                </text>
                 <title>
                   {ev.eventEndDate
                     ? `${ev.title} (Commence ${formatLifeEventDate(ev.eventDate)} — End ${formatLifeEventDate(ev.eventEndDate)})`

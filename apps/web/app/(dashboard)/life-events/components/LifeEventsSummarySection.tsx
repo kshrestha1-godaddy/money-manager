@@ -2,10 +2,13 @@
 
 import { useMemo } from "react";
 import type { LifeEventItem } from "../../../types/life-event";
-import { CONTAINER_COLORS } from "../../../config/colorConfig";
-import { formatLifeEventDate, LIFE_EVENT_CATEGORY_LABELS } from "../life-event-helpers";
+import { CONTAINER_COLORS, TEXT_COLORS } from "../../../config/colorConfig";
+import { formatLifeEventDate, LIFE_EVENT_CATEGORY_LABELS, LIFE_EVENT_CATEGORY_ORDER } from "../life-event-helpers";
 
-const card = `${CONTAINER_COLORS.whiteWithPadding} text-left`;
+const cardLargeContainer = CONTAINER_COLORS.cardLarge;
+const cardTitle = TEXT_COLORS.cardTitle;
+const cardValue = TEXT_COLORS.cardValue;
+const cardSubtitle = TEXT_COLORS.cardSubtitle;
 
 interface LifeEventsSummarySectionProps {
   items: LifeEventItem[];
@@ -16,10 +19,10 @@ export function LifeEventsSummarySection({ items }: LifeEventsSummarySectionProp
     const totalEvents = items.length;
     const rangeEventsCount = items.filter((item) => item.eventEndDate != null).length;
     const singleDayEvents = totalEvents - rangeEventsCount;
-    const eventPoints = singleDayEvents + rangeEventsCount * 2;
 
     const yearsCovered = new Set<number>();
-    const categoryPointCounts = new Map<string, number>();
+    const categoryEventCounts = new Map<string, number>();
+    const categoriesPresent = new Set<string>();
     let minTime = Number.POSITIVE_INFINITY;
     let maxTime = Number.NEGATIVE_INFINITY;
 
@@ -30,24 +33,24 @@ export function LifeEventsSummarySection({ items }: LifeEventsSummarySectionProp
       maxTime = Math.max(maxTime, end.getTime());
       yearsCovered.add(start.getUTCFullYear());
       yearsCovered.add(end.getUTCFullYear());
-      const categoryDelta = item.eventEndDate ? 2 : 1;
-      categoryPointCounts.set(item.category, (categoryPointCounts.get(item.category) ?? 0) + categoryDelta);
+      categoriesPresent.add(item.category);
+      categoryEventCounts.set(item.category, (categoryEventCounts.get(item.category) ?? 0) + 1);
     }
 
-    const topCategoryEntry = [...categoryPointCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+    const topCategoryEntry = [...categoryEventCounts.entries()].sort((a, b) => b[1] - a[1])[0];
     const topCategoryLabel = topCategoryEntry
       ? LIFE_EVENT_CATEGORY_LABELS[topCategoryEntry[0] as keyof typeof LIFE_EVENT_CATEGORY_LABELS]
-      : "N/A";
-    const topCategoryPoints = topCategoryEntry?.[1] ?? 0;
+      : "—";
+    const topCategoryEventCount = topCategoryEntry?.[1] ?? 0;
 
     return {
       totalEvents,
       singleDayEvents,
       rangeEventsCount,
-      eventPoints,
+      categoriesPresentCount: categoriesPresent.size,
       yearsCoveredCount: yearsCovered.size,
       topCategoryLabel,
-      topCategoryPoints,
+      topCategoryEventCount,
       spanStart: Number.isFinite(minTime) ? new Date(minTime) : null,
       spanEnd: Number.isFinite(maxTime) ? new Date(maxTime) : null,
     };
@@ -55,46 +58,65 @@ export function LifeEventsSummarySection({ items }: LifeEventsSummarySectionProp
 
   if (items.length === 0) return null;
 
+  const spanLine =
+    summary.spanStart && summary.spanEnd
+      ? `${formatLifeEventDate(summary.spanStart)} to ${formatLifeEventDate(summary.spanEnd)}`
+      : "—";
+
+  const summaryCards: {
+    title: string;
+    value: string;
+    subtitle: string;
+    dotColor: string;
+    valueExtraClass?: string;
+  }[] = [
+    {
+      title: "Total events",
+      value: String(summary.totalEvents),
+      subtitle: `${summary.singleDayEvents} single-day • ${summary.rangeEventsCount} range`,
+      dotColor: "bg-violet-500",
+    },
+    {
+      title: "Categories used",
+      value: String(summary.categoriesPresentCount),
+      subtitle: `of ${LIFE_EVENT_CATEGORY_ORDER.length} types in this view`,
+      dotColor: "bg-emerald-500",
+    },
+    {
+      title: "Years covered",
+      value: String(summary.yearsCoveredCount),
+      subtitle: spanLine,
+      dotColor: "bg-sky-500",
+    },
+    {
+      title: "Top category",
+      value: summary.topCategoryLabel,
+      subtitle: `${summary.topCategoryEventCount} event${summary.topCategoryEventCount === 1 ? "" : "s"}`,
+      dotColor: "bg-purple-500",
+      valueExtraClass: "truncate max-w-full",
+    },
+  ];
+
   return (
-    <section className={card}>
-      <h3 className="mb-1 text-sm font-semibold text-gray-900">Summary</h3>
-      <p className="mb-3 text-xs text-gray-500">
-        Snapshot across current filters. Single-day events count as 1 point, range events as 2 points (start + end).
-      </p>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        <div className="rounded-md border border-violet-100 bg-violet-50/40 px-2.5 py-2">
-          <div className="text-[11px] text-gray-500">Total events</div>
-          <div className="text-sm font-semibold text-gray-900">{summary.totalEvents}</div>
-        </div>
-        <div className="rounded-md border border-violet-100 bg-violet-50/40 px-2.5 py-2">
-          <div className="text-[11px] text-gray-500">Single-day</div>
-          <div className="text-sm font-semibold text-gray-900">{summary.singleDayEvents}</div>
-        </div>
-        <div className="rounded-md border border-violet-100 bg-violet-50/40 px-2.5 py-2">
-          <div className="text-[11px] text-gray-500">Range events</div>
-          <div className="text-sm font-semibold text-gray-900">{summary.rangeEventsCount}</div>
-        </div>
-        <div className="rounded-md border border-violet-100 bg-violet-50/40 px-2.5 py-2">
-          <div className="text-[11px] text-gray-500">Event points</div>
-          <div className="text-sm font-semibold text-gray-900">{summary.eventPoints}</div>
-        </div>
-        <div className="rounded-md border border-violet-100 bg-violet-50/40 px-2.5 py-2">
-          <div className="text-[11px] text-gray-500">Years covered</div>
-          <div className="text-sm font-semibold text-gray-900">{summary.yearsCoveredCount}</div>
-        </div>
-        <div className="rounded-md border border-violet-100 bg-violet-50/40 px-2.5 py-2">
-          <div className="text-[11px] text-gray-500">Top category</div>
-          <div className="truncate text-sm font-semibold text-gray-900">
-            {summary.topCategoryLabel} ({summary.topCategoryPoints})
+    <section className="mb-6">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6">
+        {summaryCards.map((card, index) => (
+          <div key={card.title} className={`${cardLargeContainer} relative min-h-[9.5rem]`}>
+            <div className={`absolute left-4 top-4 h-3 w-3 rounded-full ${card.dotColor}`} />
+            <div className="flex h-full flex-col items-center justify-center px-2 pt-6 text-center">
+              <h4 className={`${cardTitle} mb-2`}>{card.title}</h4>
+              <p
+                className={`${cardValue} mb-1 ${
+                  index === 0 ? "text-violet-700" : "text-gray-900"
+                } ${card.valueExtraClass ?? ""}`}
+              >
+                {card.value}
+              </p>
+              <p className={`${cardSubtitle} line-clamp-2`}>{card.subtitle}</p>
+            </div>
           </div>
-        </div>
+        ))}
       </div>
-      <p className="mt-2 text-[11px] text-gray-600">
-        Span:{" "}
-        {summary.spanStart && summary.spanEnd
-          ? `${formatLifeEventDate(summary.spanStart)} to ${formatLifeEventDate(summary.spanEnd)}`
-          : "N/A"}
-      </p>
     </section>
   );
 }
