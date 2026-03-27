@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { PiggyBank } from "lucide-react";
+import { PiggyBank, Sparkles } from "lucide-react";
 import { SidebarItem } from "../components/sidebar/SidebarItem";
 import { TutorialOverlay } from "../components/TutorialOverlay";
 import { TutorialButton } from "../components/TutorialButton";
@@ -90,6 +90,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             icon={<HistoryIcon />}
                             title="History"
                             showSeparator={true}
+                        />
+                        <SidebarItem
+                            href="/life-events"
+                            icon={<LifeEventsIcon />}
+                            title="Life Events"
                         />
                         <SidebarItem
                             href="/transactions"
@@ -220,6 +225,10 @@ function HistoryIcon() {
         </svg>
 
     );
+}
+
+function LifeEventsIcon() {
+    return <Sparkles className="size-6 shrink-0" strokeWidth={1.5} aria-hidden />;
 }
 
 

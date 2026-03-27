@@ -55,6 +55,7 @@ model User {
   goalProgress GoalProgress[]
   scheduledPayments ScheduledPayment[]
   annuityCalculatorPresets AnnuityCalculatorPreset[]
+  lifeEvents LifeEvent[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -1172,4 +1173,31 @@ model AnnuityCalculatorPreset {
 
   @@index([userId])
   @@index([userId, updatedAt])
+}
+
+enum LifeEventCategory {
+  EDUCATION
+  CAREER
+  TRAVEL
+  PERSONAL
+  LEGAL
+  OTHER
+}
+
+/// Personal milestones and important dates (education, career, travel, legal, etc.).
+model LifeEvent {
+  id           Int               @id @default(autoincrement())
+  eventDate    DateTime
+  title        String
+  description  String?           @db.Text
+  location     String?
+  category     LifeEventCategory @default(OTHER)
+  tags         String[]
+  externalLink String?
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       Int
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([userId, eventDate])
 }
