@@ -781,7 +781,7 @@ function FinancialRow({
                     </button>
                 </td>
             )}
-            <td className="px-6 py-4 text-left align-top" style={{ width: `${columnWidths.title}px` }}>
+            <td className="px-6 py-4 text-left align-middle" style={{ width: `${columnWidths.title}px` }}>
                 <div>
                     <div className="text-sm font-medium text-gray-900 break-words">
                         {transaction.title}
@@ -800,7 +800,7 @@ function FinancialRow({
                     )}
                 </div>
             </td>
-            <td className="px-6 py-4 text-left align-top" style={{ width: `${columnWidths.category}px` }}>
+            <td className="px-6 py-4 text-left align-middle" style={{ width: `${columnWidths.category}px` }}>
                 <div className="flex items-center justify-start gap-2">
                     <div 
                         className="w-3 h-3 rounded-full flex-shrink-0"
@@ -809,10 +809,10 @@ function FinancialRow({
                     <span className="text-sm text-gray-900 break-words">{transaction.category.name}</span>
                 </div>
             </td>
-            <td className="px-4 py-4 text-sm text-gray-900 whitespace-nowrap text-center align-top" style={{ width: `${columnWidths.date}px` }}>
+            <td className="px-4 py-4 text-sm text-gray-900 whitespace-nowrap text-center align-middle" style={{ width: `${columnWidths.date}px` }}>
                 {formatDate(transaction.date)}
             </td>
-            <td className="px-6 py-4 text-sm text-gray-900 text-left align-top" style={{ width: `${columnWidths.account}px` }}>
+            <td className="px-6 py-4 text-sm text-gray-900 text-left align-middle" style={{ width: `${columnWidths.account}px` }}>
                 {transaction.account ? (
                     <div>
                         <div className="font-medium break-words">{transaction.account.bankName}</div>
@@ -826,7 +826,7 @@ function FinancialRow({
                     </span>
                 )}
             </td>
-            <td className="px-6 py-4 text-center align-top" style={{ width: `${columnWidths.tags}px` }}>
+            <td className="px-6 py-4 text-center align-middle" style={{ width: `${columnWidths.tags}px` }}>
                 <div className="flex flex-wrap gap-1 justify-center">
                     {transaction.tags.map((tag, index) => (
                         <span
@@ -838,7 +838,7 @@ function FinancialRow({
                     ))}
                 </div>
             </td>
-            <td className="px-6 py-4 text-center align-top" style={{ width: `${columnWidths.notes}px` }}>
+            <td className="px-6 py-4 text-center align-middle" style={{ width: `${columnWidths.notes}px` }}>
                 {transaction.notes ? (
                     <div className="text-sm text-gray-600 break-words text-center">
                         {transaction.notes}
@@ -847,10 +847,10 @@ function FinancialRow({
                     <span className="text-xs text-gray-400">No notes</span>
                 )}
             </td>
-            <td className={`px-3 py-4 text-sm font-medium text-center tabular-nums align-top ${amountColorClass}`} style={{ width: `${columnWidths.amount}px` }}>
+            <td className={`px-3 py-4 text-sm font-medium text-center tabular-nums align-middle ${amountColorClass}`} style={{ width: `${columnWidths.amount}px` }}>
                 {AMOUNT_VALUE_FORMATTER.format(convertForDisplaySync(transaction.amount, transaction.currency, currency || 'USD'))}
             </td>
-            <td className="px-3 py-4 text-center text-sm font-medium align-top" style={{ width: `${columnWidths.actions}px` }}>
+            <td className="px-3 py-4 text-center text-sm font-medium align-middle" style={{ width: `${columnWidths.actions}px` }}>
                 <div className="flex justify-center flex-nowrap gap-1">
                     {onView && (
                         <button 
