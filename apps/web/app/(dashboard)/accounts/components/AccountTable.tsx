@@ -1,13 +1,95 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { Download } from "lucide-react";
 import { AccountInterface } from "../../../types/accounts";
 import { formatDate } from "../../../utils/date";
 import { formatCurrency } from "../../../utils/currency";
+import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import { SUPPORTED_CURRENCIES } from "../../../utils/currencyConversion";
 import { useCurrency } from "../../../providers/CurrencyProvider";
 import { getDefaultColumnWidths, getMinColumnWidth, type AccountColumnWidths } from "../../../config/tableConfig";
 import { getActionButtonClasses } from "../../../config/colorConfig";
 import { cn } from "@/lib/utils";
+
+function computeAccountFreeBalance(
+    account: AccountInterface,
+    allAccounts: AccountInterface[],
+    withheldAmounts: Record<string, number>
+): number {
+    const bankName = account.bankName;
+    const withheldAmountForBank = withheldAmounts[bankName] || 0;
+    if (withheldAmountForBank === 0) return account.balance || 0;
+    const accountsInBank = allAccounts.filter((acc) => acc.bankName === bankName);
+    const totalBankBalance = accountsInBank.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+    const accountProportion = totalBankBalance > 0 ? (account.balance || 0) / totalBankBalance : 0;
+    const accountWithheldAmount = withheldAmountForBank * accountProportion;
+    return (account.balance || 0) - accountWithheldAmount;
+}
+
+function csvQuoteCell(value: string | number | undefined | null): string {
+    const s = String(value ?? "");
+    return `"${s.replace(/"/g, '""')}"`;
+}
+
+function formatAmountCsvPlain(n: number): string {
+    return (Math.round(n * 100) / 100).toFixed(2);
+}
+
+function formatDateIso(date: Date | string): string {
+    const d = date instanceof Date ? date : new Date(date);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+}
+
+function buildAccountsTableCsv(
+    rows: AccountInterface[],
+    allAccounts: AccountInterface[],
+    withheldAmounts: Record<string, number>,
+    storedCurrency: string,
+    displayCurrency: string
+): string {
+    const displayCode = (displayCurrency || "USD").trim().toUpperCase();
+    const storedCode = (storedCurrency || "USD").trim().toUpperCase();
+    const headers = [
+        "Holder Name",
+        "Account Type",
+        "Bank Name",
+        "Branch Name",
+        "IFSC / Branch Code",
+        "Opening Date",
+        "Account Number",
+        "Balance currency (stored)",
+        `Balance (${storedCode})`,
+        `Balance (${displayCode})`,
+        `Free balance (${storedCode})`,
+        `Free balance (${displayCode})`,
+    ];
+    const lines: string[][] = [headers];
+    rows.forEach((account) => {
+        const bal = account.balance ?? 0;
+        const free = computeAccountFreeBalance(account, allAccounts, withheldAmounts);
+        const balDisplay = convertForDisplaySync(bal, storedCode, displayCode);
+        const freeDisplay = convertForDisplaySync(free, storedCode, displayCode);
+        lines.push([
+            account.holderName,
+            account.accountType,
+            account.bankName,
+            account.branchName,
+            account.branchCode ?? "",
+            formatDateIso(account.accountOpeningDate),
+            account.accountNumber,
+            storedCode,
+            formatAmountCsvPlain(bal),
+            formatAmountCsvPlain(balDisplay),
+            formatAmountCsvPlain(free),
+            formatAmountCsvPlain(freeDisplay),
+        ]);
+    });
+    return lines.map((line) => line.map((cell) => csvQuoteCell(cell)).join(",")).join("\r\n");
+}
 
 // Function to mask account number
 const maskAccountNumber = (accountNumber: string) => {
@@ -52,8 +134,13 @@ export function AccountTable({
     withheldAmounts = {}
 }: AccountTableProps) {
     const { currency: userCurrency } = useCurrency();
+    const [selectedCurrency, setSelectedCurrency] = useState(userCurrency);
     const [sortField, setSortField] = useState<SortField>('bankName');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+    useEffect(() => {
+        setSelectedCurrency(userCurrency);
+    }, [userCurrency]);
     
     // Track which account numbers are visible
     const [visibleAccountNumbers, setVisibleAccountNumbers] = useState<Set<number>>(new Set());
@@ -153,36 +240,25 @@ export function AccountTable({
         }
     }, [resizing, handleMouseMove, handleMouseUp]);
 
-    // Helper function to calculate free balance for any account
-    const calculateAccountFreeBalance = (account: AccountInterface) => {
-        const bankName = account.bankName;
-        const withheldAmountForBank = withheldAmounts[bankName] || 0;
-        
-        // If no withheld amount for this bank, return full balance
-        if (withheldAmountForBank === 0) {
-            return account.balance || 0;
-        }
-
-        // Calculate total balance for all accounts in this bank
-        const accountsInBank = accounts.filter(acc => acc.bankName === bankName);
-        const totalBankBalance = accountsInBank.reduce((sum, acc) => sum + (acc.balance || 0), 0);
-        
-        // Calculate proportional withheld amount for this account
-        const accountProportion = totalBankBalance > 0 ? (account.balance || 0) / totalBankBalance : 0;
-        const accountWithheldAmount = withheldAmountForBank * accountProportion;
-        
-        // Calculate free balance (can be negative if withheld amount exceeds balance)
-        return (account.balance || 0) - accountWithheldAmount;
-    };
-
     const columnTotals = useMemo(() => {
         const totalBalance = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
         const totalFreeBalance = accounts.reduce(
-            (sum, acc) => sum + calculateAccountFreeBalance(acc),
+            (sum, acc) => sum + computeAccountFreeBalance(acc, accounts, withheldAmounts),
             0
         );
         return { totalBalance, totalFreeBalance };
     }, [accounts, withheldAmounts]);
+
+    const displayTotalBalance = convertForDisplaySync(
+        columnTotals.totalBalance,
+        userCurrency,
+        selectedCurrency
+    );
+    const displayTotalFreeBalance = convertForDisplaySync(
+        columnTotals.totalFreeBalance,
+        userCurrency,
+        selectedCurrency
+    );
 
     const sortedAccounts = useMemo(() => {
         const sorted = [...accounts].sort((a, b) => {
@@ -207,12 +283,20 @@ export function AccountTable({
                     bValue = new Date(b.accountOpeningDate).getTime();
                     break;
                 case 'balance':
-                    aValue = a.balance || 0;
-                    bValue = b.balance || 0;
+                    aValue = convertForDisplaySync(a.balance || 0, userCurrency, selectedCurrency);
+                    bValue = convertForDisplaySync(b.balance || 0, userCurrency, selectedCurrency);
                     break;
                 case 'freeBalance':
-                    aValue = calculateAccountFreeBalance(a);
-                    bValue = calculateAccountFreeBalance(b);
+                    aValue = convertForDisplaySync(
+                        computeAccountFreeBalance(a, accounts, withheldAmounts),
+                        userCurrency,
+                        selectedCurrency
+                    );
+                    bValue = convertForDisplaySync(
+                        computeAccountFreeBalance(b, accounts, withheldAmounts),
+                        userCurrency,
+                        selectedCurrency
+                    );
                     break;
                 default:
                     return 0;
@@ -228,7 +312,30 @@ export function AccountTable({
         });
 
         return sorted;
-    }, [accounts, sortField, sortDirection, withheldAmounts]);
+    }, [accounts, sortField, sortDirection, withheldAmounts, userCurrency, selectedCurrency]);
+
+    const handleDownloadCsv = useCallback(() => {
+        const csv = buildAccountsTableCsv(
+            sortedAccounts,
+            accounts,
+            withheldAmounts,
+            userCurrency,
+            selectedCurrency
+        );
+        const blob = new Blob(["\uFEFF", csv], {
+            type: "text/csv;charset=utf-8",
+        });
+        const link = document.createElement("a");
+        link.download = `bank-accounts-${new Date().toISOString().split("T")[0]}.csv`;
+        link.href = URL.createObjectURL(blob);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+    }, [sortedAccounts, accounts, withheldAmounts, userCurrency, selectedCurrency]);
+
+    const balanceHeaderLabel = `Balance (${selectedCurrency.toUpperCase()})`;
+    const freeBalanceHeaderLabel = `Free balance (${selectedCurrency.toUpperCase()})`;
 
     const handleSort = (field: SortField) => {
         if (field === sortField) {
@@ -293,21 +400,22 @@ export function AccountTable({
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
                     <h2 className="text-lg font-semibold text-gray-900">
                         Bank Accounts ({accounts.length})
                     </h2>
-                    <div className="flex items-center space-x-4">
-                        {headerActions}
+                    <div className="flex flex-wrap items-center gap-3 justify-end">
                         {showBulkActions && selectedAccounts.size > 0 && (
-                            <div className="flex space-x-2">
+                            <div className="flex flex-wrap gap-2">
                                 <button
+                                    type="button"
                                     onClick={onClearSelection}
                                     className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors"
                                 >
                                     Clear Selection
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={handleBulkDelete}
                                     className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
                                 >
@@ -315,6 +423,29 @@ export function AccountTable({
                                 </button>
                             </div>
                         )}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <select
+                                id="accounts-display-currency"
+                                value={selectedCurrency}
+                                onChange={(event) => setSelectedCurrency(event.target.value)}
+                                className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                            >
+                                {SUPPORTED_CURRENCIES.map((currencyOption) => (
+                                    <option key={currencyOption} value={currencyOption}>
+                                        {currencyOption}
+                                    </option>
+                                ))}
+                            </select>
+                            <button
+                                type="button"
+                                onClick={handleDownloadCsv}
+                                className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                            >
+                                <Download className="h-4 w-4 shrink-0" aria-hidden />
+                                Download CSV
+                            </button>
+                        </div>
+                        {headerActions}
                     </div>
                 </div>
             </div>
@@ -404,7 +535,7 @@ export function AccountTable({
                                 onClick={() => handleSort('balance')}
                             >
                                 <div className="flex items-center justify-center gap-2">
-                                    <span>Balance</span>
+                                    <span>{balanceHeaderLabel}</span>
                                     {getSortIcon('balance')}
                                 </div>
                                 <div 
@@ -418,7 +549,7 @@ export function AccountTable({
                                 onClick={() => handleSort('freeBalance')}
                             >
                                 <div className="flex items-center justify-center gap-2">
-                                    <span>Free Balance</span>
+                                    <span>{freeBalanceHeaderLabel}</span>
                                     {getSortIcon('freeBalance')}
                                 </div>
                                 <div 
@@ -439,7 +570,8 @@ export function AccountTable({
                             <AccountRow 
                                 key={account.id} 
                                 account={account}
-                                currency={userCurrency}
+                                userCurrency={userCurrency}
+                                displayCurrency={selectedCurrency}
                                 onEdit={onEdit}
                                 onDelete={onDelete}
                                 onViewDetails={onViewDetails}
@@ -475,12 +607,12 @@ export function AccountTable({
                             >
                                 <span
                                     className={
-                                        columnTotals.totalBalance >= 0
+                                        displayTotalBalance >= 0
                                             ? "text-green-600"
                                             : "text-red-600"
                                     }
                                 >
-                                    {formatCurrency(columnTotals.totalBalance, userCurrency)}
+                                    {formatCurrency(displayTotalBalance, selectedCurrency)}
                                 </span>
                             </td>
                             <td
@@ -489,12 +621,12 @@ export function AccountTable({
                             >
                                 <span
                                     className={
-                                        columnTotals.totalFreeBalance >= 0
+                                        displayTotalFreeBalance >= 0
                                             ? "text-blue-600"
                                             : "text-red-600"
                                     }
                                 >
-                                    {formatCurrency(columnTotals.totalFreeBalance, userCurrency)}
+                                    {formatCurrency(displayTotalFreeBalance, selectedCurrency)}
                                 </span>
                             </td>
                             <td
@@ -509,9 +641,10 @@ export function AccountTable({
     );
 }
 
-function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShare, isSelected = false, onSelect, showCheckbox = false, columnWidths, visibleAccountNumbers, toggleAccountNumberVisibility, withheldAmounts = {}, allAccounts = [] }: { 
+function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, onViewDetails, onShare, isSelected = false, onSelect, showCheckbox = false, columnWidths, visibleAccountNumbers, toggleAccountNumberVisibility, withheldAmounts = {}, allAccounts = [] }: { 
     account: AccountInterface;
-    currency: string;
+    userCurrency: string;
+    displayCurrency: string;
     onEdit?: (account: AccountInterface) => void;
     onDelete?: (account: AccountInterface) => void;
     onViewDetails?: (account: AccountInterface) => void;
@@ -557,29 +690,9 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShar
 
     const isAccountNumberVisible = visibleAccountNumbers.has(account.id);
 
-    // Calculate free balance for this account using the helper function
-    const calculateRowAccountFreeBalance = () => {
-        const bankName = account.bankName;
-        const withheldAmountForBank = withheldAmounts[bankName] || 0;
-        
-        // If no withheld amount for this bank, return full balance
-        if (withheldAmountForBank === 0) {
-            return account.balance || 0;
-        }
-
-        // Calculate total balance for all accounts in this bank
-        const accountsInBank = allAccounts.filter(acc => acc.bankName === bankName);
-        const totalBankBalance = accountsInBank.reduce((sum, acc) => sum + (acc.balance || 0), 0);
-        
-        // Calculate proportional withheld amount for this account
-        const accountProportion = totalBankBalance > 0 ? (account.balance || 0) / totalBankBalance : 0;
-        const accountWithheldAmount = withheldAmountForBank * accountProportion;
-        
-        // Calculate free balance (can be negative if withheld amount exceeds balance)
-        return (account.balance || 0) - accountWithheldAmount;
-    };
-
-    const accountFreeBalance = calculateRowAccountFreeBalance();
+    const accountFreeBalance = computeAccountFreeBalance(account, allAccounts, withheldAmounts);
+    const displayBalance = convertForDisplaySync(account.balance ?? 0, userCurrency, displayCurrency);
+    const displayFreeBalance = convertForDisplaySync(accountFreeBalance, userCurrency, displayCurrency);
 
     return (
         <tr className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
@@ -664,8 +777,8 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShar
                 style={{ width: `${columnWidths.balance}px` }}
             >
                 {account.balance !== undefined ? (
-                    <span className="text-green-600">
-                        {formatCurrency(account.balance, currency)}
+                    <span className={displayBalance >= 0 ? "text-green-600" : "text-red-600"}>
+                        {formatCurrency(displayBalance, displayCurrency)}
                     </span>
                 ) : (
                     <span className="text-gray-400">-</span>
@@ -676,8 +789,8 @@ function AccountRow({ account, currency, onEdit, onDelete, onViewDetails, onShar
                 style={{ width: `${columnWidths.freeBalance}px` }}
             >
                 {account.balance !== undefined ? (
-                    <span className={accountFreeBalance >= 0 ? "text-blue-600" : "text-red-600"}>
-                        {formatCurrency(accountFreeBalance, currency)}
+                    <span className={displayFreeBalance >= 0 ? "text-blue-600" : "text-red-600"}>
+                        {formatCurrency(displayFreeBalance, displayCurrency)}
                     </span>
                 ) : (
                     <span className="text-gray-400">-</span>
