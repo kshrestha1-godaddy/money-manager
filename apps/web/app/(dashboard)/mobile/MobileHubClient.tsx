@@ -10,19 +10,38 @@ import { getPasswords } from "../passwords/actions/passwords";
 import { getLifeEvents } from "../life-events/actions/life-events";
 import { matchesLifeEventSearch } from "../life-events/life-event-helpers";
 import type { LifeEventItem } from "../../types/life-event";
+import { getUserInvestments } from "../investments/actions/investments";
+import { getUserDebts } from "../debts/actions/debts";
+import type { InvestmentInterface } from "../../types/investments";
+import type { DebtInterface } from "../../types/debts";
+import {
+  getInvestmentTypeLabel,
+  INVESTMENT_TYPE_LABELS,
+} from "../investments/utils/investmentTypeUi";
 import { MobileTransactionViewSheet } from "./components/mobile-transaction-view-sheet";
 import { MobileLifeEventDetailSheet } from "./components/mobile-life-event-detail-sheet";
 import { MobileLifeEventsTimeline } from "./components/mobile-life-events-timeline";
+import { MobileInvestmentDetailSheet } from "./components/mobile-investment-detail-sheet";
+import { MobileDebtDetailSheet } from "./components/mobile-debt-detail-sheet";
+import {
+  MobileGroupedTransactionList,
+  groupTransactionsByYearAndMonth,
+} from "./components/mobile-grouped-transaction-list";
 import { PasswordTable } from "../passwords/components/PasswordTable";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency } from "../../utils/currency";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
-import { formatDate } from "../../utils/date";
 import { SUPPORTED_CURRENCIES } from "../../utils/currencyConversion";
 import { LOADING_COLORS } from "../../config/colorConfig";
 import { CurrencyConverterModal } from "../../components/CurrencyConverterModal";
 
-type MobileTab = "incomes" | "expenses" | "passwords" | "life-events";
+type MobileTab =
+  | "incomes"
+  | "expenses"
+  | "passwords"
+  | "life-events"
+  | "investments"
+  | "debts";
 
 const loadingContainer = LOADING_COLORS.container;
 const loadingSpinner = LOADING_COLORS.spinner;
@@ -60,6 +79,100 @@ function passwordMatchesQuery(p: PasswordInterface, raw: string): boolean {
   return parts.some((s) => s.includes(q));
 }
 
+function investmentMatchesQuery(inv: InvestmentInterface, raw: string): boolean {
+  const q = raw.trim().toLowerCase();
+  if (!q) return true;
+  const parts = [
+    inv.name,
+    inv.symbol,
+    inv.type,
+    inv.notes,
+    inv.account?.bankName,
+    inv.account?.holderName,
+    inv.investmentTarget?.nickname ?? "",
+  ]
+    .filter(Boolean)
+    .map((s) => String(s).toLowerCase());
+  return parts.some((s) => s.includes(q));
+}
+
+function debtMatchesQuery(d: DebtInterface, raw: string): boolean {
+  const q = raw.trim().toLowerCase();
+  if (!q) return true;
+  const parts = [
+    d.borrowerName,
+    d.purpose,
+    d.notes,
+    d.status,
+    d.borrowerContact,
+    d.borrowerEmail,
+  ]
+    .filter(Boolean)
+    .map((s) => String(s).toLowerCase());
+  return parts.some((s) => s.includes(q));
+}
+
+const DEBT_STATUS_ORDER: DebtInterface["status"][] = [
+  "ACTIVE",
+  "PARTIALLY_PAID",
+  "OVERDUE",
+  "DEFAULTED",
+  "FULLY_PAID",
+];
+
+function debtStatusSectionLabel(status: DebtInterface["status"]): string {
+  const map: Record<DebtInterface["status"], string> = {
+    ACTIVE: "Active",
+    PARTIALLY_PAID: "Partially paid",
+    OVERDUE: "Overdue",
+    DEFAULTED: "Defaulted",
+    FULLY_PAID: "Fully paid",
+  };
+  return map[status];
+}
+
+function groupInvestmentsByType(items: InvestmentInterface[]): {
+  type: InvestmentInterface["type"];
+  label: string;
+  items: InvestmentInterface[];
+}[] {
+  const map = new Map<InvestmentInterface["type"], InvestmentInterface[]>();
+  for (const inv of items) {
+    const t = inv.type;
+    if (!map.has(t)) map.set(t, []);
+    map.get(t)!.push(inv);
+  }
+  const ordered: InvestmentInterface["type"][] = [];
+  for (const { value } of INVESTMENT_TYPE_LABELS) {
+    if (map.has(value)) ordered.push(value);
+  }
+  for (const key of map.keys()) {
+    if (!ordered.includes(key)) ordered.push(key);
+  }
+  return ordered.map((type) => ({
+    type,
+    label: getInvestmentTypeLabel(type),
+    items: map.get(type)!,
+  }));
+}
+
+function groupDebtsByStatus(items: DebtInterface[]): {
+  status: DebtInterface["status"];
+  label: string;
+  items: DebtInterface[];
+}[] {
+  const map = new Map<DebtInterface["status"], DebtInterface[]>();
+  for (const d of items) {
+    if (!map.has(d.status)) map.set(d.status, []);
+    map.get(d.status)!.push(d);
+  }
+  return DEBT_STATUS_ORDER.filter((s) => map.has(s)).map((status) => ({
+    status,
+    label: debtStatusSectionLabel(status),
+    items: map.get(status)!,
+  }));
+}
+
 export default function MobileHubClient() {
   const { currency: userCurrency } = useCurrency();
   const [selectedCurrency, setSelectedCurrency] = useState(userCurrency);
@@ -77,25 +190,33 @@ export default function MobileHubClient() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [passwords, setPasswords] = useState<PasswordInterface[]>([]);
   const [lifeEvents, setLifeEvents] = useState<LifeEventItem[]>([]);
+  const [investments, setInvestments] = useState<InvestmentInterface[]>([]);
+  const [debts, setDebts] = useState<DebtInterface[]>([]);
 
   const [incomeToView, setIncomeToView] = useState<Income | null>(null);
   const [expenseToView, setExpenseToView] = useState<Expense | null>(null);
   const [lifeEventToView, setLifeEventToView] = useState<LifeEventItem | null>(null);
+  const [investmentToView, setInvestmentToView] = useState<InvestmentInterface | null>(null);
+  const [debtToView, setDebtToView] = useState<DebtInterface | null>(null);
 
   const loadData = useCallback(async () => {
     setLoadError(null);
     setLoading(true);
     try {
-      const [inc, exp, pwd, le] = await Promise.all([
+      const [inc, exp, pwd, le, invRes, debtRes] = await Promise.all([
         getIncomes(),
         getExpenses(),
         getPasswords(),
         getLifeEvents(),
+        getUserInvestments(),
+        getUserDebts(),
       ]);
       setIncomes(inc);
       setExpenses(exp);
       setPasswords(pwd);
       setLifeEvents(le);
+      setInvestments(invRes.error ? [] : invRes.data ?? []);
+      setDebts(debtRes.error ? [] : debtRes.data ?? []);
     } catch (e) {
       console.error(e);
       setLoadError("Could not load your data. Try again in a moment.");
@@ -128,6 +249,36 @@ export default function MobileHubClient() {
     [lifeEvents, search]
   );
 
+  const filteredInvestments = useMemo(
+    () => investments.filter((i) => investmentMatchesQuery(i, search)),
+    [investments, search]
+  );
+
+  const filteredDebts = useMemo(
+    () => debts.filter((d) => debtMatchesQuery(d, search)),
+    [debts, search]
+  );
+
+  const incomesByYearMonth = useMemo(
+    () => groupTransactionsByYearAndMonth(filteredIncomes),
+    [filteredIncomes]
+  );
+
+  const expensesByYearMonth = useMemo(
+    () => groupTransactionsByYearAndMonth(filteredExpenses),
+    [filteredExpenses]
+  );
+
+  const investmentsByType = useMemo(
+    () => groupInvestmentsByType(filteredInvestments),
+    [filteredInvestments]
+  );
+
+  const debtsByStatus = useMemo(
+    () => groupDebtsByStatus(filteredDebts),
+    [filteredDebts]
+  );
+
   function formatDisplayAmount(amount: number, storedCurrency: string): string {
     const converted = convertForDisplaySync(amount, storedCurrency, selectedCurrency);
     return formatCurrency(converted, selectedCurrency);
@@ -143,6 +294,8 @@ export default function MobileHubClient() {
     { id: "expenses", shortLabel: "Expense", ariaLabel: "Expenses", count: filteredExpenses.length },
     { id: "passwords", shortLabel: "Pass", ariaLabel: "Passwords", count: filteredPasswords.length },
     { id: "life-events", shortLabel: "Life", ariaLabel: "Life events", count: filteredLifeEvents.length },
+    { id: "investments", shortLabel: "Inv", ariaLabel: "Investments", count: filteredInvestments.length },
+    { id: "debts", shortLabel: "Debt", ariaLabel: "Debts", count: filteredDebts.length },
   ];
 
   if (loading) {
@@ -159,7 +312,7 @@ export default function MobileHubClient() {
       <header className="space-y-1">
         <h1 className="text-xl font-semibold text-gray-900 tracking-tight">Mobile hub</h1>
         <p className="text-sm text-gray-600 mt-0.5">
-          Search incomes, expenses, passwords, and life events without the sidebar.
+          Search finances, passwords, life events, investments, and debts without the sidebar.
         </p>
       </header>
 
@@ -220,7 +373,11 @@ export default function MobileHubClient() {
               ? "Search name, username, notes…"
               : tab === "life-events"
                 ? "Search title, tags, location, link…"
-                : "Search title, category, notes…"
+                : tab === "investments"
+                  ? "Search name, symbol, type, notes…"
+                  : tab === "debts"
+                    ? "Search borrower, purpose, status…"
+                    : "Search title, category, notes…"
           }
           className="w-full min-h-[48px] rounded-xl border border-gray-200 bg-white pl-11 pr-4 text-base text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
           autoComplete="off"
@@ -229,7 +386,7 @@ export default function MobileHubClient() {
       </div>
 
       <div
-        className="grid w-full min-w-0 grid-cols-4 gap-1.5"
+        className="grid w-full min-w-0 grid-cols-3 gap-1.5"
         role="tablist"
         aria-label="Data type"
       >
@@ -262,6 +419,8 @@ export default function MobileHubClient() {
         })}
       </div>
 
+      <hr className="w-full border-0 border-t border-gray-200" role="separator" aria-hidden="true" />
+
       {tab === "incomes" && (
         <section aria-label="Incomes" className="space-y-3">
           {filteredIncomes.length === 0 ? (
@@ -269,30 +428,12 @@ export default function MobileHubClient() {
               {search.trim() ? "No incomes match your search." : "No incomes yet."}
             </p>
           ) : (
-            <ul className="space-y-2">
-              {filteredIncomes.map((income) => (
-                <li key={income.id}>
-                  <button
-                    type="button"
-                    onClick={() => setIncomeToView(income)}
-                    className="w-full text-left rounded-xl border border-gray-200 bg-white p-4 shadow-sm min-h-[72px] active:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex justify-between gap-3 items-start">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-gray-900 truncate">{income.title}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {formatDate(income.date)}
-                          {income.category?.name ? ` · ${income.category.name}` : ""}
-                        </p>
-                      </div>
-                      <span className="shrink-0 text-base font-semibold text-emerald-700 tabular-nums">
-                        {formatDisplayAmount(income.amount, income.currency)}
-                      </span>
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <MobileGroupedTransactionList
+              grouped={incomesByYearMonth}
+              variant="income"
+              formatAmount={(item) => formatDisplayAmount(item.amount, item.currency)}
+              onItemClick={setIncomeToView}
+            />
           )}
         </section>
       )}
@@ -304,30 +445,12 @@ export default function MobileHubClient() {
               {search.trim() ? "No expenses match your search." : "No expenses yet."}
             </p>
           ) : (
-            <ul className="space-y-2">
-              {filteredExpenses.map((expense) => (
-                <li key={expense.id}>
-                  <button
-                    type="button"
-                    onClick={() => setExpenseToView(expense)}
-                    className="w-full text-left rounded-xl border border-gray-200 bg-white p-4 shadow-sm min-h-[72px] active:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex justify-between gap-3 items-start">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-gray-900 truncate">{expense.title}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {formatDate(expense.date)}
-                          {expense.category?.name ? ` · ${expense.category.name}` : ""}
-                        </p>
-                      </div>
-                      <span className="shrink-0 text-base font-semibold text-red-700 tabular-nums">
-                        {formatDisplayAmount(expense.amount, expense.currency)}
-                      </span>
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <MobileGroupedTransactionList
+              grouped={expensesByYearMonth}
+              variant="expense"
+              formatAmount={(item) => formatDisplayAmount(item.amount, item.currency)}
+              onItemClick={setExpenseToView}
+            />
           )}
         </section>
       )}
@@ -364,6 +487,108 @@ export default function MobileHubClient() {
         </section>
       )}
 
+      {tab === "investments" && (
+        <section aria-label="Investments" className="space-y-3">
+          {filteredInvestments.length === 0 ? (
+            <p className="text-center text-gray-500 py-10 text-sm">
+              {search.trim() ? "No investments match your search." : "No investments yet."}
+            </p>
+          ) : (
+            <div className="space-y-5">
+              {investmentsByType.map((group, groupIndex) => (
+                <div key={group.type}>
+                  <h3
+                    className={`mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 ${
+                      groupIndex > 0 ? "mt-1" : ""
+                    }`}
+                  >
+                    {group.label}{" "}
+                    <span className="font-normal tabular-nums text-gray-400">({group.items.length})</span>
+                  </h3>
+                  <ul className="space-y-2">
+                    {group.items.map((inv) => {
+                      const totalValue = inv.quantity * inv.currentPrice;
+                      const subtitle = [inv.symbol, inv.account?.holderName]
+                        .filter(Boolean)
+                        .join(" · ");
+                      return (
+                        <li key={inv.id}>
+                          <button
+                            type="button"
+                            onClick={() => setInvestmentToView(inv)}
+                            className="w-full text-left rounded-xl border border-gray-200 bg-white p-4 shadow-sm min-h-[72px] active:bg-gray-50 transition-colors"
+                          >
+                            <div className="flex justify-between gap-3 items-start">
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-gray-900 line-clamp-2">{inv.name}</p>
+                                {subtitle ? (
+                                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{subtitle}</p>
+                                ) : null}
+                              </div>
+                              <span className="shrink-0 text-base font-semibold text-slate-800 tabular-nums">
+                                {formatCurrency(totalValue, selectedCurrency)}
+                              </span>
+                            </div>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {tab === "debts" && (
+        <section aria-label="Debts" className="space-y-3">
+          {filteredDebts.length === 0 ? (
+            <p className="text-center text-gray-500 py-10 text-sm">
+              {search.trim() ? "No debts match your search." : "No debts yet."}
+            </p>
+          ) : (
+            <div className="space-y-5">
+              {debtsByStatus.map((group, groupIndex) => (
+                <div key={group.status}>
+                  <h3
+                    className={`mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 ${
+                      groupIndex > 0 ? "mt-1" : ""
+                    }`}
+                  >
+                    {group.label}{" "}
+                    <span className="font-normal tabular-nums text-gray-400">({group.items.length})</span>
+                  </h3>
+                  <ul className="space-y-2">
+                    {group.items.map((debt) => (
+                      <li key={debt.id}>
+                        <button
+                          type="button"
+                          onClick={() => setDebtToView(debt)}
+                          className="w-full text-left rounded-xl border border-gray-200 bg-white p-4 shadow-sm min-h-[72px] active:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex justify-between gap-3 items-start">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-gray-900 truncate">{debt.borrowerName}</p>
+                              {debt.purpose ? (
+                                <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{debt.purpose}</p>
+                              ) : null}
+                            </div>
+                            <span className="shrink-0 text-base font-semibold text-amber-800 tabular-nums">
+                              {formatCurrency(debt.amount, selectedCurrency)}
+                            </span>
+                          </div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       <MobileTransactionViewSheet
         transaction={incomeToView}
         transactionType="INCOME"
@@ -382,6 +607,20 @@ export default function MobileHubClient() {
         event={lifeEventToView}
         isOpen={lifeEventToView !== null}
         onClose={() => setLifeEventToView(null)}
+      />
+
+      <MobileInvestmentDetailSheet
+        investment={investmentToView}
+        isOpen={investmentToView !== null}
+        onClose={() => setInvestmentToView(null)}
+        displayCurrency={selectedCurrency}
+      />
+
+      <MobileDebtDetailSheet
+        debt={debtToView}
+        isOpen={debtToView !== null}
+        onClose={() => setDebtToView(null)}
+        displayCurrency={selectedCurrency}
       />
 
       <CurrencyConverterModal

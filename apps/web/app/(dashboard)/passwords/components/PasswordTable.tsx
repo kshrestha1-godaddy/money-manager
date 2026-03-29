@@ -596,7 +596,7 @@ export function PasswordTable({
     // Mobile Card View
     if (showCardLayout) {
         return (
-            <div className="space-y-4">
+            <div className="space-y-2">
                 {showBulkActions && (
                     <div className="bg-white rounded-lg shadow p-4 mb-4">
                         <div className="flex items-center justify-between">
@@ -638,38 +638,39 @@ export function PasswordTable({
                 )}
                 
                 {sortedPasswords.map((password) => (
-                    <div key={password.id} className="bg-white rounded-lg shadow p-4 border border-gray-200">
-                        <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-start space-x-3 flex-1">
+                    <div
+                        key={password.id}
+                        className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm"
+                    >
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex min-w-0 flex-1 items-center gap-3">
                                 {showBulkActions && (
                                     <input
                                         type="checkbox"
                                         checked={selectedPasswords.has(password.id)}
                                         onChange={(e) => onPasswordSelect?.(password.id, e.target.checked)}
-                                        className="h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-1"
+                                        className="h-3 w-3 shrink-0 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                     />
                                 )}
-                                <div className="flex-1 min-w-0">
-                                    <h3 className="font-semibold text-gray-900 text-lg">{password.websiteName}</h3>
-                                    <p className="text-gray-600 text-sm">{password.username}</p>
+                                <div className="min-w-0 flex-1">
+                                    <h3 className="truncate font-semibold text-gray-900 text-base leading-snug">
+                                        {password.websiteName}
+                                    </h3>
+                                    <p className="truncate text-sm text-gray-600 mt-0.5">{password.username}</p>
                                 </div>
                             </div>
-                            <div className="flex items-center space-x-2 ml-4">
+                            <div className="flex shrink-0 items-center gap-1.5">
                                 <button
-                                    onClick={() => setViewingPassword(password)}
-                                    className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                                    title="View details"
                                     type="button"
+                                    onClick={() => setViewingPassword(password)}
+                                    className="rounded-lg px-3 py-2 text-sm font-medium text-blue-700 min-h-[40px] hover:bg-blue-50 transition-colors"
                                 >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                    </svg>
+                                    View
                                 </button>
                                 {onEdit && (
                                     <button
                                         onClick={() => onEdit(password)}
-                                        className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-green-600 hover:bg-green-50 rounded-md transition-colors"
+                                        className="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-green-600 hover:bg-green-50 rounded-md transition-colors"
                                         title="Edit"
                                         type="button"
                                     >
@@ -681,7 +682,7 @@ export function PasswordTable({
                                 {onDelete && (
                                     <button
                                         onClick={() => onDelete(password)}
-                                        className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                                        className="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-red-600 hover:bg-red-50 rounded-md transition-colors"
                                         title="Delete"
                                         type="button"
                                     >
@@ -690,29 +691,6 @@ export function PasswordTable({
                                         </svg>
                                     </button>
                                 )}
-                            </div>
-                        </div>
-                        
-                        <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Password:</span>
-                                <span className="font-mono text-gray-900">••••••••</span>
-                            </div>
-                            {!hideCategoryColumn && (
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Category:</span>
-                                    <span className="text-gray-900">{password.category || 'Uncategorized'}</span>
-                                </div>
-                            )}
-                            {password.notes && (
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Notes:</span>
-                                    <span className="text-gray-900 truncate max-w-32">{password.notes}</span>
-                                </div>
-                            )}
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Added:</span>
-                                <span className="text-gray-900">{password.createdAt.toLocaleDateString()}</span>
                             </div>
                         </div>
                     </div>
