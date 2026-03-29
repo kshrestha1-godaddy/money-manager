@@ -55,6 +55,10 @@ export default function NavBar() {
   if (status === "loading") {
     return null; // or a loading skeleton
   }
+
+  if (pathname === "/mobile") {
+    return null;
+  }
   
   const formatDate = (date: Date) => {
     return date.toLocaleDateString(undefined, {

@@ -6,6 +6,7 @@ import { useEffect } from "react";
 export function ChatLayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isChatPage = pathname === "/chat";
+  const isMobileHubPage = pathname === "/mobile";
 
   useEffect(() => {
     if (isChatPage) {
@@ -22,6 +23,16 @@ export function ChatLayoutWrapper({ children }: { children: React.ReactNode }) {
       const mainContainer = document.querySelector(".flex-grow");
       if (mainContainer) {
         (mainContainer as HTMLElement).style.padding = "0";
+      }
+    } else if (isMobileHubPage) {
+      document.body.style.overflow = "";
+      const footer = document.querySelector("footer");
+      if (footer) {
+        footer.style.display = "none";
+      }
+      const mainContainer = document.querySelector(".flex-grow");
+      if (mainContainer) {
+        (mainContainer as HTMLElement).style.padding = "0.75rem 1rem 1.5rem";
       }
     } else {
       // Restore normal layout
@@ -54,7 +65,7 @@ export function ChatLayoutWrapper({ children }: { children: React.ReactNode }) {
         (mainContainer as HTMLElement).style.padding = "";
       }
     };
-  }, [isChatPage]);
+  }, [isChatPage, isMobileHubPage]);
 
   return <>{children}</>;
 }

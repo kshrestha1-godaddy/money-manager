@@ -13,10 +13,12 @@ import { PendingScheduledPaymentsPrompt } from "../components/PendingScheduledPa
 export default function Layout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const isChatPage = pathname === "/chat";
+    const isMobileHubPage = pathname === "/mobile";
+    const hideChrome = isChatPage || isMobileHubPage;
     return (
         <div className={`${isChatPage ? "fixed inset-0 bg-gray-50 overflow-hidden" : "flex min-h-screen bg-gray-50"}`}>
-            {/* Sidebar - Hidden on chat page */}
-            {!isChatPage && (
+            {/* Sidebar - Hidden on chat and mobile hub */}
+            {!hideChrome && (
                 <div 
                     id="sidebar"
                     className="fixed left-0 top-0 w-72 h-screen bg-white border-r border-gray-200 pt-24 flex-shrink-0 z-30 overflow-y-auto"
@@ -124,32 +126,36 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className={`${
                 isChatPage 
                     ? "w-full h-full" 
-                    : "flex-1 ml-60 max-w-full overflow-x-auto"
+                    : isMobileHubPage
+                        ? "flex-1 w-full max-w-full min-w-0 overflow-x-hidden"
+                        : "flex-1 ml-60 max-w-full overflow-x-auto"
             }`}>
                 <div className={`${
                     isChatPage 
                         ? "h-full" 
-                        : "p-6 pt-24 min-h-[calc(100vh-12rem)]"
+                        : isMobileHubPage
+                            ? "p-4 pt-4 pb-8 min-h-[calc(100vh-2rem)]"
+                            : "p-6 pt-24 min-h-[calc(100vh-12rem)]"
                 }`}>
                     {children}
                 </div>
             </div>
             
-            {/* Tutorial Overlay - Hidden on chat page */}
-            {!isChatPage && <TutorialOverlay />}
+            {/* Tutorial Overlay - Hidden on chat and mobile hub */}
+            {!hideChrome && <TutorialOverlay />}
             
-            {/* Tutorial Button - Hidden on chat page */}
-            {!isChatPage && <TutorialButton />}
+            {/* Tutorial Button - Hidden on chat and mobile hub */}
+            {!hideChrome && <TutorialButton />}
             
-            {/* Currency Converter Button - Hidden on chat page */}
-            {!isChatPage && <CurrencyConverterButton />}
+            {/* Currency Converter Button - Hidden on chat and mobile hub */}
+            {!hideChrome && <CurrencyConverterButton />}
             
-            {/* Calculator Button - Hidden on chat page */}
-            {!isChatPage && <CalculatorButton />}
+            {/* Calculator Button - Hidden on chat and mobile hub */}
+            {!hideChrome && <CalculatorButton />}
             
             {/* Inactivity Warning - shows warnings when users are approaching password sharing threshold */}
-            {!isChatPage && <InactivityWarning />}
-            {!isChatPage && <PendingScheduledPaymentsPrompt />}
+            {!hideChrome && <InactivityWarning />}
+            {!hideChrome && <PendingScheduledPaymentsPrompt />}
         </div>
     );
 }
