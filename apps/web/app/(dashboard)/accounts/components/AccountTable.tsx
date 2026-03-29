@@ -175,6 +175,15 @@ export function AccountTable({
         return (account.balance || 0) - accountWithheldAmount;
     };
 
+    const columnTotals = useMemo(() => {
+        const totalBalance = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+        const totalFreeBalance = accounts.reduce(
+            (sum, acc) => sum + calculateAccountFreeBalance(acc),
+            0
+        );
+        return { totalBalance, totalFreeBalance };
+    }, [accounts, withheldAmounts]);
+
     const sortedAccounts = useMemo(() => {
         const sorted = [...accounts].sort((a, b) => {
             let aValue: any;
@@ -446,6 +455,54 @@ export function AccountTable({
                             />
                         ))}
                     </tbody>
+                    <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                        <tr>
+                            {showBulkActions && (
+                                <td
+                                    className="px-2 py-3"
+                                    style={{ width: `${columnWidths.checkbox}px` }}
+                                />
+                            )}
+                            <td
+                                colSpan={4}
+                                className="px-6 py-3 text-right text-sm font-semibold text-gray-900"
+                            >
+                                Total
+                            </td>
+                            <td
+                                className="px-3 py-3 whitespace-nowrap text-sm font-semibold text-center tabular-nums"
+                                style={{ width: `${columnWidths.balance}px` }}
+                            >
+                                <span
+                                    className={
+                                        columnTotals.totalBalance >= 0
+                                            ? "text-green-600"
+                                            : "text-red-600"
+                                    }
+                                >
+                                    {formatCurrency(columnTotals.totalBalance, userCurrency)}
+                                </span>
+                            </td>
+                            <td
+                                className="px-3 py-3 whitespace-nowrap text-sm font-semibold text-center tabular-nums"
+                                style={{ width: `${columnWidths.freeBalance}px` }}
+                            >
+                                <span
+                                    className={
+                                        columnTotals.totalFreeBalance >= 0
+                                            ? "text-blue-600"
+                                            : "text-red-600"
+                                    }
+                                >
+                                    {formatCurrency(columnTotals.totalFreeBalance, userCurrency)}
+                                </span>
+                            </td>
+                            <td
+                                className="px-3 py-3"
+                                style={{ width: `${columnWidths.actions}px` }}
+                            />
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         </div>

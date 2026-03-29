@@ -103,7 +103,10 @@ export async function getIncomes() {
     }
 }
 
-export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'updatedAt'>) {
+export async function createIncome(
+    data: Omit<Income, 'id' | 'createdAt' | 'updatedAt'>,
+    options?: { skipAccountBalanceUpdate?: boolean }
+) {
     try {
         const session = await getServerSession(authOptions);
         if (!session) throw new Error("Unauthorized");
@@ -188,7 +191,7 @@ export async function createIncome(data: Omit<Income, 'id' | 'createdAt' | 'upda
             }
 
             // adding the amount to the account balance (convert to user's currency)
-            if (data.accountId) {
+            if (data.accountId && !options?.skipAccountBalanceUpdate) {
                 const userCurrency = user?.currency || 'USD';
                 const transactionCurrency = data.currency || userCurrency;
                 const convertedAmount = await convertForDisplayWithDbRates(data.amount, transactionCurrency, userCurrency);
@@ -954,7 +957,9 @@ async function processIncomeRow(
         }
     }
 
-    const createdIncome = await createIncome(incomeData as any);
+    const createdIncome = await createIncome(incomeData as any, {
+        skipAccountBalanceUpdate: true,
+    });
 
     // Create bookmark if needed
     if (isBookmarked && createdIncome) {

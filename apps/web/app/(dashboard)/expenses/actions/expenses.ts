@@ -1084,44 +1084,7 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
                             }
                         }
 
-                        // Update account balance if account is specified (convert to user's currency)
-                        if (validatedRow.data.accountId) {
-                            const userCurrency = user?.currency || 'USD';
-                            const transactionCurrency = validatedRow.data.currency || userCurrency;
-                            const convertedAmount = await convertForDisplayWithDbRates(validatedRow.data.amount, transactionCurrency, userCurrency);
-                            
-                            await tx.account.update({
-                                where: { id: validatedRow.data.accountId },
-                                data: {
-                                    balance: {
-                                        decrement: convertedAmount
-                                    }
-                                }
-                            });
-                            const accRow = await tx.account.findUnique({
-                                where: { id: validatedRow.data.accountId },
-                                select: { bankName: true, holderName: true },
-                            });
-                            if (accRow) {
-                                await logAccountBalanceFromTransaction(tx, {
-                                    userId,
-                                    action: ActivityAction.CREATE,
-                                    entityType: ActivityEntityType.EXPENSE,
-                                    entityId: expense.id,
-                                    category: ActivityCategory.TRANSACTION,
-                                    accountId: validatedRow.data.accountId,
-                                    accountBankName: accRow.bankName,
-                                    holderName: accRow.holderName,
-                                    balanceDeltaUserCurrency: -convertedAmount,
-                                    userCurrency,
-                                    transactionTitle: validatedRow.data.title,
-                                    transactionAmountOriginal: validatedRow.data.amount,
-                                    transactionCurrency,
-                                    reason: "expense_import_csv",
-                                    extraMetadata: { importRow: validatedRow.rowIndex },
-                                });
-                            }
-                        }
+                        // Bulk CSV import: do not adjust linked account balances (historical records only).
 
                         // Create bookmark if needed
                         if (validatedRow.data.isBookmarked) {
@@ -1421,39 +1384,7 @@ export async function importCorrectedRow(
                 }
             }
 
-            // Update account balance if account is specified (convert to user's currency)
-            if (expenseData.accountId) {
-                const userCurrency = user?.currency || 'USD';
-                const transactionCurrency = expenseData.currency || userCurrency;
-                const convertedAmount = await convertForDisplayWithDbRates(expenseData.amount, transactionCurrency, userCurrency);
-                
-                await tx.account.update({
-                    where: { id: expenseData.accountId },
-                    data: {
-                        balance: {
-                            decrement: convertedAmount
-                        }
-                    }
-                });
-                if (expense.account) {
-                    await logAccountBalanceFromTransaction(tx, {
-                        userId,
-                        action: ActivityAction.CREATE,
-                        entityType: ActivityEntityType.EXPENSE,
-                        entityId: expense.id,
-                        category: ActivityCategory.TRANSACTION,
-                        accountId: expenseData.accountId,
-                        accountBankName: expense.account.bankName,
-                        holderName: expense.account.holderName,
-                        balanceDeltaUserCurrency: -convertedAmount,
-                        userCurrency,
-                        transactionTitle: expenseData.title,
-                        transactionAmountOriginal: expenseData.amount,
-                        transactionCurrency,
-                        reason: "expense_import_corrected_row",
-                    });
-                }
-            }
+            // Corrected-row CSV import: do not adjust linked account balances.
 
             return expense;
         });
