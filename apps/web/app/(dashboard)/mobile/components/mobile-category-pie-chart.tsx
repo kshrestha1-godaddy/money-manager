@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import type { Income, Expense } from "../../../types/financial";
 import { formatCurrency } from "../../../utils/currency";
@@ -59,6 +59,26 @@ export function MobileCategoryPieChart({
   transactions,
   displayCurrency,
 }: MobileCategoryPieChartProps) {
+  const chartWrapRef = useRef<HTMLDivElement>(null);
+  const [chartSideMargin, setChartSideMargin] = useState(52);
+
+  useLayoutEffect(() => {
+    const el = chartWrapRef.current;
+    if (!el) return;
+    function update() {
+      const node = chartWrapRef.current;
+      if (!node) return;
+      const w = node.clientWidth;
+      if (w <= 0) return;
+      // Used on all sides of PieChart so the plot stays square (avoids vertical bands when only L/R were set).
+      setChartSideMargin(Math.max(36, Math.round(w * 0.14)));
+    }
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const { chartData, total, smallCategories } = useMemo(() => {
     const categoryStatsMap = new Map<string, CategoryStats>();
 
@@ -147,6 +167,13 @@ export function MobileCategoryPieChart({
     return { chartData: merged, total: totalSum, smallCategories: small };
   }, [transactions, displayCurrency]);
 
+  /** Leader-line labels only for the largest slices to avoid overlap; full list is below. */
+  const namesWithLeaderLabels = useMemo(() => {
+    const sorted = [...chartData].sort((a, b) => b.value - a.value);
+    const top = sorted.slice(0, 4);
+    return new Set(top.map((r) => r.name));
+  }, [chartData]);
+
   const renderCustomizedLabel = useCallback(
     (entry: {
       cx?: number;
@@ -156,6 +183,10 @@ export function MobileCategoryPieChart({
       name?: string;
       value?: number;
     }) => {
+      if (!entry.name || !namesWithLeaderLabels.has(entry.name)) {
+        return null;
+      }
+
       const percentage =
         total > 0 && entry.value != null ? ((entry.value / total) * 100).toFixed(1) : "0.0";
       const chartDataEntry = chartData.find((item) => item.name === entry.name);
@@ -183,7 +214,7 @@ export function MobileCategoryPieChart({
       const edgeY = cy + outerRadius * Math.sin(-midAngle * RADIAN);
 
       let labelName = String(entry.name ?? "");
-      if (labelName.length > 14) labelName = `${labelName.slice(0, 12)}…`;
+      if (labelName.length > 12) labelName = `${labelName.slice(0, 10)}…`;
 
       return (
         <g>
@@ -194,28 +225,23 @@ export function MobileCategoryPieChart({
             fill="none"
           />
           <text
+            x={textX}
+            y={y2}
             fill={labelColor}
             textAnchor={isRightSide ? "start" : "end"}
-            fontWeight={600}
+            dominantBaseline="middle"
           >
-            <tspan x={textX} y={y2} dy="-0.35em" fontSize={9} style={{ fill: labelColor }}>
+            <tspan x={textX} dy="-0.55em" fontSize={9} fontWeight={600}>
               {labelName}
             </tspan>
-            <tspan
-              x={textX}
-              y={y2}
-              dy="0.95em"
-              fontSize={8}
-              fontWeight={600}
-              style={{ fill: labelColor }}
-            >
+            <tspan x={textX} dy="1.1em" fontSize={8} fontWeight={600}>
               {line2}
             </tspan>
           </text>
         </g>
       );
     },
-    [total, chartData]
+    [total, chartData, namesWithLeaderLabels]
   );
 
   const accentClass = type === "income" ? "text-emerald-600" : "text-red-600";
@@ -231,8 +257,8 @@ export function MobileCategoryPieChart({
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="mb-3 flex items-start justify-between gap-2">
+    <div className="rounded-xl border border-gray-200 bg-white px-3 pt-2 pb-2 shadow-sm">
+      <div className="mb-1.5 flex items-start justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold text-gray-900">{label}</h3>
           <p className="text-xs text-gray-500 mt-0.5">Based on filtered list</p>
@@ -246,18 +272,26 @@ export function MobileCategoryPieChart({
       </div>
 
       <div
-        className="h-[min(360px,78vw)] min-h-[300px] w-full min-w-0 [&_.recharts-surface]:overflow-visible [&_.recharts-wrapper]:overflow-visible"
+        ref={chartWrapRef}
+        className="mx-auto block aspect-square w-full max-w-[min(100%,320px)] min-h-0 min-w-0 leading-none [&_svg]:block [&_svg]:overflow-visible [&_.recharts-surface]:overflow-visible [&_.recharts-wrapper]:overflow-visible [&_.recharts-wrapper]:h-full"
         role="img"
         aria-label={`${label} pie chart`}
       >
         <ResponsiveContainer width="100%" height="100%">
-          <PieChart margin={{ top: 12, right: 4, bottom: 12, left: 4 }}>
+          <PieChart
+            margin={{
+              top: chartSideMargin,
+              right: chartSideMargin,
+              bottom: chartSideMargin,
+              left: chartSideMargin,
+            }}
+          >
             <Pie
               data={chartData}
               cx="50%"
               cy="50%"
-              innerRadius="34%"
-              outerRadius="56%"
+              innerRadius="38%"
+              outerRadius="62%"
               paddingAngle={2}
               cornerRadius={6}
               dataKey="value"
