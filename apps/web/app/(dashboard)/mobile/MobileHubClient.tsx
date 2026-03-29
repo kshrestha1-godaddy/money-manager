@@ -27,6 +27,7 @@ import {
   MobileGroupedTransactionList,
   groupTransactionsByYearAndMonth,
 } from "./components/mobile-grouped-transaction-list";
+import { MobileCategoryPieChart } from "./components/mobile-category-pie-chart";
 import { PasswordTable } from "../passwords/components/PasswordTable";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency } from "../../utils/currency";
@@ -279,6 +280,22 @@ export default function MobileHubClient() {
     [filteredDebts]
   );
 
+  const filteredIncomesTotalFormatted = useMemo(() => {
+    const sum = filteredIncomes.reduce(
+      (acc, item) => acc + convertForDisplaySync(item.amount, item.currency, selectedCurrency),
+      0
+    );
+    return formatCurrency(sum, selectedCurrency);
+  }, [filteredIncomes, selectedCurrency]);
+
+  const filteredExpensesTotalFormatted = useMemo(() => {
+    const sum = filteredExpenses.reduce(
+      (acc, item) => acc + convertForDisplaySync(item.amount, item.currency, selectedCurrency),
+      0
+    );
+    return formatCurrency(sum, selectedCurrency);
+  }, [filteredExpenses, selectedCurrency]);
+
   function formatDisplayAmount(amount: number, storedCurrency: string): string {
     const converted = convertForDisplaySync(amount, storedCurrency, selectedCurrency);
     return formatCurrency(converted, selectedCurrency);
@@ -428,12 +445,29 @@ export default function MobileHubClient() {
               {search.trim() ? "No incomes match your search." : "No incomes yet."}
             </p>
           ) : (
-            <MobileGroupedTransactionList
-              grouped={incomesByYearMonth}
-              variant="income"
-              formatAmount={(item) => formatDisplayAmount(item.amount, item.currency)}
-              onItemClick={setIncomeToView}
-            />
+            <div className="space-y-3">
+              <MobileCategoryPieChart
+                type="income"
+                transactions={filteredIncomes}
+                displayCurrency={selectedCurrency}
+              />
+              <MobileGroupedTransactionList
+                grouped={incomesByYearMonth}
+                variant="income"
+                formatAmount={(item) => formatDisplayAmount(item.amount, item.currency)}
+                onItemClick={setIncomeToView}
+              />
+              <div
+                className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50/90 px-4 py-3"
+                role="region"
+                aria-label="Filtered incomes total"
+              >
+                <span className="text-sm font-medium text-gray-700">Total</span>
+                <span className="text-base font-semibold tabular-nums text-emerald-700">
+                  {filteredIncomesTotalFormatted}
+                </span>
+              </div>
+            </div>
           )}
         </section>
       )}
@@ -445,12 +479,29 @@ export default function MobileHubClient() {
               {search.trim() ? "No expenses match your search." : "No expenses yet."}
             </p>
           ) : (
-            <MobileGroupedTransactionList
-              grouped={expensesByYearMonth}
-              variant="expense"
-              formatAmount={(item) => formatDisplayAmount(item.amount, item.currency)}
-              onItemClick={setExpenseToView}
-            />
+            <div className="space-y-3">
+              <MobileCategoryPieChart
+                type="expense"
+                transactions={filteredExpenses}
+                displayCurrency={selectedCurrency}
+              />
+              <MobileGroupedTransactionList
+                grouped={expensesByYearMonth}
+                variant="expense"
+                formatAmount={(item) => formatDisplayAmount(item.amount, item.currency)}
+                onItemClick={setExpenseToView}
+              />
+              <div
+                className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50/90 px-4 py-3"
+                role="region"
+                aria-label="Filtered expenses total"
+              >
+                <span className="text-sm font-medium text-gray-700">Total</span>
+                <span className="text-base font-semibold tabular-nums text-red-700">
+                  {filteredExpensesTotalFormatted}
+                </span>
+              </div>
+            </div>
           )}
         </section>
       )}
