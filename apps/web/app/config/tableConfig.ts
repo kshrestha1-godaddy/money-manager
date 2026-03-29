@@ -45,7 +45,7 @@ export const TABLE_COLUMN_WIDTHS = {
     totalValue: 100,
     isWithheld: 100,
     gainLoss: 110,
-    purchaseDate: 120,
+    purchaseDate: 180,
     actions: 248,
   },
 };

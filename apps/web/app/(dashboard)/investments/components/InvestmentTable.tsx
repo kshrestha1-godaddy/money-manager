@@ -682,10 +682,8 @@ function InvestmentRow({
                     </div>
                 )}
             </td>
-            <td className="px-4 py-4 text-sm text-gray-900 text-center align-top" style={{ width: `${columnWidths.purchaseDate}px` }}>
-                <div className="break-words font-medium">
-                    {formatDateYearMonthDay(investment.purchaseDate)}
-                </div>
+            <td className="px-4 py-4 text-sm text-gray-900 text-center align-top whitespace-nowrap" style={{ width: `${columnWidths.purchaseDate}px` }}>
+                <div className="font-medium">{formatDateYearMonthDay(investment.purchaseDate)}</div>
             </td>
             <td className="px-4 py-4 text-sm text-gray-900 text-center align-top" style={{ width: `${columnWidths.quantityInterest}px` }}>
                 {showInterestOrMaturityColumn ? (

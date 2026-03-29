@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { differenceInCalendarDays } from "date-fns";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { useCurrency } from "../../../providers/CurrencyProvider";
 import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
@@ -32,6 +33,26 @@ const emptyTitle = TEXT_COLORS.emptyTitle;
 const emptyMessage = TEXT_COLORS.emptyMessage;
 
 const primaryButton = BUTTON_COLORS.primary;
+
+/** Parse YYYY-MM-DD at local noon to avoid TZ shifting the calendar day. */
+function parseChartDay(dateStr: string): Date {
+    return new Date(`${dateStr}T12:00:00`);
+}
+
+/**
+ * X-axis tick dates: last 30 calendar days (vs chart end) show every day; older dates show every 3rd day.
+ */
+function getNetWorthXAxisTickDates(sortedDateStrings: string[]): string[] {
+    if (sortedDateStrings.length === 0) return [];
+    const start = parseChartDay(sortedDateStrings[0]);
+    const end = parseChartDay(sortedDateStrings[sortedDateStrings.length - 1]);
+    return sortedDateStrings.filter((d) => {
+        const day = parseChartDay(d);
+        const daysFromEnd = differenceInCalendarDays(end, day);
+        if (daysFromEnd <= 30) return true;
+        return differenceInCalendarDays(day, start) % 3 === 0;
+    });
+}
 
 interface ChartDataPoint {
     date: string;
@@ -188,6 +209,16 @@ export function NetworthHistoryChart({
     };
 
     const yAxisDomain = getYAxisDomain();
+
+    const xAxisTicks = useMemo(
+        () => getNetWorthXAxisTickDates(chartData.map((p) => p.date)),
+        [chartData]
+    );
+
+    const formatXAxisTick = (value: string) => {
+        const date = parseChartDay(value);
+        return `${date.getMonth() + 1}/${date.getDate()}`;
+    };
 
     // Custom tooltip for the chart
     const CustomTooltip = ({ active, payload, label }: any) => {
@@ -458,11 +489,11 @@ export function NetworthHistoryChart({
                             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                             <XAxis 
                                 dataKey="date"
+                                type="category"
+                                ticks={xAxisTicks}
+                                interval={0}
                                 tick={{ fontSize: 12 }}
-                                tickFormatter={(value) => {
-                                    const date = new Date(value);
-                                    return `${date.getMonth() + 1}/${date.getDate()}`;
-                                }}
+                                tickFormatter={formatXAxisTick}
                             />
                             <YAxis 
                                 tick={{ fontSize: 12 }}
