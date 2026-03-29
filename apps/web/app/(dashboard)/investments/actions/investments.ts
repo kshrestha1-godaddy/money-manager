@@ -28,6 +28,21 @@ function investmentPurchaseCost(quantity: unknown, purchasePrice: unknown): numb
     return q * p;
 }
 
+async function resolveInvestmentTargetIdForUser(
+    userId: number,
+    investmentTargetId: number | null
+): Promise<number | null> {
+    if (investmentTargetId === null) return null;
+    const target = await prisma.investmentTarget.findFirst({
+        where: { id: investmentTargetId, userId },
+        select: { id: true },
+    });
+    if (!target) {
+        throw new Error("Investment target not found or does not belong to you");
+    }
+    return target.id;
+}
+
 export async function getUserInvestments(): Promise<{ data?: InvestmentInterface[], error?: string }> {
     try {
         const session = await getServerSession(authOptions);
@@ -79,6 +94,9 @@ export async function getUserInvestments(): Promise<{ data?: InvestmentInterface
             },
             include: {
                 account: true,
+                investmentTarget: {
+                    select: { id: true, investmentType: true, nickname: true },
+                },
             },
             orderBy: {
                 purchaseDate: 'desc',
@@ -131,6 +149,14 @@ export async function getUserInvestments(): Promise<{ data?: InvestmentInterface
                     userId: investment.userId,
                     notes: investment.notes,
                     deductFromAccount: investment.deductFromAccount,
+                    investmentTargetId: investment.investmentTargetId,
+                    investmentTarget: investment.investmentTarget
+                        ? {
+                              id: investment.investmentTarget.id,
+                              investmentType: investment.investmentTarget.investmentType,
+                              nickname: investment.investmentTarget.nickname,
+                          }
+                        : null,
                     createdAt: new Date(investment.createdAt),
                     updatedAt: new Date(investment.updatedAt),
                     account: transformedAccount,
@@ -151,7 +177,9 @@ export async function getUserInvestments(): Promise<{ data?: InvestmentInterface
     }
 }
 
-export async function createInvestment(investment: Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account'>) {
+export async function createInvestment(
+    investment: Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account' | 'investmentTarget'>
+) {
     try {
         const session = await getServerSession(authOptions);
         if (!session) {
@@ -159,6 +187,10 @@ export async function createInvestment(investment: Omit<InvestmentInterface, 'id
         }
 
         const userId = getUserIdFromSession(session.user.id);
+        const validatedTargetId = await resolveInvestmentTargetIdForUser(
+            userId,
+            investment.investmentTargetId ?? null
+        );
         let user = await prisma.user.findUnique({
             where: {
                 id: userId,
@@ -218,11 +250,26 @@ export async function createInvestment(investment: Omit<InvestmentInterface, 'id
 
             const created = await tx.investment.create({
                 data: {
-                    ...investment,
+                    name: investment.name,
+                    type: investment.type,
+                    symbol: investment.symbol ?? null,
+                    quantity: investment.quantity,
+                    purchasePrice: investment.purchasePrice,
+                    currentPrice: investment.currentPrice,
+                    purchaseDate: investment.purchaseDate,
+                    accountId: investment.accountId ?? null,
+                    notes: investment.notes ?? null,
+                    interestRate: investment.interestRate ?? null,
+                    maturityDate: investment.maturityDate ?? null,
+                    deductFromAccount: investment.deductFromAccount ?? true,
+                    investmentTargetId: validatedTargetId,
                     userId: user.id,
                 },
                 include: {
                     account: true,
+                    investmentTarget: {
+                        select: { id: true, investmentType: true, nickname: true },
+                    },
                 },
             });
 
@@ -293,6 +340,14 @@ export async function createInvestment(investment: Omit<InvestmentInterface, 'id
             userId: result.userId,
             notes: result.notes,
             deductFromAccount: result.deductFromAccount,
+            investmentTargetId: result.investmentTargetId,
+            investmentTarget: result.investmentTarget
+                ? {
+                      id: result.investmentTarget.id,
+                      investmentType: result.investmentTarget.investmentType,
+                      nickname: result.investmentTarget.nickname,
+                  }
+                : null,
             createdAt: new Date(result.createdAt),
             updatedAt: new Date(result.updatedAt),
             account: transformedAccount,
@@ -306,7 +361,10 @@ export async function createInvestment(investment: Omit<InvestmentInterface, 'id
     }
 }
 
-export async function updateInvestment(id: number, investment: Partial<Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account'>>) {
+export async function updateInvestment(
+    id: number,
+    investment: Partial<Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account' | 'investmentTarget'>>
+) {
     try {
         const session = await getServerSession(authOptions);
         if (!session) {
@@ -328,6 +386,15 @@ export async function updateInvestment(id: number, investment: Partial<Omit<Inve
 
             if (!existing) {
                 throw new Error("Investment not found or unauthorized");
+            }
+
+            const { investmentTargetId: rawTargetId, ...restInvestment } = investment;
+            const updateData: Record<string, unknown> = { ...restInvestment };
+            if (rawTargetId !== undefined) {
+                updateData.investmentTargetId = await resolveInvestmentTargetIdForUser(
+                    userId,
+                    rawTargetId
+                );
             }
 
             const oldCost = investmentPurchaseCost(
@@ -492,9 +559,12 @@ export async function updateInvestment(id: number, investment: Partial<Omit<Inve
 
             return tx.investment.update({
                 where: { id },
-                data: investment,
+                data: updateData,
                 include: {
                     account: true,
+                    investmentTarget: {
+                        select: { id: true, investmentType: true, nickname: true },
+                    },
                 },
             });
         });
@@ -528,6 +598,14 @@ export async function updateInvestment(id: number, investment: Partial<Omit<Inve
             userId: result.userId,
             notes: result.notes,
             deductFromAccount: result.deductFromAccount,
+            investmentTargetId: result.investmentTargetId,
+            investmentTarget: result.investmentTarget
+                ? {
+                      id: result.investmentTarget.id,
+                      investmentType: result.investmentTarget.investmentType,
+                      nickname: result.investmentTarget.nickname,
+                  }
+                : null,
             createdAt: new Date(result.createdAt),
             updatedAt: new Date(result.updatedAt),
             account: transformedAccount,

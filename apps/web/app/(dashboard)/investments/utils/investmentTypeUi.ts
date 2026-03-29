@@ -72,3 +72,23 @@ export const INVESTMENT_TYPE_LABELS: { value: InvestmentInterface["type"]; label
 export function getInvestmentTypeLabel(type: InvestmentInterface["type"]): string {
     return INVESTMENT_TYPE_LABELS.find((x) => x.value === type)?.label ?? type.replace(/_/g, " ");
 }
+
+/** Distinct badge colors so the table scans by category at a glance. */
+export function getInvestmentTypeBadgeClassName(type: InvestmentInterface["type"]): string {
+    const map: Record<InvestmentInterface["type"], string> = {
+        FIXED_DEPOSIT: "bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200/80",
+        EMERGENCY_FUND: "bg-teal-100 text-teal-900 ring-1 ring-teal-200/80",
+        MARRIAGE: "bg-rose-100 text-rose-900 ring-1 ring-rose-200/80",
+        VACATION: "bg-sky-100 text-sky-900 ring-1 ring-sky-200/80",
+        STOCKS: "bg-blue-100 text-blue-900 ring-1 ring-blue-200/80",
+        CRYPTO: "bg-violet-100 text-violet-900 ring-1 ring-violet-200/80",
+        MUTUAL_FUNDS: "bg-indigo-100 text-indigo-900 ring-1 ring-indigo-200/80",
+        BONDS: "bg-cyan-100 text-cyan-900 ring-1 ring-cyan-200/80",
+        REAL_ESTATE: "bg-amber-100 text-amber-900 ring-1 ring-amber-200/80",
+        GOLD: "bg-yellow-100 text-yellow-900 ring-1 ring-yellow-200/80",
+        PROVIDENT_FUNDS: "bg-lime-100 text-lime-900 ring-1 ring-lime-200/80",
+        SAFE_KEEPINGS: "bg-orange-100 text-orange-900 ring-1 ring-orange-200/80",
+        OTHER: "bg-slate-100 text-slate-800 ring-1 ring-slate-200/80",
+    };
+    return map[type] ?? map.OTHER;
+}

@@ -76,19 +76,6 @@ export async function createInvestmentTarget(data: InvestmentTargetFormData): Pr
             throw new Error("Invalid user ID");
         }
 
-        // Check if target already exists for this investment type
-        const existingTarget = await prisma.investmentTarget.findFirst({
-            where: {
-                userId: userId,
-                investmentType: data.investmentType,
-            },
-        });
-
-        if (existingTarget) {
-            // const { formatInvestmentType } = await import("../constants");
-            throw new Error(`A target for ${formatInvestmentType(data.investmentType)} already exists. Please edit the existing target instead.`);
-        }
-
         const target = await prisma.investmentTarget.create({
             data: {
                 ...data,
@@ -106,6 +93,55 @@ export async function createInvestmentTarget(data: InvestmentTargetFormData): Pr
         } as InvestmentTarget;
     } catch (error) {
         console.error("Error creating investment target:", error);
+        throw error;
+    }
+}
+
+export async function createInvestmentTargetsBatch(
+    items: InvestmentTargetFormData[]
+): Promise<InvestmentTarget[]> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            throw new Error("Unauthorized");
+        }
+
+        const userId = getUserIdFromSession(session.user.id);
+
+        if (isNaN(userId)) {
+            throw new Error("Invalid user ID");
+        }
+
+        if (!items.length) {
+            throw new Error("Add at least one investment target");
+        }
+
+        for (const item of items) {
+            if (item.targetAmount <= 0) {
+                throw new Error("Each target amount must be greater than 0");
+            }
+        }
+
+        const created = await prisma.$transaction(
+            items.map((data) =>
+                prisma.investmentTarget.create({
+                    data: {
+                        ...data,
+                        userId,
+                    },
+                })
+            )
+        );
+
+        revalidatePath("/(dashboard)/investments");
+
+        return created.map((target) => ({
+            ...target,
+            targetAmount: parseFloat(target.targetAmount.toString()),
+            targetCompletionDate: target.targetCompletionDate || undefined,
+        })) as InvestmentTarget[];
+    } catch (error) {
+        console.error("Error creating investment targets batch:", error);
         throw error;
     }
 }
@@ -209,17 +245,20 @@ export async function getInvestmentTargetProgress(): Promise<{ data?: Investment
             },
         });
 
-        // Calculate current amounts by investment type using simplified formula: quantity × currentPrice
-        const currentAmountsByType = investments.reduce((acc, investment) => {
-            const currentValue = parseFloat(investment.quantity.toString()) * parseFloat(investment.currentPrice.toString());
-            
-            acc[investment.type] = (acc[investment.type] || 0) + currentValue;
+        // Sum current value (quantity × currentPrice) per target from investments explicitly linked to that target
+        const currentAmountsByTargetId = investments.reduce((acc, investment) => {
+            if (investment.investmentTargetId == null) return acc;
+            const currentValue =
+                parseFloat(investment.quantity.toString()) *
+                parseFloat(investment.currentPrice.toString());
+            const tid = investment.investmentTargetId;
+            acc[tid] = (acc[tid] || 0) + currentValue;
             return acc;
-        }, {} as Record<string, number>);
+        }, {} as Record<number, number>);
 
         // Create progress data
         const progressData: InvestmentTargetProgress[] = targets.map(target => {
-            const currentAmount = currentAmountsByType[target.investmentType] || 0;
+            const currentAmount = currentAmountsByTargetId[target.id] || 0;
             const targetAmount = parseFloat(target.targetAmount.toString());
             const progress = targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
             
@@ -236,6 +275,7 @@ export async function getInvestmentTargetProgress(): Promise<{ data?: Investment
             }
             
             return {
+                targetId: target.id,
                 investmentType: target.investmentType,
                 targetAmount: targetAmount,
                 currentAmount,
@@ -292,34 +332,13 @@ export async function bulkImportInvestmentTargets(file: File): Promise<{
         // Process targets in batches to avoid timeout
         for (const targetData of validTargets) {
             try {
-                // Check if target already exists for this investment type
-                const existingTarget = await prisma.investmentTarget.findFirst({
-                    where: {
+                await prisma.investmentTarget.create({
+                    data: {
+                        ...targetData,
                         userId: userId,
-                        investmentType: targetData.investmentType,
                     },
                 });
 
-                if (existingTarget) {
-                    // Update existing target instead of creating new one
-                    await prisma.investmentTarget.update({
-                        where: { id: existingTarget.id },
-                        data: {
-                            targetAmount: targetData.targetAmount,
-                            targetCompletionDate: targetData.targetCompletionDate,
-                            nickname: targetData.nickname,
-                        },
-                    });
-                } else {
-                    // Create new target
-                    await prisma.investmentTarget.create({
-                        data: {
-                            ...targetData,
-                            userId: userId,
-                        },
-                    });
-                }
-                
                 importedCount++;
             } catch (error) {
                 errors.push({
@@ -400,38 +419,16 @@ export async function importCorrectedInvestmentTargetRow(rowData: string[], head
         throw new Error("No valid target data found in corrected row");
     }
 
-    // Check if target already exists for this investment type
-    const existingTarget = await prisma.investmentTarget.findFirst({
-        where: {
-            userId: userId,
+    const result = await prisma.investmentTarget.create({
+        data: {
             investmentType: targetData.investmentType,
+            targetAmount: targetData.targetAmount,
+            targetCompletionDate: targetData.targetCompletionDate,
+            nickname: targetData.nickname,
+            userId: userId,
         },
     });
 
-    let result;
-    if (existingTarget) {
-        // Update existing target
-        result = await prisma.investmentTarget.update({
-            where: { id: existingTarget.id },
-            data: {
-                targetAmount: targetData.targetAmount,
-                targetCompletionDate: targetData.targetCompletionDate,
-                nickname: targetData.nickname,
-            },
-        });
-    } else {
-        // Create new target
-        result = await prisma.investmentTarget.create({
-            data: {
-                investmentType: targetData.investmentType,
-                targetAmount: targetData.targetAmount,
-                targetCompletionDate: targetData.targetCompletionDate,
-                nickname: targetData.nickname,
-                userId: userId,
-            },
-        });
-    }
-    
     revalidatePath("/(dashboard)/investments");
     return result;
 }

@@ -78,7 +78,7 @@ export default function InvestmentsPageClient() {
     modal: targetModal,
     openModal: openTargetModal,
     closeModal: closeTargetModal,
-    handleCreateTarget,
+    handleCreateTargetsBatch,
     handleUpdateTarget,
     handleDeleteTarget,
     handleBulkDeleteAllTargets,
@@ -194,13 +194,39 @@ export default function InvestmentsPageClient() {
   }
 
   const openAddTargetModal = useCallback(() => openTargetModal('create'), [openTargetModal]);
-  const openEditTargetModal = useCallback((investmentType: string) => {
-    const actualTarget = actualTargets.find(t => t.investmentType === investmentType);
+  const openEditTargetModal = useCallback((targetId: number) => {
+    const actualTarget = actualTargets.find((t) => t.id === targetId);
     if (actualTarget) openTargetModal('edit', actualTarget);
   }, [actualTargets, openTargetModal]);
 
-  const stableInvestments = useMemo(() => investments, [investments?.length, investments?.reduce((sum, inv) => sum + inv.id + (inv.currentPrice || 0), 0) ?? 0]);
-  const stableFilteredInvestments = useMemo(() => filteredInvestments, [filteredInvestments?.length, filteredInvestments?.reduce((sum, inv) => sum + inv.id + (inv.currentPrice || 0), 0) ?? 0]);
+  // Fingerprint must include type, quantity, and purchase price — InvestmentTypePolarChart groups by type
+  // and uses quantity × purchasePrice (cost basis); stale keys here caused the chart to miss edits.
+  const investmentsStableKey = useMemo(
+    () =>
+      investments
+        ?.map(
+          (inv) =>
+            `${inv.id}:${inv.type}:${inv.quantity}:${inv.purchasePrice}:${inv.currentPrice}`
+        )
+        .join("|") ?? "",
+    [investments]
+  );
+  const stableInvestments = useMemo(() => investments, [investments, investmentsStableKey]);
+
+  const filteredInvestmentsStableKey = useMemo(
+    () =>
+      filteredInvestments
+        .map(
+          (inv) =>
+            `${inv.id}:${inv.type}:${inv.quantity}:${inv.purchasePrice}:${inv.currentPrice}`
+        )
+        .join("|"),
+    [filteredInvestments]
+  );
+  const stableFilteredInvestments = useMemo(
+    () => filteredInvestments,
+    [filteredInvestments, filteredInvestmentsStableKey]
+  );
   const stableTargetProgress = useMemo(() => targetProgress, [targetProgress?.length, targetProgress?.reduce((sum, target) => sum + target.progress + (target.isComplete ? 1 : 0), 0) ?? 0]);
 
   const polarChartProps = useMemo(() => ({ investments: stableFilteredInvestments, currency: userCurrency, title: "Portfolio Distribution by Investment Type" }), [stableFilteredInvestments, userCurrency]);
@@ -579,7 +605,7 @@ export default function InvestmentsPageClient() {
           config={investmentImportConfig}
         />
         <BulkDeleteInvestmentModal isOpen={isBulkDeleteModalOpen} onClose={() => setIsBulkDeleteModalOpen(false)} onConfirm={handleBulkDeleteConfirm} investments={bulkDeleteInvestments} />
-        <InvestmentTargetModal isOpen={targetModal.type !== null} onClose={closeModalTarget} onSave={async (data) => { await handleCreateTarget(data); }} onUpdate={async (id, data) => { await handleUpdateTarget(id, data); }} onDelete={async (id) => { await handleDeleteTarget(id); }} existingTarget={targetModal.target} mode={targetModal.type || 'create'} existingTargetTypes={actualTargets.map(t => t.investmentType)} currency={userCurrency} />
+        <InvestmentTargetModal isOpen={targetModal.type !== null} onClose={closeModalTarget} onCreate={async (items) => { await handleCreateTargetsBatch(items); }} onUpdate={async (id, data) => { await handleUpdateTarget(id, data); }} onDelete={async (id) => { await handleDeleteTarget(id); }} existingTarget={targetModal.target} mode={targetModal.type || 'create'} currency={userCurrency} />
         <BulkDeleteTargetsModal 
           isOpen={isBulkDeleteTargetsModalOpen} 
           onClose={() => setIsBulkDeleteTargetsModalOpen(false)} 

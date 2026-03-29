@@ -1,8 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { InvestmentInterface } from "../../../types/investments";
+import { InvestmentInterface, InvestmentTarget } from "../../../types/investments";
 import { getUserAccounts } from "../../accounts/actions/accounts";
+import { getInvestmentTargets } from "../actions/investment-targets";
+import {
+    getInvestmentTypeLabel,
+    isDepositStyleType,
+    isProvidentOrSafeType,
+    isQuantityBasedInvestmentType,
+    isSymbolApplicableType,
+    normalizeInvestmentType,
+    requiresCurrentPriceField,
+} from "../utils/investmentTypeUi";
 import { formatCurrency } from "../../../utils/currency";
 import { useCurrency } from "../../../providers/CurrencyProvider";
 import { getLocalDateString } from "../../../utils/formUtils";
@@ -10,7 +20,7 @@ import { getLocalDateString } from "../../../utils/formUtils";
 interface AddInvestmentModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onAdd: (investment: Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account'>) => void;
+    onAdd: (investment: Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account' | 'investmentTarget'>) => void;
 }
 
 interface Account {
@@ -39,15 +49,22 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
         maturityDate: "",
         // Account deduction control
         deductFromAccount: true,
+        investmentTargetId: "",
     });
 
     const [accounts, setAccounts] = useState<Account[]>([]);
+    const [targets, setTargets] = useState<InvestmentTarget[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         if (isOpen) {
             loadAccounts();
+            void (async () => {
+                const result = await getInvestmentTargets();
+                if (result.data) setTargets(result.data);
+                else setTargets([]);
+            })();
         }
     }, [isOpen]);
 
@@ -87,11 +104,11 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                 return;
             }
             
-            // Category-specific validation
-            const isQuantityBasedType = !['FIXED_DEPOSIT', 'PROVIDENT_FUNDS', 'SAFE_KEEPINGS', 'EMERGENCY_FUND', 'MARRIAGE', 'VACATION'].includes(formData.type);
-            const isCurrentPriceRequired = !['FIXED_DEPOSIT', 'PROVIDENT_FUNDS', 'SAFE_KEEPINGS', 'EMERGENCY_FUND', 'MARRIAGE', 'VACATION'].includes(formData.type);
-            
-            if (isQuantityBasedType && (!formData.quantity || parseFloat(formData.quantity) <= 0)) {
+            const resolvedType = normalizeInvestmentType(formData.type);
+            const isQuantityBased = isQuantityBasedInvestmentType(resolvedType);
+            const needsCurrentPrice = requiresCurrentPriceField(resolvedType);
+
+            if (isQuantityBased && (!formData.quantity || parseFloat(formData.quantity) <= 0)) {
                 setError("Quantity must be greater than 0");
                 return;
             }
@@ -99,7 +116,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                 setError("Purchase price must be greater than 0");
                 return;
             }
-            if (isCurrentPriceRequired && (!formData.currentPrice || parseFloat(formData.currentPrice) < 0)) {
+            if (needsCurrentPrice && (!formData.currentPrice || parseFloat(formData.currentPrice) < 0)) {
                 setError("Current price must be 0 or greater");
                 return;
             }
@@ -111,22 +128,25 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
 
             const investmentData: any = {
                 name: formData.name.trim(),
-                type: formData.type,
+                type: resolvedType,
                 symbol: formData.symbol.trim() || undefined,
-                quantity: isQuantityBasedType ? parseFloat(formData.quantity || "0") : 1, // Default to 1 for non-quantity types
+                quantity: isQuantityBased ? parseFloat(formData.quantity || "0") : 1, // Default to 1 for non-quantity types
                 purchasePrice: parseFloat(formData.purchasePrice || "0"),
-                currentPrice: isCurrentPriceRequired ? parseFloat(formData.currentPrice || "0") : parseFloat(formData.purchasePrice || "0"), // Use purchase price as current price for non-current-price types
+                currentPrice: needsCurrentPrice ? parseFloat(formData.currentPrice || "0") : parseFloat(formData.purchasePrice || "0"), // Use purchase price as current price for non-current-price types
                 purchaseDate: new Date(formData.purchaseDate + 'T00:00:00'),
                 accountId: formData.accountId ? parseInt(formData.accountId) : null,
                 notes: formData.notes.trim() || undefined,
                 deductFromAccount: formData.deductFromAccount,
+                investmentTargetId: formData.investmentTargetId
+                    ? parseInt(formData.investmentTargetId, 10)
+                    : null,
             };
 
             // Add type-specific fields
-            if (formData.type === 'FIXED_DEPOSIT') {
+            if (resolvedType === 'FIXED_DEPOSIT') {
                 investmentData.interestRate = parseFloat(formData.interestRate || "0");
                 investmentData.maturityDate = formData.maturityDate ? new Date(formData.maturityDate + 'T00:00:00') : undefined;
-            } else if (formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') {
+            } else if (resolvedType === 'PROVIDENT_FUNDS' || resolvedType === 'SAFE_KEEPINGS' || resolvedType === 'EMERGENCY_FUND' || resolvedType === 'MARRIAGE' || resolvedType === 'VACATION') {
                 // Optional interest rate and maturity date for these types
                 if (formData.interestRate) {
                     investmentData.interestRate = parseFloat(formData.interestRate);
@@ -154,6 +174,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                 maturityDate: "",
                 // Account deduction control
                 deductFromAccount: true,
+                investmentTargetId: "",
             });
             
             // Close modal on success
@@ -191,6 +212,8 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
     ];
 
     if (!isOpen) return null;
+
+    const resolvedType = normalizeInvestmentType(formData.type);
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -246,7 +269,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                         </select>
                     </div>
 
-                    {formData.type !== 'FIXED_DEPOSIT' && formData.type !== 'PROVIDENT_FUNDS' && formData.type !== 'SAFE_KEEPINGS' && formData.type !== 'EMERGENCY_FUND' && formData.type !== 'MARRIAGE' && formData.type !== 'VACATION' && (
+                    {isSymbolApplicableType(resolvedType) && (
                         <div>
                             <label htmlFor="symbol" className="block text-sm font-medium text-gray-700 mb-1">
                                 Symbol (Optional)
@@ -262,7 +285,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                         </div>
                     )}
 
-                    {(formData.type === 'FIXED_DEPOSIT' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') ? (
+                    {isDepositStyleType(resolvedType) ? (
                         <>
                             <div>
                                 <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 mb-1">
@@ -315,7 +338,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                                 </div>
                             </div>
                         </>
-                    ) : formData.type === 'PROVIDENT_FUNDS' || formData.type === 'SAFE_KEEPINGS' ? (
+                    ) : isProvidentOrSafeType(resolvedType) ? (
                         <>
                             <div>
                                 <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 mb-1">
@@ -425,7 +448,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
 
                     <div>
                         <label htmlFor="purchaseDate" className="block text-sm font-medium text-gray-700 mb-1">
-                            {(formData.type === 'FIXED_DEPOSIT' || formData.type === 'EMERGENCY_FUND' || formData.type === 'MARRIAGE' || formData.type === 'VACATION') ? 'Deposit Date *' : 'Purchase Date *'}
+                            {isDepositStyleType(resolvedType) ? 'Deposit Date *' : 'Purchase Date *'}
                         </label>
                         <input
                             type="date"
@@ -496,6 +519,30 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                                 </p>
                             </div>
                         )}
+                    </div>
+
+                    <div>
+                        <label htmlFor="investmentTargetId" className="block text-sm font-medium text-gray-700 mb-1">
+                            Savings target (optional)
+                        </label>
+                        <select
+                            id="investmentTargetId"
+                            value={formData.investmentTargetId}
+                            onChange={(e) => handleInputChange("investmentTargetId", e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">None — not linked to a target</option>
+                            {targets.map((t) => (
+                                <option key={t.id} value={String(t.id)}>
+                                    {t.nickname?.trim()
+                                        ? `${t.nickname} (${getInvestmentTypeLabel(t.investmentType)})`
+                                        : getInvestmentTypeLabel(t.investmentType)}
+                                </option>
+                            ))}
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                            If selected, this position&apos;s current value counts toward that goal. You can leave this empty.
+                        </p>
                     </div>
 
                     <div>

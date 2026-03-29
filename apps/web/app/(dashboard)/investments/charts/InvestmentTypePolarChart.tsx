@@ -94,6 +94,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
       "investment-type-polar"
     );
 
+    // Groups by inv.type (not savings-target links). Values are cost basis: quantity × purchasePrice.
     const { data, legendData, totalInvested } = useMemo(() => {
       const typeToAgg = new Map<string, { 
         invested: number; 

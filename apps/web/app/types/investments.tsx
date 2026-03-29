@@ -15,6 +15,13 @@ export interface InvestmentInterface {
     maturityDate?: Date; // When the FD matures
     // Account deduction control
     deductFromAccount?: boolean; // Whether to deduct investment amount from linked account balance
+    /** When set, this position counts toward the linked savings target (explicit user choice). */
+    investmentTargetId?: number | null;
+    investmentTarget?: {
+        id: number;
+        investmentType: InvestmentInterface['type'];
+        nickname?: string | null;
+    } | null;
     createdAt: Date;
     updatedAt: Date;
     // Account information (populated when included)
@@ -62,6 +69,8 @@ export type InvestmentTargetFormData = {
 };
 
 export interface InvestmentTargetProgress {
+    /** Stable id for this target row (multiple targets may share the same investmentType). */
+    targetId: number;
     investmentType: string;
     targetAmount: number;
     currentAmount: number;

@@ -86,18 +86,20 @@ async function investmentTargetProgressForUser(userId: number): Promise<Investme
     prisma.investment.findMany({ where: { userId } }),
   ]);
 
-  const currentAmountsByType = investments.reduce(
+  const currentAmountsByTargetId = investments.reduce(
     (acc, investment) => {
+      if (investment.investmentTargetId == null) return acc;
       const currentValue =
         parseFloat(investment.quantity.toString()) * parseFloat(investment.currentPrice.toString());
-      acc[investment.type] = (acc[investment.type] || 0) + currentValue;
+      const tid = investment.investmentTargetId;
+      acc[tid] = (acc[tid] || 0) + currentValue;
       return acc;
     },
-    {} as Record<string, number>
+    {} as Record<number, number>
   );
 
   return targets.map((target) => {
-    const currentAmount = currentAmountsByType[target.investmentType] || 0;
+    const currentAmount = currentAmountsByTargetId[target.id] || 0;
     const targetAmount = parseFloat(target.targetAmount.toString());
     const progress = targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
     let daysRemaining: number | undefined;
@@ -109,6 +111,7 @@ async function investmentTargetProgressForUser(userId: number): Promise<Investme
       isOverdue = daysRemaining < 0;
     }
     return {
+      targetId: target.id,
       investmentType: target.investmentType,
       targetAmount,
       currentAmount,

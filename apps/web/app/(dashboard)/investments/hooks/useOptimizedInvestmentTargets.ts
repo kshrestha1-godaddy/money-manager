@@ -10,7 +10,7 @@ import {
 import { 
     getInvestmentTargets, 
     getInvestmentTargetProgress, 
-    createInvestmentTarget, 
+    createInvestmentTargetsBatch, 
     updateInvestmentTarget, 
     deleteInvestmentTarget,
     bulkDeleteAllInvestmentTargets
@@ -76,23 +76,16 @@ export function useOptimizedInvestmentTargets() {
 
     // ==================== MUTATIONS ====================
     
-    // Create target mutation
-    const createMutation = useMutation({
-        mutationFn: async (data: InvestmentTargetFormData) => {
-            const result = await createInvestmentTarget(data);
-            if ('error' in result && result.error) {
-                throw new Error(typeof result.error === 'string' ? result.error : 'Failed to create target');
-            }
-            return result;
-        },
+    // Create targets (single or multiple types in one submit)
+    const createBatchMutation = useMutation({
+        mutationFn: (items: InvestmentTargetFormData[]) => createInvestmentTargetsBatch(items),
         onSuccess: () => {
-            // Invalidate both targets and progress data
             queryClient.invalidateQueries({ queryKey: ['investment-targets'] });
             queryClient.invalidateQueries({ queryKey: ['investment-target-progress'] });
             closeModal();
         },
         onError: (error) => {
-            console.error('Error creating target:', error);
+            console.error('Error creating investment targets:', error);
         }
     });
 
@@ -151,8 +144,12 @@ export function useOptimizedInvestmentTargets() {
     // ==================== ACTION HANDLERS ====================
     
     const handleCreateTarget = useCallback(async (data: InvestmentTargetFormData) => {
-        return createMutation.mutateAsync(data);
-    }, [createMutation]);
+        return createBatchMutation.mutateAsync([data]);
+    }, [createBatchMutation]);
+
+    const handleCreateTargetsBatch = useCallback(async (items: InvestmentTargetFormData[]) => {
+        return createBatchMutation.mutateAsync(items);
+    }, [createBatchMutation]);
 
     const handleUpdateTarget = useCallback(async (id: number, data: Partial<InvestmentTargetFormData>) => {
         return updateMutation.mutateAsync({ id, data });
@@ -207,7 +204,7 @@ export function useOptimizedInvestmentTargets() {
     // ==================== LOADING STATES ====================
     
     const loading = targetsLoading || progressLoading;
-    const isCreating = createMutation.isPending;
+    const isCreating = createBatchMutation.isPending;
     const isUpdating = updateMutation.isPending;
     const isDeleting = deleteMutation.isPending;
     const isBulkDeleting = bulkDeleteMutation.isPending;
@@ -229,6 +226,7 @@ export function useOptimizedInvestmentTargets() {
 
         // Actions
         handleCreateTarget,
+        handleCreateTargetsBatch,
         handleUpdateTarget,
         handleDeleteTarget,
         handleBulkDeleteAllTargets,

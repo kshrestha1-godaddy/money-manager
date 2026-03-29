@@ -483,11 +483,11 @@ export function useOptimizedInvestments() {
     }, []);
 
     // Investment handlers
-    const handleAddInvestment = useCallback(async (data: Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account'>) => {
+    const handleAddInvestment = useCallback(async (data: Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account' | 'investmentTarget'>) => {
         createMutation.mutate(data);
     }, [createMutation]);
 
-    const handleEditInvestment = useCallback(async (id: number, data: Partial<Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account'>>) => {
+    const handleEditInvestment = useCallback(async (id: number, data: Partial<Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account' | 'investmentTarget'>>) => {
         updateMutation.mutate({ id, data });
     }, [updateMutation]);
 

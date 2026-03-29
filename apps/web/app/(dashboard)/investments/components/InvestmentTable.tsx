@@ -2,6 +2,13 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { InvestmentInterface } from "../../../types/investments";
+import {
+    getInvestmentTypeBadgeClassName,
+    getInvestmentTypeLabel,
+    isDepositStyleType,
+    isProvidentOrSafeType,
+    normalizeInvestmentType,
+} from "../utils/investmentTypeUi";
 import { formatCurrency } from "../../../utils/currency";
 import { useCurrency } from "../../../providers/CurrencyProvider";
 import { getDefaultColumnWidths, getMinColumnWidth, type InvestmentColumnWidths } from "../../../config/tableConfig";
@@ -204,10 +211,6 @@ export function InvestmentTable({
         return gain.toFixed(2);
     };
 
-    const formatType = (type: string) => {
-        return type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
-    };
-
     return (
         <div className="overflow-x-auto">
             <table ref={tableRef} className="min-w-full divide-y divide-gray-200 table-fixed">
@@ -388,7 +391,6 @@ export function InvestmentTable({
                                 totalValue={totalValue}
                                 gain={gain}
                                 gainPercentage={gainPercentage}
-                                formatType={formatType}
                                 getGainColor={getGainColor}
                                 columnWidths={columnWidths}
                             />
@@ -504,7 +506,6 @@ function InvestmentRow({
     totalValue,
     gain,
     gainPercentage,
-    formatType,
     getGainColor,
     columnWidths
 }: { 
@@ -519,10 +520,12 @@ function InvestmentRow({
     totalValue: number;
     gain: number;
     gainPercentage: string;
-    formatType: (type: string) => string;
     getGainColor: (gain: number) => string;
     columnWidths: InvestmentColumnWidths;
 }) {
+    const invType = normalizeInvestmentType(investment.type);
+    const showInterestOrMaturityColumn = isDepositStyleType(invType) || isProvidentOrSafeType(invType);
+
     const handleSelect = () => {
         if (onSelect) {
             onSelect(investment.id, !isSelected);
@@ -551,13 +554,24 @@ function InvestmentRow({
                             {investment.symbol}
                         </div>
                     )}
+                    {investment.investmentTarget && (
+                        <div className="text-xs text-purple-700 mt-1 break-words leading-tight">
+                            Target:{" "}
+                            {investment.investmentTarget.nickname?.trim() ||
+                                getInvestmentTypeLabel(
+                                    normalizeInvestmentType(investment.investmentTarget.investmentType)
+                                )}
+                        </div>
+                    )}
                 </div>
             </td>
             <td className="px-4 py-4 align-top" style={{ width: `${columnWidths.type}px` }}>
                 <div className="flex flex-col gap-1 items-center text-center">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 w-fit">
-                    {formatType(investment.type)}
-                </span>
+                    <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium w-fit ${getInvestmentTypeBadgeClassName(invType)}`}
+                    >
+                        {getInvestmentTypeLabel(invType)}
+                    </span>
                     {investment.deductFromAccount && investment.accountId && (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 w-fit">
                             Withheld
@@ -578,7 +592,7 @@ function InvestmentRow({
                 )}
             </td>
             <td className="px-4 py-4 text-sm text-gray-900 text-center align-top" style={{ width: `${columnWidths.quantityInterest}px` }}>
-                {investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' || investment.type === 'EMERGENCY_FUND' || investment.type === 'MARRIAGE' || investment.type === 'VACATION' ? (
+                {showInterestOrMaturityColumn ? (
                     <div className="flex flex-col items-center space-y-1">
                         {investment.interestRate && (
                             <div className="font-medium">{investment.interestRate}% p.a.</div>
@@ -588,10 +602,10 @@ function InvestmentRow({
                                 Matures: {new Date(investment.maturityDate).toLocaleDateString()}
                             </div>
                         )}
-                        {!investment.interestRate && !investment.maturityDate && investment.type === 'FIXED_DEPOSIT' && (
+                        {!investment.interestRate && !investment.maturityDate && isDepositStyleType(invType) && (
                             <div className="text-gray-500">No rate set</div>
                         )}
-                        {!investment.interestRate && !investment.maturityDate && (investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS') && (
+                        {!investment.interestRate && !investment.maturityDate && isProvidentOrSafeType(invType) && (
                             <div className="text-gray-500">-</div>
                         )}
                     </div>
@@ -602,16 +616,16 @@ function InvestmentRow({
             <td className="px-3 py-4 text-sm text-gray-900 text-center tabular-nums align-top" style={{ width: `${columnWidths.purchasePrincipal}px` }}>
                 <div className="break-words">
                     <div className="font-medium">{formatCurrency(investment.purchasePrice, currency)}</div>
-                    {investment.type === 'FIXED_DEPOSIT' && (
+                    {isDepositStyleType(invType) && (
                         <div className="text-xs text-gray-500">Principal</div>
                     )}
-                    {(investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS') && (
+                    {isProvidentOrSafeType(invType) && (
                         <div className="text-xs text-gray-500">Amount</div>
                     )}
                 </div>
             </td>
             <td className="px-3 py-4 text-sm text-gray-900 text-center tabular-nums align-top" style={{ width: `${columnWidths.currentValue}px` }}>
-                {investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' || investment.type === 'EMERGENCY_FUND' || investment.type === 'MARRIAGE' || investment.type === 'VACATION' ? (
+                {showInterestOrMaturityColumn ? (
                     <div className="space-y-1">
                         <div className="break-words font-medium">{formatCurrency(investment.currentPrice, currency)}</div>
                         <div className="text-xs text-gray-500">Current Value</div>
@@ -636,10 +650,10 @@ function InvestmentRow({
             <td className="px-4 py-4 text-sm text-gray-900 text-center align-top" style={{ width: `${columnWidths.purchaseDate}px` }}>
                 <div className="space-y-1">
                     <div className="break-words font-medium">{new Date(investment.purchaseDate).toLocaleDateString()}</div>
-                    {investment.type === 'FIXED_DEPOSIT' && (
+                    {isDepositStyleType(invType) && (
                         <div className="text-xs text-gray-500">Deposit Date</div>
                     )}
-                    {(investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS') && (
+                    {isProvidentOrSafeType(invType) && (
                         <div className="text-xs text-gray-500">Investment Date</div>
                     )}
                 </div>

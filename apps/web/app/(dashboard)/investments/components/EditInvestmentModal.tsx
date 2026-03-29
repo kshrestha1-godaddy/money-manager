@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { InvestmentInterface } from "../../../types/investments";
+import { InvestmentInterface, InvestmentTarget } from "../../../types/investments";
 import { getUserAccounts } from "../../accounts/actions/accounts";
+import { getInvestmentTargets } from "../actions/investment-targets";
 import { formatCurrency } from "../../../utils/currency";
 import { useCurrency } from "../../../providers/CurrencyProvider";
 import {
@@ -19,7 +20,7 @@ interface EditInvestmentModalProps {
     investment: InvestmentInterface | null;
     isOpen: boolean;
     onClose: () => void;
-    onEdit: (id: number, investment: Partial<Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account'>>) => void;
+    onEdit: (id: number, investment: Partial<Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account' | 'investmentTarget'>>) => void;
 }
 
 interface Account {
@@ -29,6 +30,22 @@ interface Account {
     accountNumber: string;
     balance?: number;
 }
+
+const INVESTMENT_TYPE_OPTIONS: { value: InvestmentInterface["type"]; label: string }[] = [
+    { value: "FIXED_DEPOSIT", label: "Fixed Deposit" },
+    { value: "EMERGENCY_FUND", label: "Emergency Fund" },
+    { value: "MARRIAGE", label: "Marriage" },
+    { value: "VACATION", label: "Vacation" },
+    { value: "STOCKS", label: "Stocks" },
+    { value: "CRYPTO", label: "Cryptocurrency" },
+    { value: "MUTUAL_FUNDS", label: "Mutual Funds" },
+    { value: "BONDS", label: "Bonds" },
+    { value: "REAL_ESTATE", label: "Real Estate" },
+    { value: "GOLD", label: "Gold" },
+    { value: "PROVIDENT_FUNDS", label: "Provident Funds" },
+    { value: "SAFE_KEEPINGS", label: "Safe Keepings" },
+    { value: "OTHER", label: "Other" },
+];
 
 export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: EditInvestmentModalProps) {
     const { currency: userCurrency } = useCurrency();
@@ -48,15 +65,22 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
         maturityDate: "",
         // Account deduction control
         deductFromAccount: true,
+        investmentTargetId: "",
     });
 
     const [accounts, setAccounts] = useState<Account[]>([]);
+    const [targets, setTargets] = useState<InvestmentTarget[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         if (isOpen) {
             loadAccounts();
+            void (async () => {
+                const result = await getInvestmentTargets();
+                if (result.data) setTargets(result.data);
+                else setTargets([]);
+            })();
         }
     }, [isOpen]);
 
@@ -66,7 +90,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
             investment.updatedAt instanceof Date
                 ? investment.updatedAt.getTime()
                 : String(investment.updatedAt ?? "");
-        return `${investment.id}-${updated}-${investment.type}`;
+        return `${investment.id}-${updated}-${investment.type}-${investment.investmentTargetId ?? ""}`;
     }, [investment]);
 
     useEffect(() => {
@@ -90,6 +114,10 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                 ? new Date(investment.maturityDate).toISOString().split("T")[0]
                 : "",
             deductFromAccount: investment.deductFromAccount ?? true,
+            investmentTargetId:
+                investment.investmentTargetId != null
+                    ? String(investment.investmentTargetId)
+                    : "",
         });
     }, [investmentSyncKey, isOpen]);
 
@@ -120,7 +148,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
         e.preventDefault();
         if (!investment) return;
 
-        const resolvedType = normalizeInvestmentType(investment.type);
+        const resolvedType = normalizeInvestmentType(formData.type);
         const isQuantityBased = isQuantityBasedInvestmentType(resolvedType);
         const needsCurrentPrice = requiresCurrentPriceField(resolvedType);
 
@@ -160,6 +188,9 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                 accountId: formData.accountId ? parseInt(formData.accountId, 10) : null,
                 notes: formData.notes.trim() || undefined,
                 deductFromAccount: formData.deductFromAccount,
+                investmentTargetId: formData.investmentTargetId
+                    ? parseInt(formData.investmentTargetId, 10)
+                    : null,
             };
 
             if (resolvedType === "FIXED_DEPOSIT") {
@@ -184,7 +215,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
 
             await onEdit(
                 investment.id,
-                investmentData as Partial<Omit<InvestmentInterface, "id" | "userId" | "createdAt" | "updatedAt" | "account">>
+                investmentData as Partial<Omit<InvestmentInterface, "id" | "userId" | "createdAt" | "updatedAt" | "account" | "investmentTarget">>
             );
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to update investment");
@@ -204,16 +235,22 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
 
     if (!isOpen || !investment) return null;
 
-    const resolvedType = normalizeInvestmentType(investment.type);
+    const resolvedType = normalizeInvestmentType(formData.type);
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold">Edit Investment</h2>
+                <div className="flex justify-between items-start gap-3 mb-4">
+                    <div>
+                        <h2 className="text-xl font-semibold">Edit Investment</h2>
+                        <p className="text-sm text-gray-500 mt-0.5">
+                            {getInvestmentTypeLabel(resolvedType)} — fields match the add form for this category.
+                        </p>
+                    </div>
                     <button
+                        type="button"
                         onClick={onClose}
-                        className="text-gray-500 hover:text-gray-700"
+                        className="text-gray-500 hover:text-gray-700 shrink-0"
                     >
                         ✕
                     </button>
@@ -241,11 +278,30 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                         />
                     </div>
 
-                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
-                        <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Investment type</p>
-                        <p className="text-sm font-semibold text-gray-900">{getInvestmentTypeLabel(resolvedType)}</p>
-                        <p className="mt-1 text-xs text-gray-500">
-                            Fields match this category. To use another type, delete and add a new investment.
+                    <div>
+                        <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
+                            Investment type *
+                        </label>
+                        <select
+                            id="type"
+                            value={formData.type}
+                            onChange={(e) =>
+                                handleInputChange(
+                                    "type",
+                                    normalizeInvestmentType(e.target.value)
+                                )
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
+                        >
+                            {INVESTMENT_TYPE_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                </option>
+                            ))}
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                            Change category if needed; field labels below follow this type. You can also link a savings target below.
                         </p>
                     </div>
 
@@ -443,6 +499,24 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                     <div>
                         <label htmlFor="accountId" className="block text-sm font-medium text-gray-700 mb-1">
                             Account (Optional)
+                            {formData.accountId && (() => {
+                                const selectedAccount = accounts.find(
+                                    (acc) => acc.id === parseInt(formData.accountId, 10)
+                                );
+                                const q = isQuantityBasedInvestmentType(resolvedType)
+                                    ? parseFloat(formData.quantity || "0")
+                                    : 1;
+                                const totalAmount = q * parseFloat(formData.purchasePrice || "0");
+                                if (selectedAccount && totalAmount > 0) {
+                                    return (
+                                        <span className="text-sm text-gray-500 font-normal">
+                                            {" "}
+                                            (Investment: {formatCurrency(totalAmount, userCurrency)})
+                                        </span>
+                                    );
+                                }
+                                return null;
+                            })()}
                         </label>
                         <select
                             id="accountId"
@@ -453,7 +527,8 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                             <option value="">No account selected</option>
                             {accounts.map(account => (
                                 <option key={account.id} value={account.id}>
-                                    {account.bankName} - {account.accountNumber}
+                                    {account.bankName} - {account.accountNumber} (
+                                    {formatCurrency(account.balance || 0, userCurrency)})
                                 </option>
                             ))}
                         </select>
@@ -488,6 +563,30 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                                 </p>
                             </div>
                         )}
+                    </div>
+
+                    <div>
+                        <label htmlFor="investmentTargetId" className="block text-sm font-medium text-gray-700 mb-1">
+                            Savings target (optional)
+                        </label>
+                        <select
+                            id="investmentTargetId"
+                            value={formData.investmentTargetId}
+                            onChange={(e) => handleInputChange("investmentTargetId", e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">None — not linked to a target</option>
+                            {targets.map((t) => (
+                                <option key={t.id} value={String(t.id)}>
+                                    {t.nickname?.trim()
+                                        ? `${t.nickname} (${getInvestmentTypeLabel(t.investmentType)})`
+                                        : getInvestmentTypeLabel(t.investmentType)}
+                                </option>
+                            ))}
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                            Current value of this position counts toward the selected goal. Choose none to track the investment without a goal.
+                        </p>
                     </div>
 
                     <div>

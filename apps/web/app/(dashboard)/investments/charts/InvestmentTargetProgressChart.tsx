@@ -11,7 +11,7 @@ interface InvestmentTargetProgressChartProps {
     targets: InvestmentTargetProgress[];
     currency?: string;
     title?: string;
-    onEditTarget?: (investmentType: string) => void;
+    onEditTarget?: (targetId: number) => void;
     onAddTarget?: () => void;
     onBulkDelete?: () => void;
 }
@@ -48,7 +48,7 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
     }, [
         targets?.length,
         // Add checksum to detect actual data changes, not just reference changes
-        targets?.reduce((sum, target) => sum + target.progress + (target.isComplete ? 1 : 0) + target.targetAmount + target.currentAmount, 0) ?? 0
+        targets?.reduce((sum, target) => sum + target.targetId + target.progress + (target.isComplete ? 1 : 0) + target.targetAmount + target.currentAmount, 0) ?? 0
     ]);
 
     if (!targets?.length) {
@@ -137,9 +137,9 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
 
 
             <div className="space-y-4 overflow-y-auto pr-2 flex-1">
-                {targets.map((target, index) => (
+                {targets.map((target) => (
                     <TargetProgressItem
-                        key={`${target.investmentType}-${index}`}
+                        key={target.targetId}
                         target={target}
                         currency={currency}
                         onEditTarget={onEditTarget}

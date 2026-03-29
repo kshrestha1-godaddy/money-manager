@@ -252,8 +252,12 @@ model Investment {
   riskLevel RiskLevel @default(MEDIUM)
   hasMaturityDate Boolean @default(false)
   isInflationHedge Boolean @default(false)
+  investmentTargetId Int?
+  investmentTarget InvestmentTarget? @relation(fields: [investmentTargetId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([investmentTargetId])
 }
 
 model InvestmentTarget {
@@ -264,11 +268,12 @@ model InvestmentTarget {
   nickname String? // Optional nickname for the investment target
   user User @relation(fields: [userId], references: [id])
   userId Int
+  investments Investment[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  @@unique([userId, investmentType])
+
   @@index([userId])
+  @@index([userId, investmentType])
 }
 
 model BudgetTarget {
