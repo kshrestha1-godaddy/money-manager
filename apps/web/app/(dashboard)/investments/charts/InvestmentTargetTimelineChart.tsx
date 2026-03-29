@@ -323,7 +323,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                             </span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-gray-600">Current Amount:</span>
+                            <span className="text-gray-600">Invested:</span>
                             <span className="font-medium text-green-600">
                                 {formatCurrency(data.currentAmount, currency)}
                             </span>
@@ -479,7 +479,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                     chartRef={chartRef}
                     fileName="investment-targets-timeline"
                     csvData={[
-                        ['Target Type', 'Nickname', 'Target Date', 'Target Amount', 'Current Amount', 'Progress (%)', 'Days Remaining', 'Status'],
+                        ['Target Type', 'Nickname', 'Target Date', 'Target Amount', 'Invested amount', 'Progress (%)', 'Days Remaining', 'Status'],
                         ...timelineData.filter(item => !['TODAY', 'THIRTY_DAYS', 'SIXTY_DAYS'].includes(item.investmentType)).map(item => [
                             TYPE_LABELS[item.investmentType] || item.investmentType,
                             item.nickname || '-',
@@ -527,7 +527,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                         </div>
                         <div className="flex-1 text-center min-w-0">
                             <div className="w-4 h-4 sm:w-5 sm:h-5 bg-green-600 rounded mx-auto mb-1"></div>
-                            <p className="text-xs sm:text-sm text-gray-600 truncate">Total Progress</p>
+                            <p className="text-xs sm:text-sm text-gray-600 truncate">Total invested</p>
                             <p className="text-sm sm:text-lg font-semibold text-green-600 truncate">
                                 {formatCurrency(timelineData.filter(t => !['TODAY', 'THIRTY_DAYS', 'SIXTY_DAYS'].includes(t.investmentType)).reduce((sum, t) => sum + t.currentAmount, 0), currency)}
                             </p>
@@ -697,7 +697,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                                 name="Target Amount"
                             />
 
-                            {/* Current progress line */}
+                            {/* Invested amount (cost) toward target */}
                             <Line
                                 type="monotone"
                                 dataKey="currentAmount"
@@ -708,7 +708,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                                 activeDot={{ r: 6, strokeWidth: 2, fill: "#10b981" }}
                                 connectNulls={false}
                                 animationDuration={isAnimationActive ? animationDuration : 0}
-                                name="Current Amount"
+                                name="Invested"
                             />
                         </ComposedChart>
                     </ResponsiveContainer>

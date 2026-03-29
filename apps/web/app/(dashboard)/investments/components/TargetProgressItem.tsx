@@ -161,7 +161,7 @@ export function TargetProgressItem({ target, currency, onEditTarget }: TargetPro
                 <div className="flex flex-wrap justify-between items-start gap-x-4 gap-y-1 text-sm">
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                         <span className="text-gray-600">
-                            Current:{" "}
+                            Invested:{" "}
                             <span className="font-medium text-gray-900">
                                 {formatCurrency(target.currentAmount, currency)}
                             </span>

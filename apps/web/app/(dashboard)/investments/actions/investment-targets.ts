@@ -245,14 +245,14 @@ export async function getInvestmentTargetProgress(): Promise<{ data?: Investment
             },
         });
 
-        // Sum current value (quantity × currentPrice) per target from investments explicitly linked to that target
+        // Sum invested amount (quantity × purchasePrice) per target from investments linked to that target
         const currentAmountsByTargetId = investments.reduce((acc, investment) => {
             if (investment.investmentTargetId == null) return acc;
-            const currentValue =
+            const invested =
                 parseFloat(investment.quantity.toString()) *
-                parseFloat(investment.currentPrice.toString());
+                parseFloat(investment.purchasePrice.toString());
             const tid = investment.investmentTargetId;
-            acc[tid] = (acc[tid] || 0) + currentValue;
+            acc[tid] = (acc[tid] || 0) + invested;
             return acc;
         }, {} as Record<number, number>);
 

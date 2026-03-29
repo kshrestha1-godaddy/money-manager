@@ -73,6 +73,7 @@ export interface InvestmentTargetProgress {
     targetId: number;
     investmentType: string;
     targetAmount: number;
+    /** Sum of quantity × purchasePrice for positions linked to this target (invested toward goal). */
     currentAmount: number;
     progress: number; // percentage
     isComplete: boolean;

@@ -585,7 +585,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                             ))}
                         </select>
                         <p className="text-xs text-gray-500 mt-1">
-                            Current value of this position counts toward the selected goal. Choose none to track the investment without a goal.
+                            Invested amount (purchase cost) for this position counts toward the selected goal. Choose none to track without a goal.
                         </p>
                     </div>
 

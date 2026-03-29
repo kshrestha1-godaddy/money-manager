@@ -541,7 +541,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
                             ))}
                         </select>
                         <p className="text-xs text-gray-500 mt-1">
-                            If selected, this position&apos;s current value counts toward that goal. You can leave this empty.
+                            If selected, this position&apos;s invested amount (cost) counts toward that goal. You can leave this empty.
                         </p>
                     </div>
 

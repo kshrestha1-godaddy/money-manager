@@ -199,8 +199,7 @@ export default function InvestmentsPageClient() {
     if (actualTarget) openTargetModal('edit', actualTarget);
   }, [actualTargets, openTargetModal]);
 
-  // Fingerprint must include type, quantity, and purchase price — InvestmentTypePolarChart groups by type
-  // and uses quantity × purchasePrice (cost basis); stale keys here caused the chart to miss edits.
+  // Fingerprint: type, quantity, purchase & current price — table/P&L need current price; polar/targets use cost basis.
   const investmentsStableKey = useMemo(
     () =>
       investments

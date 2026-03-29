@@ -94,7 +94,8 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
       "investment-type-polar"
     );
 
-    // Groups by inv.type (not savings-target links). Values are cost basis: quantity × purchasePrice.
+    // Groups by inv.type (not savings-target links). Cost basis only: quantity × purchasePrice
+    // — aligns with investment target progress and withheld logic; current price is for P/L in the table only.
     const { data, legendData, totalInvested } = useMemo(() => {
       const typeToAgg = new Map<string, { 
         invested: number; 
@@ -105,16 +106,17 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
 
       investments.forEach((inv) => {
         const key = inv.type || "OTHER";
-        const invested = (Number(inv.quantity) || 0) * (Number(inv.purchasePrice) || 0);
+        const costBasis =
+          (Number(inv.quantity) || 0) * (Number(inv.purchasePrice) || 0);
         const prev = typeToAgg.get(key) || { invested: 0, count: 0, amounts: [], investments: [] };
         
         typeToAgg.set(key, { 
-          invested: prev.invested + invested, 
+          invested: prev.invested + costBasis, 
           count: prev.count + 1,
-          amounts: [...prev.amounts, invested],
+          amounts: [...prev.amounts, costBasis],
           investments: [...prev.investments, {
             name: inv.name || 'Unnamed Investment',
-            amount: invested,
+            amount: costBasis,
             symbol: inv.symbol
           }]
         });
@@ -249,7 +251,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
     // Enhanced CSV data preparation with detailed statistics
     const csvData = useMemo(() => {
       const csvDataArray = [
-        ["Investment Type", "Invested Amount", "Percentage", "Positions", "Average per Position", "Min Amount", "Max Amount", "Risk Level", "Description"],
+        ["Investment Type", "Invested amount", "Percentage", "Positions", "Average per Position", "Min Amount", "Max Amount", "Risk Level", "Description"],
         ...data.map((d) => {
           const riskLevel = d.name === 'Cryptocurrency' ? 'High Risk' :
                            d.name === 'Stocks' ? 'Medium-High Risk' :
@@ -283,12 +285,13 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
         const allTypes = new Map<string, { invested: number; count: number; amounts: number[] }>();
         investments.forEach((inv) => {
           const key = inv.type || "OTHER";
-          const invested = (Number(inv.quantity) || 0) * (Number(inv.purchasePrice) || 0);
+          const costBasis =
+            (Number(inv.quantity) || 0) * (Number(inv.purchasePrice) || 0);
           const prev = allTypes.get(key) || { invested: 0, count: 0, amounts: [] };
           allTypes.set(key, { 
-            invested: prev.invested + invested, 
+            invested: prev.invested + costBasis, 
             count: prev.count + 1,
-            amounts: [...prev.amounts, invested]
+            amounts: [...prev.amounts, costBasis]
           });
         });
 
@@ -421,8 +424,12 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
           ticks: {
             display: true,
             backdropColor: "transparent",
+            /** Avoid rounding the radial max up to a misleading round number (e.g. 1.6M vs 1.55M data). */
+            count: 5,
           },
           beginAtZero: true,
+          suggestedMax:
+            values.length > 0 ? Math.max(...values, 0) * 1.02 : undefined,
         },
       },
       plugins: {
@@ -471,9 +478,9 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
                   <div class="bg-white border border-gray-200 rounded-lg shadow-lg p-4 min-w-80 max-w-md">
                     <div class="font-bold text-gray-900 mb-3 text-base">${item.name}</div>
                     
-                    <!-- Main Amount -->
+                    <!-- Cost basis by type -->
                     <div class="flex items-center justify-between mb-3">
-                      <span class="font-medium text-gray-700">Total Invested:</span>
+                      <span class="font-medium text-gray-700">Total invested:</span>
                       <span class="font-bold text-lg text-blue-600">
                         ${formatCurrency(item.value, currency)}
                       </span>
@@ -586,7 +593,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <div className="flex justify-start items-center mb-4 flex-shrink-0">
           <div className="text-left">
-            <p className="text-xs text-gray-600">Total Invested</p>
+            <p className="text-xs text-gray-600">Total invested (cost)</p>
             <p className="text-base font-semibold text-blue-600">
               {formatCurrency(totalInvested, currency)}
             </p>
@@ -649,7 +656,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
             csvData={csvData}
             csvFileName="investment-type-polar-data"
             title={`${title}${data.reduce((s, d) => s + d.count, 0) > 0 ? ` • ${data.reduce((s, d) => s + d.count, 0)} position${data.reduce((s, d) => s + d.count, 0) !== 1 ? 's' : ''}` : ''}`}
-            tooltipText="Distribution of your portfolio across investment types with detailed statistics including position counts, averages, ranges, risk assessments, and investment insights. Hover over segments for comprehensive portfolio analytics."
+            tooltipText="Distribution by investment type using invested amount (quantity × purchase price). Market value and gains or losses are in the investments table."
             customDownloadPNG={downloadPNG}
             customDownloadSVG={downloadSVG}
           />
@@ -663,7 +670,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
                 <div>
                   <h2 className="text-lg sm:text-2xl font-semibold truncate">{title}</h2>
                   <p className="text-sm text-gray-500">
-                    Distribution of your portfolio across investment types (based on invested amount)
+                    Distribution by type using invested amount (quantity × purchase price). Market value and gains are shown in the investments table.
                   </p>
                 </div>
                 <button
