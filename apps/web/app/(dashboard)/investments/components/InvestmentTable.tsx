@@ -10,10 +10,25 @@ import {
     normalizeInvestmentType,
 } from "../utils/investmentTypeUi";
 import { formatCurrency } from "../../../utils/currency";
+import { formatDateYearMonthDay } from "../../../utils/date";
 import { useCurrency } from "../../../providers/CurrencyProvider";
 import { getDefaultColumnWidths, getMinColumnWidth, type InvestmentColumnWidths } from "../../../config/tableConfig";
 import { getActionButtonClasses } from "../../../config/colorConfig";
 import { cn } from "@/lib/utils";
+
+/** True when this position is marked withheld from a linked account. */
+function isInvestmentAmountWithheld(inv: InvestmentInterface): boolean {
+    return Boolean(inv.deductFromAccount && inv.accountId);
+}
+
+function formatLinkedTargetDisplay(inv: InvestmentInterface): string | null {
+    if (!inv.investmentTarget) return null;
+    const id = inv.investmentTarget.id;
+    const nick = inv.investmentTarget.nickname?.trim();
+    const label =
+        nick || getInvestmentTypeLabel(normalizeInvestmentType(inv.investmentTarget.investmentType));
+    return `[${id}] ${label}`;
+}
 
 interface InvestmentTableProps {
     investments: InvestmentInterface[];
@@ -27,7 +42,18 @@ interface InvestmentTableProps {
     onClearSelection?: () => void;
 }
 
-type SortField = 'name' | 'type' | 'bank' | 'quantity' | 'purchasePrice' | 'currentPrice' | 'totalValue' | 'gain' | 'purchaseDate';
+type SortField =
+    | 'name'
+    | 'target'
+    | 'type'
+    | 'bank'
+    | 'quantity'
+    | 'purchasePrice'
+    | 'currentPrice'
+    | 'totalValue'
+    | 'isWithheld'
+    | 'gain'
+    | 'purchaseDate';
 type SortOrder = 'asc' | 'desc';
 
 export function InvestmentTable({ 
@@ -123,6 +149,10 @@ export function InvestmentTable({
                 aValue = a.name.toLowerCase();
                 bValue = b.name.toLowerCase();
                 break;
+            case 'target':
+                aValue = formatLinkedTargetDisplay(a) ?? "\uFFFF";
+                bValue = formatLinkedTargetDisplay(b) ?? "\uFFFF";
+                break;
             case 'type':
                 aValue = a.type;
                 bValue = b.type;
@@ -146,6 +176,10 @@ export function InvestmentTable({
             case 'totalValue':
                 aValue = a.quantity * a.currentPrice;
                 bValue = b.quantity * b.currentPrice;
+                break;
+            case 'isWithheld':
+                aValue = isInvestmentAmountWithheld(a) ? 1 : 0;
+                bValue = isInvestmentAmountWithheld(b) ? 1 : 0;
                 break;
             case 'gain':
                 aValue = (a.currentPrice - a.purchasePrice) * a.quantity;
@@ -173,13 +207,21 @@ export function InvestmentTable({
                 totalGain: 0,
                 gainPct: 0,
                 positionCount: 0,
+                totalWithheldAmount: 0,
+                withheldPositionCount: 0,
             };
         }
         let totalCost = 0;
         let totalValue = 0;
+        let totalWithheldAmount = 0;
+        let withheldPositionCount = 0;
         for (const inv of sortedInvestments) {
             totalCost += inv.quantity * inv.purchasePrice;
             totalValue += inv.quantity * inv.currentPrice;
+            if (isInvestmentAmountWithheld(inv)) {
+                totalWithheldAmount += inv.quantity * inv.purchasePrice;
+                withheldPositionCount += 1;
+            }
         }
         const totalGain = totalValue - totalCost;
         const gainPct = totalCost > 0 ? (totalGain / totalCost) * 100 : 0;
@@ -189,11 +231,13 @@ export function InvestmentTable({
             totalGain,
             gainPct,
             positionCount: sortedInvestments.length,
+            totalWithheldAmount,
+            withheldPositionCount,
         };
     }, [sortedInvestments]);
 
     const summaryFooterColSpan =
-        10 + (showBulkActions ? 1 : 0);
+        12 + (showBulkActions ? 1 : 0);
 
     const getSortIcon = (field: SortField) => {
         if (sortField !== field) return '⇅';
@@ -251,6 +295,20 @@ export function InvestmentTable({
                             />
                         </th>
                         <th 
+                            className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
+                            style={{ width: `${columnWidths.target}px` }}
+                            onClick={() => handleSort('target')}
+                        >
+                            <div className="flex items-center justify-start gap-2">
+                                <span>Target</span>
+                                {getSortIcon('target')}
+                            </div>
+                            <div 
+                                className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                onMouseDown={(e) => handleMouseDown(e, 'target')}
+                            />
+                        </th>
+                        <th 
                             className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
                             style={{ width: `${columnWidths.type}px` }}
                             onClick={() => handleSort('type')}
@@ -276,6 +334,20 @@ export function InvestmentTable({
                             <div 
                                 className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
                                 onMouseDown={(e) => handleMouseDown(e, 'bank')}
+                            />
+                        </th>
+                        <th 
+                            className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
+                            style={{ width: `${columnWidths.purchaseDate}px` }}
+                            onClick={() => handleSort('purchaseDate')}
+                        >
+                            <div className="flex items-center justify-center gap-2">
+                                <span>Purchase Date</span>
+                                {getSortIcon('purchaseDate')}
+                            </div>
+                            <div 
+                                className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                onMouseDown={(e) => handleMouseDown(e, 'purchaseDate')}
                             />
                         </th>
                         <th 
@@ -336,6 +408,20 @@ export function InvestmentTable({
                         </th>
                         <th 
                             className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
+                            style={{ width: `${columnWidths.isWithheld}px` }}
+                            onClick={() => handleSort('isWithheld')}
+                        >
+                            <div className="flex items-center justify-center gap-2">
+                                <span>Is Withheld</span>
+                                {getSortIcon('isWithheld')}
+                            </div>
+                            <div 
+                                className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                onMouseDown={(e) => handleMouseDown(e, 'isWithheld')}
+                            />
+                        </th>
+                        <th 
+                            className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
                             style={{ width: `${columnWidths.gainLoss}px` }}
                             onClick={() => handleSort('gain')}
                         >
@@ -346,20 +432,6 @@ export function InvestmentTable({
                             <div 
                                 className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
                                 onMouseDown={(e) => handleMouseDown(e, 'gainLoss')}
-                            />
-                        </th>
-                        <th 
-                            className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
-                            style={{ width: `${columnWidths.purchaseDate}px` }}
-                            onClick={() => handleSort('purchaseDate')}
-                        >
-                            <div className="flex items-center justify-center gap-2">
-                                <span>Purchase Date</span>
-                                {getSortIcon('purchaseDate')}
-                            </div>
-                            <div 
-                                className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
-                                onMouseDown={(e) => handleMouseDown(e, 'purchaseDate')}
                             />
                         </th>
                         <th 
@@ -420,11 +492,19 @@ export function InvestmentTable({
                         </td>
                         <td
                             className="px-4 py-4"
+                            style={{ width: `${columnWidths.target}px` }}
+                        />
+                        <td
+                            className="px-4 py-4"
                             style={{ width: `${columnWidths.type}px` }}
                         />
                         <td
                             className="px-6 py-4"
                             style={{ width: `${columnWidths.bank}px` }}
+                        />
+                        <td
+                            className="px-4 py-4"
+                            style={{ width: `${columnWidths.purchaseDate}px` }}
                         />
                         <td
                             className="px-4 py-4 text-center text-sm text-gray-800 tabular-nums"
@@ -455,6 +535,24 @@ export function InvestmentTable({
                             {formatCurrency(tableFooterSummary.totalValue, userCurrency)}
                         </td>
                         <td
+                            className="px-3 py-4 text-center text-sm font-semibold text-gray-900 tabular-nums"
+                            style={{ width: `${columnWidths.isWithheld}px` }}
+                        >
+                            <div className="flex flex-col items-center gap-0.5">
+                                <span>
+                                    {formatCurrency(tableFooterSummary.totalWithheldAmount, userCurrency)}
+                                </span>
+                                {tableFooterSummary.withheldPositionCount > 0 && (
+                                    <span className="text-xs font-normal text-gray-500">
+                                        {tableFooterSummary.withheldPositionCount}{" "}
+                                        {tableFooterSummary.withheldPositionCount === 1
+                                            ? "position"
+                                            : "positions"}
+                                    </span>
+                                )}
+                            </div>
+                        </td>
+                        <td
                             className="px-3 py-4 text-center text-sm tabular-nums"
                             style={{ width: `${columnWidths.gainLoss}px` }}
                         >
@@ -472,10 +570,6 @@ export function InvestmentTable({
                                 </div>
                             </div>
                         </td>
-                        <td
-                            className="px-4 py-4"
-                            style={{ width: `${columnWidths.purchaseDate}px` }}
-                        />
                         <td
                             className="px-3 py-4 text-center"
                             style={{ width: `${columnWidths.actions}px` }}
@@ -525,6 +619,8 @@ function InvestmentRow({
 }) {
     const invType = normalizeInvestmentType(investment.type);
     const showInterestOrMaturityColumn = isDepositStyleType(invType) || isProvidentOrSafeType(invType);
+    const targetLabel = formatLinkedTargetDisplay(investment);
+    const isWithheld = isInvestmentAmountWithheld(investment);
 
     const handleSelect = () => {
         if (onSelect) {
@@ -554,35 +650,30 @@ function InvestmentRow({
                             {investment.symbol}
                         </div>
                     )}
-                    {investment.investmentTarget && (
-                        <div className="text-xs text-purple-700 mt-1 break-words leading-tight">
-                            Target:{" "}
-                            {investment.investmentTarget.nickname?.trim() ||
-                                getInvestmentTypeLabel(
-                                    normalizeInvestmentType(investment.investmentTarget.investmentType)
-                                )}
-                        </div>
-                    )}
                 </div>
             </td>
+            <td className="px-4 py-4 text-left align-top" style={{ width: `${columnWidths.target}px` }}>
+                {targetLabel ? (
+                    <div className="text-sm text-purple-900 break-words leading-tight">{targetLabel}</div>
+                ) : (
+                    <span className="text-sm text-gray-400">—</span>
+                )}
+            </td>
             <td className="px-4 py-4 align-top" style={{ width: `${columnWidths.type}px` }}>
-                <div className="flex flex-col gap-1 items-center text-center">
+                <div className="flex justify-center">
                     <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium w-fit ${getInvestmentTypeBadgeClassName(invType)}`}
                     >
                         {getInvestmentTypeLabel(invType)}
                     </span>
-                    {investment.deductFromAccount && investment.accountId && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 w-fit">
-                            Withheld
-                        </span>
-                    )}
                 </div>
             </td>
             <td className="px-6 py-4 text-left align-top" style={{ width: `${columnWidths.bank}px` }}>
                 <div className="text-sm text-gray-900 break-words">
-                    {investment.account?.bankName || (
-                        <span className="text-gray-400 italic">No bank linked</span>
+                    {investment.account?.bankName ? (
+                        investment.account.bankName
+                    ) : (
+                        <span className="text-gray-400">—</span>
                     )}
                 </div>
                 {investment.account?.holderName && (
@@ -591,16 +682,16 @@ function InvestmentRow({
                     </div>
                 )}
             </td>
+            <td className="px-4 py-4 text-sm text-gray-900 text-center align-top" style={{ width: `${columnWidths.purchaseDate}px` }}>
+                <div className="break-words font-medium">
+                    {formatDateYearMonthDay(investment.purchaseDate)}
+                </div>
+            </td>
             <td className="px-4 py-4 text-sm text-gray-900 text-center align-top" style={{ width: `${columnWidths.quantityInterest}px` }}>
                 {showInterestOrMaturityColumn ? (
                     <div className="flex flex-col items-center space-y-1">
                         {investment.interestRate && (
                             <div className="font-medium">{investment.interestRate}% p.a.</div>
-                        )}
-                        {investment.maturityDate && (
-                            <div className="text-xs text-gray-500 break-words leading-tight">
-                                Matures: {new Date(investment.maturityDate).toLocaleDateString()}
-                            </div>
                         )}
                         {!investment.interestRate && !investment.maturityDate && isDepositStyleType(invType) && (
                             <div className="text-gray-500">No rate set</div>
@@ -614,28 +705,22 @@ function InvestmentRow({
                 )}
             </td>
             <td className="px-3 py-4 text-sm text-gray-900 text-center tabular-nums align-top" style={{ width: `${columnWidths.purchasePrincipal}px` }}>
-                <div className="break-words">
-                    <div className="font-medium">{formatCurrency(investment.purchasePrice, currency)}</div>
-                    {isDepositStyleType(invType) && (
-                        <div className="text-xs text-gray-500">Principal</div>
-                    )}
-                    {isProvidentOrSafeType(invType) && (
-                        <div className="text-xs text-gray-500">Amount</div>
-                    )}
-                </div>
+                <div className="break-words font-medium">{formatCurrency(investment.purchasePrice, currency)}</div>
             </td>
             <td className="px-3 py-4 text-sm text-gray-900 text-center tabular-nums align-top" style={{ width: `${columnWidths.currentValue}px` }}>
-                {showInterestOrMaturityColumn ? (
-                    <div className="space-y-1">
-                        <div className="break-words font-medium">{formatCurrency(investment.currentPrice, currency)}</div>
-                        <div className="text-xs text-gray-500">Current Value</div>
-                    </div>
-                ) : (
-                    <div className="break-words font-medium">{formatCurrency(investment.currentPrice, currency)}</div>
-                )}
+                <div className="break-words font-medium">{formatCurrency(investment.currentPrice, currency)}</div>
             </td>
             <td className="px-3 py-4 text-sm font-medium text-gray-900 text-center tabular-nums align-top" style={{ width: `${columnWidths.totalValue}px` }}>
                 <div className="break-words">{formatCurrency(totalValue, currency)}</div>
+            </td>
+            <td className="px-3 py-4 text-sm text-center align-top" style={{ width: `${columnWidths.isWithheld}px` }}>
+                {isWithheld ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                        Yes
+                    </span>
+                ) : (
+                    <span className="text-sm text-gray-500">No</span>
+                )}
             </td>
             <td className="px-3 py-4 text-sm text-center tabular-nums align-top" style={{ width: `${columnWidths.gainLoss}px` }}>
                 <div className="space-y-1">
@@ -645,17 +730,6 @@ function InvestmentRow({
                     <div className={`text-xs break-words ${getGainColor(gain)}`}>
                         ({gainPercentage}%)
                     </div>
-                </div>
-            </td>
-            <td className="px-4 py-4 text-sm text-gray-900 text-center align-top" style={{ width: `${columnWidths.purchaseDate}px` }}>
-                <div className="space-y-1">
-                    <div className="break-words font-medium">{new Date(investment.purchaseDate).toLocaleDateString()}</div>
-                    {isDepositStyleType(invType) && (
-                        <div className="text-xs text-gray-500">Deposit Date</div>
-                    )}
-                    {isProvidentOrSafeType(invType) && (
-                        <div className="text-xs text-gray-500">Investment Date</div>
-                    )}
                 </div>
             </td>
             <td className="px-3 py-4 whitespace-nowrap text-center text-sm font-medium align-top" style={{ width: `${columnWidths.actions}px` }}>

@@ -35,13 +35,15 @@ export const TABLE_COLUMN_WIDTHS = {
   // Investment table column widths
   investments: {
     checkbox: 48,
-    investment: 260,
+    investment: 220,
+    target: 200,
     type: 130,
     bank: 160,
     quantityInterest: 180,
     purchasePrincipal: 140,
     currentValue: 110,
     totalValue: 100,
+    isWithheld: 100,
     gainLoss: 110,
     purchaseDate: 120,
     actions: 248,
@@ -73,12 +75,14 @@ export type DebtColumnWidths = {
 export type InvestmentColumnWidths = {
   checkbox: number;
   investment: number;
+  target: number;
   type: number;
   bank: number;
   quantityInterest: number;
   purchasePrincipal: number;
   currentValue: number;
   totalValue: number;
+  isWithheld: number;
   gainLoss: number;
   purchaseDate: number;
   actions: number;

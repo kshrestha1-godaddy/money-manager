@@ -154,13 +154,9 @@ export function TargetProgressItem({ target, currency, onEditTarget }: TargetPro
                 <div className="flex items-center">
                     <div>
                         <h4 className="font-medium text-gray-900">
-                            {target.nickname || formatInvestmentType(target.investmentType)}
+                            [{target.targetId}]{" "}
+                            {target.nickname?.trim() || formatInvestmentType(target.investmentType)}
                         </h4>
-                        {target.nickname && (
-                            <p className="text-xs text-gray-500 mt-0.5">
-                                {formatInvestmentType(target.investmentType)}
-                            </p>
-                        )}
                     </div>
                     {target.isComplete && (
                         <TrendingUp className="w-4 h-4 text-green-600 ml-2" />

@@ -2,6 +2,7 @@
 
 import { InvestmentInterface } from "../../../types/investments";
 import { formatCurrency } from "../../../utils/currency";
+import { formatDateYearMonthDay } from "../../../utils/date";
 import { useCurrency } from "../../../providers/CurrencyProvider";
 
 interface ViewInvestmentModalProps {
@@ -137,7 +138,7 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
                                     <div className="flex justify-between">
                                         <span className="text-gray-600">Maturity Date:</span>
                                         <span className="font-medium text-gray-900">
-                                            {new Date(investment.maturityDate).toLocaleDateString()}
+                                            {formatDateYearMonthDay(investment.maturityDate)}
                                         </span>
                                     </div>
                                 )}
@@ -148,7 +149,7 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
                                          'Purchase Date:'}
                                     </span>
                                     <span className="font-medium text-gray-900">
-                                        {new Date(investment.purchaseDate).toLocaleDateString()}
+                                        {formatDateYearMonthDay(investment.purchaseDate)}
                                     </span>
                                 </div>
                             </div>
