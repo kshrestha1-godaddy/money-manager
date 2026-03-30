@@ -583,14 +583,14 @@ export default function LifeEventsPageClient() {
               <button
                 type="button"
                 onClick={expandAllTimelineSections}
-                className={`${secondaryOutlineButton} inline-flex items-center gap-1.5 text-sm`}
+                className={`${secondaryOutlineButton} !border-0 inline-flex items-center gap-1.5 text-sm`}
               >
                 Expand all
               </button>
               <button
                 type="button"
                 onClick={collapseAllTimelineSections}
-                className={`${secondaryOutlineButton} inline-flex items-center gap-1.5 text-sm`}
+                className={`${secondaryOutlineButton} !border-0 inline-flex items-center gap-1.5 text-sm`}
               >
                 Collapse all
               </button>
