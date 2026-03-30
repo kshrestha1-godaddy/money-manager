@@ -49,9 +49,13 @@ import { MobileAddExpenseSheet } from "./components/mobile-add-expense-sheet";
 import { MobileSchedulePaymentSheet } from "./components/mobile-schedule-payment-sheet";
 import { MobileAddInvestmentSheet } from "./components/mobile-add-investment-sheet";
 import { MobileAddDebtSheet } from "./components/mobile-add-debt-sheet";
+import { MobileAddNoteSheet } from "./components/mobile-add-note-sheet";
+import { MobileNoteDetailSheet } from "./components/mobile-note-detail-sheet";
+import { getArchivedNotes, getNotes } from "../notes/actions/notes";
 import { MobileAccountFreeWithheldBar } from "./components/mobile-account-free-withheld-bar";
 import { computeAccountFreeBalance } from "./utils/account-free-balance";
 import { PasswordTable } from "../passwords/components/PasswordTable";
+import type { Note } from "@prisma/client";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency } from "../../utils/currency";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
@@ -71,7 +75,8 @@ type MobileTab =
   | "passwords"
   | "life-events"
   | "investments"
-  | "debts";
+  | "debts"
+  | "notes";
 
 function scheduledPaymentStatusLabel(p: ScheduledPaymentItem, now: Date): string {
   if (p.resolution === "ACCEPTED") return "Accepted";
@@ -149,6 +154,15 @@ function investmentMatchesQuery(inv: InvestmentInterface, raw: string): boolean 
     .filter(Boolean)
     .map((s) => String(s).toLowerCase());
   return parts.some((s) => s.includes(q));
+}
+
+function noteMatchesQuery(note: Note, raw: string): boolean {
+  const q = raw.trim().toLowerCase();
+  if (!q) return true;
+  if (note.title.toLowerCase().includes(q)) return true;
+  if (note.content?.toLowerCase().includes(q)) return true;
+  if (note.tags.some((t) => t.toLowerCase().includes(q))) return true;
+  return false;
 }
 
 function debtMatchesQuery(d: DebtInterface, raw: string): boolean {
@@ -306,6 +320,9 @@ export default function MobileHubClient() {
   const [lifeEvents, setLifeEvents] = useState<LifeEventItem[]>([]);
   const [investments, setInvestments] = useState<InvestmentInterface[]>([]);
   const [debts, setDebts] = useState<DebtInterface[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [archivedNotes, setArchivedNotes] = useState<Note[]>([]);
+  const [showArchivedNotes, setShowArchivedNotes] = useState(false);
   const [accounts, setAccounts] = useState<AccountInterface[]>([]);
   const [incomeCategories, setIncomeCategories] = useState<Category[]>([]);
   const [expenseCategories, setExpenseCategories] = useState<Category[]>([]);
@@ -326,25 +343,42 @@ export default function MobileHubClient() {
   const [isSchedulePaymentOpen, setIsSchedulePaymentOpen] = useState(false);
   const [isAddInvestmentOpen, setIsAddInvestmentOpen] = useState(false);
   const [isAddDebtOpen, setIsAddDebtOpen] = useState(false);
+  const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
+  const [noteToView, setNoteToView] = useState<Note | null>(null);
 
   const loadData = useCallback(async () => {
     setLoadError(null);
     setLoading(true);
     try {
-      const [inc, exp, sp, pwd, le, invRes, debtRes, accRes, withheldByBank, incomeCats, expenseCats] =
-        await Promise.all([
-          getIncomes(),
-          getExpenses(),
-          getScheduledPayments(),
-          getPasswords(),
-          getLifeEvents(),
-          getUserInvestments(),
-          getUserDebts(),
-          getUserAccounts(),
-          getWithheldAmountsByBank(),
-          getCategories("INCOME"),
-          getCategories("EXPENSE"),
-        ]);
+      const [
+        inc,
+        exp,
+        sp,
+        pwd,
+        le,
+        invRes,
+        debtRes,
+        accRes,
+        withheldByBank,
+        incomeCats,
+        expenseCats,
+        notesData,
+        archivedNotesData,
+      ] = await Promise.all([
+        getIncomes(),
+        getExpenses(),
+        getScheduledPayments(),
+        getPasswords(),
+        getLifeEvents(),
+        getUserInvestments(),
+        getUserDebts(),
+        getUserAccounts(),
+        getWithheldAmountsByBank(),
+        getCategories("INCOME"),
+        getCategories("EXPENSE"),
+        getNotes(),
+        getArchivedNotes(),
+      ]);
       setIncomes(inc);
       setExpenses(exp);
       setScheduledPayments(sp);
@@ -352,6 +386,8 @@ export default function MobileHubClient() {
       setLifeEvents(le);
       setInvestments(invRes.error ? [] : invRes.data ?? []);
       setDebts(debtRes.error ? [] : debtRes.data ?? []);
+      setNotes(Array.isArray(notesData) ? notesData : []);
+      setArchivedNotes(Array.isArray(archivedNotesData) ? archivedNotesData : []);
       setAccounts(accountsFromResponse(accRes));
       setIncomeCategories(incomeCats);
       setExpenseCategories(expenseCats);
@@ -412,6 +448,11 @@ export default function MobileHubClient() {
     () => debts.filter((d) => debtMatchesQuery(d, search)),
     [debts, search]
   );
+
+  const filteredNotes = useMemo(() => {
+    const source = showArchivedNotes ? archivedNotes : notes;
+    return source.filter((n) => noteMatchesQuery(n, search));
+  }, [notes, archivedNotes, showArchivedNotes, search]);
 
   const filteredAccounts = useMemo(
     () => accounts.filter((a) => accountMatchesQuery(a, search)),
@@ -526,6 +567,7 @@ export default function MobileHubClient() {
     { id: "life-events", shortLabel: "Life", ariaLabel: "Life events", count: filteredLifeEvents.length },
     { id: "investments", shortLabel: "Inv", ariaLabel: "Investments", count: filteredInvestments.length },
     { id: "debts", shortLabel: "Debt", ariaLabel: "Debts", count: filteredDebts.length },
+    { id: "notes", shortLabel: "Notes", ariaLabel: "Notes", count: filteredNotes.length },
   ];
 
   if (loading) {
@@ -542,8 +584,8 @@ export default function MobileHubClient() {
       <header className="space-y-1">
         <h1 className="text-xl font-semibold text-gray-900 tracking-tight">My Money Log [Mobile hub]</h1>
         <p className="text-sm text-gray-600 mt-0.5">
-          Search finances, accounts, scheduled payments, passwords, life events, investments, and
-          debts without the sidebar.
+          Search finances, accounts, scheduled payments, passwords, life events, investments,
+          debts, and notes without the sidebar.
         </p>
       </header>
 
@@ -623,6 +665,8 @@ export default function MobileHubClient() {
                   ? "Search name, symbol, type, notes…"
                   : tab === "debts"
                     ? "Search borrower, purpose, status…"
+                    : tab === "notes"
+                      ? "Search title, content, tags…"
                     : tab === "accounts"
                       ? "Search bank, holder, account type…"
                       : tab === "scheduled-payments"
@@ -1318,6 +1362,81 @@ export default function MobileHubClient() {
         </section>
       )}
 
+      {tab === "notes" && (
+        <section aria-label="Notes" className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              {archivedNotes.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setShowArchivedNotes((v) => !v)}
+                  className="text-sm font-medium text-brand-700 hover:text-brand-800"
+                >
+                  {showArchivedNotes ? "Show active notes" : `Archived (${archivedNotes.length})`}
+                </button>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAddNoteOpen(true)}
+              className="inline-flex min-h-[40px] shrink-0 items-center gap-2 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 active:bg-brand-800"
+            >
+              <Plus className="h-4 w-4 shrink-0" aria-hidden />
+              Add note
+            </button>
+          </div>
+          {filteredNotes.length === 0 ? (
+            <p className="py-10 text-center text-sm text-gray-500">
+              {search.trim()
+                ? "No notes match your search."
+                : showArchivedNotes
+                  ? "No archived notes."
+                  : "No notes yet."}
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {filteredNotes.map((note) => (
+                <li key={note.id}>
+                  <button
+                    type="button"
+                    onClick={() => setNoteToView(note)}
+                    className="min-h-[64px] w-full rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition-colors active:bg-gray-50"
+                    style={{ borderLeftWidth: 4, borderLeftColor: note.color || "#fbbf24" }}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="min-w-0 font-medium leading-snug text-gray-900 line-clamp-2">
+                        {note.isPinned ? "📌 " : null}
+                        {note.title}
+                      </p>
+                      {note.isArchived ? (
+                        <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
+                          Archived
+                        </span>
+                      ) : null}
+                    </div>
+                    {note.content ? (
+                      <p className="mt-1 line-clamp-2 text-sm text-gray-600">{note.content}</p>
+                    ) : null}
+                    {note.tags.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {note.tags.slice(0, 4).map((tag, i) => (
+                          <span
+                            key={i}
+                            className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-medium text-purple-800"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
       <MobileAddIncomeSheet
         isOpen={isAddIncomeOpen}
         onClose={() => setIsAddIncomeOpen(false)}
@@ -1360,6 +1479,26 @@ export default function MobileHubClient() {
         isOpen={isAddDebtOpen}
         onClose={() => setIsAddDebtOpen(false)}
         onSuccess={() => {
+          void loadData();
+        }}
+      />
+
+      <MobileAddNoteSheet
+        isOpen={isAddNoteOpen}
+        onClose={() => setIsAddNoteOpen(false)}
+        onSuccess={() => {
+          void loadData();
+        }}
+      />
+
+      <MobileNoteDetailSheet
+        note={noteToView}
+        isOpen={noteToView !== null}
+        onClose={() => setNoteToView(null)}
+        onUpdated={() => {
+          void loadData();
+        }}
+        onDeleted={() => {
           void loadData();
         }}
       />
