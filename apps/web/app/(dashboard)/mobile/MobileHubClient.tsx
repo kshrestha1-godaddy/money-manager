@@ -27,6 +27,7 @@ import {
   getInvestmentTypeLabel,
   INVESTMENT_TYPE_LABELS,
 } from "../investments/utils/investmentTypeUi";
+import { sortInvestmentsByTargetCompletionAsc } from "../investments/utils/investmentTargetSort";
 import { MobileTransactionViewSheet } from "./components/mobile-transaction-view-sheet";
 import { MobileLifeEventDetailSheet } from "./components/mobile-life-event-detail-sheet";
 import { MobileLifeEventsTimeline } from "./components/mobile-life-events-timeline";
@@ -263,7 +264,7 @@ function groupInvestmentsByType(items: InvestmentInterface[]): {
   return ordered.map((type) => ({
     type,
     label: getInvestmentTypeLabel(type),
-    items: map.get(type)!,
+    items: sortInvestmentsByTargetCompletionAsc(map.get(type)!),
   }));
 }
 
@@ -1045,6 +1046,16 @@ export default function MobileHubClient() {
                       const qtyLabel = Number.isInteger(inv.quantity)
                         ? inv.quantity.toLocaleString()
                         : inv.quantity.toLocaleString(undefined, { maximumFractionDigits: 6 });
+                      const linkedTarget = inv.investmentTarget;
+                      const targetCompletionPct =
+                        linkedTarget &&
+                        linkedTarget.targetAmount > 0 &&
+                        typeof linkedTarget.fulfilledAmount === "number"
+                          ? Math.min(
+                              100,
+                              (linkedTarget.fulfilledAmount / linkedTarget.targetAmount) * 100
+                            )
+                          : null;
                       return (
                         <li key={inv.id}>
                           <button
@@ -1088,6 +1099,38 @@ export default function MobileHubClient() {
                               >
                                 {formatCurrency(gain, selectedCurrency)} ({gainPct}%)
                               </p>
+                              {targetCompletionPct !== null && linkedTarget ? (
+                                <div className="col-span-2 mt-1.5 border-t border-gray-100 pt-2">
+                                  <div className="mb-1 flex items-center justify-between gap-2 text-[10px] text-purple-900">
+                                    <span className="min-w-0 truncate font-medium">
+                                      Target
+                                      {linkedTarget.nickname?.trim()
+                                        ? ` · ${linkedTarget.nickname.trim()}`
+                                        : ` · ${getInvestmentTypeLabel(linkedTarget.investmentType)}`}
+                                    </span>
+                                    <span className="shrink-0 tabular-nums font-semibold">
+                                      {targetCompletionPct.toFixed(0)}%
+                                    </span>
+                                  </div>
+                                  <div
+                                    className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200"
+                                    role="progressbar"
+                                    aria-valuenow={Math.round(targetCompletionPct)}
+                                    aria-valuemin={0}
+                                    aria-valuemax={100}
+                                    aria-label={`Savings target ${targetCompletionPct.toFixed(0)} percent complete`}
+                                  >
+                                    <div
+                                      className="h-full rounded-full bg-violet-600 transition-[width]"
+                                      style={{ width: `${targetCompletionPct}%` }}
+                                    />
+                                  </div>
+                                  <p className="mt-1 text-[10px] tabular-nums text-gray-600">
+                                    {formatCurrency(linkedTarget.fulfilledAmount, selectedCurrency)} /{" "}
+                                    {formatCurrency(linkedTarget.targetAmount, selectedCurrency)}
+                                  </p>
+                                </div>
+                              ) : null}
                               {inv.interestRate != null && inv.interestRate > 0 ? (
                                 <p className="col-span-2 text-[11px] text-gray-600">
                                   {inv.interestRate}% APR

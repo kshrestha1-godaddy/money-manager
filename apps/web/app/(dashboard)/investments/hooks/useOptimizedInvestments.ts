@@ -14,6 +14,7 @@ import {
 import { triggerBalanceRefresh } from '../../../hooks/useTotalBalance';
 import { exportInvestmentsToCSV } from '../../../utils/csvExportInvestments';
 import { exportInvestmentTargetsToCSV } from '../../../utils/csvExportInvestmentTargets';
+import { sortInvestmentsByTargetCompletionAsc } from '../utils/investmentTargetSort';
 
 interface Modal {
     type: 'add' | 'edit' | 'delete' | 'view' | 'import' | null;
@@ -227,14 +228,23 @@ export function useOptimizedInvestments() {
 
     // Organize investments by sections
     const sections = useMemo((): InvestmentSection[] => {
-        const gainers = filteredInvestments.filter(investment => 
-            investment.currentPrice > investment.purchasePrice);
-        
-        const losers = filteredInvestments.filter(investment => 
-            investment.currentPrice < investment.purchasePrice);
-        
-        const breakEven = filteredInvestments.filter(investment => 
-            investment.currentPrice === investment.purchasePrice);
+        const gainers = sortInvestmentsByTargetCompletionAsc(
+            filteredInvestments.filter(
+                (investment) => investment.currentPrice > investment.purchasePrice
+            )
+        );
+
+        const losers = sortInvestmentsByTargetCompletionAsc(
+            filteredInvestments.filter(
+                (investment) => investment.currentPrice < investment.purchasePrice
+            )
+        );
+
+        const breakEven = sortInvestmentsByTargetCompletionAsc(
+            filteredInvestments.filter(
+                (investment) => investment.currentPrice === investment.purchasePrice
+            )
+        );
 
         const calculateSectionStats = (sectionInvestments: InvestmentInterface[]) => {
             const invested = sectionInvestments.reduce((sum, inv) => 

@@ -15,6 +15,7 @@ import { useCurrency } from "../../../providers/CurrencyProvider";
 import { getDefaultColumnWidths, getMinColumnWidth, type InvestmentColumnWidths } from "../../../config/tableConfig";
 import { getActionButtonClasses } from "../../../config/colorConfig";
 import { cn } from "@/lib/utils";
+import { investmentTargetCompletionSortKey } from "../utils/investmentTargetSort";
 
 /** True when this position is marked withheld from a linked account. */
 function isInvestmentAmountWithheld(inv: InvestmentInterface): boolean {
@@ -44,7 +45,7 @@ interface InvestmentTableProps {
 
 type SortField =
     | 'name'
-    | 'target'
+    | 'targetCompletion'
     | 'type'
     | 'bank'
     | 'quantity'
@@ -67,8 +68,8 @@ export function InvestmentTable({
     onBulkDelete,
     onClearSelection 
 }: InvestmentTableProps) {
-    const [sortField, setSortField] = useState<SortField>('purchaseDate');
-    const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+    const [sortField, setSortField] = useState<SortField>('targetCompletion');
+    const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
     const { currency: userCurrency } = useCurrency();
 
     // Column resizing state - optimized for better space utilization
@@ -149,9 +150,9 @@ export function InvestmentTable({
                 aValue = a.name.toLowerCase();
                 bValue = b.name.toLowerCase();
                 break;
-            case 'target':
-                aValue = formatLinkedTargetDisplay(a) ?? "\uFFFF";
-                bValue = formatLinkedTargetDisplay(b) ?? "\uFFFF";
+            case 'targetCompletion':
+                aValue = investmentTargetCompletionSortKey(a);
+                bValue = investmentTargetCompletionSortKey(b);
                 break;
             case 'type':
                 aValue = a.type;
@@ -297,11 +298,11 @@ export function InvestmentTable({
                         <th 
                             className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
                             style={{ width: `${columnWidths.target}px` }}
-                            onClick={() => handleSort('target')}
+                            onClick={() => handleSort('targetCompletion')}
                         >
                             <div className="flex items-center justify-start gap-2">
-                                <span>Target</span>
-                                {getSortIcon('target')}
+                                <span>Target (goal %)</span>
+                                {getSortIcon('targetCompletion')}
                             </div>
                             <div 
                                 className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
