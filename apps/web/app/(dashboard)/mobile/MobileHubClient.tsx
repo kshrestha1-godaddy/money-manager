@@ -1,6 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ScheduledPaymentItem } from "../../types/scheduled-payment";
+import { getScheduledPayments } from "../scheduled-payments/actions/scheduled-payments";
+import {
+  accountDisplay,
+  matchesSearch,
+  recurringDisplay,
+} from "../scheduled-payments/scheduled-payment-helpers";
 import { ArrowLeftRight, Search } from "lucide-react";
 import { Income, Expense } from "../../types/financial";
 import { PasswordInterface } from "../../types/passwords";
@@ -12,6 +19,8 @@ import { matchesLifeEventSearch } from "../life-events/life-event-helpers";
 import type { LifeEventItem } from "../../types/life-event";
 import { getUserInvestments } from "../investments/actions/investments";
 import { getUserDebts } from "../debts/actions/debts";
+import { getUserAccounts, getWithheldAmountsByBank } from "../accounts/actions/accounts";
+import type { AccountInterface } from "../../types/accounts";
 import type { InvestmentInterface } from "../../types/investments";
 import type { DebtInterface } from "../../types/debts";
 import {
@@ -28,6 +37,14 @@ import {
   groupTransactionsByYearAndMonth,
 } from "./components/mobile-grouped-transaction-list";
 import { MobileCategoryPieChart } from "./components/mobile-category-pie-chart";
+import {
+  MobileScheduledPaymentsList,
+  groupScheduledPaymentsByYearAndMonth,
+} from "./components/mobile-scheduled-payments-list";
+import { MobileScheduledPaymentDetailSheet } from "./components/mobile-scheduled-payment-detail-sheet";
+import { MobileAccountDetailSheet } from "./components/mobile-account-detail-sheet";
+import { MobileAccountFreeWithheldBar } from "./components/mobile-account-free-withheld-bar";
+import { computeAccountFreeBalance } from "./utils/account-free-balance";
 import { PasswordTable } from "../passwords/components/PasswordTable";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency } from "../../utils/currency";
@@ -39,10 +56,35 @@ import { CurrencyConverterModal } from "../../components/CurrencyConverterModal"
 type MobileTab =
   | "incomes"
   | "expenses"
+  | "accounts"
+  | "scheduled-payments"
   | "passwords"
   | "life-events"
   | "investments"
   | "debts";
+
+function scheduledPaymentStatusLabel(p: ScheduledPaymentItem, now: Date): string {
+  if (p.resolution === "ACCEPTED") return "Accepted";
+  if (p.resolution === "REJECTED") return "Rejected";
+  if (p.scheduledAt > now) return "Upcoming";
+  return "Awaiting confirmation";
+}
+
+function scheduledPaymentMatchesQuery(p: ScheduledPaymentItem, raw: string): boolean {
+  const q = raw.trim().toLowerCase();
+  if (!q) return true;
+  if (matchesSearch(p, raw)) return true;
+  const now = new Date();
+  const hay = [
+    p.category.name,
+    accountDisplay(p),
+    recurringDisplay(p),
+    scheduledPaymentStatusLabel(p, now),
+  ]
+    .join(" ")
+    .toLowerCase();
+  return hay.includes(q);
+}
 
 const loadingContainer = LOADING_COLORS.container;
 const loadingSpinner = LOADING_COLORS.spinner;
@@ -111,6 +153,57 @@ function debtMatchesQuery(d: DebtInterface, raw: string): boolean {
     .filter(Boolean)
     .map((s) => String(s).toLowerCase());
   return parts.some((s) => s.includes(q));
+}
+
+function accountMatchesQuery(a: AccountInterface, raw: string): boolean {
+  const q = raw.trim().toLowerCase();
+  if (!q) return true;
+  const parts = [
+    a.bankName,
+    a.holderName,
+    a.nickname,
+    a.accountNumber,
+    a.accountType,
+    a.branchName,
+    a.branchCode,
+  ]
+    .filter(Boolean)
+    .map((s) => String(s).toLowerCase());
+  return parts.some((p) => p.includes(q));
+}
+
+function accountsFromResponse(
+  res: Awaited<ReturnType<typeof getUserAccounts>>
+): AccountInterface[] {
+  if (Array.isArray(res)) return res;
+  return [];
+}
+
+function groupAccountsByBank(items: AccountInterface[]): {
+  bank: string;
+  items: AccountInterface[];
+}[] {
+  const map = new Map<string, AccountInterface[]>();
+  for (const a of items) {
+    const key = a.bankName?.trim() || "Other";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(a);
+  }
+  const banks = [...map.keys()].sort((x, y) => x.localeCompare(y));
+  return banks.map((bank) => ({
+    bank,
+    items: map.get(bank)!.sort((x, y) => {
+      const ax = (x.nickname || x.holderName).toLowerCase();
+      const ay = (y.nickname || y.holderName).toLowerCase();
+      return ax.localeCompare(ay);
+    }),
+  }));
+}
+
+function maskAccountNumberShort(num: string): string {
+  const s = String(num).trim();
+  if (s.length <= 4) return s;
+  return `****${s.slice(-4)}`;
 }
 
 const DEBT_STATUS_ORDER: DebtInterface["status"][] = [
@@ -189,35 +282,48 @@ export default function MobileHubClient() {
 
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [scheduledPayments, setScheduledPayments] = useState<ScheduledPaymentItem[]>([]);
   const [passwords, setPasswords] = useState<PasswordInterface[]>([]);
   const [lifeEvents, setLifeEvents] = useState<LifeEventItem[]>([]);
   const [investments, setInvestments] = useState<InvestmentInterface[]>([]);
   const [debts, setDebts] = useState<DebtInterface[]>([]);
+  const [accounts, setAccounts] = useState<AccountInterface[]>([]);
+  const [withheldAmountsByBank, setWithheldAmountsByBank] = useState<Record<string, number>>({});
 
   const [incomeToView, setIncomeToView] = useState<Income | null>(null);
   const [expenseToView, setExpenseToView] = useState<Expense | null>(null);
   const [lifeEventToView, setLifeEventToView] = useState<LifeEventItem | null>(null);
   const [investmentToView, setInvestmentToView] = useState<InvestmentInterface | null>(null);
   const [debtToView, setDebtToView] = useState<DebtInterface | null>(null);
+  const [scheduledPaymentToView, setScheduledPaymentToView] = useState<ScheduledPaymentItem | null>(
+    null
+  );
+  const [accountToView, setAccountToView] = useState<AccountInterface | null>(null);
 
   const loadData = useCallback(async () => {
     setLoadError(null);
     setLoading(true);
     try {
-      const [inc, exp, pwd, le, invRes, debtRes] = await Promise.all([
+      const [inc, exp, sp, pwd, le, invRes, debtRes, accRes, withheldByBank] = await Promise.all([
         getIncomes(),
         getExpenses(),
+        getScheduledPayments(),
         getPasswords(),
         getLifeEvents(),
         getUserInvestments(),
         getUserDebts(),
+        getUserAccounts(),
+        getWithheldAmountsByBank(),
       ]);
       setIncomes(inc);
       setExpenses(exp);
+      setScheduledPayments(sp);
       setPasswords(pwd);
       setLifeEvents(le);
       setInvestments(invRes.error ? [] : invRes.data ?? []);
       setDebts(debtRes.error ? [] : debtRes.data ?? []);
+      setAccounts(accountsFromResponse(accRes));
+      setWithheldAmountsByBank(withheldByBank ?? {});
     } catch (e) {
       console.error(e);
       setLoadError("Could not load your data. Try again in a moment.");
@@ -240,6 +346,11 @@ export default function MobileHubClient() {
     [expenses, search]
   );
 
+  const filteredScheduledPayments = useMemo(
+    () => scheduledPayments.filter((p) => scheduledPaymentMatchesQuery(p, search)),
+    [scheduledPayments, search]
+  );
+
   const filteredPasswords = useMemo(
     () => passwords.filter((p) => passwordMatchesQuery(p, search)),
     [passwords, search]
@@ -260,6 +371,11 @@ export default function MobileHubClient() {
     [debts, search]
   );
 
+  const filteredAccounts = useMemo(
+    () => accounts.filter((a) => accountMatchesQuery(a, search)),
+    [accounts, search]
+  );
+
   const incomesByYearMonth = useMemo(
     () => groupTransactionsByYearAndMonth(filteredIncomes),
     [filteredIncomes]
@@ -270,6 +386,11 @@ export default function MobileHubClient() {
     [filteredExpenses]
   );
 
+  const scheduledPaymentsByYearMonth = useMemo(
+    () => groupScheduledPaymentsByYearAndMonth(filteredScheduledPayments),
+    [filteredScheduledPayments]
+  );
+
   const investmentsByType = useMemo(
     () => groupInvestmentsByType(filteredInvestments),
     [filteredInvestments]
@@ -278,6 +399,11 @@ export default function MobileHubClient() {
   const debtsByStatus = useMemo(
     () => groupDebtsByStatus(filteredDebts),
     [filteredDebts]
+  );
+
+  const accountsByBank = useMemo(
+    () => groupAccountsByBank(filteredAccounts),
+    [filteredAccounts]
   );
 
   const filteredIncomesTotalFormatted = useMemo(() => {
@@ -296,8 +422,38 @@ export default function MobileHubClient() {
     return formatCurrency(sum, selectedCurrency);
   }, [filteredExpenses, selectedCurrency]);
 
+  const filteredAccountsTotalFormatted = useMemo(() => {
+    const sum = filteredAccounts.reduce(
+      (acc, item) =>
+        acc + convertForDisplaySync(item.balance ?? 0, userCurrency, selectedCurrency),
+      0
+    );
+    return formatCurrency(sum, selectedCurrency);
+  }, [filteredAccounts, selectedCurrency, userCurrency]);
+
+  const accountsFreeWithheldDisplay = useMemo(() => {
+    if (filteredAccounts.length === 0) {
+      return { free: 0, withheld: 0 };
+    }
+    let freeSum = 0;
+    let withheldSum = 0;
+    for (const a of filteredAccounts) {
+      const bal = a.balance ?? 0;
+      const free = computeAccountFreeBalance(a, accounts, withheldAmountsByBank);
+      freeSum += convertForDisplaySync(free, userCurrency, selectedCurrency);
+      withheldSum += convertForDisplaySync(bal - free, userCurrency, selectedCurrency);
+    }
+    return { free: freeSum, withheld: withheldSum };
+  }, [filteredAccounts, accounts, withheldAmountsByBank, userCurrency, selectedCurrency]);
+
   function formatDisplayAmount(amount: number, storedCurrency: string): string {
     const converted = convertForDisplaySync(amount, storedCurrency, selectedCurrency);
+    return formatCurrency(converted, selectedCurrency);
+  }
+
+  function formatAccountBalanceForDisplay(balance: number | undefined): string {
+    if (balance === undefined) return "—";
+    const converted = convertForDisplaySync(balance, userCurrency, selectedCurrency);
     return formatCurrency(converted, selectedCurrency);
   }
 
@@ -309,6 +465,13 @@ export default function MobileHubClient() {
   }[] = [
     { id: "incomes", shortLabel: "Income", ariaLabel: "Incomes", count: filteredIncomes.length },
     { id: "expenses", shortLabel: "Expense", ariaLabel: "Expenses", count: filteredExpenses.length },
+    { id: "accounts", shortLabel: "Acct", ariaLabel: "Accounts", count: filteredAccounts.length },
+    {
+      id: "scheduled-payments",
+      shortLabel: "Sched",
+      ariaLabel: "Scheduled payments",
+      count: filteredScheduledPayments.length,
+    },
     { id: "passwords", shortLabel: "Pass", ariaLabel: "Passwords", count: filteredPasswords.length },
     { id: "life-events", shortLabel: "Life", ariaLabel: "Life events", count: filteredLifeEvents.length },
     { id: "investments", shortLabel: "Inv", ariaLabel: "Investments", count: filteredInvestments.length },
@@ -329,7 +492,8 @@ export default function MobileHubClient() {
       <header className="space-y-1">
         <h1 className="text-xl font-semibold text-gray-900 tracking-tight">Mobile hub</h1>
         <p className="text-sm text-gray-600 mt-0.5">
-          Search finances, passwords, life events, investments, and debts without the sidebar.
+          Search finances, accounts, scheduled payments, passwords, life events, investments, and
+          debts without the sidebar.
         </p>
       </header>
 
@@ -394,7 +558,11 @@ export default function MobileHubClient() {
                   ? "Search name, symbol, type, notes…"
                   : tab === "debts"
                     ? "Search borrower, purpose, status…"
-                    : "Search title, category, notes…"
+                    : tab === "accounts"
+                      ? "Search bank, holder, account type…"
+                      : tab === "scheduled-payments"
+                        ? "Search title, category, account, status…"
+                        : "Search title, category, notes…"
           }
           className="w-full min-h-[48px] rounded-xl border border-gray-200 bg-white pl-11 pr-4 text-base text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
           autoComplete="off"
@@ -403,7 +571,7 @@ export default function MobileHubClient() {
       </div>
 
       <div
-        className="grid w-full min-w-0 grid-cols-3 gap-1.5"
+        className="grid w-full min-w-0 grid-cols-3 gap-1.5 sm:grid-cols-4"
         role="tablist"
         aria-label="Data type"
       >
@@ -502,6 +670,94 @@ export default function MobileHubClient() {
                 </span>
               </div>
             </div>
+          )}
+        </section>
+      )}
+
+      {tab === "accounts" && (
+        <section aria-label="Accounts" className="space-y-3">
+          {filteredAccounts.length === 0 ? (
+            <p className="text-center text-gray-500 py-10 text-sm">
+              {search.trim() ? "No accounts match your search." : "No accounts yet."}
+            </p>
+          ) : (
+            <div className="space-y-5">
+              <MobileAccountFreeWithheldBar
+                freeAmount={accountsFreeWithheldDisplay.free}
+                withheldAmount={accountsFreeWithheldDisplay.withheld}
+                displayCurrency={selectedCurrency}
+              />
+              {accountsByBank.map((group, groupIndex) => (
+                <div key={group.bank}>
+                  <h3
+                    className={`mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 ${
+                      groupIndex > 0 ? "mt-1" : ""
+                    }`}
+                  >
+                    {group.bank}{" "}
+                    <span className="font-normal tabular-nums text-gray-400">({group.items.length})</span>
+                  </h3>
+                  <ul className="space-y-2">
+                    {group.items.map((acc) => {
+                      const title = acc.nickname?.trim() || acc.holderName;
+                      const subtitle = [maskAccountNumberShort(acc.accountNumber), acc.accountType]
+                        .filter(Boolean)
+                        .join(" · ");
+                      return (
+                        <li key={acc.id}>
+                          <button
+                            type="button"
+                            onClick={() => setAccountToView(acc)}
+                            className="w-full text-left rounded-xl border border-gray-200 bg-white p-4 shadow-sm min-h-[72px] active:bg-gray-50 transition-colors"
+                          >
+                            <div className="flex justify-between gap-3 items-start">
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-gray-900 truncate">{title}</p>
+                                {subtitle ? (
+                                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{subtitle}</p>
+                                ) : null}
+                              </div>
+                              <span className="shrink-0 text-base font-semibold text-emerald-700 tabular-nums">
+                                {formatAccountBalanceForDisplay(acc.balance)}
+                              </span>
+                            </div>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
+              <div
+                className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50/90 px-4 py-3"
+                role="region"
+                aria-label="Filtered accounts total balance"
+              >
+                <span className="text-sm font-medium text-gray-700">Total</span>
+                <span className="text-base font-semibold tabular-nums text-emerald-700">
+                  {filteredAccountsTotalFormatted}
+                </span>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {tab === "scheduled-payments" && (
+        <section aria-label="Scheduled payments" className="space-y-3">
+          {filteredScheduledPayments.length === 0 ? (
+            <p className="text-center text-gray-500 py-10 text-sm">
+              {search.trim()
+                ? "No scheduled payments match your search."
+                : "No scheduled payments yet."}
+            </p>
+          ) : (
+            <MobileScheduledPaymentsList
+              grouped={scheduledPaymentsByYearMonth}
+              formatAmount={(item) => formatDisplayAmount(item.amount, item.currency)}
+              statusLabel={(p) => scheduledPaymentStatusLabel(p, new Date())}
+              onItemClick={setScheduledPaymentToView}
+            />
           )}
         </section>
       )}
@@ -672,6 +928,23 @@ export default function MobileHubClient() {
         isOpen={debtToView !== null}
         onClose={() => setDebtToView(null)}
         displayCurrency={selectedCurrency}
+      />
+
+      <MobileScheduledPaymentDetailSheet
+        payment={scheduledPaymentToView}
+        isOpen={scheduledPaymentToView !== null}
+        onClose={() => setScheduledPaymentToView(null)}
+        formatAmount={(item) => formatDisplayAmount(item.amount, item.currency)}
+        statusLabel={(p) => scheduledPaymentStatusLabel(p, new Date())}
+      />
+
+      <MobileAccountDetailSheet
+        account={accountToView}
+        isOpen={accountToView !== null}
+        onClose={() => setAccountToView(null)}
+        formattedBalance={
+          accountToView ? formatAccountBalanceForDisplay(accountToView.balance) : "—"
+        }
       />
 
       <CurrencyConverterModal

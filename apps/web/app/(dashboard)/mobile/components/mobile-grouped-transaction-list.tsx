@@ -1,7 +1,9 @@
 "use client";
 
+import { useLayoutEffect, useRef } from "react";
 import { ChevronRight } from "lucide-react";
 import { format } from "date-fns";
+import { MobileCollapsibleToolbar } from "./mobile-collapsible-toolbar";
 import type { Income, Expense } from "../../../types/financial";
 import { formatDate } from "../../../utils/date";
 
@@ -70,18 +72,43 @@ export function MobileGroupedTransactionList<T extends Income | Expense>({
   formatAmount,
   onItemClick,
 }: MobileGroupedTransactionListProps<T>) {
+  const detailsRootRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const root = detailsRootRef.current;
+    if (!root) return;
+    const now = new Date();
+    const cy = now.getFullYear();
+    const cm = now.getMonth();
+    root.querySelectorAll("details[data-year]").forEach((el) => {
+      const d = el as HTMLDetailsElement;
+      const y = Number(d.getAttribute("data-year"));
+      if (Number.isNaN(y)) return;
+      const mStr = d.getAttribute("data-month");
+      if (mStr === null) {
+        if (y === cy) d.open = true;
+      } else {
+        const m = Number(mStr);
+        if (y === cy && m === cm) d.open = true;
+      }
+    });
+  }, [grouped]);
+
   if (grouped.length === 0) return null;
 
   const amountClass = amountToneClass[variant];
   const label = variant === "income" ? "incomes" : "expenses";
 
   return (
-    <div className="space-y-3">
+    <>
+      <MobileCollapsibleToolbar rootRef={detailsRootRef} />
+      <div ref={detailsRootRef} className="space-y-3">
       {grouped.map(({ year, months }) => {
         const yearCount = months.reduce((acc, m) => acc + m.items.length, 0);
         return (
           <details
             key={year}
+            data-year={year}
             className="group rounded-lg border border-gray-200 bg-white shadow-sm"
           >
             <summary className="cursor-pointer list-none px-3 py-2.5 font-semibold text-slate-900 marker:content-none [&::-webkit-details-marker]:hidden">
@@ -100,6 +127,8 @@ export function MobileGroupedTransactionList<T extends Income | Expense>({
               {months.map(({ monthLabel, monthIndex, items: monthItems }) => (
                 <details
                   key={`${year}-${monthIndex}`}
+                  data-year={year}
+                  data-month={monthIndex}
                   className="group/month mt-2 rounded-md border border-gray-100 bg-gray-50/80"
                 >
                   <summary className="cursor-pointer px-2.5 py-2 text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
@@ -144,6 +173,7 @@ export function MobileGroupedTransactionList<T extends Income | Expense>({
           </details>
         );
       })}
-    </div>
+      </div>
+    </>
   );
 }

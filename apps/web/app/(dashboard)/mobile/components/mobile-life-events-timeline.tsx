@@ -1,5 +1,6 @@
 "use client";
 
+import { useLayoutEffect, useRef } from "react";
 import { ChevronRight } from "lucide-react";
 import type { LifeEventCategory } from "@prisma/client";
 import type { LifeEventItem } from "../../../types/life-event";
@@ -30,18 +31,31 @@ export interface MobileLifeEventsTimelineProps {
 
 export function MobileLifeEventsTimeline({ events, onEventClick }: MobileLifeEventsTimelineProps) {
   const grouped = groupEventsByYearAndMonth(events);
+  const detailsRootRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const root = detailsRootRef.current;
+    if (!root) return;
+    const cy = new Date().getUTCFullYear();
+    root.querySelectorAll("details[data-year]").forEach((el) => {
+      const d = el as HTMLDetailsElement;
+      const y = Number(d.getAttribute("data-year"));
+      if (!Number.isNaN(y) && y === cy) d.open = true;
+    });
+  }, [events]);
 
   if (grouped.length === 0) {
     return null;
   }
 
   return (
-    <div className="space-y-3">
+    <div ref={detailsRootRef} className="space-y-3">
       {grouped.map(({ year, months }) => {
         const yearCount = months.reduce((acc, m) => acc + m.events.length, 0);
         return (
           <details
             key={year}
+            data-year={year}
             className="group rounded-lg border border-gray-200 bg-white shadow-sm"
           >
             <summary className="cursor-pointer list-none px-3 py-2.5 font-semibold text-slate-900 marker:content-none [&::-webkit-details-marker]:hidden">
@@ -58,6 +72,8 @@ export function MobileLifeEventsTimeline({ events, onEventClick }: MobileLifeEve
               {months.map(({ monthLabel, monthIndex, events: monthEvents }) => (
                 <details
                   key={`${year}-${monthIndex}`}
+                  data-year={year}
+                  data-month={monthIndex}
                   className="group/month mt-2 rounded-md border border-gray-100 bg-gray-50/80"
                 >
                   <summary className="cursor-pointer px-2.5 py-2 text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
@@ -81,21 +97,21 @@ export function MobileLifeEventsTimeline({ events, onEventClick }: MobileLifeEve
                           onClick={() => onEventClick(item)}
                           className="w-full text-left active:bg-gray-50/90"
                         >
-                          <div className="flex gap-2.5">
-                            <div className="flex w-[4.75rem] shrink-0 flex-col items-center justify-center rounded-md border border-gray-200 bg-gray-50/90 px-1 py-2 text-center">
+                          <div className="flex items-stretch gap-3">
+                            <div className="flex min-h-[3.5rem] min-w-[11rem] w-[11.5rem] shrink-0 flex-col items-center justify-center self-stretch rounded-md border border-gray-200 bg-gray-50/90 px-2.5 py-2.5 text-center">
                               {item.eventEndDate ? (
-                                <div className="space-y-0.5 text-[10px] leading-tight text-gray-600">
-                                  <p>
+                                <div className="w-full space-y-1.5 text-[10px] leading-tight text-gray-600">
+                                  <p className="text-center">
                                     <span className="font-medium text-gray-500">Start</span>
                                     <br />
-                                    <span className="font-semibold text-slate-900">
+                                    <span className="inline-block font-semibold text-[11px] leading-snug text-slate-900 whitespace-nowrap">
                                       {formatLifeEventDate(item.eventDate)}
                                     </span>
                                   </p>
-                                  <p>
+                                  <p className="text-center">
                                     <span className="font-medium text-gray-500">End</span>
                                     <br />
-                                    <span className="font-semibold text-slate-900">
+                                    <span className="inline-block font-semibold text-[11px] leading-snug text-slate-900 whitespace-nowrap">
                                       {formatLifeEventDate(item.eventEndDate)}
                                     </span>
                                   </p>
@@ -106,9 +122,11 @@ export function MobileLifeEventsTimeline({ events, onEventClick }: MobileLifeEve
                                 </p>
                               )}
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <h3 className="text-sm font-semibold leading-snug text-slate-900">{item.title}</h3>
-                              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                            <div className="flex min-w-0 flex-1 flex-col items-start justify-center gap-1.5 px-0.5 py-1 text-left">
+                              <h3 className="w-full text-sm font-semibold leading-snug text-slate-900">
+                                {item.title}
+                              </h3>
+                              <div className="flex w-full flex-wrap items-center justify-start gap-1.5">
                                 <span
                                   className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${categoryBadgeClass[item.category]}`}
                                 >
