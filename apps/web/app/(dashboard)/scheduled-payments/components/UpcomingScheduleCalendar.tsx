@@ -264,12 +264,6 @@ export function UpcomingScheduleCalendar({
           );
         })}
       </div>
-
-      {items.length === 0 && (
-        <p className="text-sm text-gray-500 mt-4 text-center py-6 border border-dashed border-gray-200 rounded-lg">
-          No scheduled payments in the current filter.
-        </p>
-      )}
     </div>
   );
 }
