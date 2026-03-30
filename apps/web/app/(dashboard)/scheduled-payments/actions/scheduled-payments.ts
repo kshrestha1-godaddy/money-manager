@@ -301,6 +301,51 @@ export async function deleteScheduledPayment(id: number) {
 
   await prisma.scheduledPayment.delete({ where: { id } });
   revalidatePath("/expenses");
+  revalidatePath("/scheduled-payments");
+}
+
+/** Same value as app screen lock (`NEXT_PUBLIC_APP_ENTRY_PASSWORD`, default in dev). */
+function getAppEntryPassword(): string {
+  return process.env.NEXT_PUBLIC_APP_ENTRY_PASSWORD || "moneymanager";
+}
+
+export async function deleteScheduledPayments(
+  ids: number[]
+): Promise<{ ok: true; deleted: number } | { error: string }> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return { error: "Unauthorized" };
+    const userId = getUserIdFromSession(session.user.id);
+    const unique = [...new Set(ids)].filter((id) => Number.isFinite(id) && id > 0);
+    if (unique.length === 0) return { error: "No payments selected" };
+
+    const result = await prisma.scheduledPayment.deleteMany({
+      where: { userId, id: { in: unique }, resolution: null },
+    });
+    revalidatePath("/expenses");
+    revalidatePath("/scheduled-payments");
+    return { ok: true, deleted: result.count };
+  } catch (e) {
+    console.error(e);
+    return { error: e instanceof Error ? e.message : "Failed to delete scheduled payments" };
+  }
+}
+
+export async function deleteScheduledPaymentsWithPassword(
+  ids: number[],
+  screenLockPassword: string
+): Promise<{ ok: true; deleted: number } | { error: string }> {
+  try {
+    const expected = getAppEntryPassword();
+    const input = screenLockPassword.trim();
+    if (input !== expected) {
+      return { error: "Incorrect screen lock password" };
+    }
+    return deleteScheduledPayments(ids);
+  } catch (e) {
+    console.error(e);
+    return { error: e instanceof Error ? e.message : "Failed to delete scheduled payments" };
+  }
 }
 
 export async function acceptScheduledPayment(id: number) {

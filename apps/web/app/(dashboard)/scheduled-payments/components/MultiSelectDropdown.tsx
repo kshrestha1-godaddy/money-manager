@@ -95,18 +95,18 @@ export function MultiSelectDropdown({
           aria-multiselectable
           className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg"
         >
-          <div className="flex flex-wrap gap-2 border-b border-gray-100 px-2 py-2">
+          <div className="flex flex-nowrap items-center gap-2 border-b border-gray-100 px-2 py-2">
             <button
               type="button"
               onClick={clear}
-              className="text-xs font-medium text-blue-600 hover:text-blue-800"
+              className="shrink-0 text-xs font-medium text-blue-600 hover:text-blue-800"
             >
               Clear
             </button>
             <button
               type="button"
               onClick={selectAll}
-              className="text-xs font-medium text-gray-600 hover:text-gray-900"
+              className="shrink-0 text-xs font-medium text-gray-600 hover:text-gray-900"
             >
               Select all
             </button>

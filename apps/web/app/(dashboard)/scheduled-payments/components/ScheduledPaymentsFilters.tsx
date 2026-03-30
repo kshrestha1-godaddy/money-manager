@@ -8,7 +8,7 @@ import {
   TEXT_COLORS,
 } from "../../../config/colorConfig";
 
-const filtersContainer = CONTAINER_COLORS.filtersWithMargin;
+const filtersContainer = `${CONTAINER_COLORS.whiteWithPadding} mb-6`;
 const labelText = TEXT_COLORS.label;
 const clearFilterButton = BUTTON_COLORS.clearFilter;
 const standardInput = INPUT_COLORS.standard;
@@ -104,11 +104,17 @@ export function ScheduledPaymentsFilters({
           selected={selectedRecurring}
           onChange={onRecurringChange}
         />
-        {hasActiveFilters && (
-          <button type="button" onClick={onClearFilters} className={clearFilterButton}>
-            Clear filters
+        <div className="min-w-[100px] shrink-0">
+          <label className={`${labelText} invisible`}>Clear</label>
+          <button
+            type="button"
+            onClick={onClearFilters}
+            className={`${clearFilterButton} h-10`}
+            disabled={!hasActiveFilters}
+          >
+            Clear Filters
           </button>
-        )}
+        </div>
       </div>
     </div>
   );
