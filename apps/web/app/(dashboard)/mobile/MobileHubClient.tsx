@@ -1394,45 +1394,59 @@ export default function MobileHubClient() {
                   : "No notes yet."}
             </p>
           ) : (
-            <ul className="space-y-2">
-              {filteredNotes.map((note) => (
-                <li key={note.id}>
-                  <button
-                    type="button"
-                    onClick={() => setNoteToView(note)}
-                    className="min-h-[64px] w-full rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition-colors active:bg-gray-50"
-                    style={{ borderLeftWidth: 4, borderLeftColor: note.color || "#fbbf24" }}
+            <div className="space-y-2">
+              {filteredNotes.map((note) => {
+                const contentLine = note.content?.trim();
+                const normalized = contentLine ? contentLine.replace(/\s+/g, " ") : "";
+                const preview =
+                  normalized || (note.tags.length > 0 ? note.tags.join(", ") : "");
+                const subtitle =
+                  preview.length > 0
+                    ? preview.length > 72
+                      ? `${preview.slice(0, 72)}…`
+                      : preview
+                    : note.isArchived
+                      ? "Archived"
+                      : "No content";
+                return (
+                  <div
+                    key={note.id}
+                    className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="min-w-0 font-medium leading-snug text-gray-900 line-clamp-2">
-                        {note.isPinned ? "📌 " : null}
-                        {note.title}
-                      </p>
-                      {note.isArchived ? (
-                        <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
-                          Archived
-                        </span>
-                      ) : null}
-                    </div>
-                    {note.content ? (
-                      <p className="mt-1 line-clamp-2 text-sm text-gray-600">{note.content}</p>
-                    ) : null}
-                    {note.tags.length > 0 ? (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {note.tags.slice(0, 4).map((tag, i) => (
-                          <span
-                            key={i}
-                            className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-medium text-purple-800"
-                          >
-                            {tag}
-                          </span>
-                        ))}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <div
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: note.color || "#fbbf24" }}
+                          aria-hidden
+                        />
+                        <div className="min-w-0 flex-1">
+                          <h3 className="truncate text-base font-semibold leading-snug text-gray-900">
+                            {note.isPinned ? "📌 " : null}
+                            {note.title}
+                          </h3>
+                          <p className="mt-0.5 truncate text-sm text-gray-600">{subtitle}</p>
+                        </div>
                       </div>
-                    ) : null}
-                  </button>
-                </li>
-              ))}
-            </ul>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        {note.isArchived ? (
+                          <span className="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-900">
+                            Archived
+                          </span>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => setNoteToView(note)}
+                          className="min-h-[40px] rounded-lg px-3 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50"
+                        >
+                          View
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </section>
       )}

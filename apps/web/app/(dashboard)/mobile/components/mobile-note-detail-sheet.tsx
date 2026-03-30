@@ -154,44 +154,9 @@ export function MobileNoteDetailSheet({
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setIsEditing(true)}
-            disabled={busy}
-            className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            onClick={() => void handlePin()}
-            disabled={busy}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
-          >
-            {note.isPinned ? "Unpin" : "Pin"}
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleArchive()}
-            disabled={busy}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
-          >
-            {note.isArchived ? "Unarchive" : "Archive"}
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleDelete()}
-            disabled={busy}
-            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-100 disabled:opacity-50"
-          >
-            Delete
-          </button>
-        </div>
-
+      <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4">
         {note.content ? (
-          <section className="mt-4">
+          <section className="mt-0">
             <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Content</h2>
             <p className="whitespace-pre-wrap text-sm text-gray-900">{note.content}</p>
           </section>
@@ -236,6 +201,45 @@ export function MobileNoteDetailSheet({
             <p className="mt-1">Updated {formatDateTime(note.updatedAt)}</p>
           ) : null}
         </section>
+
+        <div
+          className="mt-8 flex flex-wrap items-center justify-center gap-2 border-t border-gray-100 pt-6"
+          role="toolbar"
+          aria-label="Note actions"
+        >
+          <button
+            type="button"
+            onClick={() => setIsEditing(true)}
+            disabled={busy}
+            className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            onClick={() => void handlePin()}
+            disabled={busy}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {note.isPinned ? "Unpin" : "Pin"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleArchive()}
+            disabled={busy}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {note.isArchived ? "Unarchive" : "Archive"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleDelete()}
+            disabled={busy}
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-100 disabled:opacity-50"
+          >
+            Delete
+          </button>
+        </div>
       </div>
     </div>
   );

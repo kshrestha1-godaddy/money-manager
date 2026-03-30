@@ -698,12 +698,14 @@ export default function ScheduledPaymentsPageClient() {
                 columnKey="when"
                 sort={tableSort}
                 onSort={toggleTableSort}
+                className="!pr-6 sm:!pr-8"
               />
               <SortableTh
                 label={`Amount (${tableDisplayCurrency.toUpperCase()})`}
                 columnKey="amount"
                 sort={tableSort}
                 onSort={toggleTableSort}
+                className="!pl-5 sm:!pl-6"
               />
               <SortableTh
                 label="Category"
@@ -801,10 +803,10 @@ export default function ScheduledPaymentsPageClient() {
                         {item.title}
                       </span>
                     </td>
-                    <td className="px-3 py-3 align-middle text-gray-700 whitespace-nowrap sm:px-4">
+                    <td className="py-3 pl-3 pr-6 align-middle text-gray-700 whitespace-nowrap sm:pl-4 sm:pr-8">
                       {new Date(item.scheduledAt).toLocaleString()}
                     </td>
-                    <td className="px-3 py-3 align-middle text-gray-900 whitespace-nowrap tabular-nums sm:px-4">
+                    <td className="py-3 pl-5 pr-3 align-middle text-gray-900 whitespace-nowrap tabular-nums sm:pl-6 sm:pr-4">
                       {formatCurrency(displayAmount, tableDisplayCurrency)}
                     </td>
                     <td className="max-w-0 min-w-0 px-3 py-3 align-middle text-gray-700 sm:px-4">
@@ -913,7 +915,7 @@ export default function ScheduledPaymentsPageClient() {
                   Total ({tableSummary.count}{" "}
                   {tableSummary.count === 1 ? "payment" : "payments"})
                 </td>
-                <td className="px-3 py-3 text-sm font-semibold tabular-nums text-gray-900 sm:px-4">
+                <td className="py-3 pl-5 pr-3 text-sm font-semibold tabular-nums text-gray-900 sm:pl-6 sm:pr-4">
                   {formatCurrency(tableSummary.total, tableDisplayCurrency)}
                 </td>
                 <td colSpan={5} className="px-3 py-3 sm:px-4" aria-hidden />
