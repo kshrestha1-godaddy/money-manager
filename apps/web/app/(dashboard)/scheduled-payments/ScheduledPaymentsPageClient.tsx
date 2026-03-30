@@ -53,6 +53,19 @@ const dangerButton = BUTTON_COLORS.danger;
 /** Fixed width incl. horizontal padding (`box-border`); remaining cols share the rest. */
 const BULK_SELECT_COLUMN_WIDTH_PX = 44;
 
+/** `table-fixed` column shares (with checkbox as px). Title widened vs equal split; When / Category / Status tightened. */
+const SCHEDULED_TABLE_COL_PCT = {
+  title: "26%",
+  when: "6%",
+  amount: "9%",
+  category: "6%",
+  account: "13%",
+  notes: "10%",
+  recurrence: "8%",
+  status: "6%",
+  actions: "16%",
+} as const;
+
 function statusLabel(item: ScheduledPaymentItem, now: Date): string {
   if (item.resolution === "ACCEPTED") return "Accepted";
   if (item.resolution === "REJECTED") return "Rejected";
@@ -636,16 +649,15 @@ export default function ScheduledPaymentsPageClient() {
                 maxWidth: BULK_SELECT_COLUMN_WIDTH_PX,
               }}
             />
-            {/* No % widths: otherwise the first column absorbs extra space incorrectly. */}
-            <col />
-            <col />
-            <col />
-            <col />
-            <col />
-            <col />
-            <col />
-            <col />
-            <col />
+            <col style={{ width: SCHEDULED_TABLE_COL_PCT.title }} />
+            <col style={{ width: SCHEDULED_TABLE_COL_PCT.when }} />
+            <col style={{ width: SCHEDULED_TABLE_COL_PCT.amount }} />
+            <col style={{ width: SCHEDULED_TABLE_COL_PCT.category }} />
+            <col style={{ width: SCHEDULED_TABLE_COL_PCT.account }} />
+            <col style={{ width: SCHEDULED_TABLE_COL_PCT.notes }} />
+            <col style={{ width: SCHEDULED_TABLE_COL_PCT.recurrence }} />
+            <col style={{ width: SCHEDULED_TABLE_COL_PCT.status }} />
+            <col style={{ width: SCHEDULED_TABLE_COL_PCT.actions }} />
           </colgroup>
           <thead className="bg-gray-50 text-left text-gray-600">
             <tr>
