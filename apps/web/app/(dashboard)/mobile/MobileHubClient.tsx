@@ -422,6 +422,14 @@ export default function MobileHubClient() {
     return formatCurrency(sum, selectedCurrency);
   }, [filteredExpenses, selectedCurrency]);
 
+  const filteredScheduledPaymentsTotalFormatted = useMemo(() => {
+    const sum = filteredScheduledPayments.reduce(
+      (acc, item) => acc + convertForDisplaySync(item.amount, item.currency, selectedCurrency),
+      0
+    );
+    return formatCurrency(sum, selectedCurrency);
+  }, [filteredScheduledPayments, selectedCurrency]);
+
   const filteredAccountsTotalFormatted = useMemo(() => {
     const sum = filteredAccounts.reduce(
       (acc, item) =>
@@ -626,7 +634,7 @@ export default function MobileHubClient() {
                 onItemClick={setIncomeToView}
               />
               <div
-                className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50/90 px-4 py-3"
+                className="flex items-center justify-between gap-3 rounded-xl bg-gray-50/90 px-4 py-3"
                 role="region"
                 aria-label="Filtered incomes total"
               >
@@ -660,7 +668,7 @@ export default function MobileHubClient() {
                 onItemClick={setExpenseToView}
               />
               <div
-                className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50/90 px-4 py-3"
+                className="flex items-center justify-between gap-3 rounded-xl bg-gray-50/90 px-4 py-3"
                 role="region"
                 aria-label="Filtered expenses total"
               >
@@ -729,7 +737,7 @@ export default function MobileHubClient() {
                 </div>
               ))}
               <div
-                className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50/90 px-4 py-3"
+                className="flex items-center justify-between gap-3 rounded-xl bg-gray-50/90 px-4 py-3"
                 role="region"
                 aria-label="Filtered accounts total balance"
               >
@@ -752,12 +760,24 @@ export default function MobileHubClient() {
                 : "No scheduled payments yet."}
             </p>
           ) : (
-            <MobileScheduledPaymentsList
-              grouped={scheduledPaymentsByYearMonth}
-              formatAmount={(item) => formatDisplayAmount(item.amount, item.currency)}
-              statusLabel={(p) => scheduledPaymentStatusLabel(p, new Date())}
-              onItemClick={setScheduledPaymentToView}
-            />
+            <div className="space-y-3">
+              <MobileScheduledPaymentsList
+                grouped={scheduledPaymentsByYearMonth}
+                formatAmount={(item) => formatDisplayAmount(item.amount, item.currency)}
+                statusLabel={(p) => scheduledPaymentStatusLabel(p, new Date())}
+                onItemClick={setScheduledPaymentToView}
+              />
+              <div
+                className="flex items-center justify-between gap-3 rounded-xl bg-gray-50/90 px-4 py-3"
+                role="region"
+                aria-label="Filtered scheduled payments total"
+              >
+                <span className="text-sm font-medium text-gray-700">Total</span>
+                <span className="text-base font-semibold tabular-nums text-red-700">
+                  {filteredScheduledPaymentsTotalFormatted}
+                </span>
+              </div>
+            </div>
           )}
         </section>
       )}
