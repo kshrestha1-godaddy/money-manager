@@ -8,7 +8,7 @@ import {
   matchesSearch,
   recurringDisplay,
 } from "../scheduled-payments/scheduled-payment-helpers";
-import { ArrowLeftRight, Search } from "lucide-react";
+import { ArrowLeftRight, ChevronDown, Search } from "lucide-react";
 import { Income, Expense } from "../../types/financial";
 import { PasswordInterface } from "../../types/passwords";
 import { getIncomes } from "../incomes/actions/incomes";
@@ -50,8 +50,10 @@ import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency } from "../../utils/currency";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { SUPPORTED_CURRENCIES } from "../../utils/currencyConversion";
+import { calculateRemainingWithInterest } from "../../utils/interestCalculation";
 import { LOADING_COLORS } from "../../config/colorConfig";
 import { CurrencyConverterModal } from "../../components/CurrencyConverterModal";
+import { formatLockCountdown, useAppLock } from "../../providers/AppLockProvider";
 
 type MobileTab =
   | "incomes"
@@ -98,7 +100,9 @@ function transactionMatchesQuery(item: Income | Expense, raw: string): boolean {
     item.description,
     item.notes,
     item.category?.name,
-    item.account?.name,
+    item.account?.nickname,
+    item.account?.bankName,
+    item.account?.holderName,
     ...(item.tags || []),
   ]
     .filter(Boolean)
@@ -206,6 +210,12 @@ function maskAccountNumberShort(num: string): string {
   return `****${s.slice(-4)}`;
 }
 
+function formatDebtCardDate(d: Date | string): string {
+  const x = d instanceof Date ? d : new Date(d);
+  if (Number.isNaN(x.getTime())) return "";
+  return x.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
 const DEBT_STATUS_ORDER: DebtInterface["status"][] = [
   "ACTIVE",
   "PARTIALLY_PAID",
@@ -269,6 +279,7 @@ function groupDebtsByStatus(items: DebtInterface[]): {
 
 export default function MobileHubClient() {
   const { currency: userCurrency } = useCurrency();
+  const { isUnlocked, remainingMs } = useAppLock();
   const [selectedCurrency, setSelectedCurrency] = useState(userCurrency);
   const [isCurrencyConverterOpen, setIsCurrencyConverterOpen] = useState(false);
   const [tab, setTab] = useState<MobileTab>("incomes");
@@ -295,6 +306,7 @@ export default function MobileHubClient() {
   const [lifeEventToView, setLifeEventToView] = useState<LifeEventItem | null>(null);
   const [investmentToView, setInvestmentToView] = useState<InvestmentInterface | null>(null);
   const [debtToView, setDebtToView] = useState<DebtInterface | null>(null);
+  const [debtsFullyPaidExpanded, setDebtsFullyPaidExpanded] = useState(false);
   const [scheduledPaymentToView, setScheduledPaymentToView] = useState<ScheduledPaymentItem | null>(
     null
   );
@@ -498,38 +510,53 @@ export default function MobileHubClient() {
   return (
     <div className="mx-auto max-w-lg w-full min-w-0 space-y-4">
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-gray-900 tracking-tight">Mobile hub</h1>
+        <h1 className="text-xl font-semibold text-gray-900 tracking-tight">My Money Log [Mobile hub]</h1>
         <p className="text-sm text-gray-600 mt-0.5">
           Search finances, accounts, scheduled payments, passwords, life events, investments, and
           debts without the sidebar.
         </p>
       </header>
 
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <label htmlFor="mobile-hub-display-currency" className="sr-only">
-          Display currency for amounts
-        </label>
-        <select
-          id="mobile-hub-display-currency"
-          value={selectedCurrency}
-          onChange={(e) => setSelectedCurrency(e.target.value)}
-          className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-        >
-          {SUPPORTED_CURRENCIES.map((currencyOption) => (
-            <option key={currencyOption} value={currencyOption}>
-              {currencyOption}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          onClick={() => setIsCurrencyConverterOpen(true)}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-          title="Currency converter"
-        >
-          <ArrowLeftRight className="h-4 w-4 shrink-0" aria-hidden />
-          <span className="sr-only">Open currency converter</span>
-        </button>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="min-w-0 flex-1">
+          {isUnlocked ? (
+            <div
+              className="inline-flex max-w-full items-center rounded-full bg-blue-50 px-2.5 py-1.5"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              <span className="truncate text-[11px] font-semibold tabular-nums text-blue-800 sm:text-xs">
+                Auto lock in {formatLockCountdown(remainingMs)}
+              </span>
+            </div>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <label htmlFor="mobile-hub-display-currency" className="sr-only">
+            Display currency for amounts
+          </label>
+          <select
+            id="mobile-hub-display-currency"
+            value={selectedCurrency}
+            onChange={(e) => setSelectedCurrency(e.target.value)}
+            className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          >
+            {SUPPORTED_CURRENCIES.map((currencyOption) => (
+              <option key={currencyOption} value={currencyOption}>
+                {currencyOption}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => setIsCurrencyConverterOpen(true)}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            title="Currency converter"
+          >
+            <ArrowLeftRight className="h-4 w-4 shrink-0" aria-hidden />
+            <span className="sr-only">Open currency converter</span>
+          </button>
+        </div>
       </div>
 
       {loadError && (
@@ -577,6 +604,8 @@ export default function MobileHubClient() {
           enterKeyHint="search"
         />
       </div>
+
+      <hr className="w-full border-0 border-t border-gray-200" role="separator" aria-hidden="true" />
 
       <div
         className="grid w-full min-w-0 grid-cols-3 gap-1.5 sm:grid-cols-4"
@@ -711,6 +740,12 @@ export default function MobileHubClient() {
                       const subtitle = [maskAccountNumberShort(acc.accountNumber), acc.accountType]
                         .filter(Boolean)
                         .join(" · ");
+                      const freeStored = computeAccountFreeBalance(
+                        acc,
+                        accounts,
+                        withheldAmountsByBank
+                      );
+                      const withheldStored = Math.max(0, (acc.balance ?? 0) - freeStored);
                       return (
                         <li key={acc.id}>
                           <button
@@ -725,9 +760,28 @@ export default function MobileHubClient() {
                                   <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{subtitle}</p>
                                 ) : null}
                               </div>
-                              <span className="shrink-0 text-base font-semibold text-emerald-700 tabular-nums">
-                                {formatAccountBalanceForDisplay(acc.balance)}
-                              </span>
+                              <div className="shrink-0 text-right">
+                                <p className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                                  Balance
+                                </p>
+                                <p className="text-base font-semibold text-emerald-700 tabular-nums">
+                                  {formatAccountBalanceForDisplay(acc.balance)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="mt-2 flex w-full min-w-0 items-baseline justify-between gap-3 text-[11px] leading-snug">
+                              <p className="min-w-0 text-left">
+                                <span className="text-gray-500">Free</span>{" "}
+                                <span className="font-semibold tabular-nums text-emerald-700">
+                                  {formatAccountBalanceForDisplay(freeStored)}
+                                </span>
+                              </p>
+                              <p className="min-w-0 shrink-0 text-right">
+                                <span className="text-gray-500">Withheld</span>{" "}
+                                <span className="font-semibold tabular-nums text-amber-700">
+                                  {formatAccountBalanceForDisplay(withheldStored)}
+                                </span>
+                              </p>
                             </div>
                           </button>
                         </li>
@@ -737,14 +791,30 @@ export default function MobileHubClient() {
                 </div>
               ))}
               <div
-                className="flex items-center justify-between gap-3 rounded-xl bg-gray-50/90 px-4 py-3"
+                className="space-y-2 rounded-xl bg-gray-50/90 px-4 py-3"
                 role="region"
-                aria-label="Filtered accounts total balance"
+                aria-label="Filtered accounts: total balance, free and withheld"
               >
-                <span className="text-sm font-medium text-gray-700">Total</span>
-                <span className="text-base font-semibold tabular-nums text-emerald-700">
-                  {filteredAccountsTotalFormatted}
-                </span>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium text-gray-700">Total balance</span>
+                  <span className="text-base font-semibold tabular-nums text-emerald-700">
+                    {filteredAccountsTotalFormatted}
+                  </span>
+                </div>
+                <div className="flex w-full min-w-0 items-baseline justify-between gap-3 border-t border-gray-200/90 pt-2 text-[11px] leading-snug">
+                  <p className="min-w-0 text-left">
+                    <span className="text-gray-500">Free</span>{" "}
+                    <span className="font-semibold tabular-nums text-emerald-700">
+                      {formatCurrency(accountsFreeWithheldDisplay.free, selectedCurrency)}
+                    </span>
+                  </p>
+                  <p className="min-w-0 shrink-0 text-right">
+                    <span className="text-gray-500">Withheld</span>{" "}
+                    <span className="font-semibold tabular-nums text-amber-700">
+                      {formatCurrency(accountsFreeWithheldDisplay.withheld, selectedCurrency)}
+                    </span>
+                  </p>
+                </div>
               </div>
             </div>
           )}
@@ -835,9 +905,29 @@ export default function MobileHubClient() {
                   <ul className="space-y-2">
                     {group.items.map((inv) => {
                       const totalValue = inv.quantity * inv.currentPrice;
-                      const subtitle = [inv.symbol, inv.account?.holderName]
+                      const totalCost = inv.quantity * inv.purchasePrice;
+                      const gain = totalValue - totalCost;
+                      const gainPct =
+                        inv.purchasePrice !== 0
+                          ? (((inv.currentPrice - inv.purchasePrice) / inv.purchasePrice) * 100).toFixed(1)
+                          : "0.0";
+                      const gainColor =
+                        gain > 0 ? "text-emerald-700" : gain < 0 ? "text-red-700" : "text-gray-700";
+                      const purchaseDate =
+                        inv.purchaseDate instanceof Date
+                          ? inv.purchaseDate
+                          : new Date(inv.purchaseDate);
+                      const maturityDate = inv.maturityDate
+                        ? inv.maturityDate instanceof Date
+                          ? inv.maturityDate
+                          : new Date(inv.maturityDate)
+                        : null;
+                      const subtitle = [inv.symbol, inv.account?.bankName ?? inv.account?.holderName]
                         .filter(Boolean)
                         .join(" · ");
+                      const qtyLabel = Number.isInteger(inv.quantity)
+                        ? inv.quantity.toLocaleString()
+                        : inv.quantity.toLocaleString(undefined, { maximumFractionDigits: 6 });
                       return (
                         <li key={inv.id}>
                           <button
@@ -845,16 +935,47 @@ export default function MobileHubClient() {
                             onClick={() => setInvestmentToView(inv)}
                             className="w-full text-left rounded-xl border border-gray-200 bg-white p-4 shadow-sm min-h-[72px] active:bg-gray-50 transition-colors"
                           >
-                            <div className="flex justify-between gap-3 items-start">
-                              <div className="min-w-0 flex-1">
-                                <p className="font-medium text-gray-900 line-clamp-2">{inv.name}</p>
-                                {subtitle ? (
-                                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{subtitle}</p>
-                                ) : null}
-                              </div>
-                              <span className="shrink-0 text-base font-semibold text-slate-800 tabular-nums">
+                            <div className="grid grid-cols-[minmax(0,1fr)_minmax(9rem,11rem)] gap-x-3 gap-y-1.5 items-start text-left">
+                              <p className="col-span-2 min-w-0 font-medium text-gray-900 line-clamp-2">
+                                {inv.name}
+                              </p>
+                              <p className="col-span-2 text-right text-base font-semibold text-slate-800 tabular-nums">
                                 {formatCurrency(totalValue, selectedCurrency)}
-                              </span>
+                              </p>
+                              {subtitle ? (
+                                <p className="col-span-2 text-xs text-gray-500 line-clamp-1">{subtitle}</p>
+                              ) : null}
+                              <p className="min-w-0 text-[11px] text-gray-600">{qtyLabel} units</p>
+                              <p className="text-right text-[11px] tabular-nums text-gray-700">
+                                @ {formatCurrency(inv.currentPrice, selectedCurrency)}
+                              </p>
+                              {maturityDate ? (
+                                <>
+                                  <p className="min-w-0 text-[11px] text-gray-500">
+                                    Purchased {formatDebtCardDate(purchaseDate)}
+                                  </p>
+                                  <p className="text-right text-[11px] text-gray-600">
+                                    Matures {formatDebtCardDate(maturityDate)}
+                                  </p>
+                                </>
+                              ) : (
+                                <p className="col-span-2 text-[11px] text-gray-500">
+                                  Purchased {formatDebtCardDate(purchaseDate)}
+                                </p>
+                              )}
+                              <p className="min-w-0 text-[11px] font-medium text-gray-700">
+                                Profit/Loss
+                              </p>
+                              <p
+                                className={`text-right text-[11px] font-medium tabular-nums ${gainColor}`}
+                              >
+                                {formatCurrency(gain, selectedCurrency)} ({gainPct}%)
+                              </p>
+                              {inv.interestRate != null && inv.interestRate > 0 ? (
+                                <p className="col-span-2 text-[11px] text-gray-600">
+                                  {inv.interestRate}% APR
+                                </p>
+                              ) : null}
                             </div>
                           </button>
                         </li>
@@ -876,41 +997,140 @@ export default function MobileHubClient() {
             </p>
           ) : (
             <div className="space-y-5">
-              {debtsByStatus.map((group, groupIndex) => (
+              {debtsByStatus.map((group, groupIndex) => {
+                const isFullyPaidGroup = group.status === "FULLY_PAID";
+                const showList = !isFullyPaidGroup || debtsFullyPaidExpanded;
+                return (
                 <div key={group.status}>
-                  <h3
-                    className={`mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 ${
-                      groupIndex > 0 ? "mt-1" : ""
-                    }`}
-                  >
-                    {group.label}{" "}
-                    <span className="font-normal tabular-nums text-gray-400">({group.items.length})</span>
-                  </h3>
+                  {isFullyPaidGroup ? (
+                    <button
+                      type="button"
+                      className={`mb-2 flex w-full items-center justify-between gap-2 rounded-lg py-1 text-left active:bg-gray-50 ${
+                        groupIndex > 0 ? "mt-1" : ""
+                      }`}
+                      aria-expanded={debtsFullyPaidExpanded}
+                      onClick={() => setDebtsFullyPaidExpanded((v) => !v)}
+                    >
+                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        {group.label}{" "}
+                        <span className="font-normal tabular-nums text-gray-400">
+                          ({group.items.length})
+                        </span>
+                      </span>
+                      <ChevronDown
+                        className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${
+                          debtsFullyPaidExpanded ? "rotate-180" : ""
+                        }`}
+                        aria-hidden
+                      />
+                    </button>
+                  ) : (
+                    <h3
+                      className={`mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 ${
+                        groupIndex > 0 ? "mt-1" : ""
+                      }`}
+                    >
+                      {group.label}{" "}
+                      <span className="font-normal tabular-nums text-gray-400">({group.items.length})</span>
+                    </h3>
+                  )}
+                  {showList ? (
                   <ul className="space-y-2">
-                    {group.items.map((debt) => (
-                      <li key={debt.id}>
-                        <button
-                          type="button"
-                          onClick={() => setDebtToView(debt)}
-                          className="w-full text-left rounded-xl border border-gray-200 bg-white p-4 shadow-sm min-h-[72px] active:bg-gray-50 transition-colors"
-                        >
-                          <div className="flex justify-between gap-3 items-start">
-                            <div className="min-w-0 flex-1">
-                              <p className="font-medium text-gray-900 truncate">{debt.borrowerName}</p>
+                    {group.items.map((debt) => {
+                      const lent =
+                        debt.lentDate instanceof Date ? debt.lentDate : new Date(debt.lentDate);
+                      const due = debt.dueDate
+                        ? debt.dueDate instanceof Date
+                          ? debt.dueDate
+                          : new Date(debt.dueDate)
+                        : undefined;
+                      const remainingWithInterest = calculateRemainingWithInterest(
+                        debt.amount,
+                        debt.interestRate,
+                        lent,
+                        due,
+                        debt.repayments ?? [],
+                        new Date(),
+                        debt.status
+                      );
+                      const { remainingAmount, totalWithInterest } = remainingWithInterest;
+                      const totalRepayments =
+                        debt.repayments?.reduce((sum, r) => sum + r.amount, 0) ?? 0;
+                      const repaymentPctRaw =
+                        totalWithInterest > 0
+                          ? (totalRepayments / totalWithInterest) * 100
+                          : 0;
+                      const repaymentPct = Math.min(100, Math.max(0, repaymentPctRaw));
+                      return (
+                        <li key={debt.id}>
+                          <button
+                            type="button"
+                            onClick={() => setDebtToView(debt)}
+                            className="w-full text-left rounded-xl border border-gray-200 bg-white p-4 shadow-sm min-h-[72px] active:bg-gray-50 transition-colors"
+                          >
+                            <div className="grid grid-cols-[minmax(0,1fr)_minmax(9rem,11rem)] gap-x-3 gap-y-1.5 items-start text-left">
+                              <p className="col-span-2 min-w-0 font-medium text-gray-900 line-clamp-2">
+                                {debt.borrowerName}
+                              </p>
+                              <p className="col-span-2 text-right text-base font-semibold text-amber-800 tabular-nums">
+                                {formatCurrency(debt.amount, selectedCurrency)}
+                              </p>
                               {debt.purpose ? (
-                                <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{debt.purpose}</p>
+                                <p className="col-span-2 text-xs text-gray-500 line-clamp-2">{debt.purpose}</p>
                               ) : null}
+                              {due ? (
+                                <>
+                                  <p className="text-[11px] text-gray-600">
+                                    Lent {formatDebtCardDate(lent)}
+                                  </p>
+                                  <p className="text-right text-[11px] text-gray-600">
+                                    Due {formatDebtCardDate(due)}
+                                  </p>
+                                </>
+                              ) : (
+                                <p className="col-span-2 text-[11px] text-gray-600">
+                                  Lent {formatDebtCardDate(lent)}
+                                </p>
+                              )}
+                              <div className="min-w-0 text-[11px] text-gray-600">
+                                {debt.interestRate > 0 ? (
+                                  <>{debt.interestRate}% annual interest</>
+                                ) : (
+                                  <>No interest</>
+                                )}
+                              </div>
+                              {debt.status === "FULLY_PAID" ? (
+                                <p className="text-right text-[11px] font-medium text-green-700">
+                                  Paid in full
+                                </p>
+                              ) : (
+                                <p className="text-right text-[11px] font-medium tabular-nums text-amber-900">
+                                  Remaining {formatCurrency(remainingAmount, selectedCurrency)}
+                                </p>
+                              )}
                             </div>
-                            <span className="shrink-0 text-base font-semibold text-amber-800 tabular-nums">
-                              {formatCurrency(debt.amount, selectedCurrency)}
-                            </span>
-                          </div>
-                        </button>
-                      </li>
-                    ))}
+                            <div
+                              className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-gray-200"
+                              role="progressbar"
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              aria-valuenow={Math.round(repaymentPct)}
+                              aria-label={`${repaymentPct.toFixed(0)} percent repaid`}
+                            >
+                              <div
+                                className="h-full rounded-full bg-green-600 transition-[width]"
+                                style={{ width: `${repaymentPct}%` }}
+                              />
+                            </div>
+                          </button>
+                        </li>
+                      );
+                    })}
                   </ul>
+                  ) : null}
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
         </section>

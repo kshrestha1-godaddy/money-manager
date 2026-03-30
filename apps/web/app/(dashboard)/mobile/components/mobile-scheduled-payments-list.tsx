@@ -126,7 +126,8 @@ export function MobileScheduledPaymentsList({
                                   <span className={stClass}>{st}</span>
                                   {" · "}
                                   {recurringDisplay(item)}
-                                  {" · "}
+                                </p>
+                                <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-2">
                                   {accountDisplay(item)}
                                 </p>
                               </div>
