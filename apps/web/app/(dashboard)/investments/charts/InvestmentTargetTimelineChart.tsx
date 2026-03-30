@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useRef, useCallback } from "react";
-import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea, Dot, Legend } from "recharts";
+import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea, Dot } from "recharts";
 import { Calendar, Target, TrendingUp } from "lucide-react";
 import { formatCurrency } from "../../../utils/currency";
 import { InvestmentTargetProgress } from "../../../types/investments";
@@ -16,6 +16,8 @@ interface InvestmentTargetTimelineChartProps {
 }
 
 interface TimelineDataPoint {
+    /** Stable unique key for Recharts X-axis (displayLabel alone can duplicate when dates and type labels match). */
+    axisKey: string;
     date: string;
     formattedDate: string;
     displayLabel: string;
@@ -79,13 +81,19 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
             return { timelineData: [], maxAmount: 0, hasTargets: false, todayData: null, thirtyDaysData: null, sixtyDaysData: null, todayIndex: -1, thirtyDaysIndex: -1, sixtyDaysIndex: -1 };
         }
 
-        // Filter targets that have completion dates and sort by date
+        // Targets with a completion date (main timeline)
         const targetsWithDates = targets.filter(target => 
             target.targetCompletionDate !== undefined && target.targetCompletionDate !== null
         );
+        // Targets with no date still appear at the end of the axis so counts match the summary
+        const targetsWithoutDates = targets.filter(
+            (target) => target.targetCompletionDate === undefined || target.targetCompletionDate === null
+        );
         
-        // Calculate max amount first
-        const maxAmount = Math.max(...targetsWithDates.map(t => Math.max(t.targetAmount, t.currentAmount)), 0);
+        const maxAmount = Math.max(
+            ...[...targetsWithDates, ...targetsWithoutDates].map((t) => Math.max(t.targetAmount, t.currentAmount)),
+            0
+        );
         
         const data: TimelineDataPoint[] = targetsWithDates.map(target => {
             const targetDate = new Date(target.targetCompletionDate!);
@@ -95,18 +103,19 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
             const completedBar = target.currentAmount;
             const remainingBar = Math.max(0, target.targetAmount - target.currentAmount);
 
+            const formattedDate = targetDate.toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric',
+                    year: 'numeric'
+                });
+            const titleLine =
+                target.nickname?.trim() || TYPE_LABELS[target.investmentType] || target.investmentType;
+
             return {
+                axisKey: `target-${target.targetId}`,
                 date: targetDate.toISOString().split('T')[0] || targetDate.toISOString(),
-                formattedDate: targetDate.toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric',
-                    year: 'numeric'
-                }),
-                displayLabel: `${targetDate.toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric',
-                    year: 'numeric'
-                })}${target.nickname ? `\n${target.nickname}` : `\n${TYPE_LABELS[target.investmentType] || target.investmentType}`}`,
+                formattedDate,
+                displayLabel: `${formattedDate}\n${titleLine}`,
                 targetAmount: target.targetAmount,
                 investmentType: target.investmentType,
                 nickname: target.nickname,
@@ -120,6 +129,35 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                 remainingBar: remainingBar
             };
         }).sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime());
+
+        const noDateSort = new Date(2099, 11, 31);
+        const dataWithoutDates: TimelineDataPoint[] = targetsWithoutDates.map((target) => {
+            const completedBar = target.currentAmount;
+            const remainingBar = Math.max(0, target.targetAmount - target.currentAmount);
+            const titleLine =
+                target.nickname?.trim() || TYPE_LABELS[target.investmentType] || target.investmentType;
+            return {
+                axisKey: `target-${target.targetId}`,
+                date: "no-date",
+                formattedDate: "No date set",
+                displayLabel: `No date set\n${titleLine}`,
+                targetAmount: target.targetAmount,
+                investmentType: target.investmentType,
+                nickname: target.nickname,
+                isOverdue: false,
+                daysRemaining: target.daysRemaining,
+                progress: target.progress,
+                currentAmount: target.currentAmount,
+                isComplete: target.isComplete,
+                sortDate: noDateSort,
+                completedBar,
+                remainingBar,
+            };
+        });
+
+        const dataSorted = [...data, ...dataWithoutDates].sort(
+            (a, b) => a.sortDate.getTime() - b.sortDate.getTime()
+        );
 
         // Create reference date points for timeline
         const today = new Date();
@@ -147,6 +185,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
 
         // Create reference data points
         const todayData: TimelineDataPoint = {
+            axisKey: 'ref-today',
             date: today.toISOString().split('T')[0] || today.toISOString(),
             formattedDate: todayFormatted,
             displayLabel: `${todayFormatted}\nToday`,
@@ -162,6 +201,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
         };
 
         const thirtyDaysData: TimelineDataPoint = {
+            axisKey: 'ref-thirty',
             date: thirtyDaysFromNow.toISOString().split('T')[0] || thirtyDaysFromNow.toISOString(),
             formattedDate: thirtyDaysFormatted,
             displayLabel: `${thirtyDaysFormatted}\n+30 Days`,
@@ -177,6 +217,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
         };
 
         const sixtyDaysData: TimelineDataPoint = {
+            axisKey: 'ref-sixty',
             date: sixtyDaysFromNow.toISOString().split('T')[0] || sixtyDaysFromNow.toISOString(),
             formattedDate: sixtyDaysFormatted,
             displayLabel: `${sixtyDaysFormatted}\n+60 Days`,
@@ -192,7 +233,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
         };
 
         // Insert reference data points in the correct chronological positions
-        const allData = [...data];
+        const allData = [...dataSorted];
         const referencePoints = [todayData, thirtyDaysData, sixtyDaysData];
         
         let todayIndex = -1;
@@ -225,7 +266,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
         return { 
             timelineData: allData, 
             maxAmount,
-            hasTargets: data.length > 0,
+            hasTargets: targets.length > 0,
             todayData,
             thirtyDaysData,
             sixtyDaysData,
@@ -410,41 +451,55 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
         return value.toString();
     }, []);
 
-    const CustomXAxisTick = useCallback((props: any) => {
-        const { x, y, payload } = props;
-        if (!payload?.value) return null;
-        
-        const lines = payload.value.split('\n');
-        const dateText = lines[0] || '';
-        const nicknameText = lines[1] || '';
-        
-        return (
-            <g transform={`translate(${x},${y})`}>
-                <text 
-                    x={0} 
-                    y={0} 
-                    dy={16} 
-                    textAnchor="middle" 
-                    fill="#666" 
-                    fontSize="10"
-                    fontWeight="500"
-                >
-                    {nicknameText}
-                </text>
-                <text 
-                    x={0} 
-                    y={0} 
-                    dy={30} 
-                    textAnchor="middle" 
-                    fill="#888" 
-                    fontSize="9"
-                    fontWeight="400"
-                >
-                    {dateText}
-                </text>
-            </g>
-        );
-    }, []);
+    const CustomXAxisTick = useCallback(
+        (props: { x?: number; y?: number; payload?: { value?: string } }) => {
+            const { x = 0, y = 0, payload } = props;
+            const axisKey = payload?.value;
+            if (!axisKey) return null;
+
+            const row = timelineData.find((p) => p.axisKey === axisKey);
+            if (!row) return null;
+
+            const titleLine =
+                row.investmentType === "TODAY"
+                    ? "Today"
+                    : row.investmentType === "THIRTY_DAYS"
+                      ? "+30 Days"
+                      : row.investmentType === "SIXTY_DAYS"
+                        ? "+60 Days"
+                        : row.nickname?.trim() ||
+                          TYPE_LABELS[row.investmentType] ||
+                          row.investmentType;
+
+            return (
+                <g transform={`translate(${x},${y})`}>
+                    <text
+                        x={0}
+                        y={0}
+                        dy={16}
+                        textAnchor="middle"
+                        fill="#666"
+                        fontSize="10"
+                        fontWeight="500"
+                    >
+                        {titleLine}
+                    </text>
+                    <text
+                        x={0}
+                        y={0}
+                        dy={30}
+                        textAnchor="middle"
+                        fill="#888"
+                        fontSize="9"
+                        fontWeight="400"
+                    >
+                        {row.formattedDate}
+                    </text>
+                </g>
+            );
+        },
+        [timelineData]
+    );
 
     if (!hasTargets) {
         return (
@@ -568,8 +623,8 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                             {/* Priority background area between today and +30 days */}
                             {todayIndex >= 0 && thirtyDaysIndex >= 0 && (
                                 <ReferenceArea
-                                    x1={timelineData[todayIndex]?.displayLabel}
-                                    x2={timelineData[thirtyDaysIndex]?.displayLabel}
+                                    x1={timelineData[todayIndex]?.axisKey}
+                                    x2={timelineData[thirtyDaysIndex]?.axisKey}
                                     fill="#ef4444"
                                     fillOpacity={0.08}
                                     stroke="none"
@@ -579,8 +634,8 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                             {/* Secondary priority background area between +30 and +60 days */}
                             {thirtyDaysIndex >= 0 && sixtyDaysIndex >= 0 && (
                                 <ReferenceArea
-                                    x1={timelineData[thirtyDaysIndex]?.displayLabel}
-                                    x2={timelineData[sixtyDaysIndex]?.displayLabel}
+                                    x1={timelineData[thirtyDaysIndex]?.axisKey}
+                                    x2={timelineData[sixtyDaysIndex]?.axisKey}
                                     fill="#f97316"
                                     fillOpacity={0.06}
                                     stroke="none"
@@ -590,7 +645,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                             {/* Reference lines */}
                             {todayData && (
                                 <ReferenceLine
-                                    x={todayData.displayLabel}
+                                    x={todayData.axisKey}
                                     stroke="#ef4444"
                                     strokeWidth={2}
                                     strokeDasharray="8 4"
@@ -607,7 +662,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                             
                             {thirtyDaysData && (
                                 <ReferenceLine
-                                    x={thirtyDaysData.displayLabel}
+                                    x={thirtyDaysData.axisKey}
                                     stroke="#f97316"
                                     strokeWidth={2}
                                     strokeDasharray="12 6"
@@ -624,7 +679,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                             
                             {sixtyDaysData && (
                                 <ReferenceLine
-                                    x={sixtyDaysData.displayLabel}
+                                    x={sixtyDaysData.axisKey}
                                     stroke="#3b82f6"
                                     strokeWidth={2}
                                     strokeDasharray="16 8"
@@ -640,7 +695,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                             )}
 
                             <XAxis
-                                dataKey="displayLabel"
+                                dataKey="axisKey"
                                 tick={<CustomXAxisTick />}
                                 stroke="#666"
                                 height={100}
@@ -653,16 +708,6 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                                 domain={[0, maxAmount * 1.1]}
                             />
                             <Tooltip content={<CustomTooltip />} />
-                            <Legend
-                                verticalAlign="bottom"
-                                height={10}
-                                iconType="line"
-                                wrapperStyle={{
-                                    paddingBottom: '5px',
-                                    fontSize: '14px',
-                                    color: '#374151'
-                                }}
-                            />
 
                             {/* Stacked bars for progress visualization */}
                             <Bar
