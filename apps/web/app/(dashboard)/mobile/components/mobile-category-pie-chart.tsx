@@ -70,8 +70,8 @@ export function MobileCategoryPieChart({
       if (!node) return;
       const w = node.clientWidth;
       if (w <= 0) return;
-      // Used on all sides of PieChart so the plot stays square (avoids vertical bands when only L/R were set).
-      setChartSideMargin(Math.max(36, Math.round(w * 0.14)));
+      // Square plot + extra inset so leader-line labels (full category names) stay inside the SVG.
+      setChartSideMargin(Math.max(44, Math.round(w * 0.2)));
     }
     update();
     const ro = new ResizeObserver(update);
@@ -202,19 +202,19 @@ export function MobileCategoryPieChart({
       const x1 = cx + radius * Math.cos(-midAngle * RADIAN);
       const y1 = cy + radius * Math.sin(-midAngle * RADIAN);
 
-      const horizontalLength = 10;
+      const horizontalLength = 18;
       const isRightSide = x1 > cx;
       const x2 = isRightSide ? x1 + horizontalLength : x1 - horizontalLength;
       const y2 = y1;
 
-      const textX = isRightSide ? x2 + 3 : x2 - 3;
+      const textX = isRightSide ? x2 + 4 : x2 - 4;
       const line2 = `(${transactionCount}x) [${percentage}%]`;
 
       const edgeX = cx + outerRadius * Math.cos(-midAngle * RADIAN);
       const edgeY = cy + outerRadius * Math.sin(-midAngle * RADIAN);
 
-      let labelName = String(entry.name ?? "");
-      if (labelName.length > 12) labelName = `${labelName.slice(0, 10)}…`;
+      const labelName = String(entry.name ?? "");
+      const nameFontSize = labelName.length > 22 ? 8 : labelName.length > 16 ? 8 : 9;
 
       return (
         <g>
@@ -231,7 +231,7 @@ export function MobileCategoryPieChart({
             textAnchor={isRightSide ? "start" : "end"}
             dominantBaseline="middle"
           >
-            <tspan x={textX} dy="-0.55em" fontSize={9} fontWeight={600}>
+            <tspan x={textX} dy="-0.55em" fontSize={nameFontSize} fontWeight={600}>
               {labelName}
             </tspan>
             <tspan x={textX} dy="1.1em" fontSize={8} fontWeight={600}>
@@ -273,7 +273,7 @@ export function MobileCategoryPieChart({
 
       <div
         ref={chartWrapRef}
-        className="mx-auto block aspect-square w-full max-w-[min(100%,320px)] min-h-0 min-w-0 leading-none [&_svg]:block [&_svg]:overflow-visible [&_.recharts-surface]:overflow-visible [&_.recharts-wrapper]:overflow-visible [&_.recharts-wrapper]:h-full"
+        className="mx-auto block aspect-square w-full min-h-0 min-w-0 leading-none [&_svg]:block [&_svg]:overflow-visible [&_.recharts-surface]:overflow-visible [&_.recharts-wrapper]:overflow-visible [&_.recharts-wrapper]:h-full"
         role="img"
         aria-label={`${label} pie chart`}
       >
@@ -290,8 +290,8 @@ export function MobileCategoryPieChart({
               data={chartData}
               cx="50%"
               cy="50%"
-              innerRadius="38%"
-              outerRadius="62%"
+              innerRadius="36%"
+              outerRadius="56%"
               paddingAngle={2}
               cornerRadius={6}
               dataKey="value"

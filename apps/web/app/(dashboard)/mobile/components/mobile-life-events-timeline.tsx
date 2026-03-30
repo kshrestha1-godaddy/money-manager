@@ -37,13 +37,12 @@ export function MobileLifeEventsTimeline({ events, onEventClick }: MobileLifeEve
 
   return (
     <div className="space-y-3">
-      {grouped.map(({ year, months }, yearIndex) => {
+      {grouped.map(({ year, months }) => {
         const yearCount = months.reduce((acc, m) => acc + m.events.length, 0);
         return (
           <details
             key={year}
             className="group rounded-lg border border-gray-200 bg-white shadow-sm"
-            {...(yearIndex === 0 ? { defaultOpen: true } : {})}
           >
             <summary className="cursor-pointer list-none px-3 py-2.5 font-semibold text-slate-900 marker:content-none [&::-webkit-details-marker]:hidden">
               <span className="inline-flex items-center gap-2">
@@ -56,11 +55,10 @@ export function MobileLifeEventsTimeline({ events, onEventClick }: MobileLifeEve
               </span>
             </summary>
             <div className="border-t border-gray-100 px-2 pb-2 pt-1">
-              {months.map(({ monthLabel, monthIndex, events: monthEvents }, monthIndexInYear) => (
+              {months.map(({ monthLabel, monthIndex, events: monthEvents }) => (
                 <details
                   key={`${year}-${monthIndex}`}
                   className="group/month mt-2 rounded-md border border-gray-100 bg-gray-50/80"
-                  {...(monthIndexInYear === 0 ? { defaultOpen: true } : {})}
                 >
                   <summary className="cursor-pointer px-2.5 py-2 text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
                     <span className="inline-flex items-center gap-2">

@@ -77,13 +77,12 @@ export function MobileGroupedTransactionList<T extends Income | Expense>({
 
   return (
     <div className="space-y-3">
-      {grouped.map(({ year, months }, yearIndex) => {
+      {grouped.map(({ year, months }) => {
         const yearCount = months.reduce((acc, m) => acc + m.items.length, 0);
         return (
           <details
             key={year}
             className="group rounded-lg border border-gray-200 bg-white shadow-sm"
-            {...(yearIndex === 0 ? { defaultOpen: true } : {})}
           >
             <summary className="cursor-pointer list-none px-3 py-2.5 font-semibold text-slate-900 marker:content-none [&::-webkit-details-marker]:hidden">
               <span className="inline-flex items-center gap-2">
@@ -98,11 +97,10 @@ export function MobileGroupedTransactionList<T extends Income | Expense>({
               </span>
             </summary>
             <div className="border-t border-gray-100 px-2 pb-2 pt-1">
-              {months.map(({ monthLabel, monthIndex, items: monthItems }, monthIndexInYear) => (
+              {months.map(({ monthLabel, monthIndex, items: monthItems }) => (
                 <details
                   key={`${year}-${monthIndex}`}
                   className="group/month mt-2 rounded-md border border-gray-100 bg-gray-50/80"
-                  {...(monthIndexInYear === 0 ? { defaultOpen: true } : {})}
                 >
                   <summary className="cursor-pointer px-2.5 py-2 text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
                     <span className="inline-flex items-center gap-2">
@@ -122,7 +120,7 @@ export function MobileGroupedTransactionList<T extends Income | Expense>({
                           onClick={() => onItemClick(item)}
                           className="w-full text-left rounded-xl border border-gray-200 bg-white p-4 shadow-sm min-h-[72px] active:bg-gray-50 transition-colors"
                         >
-                          <div className="flex justify-between gap-3 items-start">
+                          <div className="flex justify-between gap-3 items-center">
                             <div className="min-w-0 flex-1">
                               <p className="font-medium text-gray-900 truncate">{item.title}</p>
                               <p className="text-xs text-gray-500 mt-0.5">
