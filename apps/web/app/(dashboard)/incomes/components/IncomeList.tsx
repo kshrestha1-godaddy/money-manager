@@ -16,6 +16,7 @@ interface IncomeListProps {
     showBulkActions?: boolean;
     onBulkDelete?: (ids: number[]) => void;
     onClearSelection?: () => void;
+    onRefresh?: () => void | Promise<void>;
 }
 
 export function IncomeList({ 
@@ -30,7 +31,8 @@ export function IncomeList({
     onSelectAll,
     showBulkActions = false,
     onBulkDelete,
-    onClearSelection
+    onClearSelection,
+    onRefresh
 }: IncomeListProps) {
     // Wrapper functions to handle type conversion between Income and FinancialTransaction
     const handleEdit = onEdit ? (transaction: any) => onEdit(transaction as Income) : undefined;
@@ -53,6 +55,7 @@ export function IncomeList({
             showBulkActions={showBulkActions}
             onBulkDelete={onBulkDelete}
             onClearSelection={onClearSelection}
+            onRefresh={onRefresh}
         />
     );
 } 

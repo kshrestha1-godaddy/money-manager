@@ -408,6 +408,7 @@ export default function IncomesPageClient() {
           onView={openViewModal}
           onDelete={openDeleteModal}
           onBookmark={handleBookmarkToggle}
+          onRefresh={invalidateQueries}
           selectedIncomes={selectedItems}
           onIncomeSelect={handleItemSelect}
           onSelectAll={handleSelectAll}

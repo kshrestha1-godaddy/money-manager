@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
-import { Bookmark, Download } from "lucide-react";
+import { Bookmark, Download, RefreshCw } from "lucide-react";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { splitLocationFieldForExport } from "../../utils/csvExportUtils";
 import { formatDate } from "../../utils/date";
@@ -51,6 +51,7 @@ interface FinancialListProps {
     showBulkActions?: boolean;
     onBulkDelete?: (ids: number[]) => void;
     onClearSelection?: () => void;
+    onRefresh?: () => void | Promise<void>;
 }
 
 type SortField = 'title' | 'category' | 'account' | 'date' | 'amount';
@@ -180,12 +181,14 @@ export function FinancialList({
     onSelectAll,
     showBulkActions = false,
     onBulkDelete,
-    onClearSelection
+    onClearSelection,
+    onRefresh
 }: FinancialListProps) {
     const [selectedCurrency, setSelectedCurrency] = useState(currency);
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
     const [currentPage, setCurrentPage] = useState(1);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const ITEMS_PER_PAGE = 25;
     
     // Column resizing state
@@ -357,6 +360,16 @@ export function FinancialList({
         URL.revokeObjectURL(link.href);
     }, [sortedTransactions, selectedCurrency, transactionType]);
 
+    const handleRefresh = useCallback(async () => {
+        if (!onRefresh || isRefreshing) return;
+        try {
+            setIsRefreshing(true);
+            await Promise.resolve(onRefresh());
+        } finally {
+            setIsRefreshing(false);
+        }
+    }, [onRefresh, isRefreshing]);
+
     // Paginated transactions
     const paginatedTransactions = useMemo(() => {
         const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -433,6 +446,21 @@ export function FinancialList({
                             </div>
                         )}
                         <div className="flex flex-wrap items-center gap-3">
+                            {onRefresh && (
+                                <button
+                                    type="button"
+                                    onClick={handleRefresh}
+                                    disabled={isRefreshing}
+                                    aria-busy={isRefreshing}
+                                    className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:pointer-events-none disabled:opacity-50"
+                                >
+                                    <RefreshCw
+                                        className={`h-4 w-4 shrink-0 ${isRefreshing ? "animate-spin" : ""}`}
+                                        aria-hidden
+                                    />
+                                    Refresh
+                                </button>
+                            )}
                             <div className="flex items-center space-x-2">
                                 <select
                                     id={`${transactionType.toLowerCase()}-display-currency`}

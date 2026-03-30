@@ -421,6 +421,7 @@ export default function ExpensesPageClient() {
           onView={openViewModal}
           onDelete={openDeleteModal}
           onBookmark={handleBookmarkToggle}
+          onRefresh={invalidateQueries}
           selectedExpenses={selectedItems}
           onExpenseSelect={handleItemSelect}
           onSelectAll={handleSelectAll}

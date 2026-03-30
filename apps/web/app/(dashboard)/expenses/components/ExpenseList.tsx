@@ -16,6 +16,7 @@ interface ExpenseListProps {
     showBulkActions?: boolean;
     onBulkDelete?: (ids: number[]) => void;
     onClearSelection?: () => void;
+    onRefresh?: () => void | Promise<void>;
 }
 
 export function ExpenseList({ 
@@ -30,7 +31,8 @@ export function ExpenseList({
     onSelectAll,
     showBulkActions = false,
     onBulkDelete,
-    onClearSelection
+    onClearSelection,
+    onRefresh
 }: ExpenseListProps) {
     // Wrapper functions to handle type conversion between Expense and FinancialTransaction
     const handleEdit = onEdit ? (transaction: any) => onEdit(transaction as Expense) : undefined;
@@ -53,6 +55,7 @@ export function ExpenseList({
             showBulkActions={showBulkActions}
             onBulkDelete={onBulkDelete}
             onClearSelection={onClearSelection}
+            onRefresh={onRefresh}
         />
     );
 } 
