@@ -16,6 +16,7 @@ const labelText = TEXT_COLORS.label;
 const ACTIVITY_TYPE_FILTER_OPTIONS: { value: string; label: string }[] = [
     { value: "INCOME", label: "Income" },
     { value: "EXPENSE", label: "Expense" },
+    { value: "ACCOUNT", label: "Self transfer" },
     { value: "DEBT", label: "Debt" },
     { value: "DEBT_REPAYMENT", label: "Repayment" },
     { value: "INVESTMENT", label: "Invest" },
@@ -204,6 +205,7 @@ function parseMetadata(row: IncomeExpenseAccountActivityRow) {
 function entityTypeBadgeClass(entityType: string): string {
     if (entityType === "INCOME") return "bg-green-100 text-green-800";
     if (entityType === "EXPENSE") return "bg-red-100 text-red-800";
+    if (entityType === "ACCOUNT") return "bg-purple-100 text-purple-900";
     if (entityType === "DEBT") return "bg-amber-100 text-amber-900";
     if (entityType === "DEBT_REPAYMENT") return "bg-violet-100 text-violet-800";
     if (entityType === "INVESTMENT") return "bg-indigo-100 text-indigo-800";
@@ -234,6 +236,7 @@ function isRowInDateRange(iso: string, from: string, to: string): boolean {
 }
 
 function entityTypeSearchLabel(entityType: string): string {
+    if (entityType === "ACCOUNT") return "TRANSFER";
     if (entityType === "DEBT_REPAYMENT") return "REPAYMENT";
     if (entityType === "INVESTMENT") return "INVEST";
     return entityType;
@@ -287,6 +290,7 @@ function formatAmountCsvPlain(n: number): string {
 }
 
 function entityTypeDisplayForCsv(entityType: string): string {
+    if (entityType === "ACCOUNT") return "TRANSFER";
     if (entityType === "DEBT_REPAYMENT") return "REPAYMENT";
     if (entityType === "INVESTMENT") return "INVEST";
     return entityType;
@@ -658,7 +662,9 @@ export function AccountIncomeExpenseActivityTable() {
                                                     ? "REPAYMENT"
                                                     : row.entityType === "INVESTMENT"
                                                       ? "INVEST"
-                                                      : row.entityType}
+                                                      : row.entityType === "ACCOUNT"
+                                                        ? "TRANSFER"
+                                                        : row.entityType}
                                             </span>
                                         </td>
                                         <td className="whitespace-nowrap px-4 py-3 text-gray-700">

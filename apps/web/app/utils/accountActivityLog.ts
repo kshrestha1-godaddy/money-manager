@@ -17,10 +17,14 @@ export const DEBT_ACCOUNT_BALANCE_SOURCE = "debt_account_balance" as const;
 /** Investment purchase / release (when linked account balance is adjusted) */
 export const INVESTMENT_ACCOUNT_BALANCE_SOURCE = "investment_account_balance" as const;
 
+/** Self transfer between user bank accounts (debit + credit legs) */
+export const SELF_TRANSFER_ACCOUNT_BALANCE_SOURCE = "self_transfer_account_balance" as const;
+
 export const ACCOUNT_BALANCE_ACTIVITY_SOURCES = [
     INCOME_EXPENSE_ACCOUNT_BALANCE_SOURCE,
     DEBT_ACCOUNT_BALANCE_SOURCE,
     INVESTMENT_ACCOUNT_BALANCE_SOURCE,
+    SELF_TRANSFER_ACCOUNT_BALANCE_SOURCE,
 ] as const;
 
 export interface AccountBalanceActivityInput {
@@ -31,7 +35,8 @@ export interface AccountBalanceActivityInput {
         | "EXPENSE"
         | "DEBT"
         | "DEBT_REPAYMENT"
-        | "INVESTMENT";
+        | "INVESTMENT"
+        | "ACCOUNT";
     entityId: number | null;
     category: "TRANSACTION" | "BULK_OPERATION";
     accountId: number;
@@ -48,7 +53,14 @@ export interface AccountBalanceActivityInput {
 
 function ledgerMetadataSource(
     entityType: AccountBalanceActivityInput["entityType"]
-): typeof INCOME_EXPENSE_ACCOUNT_BALANCE_SOURCE | typeof DEBT_ACCOUNT_BALANCE_SOURCE | typeof INVESTMENT_ACCOUNT_BALANCE_SOURCE {
+):
+    | typeof INCOME_EXPENSE_ACCOUNT_BALANCE_SOURCE
+    | typeof DEBT_ACCOUNT_BALANCE_SOURCE
+    | typeof INVESTMENT_ACCOUNT_BALANCE_SOURCE
+    | typeof SELF_TRANSFER_ACCOUNT_BALANCE_SOURCE {
+    if (entityType === ActivityEntityType.ACCOUNT) {
+        return SELF_TRANSFER_ACCOUNT_BALANCE_SOURCE;
+    }
     if (
         entityType === ActivityEntityType.DEBT ||
         entityType === ActivityEntityType.DEBT_REPAYMENT
@@ -123,6 +135,10 @@ function buildLedgerDescription(input: AccountBalanceActivityInput): string {
             return `Investment recorded: "${t}" — ${label} balance ${deltaStr}`;
         }
         return `Investment updated: "${t}" — ${label} balance ${deltaStr}`;
+    }
+
+    if (input.entityType === ActivityEntityType.ACCOUNT) {
+        return `Self transfer: "${t}" — ${label} balance ${deltaStr}`;
     }
 
     return `Activity: "${t}" — ${label} balance ${deltaStr}`;

@@ -1,6 +1,11 @@
 "use server";
 
 import prisma from "@repo/db/client";
+import {
+    ActivityAction,
+    ActivityCategory,
+    ActivityEntityType,
+} from "@prisma/client";
 import { AccountInterface } from "../../../types/accounts";
 import { 
     getUserIdFromSession, 
@@ -8,7 +13,10 @@ import {
     createErrorResponse,
     decimalToNumber 
 } from "../../../utils/auth";
-import { ACCOUNT_BALANCE_ACTIVITY_SOURCES } from "../../../utils/accountActivityLog";
+import {
+    ACCOUNT_BALANCE_ACTIVITY_SOURCES,
+    logAccountBalanceFromTransaction,
+} from "../../../utils/accountActivityLog";
 
 export interface IncomeExpenseAccountActivityRow {
     id: number;
@@ -661,6 +669,52 @@ export async function transferMoney(fromAccountId: number, toAccountId: number, 
                     notes: `Transfer Amount: ${amount} ${userCurrency} | From: ${fromAccount.bankName} (${fromAccount.accountNumber}) | To: ${toAccount.bankName} (${toAccount.accountNumber})${notes ? ` | Notes: ${notes}` : ''}`,
                     isRecurring: false
                 }
+            });
+
+            const transferTitle = `Transfer: ${fromAccount.bankName} → ${toAccount.bankName}`;
+
+            await logAccountBalanceFromTransaction(tx, {
+                userId,
+                action: ActivityAction.CREATE,
+                entityType: ActivityEntityType.ACCOUNT,
+                entityId: transferExpense.id,
+                category: ActivityCategory.TRANSACTION,
+                accountId: fromAccountId,
+                accountBankName: fromAccount.bankName,
+                holderName: fromAccount.holderName,
+                balanceDeltaUserCurrency: -amount,
+                userCurrency,
+                transactionTitle: `${transferTitle} (sent)`,
+                transactionAmountOriginal: amount,
+                transactionCurrency: userCurrency,
+                reason: "self_transfer_out",
+                extraMetadata: {
+                    transferLeg: "out",
+                    peerAccountId: toAccountId,
+                    peerBankName: toAccount.bankName,
+                },
+            });
+
+            await logAccountBalanceFromTransaction(tx, {
+                userId,
+                action: ActivityAction.CREATE,
+                entityType: ActivityEntityType.ACCOUNT,
+                entityId: transferExpense.id,
+                category: ActivityCategory.TRANSACTION,
+                accountId: toAccountId,
+                accountBankName: toAccount.bankName,
+                holderName: toAccount.holderName,
+                balanceDeltaUserCurrency: amount,
+                userCurrency,
+                transactionTitle: `${transferTitle} (received)`,
+                transactionAmountOriginal: amount,
+                transactionCurrency: userCurrency,
+                reason: "self_transfer_in",
+                extraMetadata: {
+                    transferLeg: "received",
+                    peerAccountId: fromAccountId,
+                    peerBankName: fromAccount.bankName,
+                },
             });
 
             return {
