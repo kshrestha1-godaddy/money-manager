@@ -764,7 +764,7 @@ export default function ScheduledPaymentsPageClient() {
                 const canEdit = !item.resolution;
 
                 return (
-                  <tr key={item.id} className="group hover:bg-gray-50/80">
+                  <tr key={item.id} className="group align-middle hover:bg-gray-50/80">
                     <td
                       className="px-2.5 py-3 text-center align-middle"
                       style={{
@@ -784,28 +784,28 @@ export default function ScheduledPaymentsPageClient() {
                         />
                       ) : null}
                     </td>
-                    <td className="max-w-0 px-3 py-3 font-medium text-gray-900 sm:px-4">
-                      <span className="block truncate" title={item.title}>
+                    <td className="min-w-0 px-3 py-3 align-middle font-medium text-gray-900 sm:px-4">
+                      <span className="block break-words leading-snug" title={item.title}>
                         {item.title}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-gray-700 whitespace-nowrap sm:px-4">
+                    <td className="px-3 py-3 align-middle text-gray-700 whitespace-nowrap sm:px-4">
                       {new Date(item.scheduledAt).toLocaleString()}
                     </td>
-                    <td className="px-3 py-3 text-gray-900 whitespace-nowrap tabular-nums sm:px-4">
+                    <td className="px-3 py-3 align-middle text-gray-900 whitespace-nowrap tabular-nums sm:px-4">
                       {formatCurrency(displayAmount, tableDisplayCurrency)}
                     </td>
-                    <td className="max-w-0 px-3 py-3 text-gray-700 sm:px-4">
+                    <td className="max-w-0 min-w-0 px-3 py-3 align-middle text-gray-700 sm:px-4">
                       <span className="block truncate" title={item.category.name}>
                         {item.category.name}
                       </span>
                     </td>
-                    <td className="max-w-0 px-3 py-3 text-gray-700 sm:px-4">
+                    <td className="max-w-0 min-w-0 px-3 py-3 align-middle text-gray-700 sm:px-4">
                       <span className="block truncate" title={accountDisplay(item)}>
                         {accountDisplay(item)}
                       </span>
                     </td>
-                    <td className="max-w-0 px-3 py-3 text-gray-600 sm:px-4">
+                    <td className="max-w-0 min-w-0 px-3 py-3 align-middle text-gray-600 sm:px-4">
                       {item.notes?.trim() ? (
                         <span className="block truncate" title={item.notes}>
                           {item.notes}
@@ -814,10 +814,10 @@ export default function ScheduledPaymentsPageClient() {
                         <span className="text-gray-400">—</span>
                       )}
                     </td>
-                    <td className="px-3 py-3 text-gray-700 whitespace-nowrap sm:px-4">
+                    <td className="px-3 py-3 align-middle text-gray-700 whitespace-nowrap sm:px-4">
                       {recurringDisplay(item)}
                     </td>
-                    <td className="max-w-0 px-3 py-3 sm:px-4">
+                    <td className="max-w-0 min-w-0 px-3 py-3 align-middle sm:px-4">
                       <span
                         className={`block truncate ${
                           label === "Accepted"
