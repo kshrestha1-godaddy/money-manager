@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import type { InvestmentInterface } from "../../../types/investments";
 import { formatCurrency } from "../../../utils/currency";
 import { formatDateYearMonthDay } from "../../../utils/date";
+import { InvestmentSavingsTargetChart } from "../../investments/components/InvestmentSavingsTargetChart";
 
 export interface MobileInvestmentDetailSheetProps {
   investment: InvestmentInterface | null;
@@ -111,12 +112,21 @@ export function MobileInvestmentDetailSheet({
         </div>
 
         {investment.investmentTarget ? (
-          <div className="mt-3 rounded-xl border border-purple-200 bg-purple-50 px-3 py-2 text-center text-sm text-purple-900">
-            <span className="text-xs font-medium uppercase tracking-wide text-purple-700">Savings target</span>
-            <p className="font-semibold">
-              {investment.investmentTarget.nickname?.trim() ||
-                formatType(investment.investmentTarget.investmentType)}
-            </p>
+          <div className="mt-3 space-y-3">
+            <div className="rounded-xl border border-purple-200 bg-purple-50 px-3 py-2 text-center text-sm text-purple-900">
+              <span className="text-xs font-medium uppercase tracking-wide text-purple-700">
+                Savings target
+              </span>
+              <p className="font-semibold">
+                {investment.investmentTarget.nickname?.trim() ||
+                  formatType(investment.investmentTarget.investmentType)}
+              </p>
+            </div>
+            <InvestmentSavingsTargetChart
+              targetAmount={investment.investmentTarget.targetAmount}
+              fulfilledAmount={investment.investmentTarget.fulfilledAmount}
+              currency={displayCurrency}
+            />
           </div>
         ) : null}
 

@@ -61,12 +61,28 @@ export function MobileDebtDetailSheet({
       remainingWithInterest.totalWithInterest > 0
         ? (totalRepayments / remainingWithInterest.totalWithInterest) * 100
         : 0;
-    return { totalRepayments, remainingWithInterest, remainingAmount, repaymentPercentage };
+    const repaymentsSorted = [...(debt.repayments ?? [])].sort(
+      (a, b) =>
+        new Date(b.repaymentDate).getTime() - new Date(a.repaymentDate).getTime()
+    );
+    return {
+      totalRepayments,
+      remainingWithInterest,
+      remainingAmount,
+      repaymentPercentage,
+      repaymentsSorted,
+    };
   }, [debt]);
 
   if (!isOpen || !debt || !summary) return null;
 
-  const { totalRepayments, remainingWithInterest, remainingAmount, repaymentPercentage } = summary;
+  const {
+    totalRepayments,
+    remainingWithInterest,
+    remainingAmount,
+    repaymentPercentage,
+    repaymentsSorted,
+  } = summary;
 
   return (
     <div
@@ -139,6 +155,49 @@ export function MobileDebtDetailSheet({
             />
           </div>
         </div>
+
+        <section className="mt-6" aria-label="Repayment history">
+          <div className="mb-2 flex items-baseline justify-between gap-2">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Repayment history
+            </h2>
+            <span className="text-xs text-gray-500">
+              {repaymentsSorted.length} payment{repaymentsSorted.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+          {repaymentsSorted.length > 0 ? (
+            <ul className="space-y-2">
+              {repaymentsSorted.map((repayment) => {
+                const repDate =
+                  repayment.repaymentDate instanceof Date
+                    ? repayment.repaymentDate
+                    : new Date(repayment.repaymentDate);
+                return (
+                  <li
+                    key={repayment.id}
+                    className="rounded-xl border border-gray-200 bg-gray-50/80 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-gray-600">{formatDateYearMonthDay(repDate)}</p>
+                        <p className="mt-1 text-sm text-gray-800 line-clamp-4 whitespace-pre-wrap">
+                          {repayment.notes?.trim() ? repayment.notes : "—"}
+                        </p>
+                      </div>
+                      <p className="shrink-0 text-sm font-semibold tabular-nums text-green-700">
+                        {formatCurrency(repayment.amount, displayCurrency)}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-6 text-center text-sm text-gray-500">
+              No repayments recorded yet
+            </p>
+          )}
+        </section>
 
         <section className="mt-6 space-y-2 text-sm">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Dates</h2>

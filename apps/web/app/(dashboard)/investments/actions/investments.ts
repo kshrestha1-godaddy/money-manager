@@ -28,6 +28,41 @@ function investmentPurchaseCost(quantity: unknown, purchasePrice: unknown): numb
     return q * p;
 }
 
+/** Sum of quantity × purchasePrice for all investments linked to this target (same rule as target progress). */
+async function sumFulfilledForTarget(userId: number, targetId: number): Promise<number> {
+    const rows = await prisma.investment.findMany({
+        where: { userId, investmentTargetId: targetId },
+        select: { quantity: true, purchasePrice: true },
+    });
+    return rows.reduce((sum, r) => {
+        const q = parseFloat(r.quantity.toString());
+        const p = parseFloat(r.purchasePrice.toString());
+        return sum + q * p;
+    }, 0);
+}
+
+function mapInvestmentTargetRow(
+    target: {
+        id: number;
+        investmentType: InvestmentInterface["type"];
+        nickname: string | null;
+        targetAmount: unknown;
+        targetCompletionDate: Date | null;
+    },
+    fulfilledAmount: number
+): NonNullable<InvestmentInterface["investmentTarget"]> {
+    return {
+        id: target.id,
+        investmentType: target.investmentType,
+        nickname: target.nickname,
+        targetAmount: decimalToNumber(target.targetAmount, "investment target amount"),
+        fulfilledAmount,
+        targetCompletionDate: target.targetCompletionDate
+            ? new Date(target.targetCompletionDate)
+            : undefined,
+    };
+}
+
 async function resolveInvestmentTargetIdForUser(
     userId: number,
     investmentTargetId: number | null
@@ -95,7 +130,13 @@ export async function getUserInvestments(): Promise<{ data?: InvestmentInterface
             include: {
                 account: true,
                 investmentTarget: {
-                    select: { id: true, investmentType: true, nickname: true },
+                    select: {
+                        id: true,
+                        investmentType: true,
+                        nickname: true,
+                        targetAmount: true,
+                        targetCompletionDate: true,
+                    },
                 },
             },
             orderBy: {
@@ -107,6 +148,15 @@ export async function getUserInvestments(): Promise<{ data?: InvestmentInterface
         if (!Array.isArray(investments)) {
             console.error("Invalid investments data received from database");
             return { error: "Invalid investments data" };
+        }
+
+        const fulfilledByTargetId = new Map<number, number>();
+        for (const inv of investments) {
+            if (inv.investmentTargetId == null) continue;
+            const cost =
+                parseFloat(inv.quantity.toString()) * parseFloat(inv.purchasePrice.toString());
+            const tid = inv.investmentTargetId;
+            fulfilledByTargetId.set(tid, (fulfilledByTargetId.get(tid) ?? 0) + cost);
         }
         
         // Convert Decimal amounts to number to prevent serialization issues
@@ -151,11 +201,10 @@ export async function getUserInvestments(): Promise<{ data?: InvestmentInterface
                     deductFromAccount: investment.deductFromAccount,
                     investmentTargetId: investment.investmentTargetId,
                     investmentTarget: investment.investmentTarget
-                        ? {
-                              id: investment.investmentTarget.id,
-                              investmentType: investment.investmentTarget.investmentType,
-                              nickname: investment.investmentTarget.nickname,
-                          }
+                        ? mapInvestmentTargetRow(
+                              investment.investmentTarget,
+                              fulfilledByTargetId.get(investment.investmentTarget.id) ?? 0
+                          )
                         : null,
                     createdAt: new Date(investment.createdAt),
                     updatedAt: new Date(investment.updatedAt),
@@ -268,7 +317,13 @@ export async function createInvestment(
                 include: {
                     account: true,
                     investmentTarget: {
-                        select: { id: true, investmentType: true, nickname: true },
+                        select: {
+                            id: true,
+                            investmentType: true,
+                            nickname: true,
+                            targetAmount: true,
+                            targetCompletionDate: true,
+                        },
                     },
                 },
             });
@@ -326,6 +381,12 @@ export async function createInvestment(
             createdAt: new Date(result.account.createdAt),
             updatedAt: new Date(result.account.updatedAt),
         } : result.account;
+
+        let investmentTargetOut: InvestmentInterface["investmentTarget"] = null;
+        if (result.investmentTargetId && result.investmentTarget) {
+            const fulfilled = await sumFulfilledForTarget(userId, result.investmentTargetId);
+            investmentTargetOut = mapInvestmentTargetRow(result.investmentTarget, fulfilled);
+        }
         
         return {
             id: result.id,
@@ -341,13 +402,7 @@ export async function createInvestment(
             notes: result.notes,
             deductFromAccount: result.deductFromAccount,
             investmentTargetId: result.investmentTargetId,
-            investmentTarget: result.investmentTarget
-                ? {
-                      id: result.investmentTarget.id,
-                      investmentType: result.investmentTarget.investmentType,
-                      nickname: result.investmentTarget.nickname,
-                  }
-                : null,
+            investmentTarget: investmentTargetOut,
             createdAt: new Date(result.createdAt),
             updatedAt: new Date(result.updatedAt),
             account: transformedAccount,
@@ -563,7 +618,13 @@ export async function updateInvestment(
                 include: {
                     account: true,
                     investmentTarget: {
-                        select: { id: true, investmentType: true, nickname: true },
+                        select: {
+                            id: true,
+                            investmentType: true,
+                            nickname: true,
+                            targetAmount: true,
+                            targetCompletionDate: true,
+                        },
                     },
                 },
             });
@@ -584,6 +645,12 @@ export async function updateInvestment(
             createdAt: new Date(result.account.createdAt),
             updatedAt: new Date(result.account.updatedAt),
         } : result.account;
+
+        let investmentTargetUpdated: InvestmentInterface["investmentTarget"] = null;
+        if (result.investmentTargetId && result.investmentTarget) {
+            const fulfilled = await sumFulfilledForTarget(userId, result.investmentTargetId);
+            investmentTargetUpdated = mapInvestmentTargetRow(result.investmentTarget, fulfilled);
+        }
         
         return {
             id: result.id,
@@ -599,13 +666,7 @@ export async function updateInvestment(
             notes: result.notes,
             deductFromAccount: result.deductFromAccount,
             investmentTargetId: result.investmentTargetId,
-            investmentTarget: result.investmentTarget
-                ? {
-                      id: result.investmentTarget.id,
-                      investmentType: result.investmentTarget.investmentType,
-                      nickname: result.investmentTarget.nickname,
-                  }
-                : null,
+            investmentTarget: investmentTargetUpdated,
             createdAt: new Date(result.createdAt),
             updatedAt: new Date(result.updatedAt),
             account: transformedAccount,

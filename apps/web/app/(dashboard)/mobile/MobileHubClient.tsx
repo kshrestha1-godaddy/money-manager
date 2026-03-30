@@ -8,8 +8,8 @@ import {
   matchesSearch,
   recurringDisplay,
 } from "../scheduled-payments/scheduled-payment-helpers";
-import { ArrowLeftRight, ChevronDown, Search } from "lucide-react";
-import { Income, Expense } from "../../types/financial";
+import { ArrowLeftRight, ChevronDown, Plus, Search } from "lucide-react";
+import { Income, Expense, type Category } from "../../types/financial";
 import { PasswordInterface } from "../../types/passwords";
 import { getIncomes } from "../incomes/actions/incomes";
 import { getExpenses } from "../expenses/actions/expenses";
@@ -43,6 +43,11 @@ import {
 } from "./components/mobile-scheduled-payments-list";
 import { MobileScheduledPaymentDetailSheet } from "./components/mobile-scheduled-payment-detail-sheet";
 import { MobileAccountDetailSheet } from "./components/mobile-account-detail-sheet";
+import { MobileAddIncomeSheet } from "./components/mobile-add-income-sheet";
+import { MobileAddExpenseSheet } from "./components/mobile-add-expense-sheet";
+import { MobileSchedulePaymentSheet } from "./components/mobile-schedule-payment-sheet";
+import { MobileAddInvestmentSheet } from "./components/mobile-add-investment-sheet";
+import { MobileAddDebtSheet } from "./components/mobile-add-debt-sheet";
 import { MobileAccountFreeWithheldBar } from "./components/mobile-account-free-withheld-bar";
 import { computeAccountFreeBalance } from "./utils/account-free-balance";
 import { PasswordTable } from "../passwords/components/PasswordTable";
@@ -51,6 +56,8 @@ import { formatCurrency } from "../../utils/currency";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { SUPPORTED_CURRENCIES } from "../../utils/currencyConversion";
 import { calculateRemainingWithInterest } from "../../utils/interestCalculation";
+import { getCategoriesWithFrequency } from "../../utils/categoryFrequency";
+import { getCategories } from "../../actions/categories";
 import { LOADING_COLORS } from "../../config/colorConfig";
 import { CurrencyConverterModal } from "../../components/CurrencyConverterModal";
 import { formatLockCountdown, useAppLock } from "../../providers/AppLockProvider";
@@ -299,6 +306,8 @@ export default function MobileHubClient() {
   const [investments, setInvestments] = useState<InvestmentInterface[]>([]);
   const [debts, setDebts] = useState<DebtInterface[]>([]);
   const [accounts, setAccounts] = useState<AccountInterface[]>([]);
+  const [incomeCategories, setIncomeCategories] = useState<Category[]>([]);
+  const [expenseCategories, setExpenseCategories] = useState<Category[]>([]);
   const [withheldAmountsByBank, setWithheldAmountsByBank] = useState<Record<string, number>>({});
 
   const [incomeToView, setIncomeToView] = useState<Income | null>(null);
@@ -311,22 +320,30 @@ export default function MobileHubClient() {
     null
   );
   const [accountToView, setAccountToView] = useState<AccountInterface | null>(null);
+  const [isAddIncomeOpen, setIsAddIncomeOpen] = useState(false);
+  const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
+  const [isSchedulePaymentOpen, setIsSchedulePaymentOpen] = useState(false);
+  const [isAddInvestmentOpen, setIsAddInvestmentOpen] = useState(false);
+  const [isAddDebtOpen, setIsAddDebtOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoadError(null);
     setLoading(true);
     try {
-      const [inc, exp, sp, pwd, le, invRes, debtRes, accRes, withheldByBank] = await Promise.all([
-        getIncomes(),
-        getExpenses(),
-        getScheduledPayments(),
-        getPasswords(),
-        getLifeEvents(),
-        getUserInvestments(),
-        getUserDebts(),
-        getUserAccounts(),
-        getWithheldAmountsByBank(),
-      ]);
+      const [inc, exp, sp, pwd, le, invRes, debtRes, accRes, withheldByBank, incomeCats, expenseCats] =
+        await Promise.all([
+          getIncomes(),
+          getExpenses(),
+          getScheduledPayments(),
+          getPasswords(),
+          getLifeEvents(),
+          getUserInvestments(),
+          getUserDebts(),
+          getUserAccounts(),
+          getWithheldAmountsByBank(),
+          getCategories("INCOME"),
+          getCategories("EXPENSE"),
+        ]);
       setIncomes(inc);
       setExpenses(exp);
       setScheduledPayments(sp);
@@ -335,6 +352,8 @@ export default function MobileHubClient() {
       setInvestments(invRes.error ? [] : invRes.data ?? []);
       setDebts(debtRes.error ? [] : debtRes.data ?? []);
       setAccounts(accountsFromResponse(accRes));
+      setIncomeCategories(incomeCats);
+      setExpenseCategories(expenseCats);
       setWithheldAmountsByBank(withheldByBank ?? {});
     } catch (e) {
       console.error(e);
@@ -351,6 +370,16 @@ export default function MobileHubClient() {
   const filteredIncomes = useMemo(
     () => incomes.filter((i) => transactionMatchesQuery(i, search)),
     [incomes, search]
+  );
+
+  const incomeCategoriesWithFrequency = useMemo(
+    () => getCategoriesWithFrequency(incomeCategories, incomes),
+    [incomeCategories, incomes]
+  );
+
+  const expenseCategoriesWithFrequency = useMemo(
+    () => getCategoriesWithFrequency(expenseCategories, expenses),
+    [expenseCategories, expenses]
   );
 
   const filteredExpenses = useMemo(
@@ -646,9 +675,21 @@ export default function MobileHubClient() {
       {tab === "incomes" && (
         <section aria-label="Incomes" className="space-y-3">
           {filteredIncomes.length === 0 ? (
-            <p className="text-center text-gray-500 py-10 text-sm">
-              {search.trim() ? "No incomes match your search." : "No incomes yet."}
-            </p>
+            <>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsAddIncomeOpen(true)}
+                  className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 active:bg-brand-800"
+                >
+                  <Plus className="h-4 w-4 shrink-0" aria-hidden />
+                  Add income
+                </button>
+              </div>
+              <p className="text-center text-gray-500 py-10 text-sm">
+                {search.trim() ? "No incomes match your search." : "No incomes yet."}
+              </p>
+            </>
           ) : (
             <div className="space-y-3">
               <MobileCategoryPieChart
@@ -661,6 +702,16 @@ export default function MobileHubClient() {
                 variant="income"
                 formatAmount={(item) => formatDisplayAmount(item.amount, item.currency)}
                 onItemClick={setIncomeToView}
+                toolbarLeading={
+                  <button
+                    type="button"
+                    onClick={() => setIsAddIncomeOpen(true)}
+                    className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 active:bg-brand-800"
+                  >
+                    <Plus className="h-4 w-4 shrink-0" aria-hidden />
+                    Add income
+                  </button>
+                }
               />
               <div
                 className="flex items-center justify-between gap-3 rounded-xl bg-gray-50/90 px-4 py-3"
@@ -680,9 +731,21 @@ export default function MobileHubClient() {
       {tab === "expenses" && (
         <section aria-label="Expenses" className="space-y-3">
           {filteredExpenses.length === 0 ? (
-            <p className="text-center text-gray-500 py-10 text-sm">
-              {search.trim() ? "No expenses match your search." : "No expenses yet."}
-            </p>
+            <>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsAddExpenseOpen(true)}
+                  className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 active:bg-red-800"
+                >
+                  <Plus className="h-4 w-4 shrink-0" aria-hidden />
+                  Add expense
+                </button>
+              </div>
+              <p className="text-center text-gray-500 py-10 text-sm">
+                {search.trim() ? "No expenses match your search." : "No expenses yet."}
+              </p>
+            </>
           ) : (
             <div className="space-y-3">
               <MobileCategoryPieChart
@@ -695,6 +758,16 @@ export default function MobileHubClient() {
                 variant="expense"
                 formatAmount={(item) => formatDisplayAmount(item.amount, item.currency)}
                 onItemClick={setExpenseToView}
+                toolbarLeading={
+                  <button
+                    type="button"
+                    onClick={() => setIsAddExpenseOpen(true)}
+                    className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 active:bg-red-800"
+                  >
+                    <Plus className="h-4 w-4 shrink-0" aria-hidden />
+                    Add expense
+                  </button>
+                }
               />
               <div
                 className="flex items-center justify-between gap-3 rounded-xl bg-gray-50/90 px-4 py-3"
@@ -824,13 +897,35 @@ export default function MobileHubClient() {
       {tab === "scheduled-payments" && (
         <section aria-label="Scheduled payments" className="space-y-3">
           {filteredScheduledPayments.length === 0 ? (
-            <p className="text-center text-gray-500 py-10 text-sm">
-              {search.trim()
-                ? "No scheduled payments match your search."
-                : "No scheduled payments yet."}
-            </p>
+            <>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsSchedulePaymentOpen(true)}
+                  className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 active:bg-brand-800"
+                >
+                  <Plus className="h-4 w-4 shrink-0" aria-hidden />
+                  Schedule payment
+                </button>
+              </div>
+              <p className="text-center text-gray-500 py-10 text-sm">
+                {search.trim()
+                  ? "No scheduled payments match your search."
+                  : "No scheduled payments yet."}
+              </p>
+            </>
           ) : (
             <div className="space-y-3">
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsSchedulePaymentOpen(true)}
+                  className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 active:bg-brand-800"
+                >
+                  <Plus className="h-4 w-4 shrink-0" aria-hidden />
+                  Schedule payment
+                </button>
+              </div>
               <MobileScheduledPaymentsList
                 grouped={scheduledPaymentsByYearMonth}
                 formatAmount={(item) => formatDisplayAmount(item.amount, item.currency)}
@@ -887,11 +982,33 @@ export default function MobileHubClient() {
       {tab === "investments" && (
         <section aria-label="Investments" className="space-y-3">
           {filteredInvestments.length === 0 ? (
-            <p className="text-center text-gray-500 py-10 text-sm">
-              {search.trim() ? "No investments match your search." : "No investments yet."}
-            </p>
+            <>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsAddInvestmentOpen(true)}
+                  className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 active:bg-brand-800"
+                >
+                  <Plus className="h-4 w-4 shrink-0" aria-hidden />
+                  Add investment
+                </button>
+              </div>
+              <p className="text-center text-gray-500 py-10 text-sm">
+                {search.trim() ? "No investments match your search." : "No investments yet."}
+              </p>
+            </>
           ) : (
             <div className="space-y-5">
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsAddInvestmentOpen(true)}
+                  className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 active:bg-brand-800"
+                >
+                  <Plus className="h-4 w-4 shrink-0" aria-hidden />
+                  Add investment
+                </button>
+              </div>
               {investmentsByType.map((group, groupIndex) => (
                 <div key={group.type}>
                   <h3
@@ -992,11 +1109,33 @@ export default function MobileHubClient() {
       {tab === "debts" && (
         <section aria-label="Debts" className="space-y-3">
           {filteredDebts.length === 0 ? (
-            <p className="text-center text-gray-500 py-10 text-sm">
-              {search.trim() ? "No debts match your search." : "No debts yet."}
-            </p>
+            <>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsAddDebtOpen(true)}
+                  className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 active:bg-brand-800"
+                >
+                  <Plus className="h-4 w-4 shrink-0" aria-hidden />
+                  Add debt
+                </button>
+              </div>
+              <p className="text-center text-gray-500 py-10 text-sm">
+                {search.trim() ? "No debts match your search." : "No debts yet."}
+              </p>
+            </>
           ) : (
             <div className="space-y-5">
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsAddDebtOpen(true)}
+                  className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 active:bg-brand-800"
+                >
+                  <Plus className="h-4 w-4 shrink-0" aria-hidden />
+                  Add debt
+                </button>
+              </div>
               {debtsByStatus.map((group, groupIndex) => {
                 const isFullyPaidGroup = group.status === "FULLY_PAID";
                 const showList = !isFullyPaidGroup || debtsFullyPaidExpanded;
@@ -1135,6 +1274,52 @@ export default function MobileHubClient() {
           )}
         </section>
       )}
+
+      <MobileAddIncomeSheet
+        isOpen={isAddIncomeOpen}
+        onClose={() => setIsAddIncomeOpen(false)}
+        onSuccess={() => {
+          void loadData();
+        }}
+        categories={incomeCategoriesWithFrequency}
+        accounts={accounts}
+      />
+
+      <MobileAddExpenseSheet
+        isOpen={isAddExpenseOpen}
+        onClose={() => setIsAddExpenseOpen(false)}
+        onSuccess={() => {
+          void loadData();
+        }}
+        categories={expenseCategoriesWithFrequency}
+        accounts={accounts}
+      />
+
+      <MobileSchedulePaymentSheet
+        isOpen={isSchedulePaymentOpen}
+        onClose={() => setIsSchedulePaymentOpen(false)}
+        onSuccess={() => {
+          void loadData();
+        }}
+        categories={expenseCategoriesWithFrequency}
+        accounts={accounts}
+      />
+
+      <MobileAddInvestmentSheet
+        isOpen={isAddInvestmentOpen}
+        onClose={() => setIsAddInvestmentOpen(false)}
+        onSuccess={() => {
+          void loadData();
+        }}
+      />
+
+      <MobileAddDebtSheet
+        isOpen={isAddDebtOpen}
+        onClose={() => setIsAddDebtOpen(false)}
+        onSuccess={() => {
+          void loadData();
+        }}
+      />
 
       <MobileTransactionViewSheet
         transaction={incomeToView}

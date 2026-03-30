@@ -4,6 +4,7 @@ import { InvestmentInterface } from "../../../types/investments";
 import { formatCurrency } from "../../../utils/currency";
 import { formatDateYearMonthDay } from "../../../utils/date";
 import { useCurrency } from "../../../providers/CurrencyProvider";
+import { InvestmentSavingsTargetChart } from "./InvestmentSavingsTargetChart";
 
 interface ViewInvestmentModalProps {
     investment: InvestmentInterface | null;
@@ -83,21 +84,28 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
                     </div>
 
                     {investment.investmentTarget && (
-                        <div className="flex justify-center">
-                            <div className="inline-flex flex-col items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-4 py-3 text-center">
-                                <span className="text-xs font-medium uppercase tracking-wide text-purple-700">
-                                    Savings target
-                                </span>
-                                <span className="text-sm font-semibold text-purple-900">
-                                    {investment.investmentTarget.nickname?.trim() ||
-                                        formatType(investment.investmentTarget.investmentType)}
-                                </span>
-                                {investment.investmentTarget.nickname?.trim() && (
-                                    <span className="text-xs text-purple-700">
-                                        {formatType(investment.investmentTarget.investmentType)}
+                        <div className="space-y-4">
+                            <div className="flex justify-center">
+                                <div className="inline-flex flex-col items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-4 py-3 text-center">
+                                    <span className="text-xs font-medium uppercase tracking-wide text-purple-700">
+                                        Savings target
                                     </span>
-                                )}
+                                    <span className="text-sm font-semibold text-purple-900">
+                                        {investment.investmentTarget.nickname?.trim() ||
+                                            formatType(investment.investmentTarget.investmentType)}
+                                    </span>
+                                    {investment.investmentTarget.nickname?.trim() ? (
+                                        <span className="text-xs text-purple-700">
+                                            {formatType(investment.investmentTarget.investmentType)}
+                                        </span>
+                                    ) : null}
+                                </div>
                             </div>
+                            <InvestmentSavingsTargetChart
+                                targetAmount={investment.investmentTarget.targetAmount}
+                                fulfilledAmount={investment.investmentTarget.fulfilledAmount}
+                                currency={userCurrency}
+                            />
                         </div>
                     )}
 

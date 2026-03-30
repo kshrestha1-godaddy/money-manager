@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { MobileCollapsibleToolbar } from "./mobile-collapsible-toolbar";
@@ -64,6 +64,8 @@ export interface MobileGroupedTransactionListProps<T extends Income | Expense> {
   variant: "income" | "expense";
   formatAmount: (item: T) => string;
   onItemClick: (item: T) => void;
+  /** Shown on the left of Expand all / Collapse all (e.g. Add income on mobile). */
+  toolbarLeading?: ReactNode;
 }
 
 export function MobileGroupedTransactionList<T extends Income | Expense>({
@@ -71,6 +73,7 @@ export function MobileGroupedTransactionList<T extends Income | Expense>({
   variant,
   formatAmount,
   onItemClick,
+  toolbarLeading,
 }: MobileGroupedTransactionListProps<T>) {
   const detailsRootRef = useRef<HTMLDivElement>(null);
 
@@ -101,7 +104,7 @@ export function MobileGroupedTransactionList<T extends Income | Expense>({
 
   return (
     <>
-      <MobileCollapsibleToolbar rootRef={detailsRootRef} />
+      <MobileCollapsibleToolbar rootRef={detailsRootRef} leading={toolbarLeading} />
       <div ref={detailsRootRef} className="space-y-3">
       {grouped.map(({ year, months }) => {
         const yearCount = months.reduce((acc, m) => acc + m.items.length, 0);

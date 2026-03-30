@@ -21,6 +21,11 @@ export interface InvestmentInterface {
         id: number;
         investmentType: InvestmentInterface['type'];
         nickname?: string | null;
+        /** Goal amount for this savings target. */
+        targetAmount: number;
+        /** Sum of quantity × purchasePrice for all positions linked to this target (progress toward the goal). */
+        fulfilledAmount: number;
+        targetCompletionDate?: Date | null;
     } | null;
     createdAt: Date;
     updatedAt: Date;
