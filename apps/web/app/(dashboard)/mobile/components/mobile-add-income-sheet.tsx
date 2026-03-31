@@ -12,19 +12,23 @@ import {
   initializeFormData,
   validateFormData,
   transformFormData,
+  extractFormData,
   showValidationErrors,
   getTransactionPlaceholders,
   buttonClasses,
 } from "../../../utils/formUtils";
-import { createIncome } from "../../incomes/actions/incomes";
+import { createIncome, updateIncome } from "../../incomes/actions/incomes";
 
 export interface MobileAddIncomeSheetProps {
   isOpen: boolean;
   onClose: () => void;
-  /** Called after a successful create (e.g. refresh parent list). */
+  /** Called after a successful create or update (e.g. refresh parent list). */
   onSuccess: () => void;
   categories: CategoryWithFrequencyData[];
   accounts: AccountInterface[];
+  mode?: "add" | "edit";
+  /** Required when `mode` is `edit` and the sheet is open. */
+  incomeToEdit?: Income | null;
 }
 
 export function MobileAddIncomeSheet({
@@ -33,6 +37,8 @@ export function MobileAddIncomeSheet({
   onSuccess,
   categories,
   accounts,
+  mode = "add",
+  incomeToEdit = null,
 }: MobileAddIncomeSheetProps) {
   const { currency: userCurrency } = useCurrency();
   const defaultCurrency = getUserSupportedCurrency(userCurrency);
@@ -40,6 +46,7 @@ export function MobileAddIncomeSheet({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const placeholders = getTransactionPlaceholders("INCOME");
+  const isEdit = mode === "edit";
 
   useEffect(() => {
     if (!isOpen) return;
@@ -50,29 +57,38 @@ export function MobileAddIncomeSheet({
   }, [isOpen]);
 
   useEffect(() => {
-    if (isOpen) {
-      const currentDefaultCurrency = getUserSupportedCurrency(userCurrency);
-      setFormData(initializeFormData(true, currentDefaultCurrency));
-    }
-  }, [isOpen, userCurrency]);
+    if (!isOpen || !isEdit || !incomeToEdit) return;
+    setFormData(extractFormData(incomeToEdit));
+  }, [isOpen, isEdit, incomeToEdit]);
 
   useEffect(() => {
-    if (isOpen) {
-      setFormData((prev) => ({
-        ...prev,
-        amountCurrency: getUserSupportedCurrency(userCurrency),
-      }));
-    }
-  }, [userCurrency, isOpen]);
+    if (!isOpen || isEdit) return;
+    const currentDefaultCurrency = getUserSupportedCurrency(userCurrency);
+    setFormData(initializeFormData(true, currentDefaultCurrency));
+  }, [isOpen, isEdit, userCurrency]);
+
+  useEffect(() => {
+    if (!isOpen || isEdit) return;
+    setFormData((prev) => ({
+      ...prev,
+      amountCurrency: getUserSupportedCurrency(userCurrency),
+    }));
+  }, [userCurrency, isOpen, isEdit]);
 
   function handleClose() {
     const currentDefaultCurrency = getUserSupportedCurrency(userCurrency);
-    setFormData(initializeFormData(true, currentDefaultCurrency));
+    if (isEdit && incomeToEdit) {
+      setFormData(extractFormData(incomeToEdit));
+    } else {
+      setFormData(initializeFormData(true, currentDefaultCurrency));
+    }
     onClose();
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (isEdit && !incomeToEdit) return;
 
     const validation = validateFormData(formData, categories, accounts);
     if (!validation.isValid) {
@@ -83,12 +99,19 @@ export function MobileAddIncomeSheet({
     setIsSubmitting(true);
     try {
       const transformedData = transformFormData(formData, categories, accounts, userCurrency);
-      await createIncome(transformedData as Omit<Income, "id" | "createdAt" | "updatedAt">);
+      if (isEdit && incomeToEdit) {
+        await updateIncome(
+          incomeToEdit.id,
+          transformedData as Partial<Omit<Income, "id" | "createdAt" | "updatedAt">>
+        );
+      } else {
+        await createIncome(transformedData as Omit<Income, "id" | "createdAt" | "updatedAt">);
+      }
       handleClose();
       onSuccess();
     } catch (error) {
-      console.error("Error creating income:", error);
-      alert("Failed to create income. Please try again.");
+      console.error(isEdit ? "Error updating income:" : "Error creating income:", error);
+      alert(isEdit ? "Failed to update income. Please try again." : "Failed to create income. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -97,6 +120,9 @@ export function MobileAddIncomeSheet({
   if (!isOpen) return null;
 
   const hasCategories = categories.length > 0;
+  const modalTitle = isEdit ? placeholders.modalTitle.edit : placeholders.modalTitle.add;
+  const submitText = isEdit ? placeholders.submitText.edit : placeholders.submitText.add;
+  const submittingText = isEdit ? placeholders.submittingText.edit : placeholders.submittingText.add;
 
   return (
     <div
@@ -118,7 +144,7 @@ export function MobileAddIncomeSheet({
           </svg>
         </button>
         <h1 id="mobile-add-income-title" className="min-w-0 flex-1 text-base font-semibold text-gray-900">
-          {placeholders.modalTitle.add}
+          {modalTitle}
         </h1>
       </header>
 
@@ -158,7 +184,7 @@ export function MobileAddIncomeSheet({
               disabled={isSubmitting || !hasCategories}
               className={buttonClasses.primary}
             >
-              {isSubmitting ? placeholders.submittingText.add : placeholders.submitText.add}
+              {isSubmitting ? submittingText : submitText}
             </button>
           </div>
         </div>

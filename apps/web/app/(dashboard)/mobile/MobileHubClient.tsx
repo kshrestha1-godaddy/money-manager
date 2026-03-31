@@ -329,7 +329,9 @@ export default function MobileHubClient() {
   const [withheldAmountsByBank, setWithheldAmountsByBank] = useState<Record<string, number>>({});
 
   const [incomeToView, setIncomeToView] = useState<Income | null>(null);
+  const [incomeToEdit, setIncomeToEdit] = useState<Income | null>(null);
   const [expenseToView, setExpenseToView] = useState<Expense | null>(null);
+  const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
   const [lifeEventToView, setLifeEventToView] = useState<LifeEventItem | null>(null);
   const [investmentToView, setInvestmentToView] = useState<InvestmentInterface | null>(null);
   const [debtToView, setDebtToView] = useState<DebtInterface | null>(null);
@@ -1461,9 +1463,33 @@ export default function MobileHubClient() {
         accounts={accounts}
       />
 
+      <MobileAddIncomeSheet
+        isOpen={incomeToEdit !== null}
+        mode="edit"
+        incomeToEdit={incomeToEdit}
+        onClose={() => setIncomeToEdit(null)}
+        onSuccess={() => {
+          void loadData();
+        }}
+        categories={incomeCategoriesWithFrequency}
+        accounts={accounts}
+      />
+
       <MobileAddExpenseSheet
         isOpen={isAddExpenseOpen}
         onClose={() => setIsAddExpenseOpen(false)}
+        onSuccess={() => {
+          void loadData();
+        }}
+        categories={expenseCategoriesWithFrequency}
+        accounts={accounts}
+      />
+
+      <MobileAddExpenseSheet
+        isOpen={expenseToEdit !== null}
+        mode="edit"
+        expenseToEdit={expenseToEdit}
+        onClose={() => setExpenseToEdit(null)}
         onSuccess={() => {
           void loadData();
         }}
@@ -1522,6 +1548,11 @@ export default function MobileHubClient() {
         transactionType="INCOME"
         isOpen={incomeToView !== null}
         onClose={() => setIncomeToView(null)}
+        onEdit={() => {
+          if (!incomeToView) return;
+          setIncomeToEdit(incomeToView);
+          setIncomeToView(null);
+        }}
       />
 
       <MobileTransactionViewSheet
@@ -1529,6 +1560,11 @@ export default function MobileHubClient() {
         transactionType="EXPENSE"
         isOpen={expenseToView !== null}
         onClose={() => setExpenseToView(null)}
+        onEdit={() => {
+          if (!expenseToView) return;
+          setExpenseToEdit(expenseToView);
+          setExpenseToView(null);
+        }}
       />
 
       <MobileLifeEventDetailSheet

@@ -16,6 +16,8 @@ export interface MobileTransactionViewSheetProps {
   transactionType: Extract<TransactionImageType, "INCOME" | "EXPENSE">;
   isOpen: boolean;
   onClose: () => void;
+  /** When set, shows an Edit control (e.g. open the mobile edit sheet for this transaction). */
+  onEdit?: () => void;
 }
 
 function parseDate(d: Date | string): Date {
@@ -27,6 +29,7 @@ export function MobileTransactionViewSheet({
   transactionType,
   isOpen,
   onClose,
+  onEdit,
 }: MobileTransactionViewSheetProps) {
   const { currency: userCurrency } = useCurrency();
   const [images, setImages] = useState<TransactionImage[]>([]);
@@ -178,6 +181,19 @@ export function MobileTransactionViewSheet({
           </h1>
           <p className="truncate text-xs text-gray-500">{transaction.category.name}</p>
         </div>
+        {onEdit ? (
+          <button
+            type="button"
+            onClick={onEdit}
+            className={`shrink-0 rounded-lg px-3 py-2 text-sm font-semibold min-h-[44px] ${
+              transactionType === "EXPENSE"
+                ? "text-red-700 hover:bg-red-50 active:bg-red-100"
+                : "text-emerald-700 hover:bg-emerald-50 active:bg-emerald-100"
+            }`}
+          >
+            Edit
+          </button>
+        ) : null}
         {transaction.isRecurring && (
           <span
             className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${

@@ -12,18 +12,23 @@ import {
   initializeFormData,
   validateFormData,
   transformFormData,
+  extractFormData,
   showValidationErrors,
   getTransactionPlaceholders,
   buttonClasses,
 } from "../../../utils/formUtils";
-import { createExpense } from "../../expenses/actions/expenses";
+import { createExpense, updateExpense } from "../../expenses/actions/expenses";
 
 export interface MobileAddExpenseSheetProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Called after a successful create or update (e.g. refresh parent list). */
   onSuccess: () => void;
   categories: CategoryWithFrequencyData[];
   accounts: AccountInterface[];
+  mode?: "add" | "edit";
+  /** Required when `mode` is `edit` and the sheet is open. */
+  expenseToEdit?: Expense | null;
 }
 
 export function MobileAddExpenseSheet({
@@ -32,6 +37,8 @@ export function MobileAddExpenseSheet({
   onSuccess,
   categories,
   accounts,
+  mode = "add",
+  expenseToEdit = null,
 }: MobileAddExpenseSheetProps) {
   const { currency: userCurrency } = useCurrency();
   const defaultCurrency = getUserDualCurrency(userCurrency);
@@ -39,6 +46,7 @@ export function MobileAddExpenseSheet({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const placeholders = getTransactionPlaceholders("EXPENSE");
+  const isEdit = mode === "edit";
 
   useEffect(() => {
     if (!isOpen) return;
@@ -49,29 +57,38 @@ export function MobileAddExpenseSheet({
   }, [isOpen]);
 
   useEffect(() => {
-    if (isOpen) {
-      const currentDefaultCurrency = getUserDualCurrency(userCurrency);
-      setFormData(initializeFormData(true, currentDefaultCurrency));
-    }
-  }, [isOpen, userCurrency]);
+    if (!isOpen || !isEdit || !expenseToEdit) return;
+    setFormData(extractFormData(expenseToEdit));
+  }, [isOpen, isEdit, expenseToEdit]);
 
   useEffect(() => {
-    if (isOpen) {
-      setFormData((prev) => ({
-        ...prev,
-        amountCurrency: getUserDualCurrency(userCurrency),
-      }));
-    }
-  }, [userCurrency, isOpen]);
+    if (!isOpen || isEdit) return;
+    const currentDefaultCurrency = getUserDualCurrency(userCurrency);
+    setFormData(initializeFormData(true, currentDefaultCurrency));
+  }, [isOpen, isEdit, userCurrency]);
+
+  useEffect(() => {
+    if (!isOpen || isEdit) return;
+    setFormData((prev) => ({
+      ...prev,
+      amountCurrency: getUserDualCurrency(userCurrency),
+    }));
+  }, [userCurrency, isOpen, isEdit]);
 
   function handleClose() {
     const currentDefaultCurrency = getUserDualCurrency(userCurrency);
-    setFormData(initializeFormData(true, currentDefaultCurrency));
+    if (isEdit && expenseToEdit) {
+      setFormData(extractFormData(expenseToEdit));
+    } else {
+      setFormData(initializeFormData(true, currentDefaultCurrency));
+    }
     onClose();
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (isEdit && !expenseToEdit) return;
 
     const validation = validateFormData(formData, categories, accounts);
     if (!validation.isValid) {
@@ -82,12 +99,19 @@ export function MobileAddExpenseSheet({
     setIsSubmitting(true);
     try {
       const expense = transformFormData(formData, categories, accounts, userCurrency);
-      await createExpense(expense as Omit<Expense, "id" | "createdAt" | "updatedAt">);
+      if (isEdit && expenseToEdit) {
+        await updateExpense(
+          expenseToEdit.id,
+          expense as Partial<Omit<Expense, "id" | "createdAt" | "updatedAt">>
+        );
+      } else {
+        await createExpense(expense as Omit<Expense, "id" | "createdAt" | "updatedAt">);
+      }
       handleClose();
       onSuccess();
     } catch (error) {
-      console.error("Error creating expense:", error);
-      alert("Failed to create expense. Please try again.");
+      console.error(isEdit ? "Error updating expense:" : "Error creating expense:", error);
+      alert(isEdit ? "Failed to update expense. Please try again." : "Failed to create expense. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -96,6 +120,9 @@ export function MobileAddExpenseSheet({
   if (!isOpen) return null;
 
   const hasCategories = categories.length > 0;
+  const modalTitle = isEdit ? placeholders.modalTitle.edit : placeholders.modalTitle.add;
+  const submitText = isEdit ? placeholders.submitText.edit : placeholders.submitText.add;
+  const submittingText = isEdit ? placeholders.submittingText.edit : placeholders.submittingText.add;
 
   return (
     <div
@@ -117,7 +144,7 @@ export function MobileAddExpenseSheet({
           </svg>
         </button>
         <h1 id="mobile-add-expense-title" className="min-w-0 flex-1 text-base font-semibold text-gray-900">
-          {placeholders.modalTitle.add}
+          {modalTitle}
         </h1>
       </header>
 
@@ -153,7 +180,7 @@ export function MobileAddExpenseSheet({
               disabled={isSubmitting || !hasCategories}
               className={buttonClasses.primary}
             >
-              {isSubmitting ? placeholders.submittingText.add : placeholders.submitText.add}
+              {isSubmitting ? submittingText : submitText}
             </button>
           </div>
         </div>
