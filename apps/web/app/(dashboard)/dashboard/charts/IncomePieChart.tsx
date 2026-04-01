@@ -483,7 +483,7 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
                                 innerRadius="36%"
                                 fill="#8884d8"
                                 dataKey="value"
-                                paddingAngle={1.25}
+                                paddingAngle={1}
                                 cornerRadius={8}
                                 stroke="#ffffff"
                                 strokeWidth={2}
