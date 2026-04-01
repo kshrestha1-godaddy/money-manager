@@ -196,10 +196,6 @@ export default function BudgetPage() {
     details: []
   });
   
-  // Use current month/year for main page data to prevent re-renders when month navigation changes
-  const currentMonth = currentDate.getMonth();
-  const currentYear = currentDate.getFullYear();
-  
   const {
     budgetComparison,
     budgetTargets,
@@ -211,7 +207,7 @@ export default function BudgetPage() {
     isUpdating,
     isDeleting,
     isUpdatingInclusion
-  } = useBudgetTracking(selectedPeriod, currentMonth, currentYear);
+  } = useBudgetTracking(selectedPeriod, selectedMonth, selectedYear);
 
   const { allCategories, loading: categoriesLoading } = useAllCategories();
 
