@@ -54,11 +54,51 @@ interface ChartConfig {
   rightMargin: number;
   topMargin: number;
   bottomMargin: number;
-  maxUtilization: number;
+  /** Upper bound of the horizontal scale (may be below the largest value when outliers are capped) */
+  axisMax: number;
   chartWidth: number;
   chartHeight: number;
   chartAreaWidth: number;
   chartAreaHeight: number;
+}
+
+/** When one category dominates (e.g. 1700% vs 200%), cap the axis so other bars stay readable. */
+function computeAxisMax(utilizations: number[]): number {
+  if (utilizations.length === 0) return 120;
+  const sorted = [...utilizations].sort((a, b) => b - a);
+  const maxU = sorted[0] ?? 0;
+  const secondU = sorted[1] ?? maxU;
+  const thirdU = sorted[2] ?? secondU;
+
+  if (maxU <= 200) {
+    return Math.max(120, Math.ceil(maxU / 25) * 25 + 25);
+  }
+
+  const ratio = secondU > 0 ? maxU / secondU : Infinity;
+  const typicalHigh = Math.max(secondU, thirdU * 1.15);
+
+  if (ratio >= 3 || maxU > 500) {
+    const capFromPeers = Math.ceil((typicalHigh * 2.2) / 25) * 25;
+    return Math.max(200, Math.min(380, capFromPeers));
+  }
+
+  return Math.min(650, Math.ceil(maxU / 50) * 50 + 50);
+}
+
+function generateAxisTicks(axisMax: number): number[] {
+  const maxTicks = 9;
+  const rawStep = axisMax / Math.max(1, maxTicks - 1);
+  const step = Math.max(25, Math.ceil(rawStep / 25) * 25);
+  const ticks: number[] = [];
+  for (let v = 0; v <= axisMax + 0.001; v += step) {
+    ticks.push(Math.round(v * 10) / 10);
+  }
+  const last = ticks[ticks.length - 1];
+  if (last !== undefined && last < axisMax - 0.01) {
+    ticks.push(axisMax);
+  }
+  const deduped = ticks.filter((v, i, a) => i === 0 || v !== a[i - 1]);
+  return deduped;
 }
 
 // Custom hooks for optimized data processing
@@ -129,8 +169,8 @@ function useChartConfig(chartData: ChartDataPoint[], containerWidth: number): Ch
     const chartWidth = containerWidth;
     const chartHeight = chartAreaHeight + topMargin + bottomMargin;
     const chartAreaWidth = chartWidth - leftMargin - rightMargin;
-    const maxUtilization = Math.max(120, Math.max(...chartData.map(d => d.utilization), 0));
-    
+    const axisMax = computeAxisMax(chartData.map((d) => d.utilization));
+
     return {
       barHeight,
       barSpacing,
@@ -138,7 +178,7 @@ function useChartConfig(chartData: ChartDataPoint[], containerWidth: number): Ch
       rightMargin,
       topMargin,
       bottomMargin,
-      maxUtilization,
+      axisMax,
       chartWidth,
       chartHeight,
       chartAreaWidth,
@@ -228,7 +268,7 @@ const ChartBar = memo(({
     leftMargin, 
     topMargin, 
     chartAreaWidth, 
-    maxUtilization 
+    axisMax 
   } = config;
   
   const separatorSpace = hasSeperator ? 25 : 0;
@@ -238,8 +278,10 @@ const ChartBar = memo(({
   const rowCenterY = topMargin + (index * barSpacing) + (barSpacing / 2) + incomeOffset;
   const barY = rowCenterY - (barHeight / 2);
   
-  const scaleX = (value: number) => (value / maxUtilization) * chartAreaWidth;
-  const barWidth = Math.max(3, scaleX(item.utilization));
+  const scaleX = (value: number) => (value / axisMax) * chartAreaWidth;
+  const visualUtil = Math.min(item.utilization, axisMax);
+  const isTruncated = item.utilization > axisMax + 0.05;
+  const barWidth = Math.max(3, scaleX(visualUtil));
   
   const getBarColor = (utilization: number) => {
     if (utilization <= 0) return '#d1d5db';
@@ -260,10 +302,10 @@ const ChartBar = memo(({
     if (!isLoading) onClick(item);
   }, [item, isLoading, onClick]);
 
-  // Render over-budget bars (split into base + excess)
+  // Render over-budget bars (split into base + excess); scale uses axisMax so outliers don't crush the chart
   if (item.isOverBudget) {
     const baseBarWidth = scaleX(100);
-    const excessUtilization = item.utilization - 100;
+    const excessUtilization = Math.max(0, visualUtil - 100);
     const excessBarWidth = scaleX(excessUtilization);
     const excessBarX = leftMargin + 1 + baseBarWidth;
     
@@ -319,9 +361,9 @@ const ChartBar = memo(({
           onClick={handleClick}
         />
 
-        {/* Percentage label */}
+        {/* Percentage label (always true utilization, not the capped visual) */}
         <text
-          x={excessBarX + excessBarWidth + 12}
+          x={Math.min(excessBarX + excessBarWidth + 12, leftMargin + chartAreaWidth + 4)}
           y={rowCenterY}
           dominantBaseline="middle"
           fontSize="13"
@@ -329,6 +371,7 @@ const ChartBar = memo(({
           fontWeight="600"
         >
           {item.utilization}%
+          {isTruncated ? ' *' : ''}
         </text>
       </g>
     );
@@ -414,21 +457,19 @@ const ChartGrid = memo(({ config }: ChartGridProps) => {
     topMargin, 
     chartAreaWidth, 
     chartAreaHeight, 
-    maxUtilization 
+    axisMax 
   } = config;
   
-  const scaleX = (value: number) => (value / maxUtilization) * chartAreaWidth;
+  const scaleX = (value: number) => (value / axisMax) * chartAreaWidth;
   
-  const gridValues = [0, 25, 50, 75, 100, 125, 150, 175, 200, 300].filter(
-    value => value <= maxUtilization
-  );
+  const gridValues = generateAxisTicks(axisMax);
 
   return (
     <g>
-      {gridValues.map(value => {
+      {gridValues.map((value) => {
         const x = leftMargin + scaleX(value);
         return (
-          <g key={value}>
+          <g key={`tick-${value}`}>
             <line
               x1={x}
               y1={topMargin}
@@ -446,14 +487,14 @@ const ChartGrid = memo(({ config }: ChartGridProps) => {
               fill="#6b7280"
               fontWeight="500"
             >
-              {value}%
+              {`${Math.round(value)}%`}
             </text>
           </g>
         );
       })}
       
       {/* 100% reference line */}
-      {100 <= maxUtilization && (
+      {100 <= axisMax && (
         <line
           x1={leftMargin + scaleX(100)}
           y1={topMargin}
@@ -584,6 +625,11 @@ export const CategoryPerformanceGauge = memo(({
   const config = useChartConfig(chartData, containerWidth);
   const navigate = useNavigation(selectedMonth, selectedYear);
 
+  const hasCappedScale = useMemo(
+    () => chartData.some((d) => d.utilization > config.axisMax + 0.01),
+    [chartData, config.axisMax],
+  );
+
   // Memoized calculations
   const { expenseCount, incomeCount, hasSeperator } = useMemo(() => {
     const expenses = chartData.filter(item => item.categoryType === 'EXPENSE').length;
@@ -641,6 +687,13 @@ export const CategoryPerformanceGauge = memo(({
       </div>
       
       <ChartLegend />
+
+      {hasCappedScale && (
+        <p className="text-xs text-gray-500 mb-4 max-w-3xl leading-relaxed">
+          The horizontal scale stops at {Math.round(config.axisMax)}% of budget so most categories stay readable. Values
+          beyond that still show their full percentage next to each bar (marked with *).
+        </p>
+      )}
 
       {/* Chart Container */}
       <div className="relative w-full">
