@@ -144,7 +144,7 @@ interface SortableThProps {
 function SortableTh({ label, columnKey, sort, onSort, className = "" }: SortableThProps) {
   const active = sort.key === columnKey;
   return (
-    <th className={`px-3 py-3 font-medium sm:px-4 ${className}`}>
+    <th className={`px-3 py-4 font-medium sm:px-4 sm:py-5 ${className}`}>
       <button
         type="button"
         onClick={() => onSort(columnKey)}
@@ -662,7 +662,7 @@ export default function ScheduledPaymentsPageClient() {
           <thead className="bg-gray-50 text-left text-gray-600">
             <tr>
               <th
-                className="relative border-r border-gray-100 px-2.5 py-3 text-center align-middle"
+                className="relative border-r border-gray-100 px-2.5 py-4 text-center align-middle sm:py-5"
                 style={{
                   width: BULK_SELECT_COLUMN_WIDTH_PX,
                   minWidth: BULK_SELECT_COLUMN_WIDTH_PX,
@@ -737,7 +737,7 @@ export default function ScheduledPaymentsPageClient() {
                 sort={tableSort}
                 onSort={toggleTableSort}
               />
-              <th className="sticky right-0 z-20 min-w-[10rem] border-l border-gray-200 bg-gray-50 px-3 py-3 text-center font-medium shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.08)] sm:min-w-[12rem] sm:px-4">
+              <th className="sticky right-0 z-20 min-w-[10rem] border-l border-gray-200 bg-gray-50 px-3 py-4 text-center font-medium shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.08)] sm:min-w-[12rem] sm:px-4 sm:py-5">
                 Actions
               </th>
             </tr>
@@ -780,7 +780,7 @@ export default function ScheduledPaymentsPageClient() {
                 return (
                   <tr key={item.id} className="group align-middle hover:bg-gray-50/80">
                     <td
-                      className="px-2.5 py-3 text-center align-middle"
+                      className="px-2.5 py-4 text-center align-middle sm:py-5"
                       style={{
                         width: BULK_SELECT_COLUMN_WIDTH_PX,
                         minWidth: BULK_SELECT_COLUMN_WIDTH_PX,
@@ -798,28 +798,28 @@ export default function ScheduledPaymentsPageClient() {
                         />
                       ) : null}
                     </td>
-                    <td className="min-w-0 px-3 py-3 align-middle font-medium text-gray-900 sm:px-4">
+                    <td className="min-w-0 px-3 py-4 align-middle font-medium text-gray-900 sm:px-4 sm:py-5">
                       <span className="block break-words leading-snug" title={item.title}>
                         {item.title}
                       </span>
                     </td>
-                    <td className="py-3 pl-3 pr-6 align-middle text-gray-700 whitespace-nowrap sm:pl-4 sm:pr-8">
+                    <td className="py-4 pl-3 pr-6 align-middle text-gray-700 whitespace-nowrap sm:py-5 sm:pl-4 sm:pr-8">
                       {new Date(item.scheduledAt).toLocaleString()}
                     </td>
-                    <td className="py-3 pl-5 pr-3 align-middle text-gray-900 whitespace-nowrap tabular-nums sm:pl-6 sm:pr-4">
+                    <td className="py-4 pl-5 pr-3 align-middle text-gray-900 whitespace-nowrap tabular-nums sm:py-5 sm:pl-6 sm:pr-4">
                       {formatCurrency(displayAmount, tableDisplayCurrency)}
                     </td>
-                    <td className="max-w-0 min-w-0 px-3 py-3 align-middle text-gray-700 sm:px-4">
+                    <td className="max-w-0 min-w-0 px-3 py-4 align-middle text-gray-700 sm:px-4 sm:py-5">
                       <span className="block truncate" title={item.category.name}>
                         {item.category.name}
                       </span>
                     </td>
-                    <td className="max-w-0 min-w-0 px-3 py-3 align-middle text-gray-700 sm:px-4">
+                    <td className="max-w-0 min-w-0 px-3 py-4 align-middle text-gray-700 sm:px-4 sm:py-5">
                       <span className="block truncate" title={accountDisplay(item)}>
                         {accountDisplay(item)}
                       </span>
                     </td>
-                    <td className="max-w-0 min-w-0 px-3 py-3 align-middle text-gray-600 sm:px-4">
+                    <td className="max-w-0 min-w-0 px-3 py-4 align-middle text-gray-600 sm:px-4 sm:py-5">
                       {item.notes?.trim() ? (
                         <span className="block truncate" title={item.notes}>
                           {item.notes}
@@ -828,10 +828,10 @@ export default function ScheduledPaymentsPageClient() {
                         <span className="text-gray-400">—</span>
                       )}
                     </td>
-                    <td className="px-3 py-3 align-middle text-gray-700 whitespace-nowrap sm:px-4">
+                    <td className="px-3 py-4 align-middle text-gray-700 whitespace-nowrap sm:px-4 sm:py-5">
                       {recurringDisplay(item)}
                     </td>
-                    <td className="max-w-0 min-w-0 px-3 py-3 align-middle sm:px-4">
+                    <td className="max-w-0 min-w-0 px-3 py-4 align-middle sm:px-4 sm:py-5">
                       <span
                         className={`block truncate ${
                           label === "Accepted"
@@ -847,7 +847,7 @@ export default function ScheduledPaymentsPageClient() {
                         {label}
                       </span>
                     </td>
-                    <td className="sticky right-0 z-10 min-w-[10rem] border-l border-gray-100 bg-white px-3 py-3 text-center align-middle shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] group-hover:bg-gray-50/80 sm:min-w-[12rem] sm:px-4">
+                    <td className="sticky right-0 z-10 min-w-[10rem] border-l border-gray-100 bg-white px-3 py-4 text-center align-middle shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] group-hover:bg-gray-50/80 sm:min-w-[12rem] sm:px-4 sm:py-5">
                       <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
                       {canDecide && (
                         <>
@@ -899,7 +899,7 @@ export default function ScheduledPaymentsPageClient() {
             <tfoot className="border-t border-gray-200 bg-gray-50/90">
               <tr>
                 <td
-                  className="bg-gray-50 px-2.5 py-3"
+                  className="bg-gray-50 px-2.5 py-4 sm:py-5"
                   style={{
                     width: BULK_SELECT_COLUMN_WIDTH_PX,
                     minWidth: BULK_SELECT_COLUMN_WIDTH_PX,
@@ -910,17 +910,17 @@ export default function ScheduledPaymentsPageClient() {
                 />
                 <td
                   colSpan={2}
-                  className="px-3 py-3 text-left text-sm font-medium text-gray-900 sm:px-4"
+                  className="px-3 py-4 text-left text-sm font-medium text-gray-900 sm:px-4 sm:py-5"
                 >
                   Total ({tableSummary.count}{" "}
                   {tableSummary.count === 1 ? "payment" : "payments"})
                 </td>
-                <td className="py-3 pl-5 pr-3 text-sm font-semibold tabular-nums text-gray-900 sm:pl-6 sm:pr-4">
+                <td className="py-4 pl-5 pr-3 text-sm font-semibold tabular-nums text-gray-900 sm:py-5 sm:pl-6 sm:pr-4">
                   {formatCurrency(tableSummary.total, tableDisplayCurrency)}
                 </td>
-                <td colSpan={5} className="px-3 py-3 sm:px-4" aria-hidden />
+                <td colSpan={5} className="px-3 py-4 sm:px-4 sm:py-5" aria-hidden />
                 <td
-                  className="sticky right-0 z-10 border-l border-gray-200 bg-gray-50 px-3 py-3 text-center shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:px-4"
+                  className="sticky right-0 z-10 border-l border-gray-200 bg-gray-50 px-3 py-4 text-center shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:px-4 sm:py-5"
                   aria-hidden
                 />
               </tr>
