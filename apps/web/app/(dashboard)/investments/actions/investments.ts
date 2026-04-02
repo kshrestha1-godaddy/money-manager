@@ -15,6 +15,12 @@ import {
 import { parseInvestmentsCSV, ParsedInvestmentData } from "../../../utils/csvImportInvestments";
 import { ImportResult } from "../../../types/bulkImport";
 import { bulkImportInvestmentTargets } from "./investment-targets";
+import {
+    countStocksInvestmentsForUser,
+    investedAmountForPosition,
+    resolvePurchasePriceForInvestmentDisplay,
+    sumStocksCategoryExpenseAmountsForUser,
+} from "../utils/stocksExpenseBasis";
 
 function investmentShouldDeduct(
     deductFromAccount: boolean | undefined | null
@@ -30,15 +36,19 @@ function investmentPurchaseCost(quantity: unknown, purchasePrice: unknown): numb
 
 /** Sum of quantity × purchasePrice for all investments linked to this target (same rule as target progress). */
 async function sumFulfilledForTarget(userId: number, targetId: number): Promise<number> {
-    const rows = await prisma.investment.findMany({
-        where: { userId, investmentTargetId: targetId },
-        select: { quantity: true, purchasePrice: true },
-    });
-    return rows.reduce((sum, r) => {
-        const q = parseFloat(r.quantity.toString());
-        const p = parseFloat(r.purchasePrice.toString());
-        return sum + q * p;
-    }, 0);
+    const [rows, stocksExpenseTotal, stocksPositionCount] = await Promise.all([
+        prisma.investment.findMany({
+            where: { userId, investmentTargetId: targetId },
+            select: { quantity: true, purchasePrice: true, type: true },
+        }),
+        sumStocksCategoryExpenseAmountsForUser(userId),
+        countStocksInvestmentsForUser(userId),
+    ]);
+    return rows.reduce(
+        (sum, r) =>
+            sum + investedAmountForPosition(r, stocksExpenseTotal, stocksPositionCount),
+        0
+    );
 }
 
 function mapInvestmentTargetRow(
@@ -150,11 +160,17 @@ export async function getUserInvestments(): Promise<{ data?: InvestmentInterface
             return { error: "Invalid investments data" };
         }
 
+        const stocksExpenseTotal = await sumStocksCategoryExpenseAmountsForUser(userId);
+        const stocksPositionCount = investments.filter((inv) => inv.type === "STOCKS").length;
+
         const fulfilledByTargetId = new Map<number, number>();
         for (const inv of investments) {
             if (inv.investmentTargetId == null) continue;
-            const cost =
-                parseFloat(inv.quantity.toString()) * parseFloat(inv.purchasePrice.toString());
+            const cost = investedAmountForPosition(
+                { type: inv.type, quantity: inv.quantity, purchasePrice: inv.purchasePrice },
+                stocksExpenseTotal,
+                stocksPositionCount
+            );
             const tid = inv.investmentTargetId;
             fulfilledByTargetId.set(tid, (fulfilledByTargetId.get(tid) ?? 0) + cost);
         }
@@ -163,7 +179,15 @@ export async function getUserInvestments(): Promise<{ data?: InvestmentInterface
         const transformedInvestments = investments.map(investment => {
             try {
                 const quantity = parseFloat(investment.quantity.toString());
-                const purchasePrice = parseFloat(investment.purchasePrice.toString());
+                const purchasePrice = resolvePurchasePriceForInvestmentDisplay(
+                    {
+                        type: investment.type,
+                        quantity: investment.quantity,
+                        purchasePrice: investment.purchasePrice,
+                    },
+                    stocksExpenseTotal,
+                    stocksPositionCount
+                );
                 const currentPrice = parseFloat(investment.currentPrice.toString());
                 
                 // Validate converted numbers

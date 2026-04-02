@@ -7,6 +7,10 @@ import { InvestmentTarget, InvestmentTargetFormData, InvestmentTargetProgress } 
 import { revalidatePath } from "next/cache";
 import { getUserIdFromSession } from "../../../utils/auth";
 import { parseInvestmentTargetsCSV, ParsedInvestmentTargetData } from "../../../utils/csvImportInvestmentTargets";
+import {
+    investedAmountForPosition,
+    sumStocksCategoryExpenseAmountsForUser,
+} from "../utils/stocksExpenseBasis";
 
 export async function getInvestmentTargets(): Promise<{ data?: InvestmentTarget[], error?: string }> {
     try {
@@ -243,14 +247,25 @@ export async function getInvestmentTargetProgress(): Promise<{ data?: Investment
             where: {
                 userId: userId,
             },
+            select: {
+                investmentTargetId: true,
+                quantity: true,
+                purchasePrice: true,
+                type: true,
+            },
         });
 
-        // Sum invested amount (quantity × purchasePrice) per target from investments linked to that target
+        const stocksExpenseTotal = await sumStocksCategoryExpenseAmountsForUser(userId);
+        const stocksPositionCount = investments.filter((i) => i.type === "STOCKS").length;
+
+        // Sum invested amount per target (STOCKS cost basis from Expense "Stocks" category when present)
         const currentAmountsByTargetId = investments.reduce((acc, investment) => {
             if (investment.investmentTargetId == null) return acc;
-            const invested =
-                parseFloat(investment.quantity.toString()) *
-                parseFloat(investment.purchasePrice.toString());
+            const invested = investedAmountForPosition(
+                investment,
+                stocksExpenseTotal,
+                stocksPositionCount
+            );
             const tid = investment.investmentTargetId;
             acc[tid] = (acc[tid] || 0) + invested;
             return acc;
