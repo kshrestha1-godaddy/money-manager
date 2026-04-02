@@ -5,6 +5,7 @@ import {
   getDueScheduledPaymentsPending,
   acceptScheduledPayment,
   rejectScheduledPayment,
+  postponeScheduledPayment,
 } from "../(dashboard)/scheduled-payments/actions/scheduled-payments";
 import { ScheduledPaymentItem } from "../types/scheduled-payment";
 import { formatCurrency } from "../utils/currency";
@@ -33,11 +34,37 @@ function addDismissedId(id: number) {
   sessionStorage.setItem(DISMISSED_IDS_KEY, JSON.stringify([...next]));
 }
 
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function toDatetimeLocalValue(d: Date): string {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+/** Add N calendar days from today, keep the same clock as the original schedule; ensure strictly after now. */
+function postponeFromNowWithOriginalTime(scheduledAt: Date, days: number): Date {
+  const now = new Date();
+  const target = new Date(now);
+  target.setDate(target.getDate() + days);
+  target.setHours(
+    scheduledAt.getHours(),
+    scheduledAt.getMinutes(),
+    scheduledAt.getSeconds(),
+    scheduledAt.getMilliseconds()
+  );
+  if (target <= now) {
+    target.setTime(now.getTime() + 60_000);
+  }
+  return target;
+}
+
 export function PendingScheduledPaymentsPrompt() {
   const { currency: userCurrency } = useCurrency();
   const [queue, setQueue] = useState<ScheduledPaymentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [customPostpone, setCustomPostpone] = useState("");
 
   const refresh = useCallback(async () => {
     try {
@@ -56,6 +83,40 @@ export function PendingScheduledPaymentsPrompt() {
   }, [refresh]);
 
   const current = queue[0];
+
+  useEffect(() => {
+    if (!current) {
+      setCustomPostpone("");
+      return;
+    }
+    setCustomPostpone(
+      toDatetimeLocalValue(postponeFromNowWithOriginalTime(new Date(current.scheduledAt), 1))
+    );
+  }, [current?.id]);
+
+  const handlePostpone = async (when: Date) => {
+    if (!current) return;
+    setActing(true);
+    try {
+      await postponeScheduledPayment(current.id, when);
+      setQueue((q) => q.slice(1));
+    } catch (e) {
+      console.error(e);
+      alert(e instanceof Error ? e.message : "Could not postpone");
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const handleCustomPostpone = () => {
+    if (!customPostpone.trim()) return;
+    const parsed = new Date(customPostpone);
+    if (Number.isNaN(parsed.getTime())) {
+      alert("Invalid date and time");
+      return;
+    }
+    void handlePostpone(parsed);
+  };
 
   const handleAccept = async () => {
     if (!current) return;
@@ -99,6 +160,9 @@ export function PendingScheduledPaymentsPrompt() {
     userCurrency
   );
 
+  const scheduledAtDate = new Date(current.scheduledAt);
+  const minDatetimeLocal = toDatetimeLocalValue(new Date(Date.now() + 60_000));
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
       <div
@@ -114,10 +178,7 @@ export function PendingScheduledPaymentsPrompt() {
           Scheduled payment due
         </h2>
         <p className="text-sm text-gray-600 mb-4">
-          Confirm whether this payment should be recorded as an expense. Accepting will deduct the
-          amount from the linked account (if any) and add it under Expenses.{" "}
-          <span className="font-medium text-gray-800">Decide later</span> closes this reminder for
-          now; you can accept or reject anytime from Scheduled payments.
+          Confirm whether this payment should be recorded as an expense.
         </p>
         <div className="rounded-lg bg-gray-50 p-4 mb-4 space-y-2 text-sm">
           <p>
@@ -172,6 +233,62 @@ export function PendingScheduledPaymentsPrompt() {
               {acting ? "…" : "Accept"}
             </button>
           </div>
+
+          <div className="rounded-lg border border-gray-200 bg-gray-50/80 p-2.5 space-y-2">
+            <p className="text-xs font-semibold text-gray-900">Postpone</p>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                disabled={acting}
+                onClick={() =>
+                  void handlePostpone(postponeFromNowWithOriginalTime(scheduledAtDate, 1))
+                }
+                className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50"
+              >
+                +1 day
+              </button>
+              <button
+                type="button"
+                disabled={acting}
+                onClick={() =>
+                  void handlePostpone(postponeFromNowWithOriginalTime(scheduledAtDate, 3))
+                }
+                className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50"
+              >
+                +3 days
+              </button>
+              <button
+                type="button"
+                disabled={acting}
+                onClick={() =>
+                  void handlePostpone(postponeFromNowWithOriginalTime(scheduledAtDate, 7))
+                }
+                className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50"
+              >
+                +1 week
+              </button>
+            </div>
+            <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center">
+              <input
+                type="datetime-local"
+                value={customPostpone}
+                min={minDatetimeLocal}
+                onChange={(e) => setCustomPostpone(e.target.value)}
+                disabled={acting}
+                aria-label="Pick date and time to postpone to"
+                className="min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/30 disabled:opacity-50"
+              />
+              <button
+                type="button"
+                disabled={acting || !customPostpone.trim()}
+                onClick={handleCustomPostpone}
+                className="shrink-0 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-900 hover:bg-blue-100 disabled:opacity-50"
+              >
+                Postpone
+              </button>
+            </div>
+          </div>
+
           <Link
             href="/scheduled-payments"
             className="text-sm text-blue-600 hover:text-blue-800"

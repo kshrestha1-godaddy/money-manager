@@ -283,7 +283,39 @@ export async function updateScheduledPayment(input: UpdateScheduledPaymentInput)
   });
 
   revalidatePath("/expenses");
+  revalidatePath("/scheduled-payments");
   return toScheduledPaymentItem(row as never);
+}
+
+/** Move scheduled time forward (e.g. from dashboard prompt). Must be strictly in the future. */
+export async function postponeScheduledPayment(id: number, newScheduledAt: Date) {
+  const session = await getServerSession(authOptions);
+  if (!session) throw new Error("Unauthorized");
+  const userId = getUserIdFromSession(session.user.id);
+  const now = new Date();
+
+  const existing = await prisma.scheduledPayment.findFirst({
+    where: { id, userId },
+  });
+  if (!existing) throw new Error("Scheduled payment not found");
+  if (existing.resolution !== null) {
+    throw new Error("This scheduled payment was already resolved");
+  }
+
+  const at = new Date(newScheduledAt);
+  if (Number.isNaN(at.getTime())) throw new Error("Invalid date");
+  if (at <= now) {
+    throw new Error("New date and time must be in the future");
+  }
+
+  await prisma.scheduledPayment.update({
+    where: { id },
+    data: { scheduledAt: at },
+  });
+
+  revalidatePath("/expenses");
+  revalidatePath("/scheduled-payments");
+  revalidatePath("/dashboard");
 }
 
 export async function deleteScheduledPayment(id: number) {
