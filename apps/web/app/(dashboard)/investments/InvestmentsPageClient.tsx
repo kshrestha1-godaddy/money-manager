@@ -587,7 +587,12 @@ export default function InvestmentsPageClient() {
           </div>
         )}
 
-        <AddInvestmentModal isOpen={modal.type === 'add'} onClose={closeModal} onAdd={(data) => handleModalAction('add', data)} />
+        <AddInvestmentModal
+          isOpen={modal.type === 'add'}
+          onClose={closeModal}
+          onAdd={(data) => handleModalAction('add', data)}
+          hasExistingStocksInvestment={investments.some((i) => i.type === 'STOCKS')}
+        />
         <EditInvestmentModal
           key={modal.type === 'edit' && modal.investment ? `edit-investment-${modal.investment.id}` : 'edit-investment-closed'}
           investment={modal.investment || null}

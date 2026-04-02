@@ -9,9 +9,15 @@ export interface MobileAddInvestmentSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  hasExistingStocksInvestment?: boolean;
 }
 
-export function MobileAddInvestmentSheet({ isOpen, onClose, onSuccess }: MobileAddInvestmentSheetProps) {
+export function MobileAddInvestmentSheet({
+  isOpen,
+  onClose,
+  onSuccess,
+  hasExistingStocksInvestment = false,
+}: MobileAddInvestmentSheetProps) {
   useEffect(() => {
     if (!isOpen) return;
     document.body.style.overflow = "hidden";
@@ -48,6 +54,7 @@ export function MobileAddInvestmentSheet({ isOpen, onClose, onSuccess }: MobileA
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <InvestmentAddForm
         enabled={isOpen}
+        hasExistingStocksInvestment={hasExistingStocksInvestment}
         onSubmit={async (data) => {
           await createInvestment(
             data as Omit<

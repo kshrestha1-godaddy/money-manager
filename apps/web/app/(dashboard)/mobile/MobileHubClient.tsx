@@ -1513,6 +1513,7 @@ export default function MobileHubClient() {
         onSuccess={() => {
           void loadData();
         }}
+        hasExistingStocksInvestment={investments.some((i) => i.type === "STOCKS")}
       />
 
       <MobileAddDebtSheet

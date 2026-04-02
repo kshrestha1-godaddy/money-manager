@@ -6,6 +6,8 @@ import { InvestmentAddForm } from "./investment-add-form";
 interface AddInvestmentModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** When true, Stocks is not available — only one Stocks position per user. */
+  hasExistingStocksInvestment?: boolean;
   onAdd: (
     investment: Omit<
       InvestmentInterface,
@@ -14,7 +16,12 @@ interface AddInvestmentModalProps {
   ) => void;
 }
 
-export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModalProps) {
+export function AddInvestmentModal({
+  isOpen,
+  onClose,
+  onAdd,
+  hasExistingStocksInvestment = false,
+}: AddInvestmentModalProps) {
   if (!isOpen) return null;
 
   return (
@@ -34,6 +41,7 @@ export function AddInvestmentModal({ isOpen, onClose, onAdd }: AddInvestmentModa
 
         <InvestmentAddForm
           enabled={isOpen}
+          hasExistingStocksInvestment={hasExistingStocksInvestment}
           onSubmit={onAdd}
           onCancel={onClose}
           footerVariant="modal"

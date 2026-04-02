@@ -295,6 +295,17 @@ export async function createInvestment(
         const purchaseCost =
             Number(investment.quantity) * Number(investment.purchasePrice);
 
+        if (investment.type === "STOCKS") {
+            const existingStocks = await prisma.investment.count({
+                where: { userId: user.id, type: "STOCKS" },
+            });
+            if (existingStocks > 0) {
+                throw new Error(
+                    "You already have a Stocks investment. Only one Stocks position is allowed—edit or remove it before adding another."
+                );
+            }
+        }
+
         const result = await prisma.$transaction(async (tx) => {
             if (deduct && linkedAccountId && purchaseCost > 0) {
                 const account = await tx.account.findUnique({
@@ -465,6 +476,19 @@ export async function updateInvestment(
 
             if (!existing) {
                 throw new Error("Investment not found or unauthorized");
+            }
+
+            const nextType =
+                investment.type !== undefined ? investment.type : existing.type;
+            if (nextType === "STOCKS") {
+                const otherStocks = await tx.investment.count({
+                    where: { userId, type: "STOCKS", id: { not: id } },
+                });
+                if (otherStocks > 0) {
+                    throw new Error(
+                        "Only one Stocks investment is allowed. Change the existing Stocks position or choose another type."
+                    );
+                }
             }
 
             const { investmentTargetId: rawTargetId, ...restInvestment } = investment;
@@ -932,6 +956,20 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
                                 });
                             }
 
+                            if (investmentData.type === "STOCKS") {
+                                const stocksCount = await tx.investment.count({
+                                    where: { userId, type: "STOCKS" },
+                                });
+                                if (stocksCount > 0) {
+                                    result.errors.push({
+                                        row: 0,
+                                        error: `Only one Stocks investment allowed — skipped "${investmentData.name}"`,
+                                        data: investmentData,
+                                    });
+                                    continue;
+                                }
+                            }
+
                             const created = await tx.investment.create({
                                 data: {
                                     ...investmentData,
@@ -1228,6 +1266,17 @@ export async function importCorrectedRow(rowData: string[], headers: string[]): 
     const deduct = investmentShouldDeduct(deductFromCsv ?? true);
     const purchaseCost =
         investmentData.quantity * investmentData.purchasePrice;
+
+    if (investmentData.type === "STOCKS") {
+        const existingStocks = await prisma.investment.count({
+            where: { userId, type: "STOCKS" },
+        });
+        if (existingStocks > 0) {
+            throw new Error(
+                "Only one Stocks investment is allowed. Remove or change the existing Stocks position first."
+            );
+        }
+    }
 
     const newInvestment = await prisma.$transaction(async (tx) => {
         if (

@@ -28,6 +28,8 @@ interface Account {
 export interface InvestmentAddFormProps {
   /** When true, loads accounts and targets (e.g. sheet/modal open). */
   enabled: boolean;
+  /** When true, Stocks is hidden — only one Stocks position is allowed per account. */
+  hasExistingStocksInvestment?: boolean;
   onSubmit: (
     investment: Omit<
       InvestmentInterface,
@@ -62,6 +64,7 @@ const inputClass =
 
 export function InvestmentAddForm({
   enabled,
+  hasExistingStocksInvestment = false,
   onSubmit,
   onCancel,
   onAfterSuccess,
@@ -71,7 +74,9 @@ export function InvestmentAddForm({
 
   const [formData, setFormData] = useState({
     name: "",
-    type: "STOCKS" as InvestmentInterface["type"],
+    type: (hasExistingStocksInvestment
+      ? "MUTUAL_FUNDS"
+      : "STOCKS") as InvestmentInterface["type"],
     symbol: "",
     quantity: "1",
     purchasePrice: "",
@@ -99,6 +104,13 @@ export function InvestmentAddForm({
       else setTargets([]);
     })();
   }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled || !hasExistingStocksInvestment) return;
+    setFormData((prev) =>
+      prev.type === "STOCKS" ? { ...prev, type: "MUTUAL_FUNDS" } : prev
+    );
+  }, [enabled, hasExistingStocksInvestment]);
 
   const loadAccounts = async () => {
     try {
@@ -134,6 +146,13 @@ export function InvestmentAddForm({
       const resolvedType = normalizeInvestmentType(formData.type);
       const isQuantityBased = isQuantityBasedInvestmentType(resolvedType);
       const needsCurrentPrice = requiresCurrentPriceField(resolvedType);
+
+      if (resolvedType === "STOCKS" && hasExistingStocksInvestment) {
+        setError(
+          "You already have a Stocks investment. Only one Stocks position is allowed."
+        );
+        return;
+      }
 
       if (isQuantityBased && (!formData.quantity || parseFloat(formData.quantity) <= 0)) {
         setError("Quantity must be greater than 0");
@@ -195,7 +214,7 @@ export function InvestmentAddForm({
 
       setFormData({
         name: "",
-        type: "STOCKS",
+        type: hasExistingStocksInvestment ? "MUTUAL_FUNDS" : "STOCKS",
         symbol: "",
         quantity: "1",
         purchasePrice: "",
@@ -227,6 +246,10 @@ export function InvestmentAddForm({
   };
 
   const resolvedType = normalizeInvestmentType(formData.type);
+
+  const investmentTypeOptions = hasExistingStocksInvestment
+    ? investmentTypes.filter((t) => t.value !== "STOCKS")
+    : investmentTypes;
 
   const formFields = (
     <>
@@ -265,13 +288,27 @@ export function InvestmentAddForm({
             required
             disabled={loading}
           >
-            {investmentTypes.map((type) => (
+            {investmentTypeOptions.map((type) => (
               <option key={type.value} value={type.value}>
                 {type.label}
               </option>
             ))}
           </select>
         </div>
+
+        {resolvedType === "STOCKS" ? (
+          <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm text-blue-950">
+            <p className="font-medium text-blue-900">Stocks cost basis</p>
+            <p className="mt-1.5 leading-relaxed text-blue-800/95">
+              In your portfolio, <strong>purchase cost</strong> for this position is taken from the{" "}
+              <strong>sum of expenses</strong> you record under the expense category{" "}
+              <strong>{getInvestmentTypeLabel("STOCKS")}</strong> (converted to your currency), not
+              strictly from the purchase price and quantity fields below. Use those fields for
+              reference, account deduction, or current market value; the table reflects
+              expense-based cost when you have Stocks expenses.
+            </p>
+          </div>
+        ) : null}
 
         {isSymbolApplicableType(resolvedType) ? (
           <div>
