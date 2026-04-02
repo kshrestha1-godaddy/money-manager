@@ -431,8 +431,8 @@ export default function InvestmentsPageClient() {
           </div>
         </div>
 
-        {/* Investment Target Timeline Chart - Full Width */}
-        <div className="mt-6">
+        {/* Investment Target Timeline Chart - Full Width (min-w-0 so horizontal chart scroll works inside flex/grid ancestors) */}
+        <div className="mt-6 min-w-0">
           <InvestmentTargetTimelineChart 
             targets={stableTargetProgress} 
             currency={userCurrency} 

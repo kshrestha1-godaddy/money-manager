@@ -51,6 +51,15 @@ const TYPE_COLORS: Record<string, string> = {
     OTHER: "#a78bfa",
 };
 
+/**
+ * Scrollable timeline width (same idea as LifeEventsTimelineLineChart): inner chart has a pixel minWidth
+ * so Recharts lays out categories with enough space; outer wrapper is overflow-x-auto.
+ */
+const MIN_INVESTMENT_TIMELINE_WIDTH_PX = 800;
+const MAX_INVESTMENT_TIMELINE_WIDTH_PX = 5200;
+/** Wider slots so bars sit farther apart on the scrollable timeline. */
+const PX_PER_TIMELINE_POINT = 168;
+
 const TYPE_LABELS: Record<string, string> = {
     STOCKS: "Stocks",
     CRYPTO: "Cryptocurrency", 
@@ -275,6 +284,14 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
             sixtyDaysIndex
         };
     }, [targets]);
+
+    const timelineScrollMinWidthPx = useMemo(() => {
+        const n = Math.max(timelineData.length, 1);
+        return Math.max(
+            MIN_INVESTMENT_TIMELINE_WIDTH_PX,
+            Math.min(MAX_INVESTMENT_TIMELINE_WIDTH_PX, n * PX_PER_TIMELINE_POINT)
+        );
+    }, [timelineData.length]);
 
     const CustomTooltip = useCallback(({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
@@ -524,7 +541,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
 
 
     return (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="min-w-0 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
                     <Calendar className="w-5 h-5 text-blue-600 mr-2" />
@@ -600,17 +617,19 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                     </div>
                 </div>
 
-                {/* Chart */}
-                <div
-                    ref={chartRef}
-                    className="w-full h-[28rem] sm:h-[32rem]"
-                    role="img"
-                    aria-label={`Investment targets timeline chart showing ${timelineData.length} targets`}
-                >
-                    <ResponsiveContainer width="100%" height="100%">
+                {/* Chart — scroll pattern matches LifeEventsTimelineLineChart: fixed-height scroll strip + inner minWidth */}
+                <div className="h-[28rem] min-h-[28rem] w-full min-w-0 overflow-x-auto overflow-y-hidden overscroll-x-contain pb-1 touch-pan-x [scrollbar-gutter:stable] sm:h-[32rem] sm:min-h-[32rem]">
+                    <div
+                        ref={chartRef}
+                        className="h-full"
+                        style={{ minWidth: `${timelineScrollMinWidthPx}px` }}
+                        role="img"
+                        aria-label={`Investment targets timeline chart showing ${timelineData.length} timeline points. Scroll horizontally if needed.`}
+                    >
+                        <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart
                             data={timelineData}
-                            margin={{ top: 20, right: 30, left: 40, bottom: 30 }}
+                            margin={{ top: 18, right: 32, left: 52, bottom: 16 }}
                         >
                             <CartesianGrid
                                 strokeDasharray="3 3"
@@ -699,12 +718,15 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                                 tick={<CustomXAxisTick />}
                                 stroke="#666"
                                 height={100}
-                                interval="preserveStartEnd"
+                                interval={0}
+                                padding={{ left: 36, right: 36 }}
+                                tickMargin={14}
                             />
                             <YAxis
                                 tickFormatter={formatYAxisTick}
                                 tick={{ fontSize: 12 }}
                                 stroke="#666"
+                                width={56}
                                 domain={[0, maxAmount * 1.1]}
                             />
                             <Tooltip content={<CustomTooltip />} />
@@ -717,7 +739,9 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                                 fillOpacity={0.4}
                                 stroke="none"
                                 name="Completed Progress"
-                                barSize={60}
+                                barSize={44}
+                                maxBarSize={52}
+                                barCategoryGap="42%"
                             />
                             <Bar
                                 dataKey="remainingBar"
@@ -726,7 +750,8 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                                 fillOpacity={0.4}
                                 stroke="none"
                                 name="Remaining Progress"
-                                barSize={60}
+                                barSize={44}
+                                maxBarSize={52}
                             />
 
                             {/* Target amounts line */}
@@ -756,7 +781,8 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                                 name="Invested"
                             />
                         </ComposedChart>
-                    </ResponsiveContainer>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
             </div>
         </div>

@@ -9,6 +9,7 @@ import {
 } from "../actions/accounts";
 import { formatCurrency } from "../../../utils/currency";
 import { INPUT_COLORS, TEXT_COLORS, UI_STYLES } from "../../../config/colorConfig";
+import { CompactPagination } from "../../../components/shared/CompactPagination";
 
 const standardInput = INPUT_COLORS.standard;
 const labelText = TEXT_COLORS.label;
@@ -341,6 +342,8 @@ function buildBalanceActivityCsv(rows: IncomeExpenseAccountActivityRow[]): strin
         .join("\r\n");
 }
 
+const ITEMS_PER_PAGE = 25;
+
 export function AccountIncomeExpenseActivityTable() {
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
@@ -348,6 +351,7 @@ export function AccountIncomeExpenseActivityTable() {
     const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
     const [selectedActions, setSelectedActions] = useState<string[]>([]);
     const [searchText, setSearchText] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
 
     const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
         queryKey: ["account-balance-activity"],
@@ -396,6 +400,20 @@ export function AccountIncomeExpenseActivityTable() {
             return true;
         });
     }, [data, dateFrom, dateTo, selectedAccountIds, selectedTypes, selectedActions, searchText]);
+
+    const paginatedRows = useMemo(() => {
+        const start = (currentPage - 1) * ITEMS_PER_PAGE;
+        return filteredRows.slice(start, start + ITEMS_PER_PAGE);
+    }, [filteredRows, currentPage]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [dateFrom, dateTo, selectedAccountIds, selectedTypes, selectedActions, searchText]);
+
+    useEffect(() => {
+        const totalPages = Math.max(1, Math.ceil(filteredRows.length / ITEMS_PER_PAGE));
+        setCurrentPage((p) => Math.min(p, totalPages));
+    }, [filteredRows.length]);
 
     const hasActiveFilters =
         Boolean(dateFrom) ||
@@ -474,34 +492,44 @@ export function AccountIncomeExpenseActivityTable() {
         <div className={UI_STYLES.chart.container}>
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
-                    <h2 className={UI_STYLES.chart.title}>Balance activity log</h2>
+                    <h2 className={UI_STYLES.chart.title}>
+                        Balance activity log ({filteredRows.length})
+                    </h2>
                     <p className="text-sm text-gray-600">
                         Income, expenses, lending, and investment activity that moved money in or out.
                     </p>
                 </div>
-                <div className="flex shrink-0 flex-wrap items-center gap-2 self-start">
-                    <button
-                        type="button"
-                        onClick={() => refetch()}
-                        disabled={isFetching}
-                        aria-busy={isFetching}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:pointer-events-none disabled:opacity-50"
-                    >
-                        <RefreshCw
-                            className={`h-4 w-4 shrink-0 ${isFetching ? "animate-spin" : ""}`}
-                            aria-hidden
-                        />
-                        Refresh
-                    </button>
-                    <button
-                        type="button"
-                        onClick={handleDownloadCsv}
-                        disabled={filteredRows.length === 0}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:pointer-events-none disabled:opacity-50"
-                    >
-                        <Download className="h-4 w-4 shrink-0" aria-hidden />
-                        Download CSV
-                    </button>
+                <div className="flex shrink-0 flex-wrap items-center gap-3 self-start">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => refetch()}
+                            disabled={isFetching}
+                            aria-busy={isFetching}
+                            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:pointer-events-none disabled:opacity-50"
+                        >
+                            <RefreshCw
+                                className={`h-4 w-4 shrink-0 ${isFetching ? "animate-spin" : ""}`}
+                                aria-hidden
+                            />
+                            Refresh
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleDownloadCsv}
+                            disabled={filteredRows.length === 0}
+                            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:pointer-events-none disabled:opacity-50"
+                        >
+                            <Download className="h-4 w-4 shrink-0" aria-hidden />
+                            Download CSV
+                        </button>
+                    </div>
+                    <CompactPagination
+                        currentPage={currentPage}
+                        totalItems={filteredRows.length}
+                        itemsPerPage={ITEMS_PER_PAGE}
+                        onPageChange={setCurrentPage}
+                    />
                 </div>
             </div>
 
@@ -590,7 +618,8 @@ export function AccountIncomeExpenseActivityTable() {
                 </div>
             </div>
 
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <div className="overflow-hidden rounded-lg border border-gray-200">
+                <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                     <thead className="bg-gray-50">
                         <tr>
@@ -629,7 +658,7 @@ export function AccountIncomeExpenseActivityTable() {
                                 </td>
                             </tr>
                         ) : (
-                            filteredRows.map((row) => {
+                            paginatedRows.map((row) => {
                                 const {
                                     balanceDelta,
                                     userCurrency,
@@ -702,6 +731,17 @@ export function AccountIncomeExpenseActivityTable() {
                         )}
                     </tbody>
                 </table>
+                </div>
+                {filteredRows.length > ITEMS_PER_PAGE ? (
+                    <div className="flex justify-end border-t border-gray-200 bg-gray-50/80 px-4 py-3">
+                        <CompactPagination
+                            currentPage={currentPage}
+                            totalItems={filteredRows.length}
+                            itemsPerPage={ITEMS_PER_PAGE}
+                            onPageChange={setCurrentPage}
+                        />
+                    </div>
+                ) : null}
             </div>
         </div>
     );
