@@ -28,6 +28,7 @@ import { DEFAULT_GOLD_SPOT_INR_PER_UNIT } from "./utils/goldSpotStorage";
 import { DEFAULT_SILVER_SPOT_INR_PER_UNIT } from "./utils/silverSpotStorage";
 import { DisappearingNotification, NotificationData } from "../../components/DisappearingNotification";
 import { exportInvestmentTargetsToCSV } from "../../utils/csvExportInvestmentTargets";
+import { presentValueForPosition } from "./utils/stocksExpenseBasis";
 // import { InvestmentTypePieChart } from "./charts/InvestmentTypePieChart";
 
 const pageContainer = CONTAINER_COLORS.page;
@@ -278,7 +279,32 @@ export default function InvestmentsPageClient() {
     () => filteredInvestments,
     [filteredInvestments, filteredInvestmentsStableKey]
   );
-  const stableTargetProgress = useMemo(() => targetProgress, [targetProgress?.length, targetProgress?.reduce((sum, target) => sum + target.progress + (target.isComplete ? 1 : 0), 0) ?? 0]);
+
+  /**
+   * Progress bars / timeline must match the investments table: same quantity × current price,
+   * including browser gold/silver spot overrides. Server-only getInvestmentTargetProgress uses DB
+   * currentPrice and was also stuck behind a stale memo when progress stayed at 100%.
+   */
+  const targetProgressForCharts = useMemo(() => {
+    if (!targetProgress?.length) return targetProgress ?? [];
+    if (!investments?.length) return targetProgress;
+    const pvByTargetId = new Map<number, number>();
+    for (const inv of investments) {
+      if (inv.investmentTargetId == null) continue;
+      const tid = inv.investmentTargetId;
+      pvByTargetId.set(tid, (pvByTargetId.get(tid) || 0) + presentValueForPosition(inv));
+    }
+    return targetProgress.map((t) => {
+      const pv = pvByTargetId.get(t.targetId) ?? 0;
+      const rawProgress = t.targetAmount > 0 ? (pv / t.targetAmount) * 100 : 0;
+      return {
+        ...t,
+        currentAmount: pv,
+        progress: Math.min(rawProgress, 100),
+        isComplete: rawProgress >= 100,
+      };
+    });
+  }, [targetProgress, investments]);
 
   const polarChartProps = useMemo(() => ({ investments: stableFilteredInvestments, currency: userCurrency, title: "Portfolio Distribution by Investment Type" }), [stableFilteredInvestments, userCurrency]);
   // Bulk delete targets handlers
@@ -287,13 +313,13 @@ export default function InvestmentsPageClient() {
   }, []);
 
   const targetChartProps = useMemo(() => ({ 
-    targets: stableTargetProgress, 
+    targets: targetProgressForCharts, 
     currency: userCurrency, 
     title: "Investment Target Progress", 
     onEditTarget: openEditTargetModal, 
     onAddTarget: openAddTargetModal,
     onBulkDelete: handleBulkDeleteTargetsClick
-  }), [stableTargetProgress, userCurrency, openEditTargetModal, openAddTargetModal, handleBulkDeleteTargetsClick]);
+  }), [targetProgressForCharts, userCurrency, openEditTargetModal, openAddTargetModal, handleBulkDeleteTargetsClick]);
 
   const handleSectionBulkDelete = (sectionInvestments: InvestmentInterface[]) => {
     const selectedIds = sectionInvestments.filter(inv => selectedInvestments.has(inv.id));
@@ -331,15 +357,15 @@ export default function InvestmentsPageClient() {
     }
     
     // Export investment targets if available
-    if (targetProgress && targetProgress.length > 0) {
-      exportInvestmentTargetsToCSV(targetProgress);
+    if (targetProgressForCharts && targetProgressForCharts.length > 0) {
+      exportInvestmentTargetsToCSV(targetProgressForCharts);
       hasData = true;
     }
     
     if (!hasData) {
       alert("No data to export. Please add some investments or set investment targets first.");
     }
-  }, [filteredInvestments, targetProgress, handleExportToCSV]);
+  }, [filteredInvestments, targetProgressForCharts, handleExportToCSV]);
 
   // Import success handler - refreshes both investments and targets data
   const handleImportSuccess = useCallback(() => {
@@ -486,7 +512,7 @@ export default function InvestmentsPageClient() {
         {/* Investment Target Timeline Chart - Full Width (min-w-0 so horizontal chart scroll works inside flex/grid ancestors) */}
         <div className="mt-6 min-w-0">
           <InvestmentTargetTimelineChart 
-            targets={stableTargetProgress} 
+            targets={targetProgressForCharts} 
             currency={userCurrency} 
             title="Investment Target Timeline" 
           />
