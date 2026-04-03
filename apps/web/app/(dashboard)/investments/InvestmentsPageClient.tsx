@@ -20,9 +20,11 @@ import { useOptimizedInvestmentTargets } from "./hooks/useOptimizedInvestmentTar
 import { Plus, Upload, TrendingUp, TrendingDown, DollarSign, Target, Info, ChevronDown } from "lucide-react";
 import { getGainLossClasses, BUTTON_COLORS, TEXT_COLORS, CONTAINER_COLORS, INPUT_COLORS, LOADING_COLORS, ICON_COLORS, UI_STYLES } from "../../config/colorConfig";
 import { ChartAnimationProvider } from "../../hooks/useChartAnimationContext";
+import { triggerBalanceRefresh } from "../../hooks/useTotalBalance";
 import { InvestmentTypePolarChart } from "./charts/InvestmentTypePolarChart";
 import { InvestmentTargetProgressChart } from "./charts/InvestmentTargetProgressChart";
 import { InvestmentTargetTimelineChart } from "./charts/InvestmentTargetTimelineChart";
+import { GoldPurchaseRateModal } from "./components/GoldPurchaseRateModal";
 import { DisappearingNotification, NotificationData } from "../../components/DisappearingNotification";
 import { exportInvestmentTargetsToCSV } from "../../utils/csvExportInvestmentTargets";
 // import { InvestmentTypePieChart } from "./charts/InvestmentTypePieChart";
@@ -69,6 +71,7 @@ export default function InvestmentsPageClient() {
   const [notification, setNotification] = useState<NotificationData | null>(null);
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const typeMenuRef = useRef<HTMLDivElement>(null);
+  const [goldRateModalOpen, setGoldRateModalOpen] = useState(false);
 
   const {
     targets: actualTargets,
@@ -211,6 +214,30 @@ export default function InvestmentsPageClient() {
     [investments]
   );
   const stableInvestments = useMemo(() => investments, [investments, investmentsStableKey]);
+
+  const goldInvestmentCount = useMemo(
+    () => investments.filter((i) => i.type === "GOLD").length,
+    [investments]
+  );
+
+  const handleGoldRateApplied = useCallback(
+    (updated: number) => {
+      void queryClient.invalidateQueries({ queryKey: ["investments"] });
+      void queryClient.invalidateQueries({ queryKey: ["investment-target-progress"] });
+      void queryClient.invalidateQueries({ queryKey: ["withheld-amounts"] });
+      triggerBalanceRefresh();
+      setNotification({
+        title: updated === 0 ? "No gold positions" : "Gold purchase rates updated",
+        message:
+          updated === 0
+            ? "There are no Gold-type investments to update."
+            : `Purchase rate per unit was applied to ${updated} gold position(s).`,
+        type: updated === 0 ? "warning" : "success",
+        duration: 4000,
+      });
+    },
+    [queryClient]
+  );
 
   const filteredInvestmentsStableKey = useMemo(
     () =>
@@ -533,6 +560,28 @@ export default function InvestmentsPageClient() {
           </div>
         </div>
 
+        {goldInvestmentCount > 0 ? (
+          <div className="mb-3 flex justify-end">
+            <div className="inline-flex items-center gap-0.5 rounded-md border border-amber-200/80 bg-amber-50/90 p-0.5 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setGoldRateModalOpen(true)}
+                className="rounded px-3 py-1.5 text-sm font-medium text-amber-950 transition hover:bg-amber-100/80"
+              >
+                Update GPR
+              </button>
+              <button
+                type="button"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-amber-800 transition hover:bg-amber-100/80"
+                title="Update Gold Purchase Rate"
+                aria-label="Update Gold Purchase Rate"
+              >
+                <Info className="h-4 w-4" aria-hidden />
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {filteredInvestments.length === 0 ? (
           <div className={UI_STYLES.empty.container}>
             <div className={UI_STYLES.empty.icon}>
@@ -586,6 +635,14 @@ export default function InvestmentsPageClient() {
             ))}
           </div>
         )}
+
+        <GoldPurchaseRateModal
+          isOpen={goldRateModalOpen}
+          onClose={() => setGoldRateModalOpen(false)}
+          currency={userCurrency}
+          goldCount={goldInvestmentCount}
+          onApplied={handleGoldRateApplied}
+        />
 
         <AddInvestmentModal
           isOpen={modal.type === 'add'}

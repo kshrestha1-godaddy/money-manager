@@ -728,6 +728,43 @@ export async function updateInvestment(
     }
 }
 
+/**
+ * Sets the same purchase price per unit on every Gold-type investment for the current user.
+ * Delegates to {@link updateInvestment} per row so linked-account balance adjustments stay consistent
+ * with editing a single position.
+ */
+export async function bulkUpdateGoldPurchasePrices(purchasePrice: number): Promise<{ updated: number }> {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+        throw new Error("Unauthorized");
+    }
+
+    const userId = getUserIdFromSession(session.user.id);
+    if (isNaN(userId)) {
+        throw new Error("Invalid user ID");
+    }
+
+    if (!Number.isFinite(purchasePrice) || purchasePrice <= 0) {
+        throw new Error("Purchase rate must be greater than zero");
+    }
+
+    const goldRows = await prisma.investment.findMany({
+        where: { userId, type: "GOLD" },
+        select: { id: true },
+        orderBy: { id: "asc" },
+    });
+
+    if (goldRows.length === 0) {
+        return { updated: 0 };
+    }
+
+    for (const row of goldRows) {
+        await updateInvestment(row.id, { purchasePrice });
+    }
+
+    return { updated: goldRows.length };
+}
+
 export async function deleteInvestment(id: number) {
     try {
         const session = await getServerSession(authOptions);

@@ -167,8 +167,8 @@ export function InvestmentTable({
                 bValue = b.quantity;
                 break;
             case 'purchasePrice':
-                aValue = a.purchasePrice;
-                bValue = b.purchasePrice;
+                aValue = a.quantity * a.purchasePrice;
+                bValue = b.quantity * b.purchasePrice;
                 break;
             case 'currentPrice':
                 aValue = a.currentPrice;
@@ -371,7 +371,7 @@ export function InvestmentTable({
                             onClick={() => handleSort('purchasePrice')}
                         >
                             <div className="flex items-center justify-center gap-2">
-                                <span>Purchase/Principal</span>
+                                <span title="Total cost: quantity × purchase price per unit">Purchase/Principal</span>
                                 {getSortIcon('purchasePrice')}
                             </div>
                             <div 
@@ -461,6 +461,7 @@ export function InvestmentTable({
                                 isSelected={selectedInvestments.has(investment.id)}
                                 onSelect={onInvestmentSelect}
                                 showCheckbox={showBulkActions}
+                                totalPurchasePrincipal={totalCost}
                                 totalValue={totalValue}
                                 gain={gain}
                                 gainPercentage={gainPercentage}
@@ -598,6 +599,7 @@ function InvestmentRow({
     isSelected = false, 
     onSelect, 
     showCheckbox = false,
+    totalPurchasePrincipal,
     totalValue,
     gain,
     gainPercentage,
@@ -612,6 +614,7 @@ function InvestmentRow({
     isSelected?: boolean;
     onSelect?: (investmentId: number, selected: boolean) => void;
     showCheckbox?: boolean;
+    totalPurchasePrincipal: number;
     totalValue: number;
     gain: number;
     gainPercentage: string;
@@ -703,8 +706,12 @@ function InvestmentRow({
                     <div className="font-medium tabular-nums">{investment.quantity}</div>
                 )}
             </td>
-            <td className="px-3 py-4 text-sm text-gray-900 text-center tabular-nums align-top" style={{ width: `${columnWidths.purchasePrincipal}px` }}>
-                <div className="break-words font-medium">{formatCurrency(investment.purchasePrice, currency)}</div>
+            <td
+                className="px-3 py-4 text-sm text-gray-900 text-center tabular-nums align-top"
+                style={{ width: `${columnWidths.purchasePrincipal}px` }}
+                title={`${investment.quantity} × ${formatCurrency(investment.purchasePrice, currency)} per unit`}
+            >
+                <div className="break-words font-medium">{formatCurrency(totalPurchasePrincipal, currency)}</div>
             </td>
             <td className="px-3 py-4 text-sm text-gray-900 text-center tabular-nums align-top" style={{ width: `${columnWidths.currentValue}px` }}>
                 <div className="break-words font-medium">{formatCurrency(investment.currentPrice, currency)}</div>
