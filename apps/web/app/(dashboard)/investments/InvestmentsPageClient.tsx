@@ -243,7 +243,7 @@ export default function InvestmentsPageClient() {
       setNotification({
         title: "Gold spot rate saved",
         message:
-          "The rate is stored in this browser and is used for current gold values (quantity × spot).",
+          "The rate is stored in this browser and is used for current gold values (grams × spot per gm).",
         type: "success",
         duration: 4000,
       });
@@ -257,7 +257,7 @@ export default function InvestmentsPageClient() {
       setNotification({
         title: "Silver spot rate saved",
         message:
-          "The rate is stored in this browser and is used for current silver values (quantity × spot).",
+          "The rate is stored in this browser and is used for current silver values (grams × spot per gm).",
         type: "success",
         duration: 4000,
       });
@@ -639,12 +639,12 @@ export default function InvestmentsPageClient() {
           <button
             type="button"
             onClick={() => setMetalRateModal("gold")}
-            title="Gold present value uses quantity × this spot. Cost price uses quantity × your purchase price per unit. Click to update (saved in this browser)."
+            title="Gold quantity is in grams. Present value = quantity (g) × this spot per gram. Purchase cost = quantity × your purchase price per gram. Click to update (saved in this browser)."
             className="inline-flex max-w-full flex-col items-end gap-0.5 rounded-md border border-amber-200/80 bg-amber-50/90 px-3 py-2 text-right shadow-sm transition hover:bg-amber-100/80"
           >
             <span className="text-sm font-semibold tabular-nums text-amber-950">
               {formatCurrency(goldSpotPerUnitDisplay, userCurrency)}
-              <span className="font-medium text-amber-900/80"> / unit</span>
+              <span className="font-medium text-amber-900/80"> /gm</span>
             </span>
             <span className="text-xs font-normal text-amber-800/90">
               {goldSpotUpdatedAt
@@ -658,12 +658,12 @@ export default function InvestmentsPageClient() {
           <button
             type="button"
             onClick={() => setMetalRateModal("silver")}
-            title="Silver present value uses quantity × this spot. Cost price uses quantity × your purchase price per unit. Click to update (saved in this browser)."
+            title="Silver quantity is in grams. Present value = quantity (g) × this spot per gram. Purchase cost = quantity × your purchase price per gram. Click to update (saved in this browser)."
             className="inline-flex max-w-full flex-col items-end gap-0.5 rounded-md border border-slate-300/90 bg-slate-50/95 px-3 py-2 text-right shadow-sm transition hover:bg-slate-100/90"
           >
             <span className="text-sm font-semibold tabular-nums text-slate-900">
               {formatCurrency(silverSpotPerUnitDisplay, userCurrency)}
-              <span className="font-medium text-slate-700"> / unit</span>
+              <span className="font-medium text-slate-700"> /gm</span>
             </span>
             <span className="text-xs font-normal text-slate-600">
               {silverSpotUpdatedAt

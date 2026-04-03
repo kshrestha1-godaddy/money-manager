@@ -88,9 +88,9 @@ export function MetalSpotRateModal({
         </div>
 
         <p className="mb-4 text-sm text-gray-600">
-          Current value for {label.toLowerCase()} positions is <strong>quantity × this rate</strong>{" "}
-          (per unit of quantity). Purchase cost stays{" "}
-          <strong>quantity × your purchase price per unit</strong> from each position. This rate is
+          Quantity for {label.toLowerCase()} is in <strong>grams (gm)</strong>. Current value is{" "}
+          <strong>quantity (g) × this rate</strong> ({currency} per gram). Purchase cost stays{" "}
+          <strong>quantity × your purchase price per gram</strong> from each position. This rate is
           saved in your browser only.
         </p>
 
@@ -106,7 +106,7 @@ export function MetalSpotRateModal({
               htmlFor={`metal-spot-rate-${metal}`}
               className="mb-1 block text-sm font-medium text-gray-700"
             >
-              {label} spot rate ({currency} per unit)
+              {label} spot rate ({currency} / gm)
             </label>
             <input
               id={`metal-spot-rate-${metal}`}
@@ -124,7 +124,7 @@ export function MetalSpotRateModal({
               {formatCurrency(defaultInDisplay, currency)} in your currency.
             </p>
             <p className="mt-1 text-xs text-gray-500">
-              Preview: 1 unit at this rate ={" "}
+              Preview: 1 gm at this rate ={" "}
               {rate && parseFloat(rate) > 0 ? formatCurrency(parseFloat(rate), currency) : "—"}
             </p>
           </div>
