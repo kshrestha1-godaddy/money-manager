@@ -711,14 +711,19 @@ function InvestmentRow({
                 style={{ width: `${columnWidths.purchasePrincipal}px` }}
                 title={`${investment.quantity} × ${formatCurrency(investment.purchasePrice, currency)} per unit`}
             >
-                <div className="break-words font-medium">{formatCurrency(totalPurchasePrincipal, currency)}</div>
+                <div className="flex flex-col items-center gap-0.5">
+                    <div className="break-words font-medium">{formatCurrency(totalPurchasePrincipal, currency)}</div>
+                    <div className="text-xs font-normal text-gray-500 tabular-nums">
+                        ({formatCurrency(investment.purchasePrice, currency)}/unit)
+                    </div>
+                </div>
             </td>
             <td
                 className="px-3 py-4 text-sm text-gray-900 text-center tabular-nums align-top"
                 style={{ width: `${columnWidths.currentValue}px` }}
                 title={
-                    investment.type === "GOLD"
-                        ? "Gold spot per unit (from Update gold rate). Current position value = quantity × this rate."
+                    investment.type === "GOLD" || investment.type === "SILVER"
+                        ? "Spot per unit (from investments page). Present value = quantity × this rate."
                         : undefined
                 }
             >

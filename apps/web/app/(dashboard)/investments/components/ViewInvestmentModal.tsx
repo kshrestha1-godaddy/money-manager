@@ -47,6 +47,7 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
             case 'BONDS': return '🏛️';
             case 'REAL_ESTATE': return '🏠';
             case 'GOLD': return '🥇';
+            case 'SILVER': return '🥈';
             case 'FIXED_DEPOSIT': return '🏦';
             case 'PROVIDENT_FUNDS': return '🏛️';
             case 'SAFE_KEEPINGS': return '🔒';
@@ -124,7 +125,7 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
                                     <span className="text-gray-600">
                                         {(investment.type === 'FIXED_DEPOSIT' || investment.type === 'EMERGENCY_FUND' || investment.type === 'MARRIAGE' || investment.type === 'VACATION') ? 'Principal Amount:' : 
                                          investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' ? 'Investment Amount:' : 
-                                         investment.type === 'GOLD' ? 'Purchase price (per unit):' : 'Purchase Price:'}
+                                         investment.type === 'GOLD' || investment.type === 'SILVER' ? 'Purchase price (per unit):' : 'Purchase Price:'}
                                     </span>
                                     <span className="font-medium text-gray-900">
                                         {formatCurrency(investment.purchasePrice, userCurrency)}
@@ -132,16 +133,16 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-gray-600">
-                                        {investment.type === "GOLD" ? "Spot (per unit):" : "Current Value:"}
+                                        {investment.type === "GOLD" || investment.type === "SILVER" ? "Spot (per unit):" : "Current Value:"}
                                     </span>
                                     <span className="font-medium text-gray-900">
                                         {formatCurrency(investment.currentPrice, userCurrency)}
                                     </span>
                                 </div>
-                                {investment.type === "GOLD" ? (
+                                {investment.type === "GOLD" || investment.type === "SILVER" ? (
                                     <p className="text-xs text-gray-500">
                                         Total purchase = quantity × purchase price per unit. Current total = quantity × spot
-                                        (from Update gold rate on the investments page).
+                                        (from Update gold / silver rate on the investments page).
                                     </p>
                                 ) : null}
                                 {(investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' || investment.type === 'EMERGENCY_FUND' || investment.type === 'MARRIAGE' || investment.type === 'VACATION') && investment.interestRate && (

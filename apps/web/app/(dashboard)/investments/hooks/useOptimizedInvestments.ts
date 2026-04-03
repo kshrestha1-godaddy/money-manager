@@ -15,9 +15,10 @@ import { triggerBalanceRefresh } from '../../../hooks/useTotalBalance';
 import { exportInvestmentsToCSV } from '../../../utils/csvExportInvestments';
 import { exportInvestmentTargetsToCSV } from '../../../utils/csvExportInvestmentTargets';
 import { sortInvestmentsByTargetCompletionAsc } from '../utils/investmentTargetSort';
-import { applyGoldSpotToInvestments } from '../utils/applyGoldSpotToInvestments';
+import { applyMetalSpotRatesToInvestments } from '../utils/applyMetalSpotRatesToInvestments';
 import { useCurrency } from '../../../providers/CurrencyProvider';
 import { useGoldSpotRate } from './useGoldSpotRate';
+import { useSilverSpotRate } from './useSilverSpotRate';
 
 interface Modal {
     type: 'add' | 'edit' | 'delete' | 'view' | 'import' | null;
@@ -48,6 +49,11 @@ export function useOptimizedInvestments() {
         updatedAt: goldSpotUpdatedAt,
         setSpotFromDisplayAmount: setGoldSpotRateFromDisplay,
     } = useGoldSpotRate(currency);
+    const {
+        spotPerUnitDisplay: silverSpotPerUnitDisplay,
+        updatedAt: silverSpotUpdatedAt,
+        setSpotFromDisplayAmount: setSilverSpotRateFromDisplay,
+    } = useSilverSpotRate(currency);
 
     // ==================== DATA MANAGEMENT ====================
     
@@ -92,8 +98,13 @@ export function useOptimizedInvestments() {
     });
 
     const investments = useMemo(
-        () => applyGoldSpotToInvestments(investmentsRaw, goldSpotPerUnitDisplay),
-        [investmentsRaw, goldSpotPerUnitDisplay]
+        () =>
+            applyMetalSpotRatesToInvestments(
+                investmentsRaw,
+                goldSpotPerUnitDisplay,
+                silverSpotPerUnitDisplay
+            ),
+        [investmentsRaw, goldSpotPerUnitDisplay, silverSpotPerUnitDisplay]
     );
 
     // ==================== STATE MANAGEMENT ====================
@@ -632,5 +643,9 @@ export function useOptimizedInvestments() {
         goldSpotPerUnitDisplay,
         goldSpotUpdatedAt,
         setGoldSpotRateFromDisplay,
+
+        silverSpotPerUnitDisplay,
+        silverSpotUpdatedAt,
+        setSilverSpotRateFromDisplay,
     };
 } 

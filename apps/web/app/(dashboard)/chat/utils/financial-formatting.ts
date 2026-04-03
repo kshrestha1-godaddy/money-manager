@@ -335,7 +335,7 @@ export function formatFinancialDataAsMarkdown(
     
     // Categorize investments by liquidity impact
     const bankLinkedTypes = ['FIXED_DEPOSIT', 'EMERGENCY_FUND', 'MARRIAGE', 'VACATION', 'STOCKS', 'PROVIDENT_FUNDS', 'SAFE_KEEPINGS', 'OTHER'];
-    const externalTypes = ['GOLD', 'BONDS', 'MUTUAL_FUNDS', 'CRYPTO', 'REAL_ESTATE'];
+    const externalTypes = ['GOLD', 'SILVER', 'BONDS', 'MUTUAL_FUNDS', 'CRYPTO', 'REAL_ESTATE'];
     
     const bankLinkedInvestments = investments.filter(inv => bankLinkedTypes.includes(inv.type));
     const externalInvestments = investments.filter(inv => externalTypes.includes(inv.type));

@@ -34,6 +34,8 @@ function getTypeIcon(type: string): string {
       return "🏠";
     case "GOLD":
       return "🥇";
+    case "SILVER":
+      return "🥈";
     case "FIXED_DEPOSIT":
       return "🏦";
     case "PROVIDENT_FUNDS":

@@ -23,7 +23,9 @@ import { ChartAnimationProvider } from "../../hooks/useChartAnimationContext";
 import { InvestmentTypePolarChart } from "./charts/InvestmentTypePolarChart";
 import { InvestmentTargetProgressChart } from "./charts/InvestmentTargetProgressChart";
 import { InvestmentTargetTimelineChart } from "./charts/InvestmentTargetTimelineChart";
-import { GoldPurchaseRateModal } from "./components/GoldPurchaseRateModal";
+import { MetalSpotRateModal } from "./components/MetalSpotRateModal";
+import { DEFAULT_GOLD_SPOT_INR_PER_UNIT } from "./utils/goldSpotStorage";
+import { DEFAULT_SILVER_SPOT_INR_PER_UNIT } from "./utils/silverSpotStorage";
 import { DisappearingNotification, NotificationData } from "../../components/DisappearingNotification";
 import { exportInvestmentTargetsToCSV } from "../../utils/csvExportInvestmentTargets";
 // import { InvestmentTypePieChart } from "./charts/InvestmentTypePieChart";
@@ -70,7 +72,7 @@ export default function InvestmentsPageClient() {
   const [notification, setNotification] = useState<NotificationData | null>(null);
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const typeMenuRef = useRef<HTMLDivElement>(null);
-  const [goldRateModalOpen, setGoldRateModalOpen] = useState(false);
+  const [metalRateModal, setMetalRateModal] = useState<null | "gold" | "silver">(null);
 
   const {
     targets: actualTargets,
@@ -137,6 +139,9 @@ export default function InvestmentsPageClient() {
     goldSpotPerUnitDisplay,
     goldSpotUpdatedAt,
     setGoldSpotRateFromDisplay,
+    silverSpotPerUnitDisplay,
+    silverSpotUpdatedAt,
+    setSilverSpotRateFromDisplay,
   } = useOptimizedInvestments();
 
   useEffect(() => {
@@ -217,11 +222,6 @@ export default function InvestmentsPageClient() {
   );
   const stableInvestments = useMemo(() => investments, [investments, investmentsStableKey]);
 
-  const goldInvestmentCount = useMemo(
-    () => investments.filter((i) => i.type === "GOLD").length,
-    [investments]
-  );
-
   const handleGoldSpotSaved = useCallback(
     (rateInDisplayCurrency: number) => {
       setGoldSpotRateFromDisplay(rateInDisplayCurrency);
@@ -234,6 +234,20 @@ export default function InvestmentsPageClient() {
       });
     },
     [setGoldSpotRateFromDisplay]
+  );
+
+  const handleSilverSpotSaved = useCallback(
+    (rateInDisplayCurrency: number) => {
+      setSilverSpotRateFromDisplay(rateInDisplayCurrency);
+      setNotification({
+        title: "Silver spot rate saved",
+        message:
+          "The rate is stored in this browser and is used for current silver values (quantity × spot).",
+        type: "success",
+        duration: 4000,
+      });
+    },
+    [setSilverSpotRateFromDisplay]
   );
 
   const filteredInvestmentsStableKey = useMemo(
@@ -557,29 +571,46 @@ export default function InvestmentsPageClient() {
           </div>
         </div>
 
-        {goldInvestmentCount > 0 ? (
-          <div className="mb-3 flex justify-end">
-            <button
-              type="button"
-              onClick={() => setGoldRateModalOpen(true)}
-              title="Gold current value uses quantity × this spot. Purchase cost uses quantity × your purchase price per unit. Click to update (saved in this browser)."
-              className="inline-flex max-w-full flex-col items-end gap-0.5 rounded-md border border-amber-200/80 bg-amber-50/90 px-3 py-2 text-right shadow-sm transition hover:bg-amber-100/80"
-            >
-              <span className="text-sm font-semibold tabular-nums text-amber-950">
-                {formatCurrency(goldSpotPerUnitDisplay, userCurrency)}
-                <span className="font-medium text-amber-900/80"> / unit</span>
-              </span>
-              <span className="text-xs font-normal text-amber-800/90">
-                {goldSpotUpdatedAt
-                  ? new Date(goldSpotUpdatedAt).toLocaleString(undefined, {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })
-                  : "Default · tap to save"}
-              </span>
-            </button>
-          </div>
-        ) : null}
+        <div className="mb-3 flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setMetalRateModal("gold")}
+            title="Gold present value uses quantity × this spot. Cost price uses quantity × your purchase price per unit. Click to update (saved in this browser)."
+            className="inline-flex max-w-full flex-col items-end gap-0.5 rounded-md border border-amber-200/80 bg-amber-50/90 px-3 py-2 text-right shadow-sm transition hover:bg-amber-100/80"
+          >
+            <span className="text-sm font-semibold tabular-nums text-amber-950">
+              {formatCurrency(goldSpotPerUnitDisplay, userCurrency)}
+              <span className="font-medium text-amber-900/80"> / unit</span>
+            </span>
+            <span className="text-xs font-normal text-amber-800/90">
+              {goldSpotUpdatedAt
+                ? new Date(goldSpotUpdatedAt).toLocaleString(undefined, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })
+                : "Gold · default · tap to save"}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMetalRateModal("silver")}
+            title="Silver present value uses quantity × this spot. Cost price uses quantity × your purchase price per unit. Click to update (saved in this browser)."
+            className="inline-flex max-w-full flex-col items-end gap-0.5 rounded-md border border-slate-300/90 bg-slate-50/95 px-3 py-2 text-right shadow-sm transition hover:bg-slate-100/90"
+          >
+            <span className="text-sm font-semibold tabular-nums text-slate-900">
+              {formatCurrency(silverSpotPerUnitDisplay, userCurrency)}
+              <span className="font-medium text-slate-700"> / unit</span>
+            </span>
+            <span className="text-xs font-normal text-slate-600">
+              {silverSpotUpdatedAt
+                ? new Date(silverSpotUpdatedAt).toLocaleString(undefined, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })
+                : "Silver · default · tap to save"}
+            </span>
+          </button>
+        </div>
 
         {filteredInvestments.length === 0 ? (
           <div className={UI_STYLES.empty.container}>
@@ -635,12 +666,20 @@ export default function InvestmentsPageClient() {
           </div>
         )}
 
-        <GoldPurchaseRateModal
-          isOpen={goldRateModalOpen}
-          onClose={() => setGoldRateModalOpen(false)}
+        <MetalSpotRateModal
+          isOpen={metalRateModal !== null}
+          onClose={() => setMetalRateModal(null)}
           currency={userCurrency}
-          spotPerUnitDisplay={goldSpotPerUnitDisplay}
-          onApply={handleGoldSpotSaved}
+          spotPerUnitDisplay={
+            metalRateModal === "silver" ? silverSpotPerUnitDisplay : goldSpotPerUnitDisplay
+          }
+          onApply={metalRateModal === "silver" ? handleSilverSpotSaved : handleGoldSpotSaved}
+          metal={metalRateModal === "silver" ? "silver" : "gold"}
+          defaultInrPerUnit={
+            metalRateModal === "silver"
+              ? DEFAULT_SILVER_SPOT_INR_PER_UNIT
+              : DEFAULT_GOLD_SPOT_INR_PER_UNIT
+          }
         />
 
         <AddInvestmentModal

@@ -42,6 +42,7 @@ const INVESTMENT_TYPE_OPTIONS: { value: InvestmentInterface["type"]; label: stri
     { value: "BONDS", label: "Bonds" },
     { value: "REAL_ESTATE", label: "Real Estate" },
     { value: "GOLD", label: "Gold" },
+    { value: "SILVER", label: "Silver" },
     { value: "PROVIDENT_FUNDS", label: "Provident Funds" },
     { value: "SAFE_KEEPINGS", label: "Safe Keepings" },
     { value: "OTHER", label: "Other" },
@@ -448,7 +449,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
 
                                 <div>
                                     <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 mb-1">
-                                        {resolvedType === "GOLD"
+                                        {resolvedType === "GOLD" || resolvedType === "SILVER"
                                             ? "Purchase price per unit *"
                                             : "Purchase Price *"}
                                     </label>
@@ -463,7 +464,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                                         placeholder="0.00"
                                         required
                                     />
-                                    {resolvedType === "GOLD" ? (
+                                    {resolvedType === "GOLD" || resolvedType === "SILVER" ? (
                                         <p className="mt-1 text-xs text-gray-500">
                                             Total purchase cost is quantity × this price. Current value uses the spot
                                             rate on the investments page.

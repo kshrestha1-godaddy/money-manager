@@ -54,6 +54,7 @@ const investmentTypes = [
   { value: "BONDS", label: "Bonds" },
   { value: "REAL_ESTATE", label: "Real Estate" },
   { value: "GOLD", label: "Gold" },
+  { value: "SILVER", label: "Silver" },
   { value: "PROVIDENT_FUNDS", label: "Provident Funds" },
   { value: "SAFE_KEEPINGS", label: "Safe Keepings" },
   { value: "OTHER", label: "Other" },
@@ -461,7 +462,7 @@ export function InvestmentAddForm({
 
               <div>
                 <label htmlFor="inv-add-purchasePrice-q" className="block text-sm font-medium text-gray-700 mb-1">
-                  {resolvedType === "GOLD"
+                  {resolvedType === "GOLD" || resolvedType === "SILVER"
                     ? "Purchase price per unit *"
                     : "Purchase Price *"}
                 </label>
@@ -477,10 +478,10 @@ export function InvestmentAddForm({
                   required
                   disabled={loading}
                 />
-                {resolvedType === "GOLD" ? (
+                {resolvedType === "GOLD" || resolvedType === "SILVER" ? (
                   <p className="mt-1 text-xs text-gray-500">
                     Total purchase cost is quantity × this price. Current value uses the spot rate on the
-                    investments page (Update gold rate).
+                    investments page (Update gold / silver rate).
                   </p>
                 ) : null}
               </div>

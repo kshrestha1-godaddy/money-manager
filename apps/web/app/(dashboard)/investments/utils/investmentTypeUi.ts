@@ -7,6 +7,7 @@ const KNOWN_TYPES: InvestmentInterface["type"][] = [
     "BONDS",
     "REAL_ESTATE",
     "GOLD",
+    "SILVER",
     "FIXED_DEPOSIT",
     "PROVIDENT_FUNDS",
     "SAFE_KEEPINGS",
@@ -50,7 +51,11 @@ export function isQuantityBasedInvestmentType(t: InvestmentInterface["type"]): b
 }
 
 export function requiresCurrentPriceField(t: InvestmentInterface["type"]): boolean {
-    return isQuantityBasedInvestmentType(t) && t !== "GOLD";
+    return (
+        isQuantityBasedInvestmentType(t) &&
+        t !== "GOLD" &&
+        t !== "SILVER"
+    );
 }
 
 export const INVESTMENT_TYPE_LABELS: { value: InvestmentInterface["type"]; label: string }[] = [
@@ -64,6 +69,7 @@ export const INVESTMENT_TYPE_LABELS: { value: InvestmentInterface["type"]; label
     { value: "BONDS", label: "Bonds" },
     { value: "REAL_ESTATE", label: "Real Estate" },
     { value: "GOLD", label: "Gold" },
+    { value: "SILVER", label: "Silver" },
     { value: "PROVIDENT_FUNDS", label: "Provident Funds" },
     { value: "SAFE_KEEPINGS", label: "Safe Keepings" },
     { value: "OTHER", label: "Other" },
@@ -86,6 +92,7 @@ export function getInvestmentTypeBadgeClassName(type: InvestmentInterface["type"
         BONDS: "bg-cyan-100 text-cyan-900 ring-1 ring-cyan-200/80",
         REAL_ESTATE: "bg-amber-100 text-amber-900 ring-1 ring-amber-200/80",
         GOLD: "bg-yellow-100 text-yellow-900 ring-1 ring-yellow-200/80",
+        SILVER: "bg-slate-200 text-slate-900 ring-1 ring-slate-300/80",
         PROVIDENT_FUNDS: "bg-lime-100 text-lime-900 ring-1 ring-lime-200/80",
         SAFE_KEEPINGS: "bg-orange-100 text-orange-900 ring-1 ring-orange-200/80",
         OTHER: "bg-slate-100 text-slate-800 ring-1 ring-slate-200/80",

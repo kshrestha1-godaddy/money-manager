@@ -1,7 +1,7 @@
 import { parseCSV } from './csvUtils';
 
 export interface ParsedInvestmentTargetData {
-    investmentType: 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'EMERGENCY_FUND' | 'MARRIAGE' | 'VACATION' | 'OTHER';
+    investmentType: 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'SILVER' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'EMERGENCY_FUND' | 'MARRIAGE' | 'VACATION' | 'OTHER';
     targetAmount: number;
     targetCompletionDate?: Date;
     nickname?: string;
@@ -73,7 +73,7 @@ export function parseInvestmentTargetsCSV(csvContent: string): ImportResult {
                 if (!investmentType) {
                     errors.push({ 
                         row: rowNumber, 
-                        error: `Invalid investment type: ${investmentTypeRaw}. Valid types: STOCKS, CRYPTO, MUTUAL_FUNDS, BONDS, REAL_ESTATE, GOLD, FIXED_DEPOSIT, PROVIDENT_FUNDS, SAFE_KEEPINGS, EMERGENCY_FUND, MARRIAGE, VACATION, OTHER` 
+                        error: `Invalid investment type: ${investmentTypeRaw}. Valid types: STOCKS, CRYPTO, MUTUAL_FUNDS, BONDS, REAL_ESTATE, GOLD, SILVER, FIXED_DEPOSIT, PROVIDENT_FUNDS, SAFE_KEEPINGS, EMERGENCY_FUND, MARRIAGE, VACATION, OTHER` 
                     });
                     continue;
                 }
@@ -164,6 +164,7 @@ function normalizeInvestmentType(type: string): ParsedInvestmentTargetData['inve
         'PROPERTY': 'REAL_ESTATE',
         'REALTY': 'REAL_ESTATE',
         'GOLD': 'GOLD',
+        'SILVER': 'SILVER',
         'PRECIOUS_METALS': 'GOLD',
         'FIXED_DEPOSIT': 'FIXED_DEPOSIT',
         'FD': 'FIXED_DEPOSIT',

@@ -56,6 +56,7 @@ const formatInvestmentType = (type: string): string => {
         case 'BONDS': return 'Bonds';
         case 'REAL_ESTATE': return 'Real Estate';
         case 'GOLD': return 'Gold';
+        case 'SILVER': return 'Silver';
         case 'FIXED_DEPOSIT': return 'Fixed Deposit';
         case 'EMERGENCY_FUND': return 'Emergency Fund';
         case 'MARRIAGE': return 'Marriage';
