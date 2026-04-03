@@ -371,7 +371,7 @@ export function InvestmentTable({
                             onClick={() => handleSort('purchasePrice')}
                         >
                             <div className="flex items-center justify-center gap-2">
-                                <span title="Total cost: quantity × purchase price per unit">Purchase/Principal</span>
+                                <span title="Total cost: quantity × purchase price per unit">Cost Price</span>
                                 {getSortIcon('purchasePrice')}
                             </div>
                             <div 
@@ -385,7 +385,7 @@ export function InvestmentTable({
                             onClick={() => handleSort('currentPrice')}
                         >
                             <div className="flex items-center justify-center gap-2">
-                                <span>Current Value</span>
+                                <span title="Per unit: market price or gold spot; total value = quantity × rate">Rate</span>
                                 {getSortIcon('currentPrice')}
                             </div>
                             <div 
@@ -399,7 +399,7 @@ export function InvestmentTable({
                             onClick={() => handleSort('totalValue')}
                         >
                             <div className="flex items-center justify-center gap-2">
-                                <span>Total Value</span>
+                                <span title="Quantity × rate (current position value)">Present Value</span>
                                 {getSortIcon('totalValue')}
                             </div>
                             <div 
@@ -713,7 +713,15 @@ function InvestmentRow({
             >
                 <div className="break-words font-medium">{formatCurrency(totalPurchasePrincipal, currency)}</div>
             </td>
-            <td className="px-3 py-4 text-sm text-gray-900 text-center tabular-nums align-top" style={{ width: `${columnWidths.currentValue}px` }}>
+            <td
+                className="px-3 py-4 text-sm text-gray-900 text-center tabular-nums align-top"
+                style={{ width: `${columnWidths.currentValue}px` }}
+                title={
+                    investment.type === "GOLD"
+                        ? "Gold spot per unit (from Update gold rate). Current position value = quantity × this rate."
+                        : undefined
+                }
+            >
                 <div className="break-words font-medium">{formatCurrency(investment.currentPrice, currency)}</div>
             </td>
             <td className="px-3 py-4 text-sm font-medium text-gray-900 text-center tabular-nums align-top" style={{ width: `${columnWidths.totalValue}px` }}>

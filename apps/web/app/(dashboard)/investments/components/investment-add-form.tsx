@@ -246,6 +246,7 @@ export function InvestmentAddForm({
   };
 
   const resolvedType = normalizeInvestmentType(formData.type);
+  const needsCurrentPrice = requiresCurrentPriceField(resolvedType);
 
   const investmentTypeOptions = hasExistingStocksInvestment
     ? investmentTypes.filter((t) => t.value !== "STOCKS")
@@ -460,7 +461,9 @@ export function InvestmentAddForm({
 
               <div>
                 <label htmlFor="inv-add-purchasePrice-q" className="block text-sm font-medium text-gray-700 mb-1">
-                  Purchase Price *
+                  {resolvedType === "GOLD"
+                    ? "Purchase price per unit *"
+                    : "Purchase Price *"}
                 </label>
                 <input
                   type="number"
@@ -474,26 +477,34 @@ export function InvestmentAddForm({
                   required
                   disabled={loading}
                 />
+                {resolvedType === "GOLD" ? (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Total purchase cost is quantity × this price. Current value uses the spot rate on the
+                    investments page (Update gold rate).
+                  </p>
+                ) : null}
               </div>
             </div>
 
-            <div>
-              <label htmlFor="inv-add-currentPrice" className="block text-sm font-medium text-gray-700 mb-1">
-                Current Price *
-              </label>
-              <input
-                type="number"
-                id="inv-add-currentPrice"
-                step="0.01"
-                min="0"
-                value={formData.currentPrice}
-                onChange={(e) => handleInputChange("currentPrice", e.target.value)}
-                className={inputClass}
-                placeholder="0.00"
-                required
-                disabled={loading}
-              />
-            </div>
+            {needsCurrentPrice ? (
+              <div>
+                <label htmlFor="inv-add-currentPrice" className="block text-sm font-medium text-gray-700 mb-1">
+                  Current Price *
+                </label>
+                <input
+                  type="number"
+                  id="inv-add-currentPrice"
+                  step="0.01"
+                  min="0"
+                  value={formData.currentPrice}
+                  onChange={(e) => handleInputChange("currentPrice", e.target.value)}
+                  className={inputClass}
+                  placeholder="0.00"
+                  required
+                  disabled={loading}
+                />
+              </div>
+            ) : null}
           </>
         )}
 

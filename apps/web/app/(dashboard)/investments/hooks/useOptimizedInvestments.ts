@@ -15,6 +15,9 @@ import { triggerBalanceRefresh } from '../../../hooks/useTotalBalance';
 import { exportInvestmentsToCSV } from '../../../utils/csvExportInvestments';
 import { exportInvestmentTargetsToCSV } from '../../../utils/csvExportInvestmentTargets';
 import { sortInvestmentsByTargetCompletionAsc } from '../utils/investmentTargetSort';
+import { applyGoldSpotToInvestments } from '../utils/applyGoldSpotToInvestments';
+import { useCurrency } from '../../../providers/CurrencyProvider';
+import { useGoldSpotRate } from './useGoldSpotRate';
 
 interface Modal {
     type: 'add' | 'edit' | 'delete' | 'view' | 'import' | null;
@@ -39,11 +42,17 @@ const INVESTMENT_SECTIONS = {
 
 export function useOptimizedInvestments() {
     const queryClient = useQueryClient();
+    const { currency } = useCurrency();
+    const {
+        spotPerUnitDisplay: goldSpotPerUnitDisplay,
+        updatedAt: goldSpotUpdatedAt,
+        setSpotFromDisplayAmount: setGoldSpotRateFromDisplay,
+    } = useGoldSpotRate(currency);
 
     // ==================== DATA MANAGEMENT ====================
     
     const { 
-        data: investments = [], 
+        data: investmentsRaw = [], 
         isLoading: loading, 
         error: queryError 
     } = useQuery({
@@ -81,6 +90,11 @@ export function useOptimizedInvestments() {
             return failureCount < 3;
         },
     });
+
+    const investments = useMemo(
+        () => applyGoldSpotToInvestments(investmentsRaw, goldSpotPerUnitDisplay),
+        [investmentsRaw, goldSpotPerUnitDisplay]
+    );
 
     // ==================== STATE MANAGEMENT ====================
     
@@ -614,5 +628,9 @@ export function useOptimizedInvestments() {
         isUpdating: updateMutation.isPending,
         isDeleting: deleteMutation.isPending,
         isBulkDeleting: bulkDeleteMutation.isPending,
+
+        goldSpotPerUnitDisplay,
+        goldSpotUpdatedAt,
+        setGoldSpotRateFromDisplay,
     };
 } 

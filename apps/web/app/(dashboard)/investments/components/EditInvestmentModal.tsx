@@ -236,6 +236,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
     if (!isOpen || !investment) return null;
 
     const resolvedType = normalizeInvestmentType(formData.type);
+    const needsCurrentPriceFieldUi = requiresCurrentPriceField(resolvedType);
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -447,7 +448,9 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
 
                                 <div>
                                     <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 mb-1">
-                                        Purchase Price *
+                                        {resolvedType === "GOLD"
+                                            ? "Purchase price per unit *"
+                                            : "Purchase Price *"}
                                     </label>
                                     <input
                                         type="number"
@@ -460,25 +463,33 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                                         placeholder="0.00"
                                         required
                                     />
+                                    {resolvedType === "GOLD" ? (
+                                        <p className="mt-1 text-xs text-gray-500">
+                                            Total purchase cost is quantity × this price. Current value uses the spot
+                                            rate on the investments page.
+                                        </p>
+                                    ) : null}
                                 </div>
                             </div>
 
-                            <div>
-                                <label htmlFor="currentPrice" className="block text-sm font-medium text-gray-700 mb-1">
-                                    Current Price *
-                                </label>
-                                <input
-                                    type="number"
-                                    id="currentPrice"
-                                    step="0.01"
-                                    min="0"
-                                    value={formData.currentPrice}
-                                    onChange={(e) => handleInputChange("currentPrice", e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="0.00"
-                                    required
-                                />
-                            </div>
+                            {needsCurrentPriceFieldUi ? (
+                                <div>
+                                    <label htmlFor="currentPrice" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Current Price *
+                                    </label>
+                                    <input
+                                        type="number"
+                                        id="currentPrice"
+                                        step="0.01"
+                                        min="0"
+                                        value={formData.currentPrice}
+                                        onChange={(e) => handleInputChange("currentPrice", e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="0.00"
+                                        required
+                                    />
+                                </div>
+                            ) : null}
                         </>
                     )}
 

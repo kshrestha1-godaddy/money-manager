@@ -124,18 +124,26 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
                                     <span className="text-gray-600">
                                         {(investment.type === 'FIXED_DEPOSIT' || investment.type === 'EMERGENCY_FUND' || investment.type === 'MARRIAGE' || investment.type === 'VACATION') ? 'Principal Amount:' : 
                                          investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' ? 'Investment Amount:' : 
-                                         'Purchase Price:'}
+                                         investment.type === 'GOLD' ? 'Purchase price (per unit):' : 'Purchase Price:'}
                                     </span>
                                     <span className="font-medium text-gray-900">
                                         {formatCurrency(investment.purchasePrice, userCurrency)}
                                     </span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-gray-600">Current Value:</span>
+                                    <span className="text-gray-600">
+                                        {investment.type === "GOLD" ? "Spot (per unit):" : "Current Value:"}
+                                    </span>
                                     <span className="font-medium text-gray-900">
                                         {formatCurrency(investment.currentPrice, userCurrency)}
                                     </span>
                                 </div>
+                                {investment.type === "GOLD" ? (
+                                    <p className="text-xs text-gray-500">
+                                        Total purchase = quantity × purchase price per unit. Current total = quantity × spot
+                                        (from Update gold rate on the investments page).
+                                    </p>
+                                ) : null}
                                 {(investment.type === 'FIXED_DEPOSIT' || investment.type === 'PROVIDENT_FUNDS' || investment.type === 'SAFE_KEEPINGS' || investment.type === 'EMERGENCY_FUND' || investment.type === 'MARRIAGE' || investment.type === 'VACATION') && investment.interestRate && (
                                     <div className="flex justify-between">
                                         <span className="text-gray-600">Interest Rate:</span>

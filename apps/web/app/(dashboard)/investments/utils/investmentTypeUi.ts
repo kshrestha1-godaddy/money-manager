@@ -50,7 +50,7 @@ export function isQuantityBasedInvestmentType(t: InvestmentInterface["type"]): b
 }
 
 export function requiresCurrentPriceField(t: InvestmentInterface["type"]): boolean {
-    return isQuantityBasedInvestmentType(t);
+    return isQuantityBasedInvestmentType(t) && t !== "GOLD";
 }
 
 export const INVESTMENT_TYPE_LABELS: { value: InvestmentInterface["type"]; label: string }[] = [

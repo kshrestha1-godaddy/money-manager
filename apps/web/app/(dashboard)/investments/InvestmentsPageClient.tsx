@@ -17,10 +17,9 @@ import { useCurrency } from "../../providers/CurrencyProvider";
 import { useOptimizedInvestments } from "./hooks/useOptimizedInvestments";
 import { InvestmentInterface } from "../../types/investments";
 import { useOptimizedInvestmentTargets } from "./hooks/useOptimizedInvestmentTargets";  
-import { Plus, Upload, TrendingUp, TrendingDown, DollarSign, Target, Info, ChevronDown } from "lucide-react";
+import { Plus, Upload, TrendingUp, TrendingDown, DollarSign, Target, ChevronDown } from "lucide-react";
 import { getGainLossClasses, BUTTON_COLORS, TEXT_COLORS, CONTAINER_COLORS, INPUT_COLORS, LOADING_COLORS, ICON_COLORS, UI_STYLES } from "../../config/colorConfig";
 import { ChartAnimationProvider } from "../../hooks/useChartAnimationContext";
-import { triggerBalanceRefresh } from "../../hooks/useTotalBalance";
 import { InvestmentTypePolarChart } from "./charts/InvestmentTypePolarChart";
 import { InvestmentTargetProgressChart } from "./charts/InvestmentTargetProgressChart";
 import { InvestmentTargetTimelineChart } from "./charts/InvestmentTargetTimelineChart";
@@ -135,6 +134,9 @@ export default function InvestmentsPageClient() {
     isUpdating,
     isDeleting,
     isBulkDeleting,
+    goldSpotPerUnitDisplay,
+    goldSpotUpdatedAt,
+    setGoldSpotRateFromDisplay,
   } = useOptimizedInvestments();
 
   useEffect(() => {
@@ -220,23 +222,18 @@ export default function InvestmentsPageClient() {
     [investments]
   );
 
-  const handleGoldRateApplied = useCallback(
-    (updated: number) => {
-      void queryClient.invalidateQueries({ queryKey: ["investments"] });
-      void queryClient.invalidateQueries({ queryKey: ["investment-target-progress"] });
-      void queryClient.invalidateQueries({ queryKey: ["withheld-amounts"] });
-      triggerBalanceRefresh();
+  const handleGoldSpotSaved = useCallback(
+    (rateInDisplayCurrency: number) => {
+      setGoldSpotRateFromDisplay(rateInDisplayCurrency);
       setNotification({
-        title: updated === 0 ? "No gold positions" : "Gold purchase rates updated",
+        title: "Gold spot rate saved",
         message:
-          updated === 0
-            ? "There are no Gold-type investments to update."
-            : `Purchase rate per unit was applied to ${updated} gold position(s).`,
-        type: updated === 0 ? "warning" : "success",
+          "The rate is stored in this browser and is used for current gold values (quantity × spot).",
+        type: "success",
         duration: 4000,
       });
     },
-    [queryClient]
+    [setGoldSpotRateFromDisplay]
   );
 
   const filteredInvestmentsStableKey = useMemo(
@@ -562,23 +559,25 @@ export default function InvestmentsPageClient() {
 
         {goldInvestmentCount > 0 ? (
           <div className="mb-3 flex justify-end">
-            <div className="inline-flex items-center gap-0.5 rounded-md border border-amber-200/80 bg-amber-50/90 p-0.5 shadow-sm">
-              <button
-                type="button"
-                onClick={() => setGoldRateModalOpen(true)}
-                className="rounded px-3 py-1.5 text-sm font-medium text-amber-950 transition hover:bg-amber-100/80"
-              >
-                Update GPR
-              </button>
-              <button
-                type="button"
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-amber-800 transition hover:bg-amber-100/80"
-                title="Update Gold Purchase Rate"
-                aria-label="Update Gold Purchase Rate"
-              >
-                <Info className="h-4 w-4" aria-hidden />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setGoldRateModalOpen(true)}
+              title="Gold current value uses quantity × this spot. Purchase cost uses quantity × your purchase price per unit. Click to update (saved in this browser)."
+              className="inline-flex max-w-full flex-col items-end gap-0.5 rounded-md border border-amber-200/80 bg-amber-50/90 px-3 py-2 text-right shadow-sm transition hover:bg-amber-100/80"
+            >
+              <span className="text-sm font-semibold tabular-nums text-amber-950">
+                {formatCurrency(goldSpotPerUnitDisplay, userCurrency)}
+                <span className="font-medium text-amber-900/80"> / unit</span>
+              </span>
+              <span className="text-xs font-normal text-amber-800/90">
+                {goldSpotUpdatedAt
+                  ? new Date(goldSpotUpdatedAt).toLocaleString(undefined, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })
+                  : "Default · tap to save"}
+              </span>
+            </button>
           </div>
         ) : null}
 
@@ -640,8 +639,8 @@ export default function InvestmentsPageClient() {
           isOpen={goldRateModalOpen}
           onClose={() => setGoldRateModalOpen(false)}
           currency={userCurrency}
-          goldCount={goldInvestmentCount}
-          onApplied={handleGoldRateApplied}
+          spotPerUnitDisplay={goldSpotPerUnitDisplay}
+          onApply={handleGoldSpotSaved}
         />
 
         <AddInvestmentModal
