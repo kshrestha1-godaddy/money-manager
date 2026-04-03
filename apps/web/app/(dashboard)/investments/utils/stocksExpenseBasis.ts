@@ -96,3 +96,13 @@ export function investedAmountForPosition(
     );
     return q * p;
 }
+
+/** Position market value: quantity × current price (used for savings-target progress / timeline). */
+export function presentValueForPosition(investment: {
+    quantity: unknown;
+    currentPrice: unknown;
+}): number {
+    const q = parseFloat(String(investment.quantity)) || 0;
+    const c = parseFloat(String(investment.currentPrice)) || 0;
+    return q * c;
+}

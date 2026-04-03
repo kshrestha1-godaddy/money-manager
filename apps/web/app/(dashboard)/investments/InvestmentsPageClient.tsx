@@ -121,6 +121,8 @@ export default function InvestmentsPageClient() {
     setStartDate,
     endDate,
     setEndDate,
+    selectedTargetFilter,
+    setSelectedTargetFilter,
     selectedInvestments,
     setSelectedInvestments,
     handleInvestmentSelect,
@@ -202,6 +204,18 @@ export default function InvestmentsPageClient() {
   function selectAllInvestmentTypes() {
     setSelectedTypes([...uniqueTypes]);
   }
+
+  function labelForInvestmentTarget(t: (typeof actualTargets)[number]): string {
+    const typeLabel = formatType(t.investmentType);
+    const nick = t.nickname?.trim();
+    if (nick) return `${nick} (${typeLabel})`;
+    return typeLabel;
+  }
+
+  const hasInvestmentsWithoutTarget = useMemo(
+    () => investments.some((inv) => inv.investmentTargetId == null),
+    [investments]
+  );
 
   const openAddTargetModal = useCallback(() => openTargetModal('create'), [openTargetModal]);
   const openEditTargetModal = useCallback((targetId: number) => {
@@ -479,12 +493,12 @@ export default function InvestmentsPageClient() {
         </div>
 
         <div className={UI_STYLES.filters.containerWithMargin}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-            <div>
+          <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 xl:items-end">
+            <div className="min-w-0 xl:min-w-[8rem]">
               <label className={labelText}>Search Investments</label>
               <input type="text" placeholder="Search by name, symbol, notes..." value={searchTerm} onChange={e => debouncedSetSearchTerm(e.target.value)} className={standardInput} />
             </div>
-            <div className="relative min-w-[180px]" ref={typeMenuRef}>
+            <div className="relative min-w-0 xl:min-w-[8rem]" ref={typeMenuRef}>
               <label className={labelText} id="investment-type-filter-label">
                 Filter by Type
               </label>
@@ -546,7 +560,7 @@ export default function InvestmentsPageClient() {
                 </div>
               ) : null}
             </div>
-            <div>
+            <div className="min-w-0 xl:min-w-[8rem]">
               <label className={labelText}>Filter by Bank</label>
               <select value={selectedBank} onChange={e => setSelectedBank(e.target.value)} className={standardInput}>
                 <option value="">All Banks</option>
@@ -557,16 +571,40 @@ export default function InvestmentsPageClient() {
                 ))}
               </select>
             </div>
-            <div>
+            <div className="min-w-0 xl:min-w-[8rem]">
+              <label className={labelText}>Filter by Target</label>
+              <select
+                value={selectedTargetFilter}
+                onChange={(e) => setSelectedTargetFilter(e.target.value)}
+                className={standardInput}
+                aria-label="Filter by savings target"
+              >
+                <option value="">All targets</option>
+                {hasInvestmentsWithoutTarget ? (
+                  <option value="none">No target</option>
+                ) : null}
+                {actualTargets.map((t) => (
+                  <option key={t.id} value={String(t.id)}>
+                    {labelForInvestmentTarget(t)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="min-w-0 xl:min-w-[8rem]">
               <label className={labelText}>Start Date</label>
               <input type="date" value={startDate} onChange={e => debouncedSetStartDate(e.target.value)} className={standardInput} />
             </div>
-            <div>
+            <div className="min-w-0 xl:min-w-[8rem]">
               <label className={labelText}>End Date</label>
               <input type="date" value={endDate} onChange={e => debouncedSetEndDate(e.target.value)} className={standardInput} />
             </div>
-            <div className={UI_STYLES.filters.clearButtonContainer}>
-              <button onClick={clearFilters} className={clearFilterButton} disabled={!hasActiveFilters}>Clear Filters</button>
+            <div className="min-w-0 xl:min-w-[8rem]">
+              <label className={`${labelText} pointer-events-none select-none text-transparent`} aria-hidden>
+                Clear
+              </label>
+              <button type="button" onClick={clearFilters} className={clearFilterButton} disabled={!hasActiveFilters}>
+                Clear Filters
+              </button>
             </div>
           </div>
         </div>

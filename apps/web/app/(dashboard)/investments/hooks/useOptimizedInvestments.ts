@@ -118,6 +118,8 @@ export function useOptimizedInvestments() {
     const [selectedBank, setSelectedBank] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    /** "" = any target; "none" = not linked to a target; otherwise target id as string */
+    const [selectedTargetFilter, setSelectedTargetFilter] = useState('');
 
     // Selection states
     const [selectedInvestments, setSelectedInvestments] = useState<Set<number>>(new Set());
@@ -161,10 +163,19 @@ export function useOptimizedInvestments() {
                 const investmentDate = investment.purchaseDate instanceof Date ? investment.purchaseDate : new Date(investment.purchaseDate);
                 matchesDateRange = matchesDateRange && investmentDate <= end;
             }
+
+            const tid = investment.investmentTargetId;
+            const matchesTarget =
+                selectedTargetFilter === '' ||
+                (selectedTargetFilter === 'none' &&
+                    (tid === null || tid === undefined)) ||
+                (selectedTargetFilter !== '' &&
+                    selectedTargetFilter !== 'none' &&
+                    String(tid) === selectedTargetFilter);
             
-            return matchesSearch && matchesType && matchesBank && matchesDateRange;
+            return matchesSearch && matchesType && matchesBank && matchesDateRange && matchesTarget;
         });
-    }, [investments, searchTerm, selectedTypes, selectedBank, startDate, endDate]);
+    }, [investments, searchTerm, selectedTypes, selectedBank, startDate, endDate, selectedTargetFilter]);
 
     // Calculate summary statistics
     const {
@@ -248,8 +259,15 @@ export function useOptimizedInvestments() {
 
     // Check if filters are active
     const hasActiveFilters = useMemo(() => {
-        return searchTerm !== '' || selectedTypes.length > 0 || selectedBank !== '' || startDate !== '' || endDate !== '';
-    }, [searchTerm, selectedTypes, selectedBank, startDate, endDate]);
+        return (
+            searchTerm !== '' ||
+            selectedTypes.length > 0 ||
+            selectedBank !== '' ||
+            startDate !== '' ||
+            endDate !== '' ||
+            selectedTargetFilter !== ''
+        );
+    }, [searchTerm, selectedTypes, selectedBank, startDate, endDate, selectedTargetFilter]);
 
     // Organize investments by sections
     const sections = useMemo((): InvestmentSection[] => {
@@ -572,6 +590,7 @@ export function useOptimizedInvestments() {
         setSelectedBank('');
         setStartDate('');
         setEndDate('');
+        setSelectedTargetFilter('');
     }, []);
 
     const clearError = useCallback(() => {
@@ -616,6 +635,8 @@ export function useOptimizedInvestments() {
         setStartDate,
         endDate,
         setEndDate,
+        selectedTargetFilter,
+        setSelectedTargetFilter,
 
         // Selection states
         selectedInvestments,

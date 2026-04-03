@@ -14,7 +14,7 @@ export function convertInvestmentTargetsToCSV(targets: InvestmentTargetProgress[
         'Investment Type',
         'Nickname',
         'Target Amount',
-        'Current Amount',
+        'Present Value',
         'Progress (%)',
         'Remaining Amount',
         'Target Completion Date',

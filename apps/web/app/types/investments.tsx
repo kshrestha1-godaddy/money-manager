@@ -23,7 +23,7 @@ export interface InvestmentInterface {
         nickname?: string | null;
         /** Goal amount for this savings target. */
         targetAmount: number;
-        /** Sum of quantity × purchasePrice for all positions linked to this target (progress toward the goal). */
+        /** Sum of present value (quantity × current price) for positions linked to this target. */
         fulfilledAmount: number;
         targetCompletionDate?: Date | null;
     } | null;
@@ -78,7 +78,7 @@ export interface InvestmentTargetProgress {
     targetId: number;
     investmentType: string;
     targetAmount: number;
-    /** Sum of quantity × purchasePrice for positions linked to this target (invested toward goal). */
+    /** Sum of present value (quantity × current price) for positions linked to this target. */
     currentAmount: number;
     progress: number; // percentage
     isComplete: boolean;

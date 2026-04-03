@@ -16,8 +16,7 @@ import { parseInvestmentsCSV, ParsedInvestmentData } from "../../../utils/csvImp
 import { ImportResult } from "../../../types/bulkImport";
 import { bulkImportInvestmentTargets } from "./investment-targets";
 import {
-    countStocksInvestmentsForUser,
-    investedAmountForPosition,
+    presentValueForPosition,
     resolvePurchasePriceForInvestmentDisplay,
     sumStocksCategoryExpenseAmountsForUser,
 } from "../utils/stocksExpenseBasis";
@@ -34,21 +33,13 @@ function investmentPurchaseCost(quantity: unknown, purchasePrice: unknown): numb
     return q * p;
 }
 
-/** Sum of quantity × purchasePrice for all investments linked to this target (same rule as target progress). */
+/** Sum of quantity × currentPrice for all investments linked to this target (same rule as target progress). */
 async function sumFulfilledForTarget(userId: number, targetId: number): Promise<number> {
-    const [rows, stocksExpenseTotal, stocksPositionCount] = await Promise.all([
-        prisma.investment.findMany({
-            where: { userId, investmentTargetId: targetId },
-            select: { quantity: true, purchasePrice: true, type: true },
-        }),
-        sumStocksCategoryExpenseAmountsForUser(userId),
-        countStocksInvestmentsForUser(userId),
-    ]);
-    return rows.reduce(
-        (sum, r) =>
-            sum + investedAmountForPosition(r, stocksExpenseTotal, stocksPositionCount),
-        0
-    );
+    const rows = await prisma.investment.findMany({
+        where: { userId, investmentTargetId: targetId },
+        select: { quantity: true, currentPrice: true },
+    });
+    return rows.reduce((sum, r) => sum + presentValueForPosition(r), 0);
 }
 
 function mapInvestmentTargetRow(
@@ -166,13 +157,12 @@ export async function getUserInvestments(): Promise<{ data?: InvestmentInterface
         const fulfilledByTargetId = new Map<number, number>();
         for (const inv of investments) {
             if (inv.investmentTargetId == null) continue;
-            const cost = investedAmountForPosition(
-                { type: inv.type, quantity: inv.quantity, purchasePrice: inv.purchasePrice },
-                stocksExpenseTotal,
-                stocksPositionCount
-            );
+            const pv = presentValueForPosition({
+                quantity: inv.quantity,
+                currentPrice: inv.currentPrice,
+            });
             const tid = inv.investmentTargetId;
-            fulfilledByTargetId.set(tid, (fulfilledByTargetId.get(tid) ?? 0) + cost);
+            fulfilledByTargetId.set(tid, (fulfilledByTargetId.get(tid) ?? 0) + pv);
         }
         
         // Convert Decimal amounts to number to prevent serialization issues

@@ -12,6 +12,7 @@ import {
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import { formatCurrency } from "../../../utils/currency";
 import { InvestmentInterface } from "../../../types/investments";
+import { presentValueForPosition } from "../utils/stocksExpenseBasis";
 import { ChartControls } from "../../../components/ChartControls";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import { useChartAnimationState } from "../../../hooks/useChartAnimationContext";
@@ -97,9 +98,8 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
       "investment-type-polar"
     );
 
-    // Groups by inv.type (not savings-target links). Cost basis only: quantity × purchasePrice
-    // — aligns with investment target progress and withheld logic; current price is for P/L in the table only.
-    const { data, legendData, totalInvested } = useMemo(() => {
+    // Groups by inv.type (not savings-target links). Present value: quantity × currentPrice.
+    const { data, legendData, totalPresentValue } = useMemo(() => {
       const typeToAgg = new Map<string, { 
         invested: number; 
         count: number; 
@@ -109,17 +109,16 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
 
       investments.forEach((inv) => {
         const key = inv.type || "OTHER";
-        const costBasis =
-          (Number(inv.quantity) || 0) * (Number(inv.purchasePrice) || 0);
+        const pv = presentValueForPosition(inv);
         const prev = typeToAgg.get(key) || { invested: 0, count: 0, amounts: [], investments: [] };
         
         typeToAgg.set(key, { 
-          invested: prev.invested + costBasis, 
+          invested: prev.invested + pv, 
           count: prev.count + 1,
-          amounts: [...prev.amounts, costBasis],
+          amounts: [...prev.amounts, pv],
           investments: [...prev.investments, {
             name: inv.name || 'Unnamed Investment',
-            amount: costBasis,
+            amount: pv,
             symbol: inv.symbol
           }]
         });
@@ -144,8 +143,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
             investments: agg.investments.sort((a, b) => b.amount - a.amount)
           };
         })
-        // Randomize the order instead of sorting by value
-        .sort(() => Math.random() - 0.5);
+        .sort((a, b) => b.value - a.value);
 
       const total = entries.reduce((s, e) => s + e.value, 0);
 
@@ -162,7 +160,6 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
         (pct >= 2 ? major : minor).push(e);
       });
 
-      // Create two versions: one randomized for chart, one sorted for legend
       const chartData: TypeDatum[] = [...major];
       const legendData: TypeDatum[] = [...major].sort((a, b) => b.value - a.value);
       if (minor.length) {
@@ -188,7 +185,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
         legendData.push(othersData);
       }
 
-      return { data: chartData, legendData, totalInvested: total };
+      return { data: chartData, legendData, totalPresentValue: total };
     }, [investments]);
 
     // Download functions for Chart.js (Canvas-based)
@@ -254,7 +251,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
     // Enhanced CSV data preparation with detailed statistics
     const csvData = useMemo(() => {
       const csvDataArray = [
-        ["Investment Type", "Invested amount", "Percentage", "Positions", "Average per Position", "Min Amount", "Max Amount", "Risk Level", "Description"],
+        ["Investment Type", "Present value", "Percentage", "Positions", "Average per Position", "Min Amount", "Max Amount", "Risk Level", "Description"],
         ...data.map((d) => {
           const riskLevel = d.name === 'Cryptocurrency' ? 'High Risk' :
                            d.name === 'Stocks' ? 'Medium-High Risk' :
@@ -266,7 +263,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
           return [
             d.name,
             d.value.toString(),
-            totalInvested > 0 ? ((d.value / totalInvested) * 100).toFixed(1) + "%" : "0.0%",
+            totalPresentValue > 0 ? ((d.value / totalPresentValue) * 100).toFixed(1) + "%" : "0.0%",
             d.count.toString(),
             d.averageAmount.toFixed(2),
             d.minAmount.toFixed(2),
@@ -288,13 +285,12 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
         const allTypes = new Map<string, { invested: number; count: number; amounts: number[] }>();
         investments.forEach((inv) => {
           const key = inv.type || "OTHER";
-          const costBasis =
-            (Number(inv.quantity) || 0) * (Number(inv.purchasePrice) || 0);
+          const pv = presentValueForPosition(inv);
           const prev = allTypes.get(key) || { invested: 0, count: 0, amounts: [] };
           allTypes.set(key, { 
-            invested: prev.invested + costBasis, 
+            invested: prev.invested + pv, 
             count: prev.count + 1,
-            amounts: [...prev.amounts, costBasis]
+            amounts: [...prev.amounts, pv]
           });
         });
 
@@ -323,7 +319,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
           })
           .sort((a, b) => b.value - a.value)
           .forEach(item => {
-            const percentage = totalInvested > 0 ? ((item.value / totalInvested) * 100).toFixed(1) + '%' : '0.0%';
+            const percentage = totalPresentValue > 0 ? ((item.value / totalPresentValue) * 100).toFixed(1) + '%' : '0.0%';
             csvDataArray.push([
               item.name, 
               item.value.toString(), 
@@ -339,7 +335,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
       }
 
       return csvDataArray;
-    }, [data, totalInvested, investments]);
+    }, [data, totalPresentValue, investments]);
 
     if (!data.length) {
       return (
@@ -370,14 +366,20 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
     }
 
     const labels = data.map((d) => d.name);
-    const values = data.map((d) => d.value);
+    const values = data.map((d) => {
+      const v = Number(d.value);
+      return Number.isFinite(v) ? v : 0;
+    });
     const backgroundColor = data.map((d) => d.color);
+    const radialDataMax = values.length > 0 ? Math.max(...values, 0) : 0;
+    /** Explicit max so each wedge radius = value / max (linear); avoids scale/tick quirks with suggestedMax only. */
+    const radialScaleMax = radialDataMax > 0 ? radialDataMax * 1.02 : 1;
 
     const chartData: any = {
       labels,
       datasets: [
         {
-          label: "Invested",
+          label: "Present value",
           data: values,
           backgroundColor,
           borderColor: "#ffffff",
@@ -427,12 +429,11 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
           ticks: {
             display: true,
             backdropColor: "transparent",
-            /** Avoid rounding the radial max up to a misleading round number (e.g. 1.6M vs 1.55M data). */
-            count: 5,
+            maxTicksLimit: 8,
           },
           beginAtZero: true,
-          suggestedMax:
-            values.length > 0 ? Math.max(...values, 0) * 1.02 : undefined,
+          min: 0,
+          max: radialScaleMax,
         },
       },
       plugins: {
@@ -481,9 +482,9 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
                   <div class="bg-white border border-gray-200 rounded-lg shadow-lg p-4 min-w-80 max-w-md">
                     <div class="font-bold text-gray-900 mb-3 text-base">${item.name}</div>
                     
-                    <!-- Cost basis by type -->
+                    <!-- Present value by type -->
                     <div class="flex items-center justify-between mb-3">
-                      <span class="font-medium text-gray-700">Total invested:</span>
+                      <span class="font-medium text-gray-700">Total present value:</span>
                       <span class="font-bold text-lg text-blue-600">
                         ${formatCurrency(item.value, currency)}
                       </span>
@@ -577,7 +578,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
             size: 10,
           },
           formatter: (value: number, ctx: any) => {
-            const pct = totalInvested > 0 ? ((value / totalInvested) * 100).toFixed(0) : "0";
+            const pct = totalPresentValue > 0 ? ((value / totalPresentValue) * 100).toFixed(0) : "0";
             const label = ctx.chart.data.labels[ctx.dataIndex];
             // Only show label if percentage is > 5% to avoid clutter
             if (parseFloat(pct) < 5) return '';
@@ -596,9 +597,9 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <div className="flex justify-start items-center mb-4 flex-shrink-0">
           <div className="text-left">
-            <p className="text-xs text-gray-600">Total invested (cost)</p>
+            <p className="text-xs text-gray-600">Total present value</p>
             <p className="text-base font-semibold text-blue-600">
-              {formatCurrency(totalInvested, currency)}
+              {formatCurrency(totalPresentValue, currency)}
             </p>
             <p className="text-xs text-gray-500">{data.reduce((s, d) => s + d.count, 0)} positions</p>
           </div>
@@ -611,12 +612,16 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
             className={`${isExpanded ? "h-[50rem]" : "h-full min-h-0"} lg:col-span-2 overflow-hidden`}
             role="img"
             aria-label={`Investment portfolio distribution polar chart showing ${formatCurrency(
-              totalInvested,
+              totalPresentValue,
               currency
-            )} across different investment types`}
+            )} total present value across investment types`}
           >
             <div className="w-full h-full">
-            <PolarArea data={chartData} options={chartOptions} />
+            <PolarArea
+              key={`polar-${values.join("|")}-${radialScaleMax}`}
+              data={chartData}
+              options={chartOptions}
+            />
             </div>
           </div>
 
@@ -625,7 +630,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
             <h4 className="text-xs font-medium text-gray-900 flex-shrink-0">Type Breakdown</h4>
             <div className="space-y-1 flex-1 overflow-y-auto min-h-0">
               {legendData.map((d) => {
-                const pct = totalInvested > 0 ? ((d.value / totalInvested) * 100).toFixed(1) : "0.0";
+                const pct = totalPresentValue > 0 ? ((d.value / totalPresentValue) * 100).toFixed(1) : "0.0";
                 return (
                   <div key={d.name} className="flex items-center justify-between gap-1 p-2 bg-gray-50 rounded">
                     <div className="flex items-center gap-1 min-w-0 flex-1">
@@ -659,7 +664,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
             csvData={csvData}
             csvFileName="investment-type-polar-data"
             title={`${title}${data.reduce((s, d) => s + d.count, 0) > 0 ? ` • ${data.reduce((s, d) => s + d.count, 0)} position${data.reduce((s, d) => s + d.count, 0) !== 1 ? 's' : ''}` : ''}`}
-            tooltipText="Distribution by investment type using invested amount (quantity × purchase price). Market value and gains or losses are in the investments table."
+            tooltipText="Distribution by investment type using present value (quantity × current price). Cost basis and P/L are in the investments table."
             customDownloadPNG={downloadPNG}
             customDownloadSVG={downloadSVG}
           />
@@ -673,7 +678,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
                 <div>
                   <h2 className="text-lg sm:text-2xl font-semibold truncate">{title}</h2>
                   <p className="text-sm text-gray-500">
-                    Distribution by type using invested amount (quantity × purchase price). Market value and gains are shown in the investments table.
+                    Distribution by type using present value (quantity × current price). Cost basis and gains are shown in the investments table.
                   </p>
                 </div>
                 <button
@@ -713,6 +718,7 @@ const arePropsEqual = (prevProps: InvestmentTypePolarChartProps, nextProps: Inve
       prev?.type !== next?.type ||
       prev?.quantity !== next?.quantity ||
       prev?.purchasePrice !== next?.purchasePrice ||
+      prev?.currentPrice !== next?.currentPrice ||
       prev?.name !== next?.name ||
       prev?.symbol !== next?.symbol
     ) {
