@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Info } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Download, RefreshCw } from 'lucide-react';
 import { DebtTable } from './components/DebtTable';
 import { AddDebtModal } from './components/AddDebtModal';
 import { EditDebtModal } from './components/EditDebtModal';
@@ -11,6 +11,9 @@ import { ViewDebtModal } from './components/ViewDebtModal';
 import { AddRepaymentModal } from './components/AddRepaymentModal';
 import { BulkImportModal } from './components/BulkImportModal';
 import { formatCurrency } from '../../utils/currency';
+import { convertForDisplaySync } from '../../utils/currencyDisplay';
+import { SUPPORTED_CURRENCIES } from '../../utils/currencyConversion';
+import { exportDebtsToCSVWithDisplayCurrency } from '../../utils/csvExportDebts';
 import DebtStatusWaterfallChart from './charts/DebtStatusWaterfallChart';
 import DebtDueDatesChart from './charts/DebtDueDatesChart';
 import { useCurrency } from '../../providers/CurrencyProvider';
@@ -35,15 +38,19 @@ const emptyMessage = TEXT_COLORS.emptyMessage;
 const labelText = TEXT_COLORS.label;
 const primaryButton = BUTTON_COLORS.primary;
 const secondaryBlueButton = BUTTON_COLORS.secondaryBlue;
-const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
 const clearButton = BUTTON_COLORS.clear;
 const clearFilterButton = BUTTON_COLORS.clearFilter;
 const standardInput = INPUT_COLORS.standard;
 
 export default function DebtsPageClient() {
   const { currency: userCurrency } = useCurrency();
+  const [tableDisplayCurrency, setTableDisplayCurrency] = useState(userCurrency);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ FULLY_PAID: false });
   const [notification, setNotification] = useState<NotificationData | null>(null);
+
+  useEffect(() => {
+    setTableDisplayCurrency(userCurrency);
+  }, [userCurrency]);
 
   const {
     debts,
@@ -78,7 +85,8 @@ export default function DebtsPageClient() {
     handleSelectAll,
     handleBulkDelete,
     handleBulkDeleteConfirm,
-    handleExportToCSV,
+    refetchDebts,
+    isDebtsRefetching,
     clearFilters,
     clearError,
   } = useOptimizedDebts({
@@ -87,6 +95,21 @@ export default function DebtsPageClient() {
   });
 
   const uniqueStatuses = Array.from(new Set(debts.map(debt => debt.status))).sort();
+
+  const handleDebtsRefresh = useCallback(async () => {
+    await refetchDebts();
+  }, [refetchDebts]);
+
+  const handleTableDownloadCsv = useCallback(() => {
+    if (filteredDebts.length === 0) {
+      return;
+    }
+    exportDebtsToCSVWithDisplayCurrency(
+      filteredDebts,
+      tableDisplayCurrency,
+      userCurrency
+    );
+  }, [filteredDebts, tableDisplayCurrency, userCurrency]);
 
   const toggleSection = (sectionKey: string) => {
     if (sectionKey === 'FULLY_PAID') {
@@ -128,7 +151,6 @@ export default function DebtsPageClient() {
         <div className={UI_STYLES.header.buttonGroup}>
           <button onClick={() => openModal('add')} className={primaryButton}>Add Debt</button>
           <button onClick={() => openModal('import')} className={secondaryBlueButton}>Import CSV</button>
-          <button onClick={handleExportToCSV} className={secondaryGreenButton} disabled={filteredDebts.length === 0}>Export CSV</button>
         </div>
       </div>
 
@@ -212,6 +234,44 @@ export default function DebtsPageClient() {
         </div>
       </div>
 
+      {filteredDebts.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-end gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
+          <button
+            type="button"
+            onClick={handleDebtsRefresh}
+            disabled={isDebtsRefetching}
+            aria-busy={isDebtsRefetching}
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:pointer-events-none disabled:opacity-50"
+          >
+            <RefreshCw
+              className={`h-4 w-4 shrink-0 ${isDebtsRefetching ? 'animate-spin' : ''}`}
+              aria-hidden
+            />
+            Refresh
+          </button>
+          <select
+            id="debts-table-display-currency"
+            value={tableDisplayCurrency}
+            onChange={(e) => setTableDisplayCurrency(e.target.value)}
+            className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          >
+            {SUPPORTED_CURRENCIES.map((currencyOption) => (
+              <option key={currencyOption} value={currencyOption}>
+                {currencyOption}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleTableDownloadCsv}
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          >
+            <Download className="h-4 w-4 shrink-0" aria-hidden />
+            Download CSV
+          </button>
+        </div>
+      )}
+
       {filteredDebts.length === 0 ? (
         <div className={UI_STYLES.empty.container}>
           <div className={UI_STYLES.empty.icon}>
@@ -239,8 +299,20 @@ export default function DebtsPageClient() {
                       <div>
                         <h3 className={`text-lg font-semibold ${TEXT_COLORS.title}`}>{section.title} ({section.debts.length})</h3>
                         <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
-                          <span>Total: {formatCurrency(section.totalAmount, userCurrency)}</span>
-                          <span>Outstanding: {formatCurrency(section.totalRemaining, userCurrency)}</span>
+                          <span>
+                            Total:{' '}
+                            {formatCurrency(
+                              convertForDisplaySync(section.totalAmount, userCurrency, tableDisplayCurrency),
+                              tableDisplayCurrency
+                            )}
+                          </span>
+                          <span>
+                            Outstanding:{' '}
+                            {formatCurrency(
+                              convertForDisplaySync(section.totalRemaining, userCurrency, tableDisplayCurrency),
+                              tableDisplayCurrency
+                            )}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -261,6 +333,8 @@ export default function DebtsPageClient() {
                 {isExpanded && (
                   <DebtTable
                     debts={section.debts}
+                    baseCurrency={userCurrency}
+                    displayCurrency={tableDisplayCurrency}
                     selectedDebts={selectedDebts}
                     onDebtSelect={handleDebtSelect}
                     onSelectAll={(selected) => handleSelectAll(selected, section.debts)}

@@ -97,6 +97,8 @@ interface UseOptimizedDebtsReturn {
 
     // Query invalidation helper
     invalidateQueries: () => void;
+    refetchDebts: () => Promise<unknown>;
+    isDebtsRefetching: boolean;
 }
 
 // Stable section configuration to prevent re-renders
@@ -129,7 +131,12 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
     const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
 
     // Cached data query
-    const { data: debtsResponse, isLoading: loading } = useQuery({
+    const {
+        data: debtsResponse,
+        isLoading: loading,
+        refetch: refetchDebts,
+        isRefetching: isDebtsRefetching,
+    } = useQuery({
         queryKey: QUERY_KEYS.debts,
         queryFn: getUserDebts,
         staleTime: 3 * 60 * 1000, // 3 minutes
@@ -617,5 +624,7 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
 
         // Query invalidation helper
         invalidateQueries,
+        refetchDebts,
+        isDebtsRefetching,
     };
 } 

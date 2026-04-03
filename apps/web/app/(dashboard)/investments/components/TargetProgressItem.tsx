@@ -179,8 +179,8 @@ export function TargetProgressItem({ target, currency, onEditTarget }: TargetPro
                         {target.isComplete ? (
                             <span className="text-green-600 font-medium">
                                 {target.targetCompletionDate
-                                    ? `Target achieved • ${formatDateYearMonthDay(target.targetCompletionDate)}`
-                                    : "Target achieved"}
+                                    ? `Achieved on ${formatDateYearMonthDay(target.targetCompletionDate)}`
+                                    : ""}
                             </span>
                         ) : (
                             <span className="text-gray-600">

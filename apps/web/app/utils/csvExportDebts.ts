@@ -1,7 +1,16 @@
 import { DebtInterface, DebtRepaymentInterface } from '../types/debts';
-import { formatCurrency } from "./currency";
-import { calculateRemainingWithInterest } from "./interestCalculation";
+import { calculateInterest, calculateRemainingWithInterest } from "./interestCalculation";
 import { formatDateForCSV } from './csvUtils';
+import { convertForDisplaySync } from './currencyDisplay';
+
+function csvQuoteCell(value: string | number | undefined | null): string {
+    const s = String(value ?? "");
+    return `"${s.replace(/"/g, '""')}"`;
+}
+
+function formatAmountCsvPlain(n: number): string {
+    return (Math.round(n * 100) / 100).toFixed(2);
+}
 
 /**
  * Convert debts data to CSV format
@@ -118,6 +127,158 @@ export function convertRepaymentsToCSV(repayments: DebtRepaymentInterface[], deb
         .join('\n');
 
     return csvContent;
+}
+
+/**
+ * Export debts with optional display-currency columns (sync rates; amounts stored in `baseCurrency`).
+ */
+export function exportDebtsToCSVWithDisplayCurrency(
+    debts: DebtInterface[],
+    displayCurrency: string,
+    baseCurrency: string,
+    filename?: string
+): void {
+    if (debts.length === 0) {
+        alert("No debts to export");
+        return;
+    }
+
+    const displaySafe = (displayCurrency || "USD").trim();
+    const displayCode = displaySafe.toUpperCase();
+    const baseSafe = (baseCurrency || "USD").trim();
+
+    const headers = [
+        "ID",
+        "Borrower Name",
+        "Borrower Contact",
+        "Borrower Email",
+        "Status",
+        "Purpose",
+        "Notes",
+        "Lent Date",
+        "Due Date",
+        "Interest Rate (%)",
+        "Original currency",
+        "Principal (original)",
+        `Principal (${displayCode})`,
+        "Interest accrued (original)",
+        `Interest accrued (${displayCode})`,
+        "Total with interest (original)",
+        `Total with interest (${displayCode})`,
+        "Amount repaid (original)",
+        `Amount repaid (${displayCode})`,
+        "Outstanding (original)",
+        `Outstanding (${displayCode})`,
+        "Repayments Count",
+        "Created At",
+        "Updated At",
+    ];
+
+    const now = new Date();
+    const rows: string[][] = [headers];
+
+    for (const debt of debts) {
+        const lentDate = debt.lentDate instanceof Date ? debt.lentDate : new Date(debt.lentDate);
+        const dueDate = debt.dueDate
+            ? debt.dueDate instanceof Date
+                ? debt.dueDate
+                : new Date(debt.dueDate)
+            : undefined;
+
+        const interestCalc = calculateInterest(
+            debt.amount,
+            debt.interestRate,
+            lentDate,
+            dueDate,
+            now
+        );
+        const remainingCalc = calculateRemainingWithInterest(
+            debt.amount,
+            debt.interestRate,
+            lentDate,
+            dueDate,
+            debt.repayments || [],
+            now,
+            debt.status
+        );
+        const repaid =
+            debt.repayments?.reduce((sum, repayment) => sum + repayment.amount, 0) || 0;
+
+        const principalDisp = convertForDisplaySync(debt.amount, baseSafe, displaySafe);
+        const interestDisp = convertForDisplaySync(interestCalc.interestAmount, baseSafe, displaySafe);
+        const totalWithDisp = convertForDisplaySync(remainingCalc.totalWithInterest, baseSafe, displaySafe);
+        const repaidDisp = convertForDisplaySync(repaid, baseSafe, displaySafe);
+        const outstandingDisp = convertForDisplaySync(remainingCalc.remainingAmount, baseSafe, displaySafe);
+
+        rows.push([
+            String(debt.id),
+            debt.borrowerName,
+            debt.borrowerContact || "",
+            debt.borrowerEmail || "",
+            debt.status,
+            debt.purpose || "",
+            debt.notes || "",
+            formatDateForCSV(lentDate),
+            dueDate ? formatDateForCSV(dueDate) : "",
+            String(debt.interestRate),
+            baseSafe.toUpperCase(),
+            formatAmountCsvPlain(debt.amount),
+            formatAmountCsvPlain(principalDisp),
+            formatAmountCsvPlain(interestCalc.interestAmount),
+            formatAmountCsvPlain(interestDisp),
+            formatAmountCsvPlain(remainingCalc.totalWithInterest),
+            formatAmountCsvPlain(totalWithDisp),
+            formatAmountCsvPlain(repaid),
+            formatAmountCsvPlain(repaidDisp),
+            formatAmountCsvPlain(remainingCalc.remainingAmount),
+            formatAmountCsvPlain(outstandingDisp),
+            String(debt.repayments?.length ?? 0),
+            debt.createdAt.toISOString(),
+            debt.updatedAt.toISOString(),
+        ]);
+    }
+
+    const csvContent = rows
+        .map((line) => line.map((cell) => csvQuoteCell(cell)).join(","))
+        .join("\r\n");
+
+    const blob = new Blob(["\uFEFF", csvContent], {
+        type: "text/csv;charset=utf-8",
+    });
+    const link = document.createElement("a");
+    link.download =
+        filename ||
+        `lendings-filtered-${displayCode}-${new Date().toISOString().split("T")[0]}.csv`;
+    link.href = URL.createObjectURL(blob);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+
+    // Also export repayments detail if any (same as legacy export)
+    const allRepayments: DebtRepaymentInterface[] = [];
+    const debtIdToBorrowerMap: Record<number, string> = {};
+    debts.forEach((debt) => {
+        debtIdToBorrowerMap[debt.id] = debt.borrowerName;
+        if (debt.repayments && debt.repayments.length > 0) {
+            allRepayments.push(...debt.repayments);
+        }
+    });
+    if (allRepayments.length > 0) {
+        const repaymentsCsvContent = convertRepaymentsToCSV(allRepayments, debtIdToBorrowerMap);
+        setTimeout(() => {
+            const repaymentsBlob = new Blob(["\uFEFF", repaymentsCsvContent], {
+                type: "text/csv;charset=utf-8",
+            });
+            const repaymentLink = document.createElement("a");
+            repaymentLink.download = `lendings-filtered-${displayCode}-repayments-${new Date().toISOString().split("T")[0]}.csv`;
+            repaymentLink.href = URL.createObjectURL(repaymentsBlob);
+            document.body.appendChild(repaymentLink);
+            repaymentLink.click();
+            document.body.removeChild(repaymentLink);
+            URL.revokeObjectURL(repaymentLink.href);
+        }, 500);
+    }
 }
 
 /**

@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { DebtInterface } from "../../../types/debts";
 import { formatDate } from "../../../utils/date";
 import { formatCurrency } from "../../../utils/currency";
-import { useCurrency } from "../../../providers/CurrencyProvider";
+import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { calculateInterest, calculateRemainingWithInterest } from "../../../utils/interestCalculation";
 import { getDefaultColumnWidths, getMinColumnWidth, type DebtColumnWidths } from "../../../config/tableConfig";
 
@@ -13,6 +13,10 @@ type SortDirection = 'asc' | 'desc';
 
 interface DebtTableProps {
     debts: DebtInterface[];
+    /** Amounts are stored in this currency (typically user profile currency). */
+    baseCurrency: string;
+    /** Selected display currency for the table (may differ from base). */
+    displayCurrency: string;
     onEdit?: (debt: DebtInterface) => void;
     onDelete?: (debt: DebtInterface) => void;
     onViewDetails?: (debt: DebtInterface) => void;
@@ -26,7 +30,9 @@ interface DebtTableProps {
 }
 
 export function DebtTable({ 
-    debts, 
+    debts,
+    baseCurrency,
+    displayCurrency,
     onEdit, 
     onDelete, 
     onViewDetails, 
@@ -38,7 +44,6 @@ export function DebtTable({
     onBulkDelete,
     onClearSelection 
 }: DebtTableProps) {
-    const { currency: userCurrency } = useCurrency();
     const [sortField, setSortField] = useState<SortField>('dueDate');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
     
@@ -110,8 +115,8 @@ export function DebtTable({
                     bValue = b.borrowerName.toLowerCase();
                     break;
                 case 'amount':
-                    aValue = a.amount;
-                    bValue = b.amount;
+                    aValue = convertForDisplaySync(a.amount, baseCurrency, displayCurrency);
+                    bValue = convertForDisplaySync(b.amount, baseCurrency, displayCurrency);
                     break;
                 case 'dueDate':
                     // Handle null/undefined due dates by putting them at the end
@@ -135,8 +140,8 @@ export function DebtTable({
                 case 'remaining':
                     const aRemainingCalc = calculateRemainingWithInterest(a.amount, a.interestRate, a.lentDate, a.dueDate, a.repayments || [], new Date(), a.status);
                     const bRemainingCalc = calculateRemainingWithInterest(b.amount, b.interestRate, b.lentDate, b.dueDate, b.repayments || [], new Date(), b.status);
-                    aValue = aRemainingCalc.remainingAmount;
-                    bValue = bRemainingCalc.remainingAmount;
+                    aValue = convertForDisplaySync(aRemainingCalc.remainingAmount, baseCurrency, displayCurrency);
+                    bValue = convertForDisplaySync(bRemainingCalc.remainingAmount, baseCurrency, displayCurrency);
                     break;
                 default:
                     return 0;
@@ -152,7 +157,7 @@ export function DebtTable({
         });
 
         return sorted;
-    }, [debts, sortField, sortDirection]);
+    }, [debts, sortField, sortDirection, baseCurrency, displayCurrency]);
 
     const tableFooterSummary = useMemo(() => {
         if (sortedDebts.length === 0) {
@@ -243,6 +248,27 @@ export function DebtTable({
             dueRangeText,
         };
     }, [sortedDebts]);
+
+    const displayPrincipal = convertForDisplaySync(
+        tableFooterSummary.totalPrincipal,
+        baseCurrency,
+        displayCurrency
+    );
+    const displayInterest = convertForDisplaySync(
+        tableFooterSummary.totalInterest,
+        baseCurrency,
+        displayCurrency
+    );
+    const displayWithInterest = convertForDisplaySync(
+        tableFooterSummary.totalWithInterest,
+        baseCurrency,
+        displayCurrency
+    );
+    const displayRemaining = convertForDisplaySync(
+        tableFooterSummary.totalRemaining,
+        baseCurrency,
+        displayCurrency
+    );
 
     const summaryFooterColSpan = 7 + (showBulkActions ? 1 : 0);
 
@@ -335,7 +361,7 @@ export function DebtTable({
                                     onClick={() => handleSort('amount')}
                                 >
                                     <div className="flex items-center justify-center gap-2">
-                                        <span>Amount & Status</span>
+                                        <span>Amount & Status ({displayCurrency.toUpperCase()})</span>
                                         {getSortIcon('amount')}
                                     </div>
                                     <div 
@@ -373,7 +399,7 @@ export function DebtTable({
                                     onClick={() => handleSort('remaining')}
                                 >
                                     <div className="flex items-center justify-center gap-2">
-                                        <span>Remaining</span>
+                                        <span>Remaining ({displayCurrency.toUpperCase()})</span>
                                         {getSortIcon('remaining')}
                                     </div>
                                     <div 
@@ -394,7 +420,8 @@ export function DebtTable({
                                 <DebtRow 
                                     key={debt.id} 
                                     debt={debt}
-                                    currency={userCurrency}
+                                    baseCurrency={baseCurrency}
+                                    displayCurrency={displayCurrency}
                                     onEdit={onEdit}
                                     onDelete={onDelete}
                                     onViewDetails={onViewDetails}
@@ -438,27 +465,18 @@ export function DebtTable({
                                 >
                                     <div className="flex flex-col items-center text-center text-sm">
                                         <div className="font-semibold text-gray-900 tabular-nums">
-                                            {formatCurrency(
-                                                tableFooterSummary.totalPrincipal,
-                                                userCurrency
-                                            )}
+                                            {formatCurrency(displayPrincipal, displayCurrency)}
                                         </div>
                                         {tableFooterSummary.totalInterest > 0 && (
                                             <>
                                                 <div className="text-xs text-gray-600 tabular-nums">
                                                     +{" "}
-                                                    {formatCurrency(
-                                                        tableFooterSummary.totalInterest,
-                                                        userCurrency
-                                                    )}{" "}
+                                                    {formatCurrency(displayInterest, displayCurrency)}{" "}
                                                     interest
                                                 </div>
                                                 <div className="text-xs font-semibold text-blue-600 tabular-nums">
                                                     ={" "}
-                                                    {formatCurrency(
-                                                        tableFooterSummary.totalWithInterest,
-                                                        userCurrency
-                                                    )}{" "}
+                                                    {formatCurrency(displayWithInterest, displayCurrency)}{" "}
                                                     combined
                                                 </div>
                                             </>
@@ -503,10 +521,7 @@ export function DebtTable({
                                                 : "text-green-600"
                                         }
                                     >
-                                        {formatCurrency(
-                                            tableFooterSummary.totalRemaining,
-                                            userCurrency
-                                        )}
+                                        {formatCurrency(displayRemaining, displayCurrency)}
                                     </span>
                                 </td>
                                 <td
@@ -532,7 +547,8 @@ export function DebtTable({
 
 function DebtRow({ 
     debt, 
-    currency, 
+    baseCurrency,
+    displayCurrency,
     onEdit, 
     onDelete, 
     onViewDetails, 
@@ -543,7 +559,8 @@ function DebtRow({
     columnWidths
 }: { 
     debt: DebtInterface;
-    currency: string;
+    baseCurrency: string;
+    displayCurrency: string;
     onEdit?: (debt: DebtInterface) => void;
     onDelete?: (debt: DebtInterface) => void;
     onViewDetails?: (debt: DebtInterface) => void;
@@ -553,6 +570,13 @@ function DebtRow({
     showCheckbox?: boolean;
     columnWidths: DebtColumnWidths;
 }) {
+    function displayMoney(amount: number) {
+        return formatCurrency(
+            convertForDisplaySync(amount, baseCurrency, displayCurrency),
+            displayCurrency
+        );
+    }
+
     // Calculate interest and remaining amounts
     const interestCalc = calculateInterest(debt.amount, debt.interestRate, debt.lentDate, debt.dueDate);
     const remainingCalc = calculateRemainingWithInterest(
@@ -647,16 +671,16 @@ function DebtRow({
             <td className="px-4 py-4 align-top" style={{ width: `${columnWidths.amountStatus}px` }}>
                 <div className="flex flex-col items-center text-center">
                     <div className="text-sm font-medium text-gray-900 break-words">
-                        {formatCurrency(debt.amount, currency)}
+                        {displayMoney(debt.amount)}
                     </div>
                     {interestCalc.interestAmount > 0 && (
                         <div className="text-xs text-gray-600 break-words">
-                            + {formatCurrency(interestCalc.interestAmount, currency)} total interest
+                            + {displayMoney(interestCalc.interestAmount)} total interest
                         </div>
                     )}
                     {interestCalc.interestAmount > 0 && (
                         <div className="text-xs font-medium text-blue-600 break-words">
-                            = {formatCurrency(interestCalc.totalAmountWithInterest, currency)} total
+                            = {displayMoney(interestCalc.totalAmountWithInterest)} total
                         </div>
                     )}
                     <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(debt.status)} mt-1`}>
@@ -676,7 +700,7 @@ function DebtRow({
                     </div>
                     {interestCalc.interestAmount > 0 && (
                         <div className="text-xs text-orange-600 font-medium break-words">
-                            Total Interest: {formatCurrency(interestCalc.interestAmount, currency)}
+                            Total Interest: {displayMoney(interestCalc.interestAmount)}
                         </div>
                     )}
                     <div className="text-xs text-gray-500 mb-1">
@@ -707,7 +731,7 @@ function DebtRow({
             </td>
             <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-center tabular-nums align-top" style={{ width: `${columnWidths.remaining}px` }}>
                 <span className={remainingCalc.remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}>
-                    {formatCurrency(remainingCalc.remainingAmount, currency)}
+                    {displayMoney(remainingCalc.remainingAmount)}
                 </span>
             </td>
             <td className="px-3 py-4 whitespace-nowrap text-center text-sm font-medium align-top" style={{ width: `${columnWidths.actions}px` }}>
