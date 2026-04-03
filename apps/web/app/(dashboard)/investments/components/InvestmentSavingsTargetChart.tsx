@@ -53,14 +53,14 @@ export function InvestmentSavingsTargetChart({
 
   return (
     <div
-      className="rounded-xl border border-purple-100 bg-purple-50/40 p-4"
+      className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
       role="img"
       aria-label={`Savings target ${formatCurrency(target, currency)}, fulfilled ${formatCurrency(fulfilled, currency)}`}
     >
-      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-purple-800">
+      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-600">
         Target vs fulfilled
       </h3>
-      <p className="mb-3 text-[11px] text-purple-700/90">
+      <p className="mb-3 text-[11px] text-gray-500">
         Fulfilled = total cost basis linked to this goal (all positions).
       </p>
       <div className="h-48 w-full min-w-0">
@@ -69,12 +69,12 @@ export function InvestmentSavingsTargetChart({
             data={chartData}
             margin={{ top: 8, right: 8, left: 4, bottom: 8 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#e9d5ff" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 11, fill: "#6b21a8" }}
+              tick={{ fontSize: 11, fill: "#374151" }}
               tickLine={false}
-              axisLine={{ stroke: "#e9d5ff" }}
+              axisLine={{ stroke: "#e5e7eb" }}
             />
             <YAxis
               domain={[0, maxY]}
@@ -82,10 +82,10 @@ export function InvestmentSavingsTargetChart({
               width={56}
               tick={{ fontSize: 10, fill: "#6b7280" }}
               tickLine={false}
-              axisLine={{ stroke: "#e9d5ff" }}
+              axisLine={{ stroke: "#e5e7eb" }}
             />
             <Tooltip
-              cursor={{ fill: "rgba(243, 232, 255, 0.4)" }}
+              cursor={{ fill: "rgba(243, 244, 246, 0.6)" }}
               content={({ payload }) => {
                 if (!payload?.length) return null;
                 const row = payload[0]?.payload as { name: string; value: number };
@@ -107,7 +107,7 @@ export function InvestmentSavingsTargetChart({
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <div className="mt-3 flex flex-wrap justify-center gap-x-6 gap-y-2 border-t border-purple-100 pt-3 text-xs text-gray-800">
+      <div className="mt-3 flex flex-wrap justify-center gap-x-6 gap-y-2 border-t border-gray-100 pt-3 text-xs text-gray-800">
         <span className="inline-flex items-center gap-2">
           <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-gray-300" aria-hidden />
           <span>Target</span>
@@ -123,7 +123,7 @@ export function InvestmentSavingsTargetChart({
           </span>
         </span>
         {target > 0 ? (
-          <span className="w-full text-center text-[11px] text-purple-800 sm:w-auto">
+          <span className="w-full text-center text-[11px] text-gray-600 sm:w-auto">
             {Math.min(100, (fulfilled / target) * 100).toFixed(1)}% of target
           </span>
         ) : null}

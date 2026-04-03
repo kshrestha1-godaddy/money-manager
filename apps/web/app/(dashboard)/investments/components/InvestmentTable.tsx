@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { Download, RefreshCw } from "lucide-react";
 import { InvestmentInterface } from "../../../types/investments";
 import {
     getInvestmentTypeBadgeClassName,
@@ -12,6 +13,9 @@ import {
 import { formatCurrency } from "../../../utils/currency";
 import { formatDateYearMonthDay } from "../../../utils/date";
 import { useCurrency } from "../../../providers/CurrencyProvider";
+import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import { SUPPORTED_CURRENCIES } from "../../../utils/currencyConversion";
+import { exportInvestmentsToCSVWithDisplayCurrency } from "../../../utils/csvExportInvestments";
 import { getDefaultColumnWidths, getMinColumnWidth, type InvestmentColumnWidths } from "../../../config/tableConfig";
 import { getActionButtonClasses } from "../../../config/colorConfig";
 import { cn } from "@/lib/utils";
@@ -41,6 +45,8 @@ interface InvestmentTableProps {
     showBulkActions?: boolean;
     onBulkDelete?: () => void;
     onClearSelection?: () => void;
+    /** Refetch investments (e.g. invalidate React Query). Shown when set. */
+    onRefresh?: () => void | Promise<void>;
 }
 
 type SortField =
@@ -66,11 +72,51 @@ export function InvestmentTable({
     onInvestmentSelect,
     showBulkActions = true,
     onBulkDelete,
-    onClearSelection 
+    onClearSelection,
+    onRefresh,
 }: InvestmentTableProps) {
     const [sortField, setSortField] = useState<SortField>('targetCompletion');
     const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
     const { currency: userCurrency } = useCurrency();
+    const [selectedCurrency, setSelectedCurrency] = useState(userCurrency);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    useEffect(() => {
+        setSelectedCurrency(userCurrency);
+    }, [userCurrency]);
+
+    const toDisplay = useCallback(
+        (amount: number) =>
+            convertForDisplaySync(amount, userCurrency, selectedCurrency),
+        [userCurrency, selectedCurrency]
+    );
+
+    const formatMoney = useCallback(
+        (amount: number) => formatCurrency(toDisplay(amount), selectedCurrency),
+        [toDisplay, selectedCurrency]
+    );
+
+    const handleDownloadCsv = useCallback(() => {
+        if (investments.length === 0) {
+            alert("No investments to export");
+            return;
+        }
+        exportInvestmentsToCSVWithDisplayCurrency(
+            investments,
+            userCurrency,
+            selectedCurrency
+        );
+    }, [investments, userCurrency, selectedCurrency]);
+
+    const handleRefresh = useCallback(async () => {
+        if (!onRefresh || isRefreshing) return;
+        try {
+            setIsRefreshing(true);
+            await Promise.resolve(onRefresh());
+        } finally {
+            setIsRefreshing(false);
+        }
+    }, [onRefresh, isRefreshing]);
 
     // Column resizing state - optimized for better space utilization
     const [columnWidths, setColumnWidths] = useState<InvestmentColumnWidths>(
@@ -257,7 +303,50 @@ export function InvestmentTable({
     };
 
     return (
-        <div className="overflow-x-auto">
+        <div className="w-full">
+            <div className="flex flex-wrap items-center justify-end gap-3 border-b border-gray-200 bg-gray-50/50 px-6 py-3">
+                {onRefresh && (
+                    <button
+                        type="button"
+                        onClick={handleRefresh}
+                        disabled={isRefreshing}
+                        aria-busy={isRefreshing}
+                        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:pointer-events-none disabled:opacity-50"
+                    >
+                        <RefreshCw
+                            className={`h-4 w-4 shrink-0 ${isRefreshing ? "animate-spin" : ""}`}
+                            aria-hidden
+                        />
+                        Refresh
+                    </button>
+                )}
+                <div className="flex items-center space-x-2">
+                    <label htmlFor="investment-table-display-currency" className="sr-only">
+                        Display currency
+                    </label>
+                    <select
+                        id="investment-table-display-currency"
+                        value={selectedCurrency}
+                        onChange={(e) => setSelectedCurrency(e.target.value)}
+                        className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    >
+                        {SUPPORTED_CURRENCIES.map((code) => (
+                            <option key={code} value={code}>
+                                {code}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+                <button
+                    type="button"
+                    onClick={handleDownloadCsv}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                    <Download className="h-4 w-4 shrink-0" aria-hidden />
+                    Download CSV
+                </button>
+            </div>
+            <div className="overflow-x-auto">
             <table ref={tableRef} className="min-w-full divide-y divide-gray-200 table-fixed">
                 <thead className="bg-gray-50">
                     <tr>
@@ -454,7 +543,7 @@ export function InvestmentTable({
                             <InvestmentRow
                                 key={investment.id}
                                 investment={investment}
-                                currency={userCurrency}
+                                formatMoney={formatMoney}
                                 onEdit={onEdit}
                                 onDelete={onDelete}
                                 onViewDetails={onViewDetails}
@@ -522,7 +611,7 @@ export function InvestmentTable({
                             className="px-3 py-4 text-center text-sm font-semibold text-gray-900 tabular-nums"
                             style={{ width: `${columnWidths.purchasePrincipal}px` }}
                         >
-                            {formatCurrency(tableFooterSummary.totalCost, userCurrency)}
+                            {formatMoney(tableFooterSummary.totalCost)}
                         </td>
                         <td
                             className="px-3 py-4 text-center text-sm text-gray-400"
@@ -534,7 +623,7 @@ export function InvestmentTable({
                             className="px-3 py-4 text-center text-sm font-semibold text-gray-900 tabular-nums"
                             style={{ width: `${columnWidths.totalValue}px` }}
                         >
-                            {formatCurrency(tableFooterSummary.totalValue, userCurrency)}
+                            {formatMoney(tableFooterSummary.totalValue)}
                         </td>
                         <td
                             className="px-3 py-4 text-center text-sm font-semibold text-gray-900 tabular-nums"
@@ -542,7 +631,7 @@ export function InvestmentTable({
                         >
                             <div className="flex flex-col items-center gap-0.5">
                                 <span>
-                                    {formatCurrency(tableFooterSummary.totalWithheldAmount, userCurrency)}
+                                    {formatMoney(tableFooterSummary.totalWithheldAmount)}
                                 </span>
                                 {tableFooterSummary.withheldPositionCount > 0 && (
                                     <span className="text-xs font-normal text-gray-500">
@@ -562,7 +651,7 @@ export function InvestmentTable({
                                 <div
                                     className={`font-semibold break-words ${getGainColor(tableFooterSummary.totalGain)}`}
                                 >
-                                    {formatCurrency(tableFooterSummary.totalGain, userCurrency)}
+                                    {formatMoney(tableFooterSummary.totalGain)}
                                 </div>
                                 <div
                                     className={`text-xs break-words ${getGainColor(tableFooterSummary.totalGain)}`}
@@ -586,13 +675,14 @@ export function InvestmentTable({
                     </tr>
                 </tfoot>
             </table>
+            </div>
         </div>
     );
 }
 
 function InvestmentRow({ 
     investment, 
-    currency, 
+    formatMoney,
     onEdit, 
     onDelete, 
     onViewDetails, 
@@ -607,7 +697,7 @@ function InvestmentRow({
     columnWidths
 }: { 
     investment: InvestmentInterface;
-    currency: string;
+    formatMoney: (amountInStoredCurrency: number) => string;
     onEdit: (investment: InvestmentInterface) => void;
     onDelete: (investment: InvestmentInterface) => void;
     onViewDetails: (investment: InvestmentInterface) => void;
@@ -709,12 +799,12 @@ function InvestmentRow({
             <td
                 className="px-3 py-4 text-sm text-gray-900 text-center tabular-nums align-top"
                 style={{ width: `${columnWidths.purchasePrincipal}px` }}
-                title={`${investment.quantity} × ${formatCurrency(investment.purchasePrice, currency)} per unit`}
+                title={`${investment.quantity} × ${formatMoney(investment.purchasePrice)} per unit`}
             >
                 <div className="flex flex-col items-center gap-0.5">
-                    <div className="break-words font-medium">{formatCurrency(totalPurchasePrincipal, currency)}</div>
+                    <div className="break-words font-medium">{formatMoney(totalPurchasePrincipal)}</div>
                     <div className="text-xs font-normal text-gray-500 tabular-nums">
-                        ({formatCurrency(investment.purchasePrice, currency)}/unit)
+                        ({formatMoney(investment.purchasePrice)}/unit)
                     </div>
                 </div>
             </td>
@@ -727,10 +817,10 @@ function InvestmentRow({
                         : undefined
                 }
             >
-                <div className="break-words font-medium">{formatCurrency(investment.currentPrice, currency)}</div>
+                <div className="break-words font-medium">{formatMoney(investment.currentPrice)}</div>
             </td>
             <td className="px-3 py-4 text-sm font-medium text-gray-900 text-center tabular-nums align-top" style={{ width: `${columnWidths.totalValue}px` }}>
-                <div className="break-words">{formatCurrency(totalValue, currency)}</div>
+                <div className="break-words">{formatMoney(totalValue)}</div>
             </td>
             <td className="px-3 py-4 text-sm text-center align-top" style={{ width: `${columnWidths.isWithheld}px` }}>
                 {isWithheld ? (
@@ -744,7 +834,7 @@ function InvestmentRow({
             <td className="px-3 py-4 text-sm text-center tabular-nums align-top" style={{ width: `${columnWidths.gainLoss}px` }}>
                 <div className="space-y-1">
                     <div className={`font-medium break-words ${getGainColor(gain)}`}>
-                        {formatCurrency(gain, currency)}
+                        {formatMoney(gain)}
                     </div>
                     <div className={`text-xs break-words ${getGainColor(gain)}`}>
                         ({gainPercentage}%)

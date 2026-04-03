@@ -218,6 +218,10 @@ export default function InvestmentsPageClient() {
     [investments]
   );
 
+  const handleInvestmentsRefresh = useCallback(() => {
+    return queryClient.invalidateQueries({ queryKey: ["investments"] });
+  }, [queryClient]);
+
   const openAddTargetModal = useCallback(() => openTargetModal('create'), [openTargetModal]);
   const openEditTargetModal = useCallback((targetId: number) => {
     const actualTarget = actualTargets.find((t) => t.id === targetId);
@@ -724,6 +728,7 @@ export default function InvestmentsPageClient() {
                   onDelete={(investment: InvestmentInterface) => openModal('delete', investment)}
                   onViewDetails={(investment: InvestmentInterface) => openModal('view', investment)}
                   showBulkActions={true}
+                  onRefresh={handleInvestmentsRefresh}
                 />
               </div>
             ))}

@@ -1,5 +1,15 @@
 import { InvestmentInterface } from '../types/investments';
 import { formatDateForCSV } from './csvUtils';
+import { convertForDisplaySync } from './currencyDisplay';
+
+function csvQuoteCell(value: string | number | undefined | null): string {
+    const s = String(value ?? "");
+    return `"${s.replace(/"/g, '""')}"`;
+}
+
+function formatAmountCsvPlain(n: number): string {
+    return (Math.round(n * 100) / 100).toFixed(2);
+}
 
 /**
  * Convert investments data to CSV format
@@ -71,6 +81,95 @@ export function convertInvestmentsToCSV(investments: InvestmentInterface[]): str
 }
 
 /**
+ * Same columns as {@link convertInvestmentsToCSV}, with monetary fields converted to `displayCurrency`.
+ * Amounts in the app are stored in `storedCurrency` (user profile currency).
+ */
+export function convertInvestmentsToCSVWithDisplayCurrency(
+    investments: InvestmentInterface[],
+    storedCurrency: string,
+    displayCurrency: string
+): string {
+    if (investments.length === 0) {
+        return "";
+    }
+
+    const stored = (storedCurrency || "USD").trim();
+    const display = (displayCurrency || stored).trim();
+    const dc = display.toUpperCase();
+    const sc = stored.toUpperCase();
+
+    const headers = [
+        "ID",
+        "Name",
+        "Type",
+        "Symbol",
+        "Quantity",
+        `Purchase Price (per unit, ${dc})`,
+        `Current Price (per unit, ${dc})`,
+        `Total Value (${dc})`,
+        `Gain/Loss (${dc})`,
+        "Gain/Loss %",
+        "Purchase Date",
+        "Account",
+        "Bank Name",
+        "Account Number",
+        "Interest Rate",
+        "Maturity Date",
+        "Notes",
+        "Created At",
+        "Updated At",
+        `Conversion note`,
+    ];
+
+    const lines: string[][] = [headers];
+
+    investments.forEach((investment) => {
+        const pp = convertForDisplaySync(investment.purchasePrice, stored, display);
+        const cp = convertForDisplaySync(investment.currentPrice, stored, display);
+        const totalValue = convertForDisplaySync(
+            investment.quantity * investment.currentPrice,
+            stored,
+            display
+        );
+        const totalPurchaseValue = convertForDisplaySync(
+            investment.quantity * investment.purchasePrice,
+            stored,
+            display
+        );
+        const gainLoss = totalValue - totalPurchaseValue;
+        const gainLossPercentage =
+            totalPurchaseValue !== 0 ? (gainLoss / totalPurchaseValue) * 100 : 0;
+
+        lines.push([
+            investment.id.toString(),
+            investment.name,
+            investment.type,
+            investment.symbol || "",
+            investment.quantity.toString(),
+            formatAmountCsvPlain(pp),
+            formatAmountCsvPlain(cp),
+            formatAmountCsvPlain(totalValue),
+            formatAmountCsvPlain(gainLoss),
+            gainLossPercentage.toFixed(2) + "%",
+            formatDateForCSV(investment.purchaseDate),
+            investment.account
+                ? `${investment.account.holderName} - ${investment.account.bankName}`
+                : "",
+            investment.account?.bankName || "",
+            investment.account?.accountNumber || "",
+            investment.interestRate?.toString() || "",
+            investment.maturityDate ? formatDateForCSV(investment.maturityDate) : "",
+            investment.notes || "",
+            investment.createdAt.toISOString(),
+            investment.updatedAt.toISOString(),
+            sc === dc ? "Native currency" : `Converted from ${sc} to ${dc}`,
+        ]);
+    });
+
+    return lines.map((line) => line.map((cell) => csvQuoteCell(cell)).join(",")).join("\r\n");
+}
+
+/**
  * Download investments data as CSV file
  */
 export function exportInvestmentsToCSV(investments: InvestmentInterface[], filename?: string): void {
@@ -97,6 +196,49 @@ export function exportInvestmentsToCSV(investments: InvestmentInterface[], filen
     } else {
         // Fallback for older browsers
         const csvData = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent);
+        window.open(csvData);
+    }
+}
+
+/**
+ * Download investments CSV with amounts shown in the chosen display currency.
+ */
+export function exportInvestmentsToCSVWithDisplayCurrency(
+    investments: InvestmentInterface[],
+    storedCurrency: string,
+    displayCurrency: string,
+    filename?: string
+): void {
+    const csvContent = convertInvestmentsToCSVWithDisplayCurrency(
+        investments,
+        storedCurrency,
+        displayCurrency
+    );
+
+    if (!csvContent) {
+        alert("No investment data to export");
+        return;
+    }
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+
+    if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        const dc = (displayCurrency || "USD").trim().toUpperCase();
+        const date = new Date().toISOString().split("T")[0];
+        link.setAttribute("href", url);
+        link.setAttribute(
+            "download",
+            filename || `investments_${date}_${dc}.csv`
+        );
+        link.style.visibility = "hidden";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    } else {
+        const csvData = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
         window.open(csvData);
     }
 }
