@@ -526,7 +526,7 @@ export default function ScheduledPaymentsPageClient() {
             }}
             className={primaryButton}
           >
-            Schedule payment
+            Schedule a payment
           </button>
         </div>
       </div>
