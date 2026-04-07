@@ -3,7 +3,8 @@
 import React, { useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, LabelList, TooltipProps } from "recharts";
 import { Info } from "lucide-react";
-import { formatCurrency } from "../../../utils/currency";
+import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
+import { useCurrency } from "../../../providers/CurrencyProvider";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { ChartControls } from "../../../components/ChartControls";
@@ -25,7 +26,9 @@ interface WaterfallData {
     description?: string;
 }
 
-export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency = "USD", heightClass }) => {
+export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency: currencyProp, heightClass }) => {
+    const { currency: userCurrency } = useCurrency();
+    const currency = currencyProp ?? userCurrency;
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { totals, formatTimePeriod, filteredIncomes, filteredExpenses } = useChartData();
@@ -152,16 +155,14 @@ export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency = "USD
     };
 
     const formatYAxisTick = (value: number) => {
-        // Create a compact format for Y-axis ticks
-        const symbol = currency === "USD" ? "$" : currency === "NPR" ? "₨ " : "$";
-        
+        const symbol = getCurrencySymbol(currency).trimEnd();
         if (value >= 1000000) {
             return `${symbol}${(value / 1000000).toFixed(1)}M`;
-        } else if (value >= 1000) {
-            return `${symbol}${(value / 1000).toFixed(1)}K`;
-        } else {
-            return `${symbol}${value.toFixed(0)}`;
         }
+        if (value >= 1000) {
+            return `${symbol}${(value / 1000).toFixed(1)}K`;
+        }
+        return `${symbol}${value.toFixed(0)}`;
     };
 
     // Enhanced CSV data with detailed statistics
