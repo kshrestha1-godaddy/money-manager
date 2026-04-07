@@ -5,7 +5,11 @@ import { DebtInterface } from "../../../types/debts";
 import { formatDate } from "../../../utils/date";
 import { formatCurrency } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
-import { calculateInterest, calculateRemainingWithInterest } from "../../../utils/interestCalculation";
+import {
+    calculateInterest,
+    calculateRemainingWithInterest,
+    getEffectiveDebtStatus,
+} from "../../../utils/interestCalculation";
 import { getDefaultColumnWidths, getMinColumnWidth, type DebtColumnWidths } from "../../../config/tableConfig";
 
 type SortField = 'borrowerName' | 'amount' | 'dueDate' | 'lentDate' | 'remaining';
@@ -577,6 +581,8 @@ function DebtRow({
         );
     }
 
+    const effectiveStatus = getEffectiveDebtStatus(debt);
+
     // Calculate interest and remaining amounts
     const interestCalc = calculateInterest(debt.amount, debt.interestRate, debt.lentDate, debt.dueDate);
     const remainingCalc = calculateRemainingWithInterest(
@@ -683,8 +689,8 @@ function DebtRow({
                             = {displayMoney(interestCalc.totalAmountWithInterest)} total
                         </div>
                     )}
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(debt.status)} mt-1`}>
-                        {debt.status.replace('_', ' ')}
+                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(effectiveStatus)} mt-1`}>
+                        {effectiveStatus.replace('_', ' ')}
                     </span>
                 </div>
             </td>

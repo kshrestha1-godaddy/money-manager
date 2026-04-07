@@ -11,7 +11,10 @@ import {
 } from "../(dashboard)/debts/actions/debts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
 import { exportDebtsToCSV } from "../utils/csvExportDebts";
-import { calculateRemainingWithInterest } from "../utils/interestCalculation";
+import {
+    calculateRemainingWithInterest,
+    getEffectiveDebtStatus,
+} from "../utils/interestCalculation";
 import { NotificationData } from "../components/DisappearingNotification";
 import { formatCurrency } from "../utils/currency";
 
@@ -173,7 +176,9 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
         }
 
         if (selectedStatus) {
-            filtered = filtered.filter(debt => debt.status === selectedStatus);
+            filtered = filtered.filter(
+                (debt) => getEffectiveDebtStatus(debt) === selectedStatus
+            );
         }
 
         // Date filtering
@@ -207,9 +212,9 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
         let activeCount = 0;
         let overdueCount = 0;
 
-        filteredDebts.forEach(debt => {
+        filteredDebts.forEach((debt) => {
             totalPrincipal += debt.amount;
-            
+
             const calculation = calculateRemainingWithInterest(
                 debt.amount,
                 debt.interestRate,
@@ -219,18 +224,19 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
                 new Date(),
                 debt.status
             );
-            
+
             totalInterestAccrued += calculation.interestAmount;
             totalOutstanding += calculation.remainingAmount;
-            
-            const repaymentAmount = debt.repayments?.reduce((sum, repayment) => sum + repayment.amount, 0) || 0;
+
+            const repaymentAmount =
+                debt.repayments?.reduce((sum, repayment) => sum + repayment.amount, 0) || 0;
             totalRepaid += repaymentAmount;
-            
-            if (debt.status === 'ACTIVE' || debt.status === 'PARTIALLY_PAID') {
+
+            const effective = getEffectiveDebtStatus(debt);
+            if (effective === "ACTIVE" || effective === "PARTIALLY_PAID") {
                 activeCount++;
             }
-            
-            if (debt.status === 'OVERDUE') {
+            if (effective === "OVERDUE") {
                 overdueCount++;
             }
         });
@@ -253,8 +259,8 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
     // Organize debts by sections
     const sections = useMemo(() => {
         return DEBT_SECTIONS.map(section => {
-            const sectionDebts = filteredDebts.filter(debt => 
-                section.statuses.includes(debt.status)
+            const sectionDebts = filteredDebts.filter((debt) =>
+                section.statuses.includes(getEffectiveDebtStatus(debt))
             );
             
             const totalAmount = sectionDebts.reduce((sum, debt) => sum + debt.amount, 0);

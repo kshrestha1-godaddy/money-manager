@@ -18,6 +18,7 @@ import DebtStatusWaterfallChart from './charts/DebtStatusWaterfallChart';
 import DebtDueDatesChart from './charts/DebtDueDatesChart';
 import { useCurrency } from '../../providers/CurrencyProvider';
 import { useOptimizedDebts } from './hooks/useOptimizedDebts';
+import { getEffectiveDebtStatus } from '../../utils/interestCalculation';
 import { getSummaryCardClasses, BUTTON_COLORS, TEXT_COLORS, CONTAINER_COLORS, INPUT_COLORS, LOADING_COLORS, UI_STYLES } from '../../config/colorConfig';
 import { DisappearingNotification, NotificationData } from '../../components/DisappearingNotification';
 
@@ -94,7 +95,9 @@ export default function DebtsPageClient() {
     userCurrency: userCurrency
   });
 
-  const uniqueStatuses = Array.from(new Set(debts.map(debt => debt.status))).sort();
+  const uniqueStatuses = Array.from(
+    new Set(debts.map((debt) => getEffectiveDebtStatus(debt)))
+  ).sort();
 
   const handleDebtsRefresh = useCallback(async () => {
     await refetchDebts();

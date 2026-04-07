@@ -112,32 +112,86 @@ export function calculateRemainingWithInterest(
     };
 }
 
+/** Outstanding balance below this (in currency units) counts as fully repaid (float + rounding). */
+const FULLY_REPAID_EPSILON = 0.01;
+
 /**
  * Determine debt status based on repayments and total amount with interest
  * @param totalRepayments - Total amount repaid
  * @param totalWithInterest - Total amount owed including interest
- * @param currentStatus - Current debt status
+ * @param _currentStatus - Reserved for future use (e.g. preserving OVERDUE rules)
  * @returns New debt status
  */
 export function determineDebtStatus(
     totalRepayments: number,
     totalWithInterest: number,
-    currentStatus: string = 'ACTIVE'
+    _currentStatus: string = 'ACTIVE'
 ): string {
-    // Round both amounts to 2 decimal places for proper comparison
-    const roundedTotalRepayments = Math.round(totalRepayments * 100) / 100;
-    const roundedTotalWithInterest = Math.round(totalWithInterest * 100) / 100;
-    
-    // If repayments equal or exceed total with interest, debt is fully paid
-    if (roundedTotalRepayments >= roundedTotalWithInterest) {
+    const remaining = totalWithInterest - totalRepayments;
+
+    // Prefer remaining-based check so float drift cannot leave a 0-balance loan as PARTIALLY_PAID
+    if (remaining <= FULLY_REPAID_EPSILON) {
         return 'FULLY_PAID';
     }
-    
-    // If there are repayments but not fully paid, it's partially paid
+
+    const roundedTotalRepayments = Math.round(totalRepayments * 100) / 100;
+
     if (roundedTotalRepayments > 0) {
         return 'PARTIALLY_PAID';
     }
-    
-    // If no repayments, return to active status
+
     return 'ACTIVE';
+}
+
+export interface DebtLikeForStatus {
+    amount: number;
+    interestRate: number;
+    lentDate: Date;
+    dueDate?: Date;
+    repayments?: { amount: number }[];
+    status: string;
+}
+
+/**
+ * Status derived from principal, interest, and repayments — matches table math.
+ * Use this for grouping and badges when stored `status` may be stale (e.g. after edge-case repayments).
+ */
+export function getEffectiveDebtStatus(debt: DebtLikeForStatus): string {
+    const lentDate =
+        debt.lentDate instanceof Date ? debt.lentDate : new Date(debt.lentDate);
+    const dueDate = debt.dueDate
+        ? debt.dueDate instanceof Date
+            ? debt.dueDate
+            : new Date(debt.dueDate)
+        : undefined;
+    const repayments = debt.repayments ?? [];
+
+    const remainingCalc = calculateRemainingWithInterest(
+        debt.amount,
+        debt.interestRate,
+        lentDate,
+        dueDate,
+        repayments,
+        new Date(),
+        debt.status
+    );
+    const totalRepayments = repayments.reduce((sum, r) => sum + r.amount, 0);
+
+    if (remainingCalc.remainingAmount <= FULLY_REPAID_EPSILON) {
+        return 'FULLY_PAID';
+    }
+
+    if (debt.status === 'DEFAULTED') {
+        return 'DEFAULTED';
+    }
+
+    if (debt.status === 'OVERDUE') {
+        return 'OVERDUE';
+    }
+
+    return determineDebtStatus(
+        totalRepayments,
+        remainingCalc.totalWithInterest,
+        debt.status
+    );
 } 
