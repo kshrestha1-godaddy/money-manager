@@ -18,7 +18,11 @@ import { ChartControls } from "../../../components/ChartControls";
 import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import type { DebtInterface } from "../../../types/debts";
-import { calculateRemainingWithInterest } from "../../../utils/interestCalculation";
+import {
+  calculateRemainingWithInterest,
+  getDebtSectionKey,
+  getEffectiveDebtStatus,
+} from "../../../utils/interestCalculation";
 
 interface DebtDueDatesChartProps {
   debts: DebtInterface[];
@@ -29,10 +33,14 @@ interface DueDateDataPoint {
   id: number;
   borrowerName: string;
   amount: number;
+  /** Total obligation including interest (for progress %). */
+  totalWithInterest: number;
   remainingAmount: number;
+  /** Sum of repayments (aligned with debt tables). */
   paidAmount: number;
   dueDate: Date | null;
   daysUntilDue: number;
+  /** Effective status (same logic as lendings tables). */
   status: string;
   purpose: string;
   isOverdue: boolean;
@@ -82,12 +90,12 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Filter for active/partially paid debts with due dates
-    const activeDebts = debts.filter(
-      (debt) =>
-        (debt.status === "ACTIVE" || debt.status === "PARTIALLY_PAID" || debt.status === "OVERDUE") &&
-        debt.dueDate
-    );
+    // Same buckets as lendings tables: exclude fully settled loans even if DB status is stale
+    const activeDebts = debts.filter((debt) => {
+      if (!debt.dueDate) return false;
+      const sectionKey = getDebtSectionKey(debt);
+      return sectionKey === "ACTIVE" || sectionKey === "PARTIALLY_PAID";
+    });
 
     const data: DueDateDataPoint[] = activeDebts.map((debt) => {
       const dueDate = debt.dueDate instanceof Date ? debt.dueDate : new Date(debt.dueDate!);
@@ -107,15 +115,22 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
         debt.status
       );
 
+      const totalRepaid = (debt.repayments || []).reduce(
+        (sum, r) => sum + Number(r.amount ?? 0),
+        0
+      );
+      const effectiveStatus = getEffectiveDebtStatus(debt);
+
       return {
         id: debt.id,
         borrowerName: debt.borrowerName,
         amount: debt.amount,
+        totalWithInterest: result.totalWithInterest,
         remainingAmount: result.remainingAmount,
-        paidAmount: debt.amount - result.remainingAmount,
+        paidAmount: totalRepaid,
         dueDate,
         daysUntilDue,
-        status: debt.status,
+        status: effectiveStatus,
         purpose: debt.purpose || "Personal Loan",
         isOverdue,
       };
@@ -200,7 +215,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
               {formatCurrency(data.remainingAmount, currency)}
             </span>
           </div>
-          {(data.status === "PARTIALLY_PAID" || data.paidAmount > 0) && (
+          {(data.status === "PARTIALLY_PAID" || data.paidAmount > 0) && data.totalWithInterest > 0 && (
             <>
               <div className="flex justify-between">
                 <span className="text-gray-600">Paid Amount:</span>
@@ -211,7 +226,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
               <div className="flex justify-between">
                 <span className="text-gray-600">Payment Progress:</span>
                 <span className="font-medium text-blue-600">
-                  {((data.paidAmount / data.amount) * 100).toFixed(1)}%
+                  {((data.paidAmount / data.totalWithInterest) * 100).toFixed(1)}%
                 </span>
               </div>
               <div className="mt-1">
@@ -220,7 +235,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
                   <div 
                     className="bg-blue-500 h-2 rounded-full transition-all duration-300"
                     style={{ 
-                      width: `${(data.paidAmount / data.amount) * 100}%`
+                      width: `${Math.min(100, (data.paidAmount / data.totalWithInterest) * 100)}%`
                     }}
                   ></div>
                 </div>
@@ -243,7 +258,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
           isExpanded={isExpanded}
           onToggleExpanded={toggleExpanded}
           title="Lending Due Dates"
-          subtitle="Timeline of upcoming due dates for active lendings"
+          subtitle="Timeline of upcoming due dates for lendings with outstanding balance"
           fileName="lending-due-dates"
           csvData={[["Borrower", "Due Date", "Days Until Due", "Amount"]]}
           csvFileName="lending-due-dates-data"
@@ -252,7 +267,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
         <div className="flex items-center justify-center h-48 text-gray-500">
           <div className="text-center">
             <div className="text-4xl mb-2">📅</div>
-            <p>No active lendings with due dates</p>
+            <p>No outstanding lendings with due dates</p>
           </div>
         </div>
       </div>
@@ -275,11 +290,22 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
         chartRef={chartRef}
         isExpanded={isExpanded}
         onToggleExpanded={toggleExpanded}
-        title={`Lending Due Dates • ${chartData.data.length} active`}
-        subtitle="Timeline showing days until due for each lending"
+        title={`Lending Due Dates • ${chartData.data.length} outstanding`}
+        subtitle="Timeline for lendings with a balance due (same rules as the tables)"
         fileName="lending-due-dates"
         csvData={[
-          ["Borrower", "Purpose", "Due Date", "Days Until Due", "Status", "Original Amount", "Paid Amount", "Remaining", "Payment Progress %"],
+          [
+            "Borrower",
+            "Purpose",
+            "Due Date",
+            "Days Until Due",
+            "Status",
+            "Original Amount",
+            "Total Due (w/ interest)",
+            "Paid Amount",
+            "Remaining",
+            "Payment Progress %",
+          ],
           ...chartData.data.map((d) => [
             d.borrowerName,
             d.purpose,
@@ -287,9 +313,12 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
             d.daysUntilDue,
             d.status,
             d.amount,
+            d.totalWithInterest,
             d.paidAmount,
             d.remainingAmount,
-            d.paidAmount > 0 ? `${((d.paidAmount / d.amount) * 100).toFixed(1)}%` : "0%",
+            d.totalWithInterest > 0
+              ? `${Math.min(100, (d.paidAmount / d.totalWithInterest) * 100).toFixed(1)}%`
+              : "0%",
           ]),
         ]}
         csvFileName="lending-due-dates-data"
@@ -497,16 +526,23 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
                   // Enhanced label with partial payment info
                   let statusIndicator = "";
                   
-                  if (entry.status === "PARTIALLY_PAID" && entry.paidAmount > 0) {
+                  const progressDen =
+                    entry.totalWithInterest > 0 ? entry.totalWithInterest : entry.amount;
+                  if (entry.status === "PARTIALLY_PAID" && entry.paidAmount > 0 && progressDen > 0) {
                     const paidCompact = formatCompact(entry.paidAmount);
-                    const paymentProgress = ((entry.paidAmount / entry.amount) * 100).toFixed(0);
+                    const paymentProgress = Math.min(
+                      100,
+                      (entry.paidAmount / progressDen) * 100
+                    ).toFixed(0);
                     statusIndicator = ` [Paid: ${paidCompact} (${paymentProgress}%)]`;
                   } else if (entry.status === "OVERDUE") {
                     statusIndicator = " [OVERDUE]";
-                  } else if (entry.paidAmount > 0) {
-                    // Show paid info even if status is not exactly "PARTIALLY_PAID"
+                  } else if (entry.paidAmount > 0 && progressDen > 0) {
                     const paidCompact = formatCompact(entry.paidAmount);
-                    const paymentProgress = ((entry.paidAmount / entry.amount) * 100).toFixed(0);
+                    const paymentProgress = Math.min(
+                      100,
+                      (entry.paidAmount / progressDen) * 100
+                    ).toFixed(0);
                     statusIndicator = ` [Paid: ${paidCompact} (${paymentProgress}%)]`;
                   }
                   
