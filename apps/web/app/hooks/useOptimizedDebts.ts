@@ -13,6 +13,7 @@ import { triggerBalanceRefresh } from "./useTotalBalance";
 import { exportDebtsToCSV } from "../utils/csvExportDebts";
 import {
     calculateRemainingWithInterest,
+    getDebtSectionKey,
     getEffectiveDebtStatus,
 } from "../utils/interestCalculation";
 import { NotificationData } from "../components/DisappearingNotification";
@@ -176,9 +177,19 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
         }
 
         if (selectedStatus) {
-            filtered = filtered.filter(
-                (debt) => getEffectiveDebtStatus(debt) === selectedStatus
-            );
+            if (
+                selectedStatus === "ACTIVE" ||
+                selectedStatus === "PARTIALLY_PAID" ||
+                selectedStatus === "FULLY_PAID"
+            ) {
+                filtered = filtered.filter(
+                    (debt) => getDebtSectionKey(debt) === selectedStatus
+                );
+            } else {
+                filtered = filtered.filter(
+                    (debt) => getEffectiveDebtStatus(debt) === selectedStatus
+                );
+            }
         }
 
         // Date filtering
@@ -259,8 +270,8 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
     // Organize debts by sections
     const sections = useMemo(() => {
         return DEBT_SECTIONS.map(section => {
-            const sectionDebts = filteredDebts.filter((debt) =>
-                section.statuses.includes(getEffectiveDebtStatus(debt))
+            const sectionDebts = filteredDebts.filter(
+                (debt) => getDebtSectionKey(debt) === section.key
             );
             
             const totalAmount = sectionDebts.reduce((sum, debt) => sum + debt.amount, 0);

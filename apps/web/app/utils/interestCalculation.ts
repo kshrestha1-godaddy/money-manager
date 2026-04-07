@@ -1,5 +1,21 @@
 // Interest calculation utilities for debts
 
+/** Coerce JSON / Prisma dates so interest math matches everywhere (table vs section grouping). */
+export function normalizeDebtDate(value: Date | string): Date {
+    return value instanceof Date ? value : new Date(value);
+}
+
+export function normalizeOptionalDebtDate(
+    value: Date | string | undefined | null
+): Date | undefined {
+    if (value === undefined || value === null) return undefined;
+    return value instanceof Date ? value : new Date(value);
+}
+
+function sumRepaymentAmounts(repayments: { amount: number }[]): number {
+    return repayments.reduce((sum, p) => sum + Number(p.amount ?? 0), 0);
+}
+
 export interface InterestCalculation {
     originalAmount: number;
     interestAmount: number;
@@ -20,8 +36,8 @@ export interface InterestCalculation {
 export function calculateInterest(
     originalAmount: number,
     interestRate: number,
-    lentDate: Date,
-    dueDate?: Date,
+    lentDate: Date | string,
+    dueDate?: Date | string | null,
     currentDate: Date = new Date()
 ): InterestCalculation {
     // If interest rate is 0%, return no interest
@@ -36,19 +52,20 @@ export function calculateInterest(
     }
 
     // Calculate time period for interest
-    const startDate = lentDate;
+    const startDate = normalizeDebtDate(lentDate);
+    const due = normalizeOptionalDebtDate(dueDate ?? null);
     
     // Calculate days elapsed (from lent date to current date)
     const daysElapsed = Math.max(0, Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
     
     // Calculate total days (from lent date to due date)
-    const daysTotal = dueDate 
-        ? Math.max(0, Math.floor((dueDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)))
+    const daysTotal = due
+        ? Math.max(0, Math.floor((due.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)))
         : daysElapsed;
     
     // Use term days (daysTotal) for interest calculation when due date is provided
     // Otherwise, use elapsed days
-    const daysForInterest = dueDate ? daysTotal : daysElapsed;
+    const daysForInterest = due ? daysTotal : daysElapsed;
     
     // Calculate interest using simple interest formula
     // Interest = Principal × Rate × Time (in years)
@@ -80,15 +97,17 @@ export function calculateInterest(
 export function calculateRemainingWithInterest(
     originalAmount: number,
     interestRate: number,
-    lentDate: Date,
-    dueDate: Date | undefined,
+    lentDate: Date | string,
+    dueDate: Date | string | undefined,
     repayments: { amount: number }[],
     currentDate: Date = new Date(),
     status?: string
 ): { remainingAmount: number; totalWithInterest: number; interestAmount: number } {
+    const lent = normalizeDebtDate(lentDate);
+    const due = normalizeOptionalDebtDate(dueDate ?? null);
     // Calculate interest first
-    const interestCalc = calculateInterest(originalAmount, interestRate, lentDate, dueDate, currentDate);
-    const totalRepayments = repayments.reduce((sum, payment) => sum + payment.amount, 0);
+    const interestCalc = calculateInterest(originalAmount, interestRate, lent, due, currentDate);
+    const totalRepayments = sumRepaymentAmounts(repayments);
     
     // If debt is fully paid, return zero remaining amount and no additional interest
     if (status === 'FULLY_PAID') {
@@ -146,24 +165,21 @@ export function determineDebtStatus(
 export interface DebtLikeForStatus {
     amount: number;
     interestRate: number;
-    lentDate: Date;
-    dueDate?: Date;
+    lentDate: Date | string;
+    dueDate?: Date | string;
     repayments?: { amount: number }[];
     status: string;
 }
 
 /**
- * Status derived from principal, interest, and repayments — matches table math.
- * Use this for grouping and badges when stored `status` may be stale (e.g. after edge-case repayments).
+ * Which accordion/table section a debt belongs to — driven only by computed balance + repayments
+ * (not stored status), so a loan cannot appear under "Partially Paid" when it is fully settled.
  */
-export function getEffectiveDebtStatus(debt: DebtLikeForStatus): string {
-    const lentDate =
-        debt.lentDate instanceof Date ? debt.lentDate : new Date(debt.lentDate);
-    const dueDate = debt.dueDate
-        ? debt.dueDate instanceof Date
-            ? debt.dueDate
-            : new Date(debt.dueDate)
-        : undefined;
+export function getDebtSectionKey(
+    debt: DebtLikeForStatus
+): "ACTIVE" | "PARTIALLY_PAID" | "FULLY_PAID" {
+    const lentDate = normalizeDebtDate(debt.lentDate);
+    const dueDate = normalizeOptionalDebtDate(debt.dueDate ?? null);
     const repayments = debt.repayments ?? [];
 
     const remainingCalc = calculateRemainingWithInterest(
@@ -175,7 +191,36 @@ export function getEffectiveDebtStatus(debt: DebtLikeForStatus): string {
         new Date(),
         debt.status
     );
-    const totalRepayments = repayments.reduce((sum, r) => sum + r.amount, 0);
+    const totalRep = sumRepaymentAmounts(repayments);
+
+    if (remainingCalc.remainingAmount <= FULLY_REPAID_EPSILON) {
+        return "FULLY_PAID";
+    }
+    if (totalRep > FULLY_REPAID_EPSILON) {
+        return "PARTIALLY_PAID";
+    }
+    return "ACTIVE";
+}
+
+/**
+ * Status derived from principal, interest, and repayments — matches table math.
+ * Use this for grouping and badges when stored `status` may be stale (e.g. after edge-case repayments).
+ */
+export function getEffectiveDebtStatus(debt: DebtLikeForStatus): string {
+    const lentDate = normalizeDebtDate(debt.lentDate);
+    const dueDate = normalizeOptionalDebtDate(debt.dueDate ?? null);
+    const repayments = debt.repayments ?? [];
+
+    const remainingCalc = calculateRemainingWithInterest(
+        debt.amount,
+        debt.interestRate,
+        lentDate,
+        dueDate,
+        repayments,
+        new Date(),
+        debt.status
+    );
+    const totalRepayments = sumRepaymentAmounts(repayments);
 
     if (remainingCalc.remainingAmount <= FULLY_REPAID_EPSILON) {
         return 'FULLY_PAID';
