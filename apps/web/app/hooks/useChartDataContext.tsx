@@ -144,11 +144,11 @@ const processChartData = (
       timePeriodText: '(All Time)'
     };
   } else {
-    // Default range (last 6 months) - matches DateFilterButtons calculation
+    // Default range (last 12 months) - matches DateFilterButtons calculation
     const today = new Date();
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
-    const defaultMonths = 6;
+    const defaultMonths = 12;
     
     // Use same formula as DateFilterButtons for consistency
     let targetMonth = currentMonth - defaultMonths + 2;

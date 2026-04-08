@@ -8,6 +8,7 @@ import { IncomePieChart } from "../charts/IncomePieChart";
 import { CategoryTrendChart } from "../charts/CategoryTrendChart";
 import { CustomCalendarChart } from "../charts/CustomCalendarChart";
 import { CashFlowSankeyChart } from "../charts/CashFlowSankeyChart";
+import { CashflowCandlestickChart } from "../charts/CashflowCandlestickChart";
 import { LocationChart } from "../charts/LocationChart";
 import { RecentTransactions } from "./RecentTransactions";
 
@@ -55,6 +56,12 @@ export function DashboardCharts({
       <div className="w-full min-h-[500px]">
         <div key="monthly-trend-chart" className="h-full">
           <MonthlyTrendChart currency={currency} />
+        </div>
+      </div>
+
+      <div className="w-full min-h-[500px]">
+        <div key="cashflow-candlestick-chart" className="h-full">
+          <CashflowCandlestickChart currency={currency} />
         </div>
       </div>
 
