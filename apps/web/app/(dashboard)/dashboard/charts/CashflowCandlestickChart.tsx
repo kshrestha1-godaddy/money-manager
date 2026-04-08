@@ -6,6 +6,9 @@ import {
   CartesianGrid,
   Cell,
   ComposedChart,
+  Label,
+  Line,
+  ReferenceDot,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -39,6 +42,7 @@ interface CandlestickPoint {
   totalExpenses: number;
   wickRange: [number, number];
   bodyRange: [number, number];
+  closeSma3?: number;
 }
 
 type RangePreset = "3m" | "4m" | "6m" | "1y" | "all";
@@ -260,6 +264,23 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
     };
   }, [chartData]);
 
+  const chartVisualData = useMemo(() => {
+    return chartData.map((point, index, points) => {
+      const windowStart = Math.max(0, index - 2);
+      const window = points.slice(windowStart, index + 1);
+      const closeSma3 = window.reduce((sum, item) => sum + item.close, 0) / window.length;
+      return {
+        ...point,
+        closeSma3,
+      };
+    });
+  }, [chartData]);
+
+  const averageClose = useMemo(() => {
+    if (chartData.length === 0) return 0;
+    return chartData.reduce((sum, point) => sum + point.close, 0) / chartData.length;
+  }, [chartData]);
+
   const formatYAxisTick = (value: number) => {
     const symbol = getCurrencySymbol(currency).trimEnd();
     if (Math.abs(value) >= 1000000) return `${symbol}${(value / 1000000).toFixed(1)}M`;
@@ -368,6 +389,24 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
       <div className="mb-4 text-sm text-gray-600">
         <span className="font-medium text-gray-800">How to read:</span> green body = month closed higher than it opened, red body = month closed lower.
       </div>
+      <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-gray-600">
+        <div className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500"></span>
+          <span>Bullish candle</span>
+        </div>
+        <div className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm bg-rose-500"></span>
+          <span>Bearish candle</span>
+        </div>
+        <div className="inline-flex items-center gap-1.5">
+          <span className="h-0.5 w-4 rounded bg-indigo-500"></span>
+          <span>SMA 3 months</span>
+        </div>
+        <div className="inline-flex items-center gap-1.5">
+          <span className="h-0.5 w-4 rounded border-t border-dashed border-slate-500"></span>
+          <span>Average close</span>
+        </div>
+      </div>
 
       <div className="mt-2 grid grid-cols-1 lg:grid-cols-[minmax(0,4fr)_minmax(260px,1.1fr)] gap-4">
         <div
@@ -378,7 +417,7 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
         >
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart
-              data={chartData}
+              data={chartVisualData}
               margin={{ top: 18, right: 8, left: 10, bottom: 14 }}
               barCategoryGap="4%"
               barGap={-20}
@@ -389,12 +428,59 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
               <XAxis dataKey="formattedMonth" tick={{ fontSize: 12 }} padding={{ left: 0, right: 0 }} />
               <YAxis tick={{ fontSize: 12 }} tickFormatter={formatYAxisTick} domain={yDomain as [number, number]} />
               <Tooltip content={<CustomTooltip />} />
+              {chartVisualData.map((point) => (
+                <ReferenceLine
+                  key={`month-ref-${point.monthKey}`}
+                  x={point.formattedMonth}
+                  stroke="#e2e8f0"
+                  strokeDasharray="2 4"
+                  strokeWidth={1}
+                />
+              ))}
+              <ReferenceLine y={averageClose} stroke="#64748b" strokeDasharray="4 4" strokeWidth={1}>
+                <Label value="Avg Close" position="insideTopLeft" fill="#475569" fontSize={10} />
+              </ReferenceLine>
+
+              <Line
+                type="monotone"
+                dataKey="closeSma3"
+                stroke="#4f46e5"
+                strokeWidth={2}
+                dot={false}
+                name="SMA 3 months"
+                isAnimationActive={false}
+              />
 
               <Bar dataKey="bodyRange" barSize={22} name="Open-Close" radius={[2, 2, 2, 2]}>
-                {chartData.map((point) => (
+                {chartVisualData.map((point) => (
                   <Cell key={`${point.monthKey}-body`} fill={point.close >= point.open ? "#10b981" : "#ef4444"} />
                 ))}
               </Bar>
+
+              {summary.bestMonth && (
+                <ReferenceDot
+                  x={summary.bestMonth.formattedMonth}
+                  y={summary.bestMonth.close}
+                  r={4}
+                  fill="#059669"
+                  stroke="#ffffff"
+                  strokeWidth={1.5}
+                >
+                  <Label value="Best" position="top" fill="#065f46" fontSize={10} />
+                </ReferenceDot>
+              )}
+              {summary.worstMonth && (
+                <ReferenceDot
+                  x={summary.worstMonth.formattedMonth}
+                  y={summary.worstMonth.close}
+                  r={4}
+                  fill="#be123c"
+                  stroke="#ffffff"
+                  strokeWidth={1.5}
+                >
+                  <Label value="Worst" position="bottom" fill="#881337" fontSize={10} />
+                </ReferenceDot>
+              )}
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -405,13 +491,15 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
             <div className="text-xs text-gray-500">Months</div>
             <div className="text-sm font-semibold text-gray-900">{summary.monthCount}</div>
           </div>
-          <div className="rounded-md border border-emerald-100 bg-emerald-50 p-3">
-            <div className="text-xs text-emerald-700">Bullish Months</div>
-            <div className="text-sm font-semibold text-emerald-700">{summary.bullishMonths}</div>
-          </div>
-          <div className="rounded-md border border-rose-100 bg-rose-50 p-3">
-            <div className="text-xs text-rose-700">Bearish Months</div>
-            <div className="text-sm font-semibold text-rose-700">{summary.bearishMonths}</div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-md border border-emerald-100 bg-emerald-50 p-3">
+              <div className="text-xs text-emerald-700">Bullish Months</div>
+              <div className="text-sm font-semibold text-emerald-700">{summary.bullishMonths}</div>
+            </div>
+            <div className="rounded-md border border-rose-100 bg-rose-50 p-3">
+              <div className="text-xs text-rose-700">Bearish Months</div>
+              <div className="text-sm font-semibold text-rose-700">{summary.bearishMonths}</div>
+            </div>
           </div>
           <div className="rounded-md border border-gray-200 bg-white p-3">
             <div className="text-xs text-gray-500">Net Change</div>
@@ -419,10 +507,18 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
               {formatCurrency(summary.netChange, currency)}
             </div>
           </div>
-          <div className="rounded-md border border-gray-200 bg-white p-3">
-            <div className="text-xs text-gray-500">Best Month</div>
-            <div className="text-sm font-semibold text-emerald-700">
-              {summary.bestMonth ? `${summary.bestMonth.formattedMonth} (${formatCurrency(summary.bestMonth.movement, currency)})` : "-"}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-md border border-gray-200 bg-white p-3">
+              <div className="text-xs text-gray-500">Best Month</div>
+              <div className="text-sm font-semibold text-emerald-700">
+                {summary.bestMonth ? `${summary.bestMonth.formattedMonth} (${formatCurrency(summary.bestMonth.movement, currency)})` : "-"}
+              </div>
+            </div>
+            <div className="rounded-md border border-gray-200 bg-white p-3">
+              <div className="text-xs text-gray-500">Worst Month</div>
+              <div className="text-sm font-semibold text-rose-700">
+                {summary.worstMonth ? `${summary.worstMonth.formattedMonth} (${formatCurrency(summary.worstMonth.movement, currency)})` : "-"}
+              </div>
             </div>
           </div>
           <div className="rounded-md border border-gray-200 bg-white p-3">
