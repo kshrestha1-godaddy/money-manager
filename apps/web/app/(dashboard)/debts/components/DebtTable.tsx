@@ -8,11 +8,11 @@ import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import {
     calculateInterest,
     calculateRemainingWithInterest,
-    getEffectiveDebtStatus,
 } from "../../../utils/interestCalculation";
 import { getDefaultColumnWidths, getMinColumnWidth, type DebtColumnWidths } from "../../../config/tableConfig";
+import { getDebtDisplayStatus } from "../../../utils/debtClassification";
 
-type SortField = 'borrowerName' | 'amount' | 'dueDate' | 'lentDate' | 'remaining';
+type SortField = 'borrowerName' | 'amount' | 'interest' | 'total' | 'dueDate' | 'lentDate' | 'remaining';
 type SortDirection = 'asc' | 'desc';
 
 interface DebtTableProps {
@@ -121,6 +121,30 @@ export function DebtTable({
                 case 'amount':
                     aValue = convertForDisplaySync(a.amount, baseCurrency, displayCurrency);
                     bValue = convertForDisplaySync(b.amount, baseCurrency, displayCurrency);
+                    break;
+                case 'interest':
+                    aValue = convertForDisplaySync(
+                        calculateInterest(a.amount, a.interestRate, a.lentDate, a.dueDate).interestAmount,
+                        baseCurrency,
+                        displayCurrency
+                    );
+                    bValue = convertForDisplaySync(
+                        calculateInterest(b.amount, b.interestRate, b.lentDate, b.dueDate).interestAmount,
+                        baseCurrency,
+                        displayCurrency
+                    );
+                    break;
+                case 'total':
+                    aValue = convertForDisplaySync(
+                        calculateInterest(a.amount, a.interestRate, a.lentDate, a.dueDate).totalAmountWithInterest,
+                        baseCurrency,
+                        displayCurrency
+                    );
+                    bValue = convertForDisplaySync(
+                        calculateInterest(b.amount, b.interestRate, b.lentDate, b.dueDate).totalAmountWithInterest,
+                        baseCurrency,
+                        displayCurrency
+                    );
                     break;
                 case 'dueDate':
                     // Handle null/undefined due dates by putting them at the end
@@ -274,7 +298,7 @@ export function DebtTable({
         displayCurrency
     );
 
-    const summaryFooterColSpan = 7 + (showBulkActions ? 1 : 0);
+    const summaryFooterColSpan = 8 + (showBulkActions ? 1 : 0);
 
     const handleSort = (field: SortField) => {
         if (field === sortField) {
@@ -360,49 +384,81 @@ export function DebtTable({
                                     />
                                 </th>
                                 <th 
-                                    className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
-                                    style={{ width: `${columnWidths.amountStatus}px` }}
-                                    onClick={() => handleSort('amount')}
+                                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                    style={{ width: `${columnWidths.lentDate}px` }}
+                                    onClick={() => handleSort('lentDate')}
                                 >
-                                    <div className="flex items-center justify-center gap-2">
-                                        <span>Amount & Status ({displayCurrency.toUpperCase()})</span>
-                                        {getSortIcon('amount')}
+                                    <div className="flex items-center justify-start gap-2">
+                                        <span>Lent Date</span>
+                                        {getSortIcon('lentDate')}
                                     </div>
                                     <div 
                                         className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
-                                        onMouseDown={(e) => handleMouseDown(e, 'amountStatus')}
+                                        onMouseDown={(e) => handleMouseDown(e, 'lentDate')}
                                     />
                                 </th>
                                 <th 
-                                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200"
-                                    style={{ width: `${columnWidths.interestProgress}px` }}
-                                >
-                                    Interest & Progress
-                                    <div 
-                                        className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
-                                        onMouseDown={(e) => handleMouseDown(e, 'interestProgress')}
-                                    />
-                                </th>
-                                <th 
-                                    className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
-                                    style={{ width: `${columnWidths.dates}px` }}
+                                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                    style={{ width: `${columnWidths.dueDate}px` }}
                                     onClick={() => handleSort('dueDate')}
                                 >
-                                    <div className="flex items-center justify-center gap-2">
-                                        <span>Dates</span>
+                                    <div className="flex items-center justify-start gap-2">
+                                        <span>Due Date</span>
                                         {getSortIcon('dueDate')}
                                     </div>
                                     <div 
                                         className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
-                                        onMouseDown={(e) => handleMouseDown(e, 'dates')}
+                                        onMouseDown={(e) => handleMouseDown(e, 'dueDate')}
+                                    />
+                                </th>
+                                <th 
+                                    className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                    style={{ width: `${columnWidths.principal}px` }}
+                                    onClick={() => handleSort('amount')}
+                                >
+                                    <div className="flex items-center justify-center gap-2">
+                                        <span>Principal ({displayCurrency.toUpperCase()})</span>
+                                        {getSortIcon('amount')}
+                                    </div>
+                                    <div 
+                                        className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                        onMouseDown={(e) => handleMouseDown(e, 'principal')}
+                                    />
+                                </th>
+                                <th 
+                                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                    style={{ width: `${columnWidths.interest}px` }}
+                                    onClick={() => handleSort('interest')}
+                                >
+                                    <div className="flex items-center justify-start gap-2">
+                                        <span>Interest ({displayCurrency.toUpperCase()})</span>
+                                        {getSortIcon('interest')}
+                                    </div>
+                                    <div 
+                                        className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                        onMouseDown={(e) => handleMouseDown(e, 'interest')}
                                     />
                                 </th>
                                 <th 
                                     className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                    style={{ width: `${columnWidths.total}px` }}
+                                    onClick={() => handleSort('total')}
+                                >
+                                    <div className="flex items-center justify-center gap-2">
+                                        <span>Total ({displayCurrency.toUpperCase()})</span>
+                                        {getSortIcon('total')}
+                                    </div>
+                                    <div 
+                                        className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                        onMouseDown={(e) => handleMouseDown(e, 'total')}
+                                    />
+                                </th>
+                                <th 
+                                    className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                     style={{ width: `${columnWidths.remaining}px` }}
                                     onClick={() => handleSort('remaining')}
                                 >
-                                    <div className="flex items-center justify-center gap-2">
+                                    <div className="flex items-center justify-start gap-2">
                                         <span>Remaining ({displayCurrency.toUpperCase()})</span>
                                         {getSortIcon('remaining')}
                                     </div>
@@ -464,58 +520,43 @@ export function DebtTable({
                                     </div>
                                 </td>
                                 <td
+                                    className="px-4 py-4 text-left text-sm text-gray-800"
+                                    style={{ width: `${columnWidths.lentDate}px` }}
+                                >
+                                    <span className="tabular-nums">{tableFooterSummary.lentRangeText}</span>
+                                </td>
+                                <td
+                                    className="px-4 py-4 text-left text-sm text-gray-800"
+                                    style={{ width: `${columnWidths.dueDate}px` }}
+                                >
+                                    <span className="tabular-nums">{tableFooterSummary.dueRangeText ?? "—"}</span>
+                                </td>
+                                <td
                                     className="px-4 py-4 align-top text-center"
-                                    style={{ width: `${columnWidths.amountStatus}px` }}
+                                    style={{ width: `${columnWidths.principal}px` }}
                                 >
-                                    <div className="flex flex-col items-center text-center text-sm">
-                                        <div className="font-semibold text-gray-900 tabular-nums">
-                                            {formatCurrency(displayPrincipal, displayCurrency)}
-                                        </div>
-                                        {tableFooterSummary.totalInterest > 0 && (
-                                            <>
-                                                <div className="text-xs text-gray-600 tabular-nums">
-                                                    +{" "}
-                                                    {formatCurrency(displayInterest, displayCurrency)}{" "}
-                                                    interest
-                                                </div>
-                                                <div className="text-xs font-semibold text-blue-600 tabular-nums">
-                                                    ={" "}
-                                                    {formatCurrency(displayWithInterest, displayCurrency)}{" "}
-                                                    combined
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
+                                    <span className="text-sm font-semibold text-gray-900 tabular-nums">
+                                        {formatCurrency(displayPrincipal, displayCurrency)}
+                                    </span>
                                 </td>
                                 <td
-                                    className="px-4 py-4 text-center text-sm text-gray-400"
-                                    style={{ width: `${columnWidths.interestProgress}px` }}
+                                    className="px-4 py-4 text-center text-sm text-gray-900"
+                                    style={{ width: `${columnWidths.interest}px` }}
                                 >
-                                    —
+                                    <span className="font-semibold tabular-nums text-orange-600">
+                                        {formatCurrency(displayInterest, displayCurrency)}
+                                    </span>
                                 </td>
                                 <td
-                                    className="px-4 py-4 text-center text-sm text-gray-800"
-                                    style={{ width: `${columnWidths.dates}px` }}
+                                    className="px-3 py-4 text-center text-sm text-blue-700"
+                                    style={{ width: `${columnWidths.total}px` }}
                                 >
-                                    <div className="space-y-1 break-words">
-                                        <div>
-                                            <span className="text-gray-500 text-xs">Lent: </span>
-                                            <span className="tabular-nums">
-                                                {tableFooterSummary.lentRangeText}
-                                            </span>
-                                        </div>
-                                        {tableFooterSummary.dueRangeText ? (
-                                            <div>
-                                                <span className="text-gray-500 text-xs">Due: </span>
-                                                <span className="tabular-nums">
-                                                    {tableFooterSummary.dueRangeText}
-                                                </span>
-                                            </div>
-                                        ) : null}
-                                    </div>
+                                    <span className="font-semibold tabular-nums">
+                                        {formatCurrency(displayWithInterest, displayCurrency)}
+                                    </span>
                                 </td>
                                 <td
-                                    className="px-3 py-4 text-center text-sm font-semibold tabular-nums"
+                                    className="px-3 py-4 text-left text-sm font-semibold tabular-nums"
                                     style={{ width: `${columnWidths.remaining}px` }}
                                 >
                                     <span
@@ -581,7 +622,7 @@ function DebtRow({
         );
     }
 
-    const effectiveStatus = getEffectiveDebtStatus(debt);
+    const effectiveStatus = getDebtDisplayStatus(debt);
 
     // Calculate interest and remaining amounts
     const interestCalc = calculateInterest(debt.amount, debt.interestRate, debt.lentDate, debt.dueDate);
@@ -596,7 +637,9 @@ function DebtRow({
     );
     
     const totalRepayments = debt.repayments?.reduce((sum, repayment) => sum + repayment.amount, 0) || 0;
-    const progressPercentage = (totalRepayments / remainingCalc.totalWithInterest) * 100;
+    const progressPercentage = remainingCalc.totalWithInterest > 0
+        ? (totalRepayments / remainingCalc.totalWithInterest) * 100
+        : 0;
 
     // Check if debt is overdue
     const isOverdue = debt.dueDate && new Date() > debt.dueDate && remainingCalc.remainingAmount > 0;
@@ -661,7 +704,7 @@ function DebtRow({
                     />
                 </td>
             )}
-            <td className="px-6 py-4 text-left align-top" style={{ width: `${columnWidths.borrowerDetails}px` }}>
+            <td className="px-6 py-4 text-left align-middle" style={{ width: `${columnWidths.borrowerDetails}px` }}>
                 <div>
                     <div className="text-sm font-medium text-gray-900 break-words">
                         {debt.borrowerName}
@@ -669,78 +712,74 @@ function DebtRow({
                     <div className="text-sm text-gray-500 break-words">
                         {debt.purpose || 'Personal Loan'}
                     </div>
+                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(effectiveStatus)} mt-1`}>
+                        {effectiveStatus.replace('_', ' ')}
+                    </span>
                     {debt.borrowerContact && (
                         <div className="text-xs text-gray-400 break-words">{debt.borrowerContact}</div>
                     )}
                 </div>
             </td>
-            <td className="px-4 py-4 align-top" style={{ width: `${columnWidths.amountStatus}px` }}>
+            <td className="px-4 py-4 align-middle text-left" style={{ width: `${columnWidths.lentDate}px` }}>
+                <div className="text-sm text-gray-900 break-words">
+                    {formatDate(debt.lentDate)}
+                </div>
+            </td>
+            <td className="px-4 py-4 align-middle text-left" style={{ width: `${columnWidths.dueDate}px` }}>
+                <div className={`text-sm break-words ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                    {debt.dueDate ? formatDate(debt.dueDate) : 'No due date'}
+                </div>
+                {debt.dueDate && (
+                    <div className="text-xs text-gray-500 mt-1 break-words">
+                        {interestCalc.daysTotal} days term
+                    </div>
+                )}
+            </td>
+            <td className="px-4 py-4 align-middle text-center" style={{ width: `${columnWidths.principal}px` }}>
                 <div className="flex flex-col items-center text-center">
                     <div className="text-sm font-medium text-gray-900 break-words">
                         {displayMoney(debt.amount)}
                     </div>
-                    {interestCalc.interestAmount > 0 && (
-                        <div className="text-xs text-gray-600 break-words">
-                            + {displayMoney(interestCalc.interestAmount)} total interest
-                        </div>
-                    )}
-                    {interestCalc.interestAmount > 0 && (
-                        <div className="text-xs font-medium text-blue-600 break-words">
-                            = {displayMoney(interestCalc.totalAmountWithInterest)} total
-                        </div>
-                    )}
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(effectiveStatus)} mt-1`}>
-                        {effectiveStatus.replace('_', ' ')}
-                    </span>
                 </div>
             </td>
-            <td className="px-4 py-4 align-top text-left" style={{ width: `${columnWidths.interestProgress}px` }}>
+            <td className="px-4 py-4 align-middle text-left" style={{ width: `${columnWidths.interest}px` }}>
                 <div className="w-full min-w-0 flex flex-col text-left">
-                    <div className="text-sm text-gray-900">
+                    <div className="text-sm font-semibold text-orange-600 tabular-nums">
+                        {displayMoney(interestCalc.interestAmount)}
+                    </div>
+                    <div className="text-xs text-gray-700 mt-0.5">
                         {debt.interestRate}% interest
-                        {interestCalc.interestAmount > 0 && (
-                            <span className="text-xs text-gray-500 ml-1">
-                                ({debt.dueDate ? interestCalc.daysTotal : interestCalc.daysElapsed} days {debt.dueDate ? 'term' : 'elapsed'})
-                            </span>
-                        )}
+                        <span className="text-gray-500 ml-1">
+                            ({debt.dueDate ? interestCalc.daysTotal : interestCalc.daysElapsed} days {debt.dueDate ? 'term' : 'elapsed'})
+                        </span>
                     </div>
-                    {interestCalc.interestAmount > 0 && (
-                        <div className="text-xs text-orange-600 font-medium break-words">
-                            Total Interest: {displayMoney(interestCalc.interestAmount)}
-                        </div>
-                    )}
-                    <div className="text-xs text-gray-500 mb-1">
-                        {progressPercentage.toFixed(1)}% repaid
+                    <div className="text-xs text-gray-500 mt-0.5 break-words">
+                        = {displayMoney(debt.amount)} × {(debt.interestRate / 100).toFixed(4)} × {((debt.dueDate ? interestCalc.daysTotal : interestCalc.daysElapsed) / 365).toFixed(4)}
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                </div>
+            </td>
+            <td className="px-3 py-4 whitespace-nowrap text-sm font-semibold text-center tabular-nums align-middle text-blue-700" style={{ width: `${columnWidths.total}px` }}>
+                {displayMoney(interestCalc.totalAmountWithInterest)}
+            </td>
+            <td className="px-3 py-4 text-sm font-medium text-left tabular-nums align-middle" style={{ width: `${columnWidths.remaining}px` }}>
+                <div className="flex w-full flex-col justify-center gap-1">
+                    <div className="flex w-full items-center justify-between gap-2">
+                        <span className={remainingCalc.remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}>
+                            {displayMoney(remainingCalc.remainingAmount)}
+                        </span>
+                        <span className="text-xs text-gray-500 whitespace-nowrap">
+                            {progressPercentage.toFixed(1)}% repaid
+                        </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
                         <div 
-                            className="bg-green-600 h-1.5 rounded-full transition-all duration-300" 
+                            className="bg-green-600 h-2.5 rounded-full transition-all duration-300" 
                             style={{ width: `${Math.min(progressPercentage, 100)}%` }}
                         ></div>
                     </div>
                 </div>
             </td>
-            <td className="px-4 py-4 align-top" style={{ width: `${columnWidths.dates}px` }}>
-                <div className="flex flex-col items-center text-center">
-                    <div className="text-sm text-gray-900 break-words">
-                        Lent: {formatDate(debt.lentDate)}
-                    </div>
-                    <div className={`text-sm break-words ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                        Due: {debt.dueDate ? formatDate(debt.dueDate) : 'No due date'}
-                    </div>
-                    {debt.dueDate && (
-                        <div className="text-xs text-gray-500 mt-1 break-words">
-                            {interestCalc.daysTotal} days term
-                        </div>
-                    )}
-                </div>
-            </td>
-            <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-center tabular-nums align-top" style={{ width: `${columnWidths.remaining}px` }}>
-                <span className={remainingCalc.remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}>
-                    {displayMoney(remainingCalc.remainingAmount)}
-                </span>
-            </td>
-            <td className="px-3 py-4 whitespace-nowrap text-center text-sm font-medium align-top" style={{ width: `${columnWidths.actions}px` }}>
+            <td className="px-3 py-4 whitespace-nowrap text-center text-sm font-medium align-middle" style={{ width: `${columnWidths.actions}px` }}>
                 <div className="flex justify-center flex-nowrap gap-1">
                     {onViewDetails && (
                         <button 

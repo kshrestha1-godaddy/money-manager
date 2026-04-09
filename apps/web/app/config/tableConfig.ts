@@ -25,10 +25,12 @@ export const TABLE_COLUMN_WIDTHS = {
   debts: {
     checkbox: 48,
     borrowerDetails: 180,
-    amountStatus: 130,
-    interestProgress: 280,
-    dates: 160,
-    remaining: 100,
+    lentDate: 150,
+    dueDate: 150,
+    principal: 130,
+    interest: 130,
+    total: 130,
+    remaining: 250,
     actions: 248,
   },
 
@@ -65,9 +67,11 @@ export type AccountColumnWidths = {
 export type DebtColumnWidths = {
   checkbox: number;
   borrowerDetails: number;
-  amountStatus: number;
-  interestProgress: number;
-  dates: number;
+  lentDate: number;
+  dueDate: number;
+  principal: number;
+  interest: number;
+  total: number;
   remaining: number;
   actions: number;
 };
