@@ -540,7 +540,7 @@ export function DebtTable({
                                     </span>
                                 </td>
                                 <td
-                                    className="px-4 py-4 text-center text-sm text-gray-900"
+                                    className="px-4 py-4 text-left text-sm text-gray-900"
                                     style={{ width: `${columnWidths.interest}px` }}
                                 >
                                     <span className="font-semibold tabular-nums text-orange-600">
