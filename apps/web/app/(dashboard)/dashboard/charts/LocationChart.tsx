@@ -6,6 +6,8 @@ import { Map as MapView, MapClusterLayer, MapControls, MapPopup } from "@/compon
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { DEFAULT_LOCATION } from "../../../utils/locationDefaults";
 import type { ExpressionSpecification } from "maplibre-gl";
+import { formatCurrency } from "../../../utils/currency";
+import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 
 interface LocationChartProps {
   currency: string;
@@ -16,7 +18,8 @@ interface TransactionLocationPoint {
   id: number;
   name: string;
   category: string;
-  amount: number;
+  /** Amount converted to the viewer's preferred currency (for display). */
+  displayAmount: number;
   longitude: number;
   latitude: number;
   type: "income" | "expense";
@@ -34,9 +37,9 @@ function locationKeyForPoint(longitude: number, latitude: number): string {
   return `${longitude.toFixed(6)},${latitude.toFixed(6)}`;
 }
 
-function formatAmount(amount: number, type: "income" | "expense", currency: string) {
-  const sign = type === "income" ? "+" : "-";
-  return `${sign}${amount.toLocaleString()} ${currency}`;
+function formatTransactionDisplay(displayAmount: number, type: "income" | "expense", userCurrency: string) {
+  const formatted = formatCurrency(Math.abs(displayAmount), userCurrency);
+  return type === "income" ? `+${formatted}` : `-${formatted}`;
 }
 
 function getAmountColor(type: "income" | "expense") {
@@ -94,7 +97,7 @@ export function LocationChart({ currency, heightClass = "h-[400px]" }: LocationC
           id: income.id,
           name: income.title || "Income",
           category: income.category?.name || "Income",
-          amount: income.amount,
+          displayAmount: convertForDisplaySync(income.amount, income.currency, currency),
           longitude: Number(income.transactionLocation?.longitude),
           latitude: Number(income.transactionLocation?.latitude),
           type: "income" as const,
@@ -111,7 +114,7 @@ export function LocationChart({ currency, heightClass = "h-[400px]" }: LocationC
           id: expense.id,
           name: expense.title || "Expense",
           category: expense.category?.name || "Expense",
-          amount: expense.amount,
+          displayAmount: convertForDisplaySync(expense.amount, expense.currency, currency),
           longitude: Number(expense.transactionLocation?.longitude),
           latitude: Number(expense.transactionLocation?.latitude),
           type: "expense" as const,
@@ -123,7 +126,7 @@ export function LocationChart({ currency, heightClass = "h-[400px]" }: LocationC
     return [...incomeLocations, ...expenseLocations].filter(
       (transaction) => Number.isFinite(transaction.latitude) && Number.isFinite(transaction.longitude)
     );
-  }, [filteredIncomes, filteredExpenses]);
+  }, [filteredIncomes, filteredExpenses, currency]);
 
   const transactionsByLocationKey = useMemo(() => {
     const map = new Map<string, TransactionLocationPoint[]>();
@@ -211,6 +214,7 @@ export function LocationChart({ currency, heightClass = "h-[400px]" }: LocationC
             clusterRadius={50}
             clusterMaxZoom={14}
             clusterColors={["#22c55e", "#eab308", "#ef4444"]}
+            clusterSumProperty="count"
             pointColor={pointColorExpression}
             onPointClick={(feature, coordinates) => {
               const key = feature.properties?.locationKey;
@@ -251,7 +255,7 @@ export function LocationChart({ currency, heightClass = "h-[400px]" }: LocationC
                           <div className="text-xs text-gray-600">{transaction.category}</div>
                           <div className="text-xs text-gray-500">{transaction.date}</div>
                           <div className={`text-sm font-medium ${getAmountColor(transaction.type)}`}>
-                            {formatAmount(transaction.amount, transaction.type, currency)}
+                            {formatTransactionDisplay(transaction.displayAmount, transaction.type, currency)}
                           </div>
                         </li>
                       ))}

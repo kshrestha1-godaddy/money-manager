@@ -1075,6 +1075,11 @@ type MapClusterLayerProps<
     coordinates: [number, number],
     pointCount: number
   ) => void;
+  /**
+   * When set, each feature must include this numeric property (e.g. transaction count per location).
+   * Cluster labels and sizing use the sum of this value across clustered points instead of raw point count.
+   */
+  clusterSumProperty?: string;
 };
 
 function MapClusterLayer<
@@ -1088,6 +1093,7 @@ function MapClusterLayer<
   pointColor = "#3b82f6",
   onPointClick,
   onClusterClick,
+  clusterSumProperty,
 }: MapClusterLayerProps<P>) {
   const { map, isLoaded } = useMap();
   const id = useId();
@@ -1106,13 +1112,27 @@ function MapClusterLayer<
   useEffect(() => {
     if (!isLoaded || !map) return;
 
-    // Add clustered GeoJSON source
+    const countExpr: MapLibreGL.ExpressionSpecification = clusterSumProperty
+      ? ["get", "txn_sum"]
+      : ["get", "point_count"];
+
+    // Add clustered GeoJSON source (optional sum of a per-feature numeric field for cluster totals)
     map.addSource(sourceId, {
       type: "geojson",
       data,
       cluster: true,
       clusterMaxZoom,
       clusterRadius,
+      ...(clusterSumProperty
+        ? {
+            clusterProperties: {
+              txn_sum: [
+                "+",
+                ["coalesce", ["get", clusterSumProperty], 1],
+              ],
+            },
+          }
+        : {}),
     });
 
     // Add cluster circles layer
@@ -1124,7 +1144,7 @@ function MapClusterLayer<
       paint: {
         "circle-color": [
           "step",
-          ["get", "point_count"],
+          countExpr,
           clusterColors[0],
           clusterThresholds[0],
           clusterColors[1],
@@ -1133,7 +1153,7 @@ function MapClusterLayer<
         ],
         "circle-radius": [
           "step",
-          ["get", "point_count"],
+          countExpr,
           20,
           clusterThresholds[0],
           30,
@@ -1150,7 +1170,14 @@ function MapClusterLayer<
       source: sourceId,
       filter: ["has", "point_count"],
       layout: {
-        "text-field": "{point_count_abbreviated}",
+        ...(clusterSumProperty
+          ? {
+              "text-field": [
+                "to-string",
+                ["get", "txn_sum"],
+              ] as MapLibreGL.ExpressionSpecification,
+            }
+          : { "text-field": "{point_count_abbreviated}" }),
         "text-size": 12,
       },
       paint: {
@@ -1183,7 +1210,7 @@ function MapClusterLayer<
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded, map, sourceId]);
+  }, [isLoaded, map, sourceId, clusterSumProperty]);
 
   // Update source data when data prop changes (only for non-URL data)
   useEffect(() => {
@@ -1204,11 +1231,15 @@ function MapClusterLayer<
       prev.clusterColors !== clusterColors ||
       prev.clusterThresholds !== clusterThresholds;
 
+    const countExpr: MapLibreGL.ExpressionSpecification = clusterSumProperty
+      ? ["get", "txn_sum"]
+      : ["get", "point_count"];
+
     // Update cluster layer colors and sizes
     if (map.getLayer(clusterLayerId) && colorsChanged) {
       map.setPaintProperty(clusterLayerId, "circle-color", [
         "step",
-        ["get", "point_count"],
+        countExpr,
         clusterColors[0],
         clusterThresholds[0],
         clusterColors[1],
@@ -1217,7 +1248,7 @@ function MapClusterLayer<
       ]);
       map.setPaintProperty(clusterLayerId, "circle-radius", [
         "step",
-        ["get", "point_count"],
+        countExpr,
         20,
         clusterThresholds[0],
         30,
@@ -1244,6 +1275,7 @@ function MapClusterLayer<
     clusterColors,
     clusterThresholds,
     pointColor,
+    clusterSumProperty,
   ]);
 
   // Handle click events
@@ -1264,7 +1296,9 @@ function MapClusterLayer<
       const feature = features[0];
       if (!feature) return;
       const clusterId = feature.properties?.cluster_id as number;
-      const pointCount = feature.properties?.point_count as number;
+      const pointCount = (clusterSumProperty
+        ? (feature.properties?.txn_sum as number)
+        : (feature.properties?.point_count as number)) ?? 0;
       const coordinates = (feature.geometry as GeoJSON.Point).coordinates as [
         number,
         number
@@ -1347,6 +1381,7 @@ function MapClusterLayer<
     sourceId,
     onClusterClick,
     onPointClick,
+    clusterSumProperty,
   ]);
 
   return null;

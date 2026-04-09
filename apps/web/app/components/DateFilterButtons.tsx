@@ -171,13 +171,13 @@ export function DateFilterButtons({
                 </button>
                 <button
                     onClick={() => handleQuickFilterOverride(6)}
-                    className={getButtonStyle(6)}
+                    className={getButtonStyle(6, true)} // true indicates this is the default
                 >
                     Last 6 Months
                 </button>
                 <button
                     onClick={() => handleQuickFilterOverride(12)}
-                    className={getButtonStyle(12, true)} // true indicates this is the default
+                    className={getButtonStyle(12)}
                 >
                     Last 12 Months
                 </button>
