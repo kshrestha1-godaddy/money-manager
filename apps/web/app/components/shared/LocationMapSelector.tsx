@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Map, MapMarker, MarkerContent, MarkerPopup, useMap } from "@/components/ui/map";
-import { MapPin, X } from "lucide-react";
+import { Map as MapView, MapMarker, MarkerContent, MarkerPopup, useMap } from "@/components/ui/map";
+import { MapPin, Moon, Sun, X } from "lucide-react";
 import { DEFAULT_LOCATION } from "../../utils/locationDefaults";
 
 interface LocationMapSelectorProps {
@@ -22,6 +22,8 @@ export function LocationMapSelector({
     isOpen,
     embedded = false 
 }: LocationMapSelectorProps) {
+    const [mapTheme, setMapTheme] = useState<"light" | "dark">("light");
+
     const initialLocation = useMemo(() => ({
         lat: latitude ?? DEFAULT_LOCATION.latitude,
         lng: longitude ?? DEFAULT_LOCATION.longitude
@@ -162,16 +164,34 @@ export function LocationMapSelector({
         </>
     );
 
+    const mapThemeToggle = (
+        <button
+            type="button"
+            onClick={() => setMapTheme((previous) => (previous === "light" ? "dark" : "light"))}
+            className="absolute top-2 right-2 z-20 flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white/95 text-gray-700 shadow-sm backdrop-blur-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+            aria-label={mapTheme === "light" ? "Use dark map" : "Use light map"}
+            title={mapTheme === "light" ? "Dark map" : "Light map"}
+        >
+            {mapTheme === "light" ? (
+                <Moon className="h-4 w-4" aria-hidden />
+            ) : (
+                <Sun className="h-4 w-4" aria-hidden />
+            )}
+        </button>
+    );
+
     if (embedded) {
         return (
-            <div className="h-full w-full">
-                <Map 
+            <div className="relative h-full w-full">
+                {mapThemeToggle}
+                <MapView
+                    theme={mapTheme}
                     key={`${selectedLocation.lat}-${selectedLocation.lng}`}
-                    center={mapCenter} 
+                    center={mapCenter}
                     zoom={10}
                 >
                     {mapMarkers}
-                </Map>
+                </MapView>
             </div>
         );
     }
@@ -193,14 +213,16 @@ export function LocationMapSelector({
                 </div>
 
                 {/* Map Container */}
-                <div className="h-[500px] w-full">
-                    <Map 
+                <div className="relative h-[500px] w-full">
+                    {mapThemeToggle}
+                    <MapView
+                        theme={mapTheme}
                         key={`${selectedLocation.lat}-${selectedLocation.lng}`}
-                        center={mapCenter} 
+                        center={mapCenter}
                         zoom={15}
                     >
                         {mapMarkers}
-                    </Map>
+                    </MapView>
                 </div>
 
                 {/* Footer */}
