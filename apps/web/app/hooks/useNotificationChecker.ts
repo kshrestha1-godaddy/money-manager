@@ -17,60 +17,67 @@ interface UseNotificationCheckerOptions {
  */
 export function useNotificationChecker({
     enabled = true,
-    interval = 1 * 60 * 1000, // 5 minutes default
+    interval = 1 * 60 * 1000, // 1 minute default
     onError
 }: UseNotificationCheckerOptions = {}) {
     const { data: session } = useSession();
-    const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const isRunningRef = useRef(false);
+    const onErrorRef = useRef(onError);
+
+    useEffect(() => {
+        onErrorRef.current = onError;
+    }, [onError]);
+
+    const clearCheckerInterval = useCallback(() => {
+        if (!intervalRef.current) return;
+
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+    }, []);
+
+    const getUserId = useCallback(() => {
+        if (!session?.user) return null;
+        return getUserIdFromSession((session.user as any).id);
+    }, [session?.user]);
 
     const checkNotifications = useCallback(async () => {
-        if (!session?.user || isRunningRef.current) {
-            return;
-        }
+        if (isRunningRef.current) return;
+
+        const userId = getUserId();
+        if (!userId) return;
 
         try {
             isRunningRef.current = true;
-            // Use type assertion to access id property
-            const userId = getUserIdFromSession((session.user as any).id);
             await generateNotificationsForUser(userId);
         } catch (error) {
             console.error("Failed to check notifications:", error);
-            onError?.(error as Error);
+            onErrorRef.current?.(error as Error);
         } finally {
             isRunningRef.current = false;
         }
-    }, [session?.user, onError]);
+    }, [getUserId]);
 
     // Start/stop the notification checker
     useEffect(() => {
         if (!enabled || !session?.user) {
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-                intervalRef.current = null;
-            }
+            clearCheckerInterval();
             return;
         }
 
         // Run an initial check
-        checkNotifications();
+        void checkNotifications();
 
         // Set up periodic checks
         intervalRef.current = setInterval(checkNotifications, interval);
 
-        return () => {
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-                intervalRef.current = null;
-            }
-        };
-    }, [enabled, session?.user, interval, checkNotifications]);
+        return clearCheckerInterval;
+    }, [enabled, session?.user, interval, checkNotifications, clearCheckerInterval]);
 
     // Manual trigger function
     const triggerCheck = useCallback(() => {
-        if (enabled && session?.user) {
-            checkNotifications();
-        }
+        if (!enabled || !session?.user) return;
+        void checkNotifications();
     }, [enabled, session?.user, checkNotifications]);
 
     return {
