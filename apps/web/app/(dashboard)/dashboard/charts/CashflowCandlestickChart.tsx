@@ -40,6 +40,7 @@ interface CandlestickPoint {
   movement: number;
   totalIncome: number;
   totalExpenses: number;
+  transactionVolume: number;
   wickRange: [number, number];
   bodyRange: [number, number];
   closeSma3?: number;
@@ -156,6 +157,7 @@ function buildCandlestickData(transactions: CashflowTransaction[], openingBalanc
       movement: close - open,
       totalIncome: monthData.income,
       totalExpenses: monthData.expenses,
+      transactionVolume: monthTransactions.length,
       wickRange: [low, high],
       bodyRange: [bodyStart, bodyEnd],
     });
@@ -200,7 +202,7 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
 
   const csvData = useMemo(
     () => [
-      ["Month", "Open", "High", "Low", "Close", "Net Movement", "Income", "Expenses"],
+      ["Month", "Open", "High", "Low", "Close", "Net Movement", "Income", "Expenses", "Transaction Count"],
       ...chartData.map((point) => [
         point.formattedMonth,
         point.open.toString(),
@@ -210,6 +212,7 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
         point.movement.toString(),
         point.totalIncome.toString(),
         point.totalExpenses.toString(),
+        point.transactionVolume.toString(),
       ]),
     ],
     [chartData],
@@ -236,6 +239,10 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
         averageMonthlyNet: 0,
         bestMonth: null as CandlestickPoint | null,
         worstMonth: null as CandlestickPoint | null,
+        totalTransactionVolume: 0,
+        averageMonthlyVolume: 0,
+        highestVolumeMonth: null as CandlestickPoint | null,
+        lowestVolumeMonth: null as CandlestickPoint | null,
       };
     }
 
@@ -253,6 +260,15 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
       if (!worstMonth || point.movement < worstMonth.movement) worstMonth = point;
     }
 
+    const totalTransactionVolume = chartData.reduce((sum, point) => sum + point.transactionVolume, 0);
+    const averageMonthlyVolume = totalTransactionVolume / chartData.length;
+    let highestVolumeMonth: CandlestickPoint | null = firstPoint ?? null;
+    let lowestVolumeMonth: CandlestickPoint | null = firstPoint ?? null;
+    for (const point of chartData) {
+      if (!highestVolumeMonth || point.transactionVolume > highestVolumeMonth.transactionVolume) highestVolumeMonth = point;
+      if (!lowestVolumeMonth || point.transactionVolume < lowestVolumeMonth.transactionVolume) lowestVolumeMonth = point;
+    }
+
     return {
       monthCount: chartData.length,
       bullishMonths,
@@ -261,6 +277,10 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
       averageMonthlyNet,
       bestMonth: bestMonth ?? null,
       worstMonth: worstMonth ?? null,
+      totalTransactionVolume,
+      averageMonthlyVolume,
+      highestVolumeMonth: highestVolumeMonth ?? null,
+      lowestVolumeMonth: lowestVolumeMonth ?? null,
     };
   }, [chartData]);
 
@@ -332,6 +352,10 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
           <div className="flex justify-between">
             <span className="text-gray-600">Expenses:</span>
             <span className="font-medium text-rose-600">{formatCurrency(point.totalExpenses, currency)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Transaction Count:</span>
+            <span className="font-medium text-slate-700">{point.transactionVolume}</span>
           </div>
         </div>
       </div>
@@ -406,6 +430,10 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
           <span className="h-0.5 w-4 rounded border-t border-dashed border-slate-500"></span>
           <span>Average close</span>
         </div>
+        <div className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm bg-slate-400"></span>
+          <span>Transaction volume</span>
+        </div>
       </div>
 
       <div className="mt-2 grid grid-cols-1 lg:grid-cols-[minmax(0,4fr)_minmax(260px,1.1fr)] gap-4">
@@ -427,6 +455,12 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
 
               <XAxis dataKey="formattedMonth" tick={{ fontSize: 12 }} padding={{ left: 0, right: 0 }} />
               <YAxis tick={{ fontSize: 12 }} tickFormatter={formatYAxisTick} domain={yDomain as [number, number]} />
+              <YAxis
+                yAxisId="volume"
+                orientation="right"
+                hide
+                domain={[0, (dataMax: number) => Math.max(dataMax * 3, 1)]}
+              />
               <Tooltip content={<CustomTooltip />} />
               {chartVisualData.map((point) => (
                 <ReferenceLine
@@ -450,6 +484,15 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
                 name="SMA 3 months"
                 isAnimationActive={false}
               />
+
+              <Bar dataKey="transactionVolume" yAxisId="volume" barSize={12} name="Transaction Volume">
+                {chartVisualData.map((point) => (
+                  <Cell
+                    key={`${point.monthKey}-volume`}
+                    fill={point.close >= point.open ? "rgba(16, 185, 129, 0.38)" : "rgba(239, 68, 68, 0.38)"}
+                  />
+                ))}
+              </Bar>
 
               <Bar dataKey="bodyRange" barSize={22} name="Open-Close" radius={[2, 2, 2, 2]}>
                 {chartVisualData.map((point) => (
@@ -499,6 +542,35 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
             <div className="rounded-md border border-rose-100 bg-rose-50 p-3">
               <div className="text-xs text-rose-700">Bearish Months</div>
               <div className="text-sm font-semibold text-rose-700">{summary.bearishMonths}</div>
+            </div>
+          </div>
+          <div className="text-xs font-medium text-slate-500">Volume</div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-md border border-slate-200 bg-white p-3">
+              <div className="text-xs text-gray-500">Total Transactions</div>
+              <div className="text-sm font-semibold text-slate-800">{summary.totalTransactionVolume}</div>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-white p-3">
+              <div className="text-xs text-gray-500">Avg Monthly Volume</div>
+              <div className="text-sm font-semibold text-slate-800">{summary.averageMonthlyVolume.toFixed(1)}</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-md border border-slate-200 bg-white p-3">
+              <div className="text-xs text-gray-500">Highest Volume Month</div>
+              <div className="text-sm font-semibold text-slate-800">
+                {summary.highestVolumeMonth
+                  ? `${summary.highestVolumeMonth.formattedMonth} (${summary.highestVolumeMonth.transactionVolume})`
+                  : "-"}
+              </div>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-white p-3">
+              <div className="text-xs text-gray-500">Lowest Volume Month</div>
+              <div className="text-sm font-semibold text-slate-800">
+                {summary.lowestVolumeMonth
+                  ? `${summary.lowestVolumeMonth.formattedMonth} (${summary.lowestVolumeMonth.transactionVolume})`
+                  : "-"}
+              </div>
             </div>
           </div>
           <div className="rounded-md border border-gray-200 bg-white p-3">
