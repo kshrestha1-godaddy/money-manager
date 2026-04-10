@@ -6,9 +6,11 @@ import { getRandomUnlockDialogMessage, UnlockDialogMessage } from "../../config/
 import { useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 
 export function AppLockOverlay() {
     const { status: sessionStatus } = useSession();
+    const pathname = usePathname();
     const { isInitialized, isUnlocked, unlock, shouldPromptPasswordChange, dismissDefaultPasswordPrompt } = useAppLock();
     const [password, setPassword] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
@@ -22,6 +24,13 @@ export function AppLockOverlay() {
         setPassword("");
         setErrorMessage("");
     }, [isUnlocked]);
+
+    useEffect(() => {
+        const isSettingsRoute = pathname?.startsWith("/settings");
+        if (!isSettingsRoute) return;
+        if (!shouldPromptPasswordChange) return;
+        dismissDefaultPasswordPrompt();
+    }, [pathname, shouldPromptPasswordChange, dismissDefaultPasswordPrompt]);
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
