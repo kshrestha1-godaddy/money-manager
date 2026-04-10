@@ -7,6 +7,7 @@ import { getVerifiedUserIdForDataAccess } from "../../../utils/auth";
 import type { LifeEventItem } from "../../../types/life-event";
 import { getLifeEventCsvField } from "../../../utils/lifeEventsCsv";
 import { normalizeExternalLink, parseDateInputToUtcNoon, parseTagsInput } from "../life-event-helpers";
+import { verifyUserAppLockPassword } from "../../../lib/security/app-lock-password";
 
 function mapRow(row: {
   id: number;
@@ -179,19 +180,14 @@ export async function deleteLifeEvents(
   }
 }
 
-/** Same value as app screen lock (`NEXT_PUBLIC_APP_ENTRY_PASSWORD`, default in dev). */
-function getAppEntryPassword(): string {
-  return process.env.NEXT_PUBLIC_APP_ENTRY_PASSWORD || "moneymanager";
-}
-
 export async function deleteLifeEventsWithPassword(
   ids: number[],
   screenLockPassword: string
 ): Promise<{ ok: true; deleted: number } | { error: string }> {
   try {
-    const expected = getAppEntryPassword();
-    const input = screenLockPassword.trim();
-    if (input !== expected) {
+    const userId = await getVerifiedUserIdForDataAccess();
+    const isPasswordValid = await verifyUserAppLockPassword(userId, screenLockPassword);
+    if (!isPasswordValid) {
       return { error: "Incorrect screen lock password" };
     }
     return deleteLifeEvents(ids);

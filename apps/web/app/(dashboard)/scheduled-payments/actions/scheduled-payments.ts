@@ -10,6 +10,7 @@ import { createExpense } from "../../expenses/actions/expenses";
 import { Expense, Category } from "../../../types/financial";
 import { ScheduledPaymentItem } from "../../../types/scheduled-payment";
 import { AccountInterface } from "../../../types/accounts";
+import { verifyUserAppLockPassword } from "../../../lib/security/app-lock-password";
 
 function mapAccount(a: {
   id: number;
@@ -336,11 +337,6 @@ export async function deleteScheduledPayment(id: number) {
   revalidatePath("/scheduled-payments");
 }
 
-/** Same value as app screen lock (`NEXT_PUBLIC_APP_ENTRY_PASSWORD`, default in dev). */
-function getAppEntryPassword(): string {
-  return process.env.NEXT_PUBLIC_APP_ENTRY_PASSWORD || "moneymanager";
-}
-
 export async function deleteScheduledPayments(
   ids: number[]
 ): Promise<{ ok: true; deleted: number } | { error: string }> {
@@ -368,9 +364,12 @@ export async function deleteScheduledPaymentsWithPassword(
   screenLockPassword: string
 ): Promise<{ ok: true; deleted: number } | { error: string }> {
   try {
-    const expected = getAppEntryPassword();
-    const input = screenLockPassword.trim();
-    if (input !== expected) {
+    const session = await getServerSession(authOptions);
+    if (!session) return { error: "Unauthorized" };
+
+    const userId = getUserIdFromSession(session.user.id);
+    const isPasswordValid = await verifyUserAppLockPassword(userId, screenLockPassword);
+    if (!isPasswordValid) {
       return { error: "Incorrect screen lock password" };
     }
     return deleteScheduledPayments(ids);

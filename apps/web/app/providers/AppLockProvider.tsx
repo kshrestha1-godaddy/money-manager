@@ -1,17 +1,23 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
+import { verifyCurrentUserAppLockPassword, getAppLockPasswordStatus } from "../actions/app-lock-password";
 
 const APP_LOCK_EXPIRY_KEY = "app_lock_expires_at";
 const APP_LOCK_DURATION_MS = 15 * 60 * 1000;
-const APP_ENTRY_PASSWORD = process.env.NEXT_PUBLIC_APP_ENTRY_PASSWORD || "moneymanager";
+const APP_ENTRY_PASSWORD = "mymoneylog";
 
 interface AppLockContextValue {
     isInitialized: boolean;
     isUnlocked: boolean;
     remainingMs: number;
-    unlock: (password: string) => boolean;
+    unlock: (password: string) => Promise<boolean>;
     lockNow: () => void;
+    isUsingDefaultPassword: boolean;
+    shouldPromptPasswordChange: boolean;
+    dismissDefaultPasswordPrompt: () => void;
+    markPasswordAsUpdated: () => void;
 }
 
 const AppLockContext = createContext<AppLockContextValue | undefined>(undefined);
@@ -42,9 +48,12 @@ function getRemainingMs(expiryMs: number): number {
 }
 
 export function AppLockProvider({ children }: { children: React.ReactNode }) {
+    const { status: sessionStatus } = useSession();
     const [isInitialized, setIsInitialized] = useState(false);
     const [isUnlocked, setIsUnlocked] = useState(false);
     const [remainingMs, setRemainingMs] = useState(0);
+    const [isUsingDefaultPassword, setIsUsingDefaultPassword] = useState(false);
+    const [hasDismissedDefaultPasswordPrompt, setHasDismissedDefaultPasswordPrompt] = useState(false);
 
     const lockNow = useCallback(() => {
         clearStoredExpiry();
@@ -52,15 +61,32 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
         setRemainingMs(0);
     }, []);
 
-    const unlock = useCallback((password: string): boolean => {
-        if (password !== APP_ENTRY_PASSWORD) return false;
+    const unlock = useCallback(async (password: string): Promise<boolean> => {
+        const inputPassword = password.trim();
+        if (!inputPassword) return false;
+
+        let isPasswordValid = false;
+
+        if (sessionStatus === "unauthenticated") {
+            isPasswordValid = inputPassword === APP_ENTRY_PASSWORD;
+        } else {
+            try {
+                isPasswordValid = await verifyCurrentUserAppLockPassword(inputPassword);
+            } catch {
+                if (sessionStatus === "loading") {
+                    isPasswordValid = inputPassword === APP_ENTRY_PASSWORD;
+                }
+            }
+        }
+
+        if (!isPasswordValid) return false;
 
         const newExpiry = Date.now() + APP_LOCK_DURATION_MS;
         setStoredExpiry(newExpiry);
         setIsUnlocked(true);
         setRemainingMs(APP_LOCK_DURATION_MS);
         return true;
-    }, []);
+    }, [sessionStatus]);
 
     useEffect(() => {
         const expiryMs = getStoredExpiry();
@@ -82,6 +108,33 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
         setRemainingMs(remaining);
         setIsInitialized(true);
     }, []);
+
+    useEffect(() => {
+        if (sessionStatus !== "authenticated") {
+            setIsUsingDefaultPassword(false);
+            setHasDismissedDefaultPasswordPrompt(false);
+            return;
+        }
+
+        let isMounted = true;
+
+        async function loadPasswordStatus() {
+            try {
+                const status = await getAppLockPasswordStatus();
+                if (!isMounted) return;
+                setIsUsingDefaultPassword(status.usesDefaultPassword);
+            } catch {
+                if (!isMounted) return;
+                setIsUsingDefaultPassword(false);
+            }
+        }
+
+        loadPasswordStatus();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [sessionStatus]);
 
     useEffect(() => {
         if (!isUnlocked) return;
@@ -135,13 +188,38 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
         return () => window.removeEventListener("storage", handleStorage);
     }, []);
 
+    const dismissDefaultPasswordPrompt = useCallback(() => {
+        setHasDismissedDefaultPasswordPrompt(true);
+    }, []);
+
+    const markPasswordAsUpdated = useCallback(() => {
+        setIsUsingDefaultPassword(false);
+        setHasDismissedDefaultPasswordPrompt(false);
+    }, []);
+
+    const shouldPromptPasswordChange = isUnlocked && isUsingDefaultPassword && !hasDismissedDefaultPasswordPrompt;
+
     const value = useMemo<AppLockContextValue>(() => ({
         isInitialized,
         isUnlocked,
         remainingMs,
         unlock,
-        lockNow
-    }), [isInitialized, isUnlocked, remainingMs, unlock, lockNow]);
+        lockNow,
+        isUsingDefaultPassword,
+        shouldPromptPasswordChange,
+        dismissDefaultPasswordPrompt,
+        markPasswordAsUpdated
+    }), [
+        isInitialized,
+        isUnlocked,
+        remainingMs,
+        unlock,
+        lockNow,
+        isUsingDefaultPassword,
+        shouldPromptPasswordChange,
+        dismissDefaultPasswordPrompt,
+        markPasswordAsUpdated
+    ]);
 
     return <AppLockContext.Provider value={value}>{children}</AppLockContext.Provider>;
 }

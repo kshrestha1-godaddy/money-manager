@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AppLockPasswordCard } from "./components/AppLockPasswordCard";
 
 export default function SettingsPage() {
   return (
@@ -34,6 +35,8 @@ export default function SettingsPage() {
           </Link>
         </li>
       </ul>
+
+      <AppLockPasswordCard />
     </div>
   );
 }
