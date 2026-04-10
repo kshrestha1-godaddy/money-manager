@@ -5,8 +5,10 @@ import { useAppLock } from "../../providers/AppLockProvider";
 import { getRandomUnlockDialogMessage, UnlockDialogMessage } from "../../config/unlock-dialog-messages";
 import { useEffect } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 
 export function AppLockOverlay() {
+    const { status: sessionStatus } = useSession();
     const { isInitialized, isUnlocked, unlock, shouldPromptPasswordChange, dismissDefaultPasswordPrompt } = useAppLock();
     const [password, setPassword] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
@@ -36,6 +38,8 @@ export function AppLockOverlay() {
         setErrorMessage("");
         setPassword("");
     };
+
+    if (sessionStatus !== "authenticated") return null;
 
     if (!isInitialized) {
         return (

@@ -6,7 +6,6 @@ import { verifyCurrentUserAppLockPassword, getAppLockPasswordStatus } from "../a
 
 const APP_LOCK_EXPIRY_KEY = "app_lock_expires_at";
 const APP_LOCK_DURATION_MS = 15 * 60 * 1000;
-const APP_ENTRY_PASSWORD = "mymoneylog";
 
 interface AppLockContextValue {
     isInitialized: boolean;
@@ -62,21 +61,16 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const unlock = useCallback(async (password: string): Promise<boolean> => {
+        if (sessionStatus !== "authenticated") return false;
+
         const inputPassword = password.trim();
         if (!inputPassword) return false;
 
         let isPasswordValid = false;
-
-        if (sessionStatus === "unauthenticated") {
-            isPasswordValid = inputPassword === APP_ENTRY_PASSWORD;
-        } else {
-            try {
-                isPasswordValid = await verifyCurrentUserAppLockPassword(inputPassword);
-            } catch {
-                if (sessionStatus === "loading") {
-                    isPasswordValid = inputPassword === APP_ENTRY_PASSWORD;
-                }
-            }
+        try {
+            isPasswordValid = await verifyCurrentUserAppLockPassword(inputPassword);
+        } catch {
+            isPasswordValid = false;
         }
 
         if (!isPasswordValid) return false;
@@ -86,6 +80,13 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
         setIsUnlocked(true);
         setRemainingMs(APP_LOCK_DURATION_MS);
         return true;
+    }, [sessionStatus]);
+
+    useEffect(() => {
+        if (sessionStatus === "authenticated") return;
+        clearStoredExpiry();
+        setIsUnlocked(false);
+        setRemainingMs(0);
     }, [sessionStatus]);
 
     useEffect(() => {
