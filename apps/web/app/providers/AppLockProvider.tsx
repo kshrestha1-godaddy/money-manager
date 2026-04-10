@@ -83,7 +83,7 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
     }, [sessionStatus]);
 
     useEffect(() => {
-        if (sessionStatus === "authenticated") return;
+        if (sessionStatus !== "unauthenticated") return;
         clearStoredExpiry();
         setIsUnlocked(false);
         setRemainingMs(0);
