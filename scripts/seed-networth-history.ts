@@ -1,6 +1,24 @@
-import { PrismaClient } from '@prisma/client';
+/**
+ * Seeds dummy net worth history snapshots (12 months × SNAPSHOTS_PER_MONTH rows).
+ *
+ * Requires DATABASE_URL. Optional: SEED_USER_EMAIL (default: john.doe@example.com).
+ * If that user is missing, uses the first user by id (with a warning).
+ *
+ * Re-runs remove only rows matching this script’s snapshot dates for the target user
+ * (no `tags` column on NetworthHistory — identification is by exact `snapshotDate` list).
+ *
+ * Run from repo root:
+ *   npm run seed:networth
+ */
+
+import { PrismaClient, NetWorthRecordType } from "@prisma/client";
 
 const prisma = new PrismaClient();
+
+const DEFAULT_USER_EMAIL = "john.doe@example.com";
+/** Calendar year used for generated snapshot dates. */
+const SEED_YEAR = 2026;
+const SNAPSHOTS_PER_MONTH = 5;
 
 interface NetWorthData {
   totalAccountBalance: number;
@@ -13,62 +31,59 @@ interface NetWorthData {
   netWorth: number;
   currency: string;
   snapshotDate: Date;
-  recordType: 'AUTOMATIC' | 'MANUAL';
+  recordType: NetWorthRecordType;
   userId: number;
 }
 
-// Generate realistic net worth progression data
-function generateNetworthData(userId: number): NetWorthData[] {
+/** Deterministic small jitter in roughly ±2% (replaces Math.random for reproducible seeds). */
+function variationPct(month: number, record: number): number {
+  const x = ((month + 1) * 31 + (record + 1) * 7) % 1000;
+  return (x / 1000 - 0.5) * 0.04;
+}
+
+function generateNetworthData(userId: number, currency: string): NetWorthData[] {
   const records: NetWorthData[] = [];
-  
-  // Starting values (January 2025)
-  let baseAccountBalance = 250000; // 2.5 lakh
-  let baseInvestmentValue = 2000000; // 20 lakh
-  let baseInvestmentCost = 1800000; // 18 lakh (showing some gains)
-  let baseMoneyLent = 500000; // 5 lakh
-  
-  // Growth rates per month (some volatility)
+
+  let baseAccountBalance = 250_000;
+  let baseInvestmentValue = 2_000_000;
+  let baseInvestmentCost = 1_800_000;
+  let baseMoneyLent = 500_000;
+
   const monthlyGrowthRates = [
-    0.02,   // Jan: 2% growth
-    -0.01,  // Feb: -1% (market correction)
-    0.03,   // Mar: 3% growth
-    0.015,  // Apr: 1.5% growth
-    -0.005, // May: -0.5% (slight dip)
-    0.025,  // Jun: 2.5% growth
-    0.01,   // Jul: 1% growth
-    0.02,   // Aug: 2% growth
-    -0.015, // Sep: -1.5% (market volatility)
-    0.035,  // Oct: 3.5% growth (good quarter)
-    0.01,   // Nov: 1% growth
-    0.02    // Dec: 2% growth (year-end rally)
+    0.02, -0.01, 0.03, 0.015, -0.005, 0.025, 0.01, 0.02, -0.015, 0.035, 0.01,
+    0.02,
   ];
-  
+
   for (let month = 0; month < 12; month++) {
-    const monthlyGrowth = monthlyGrowthRates[month];
-    
-    // Apply monthly growth to base values
-    baseAccountBalance *= (1 + monthlyGrowth * 0.3); // Accounts grow slower
-    baseInvestmentValue *= (1 + monthlyGrowth); // Investments follow market
-    baseInvestmentCost *= (1 + monthlyGrowth * 0.1); // Cost base grows with new investments
-    baseMoneyLent *= (1 + monthlyGrowth * 0.05); // Money lent grows slowly
-    
-    // Generate 5 records per month
-    for (let record = 0; record < 5; record++) {
-      const dayOfMonth = Math.floor((record + 1) * (30 / 5)); // Spread across month
-      const recordDate = new Date(2025, month, dayOfMonth);
-      
-      // Add some daily variation (±2%)
-      const dailyVariation = (Math.random() - 0.5) * 0.04;
-      
-      const accountBalance = Math.round(baseAccountBalance * (1 + dailyVariation));
-      const investmentValue = Math.round(baseInvestmentValue * (1 + dailyVariation));
+    const monthlyGrowth = monthlyGrowthRates[month] ?? 0;
+
+    baseAccountBalance *= 1 + monthlyGrowth * 0.3;
+    baseInvestmentValue *= 1 + monthlyGrowth;
+    baseInvestmentCost *= 1 + monthlyGrowth * 0.1;
+    baseMoneyLent *= 1 + monthlyGrowth * 0.05;
+
+    for (let record = 0; record < SNAPSHOTS_PER_MONTH; record++) {
+      const dayOfMonth = Math.floor((record + 1) * (30 / SNAPSHOTS_PER_MONTH));
+      const recordDate = new Date(SEED_YEAR, month, dayOfMonth);
+
+      const dailyVariation = variationPct(month, record);
+
+      const accountBalance = Math.round(
+        baseAccountBalance * (1 + dailyVariation),
+      );
+      const investmentValue = Math.round(
+        baseInvestmentValue * (1 + dailyVariation),
+      );
       const investmentCost = Math.round(baseInvestmentCost);
-      const moneyLent = Math.round(baseMoneyLent * (1 + dailyVariation * 0.5));
-      
+      const moneyLent = Math.round(
+        baseMoneyLent * (1 + dailyVariation * 0.5),
+      );
+
       const investmentGain = investmentValue - investmentCost;
-      const investmentGainPercentage = investmentCost > 0 ? (investmentGain / investmentCost) * 100 : 0;
+      const investmentGainPercentage =
+        investmentCost > 0 ? (investmentGain / investmentCost) * 100 : 0;
       const totalAssets = accountBalance + investmentValue + moneyLent;
-      
+
       records.push({
         totalAccountBalance: accountBalance,
         totalInvestmentValue: investmentValue,
@@ -76,90 +91,95 @@ function generateNetworthData(userId: number): NetWorthData[] {
         totalInvestmentGain: investmentGain,
         totalInvestmentGainPercentage: investmentGainPercentage,
         totalMoneyLent: moneyLent,
-        totalAssets: totalAssets,
-        netWorth: totalAssets, // Assuming no liabilities
-        currency: 'INR',
+        totalAssets,
+        netWorth: totalAssets,
+        currency,
         snapshotDate: recordDate,
-        recordType: record === 0 ? 'MANUAL' : 'AUTOMATIC', // First of month is manual
-        userId: userId
+        recordType:
+          record === 0 ? NetWorthRecordType.MANUAL : NetWorthRecordType.AUTOMATIC,
+        userId,
       });
     }
   }
-  
+
   return records;
 }
 
 async function seedNetworthHistory() {
+  const email = process.env.SEED_USER_EMAIL?.trim() || DEFAULT_USER_EMAIL;
+
+  let user = await prisma.user.findFirst({
+    where: { email },
+  });
+
+  if (!user) {
+    user = await prisma.user.findFirst({ orderBy: { id: "asc" } });
+    if (user) {
+      console.warn(
+        `SEED_USER_EMAIL "${email}" not found; using first user (id ${user.id}).`,
+      );
+    }
+  }
+
+  if (!user) {
+    console.error(
+      "No users in the database. Create a user or run the main prisma seed first.",
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  const currency = user.currency?.trim() || "USD";
+  const networthData = generateNetworthData(user.id, currency);
+  const snapshotDates = networthData.map((r) => r.snapshotDate);
+
+  const removed = await prisma.networthHistory.deleteMany({
+    where: {
+      userId: user.id,
+      snapshotDate: { in: snapshotDates },
+    },
+  });
+  if (removed.count > 0) {
+    console.log(`Removed ${removed.count} existing snapshots at seed dates.`);
+  }
+
+  const result = await prisma.networthHistory.createMany({
+    data: networthData,
+    skipDuplicates: true,
+  });
+
+  const who = user.email ?? user.number;
+  const first = networthData[0];
+  const last = networthData[networthData.length - 1];
+  if (first && last) {
+    console.log(
+      `Inserted ${result.count} net worth snapshots for ${who} (${currency}).`,
+    );
+    console.log(
+      `Date range: ${first.snapshotDate.toDateString()} → ${last.snapshotDate.toDateString()}`,
+    );
+    console.log(
+      `Net worth: ${first.netWorth.toLocaleString()} → ${last.netWorth.toLocaleString()} (${currency})`,
+    );
+    const totalGrowth = last.netWorth - first.netWorth;
+    const growthPct = first.netWorth !== 0 ? (totalGrowth / first.netWorth) * 100 : 0;
+    console.log(
+      `Approx. growth over series: ${totalGrowth.toLocaleString()} (${growthPct.toFixed(2)}%)`,
+    );
+  }
+}
+
+async function main() {
   try {
-    console.log('🌱 Starting net worth history seeding...');
-    
-    // Get the first user from the database
-    const firstUser = await prisma.user.findFirst();
-    
-    if (!firstUser) {
-      console.error('❌ No users found in database. Please create a user first.');
-      return;
-    }
-    
-    console.log(`📊 Generating data for user: ${firstUser.email || firstUser.number}`);
-    
-    // Check if net worth history already exists for this user
-    const existingRecords = await prisma.networthHistory.count({
-      where: { userId: firstUser.id }
-    });
-    
-    if (existingRecords > 0) {
-      console.log(`⚠️  Found ${existingRecords} existing records. Clearing them first...`);
-      await prisma.networthHistory.deleteMany({
-        where: { userId: firstUser.id }
-      });
-    }
-    
-    // Generate the data
-    const networthData = generateNetworthData(firstUser.id);
-    
-    console.log(`📈 Generated ${networthData.length} net worth records`);
-    console.log(`📅 Date range: ${networthData[0].snapshotDate.toDateString()} to ${networthData[networthData.length - 1].snapshotDate.toDateString()}`);
-    console.log(`💰 Net worth range: $${networthData[0].netWorth.toLocaleString()} to $${networthData[networthData.length - 1].netWorth.toLocaleString()}`);
-    
-    // Insert all records
-    console.log('💾 Inserting records into database...');
-    
-    const result = await prisma.networthHistory.createMany({
-      data: networthData,
-      skipDuplicates: true
-    });
-    
-    console.log(`✅ Successfully inserted ${result.count} net worth history records!`);
-    
-    // Show some statistics
-    const totalGrowth = networthData[networthData.length - 1].netWorth - networthData[0].netWorth;
-    const growthPercentage = (totalGrowth / networthData[0].netWorth) * 100;
-    
-    console.log(`📊 Statistics:`);
-    console.log(`   • Total Growth: $${totalGrowth.toLocaleString()}`);
-    console.log(`   • Growth Percentage: ${growthPercentage.toFixed(2)}%`);
-    console.log(`   • Average Monthly Growth: ${(growthPercentage / 12).toFixed(2)}%`);
-    
-  } catch (error) {
-    console.error('❌ Error seeding net worth history:', error);
-    throw error;
+    await seedNetworthHistory();
+  } catch (e) {
+    console.error(e);
+    process.exitCode = 1;
   } finally {
     await prisma.$disconnect();
   }
 }
 
-// Run the seeding function
-if (require.main === module) {
-  seedNetworthHistory()
-    .then(() => {
-      console.log('🎉 Net worth history seeding completed successfully!');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('💥 Seeding failed:', error);
-      process.exit(1);
-    });
-}
+void main();
 
 export { seedNetworthHistory, generateNetworthData };

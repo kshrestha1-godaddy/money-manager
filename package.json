@@ -8,7 +8,9 @@
     "check-types": "turbo run check-types",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "start-user-app": "cd ./apps/web && npm run start",
-    "seed:networth": "node scripts/seed-networth-history.js"
+    "seed:networth": "npx ts-node --transpile-only --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" scripts/seed-networth-history.ts",
+    "seed:scheduled-payments": "npx ts-node --transpile-only --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" scripts/seed-scheduled-payments.ts",
+    "seed:life-events": "npx ts-node --transpile-only --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" scripts/seed-life-events.ts"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.4",
