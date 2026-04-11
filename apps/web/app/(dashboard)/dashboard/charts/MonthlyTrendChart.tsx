@@ -27,6 +27,12 @@ interface MonthlyData {
     savingsRate: number;
     incomeAverage: number;
     expenseAverage: number;
+    incomeDisplay: number;
+    expensesDisplay: number;
+    savingsDisplay: number;
+    incomeTrendDisplay: number;
+    expensesTrendDisplay: number;
+    savingsTrendDisplay: number;
 }
 
 interface CalculationsResult {
@@ -42,6 +48,103 @@ interface CalculationsResult {
     yAxisMax: number;
     yAxisMin: number;
     referenceLines: number[];
+    fixedYAxisTicks: number[];
+    /** True when chart uses zoomed-in scale for 0-250K range. */
+    usesZoomedScale: boolean;
+}
+
+const FIXED_Y_AXIS_BASELINE_MAX = 250_000;
+const FIXED_Y_AXIS_STEP = 50_000;
+function computeZoomedYAxisDomain(rawMax: number, rawMin: number): {
+    yAxisMax: number;
+    yAxisMin: number;
+    zoomedIn: boolean;
+} {
+    const hasValuesAbove250K = rawMax > FIXED_Y_AXIS_BASELINE_MAX;
+    const hasValuesBelowNeg250K = rawMin < -FIXED_Y_AXIS_BASELINE_MAX;
+    
+    if (!hasValuesAbove250K && !hasValuesBelowNeg250K) {
+        // All values within ±250K range, use zoomed-in fixed scale
+        return {
+            yAxisMax: FIXED_Y_AXIS_BASELINE_MAX,
+            yAxisMin: rawMin < 0 ? Math.floor(rawMin * 1.1) : 0,
+            zoomedIn: true,
+        };
+    }
+    
+    // Has values beyond ±250K, use standard dynamic scaling
+    return {
+        yAxisMax: Math.ceil(rawMax * 1.15),
+        yAxisMin: rawMin < 0 ? Math.floor(rawMin * 1.25) : 0,
+        zoomedIn: false,
+    };
+}
+
+function buildZoomedYAxisTicks(
+    yAxisMin: number,
+    yAxisMax: number,
+    zoomedIn: boolean,
+    rawMax: number
+): number[] {
+    if (zoomedIn) {
+        // Fine-grained ticks for zoomed-in view (0-250K range)
+        const ticks: number[] = [];
+        const start = Math.max(0, Math.ceil(yAxisMin / FIXED_Y_AXIS_STEP) * FIXED_Y_AXIS_STEP);
+        
+        for (let value = start; value <= Math.min(yAxisMax, FIXED_Y_AXIS_BASELINE_MAX); value += FIXED_Y_AXIS_STEP) {
+            ticks.push(value);
+        }
+        
+        // Add negative ticks if needed
+        if (yAxisMin < 0) {
+            const negStart = Math.floor(yAxisMin / FIXED_Y_AXIS_STEP) * FIXED_Y_AXIS_STEP;
+            for (let value = negStart; value < 0; value += FIXED_Y_AXIS_STEP) {
+                ticks.unshift(value);
+            }
+        }
+        
+        return ticks;
+    }
+    
+    // Dynamic ticks for non-zoomed view
+    const ticks: number[] = [];
+    
+    // Always include 0-250K range with 50K steps
+    for (let value = 0; value <= Math.min(yAxisMax, FIXED_Y_AXIS_BASELINE_MAX); value += FIXED_Y_AXIS_STEP) {
+        ticks.push(value);
+    }
+    
+    // Add ticks above 250K with larger steps
+    if (yAxisMax > FIXED_Y_AXIS_BASELINE_MAX) {
+        const range = yAxisMax - FIXED_Y_AXIS_BASELINE_MAX;
+        const step = range <= 500_000 ? 100_000 : range <= 1_000_000 ? 200_000 : 500_000;
+        
+        for (let value = FIXED_Y_AXIS_BASELINE_MAX + step; value <= yAxisMax; value += step) {
+            ticks.push(value);
+        }
+    }
+    
+    // Add negative ticks if needed
+    if (yAxisMin < 0) {
+        const negStart = Math.floor(yAxisMin / FIXED_Y_AXIS_STEP) * FIXED_Y_AXIS_STEP;
+        for (let value = negStart; value < 0; value += FIXED_Y_AXIS_STEP) {
+            ticks.unshift(value);
+        }
+    }
+    
+    return ticks.sort((a, b) => a - b);
+}
+
+/**
+ * Per-month vertical extent: income bar vs stacked expenses+savings column.
+ */
+function monthVisualHigh(d: MonthlyData): number {
+    const stackTop = d.expenses + d.savings;
+    return Math.max(d.income, d.expenses, stackTop);
+}
+
+function monthVisualLow(d: MonthlyData): number {
+    return Math.min(0, d.savings);
 }
 
 // Memoized Summary Stats Component
@@ -176,7 +279,13 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                 expenseCount,
                 savingsRate,
                 incomeAverage,
-                expenseAverage
+                expenseAverage,
+                incomeDisplay: month.income,
+                expensesDisplay: month.expenses,
+                savingsDisplay: adjustedSavings,
+                incomeTrendDisplay: month.income,
+                expensesTrendDisplay: month.expenses,
+                savingsTrendDisplay: month.savings,
             };
         });
     }, [monthlyData]);
@@ -196,7 +305,9 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                 minValue: 0,
                 yAxisMax: 100,
                 yAxisMin: 0,
-                referenceLines: [25, 50, 75]
+                referenceLines: [25, 50, 75],
+                fixedYAxisTicks: [0, 50, 100, 150, 200, 250],
+                usesZoomedScale: false,
             };
         }
 
@@ -205,12 +316,11 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
         let maxValue = 0;
         let minValue = 0;
 
-        // Single pass calculation
         for (const item of chartData) {
             totalIncome += item.income;
             totalExpenses += item.expenses;
-            maxValue = Math.max(maxValue, item.income, item.expenses, item.savings);
-            minValue = Math.min(minValue, 0, item.savings);
+            maxValue = Math.max(maxValue, monthVisualHigh(item));
+            minValue = Math.min(minValue, monthVisualLow(item));
         }
 
         const totalSavings = totalIncome - totalExpenses;
@@ -219,14 +329,13 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
         const averageExpenses = totalExpenses / monthCount;
         const averageSavings = totalSavings / monthCount;
 
-        const yAxisMax = Math.ceil(maxValue * 1.3);
-        const yAxisMin = Math.floor(minValue * 1.5);
-        
-        const referenceLines = [
-            yAxisMax * 0.25,
-            yAxisMax * 0.5,
-            yAxisMax * 0.75
-        ];
+        const { yAxisMax, yAxisMin, zoomedIn } = computeZoomedYAxisDomain(maxValue, minValue);
+
+        const fixedYAxisTicks = buildZoomedYAxisTicks(yAxisMin, yAxisMax, zoomedIn, maxValue);
+
+        const referenceLines = zoomedIn
+            ? fixedYAxisTicks.filter((value) => value > 0 && value < FIXED_Y_AXIS_BASELINE_MAX)
+            : fixedYAxisTicks.filter((value, index) => index % 2 === 1 || value === 0);
 
         return {
             totalIncome,
@@ -240,7 +349,9 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
             minValue,
             yAxisMax,
             yAxisMin,
-            referenceLines
+            referenceLines,
+            fixedYAxisTicks,
+            usesZoomedScale: zoomedIn,
         };
     }, [chartData]);
 
@@ -283,7 +394,9 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
 
         // Filter to only show bar data (exclude trend lines) - more efficient
         const barData = payload.filter(entry => 
-            entry.dataKey === 'income' || entry.dataKey === 'expenses' || entry.dataKey === 'savings'
+            entry.dataKey === 'incomeDisplay' ||
+            entry.dataKey === 'expensesDisplay' ||
+            entry.dataKey === 'savingsDisplay'
         );
         
         if (barData.length === 0) return null;
@@ -302,10 +415,23 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                 {/* Financial Summary with stacked context */}
                 <div className="space-y-2 mb-3">
                     {barData.map((entry, index) => {
-                        const displayName = entry.dataKey === 'income' ? 'Total Income' :
-                                         entry.dataKey === 'expenses' ? 'Expenses' : 
-                                         entry.value >= 0 ? 'Savings' : 'Loss';
-                        const incomePercentage = monthData.income > 0 ? ((Math.abs(entry.value) / monthData.income) * 100).toFixed(1) : '0.0';
+                        const rawValue =
+                            entry.dataKey === 'incomeDisplay'
+                                ? monthData.income
+                                : entry.dataKey === 'expensesDisplay'
+                                  ? monthData.expenses
+                                  : monthData.savings;
+                        const displayName = entry.dataKey === 'incomeDisplay'
+                            ? 'Total Income'
+                            : entry.dataKey === 'expensesDisplay'
+                              ? 'Expenses'
+                              : rawValue >= 0
+                                ? 'Savings'
+                                : 'Loss';
+                        const incomePercentage =
+                            monthData.income > 0
+                                ? ((Math.abs(rawValue) / monthData.income) * 100).toFixed(1)
+                                : '0.0';
                         
                         return (
                             <div key={index} className="flex justify-between items-center">
@@ -313,7 +439,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                                     {displayName}:
                                 </span>
                                 <span className="text-sm font-semibold">
-                                    {formatCurrency(entry.value, currency)} ({incomePercentage}%)
+                                    {formatCurrency(rawValue, currency)} ({incomePercentage}%)
                                 </span>
                             </div>
                         );
@@ -346,9 +472,9 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
     }, [currency]);
 
     const formatYAxisTick = useCallback((value: number) => {
-        if (value >= 1000000) {
+        if (Math.abs(value) >= 1000000) {
             return `${(value / 1000000).toFixed(1)}M`;
-        } else if (value >= 1000) {
+        } else if (Math.abs(value) >= 1000) {
             return `${(value / 1000).toFixed(1)}K`;
         }
         return formatCurrency(value, currency).replace(/\$/, '');
@@ -384,7 +510,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
     const Chart = useMemo(() => (
         <div 
             ref={chartRef} 
-            className="h-[30rem] sm:h-[40rem] w-full"
+            className="h-[34rem] sm:h-[44rem] w-full"
             role="img"
             aria-label={`Monthly trend chart showing income, expenses, and savings ${timePeriodText.toLowerCase()}`}
         >
@@ -446,18 +572,19 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                         tick={{ fontSize: 12 }}
                         stroke="#666"
                         domain={[calculations.yAxisMin, calculations.yAxisMax]}
+                        ticks={calculations.fixedYAxisTicks}
                         tickCount={8}
                     />
                     <Tooltip content={<CustomTooltip />} />
 
                     <Bar 
-                        dataKey="income" 
+                        dataKey="incomeDisplay" 
                         fill="url(#monthlyIncomePattern)"
                         name="Income"
                         radius={[2, 2, 0, 0]}
                     />
                     <Bar 
-                        dataKey="expenses" 
+                        dataKey="expensesDisplay" 
                         fill="url(#monthlyExpensesPattern)"
                         name="Expenses"
                         stackId="expensesSavings"
@@ -474,7 +601,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                                 const chartEntry = chartData[index];
                                 if (!chartEntry || !chartEntry.income || chartEntry.income === 0) return null;
                                 
-                                const percentage = ((value / chartEntry.income) * 100);
+                                const percentage = ((chartEntry.expenses / chartEntry.income) * 100);
                                 
                                 // Only show label if percentage is >= 3%
                                 if (percentage < 3) return null;
@@ -496,7 +623,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                         />
                     </Bar>
                     <Bar 
-                        dataKey="savings" 
+                        dataKey="savingsDisplay" 
                         name="Savings"
                         stackId="expensesSavings"
                         radius={[2, 2, 0, 0]}
@@ -546,7 +673,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                     {/* Trend Lines */}
                     <Line 
                         type="monotone" 
-                        dataKey="incomeT" 
+                        dataKey="incomeTrendDisplay" 
                         stroke={CHART_COLORS.incomeTrend}
                         strokeWidth={3}
                         dot={{ fill: CHART_COLORS.incomeTrend, stroke: 'white', strokeWidth: 2, r: 5 }}
@@ -557,7 +684,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                     />
                     <Line 
                         type="monotone" 
-                        dataKey="expensesT" 
+                        dataKey="expensesTrendDisplay" 
                         stroke={CHART_COLORS.expensesTrend}
                         strokeWidth={3}
                         dot={{ fill: CHART_COLORS.expensesTrend, stroke: 'white', strokeWidth: 2, r: 5 }}
@@ -568,7 +695,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                     />
                     <Line 
                         type="monotone" 
-                        dataKey="savingsT" 
+                        dataKey="savingsTrendDisplay" 
                         stroke={CHART_COLORS.savingsTrend}
                         strokeWidth={3}
                         dot={{ fill: CHART_COLORS.savingsTrend, stroke: 'white', strokeWidth: 2, r: 5 }}
@@ -611,6 +738,16 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
             />
             <div>
                 <SummaryStats calculations={calculations} currency={currency} />
+                {calculations.usesZoomedScale && (
+                    <div className="mb-3 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-950">
+                        <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" aria-hidden />
+                        <p>
+                            <span className="font-medium">Zoomed Y-axis:</span> the chart is optimized to show detail in the{" "}
+                            {formatCurrency(0, currency)} – {formatCurrency(FIXED_Y_AXIS_BASELINE_MAX, currency)} range
+                            with {formatCurrency(FIXED_Y_AXIS_STEP, currency)} increments for better visibility of typical monthly amounts.
+                        </p>
+                    </div>
+                )}
                 {Chart}
                 
             </div>
