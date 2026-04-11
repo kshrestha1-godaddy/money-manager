@@ -155,10 +155,12 @@ export default function AnnuityPageClient() {
 
   const totals = useMemo(() => {
     const lastRow = rows[rows.length - 1];
+    const yearsClamped = clampYears(inputs.years);
+    const totalMonths = yearsClamped * 12;
     const totalInvestedByContributions =
       inputs.calculationType === "fixed-deposit"
         ? 0
-        : effectiveMonthlyInvestment * (inputs.years * 12);
+        : effectiveMonthlyInvestment * totalMonths;
     const principal = Math.max(0, inputs.initialBalance) + totalInvestedByContributions;
     const finalBalance = lastRow?.finalBalance ?? Math.max(0, inputs.initialBalance);
     const totalInterest = lastRow?.totalInterestGained ?? 0;
@@ -166,7 +168,7 @@ export default function AnnuityPageClient() {
       principal,
       finalBalance,
       totalInterest,
-      totalMonths: inputs.years * 12,
+      totalMonths,
     };
   }, [rows, inputs, effectiveMonthlyInvestment]);
 

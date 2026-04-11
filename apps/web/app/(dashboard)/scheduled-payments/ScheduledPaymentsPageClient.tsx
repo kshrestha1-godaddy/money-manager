@@ -573,8 +573,8 @@ export default function ScheduledPaymentsPageClient() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-        <div className="min-w-0 flex h-full min-h-0 flex-col">
+      <div className="grid grid-cols-1 gap-6 items-stretch lg:grid-cols-3">
+        <div className="flex h-full min-h-0 min-w-0 flex-col lg:col-span-1">
           <ScheduledPaymentsChart
             items={filteredItems}
             userCurrency={userCurrency}
@@ -583,7 +583,7 @@ export default function ScheduledPaymentsPageClient() {
             isRefreshing={isRefreshing}
           />
         </div>
-        <div className="min-w-0 flex flex-col">
+        <div className="flex min-w-0 flex-col lg:col-span-2">
           <UpcomingScheduleCalendar
             items={filteredItems}
             userCurrency={userCurrency}

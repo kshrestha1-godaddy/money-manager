@@ -127,7 +127,7 @@ export function CalculatorInputsFields({
         description="Total investment duration in years. The table shows all months in this period."
         value={inputs.years}
         onChange={(value) => onInputsChange((previous) => ({ ...previous, years: clampYears(value) }))}
-        min={1}
+        min={0}
         max={100}
         step={1}
         className={inputClassName}

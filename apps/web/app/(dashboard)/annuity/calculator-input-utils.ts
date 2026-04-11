@@ -4,8 +4,8 @@ export function parseSafeNumber(value: string): number {
 }
 
 export function clampYears(years: number): number {
-  if (!Number.isFinite(years)) return 1;
-  if (years < 1) return 1;
+  if (!Number.isFinite(years)) return 0;
+  if (years < 0) return 0;
   if (years > 100) return 100;
   return Math.floor(years);
 }

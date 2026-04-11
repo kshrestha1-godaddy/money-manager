@@ -177,7 +177,7 @@ export function SavedPresetsSection({ currentInputs, onLoadPreset, onPresetDelet
           <ul className="list-none space-y-3 px-3 py-3 sm:space-y-3 sm:px-4 sm:py-3">
             {presets.map((preset) => {
               const normalized = normalizeAnnuityInputs(preset.inputs);
-              const totalMonths = Math.max(1, normalized.years) * 12;
+              const totalMonths = Math.max(0, normalized.years) * 12;
               const doneCount = preset.completedMonths.length;
               const inputRows = getPresetInputsDetailRows(preset.inputs);
               const progressPct = totalMonths > 0 ? Math.round((doneCount / totalMonths) * 100) : 0;

@@ -16,10 +16,10 @@ export interface CalculatorInputs {
 export const DEFAULT_ANNUITY_INPUTS: CalculatorInputs = {
   calculationType: "annuity",
   initialBalance: 0,
-  monthlyInvestment: 5000,
-  targetFutureValue: 10000000,
-  annualInterestRatePercent: 10,
-  years: 15,
+  monthlyInvestment: 0,
+  targetFutureValue: 0,
+  annualInterestRatePercent: 0,
+  years: 0,
   compoundingFrequency: "annual",
   fixedDepositInterestMode: "add-to-principal",
 };
@@ -44,7 +44,7 @@ export function normalizeAnnuityInputs(raw: unknown): CalculatorInputs {
     monthlyInvestment: Math.max(0, parseNumber(object.monthlyInvestment, 0)),
     targetFutureValue: Math.max(0, parseNumber(object.targetFutureValue, 0)),
     annualInterestRatePercent: Math.max(0, parseNumber(object.annualInterestRatePercent, 0)),
-    years: Math.min(100, Math.max(1, Math.floor(yearsRaw))),
+    years: Math.min(100, Math.max(0, Math.floor(yearsRaw))),
     compoundingFrequency: pickString(object.compoundingFrequency, ["annual", "quarterly"], "annual"),
     fixedDepositInterestMode: pickString(
       object.fixedDepositInterestMode,
