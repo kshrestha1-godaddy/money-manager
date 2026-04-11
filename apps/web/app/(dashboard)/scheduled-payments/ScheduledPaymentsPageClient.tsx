@@ -1,6 +1,13 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, Download, RefreshCw, Trash2 } from "lucide-react";
 import {
   getScheduledPayments,
@@ -35,11 +42,16 @@ import { ScheduledPaymentsChart } from "./components/ScheduledPaymentsChart";
 import { UpcomingScheduleCalendar } from "./components/UpcomingScheduleCalendar";
 import { ScheduledPaymentsFilters } from "./components/ScheduledPaymentsFilters";
 import { DeleteSelectedScheduledPaymentsModal } from "./components/DeleteSelectedScheduledPaymentsModal";
+import { CancelScheduledPaymentModal } from "./components/CancelScheduledPaymentModal";
+import { ScheduledPaymentViewModal } from "./components/ScheduledPaymentViewModal";
 import {
   accountDisplay,
   recurringDisplay,
   recurrenceGroupSortIndex,
   matchesSearch,
+  scheduledPaymentStatusLabel,
+  isScheduledWithinNextTwoDays,
+  formatScheduledPaymentWhenDate,
 } from "./scheduled-payment-helpers";
 
 const pageContainer = CONTAINER_COLORS.page;
@@ -52,27 +64,27 @@ const secondaryOutlineButton = BUTTON_COLORS.secondaryBlue;
 const dangerButton = BUTTON_COLORS.danger;
 
 /** Fixed width incl. horizontal padding (`box-border`); remaining cols share the rest. */
-const BULK_SELECT_COLUMN_WIDTH_PX = 44;
+const BULK_SELECT_COLUMN_WIDTH_PX = 52;
 
-/** `table-fixed` column shares (with checkbox as px). Title widened vs equal split; When / Category / Status tightened. */
+/**
+ * `table-fixed` widths (sum 100%). When column kept wider for `DD Month YYYY | HH:MM:SS`.
+ * Tighter recurrence/status avoids huge empty gaps on ultrawide screens.
+ */
 const SCHEDULED_TABLE_COL_PCT = {
-  title: "26%",
-  when: "6%",
+  title: "18%",
+  when: "14%",
   amount: "9%",
-  category: "6%",
-  account: "13%",
-  notes: "10%",
-  recurrence: "8%",
-  status: "6%",
-  actions: "16%",
+  category: "8%",
+  account: "12%",
+  notes: "11%",
+  recurrence: "6%",
+  status: "7%",
+  actions: "15%",
 } as const;
 
-function statusLabel(item: ScheduledPaymentItem, now: Date): string {
-  if (item.resolution === "ACCEPTED") return "Accepted";
-  if (item.resolution === "REJECTED") return "Rejected";
-  if (item.scheduledAt > now) return "Upcoming";
-  return "Awaiting confirmation";
-}
+const TABLE_CELL_X = "px-4 sm:px-5";
+const TABLE_CELL_Y = "py-4 sm:py-[1.125rem]";
+const TABLE_HEAD_Y = "py-3.5 sm:py-4";
 
 type ScheduledPaymentsSortKey =
   | "title"
@@ -126,7 +138,11 @@ function compareScheduledRows(
       c = recurringDisplay(a).localeCompare(recurringDisplay(b), undefined, { sensitivity: "base" });
       break;
     case "status":
-      c = statusLabel(a, now).localeCompare(statusLabel(b, now), undefined, { sensitivity: "base" });
+      c = scheduledPaymentStatusLabel(a, now).localeCompare(
+        scheduledPaymentStatusLabel(b, now),
+        undefined,
+        { sensitivity: "base" }
+      );
       break;
     default:
       c = 0;
@@ -145,7 +161,9 @@ interface SortableThProps {
 function SortableTh({ label, columnKey, sort, onSort, className = "" }: SortableThProps) {
   const active = sort.key === columnKey;
   return (
-    <th className={`px-3 py-4 font-medium sm:px-4 sm:py-5 ${className}`}>
+    <th
+      className={`${TABLE_CELL_X} ${TABLE_HEAD_Y} align-middle text-sm font-medium text-gray-700 ${className}`}
+    >
       <button
         type="button"
         onClick={() => onSort(columnKey)}
@@ -221,7 +239,7 @@ function buildScheduledPaymentsCsv(
       item.description ?? "",
       (item.tags ?? []).join("; "),
       recurringDisplay(item),
-      statusLabel(item, now),
+      scheduledPaymentStatusLabel(item, now),
     ]);
   });
   return lines
@@ -239,6 +257,7 @@ export default function ScheduledPaymentsPageClient() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ScheduledPaymentItem | null>(null);
+  const [viewingItem, setViewingItem] = useState<ScheduledPaymentItem | null>(null);
   const [notification, setNotification] = useState<NotificationData | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -251,6 +270,7 @@ export default function ScheduledPaymentsPageClient() {
   const [selectedPaymentIds, setSelectedPaymentIds] = useState<Set<number>>(() => new Set());
   const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
   const [bulkDeleteIds, setBulkDeleteIds] = useState<number[]>([]);
+  const [cancelTarget, setCancelTarget] = useState<{ id: number; title: string } | null>(null);
   const [tableDisplayCurrency, setTableDisplayCurrency] = useState(userCurrency);
 
   useEffect(() => {
@@ -320,7 +340,7 @@ export default function ScheduledPaymentsPageClient() {
       }
       const acc = accountDisplay(item);
       if (selectedAccounts.length > 0 && !selectedAccounts.includes(acc)) return false;
-      const st = statusLabel(item, nowInner);
+      const st = scheduledPaymentStatusLabel(item, nowInner);
       if (selectedStatuses.length > 0 && !selectedStatuses.includes(st)) return false;
       if (selectedCurrencies.length > 0 && !selectedCurrencies.includes(item.currency)) {
         return false;
@@ -475,21 +495,23 @@ export default function ScheduledPaymentsPageClient() {
     setSelectedRecurring([]);
   }
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Cancel this scheduled payment?")) return;
-    try {
-      await deleteScheduledPayment(id);
-      setSelectedPaymentIds((prev) => {
-        if (!prev.has(id)) return prev;
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-      await load({ silent: true });
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to delete");
-    }
-  };
+  const handleConfirmCancelPayment = useCallback(async () => {
+    if (!cancelTarget) return;
+    const id = cancelTarget.id;
+    await deleteScheduledPayment(id);
+    setSelectedPaymentIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    await load({ silent: true });
+    setNotification({
+      title: "Cancelled",
+      message: "Scheduled payment removed.",
+      type: "success",
+    });
+  }, [cancelTarget, load]);
 
   const handleAccept = async (id: number) => {
     try {
@@ -595,7 +617,7 @@ export default function ScheduledPaymentsPageClient() {
       <div className="w-full min-w-0">
         <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
           {items.length > 0 ? (
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 sm:px-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-3 py-3.5 sm:px-5">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 {deletableVisibleIds.length > 0 ? (
                   <>
@@ -659,8 +681,8 @@ export default function ScheduledPaymentsPageClient() {
               </div>
             </div>
           ) : null}
-          <div className="overflow-x-auto overscroll-x-contain">
-        <table className="w-full min-w-[996px] table-fixed text-sm">
+          <div className="overflow-x-auto overscroll-x-contain px-3 sm:px-5">
+        <table className="w-full min-w-[1100px] table-fixed text-sm leading-relaxed">
           <colgroup>
             <col
               style={{
@@ -682,7 +704,7 @@ export default function ScheduledPaymentsPageClient() {
           <thead className="bg-gray-50 text-left text-gray-600">
             <tr>
               <th
-                className="relative border-r border-gray-100 px-2.5 py-4 text-center align-middle sm:py-5"
+                className={`relative border-r border-gray-100 ${TABLE_HEAD_Y} px-3 text-center align-middle`}
                 style={{
                   width: BULK_SELECT_COLUMN_WIDTH_PX,
                   minWidth: BULK_SELECT_COLUMN_WIDTH_PX,
@@ -718,14 +740,14 @@ export default function ScheduledPaymentsPageClient() {
                 columnKey="when"
                 sort={tableSort}
                 onSort={toggleTableSort}
-                className="!pr-6 sm:!pr-8"
+                className="whitespace-nowrap"
               />
               <SortableTh
                 label={`Amount (${tableDisplayCurrency.toUpperCase()})`}
                 columnKey="amount"
                 sort={tableSort}
                 onSort={toggleTableSort}
-                className="!pl-5 sm:!pl-6"
+                className="tabular-nums"
               />
               <SortableTh
                 label="Category"
@@ -757,7 +779,9 @@ export default function ScheduledPaymentsPageClient() {
                 sort={tableSort}
                 onSort={toggleTableSort}
               />
-              <th className="sticky right-0 z-20 min-w-[10rem] border-l border-gray-200 bg-gray-50 px-3 py-4 text-center text-xs font-medium uppercase tracking-wider text-gray-500 shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.08)] sm:min-w-[12rem] sm:px-4 sm:py-5">
+              <th
+                className={`sticky right-0 z-20 min-w-[12rem] border-l border-gray-200 bg-gray-50 ${TABLE_CELL_X} ${TABLE_HEAD_Y} text-center text-xs font-semibold uppercase tracking-wider text-gray-500 shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.08)] sm:min-w-[13.5rem]`}
+              >
                 Actions
               </th>
             </tr>
@@ -765,7 +789,7 @@ export default function ScheduledPaymentsPageClient() {
           <tbody className="divide-y divide-gray-100">
             {items.length === 0 ? (
               <tr>
-                <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={10} className="px-5 py-10 text-center text-gray-500 sm:px-8">
                   No scheduled payments yet. Use{" "}
                   <span className="font-medium text-gray-700">Schedule payment</span> above to add
                   one.
@@ -773,7 +797,7 @@ export default function ScheduledPaymentsPageClient() {
               </tr>
             ) : filteredItems.length === 0 ? (
               <tr>
-                <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={10} className="px-5 py-10 text-center text-gray-500 sm:px-8">
                   No scheduled payments match your filters.{" "}
                   <button
                     type="button"
@@ -790,7 +814,7 @@ export default function ScheduledPaymentsPageClient() {
                   <tr className="bg-slate-50/95">
                     <td
                       colSpan={10}
-                      className="border-t border-gray-200 px-3 py-2.5 text-left sm:px-4"
+                      className={`border-t border-gray-200 ${TABLE_CELL_X} py-3 text-left sm:py-3.5`}
                     >
                       <span className="text-xs font-semibold uppercase tracking-wide text-gray-700">
                         {section.label}
@@ -808,16 +832,20 @@ export default function ScheduledPaymentsPageClient() {
                   item.currency,
                   tableDisplayCurrency
                 );
-                const label = statusLabel(item, now);
+                const label = scheduledPaymentStatusLabel(item, now);
                 const canDecide =
                   !item.resolution && item.scheduledAt <= now;
                 const canDelete = !item.resolution;
                 const canEdit = !item.resolution;
+                const isDueSoon = isScheduledWithinNextTwoDays(item, now);
+                const rowTint = isDueSoon
+                  ? "bg-amber-50/90 hover:bg-amber-100/80"
+                  : "hover:bg-gray-50/80";
 
                 return (
-                  <tr key={item.id} className="group align-middle hover:bg-gray-50/80">
+                  <tr key={item.id} className={`group align-middle ${rowTint}`}>
                     <td
-                      className="px-2.5 py-4 text-center align-middle sm:py-5"
+                      className={`border-r border-gray-100/80 px-3 text-center align-middle ${TABLE_CELL_Y} ${rowTint}`}
                       style={{
                         width: BULK_SELECT_COLUMN_WIDTH_PX,
                         minWidth: BULK_SELECT_COLUMN_WIDTH_PX,
@@ -835,28 +863,40 @@ export default function ScheduledPaymentsPageClient() {
                         />
                       ) : null}
                     </td>
-                    <td className="min-w-0 px-3 py-4 align-middle font-medium text-gray-900 sm:px-4 sm:py-5">
+                    <td
+                      className={`min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle font-medium text-gray-900 ${rowTint}`}
+                    >
                       <span className="block break-words leading-snug" title={item.title}>
                         {item.title}
                       </span>
                     </td>
-                    <td className="py-4 pl-3 pr-6 align-middle text-gray-700 whitespace-nowrap sm:py-5 sm:pl-4 sm:pr-8">
-                      {new Date(item.scheduledAt).toLocaleString()}
+                    <td
+                      className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle whitespace-nowrap text-gray-700 ${rowTint}`}
+                    >
+                      {formatScheduledPaymentWhenDate(item.scheduledAt, userTimezone)}
                     </td>
-                    <td className="py-4 pl-5 pr-3 align-middle text-gray-900 whitespace-nowrap tabular-nums sm:py-5 sm:pl-6 sm:pr-4">
+                    <td
+                      className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle whitespace-nowrap tabular-nums text-gray-900 ${rowTint}`}
+                    >
                       {formatCurrency(displayAmount, tableDisplayCurrency)}
                     </td>
-                    <td className="max-w-0 min-w-0 px-3 py-4 align-middle text-gray-700 sm:px-4 sm:py-5">
+                    <td
+                      className={`max-w-0 min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle text-gray-700 ${rowTint}`}
+                    >
                       <span className="block truncate" title={item.category.name}>
                         {item.category.name}
                       </span>
                     </td>
-                    <td className="max-w-0 min-w-0 px-3 py-4 align-middle text-gray-700 sm:px-4 sm:py-5">
+                    <td
+                      className={`max-w-0 min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle text-gray-700 ${rowTint}`}
+                    >
                       <span className="block truncate" title={accountDisplay(item)}>
                         {accountDisplay(item)}
                       </span>
                     </td>
-                    <td className="max-w-0 min-w-0 px-3 py-4 align-middle text-gray-600 sm:px-4 sm:py-5">
+                    <td
+                      className={`max-w-0 min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle text-gray-600 ${rowTint}`}
+                    >
                       {item.notes?.trim() ? (
                         <span className="block truncate" title={item.notes}>
                           {item.notes}
@@ -865,10 +905,14 @@ export default function ScheduledPaymentsPageClient() {
                         <span className="text-gray-400">—</span>
                       )}
                     </td>
-                    <td className="px-3 py-4 align-middle text-gray-700 whitespace-nowrap sm:px-4 sm:py-5">
+                    <td
+                      className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle whitespace-nowrap text-gray-700 ${rowTint}`}
+                    >
                       {recurringDisplay(item)}
                     </td>
-                    <td className="max-w-0 min-w-0 px-3 py-4 align-middle sm:px-4 sm:py-5">
+                    <td
+                      className={`max-w-0 min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle ${rowTint}`}
+                    >
                       <span
                         className={`block truncate ${
                           label === "Accepted"
@@ -884,47 +928,96 @@ export default function ScheduledPaymentsPageClient() {
                         {label}
                       </span>
                     </td>
-                    <td className="sticky right-0 z-10 min-w-[10rem] border-l border-gray-100 bg-white px-3 py-4 text-center align-middle shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] group-hover:bg-gray-50/80 sm:min-w-[12rem] sm:px-4 sm:py-5">
-                      <div className="flex flex-nowrap items-center justify-center gap-1">
-                      {canDecide && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleAccept(item.id)}
-                            className="inline-flex shrink-0 items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-100 hover:text-indigo-800"
-                          >
-                            Accept
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleReject(item.id)}
-                            className="inline-flex shrink-0 items-center rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 hover:text-amber-900"
-                          >
-                            Reject
-                          </button>
-                        </>
-                      )}
-                      {canEdit && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingItem(item);
-                            setIsScheduleModalOpen(true);
-                          }}
-                          className="inline-flex shrink-0 items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-100 hover:text-blue-800"
-                        >
-                          Edit
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item.id)}
-                          className="inline-flex shrink-0 items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-100 hover:text-red-800"
-                        >
-                          Cancel
-                        </button>
-                      )}
+                    <td
+                      className={`sticky right-0 z-10 min-w-[12rem] border-l border-gray-100 ${TABLE_CELL_X} ${TABLE_CELL_Y} text-center align-middle shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:min-w-[13.5rem] ${
+                        isDueSoon
+                          ? "border-amber-100/80 bg-amber-50/90 group-hover:bg-amber-100/80"
+                          : "border-gray-100 bg-white group-hover:bg-gray-50/80"
+                      }`}
+                    >
+                      <div className="flex flex-nowrap items-center justify-center gap-x-0.5">
+                        {(() => {
+                          const pipeClass =
+                            "inline-block shrink-0 select-none px-2 text-xs text-gray-300";
+                          const nodes: ReactNode[] = [
+                            <button
+                              key="view"
+                              type="button"
+                              onClick={() => setViewingItem(item)}
+                              className="inline-flex shrink-0 items-center rounded-md bg-indigo-50 px-2.5 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-100 hover:text-indigo-800"
+                            >
+                              View
+                            </button>,
+                          ];
+                          let p = 0;
+                          const pushPipe = () => {
+                            nodes.push(
+                              <span
+                                key={`${item.id}-pipe-${p++}`}
+                                className={pipeClass}
+                                aria-hidden
+                              >
+                                |
+                              </span>
+                            );
+                          };
+                          if (canDecide) {
+                            pushPipe();
+                            nodes.push(
+                              <button
+                                key="accept"
+                                type="button"
+                                onClick={() => handleAccept(item.id)}
+                                className="inline-flex shrink-0 items-center rounded-md bg-indigo-50 px-2.5 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-100 hover:text-indigo-800"
+                              >
+                                Accept
+                              </button>
+                            );
+                            pushPipe();
+                            nodes.push(
+                              <button
+                                key="reject"
+                                type="button"
+                                onClick={() => handleReject(item.id)}
+                                className="inline-flex shrink-0 items-center rounded-md bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 hover:text-amber-900"
+                              >
+                                Reject
+                              </button>
+                            );
+                          }
+                          if (canEdit) {
+                            pushPipe();
+                            nodes.push(
+                              <button
+                                key="edit"
+                                type="button"
+                                onClick={() => {
+                                  setEditingItem(item);
+                                  setIsScheduleModalOpen(true);
+                                }}
+                                className="inline-flex shrink-0 items-center rounded-md bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-100 hover:text-blue-800"
+                              >
+                                Edit
+                              </button>
+                            );
+                          }
+                          if (canDelete) {
+                            pushPipe();
+                            nodes.push(
+                              <button
+                                key="cancel"
+                                type="button"
+                                onClick={() =>
+                                  setCancelTarget({ id: item.id, title: item.title })
+                                }
+                                className="inline-flex shrink-0 items-center rounded-md bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100 hover:text-red-800"
+                              >
+                                Cancel
+                              </button>
+                            );
+                          }
+                          return nodes;
+                        })()}
                       </div>
                     </td>
                   </tr>
@@ -938,7 +1031,7 @@ export default function ScheduledPaymentsPageClient() {
             <tfoot className="border-t border-gray-200 bg-gray-50/90">
               <tr>
                 <td
-                  className="bg-gray-50 px-2.5 py-4 sm:py-5"
+                  className={`border-r border-gray-100/80 bg-gray-50 ${TABLE_CELL_X} ${TABLE_CELL_Y}`}
                   style={{
                     width: BULK_SELECT_COLUMN_WIDTH_PX,
                     minWidth: BULK_SELECT_COLUMN_WIDTH_PX,
@@ -949,17 +1042,19 @@ export default function ScheduledPaymentsPageClient() {
                 />
                 <td
                   colSpan={2}
-                  className="px-3 py-4 text-left text-sm font-medium text-gray-900 sm:px-4 sm:py-5"
+                  className={`${TABLE_CELL_X} ${TABLE_CELL_Y} text-left text-sm font-medium text-gray-900`}
                 >
                   Total ({tableSummary.count}{" "}
                   {tableSummary.count === 1 ? "payment" : "payments"})
                 </td>
-                <td className="py-4 pl-5 pr-3 text-sm font-semibold tabular-nums text-gray-900 sm:py-5 sm:pl-6 sm:pr-4">
+                <td
+                  className={`${TABLE_CELL_X} ${TABLE_CELL_Y} text-sm font-semibold tabular-nums text-gray-900`}
+                >
                   {formatCurrency(tableSummary.total, tableDisplayCurrency)}
                 </td>
-                <td colSpan={5} className="px-3 py-4 sm:px-4 sm:py-5" aria-hidden />
+                <td colSpan={5} className={`${TABLE_CELL_X} ${TABLE_CELL_Y}`} aria-hidden />
                 <td
-                  className="sticky right-0 z-10 border-l border-gray-200 bg-gray-50 px-3 py-4 text-center shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:px-4 sm:py-5"
+                  className={`sticky right-0 z-10 min-w-[12rem] border-l border-gray-200 bg-gray-50 ${TABLE_CELL_X} ${TABLE_CELL_Y} text-center shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:min-w-[13.5rem]`}
                   aria-hidden
                 />
               </tr>
@@ -970,6 +1065,37 @@ export default function ScheduledPaymentsPageClient() {
         </div>
       </div>
 
+      <CancelScheduledPaymentModal
+        isOpen={cancelTarget !== null}
+        onClose={() => setCancelTarget(null)}
+        paymentTitle={cancelTarget?.title ?? ""}
+        onConfirm={handleConfirmCancelPayment}
+      />
+      <ScheduledPaymentViewModal
+        item={viewingItem}
+        isOpen={viewingItem !== null}
+        onClose={() => setViewingItem(null)}
+        displayCurrency={tableDisplayCurrency}
+        userTimezone={userTimezone}
+        onPostponeSuccess={async () => {
+          await load({ silent: true });
+          setNotification({
+            title: "Postponed",
+            message: "Scheduled time updated.",
+            type: "success",
+          });
+        }}
+        onEdit={
+          viewingItem && !viewingItem.resolution
+            ? () => {
+                const v = viewingItem;
+                setViewingItem(null);
+                setEditingItem(v);
+                setIsScheduleModalOpen(true);
+              }
+            : undefined
+        }
+      />
       <SchedulePaymentModal
         isOpen={isScheduleModalOpen}
         onClose={() => {

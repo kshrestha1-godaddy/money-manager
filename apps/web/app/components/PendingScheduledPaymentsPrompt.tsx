@@ -7,6 +7,10 @@ import {
   rejectScheduledPayment,
   postponeScheduledPayment,
 } from "../(dashboard)/scheduled-payments/actions/scheduled-payments";
+import {
+  postponeFromNowWithOriginalTime,
+  toDatetimeLocalValue,
+} from "../(dashboard)/scheduled-payments/scheduled-payment-helpers";
 import { ScheduledPaymentItem } from "../types/scheduled-payment";
 import { formatCurrency } from "../utils/currency";
 import { useCurrency } from "../providers/CurrencyProvider";
@@ -32,31 +36,6 @@ function addDismissedId(id: number) {
   const next = readDismissedIds();
   next.add(id);
   sessionStorage.setItem(DISMISSED_IDS_KEY, JSON.stringify([...next]));
-}
-
-function pad2(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
-function toDatetimeLocalValue(d: Date): string {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-}
-
-/** Add N calendar days from today, keep the same clock as the original schedule; ensure strictly after now. */
-function postponeFromNowWithOriginalTime(scheduledAt: Date, days: number): Date {
-  const now = new Date();
-  const target = new Date(now);
-  target.setDate(target.getDate() + days);
-  target.setHours(
-    scheduledAt.getHours(),
-    scheduledAt.getMinutes(),
-    scheduledAt.getSeconds(),
-    scheduledAt.getMilliseconds()
-  );
-  if (target <= now) {
-    target.setTime(now.getTime() + 60_000);
-  }
-  return target;
 }
 
 export function PendingScheduledPaymentsPrompt() {
