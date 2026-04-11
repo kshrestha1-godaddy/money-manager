@@ -1,4 +1,5 @@
 import { ScheduledPaymentItem } from "../../types/scheduled-payment";
+import { convertForDisplaySync } from "../../utils/currencyDisplay";
 
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
@@ -92,6 +93,16 @@ export function recurrenceGroupSortIndex(label: string): number {
     Yearly: 4,
   };
   return order[label] ?? 100;
+}
+
+export function sumItemsInDisplayCurrency(
+  items: ScheduledPaymentItem[],
+  displayCurrency: string
+): number {
+  return items.reduce(
+    (sum, item) => sum + convertForDisplaySync(item.amount, item.currency, displayCurrency),
+    0
+  );
 }
 
 export function matchesSearch(item: ScheduledPaymentItem, q: string): boolean {

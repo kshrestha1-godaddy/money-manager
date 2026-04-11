@@ -1,14 +1,7 @@
 "use client";
 
-import {
-  Fragment,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Download, RefreshCw, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronDown, ChevronRight, Download, RefreshCw, Trash2 } from "lucide-react";
 import {
   getScheduledPayments,
   deleteScheduledPayment,
@@ -17,7 +10,6 @@ import {
   rejectScheduledPayment,
 } from "./actions/scheduled-payments";
 import { ScheduledPaymentItem } from "../../types/scheduled-payment";
-import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { useTimezone } from "../../providers/TimezoneProvider";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
@@ -44,15 +36,18 @@ import { ScheduledPaymentsFilters } from "./components/ScheduledPaymentsFilters"
 import { DeleteSelectedScheduledPaymentsModal } from "./components/DeleteSelectedScheduledPaymentsModal";
 import { CancelScheduledPaymentModal } from "./components/CancelScheduledPaymentModal";
 import { ScheduledPaymentViewModal } from "./components/ScheduledPaymentViewModal";
+import { ScheduledPaymentsGrandTotalTable } from "./components/ScheduledPaymentsGrandTotalTable";
+import { ScheduledPaymentsRecurrenceSectionTable } from "./components/ScheduledPaymentsRecurrenceSectionTable";
+import { ScheduledPaymentsBulkSelectHeaderEmptyTh } from "./components/scheduled-payments-table-head";
+import type { ScheduledPaymentsSortKey, ScheduledPaymentsTableSortState } from "./scheduled-payments-table-types";
 import {
   accountDisplay,
   recurringDisplay,
   recurrenceGroupSortIndex,
   matchesSearch,
   scheduledPaymentStatusLabel,
-  isScheduledWithinNextTwoDays,
-  formatScheduledPaymentWhenDate,
 } from "./scheduled-payment-helpers";
+import { BULK_SELECT_COLUMN_WIDTH_PX, TABLE_HEAD_Y } from "./scheduled-payments-table-constants";
 
 const pageContainer = CONTAINER_COLORS.page;
 const loadingContainer = LOADING_COLORS.container;
@@ -63,48 +58,10 @@ const primaryButton = BUTTON_COLORS.primary;
 const secondaryOutlineButton = BUTTON_COLORS.secondaryBlue;
 const dangerButton = BUTTON_COLORS.danger;
 
-/** Fixed width incl. horizontal padding (`box-border`); remaining cols share the rest. */
-const BULK_SELECT_COLUMN_WIDTH_PX = 52;
-
-/**
- * `table-fixed` widths (sum 100%). When column kept wider for `DD Month YYYY | HH:MM:SS`.
- * Tighter recurrence/status avoids huge empty gaps on ultrawide screens.
- */
-const SCHEDULED_TABLE_COL_PCT = {
-  title: "18%",
-  when: "14%",
-  amount: "9%",
-  category: "8%",
-  account: "12%",
-  notes: "11%",
-  recurrence: "6%",
-  status: "7%",
-  actions: "15%",
-} as const;
-
-const TABLE_CELL_X = "px-4 sm:px-5";
-const TABLE_CELL_Y = "py-4 sm:py-[1.125rem]";
-const TABLE_HEAD_Y = "py-3.5 sm:py-4";
-
-type ScheduledPaymentsSortKey =
-  | "title"
-  | "when"
-  | "amount"
-  | "category"
-  | "account"
-  | "notes"
-  | "recurrence"
-  | "status";
-
-interface TableSortState {
-  key: ScheduledPaymentsSortKey;
-  dir: "asc" | "desc";
-}
-
 function compareScheduledRows(
   a: ScheduledPaymentItem,
   b: ScheduledPaymentItem,
-  sort: TableSortState,
+  sort: ScheduledPaymentsTableSortState,
   now: Date,
   displayCurrency: string
 ): number {
@@ -150,41 +107,6 @@ function compareScheduledRows(
   return sort.dir === "asc" ? c : -c;
 }
 
-interface SortableThProps {
-  label: string;
-  columnKey: ScheduledPaymentsSortKey;
-  sort: TableSortState;
-  onSort: (key: ScheduledPaymentsSortKey) => void;
-  className?: string;
-}
-
-function SortableTh({ label, columnKey, sort, onSort, className = "" }: SortableThProps) {
-  const active = sort.key === columnKey;
-  return (
-    <th
-      className={`${TABLE_CELL_X} ${TABLE_HEAD_Y} align-middle text-sm font-medium text-gray-700 ${className}`}
-    >
-      <button
-        type="button"
-        onClick={() => onSort(columnKey)}
-        className="inline-flex max-w-full items-center gap-1 rounded text-left text-gray-700 hover:bg-gray-100/80 hover:text-gray-900 -mx-1 px-1 py-0.5"
-        aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
-      >
-        <span className="min-w-0 truncate">{label}</span>
-        {active ? (
-          sort.dir === "asc" ? (
-            <ArrowUp className="h-3.5 w-3.5 shrink-0 text-blue-600" aria-hidden />
-          ) : (
-            <ArrowDown className="h-3.5 w-3.5 shrink-0 text-blue-600" aria-hidden />
-          )
-        ) : (
-          <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-35" aria-hidden />
-        )}
-      </button>
-    </th>
-  );
-}
-
 function csvQuoteCell(value: string | number | undefined | null): string {
   const s = String(value ?? "");
   return `"${s.replace(/"/g, '""')}"`;
@@ -192,16 +114,6 @@ function csvQuoteCell(value: string | number | undefined | null): string {
 
 function formatAmountCsvPlain(n: number): string {
   return (Math.round(n * 100) / 100).toFixed(2);
-}
-
-function sumItemsInDisplayCurrency(
-  items: ScheduledPaymentItem[],
-  displayCurrency: string
-): number {
-  return items.reduce(
-    (sum, item) => sum + convertForDisplaySync(item.amount, item.currency, displayCurrency),
-    0
-  );
 }
 
 function scheduledAtIso(item: ScheduledPaymentItem): string {
@@ -276,11 +188,15 @@ export default function ScheduledPaymentsPageClient() {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>([]);
   const [selectedRecurring, setSelectedRecurring] = useState<string[]>([]);
-  const [tableSort, setTableSort] = useState<TableSortState>({ key: "when", dir: "asc" });
+  const [tableSort, setTableSort] = useState<ScheduledPaymentsTableSortState>({
+    key: "when",
+    dir: "asc",
+  });
   const [selectedPaymentIds, setSelectedPaymentIds] = useState<Set<number>>(() => new Set());
   const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
   const [bulkDeleteIds, setBulkDeleteIds] = useState<number[]>([]);
   const [cancelTarget, setCancelTarget] = useState<{ id: number; title: string } | null>(null);
+  const [isCompletedPaymentsOpen, setIsCompletedPaymentsOpen] = useState(false);
   const [tableDisplayCurrency, setTableDisplayCurrency] = useState(userCurrency);
 
   useEffect(() => {
@@ -369,6 +285,16 @@ export default function ScheduledPaymentsPageClient() {
     selectedRecurring,
   ]);
 
+  const activeFilteredItems = useMemo(
+    () => filteredItems.filter((i) => i.resolution === null),
+    [filteredItems]
+  );
+
+  const completedFilteredItems = useMemo(
+    () => filteredItems.filter((i) => i.resolution !== null),
+    [filteredItems]
+  );
+
   const toggleTableSort = useCallback((key: ScheduledPaymentsSortKey) => {
     setTableSort((s) => {
       if (s.key === key) {
@@ -382,7 +308,7 @@ export default function ScheduledPaymentsPageClient() {
   const groupedTableSections = useMemo(() => {
     const at = new Date();
     const byLabel = new Map<string, ScheduledPaymentItem[]>();
-    for (const item of filteredItems) {
+    for (const item of activeFilteredItems) {
       const label = recurringDisplay(item);
       const arr = byLabel.get(label) ?? [];
       arr.push(item);
@@ -394,19 +320,47 @@ export default function ScheduledPaymentsPageClient() {
       return a.localeCompare(b, undefined, { sensitivity: "base" });
     });
     return labels.map((label) => {
-      const items = [...(byLabel.get(label) ?? [])].sort((a, b) => {
+      const sectionItems = [...(byLabel.get(label) ?? [])].sort((a, b) => {
         const r = compareScheduledRows(a, b, tableSort, at, tableDisplayCurrency);
         if (r !== 0) return r;
         return a.id - b.id;
       });
-      return { label, items };
+      return { label, items: sectionItems };
+    });
+  }, [activeFilteredItems, tableSort, tableDisplayCurrency]);
+
+  const groupedCompletedSections = useMemo(() => {
+    const at = new Date();
+    const byLabel = new Map<string, ScheduledPaymentItem[]>();
+    for (const item of completedFilteredItems) {
+      const label = recurringDisplay(item);
+      const arr = byLabel.get(label) ?? [];
+      arr.push(item);
+      byLabel.set(label, arr);
+    }
+    const labels = [...byLabel.keys()].sort((a, b) => {
+      const i = recurrenceGroupSortIndex(a) - recurrenceGroupSortIndex(b);
+      if (i !== 0) return i;
+      return a.localeCompare(b, undefined, { sensitivity: "base" });
+    });
+    return labels.map((label) => {
+      const sectionItems = [...(byLabel.get(label) ?? [])].sort((a, b) => {
+        const r = compareScheduledRows(a, b, tableSort, at, tableDisplayCurrency);
+        if (r !== 0) return r;
+        return a.id - b.id;
+      });
+      return { label, items: sectionItems };
+    });
+  }, [completedFilteredItems, tableSort, tableDisplayCurrency]);
+
+  const sortedTableItems = useMemo(() => {
+    const at = new Date();
+    return [...filteredItems].sort((a, b) => {
+      const r = compareScheduledRows(a, b, tableSort, at, tableDisplayCurrency);
+      if (r !== 0) return r;
+      return a.id - b.id;
     });
   }, [filteredItems, tableSort, tableDisplayCurrency]);
-
-  const sortedTableItems = useMemo(
-    () => groupedTableSections.flatMap((s) => s.items),
-    [groupedTableSections]
-  );
 
   const handleDownloadCsv = useCallback(() => {
     if (filteredItems.length === 0) return;
@@ -431,15 +385,23 @@ export default function ScheduledPaymentsPageClient() {
 
   const tableSummary = useMemo(() => {
     let total = 0;
-    for (const item of filteredItems) {
+    for (const item of activeFilteredItems) {
       total += convertForDisplaySync(item.amount, item.currency, tableDisplayCurrency);
     }
-    return { count: filteredItems.length, total };
-  }, [filteredItems, tableDisplayCurrency]);
+    return { count: activeFilteredItems.length, total };
+  }, [activeFilteredItems, tableDisplayCurrency]);
+
+  const completedTableSummary = useMemo(() => {
+    let total = 0;
+    for (const item of completedFilteredItems) {
+      total += convertForDisplaySync(item.amount, item.currency, tableDisplayCurrency);
+    }
+    return { count: completedFilteredItems.length, total };
+  }, [completedFilteredItems, tableDisplayCurrency]);
 
   const deletableVisibleIds = useMemo(
-    () => filteredItems.filter((i) => !i.resolution).map((i) => i.id),
-    [filteredItems]
+    () => activeFilteredItems.map((i) => i.id),
+    [activeFilteredItems]
   );
 
   const allDeletableVisibleSelected =
@@ -624,10 +586,10 @@ export default function ScheduledPaymentsPageClient() {
         hasActiveFilters={hasActiveFilters}
       />
 
-      <div className="w-full min-w-0">
+      <div className="mt-3 w-full min-w-0 sm:mt-4">
         <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
           {items.length > 0 ? (
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-3 py-3.5 sm:px-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-4 sm:px-6 sm:py-5">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 {deletableVisibleIds.length > 0 ? (
                   <>
@@ -691,440 +653,187 @@ export default function ScheduledPaymentsPageClient() {
               </div>
             </div>
           ) : null}
-          <div className="overflow-x-auto overscroll-x-contain px-3 sm:px-5">
-        <table className="w-full min-w-[1100px] table-fixed text-sm leading-relaxed">
-          <colgroup>
-            <col
-              style={{
-                width: BULK_SELECT_COLUMN_WIDTH_PX,
-                minWidth: BULK_SELECT_COLUMN_WIDTH_PX,
-                maxWidth: BULK_SELECT_COLUMN_WIDTH_PX,
-              }}
-            />
-            <col style={{ width: SCHEDULED_TABLE_COL_PCT.title }} />
-            <col style={{ width: SCHEDULED_TABLE_COL_PCT.when }} />
-            <col style={{ width: SCHEDULED_TABLE_COL_PCT.amount }} />
-            <col style={{ width: SCHEDULED_TABLE_COL_PCT.category }} />
-            <col style={{ width: SCHEDULED_TABLE_COL_PCT.account }} />
-            <col style={{ width: SCHEDULED_TABLE_COL_PCT.notes }} />
-            <col style={{ width: SCHEDULED_TABLE_COL_PCT.recurrence }} />
-            <col style={{ width: SCHEDULED_TABLE_COL_PCT.status }} />
-            <col style={{ width: SCHEDULED_TABLE_COL_PCT.actions }} />
-          </colgroup>
-          <thead className="bg-gray-50 text-left text-gray-600">
-            <tr>
-              <th
-                className={`relative border-r border-gray-100 ${TABLE_HEAD_Y} px-3 text-center align-middle`}
-                style={{
-                  width: BULK_SELECT_COLUMN_WIDTH_PX,
-                  minWidth: BULK_SELECT_COLUMN_WIDTH_PX,
-                  maxWidth: BULK_SELECT_COLUMN_WIDTH_PX,
-                  boxSizing: "border-box",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  className="mx-auto block h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  checked={allDeletableVisibleSelected && deletableVisibleIds.length > 0}
-                  ref={(el) => {
-                    if (!el) return;
-                    el.indeterminate =
-                      selectedPaymentIds.size > 0 && !allDeletableVisibleSelected;
-                  }}
-                  disabled={deletableVisibleIds.length === 0}
-                  onChange={() => {
-                    if (allDeletableVisibleSelected) clearPaymentSelection();
-                    else selectAllDeletableVisible();
-                  }}
-                  aria-label="Select all visible payments that can be cancelled"
-                />
-              </th>
-              <SortableTh
-                label="Title"
-                columnKey="title"
-                sort={tableSort}
-                onSort={toggleTableSort}
-              />
-              <SortableTh
-                label="When"
-                columnKey="when"
-                sort={tableSort}
-                onSort={toggleTableSort}
-                className="whitespace-nowrap"
-              />
-              <SortableTh
-                label={`Amount (${tableDisplayCurrency.toUpperCase()})`}
-                columnKey="amount"
-                sort={tableSort}
-                onSort={toggleTableSort}
-                className="tabular-nums"
-              />
-              <SortableTh
-                label="Category"
-                columnKey="category"
-                sort={tableSort}
-                onSort={toggleTableSort}
-              />
-              <SortableTh
-                label="Account"
-                columnKey="account"
-                sort={tableSort}
-                onSort={toggleTableSort}
-              />
-              <SortableTh
-                label="Notes"
-                columnKey="notes"
-                sort={tableSort}
-                onSort={toggleTableSort}
-              />
-              <SortableTh
-                label="Recurrence"
-                columnKey="recurrence"
-                sort={tableSort}
-                onSort={toggleTableSort}
-              />
-              <SortableTh
-                label="Status"
-                columnKey="status"
-                sort={tableSort}
-                onSort={toggleTableSort}
-              />
-              <th
-                className={`sticky right-0 z-20 min-w-[12rem] border-l border-gray-200 bg-gray-50 ${TABLE_CELL_X} ${TABLE_HEAD_Y} text-center text-xs font-semibold uppercase tracking-wider text-gray-500 shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.08)] sm:min-w-[13.5rem]`}
-              >
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
+          <div className="space-y-6 px-4 pb-6 pt-6 sm:px-6 sm:pb-8 sm:pt-8">
             {items.length === 0 ? (
-              <tr>
-                <td colSpan={10} className="px-5 py-10 text-center text-gray-500 sm:px-8">
-                  No scheduled payments yet. Use{" "}
-                  <span className="font-medium text-gray-700">Schedule payment</span> above to add
-                  one.
-                </td>
-              </tr>
+              <div className="overflow-x-auto overscroll-x-contain">
+                <table className="w-full min-w-[1100px] table-fixed text-sm leading-relaxed">
+                  <tbody>
+                    <tr>
+                      <td colSpan={10} className="px-5 py-10 text-center text-gray-500 sm:px-8">
+                        No scheduled payments yet. Use{" "}
+                        <span className="font-medium text-gray-700">Schedule payment</span> above to
+                        add one.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             ) : filteredItems.length === 0 ? (
-              <tr>
-                <td colSpan={10} className="px-5 py-10 text-center text-gray-500 sm:px-8">
-                  No scheduled payments match your filters.{" "}
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="font-medium text-blue-600 hover:text-blue-800"
-                  >
-                    Clear filters
-                  </button>
-                </td>
-              </tr>
+              <div className="overflow-x-auto overscroll-x-contain">
+                <table className="w-full min-w-[1100px] table-fixed text-sm leading-relaxed">
+                  <tbody>
+                    <tr>
+                      <td colSpan={10} className="px-5 py-10 text-center text-gray-500 sm:px-8">
+                        No scheduled payments match your filters.{" "}
+                        <button
+                          type="button"
+                          onClick={clearFilters}
+                          className="font-medium text-blue-600 hover:text-blue-800"
+                        >
+                          Clear filters
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            ) : activeFilteredItems.length === 0 ? (
+              <div className="overflow-x-auto overscroll-x-contain">
+                <table className="w-full min-w-[1100px] table-fixed text-sm leading-relaxed">
+                  <tbody>
+                    <tr>
+                      <td colSpan={10} className="px-5 py-10 text-center text-gray-500 sm:px-8">
+                        No active scheduled payments in this view. Open{" "}
+                        <button
+                          type="button"
+                          onClick={() => setIsCompletedPaymentsOpen(true)}
+                          className="font-medium text-blue-600 hover:text-blue-800"
+                        >
+                          Completed payments
+                        </button>{" "}
+                        below to see resolved items.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             ) : (
-              groupedTableSections.map((section) => (
-                <Fragment key={section.label}>
-                  <tr className="bg-slate-50/95">
-                    <td
-                      colSpan={10}
-                      className={`border-t border-gray-200 ${TABLE_CELL_X} py-3 text-left sm:py-3.5`}
-                    >
-                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-700">
-                        {section.label}
-                      </span>
-                      <span className="text-xs font-normal text-gray-500">
-                        {" "}
-                        · {section.items.length}{" "}
-                        {section.items.length === 1 ? "payment" : "payments"}
-                      </span>
-                    </td>
-                  </tr>
-                  {section.items.map((item) => {
-                const displayAmount = convertForDisplaySync(
-                  item.amount,
-                  item.currency,
-                  tableDisplayCurrency
-                );
-                const label = scheduledPaymentStatusLabel(item, now);
-                const canDecide =
-                  !item.resolution && item.scheduledAt <= now;
-                const canDelete = !item.resolution;
-                const canEdit = !item.resolution;
-                const isDueSoon = isScheduledWithinNextTwoDays(item, now);
-                const rowTint = isDueSoon
-                  ? "bg-amber-50/90 hover:bg-amber-100/80"
-                  : "hover:bg-gray-50/80";
-
-                return (
-                  <tr key={item.id} className={`group align-middle ${rowTint}`}>
-                    <td
-                      className={`border-r border-gray-100/80 px-3 text-center align-middle ${TABLE_CELL_Y} ${rowTint}`}
-                      style={{
-                        width: BULK_SELECT_COLUMN_WIDTH_PX,
-                        minWidth: BULK_SELECT_COLUMN_WIDTH_PX,
-                        maxWidth: BULK_SELECT_COLUMN_WIDTH_PX,
-                        boxSizing: "border-box",
-                      }}
-                    >
-                      {canDelete ? (
-                        <input
-                          type="checkbox"
-                          checked={selectedPaymentIds.has(item.id)}
-                          onChange={() => togglePaymentRowSelection(item.id)}
-                          className="mx-auto block h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          aria-label={`Select “${item.title}”`}
-                        />
-                      ) : null}
-                    </td>
-                    <td
-                      className={`min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle font-medium text-gray-900 ${rowTint}`}
-                    >
-                      <span className="block break-words leading-snug" title={item.title}>
-                        {item.title}
-                      </span>
-                    </td>
-                    <td
-                      className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle whitespace-nowrap text-gray-700 ${rowTint}`}
-                    >
-                      {formatScheduledPaymentWhenDate(item.scheduledAt, userTimezone)}
-                    </td>
-                    <td
-                      className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle whitespace-nowrap tabular-nums text-gray-900 ${rowTint}`}
-                    >
-                      {formatCurrency(displayAmount, tableDisplayCurrency)}
-                    </td>
-                    <td
-                      className={`max-w-0 min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle text-gray-700 ${rowTint}`}
-                    >
-                      <span className="block truncate" title={item.category.name}>
-                        {item.category.name}
-                      </span>
-                    </td>
-                    <td
-                      className={`max-w-0 min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle text-gray-700 ${rowTint}`}
-                    >
-                      <span className="block truncate" title={accountDisplay(item)}>
-                        {accountDisplay(item)}
-                      </span>
-                    </td>
-                    <td
-                      className={`max-w-0 min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle text-gray-600 ${rowTint}`}
-                    >
-                      {item.notes?.trim() ? (
-                        <span className="block truncate" title={item.notes}>
-                          {item.notes}
-                        </span>
+              <>
+                {groupedTableSections.map((section, sectionIndex) => (
+                  <ScheduledPaymentsRecurrenceSectionTable
+                    key={section.label}
+                    section={section}
+                    tableDisplayCurrency={tableDisplayCurrency}
+                    userTimezone={userTimezone}
+                    now={now}
+                    showCheckboxes
+                    selectedPaymentIds={selectedPaymentIds}
+                    onToggleRowSelection={togglePaymentRowSelection}
+                    onView={(item) => setViewingItem(item)}
+                    onEdit={(item) => {
+                      setEditingItem(item);
+                      setIsScheduleModalOpen(true);
+                    }}
+                    onCancel={(item) => setCancelTarget({ id: item.id, title: item.title })}
+                    onAccept={(id) => void handleAccept(id)}
+                    onReject={(id) => void handleReject(id)}
+                    sort={tableSort}
+                    onSort={toggleTableSort}
+                    bulkSelectHeaderCell={
+                      sectionIndex === 0 ? (
+                        <th
+                          className={`relative border-r border-gray-100 ${TABLE_HEAD_Y} px-3 text-center align-middle`}
+                          style={{
+                            width: BULK_SELECT_COLUMN_WIDTH_PX,
+                            minWidth: BULK_SELECT_COLUMN_WIDTH_PX,
+                            maxWidth: BULK_SELECT_COLUMN_WIDTH_PX,
+                            boxSizing: "border-box",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            className="mx-auto block h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            checked={
+                              allDeletableVisibleSelected && deletableVisibleIds.length > 0
+                            }
+                            ref={(el) => {
+                              if (!el) return;
+                              el.indeterminate =
+                                selectedPaymentIds.size > 0 && !allDeletableVisibleSelected;
+                            }}
+                            disabled={deletableVisibleIds.length === 0}
+                            onChange={() => {
+                              if (allDeletableVisibleSelected) clearPaymentSelection();
+                              else selectAllDeletableVisible();
+                            }}
+                            aria-label="Select all visible payments that can be cancelled"
+                          />
+                        </th>
                       ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td
-                      className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle whitespace-nowrap text-gray-700 ${rowTint}`}
-                    >
-                      {recurringDisplay(item)}
-                    </td>
-                    <td
-                      className={`max-w-0 min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle ${rowTint}`}
-                    >
-                      <span
-                        className={`block truncate ${
-                          label === "Accepted"
-                            ? "text-green-700"
-                            : label === "Rejected"
-                              ? "text-red-700"
-                              : label === "Awaiting confirmation"
-                                ? "text-amber-700"
-                                : "text-gray-700"
-                        }`}
-                        title={label}
-                      >
-                        {label}
-                      </span>
-                    </td>
-                    <td
-                      className={`sticky right-0 z-10 min-w-[12rem] border-l border-gray-100 ${TABLE_CELL_X} ${TABLE_CELL_Y} text-center align-middle shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:min-w-[13.5rem] ${
-                        isDueSoon
-                          ? "border-amber-100/80 bg-amber-50/90 group-hover:bg-amber-100/80"
-                          : "border-gray-100 bg-white group-hover:bg-gray-50/80"
-                      }`}
-                    >
-                      <div className="flex flex-nowrap items-center justify-center gap-x-0.5">
-                        {(() => {
-                          const pipeClass =
-                            "inline-block shrink-0 select-none px-2 text-xs text-gray-300";
-                          const nodes: ReactNode[] = [
-                            <button
-                              key="view"
-                              type="button"
-                              onClick={() => setViewingItem(item)}
-                              className="inline-flex shrink-0 items-center rounded-md bg-indigo-50 px-2.5 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-100 hover:text-indigo-800"
-                            >
-                              View
-                            </button>,
-                          ];
-                          let p = 0;
-                          const pushPipe = () => {
-                            nodes.push(
-                              <span
-                                key={`${item.id}-pipe-${p++}`}
-                                className={pipeClass}
-                                aria-hidden
-                              >
-                                |
-                              </span>
-                            );
-                          };
-                          if (canDecide) {
-                            pushPipe();
-                            nodes.push(
-                              <button
-                                key="accept"
-                                type="button"
-                                onClick={() => handleAccept(item.id)}
-                                className="inline-flex shrink-0 items-center rounded-md bg-indigo-50 px-2.5 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-100 hover:text-indigo-800"
-                              >
-                                Accept
-                              </button>
-                            );
-                            pushPipe();
-                            nodes.push(
-                              <button
-                                key="reject"
-                                type="button"
-                                onClick={() => handleReject(item.id)}
-                                className="inline-flex shrink-0 items-center rounded-md bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 hover:text-amber-900"
-                              >
-                                Reject
-                              </button>
-                            );
-                          }
-                          if (canEdit) {
-                            pushPipe();
-                            nodes.push(
-                              <button
-                                key="edit"
-                                type="button"
-                                onClick={() => {
-                                  setEditingItem(item);
-                                  setIsScheduleModalOpen(true);
-                                }}
-                                className="inline-flex shrink-0 items-center rounded-md bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-100 hover:text-blue-800"
-                              >
-                                Edit
-                              </button>
-                            );
-                          }
-                          if (canDelete) {
-                            pushPipe();
-                            nodes.push(
-                              <button
-                                key="cancel"
-                                type="button"
-                                onClick={() =>
-                                  setCancelTarget({ id: item.id, title: item.title })
-                                }
-                                className="inline-flex shrink-0 items-center rounded-md bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100 hover:text-red-800"
-                              >
-                                Cancel
-                              </button>
-                            );
-                          }
-                          return nodes;
-                        })()}
-                      </div>
-                    </td>
-                  </tr>
-                );
-                  })}
-                  <tr
-                    className="border-t border-slate-200/90 bg-slate-100/95"
-                    aria-label={`Subtotal for ${section.label}`}
-                  >
-                    <td
-                      className={`border-r border-gray-100/80 bg-slate-100/95 ${TABLE_CELL_X} ${TABLE_CELL_Y}`}
-                      style={{
-                        width: BULK_SELECT_COLUMN_WIDTH_PX,
-                        minWidth: BULK_SELECT_COLUMN_WIDTH_PX,
-                        maxWidth: BULK_SELECT_COLUMN_WIDTH_PX,
-                        boxSizing: "border-box",
-                      }}
-                      aria-hidden
-                    />
-                    <td
-                      colSpan={2}
-                      className={`${TABLE_CELL_X} ${TABLE_CELL_Y} text-left text-sm font-medium text-gray-800`}
-                    >
-                      <span className="text-gray-600">Subtotal</span>
-                      <span className="mx-1.5 text-gray-400" aria-hidden>
-                        ·
-                      </span>
-                      <span>{section.label}</span>
-                      <span className="ml-2 font-normal text-gray-500">
-                        ({section.items.length}{" "}
-                        {section.items.length === 1 ? "payment" : "payments"})
-                      </span>
-                    </td>
-                    <td
-                      className={`${TABLE_CELL_X} ${TABLE_CELL_Y} text-sm font-semibold tabular-nums text-gray-900`}
-                    >
-                      {formatCurrency(
-                        sumItemsInDisplayCurrency(section.items, tableDisplayCurrency),
-                        tableDisplayCurrency
-                      )}
-                    </td>
-                    <td
-                      colSpan={5}
-                      className={`${TABLE_CELL_X} ${TABLE_CELL_Y} bg-slate-100/95`}
-                      aria-hidden
-                    />
-                    <td
-                      className={`sticky right-0 z-10 min-w-[12rem] border-l border-slate-200/90 bg-slate-100/95 ${TABLE_CELL_X} ${TABLE_CELL_Y} shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:min-w-[13.5rem]`}
-                      aria-hidden
-                    />
-                  </tr>
-                </Fragment>
-              ))
+                        <ScheduledPaymentsBulkSelectHeaderEmptyTh />
+                      )
+                    }
+                  />
+                ))}
+                <ScheduledPaymentsGrandTotalTable
+                  paymentCount={tableSummary.count}
+                  totalAmount={tableSummary.total}
+                  tableDisplayCurrency={tableDisplayCurrency}
+                />
+              </>
             )}
-          </tbody>
-          {filteredItems.length > 0 ? (
-            <tfoot className="border-t-2 border-gray-300 bg-gray-100/95">
-              <tr>
-                <td
-                  className={`border-r border-gray-100/80 bg-gray-100/95 ${TABLE_CELL_X} ${TABLE_CELL_Y}`}
-                  style={{
-                    width: BULK_SELECT_COLUMN_WIDTH_PX,
-                    minWidth: BULK_SELECT_COLUMN_WIDTH_PX,
-                    maxWidth: BULK_SELECT_COLUMN_WIDTH_PX,
-                    boxSizing: "border-box",
-                  }}
-                  aria-hidden
-                />
-                <td
-                  colSpan={2}
-                  className={`${TABLE_CELL_X} ${TABLE_CELL_Y} text-left text-sm font-semibold text-gray-900`}
-                >
-                  <span className="text-gray-800">Grand total</span>
-                  <span className="ml-2 font-medium text-gray-600">
-                    ({tableSummary.count}{" "}
-                    {tableSummary.count === 1 ? "payment" : "payments"})
-                  </span>
-                </td>
-                <td
-                  className={`${TABLE_CELL_X} ${TABLE_CELL_Y} text-sm font-bold tabular-nums text-gray-900`}
-                >
-                  {formatCurrency(tableSummary.total, tableDisplayCurrency)}
-                </td>
-                <td
-                  colSpan={5}
-                  className={`${TABLE_CELL_X} ${TABLE_CELL_Y} bg-gray-100/95`}
-                  aria-hidden
-                />
-                <td
-                  className={`sticky right-0 z-10 min-w-[12rem] border-l border-gray-200 bg-gray-100/95 ${TABLE_CELL_X} ${TABLE_CELL_Y} text-center shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:min-w-[13.5rem]`}
-                  aria-hidden
-                />
-              </tr>
-            </tfoot>
-          ) : null}
-        </table>
           </div>
+          {completedFilteredItems.length > 0 ? (
+            <>
+              <div className="mt-8 border-t-2 border-gray-200/90 pt-6 sm:mt-10 sm:pt-8">
+                <button
+                  type="button"
+                  onClick={() => setIsCompletedPaymentsOpen((open) => !open)}
+                  className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left transition-colors hover:bg-gray-50 sm:px-6 sm:py-5"
+                  aria-expanded={isCompletedPaymentsOpen}
+                  aria-controls="completed-payments-table"
+                  id="completed-payments-section-toggle"
+                >
+                  <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-gray-900">
+                    {isCompletedPaymentsOpen ? (
+                      <ChevronDown className="h-4 w-4 shrink-0 text-gray-500" aria-hidden />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 shrink-0 text-gray-500" aria-hidden />
+                    )}
+                    Completed payments
+                    <span className="font-normal text-gray-500">
+                      ({completedTableSummary.count})
+                    </span>
+                  </span>
+                </button>
+              </div>
+              {isCompletedPaymentsOpen ? (
+                <div
+                  id="completed-payments-table"
+                  className="space-y-6 border-t border-gray-100 px-4 pb-6 pt-5 sm:px-6 sm:pb-8 sm:pt-6"
+                >
+                  {groupedCompletedSections.map((section) => (
+                    <ScheduledPaymentsRecurrenceSectionTable
+                      key={section.label}
+                      section={section}
+                      tableDisplayCurrency={tableDisplayCurrency}
+                      userTimezone={userTimezone}
+                      now={now}
+                      showCheckboxes={false}
+                      selectedPaymentIds={selectedPaymentIds}
+                      onToggleRowSelection={togglePaymentRowSelection}
+                      onView={(item) => setViewingItem(item)}
+                      onEdit={(item) => {
+                        setEditingItem(item);
+                        setIsScheduleModalOpen(true);
+                      }}
+                      onCancel={(item) => setCancelTarget({ id: item.id, title: item.title })}
+                      onAccept={(id) => void handleAccept(id)}
+                      onReject={(id) => void handleReject(id)}
+                      sort={tableSort}
+                      onSort={toggleTableSort}
+                      bulkSelectHeaderCell={<ScheduledPaymentsBulkSelectHeaderEmptyTh />}
+                    />
+                  ))}
+                  <ScheduledPaymentsGrandTotalTable
+                    paymentCount={completedTableSummary.count}
+                    totalAmount={completedTableSummary.total}
+                    tableDisplayCurrency={tableDisplayCurrency}
+                  />
+                </div>
+              ) : null}
+            </>
+          ) : null}
         </div>
       </div>
 

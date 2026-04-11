@@ -2,7 +2,7 @@
 
 import React, { useMemo, useRef, useCallback } from "react";
 import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea, Dot } from "recharts";
-import { Calendar, Target, TrendingUp } from "lucide-react";
+import { Banknote, Calendar, Target, TrendingUp } from "lucide-react";
 import { formatCurrency } from "../../../utils/currency";
 import { InvestmentTargetProgress } from "../../../types/investments";
 import { ChartControls } from "../../../components/ChartControls";
@@ -520,6 +520,15 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
         [timelineData]
     );
 
+    const remainingAmountSum = useMemo(() => {
+        const items = timelineData.filter(
+            (t) => !["TODAY", "THIRTY_DAYS", "SIXTY_DAYS"].includes(t.investmentType)
+        );
+        const totalTarget = items.reduce((s, t) => s + t.targetAmount, 0);
+        const totalPresent = items.reduce((s, t) => s + t.currentAmount, 0);
+        return totalTarget - totalPresent;
+    }, [timelineData]);
+
     if (!hasTargets) {
         return (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -572,7 +581,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
             <div>
                 {/* Summary Statistics */}
                 <div className="mb-6 pb-4 border-b border-gray-200">
-                    <div className="flex justify-between items-center gap-2 sm:gap-4">
+                    <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-3 sm:gap-4">
                         <div className="flex-1 text-center min-w-0">
                             <Target className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mx-auto mb-1" />
                             <p className="text-xs sm:text-sm text-gray-600 truncate">Total Targets</p>
@@ -604,6 +613,24 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                             <p className="text-xs sm:text-sm text-gray-600 truncate">Total present value</p>
                             <p className="text-sm sm:text-lg font-semibold text-green-600 truncate">
                                 {formatCurrency(timelineData.filter(t => !['TODAY', 'THIRTY_DAYS', 'SIXTY_DAYS'].includes(t.investmentType)).reduce((sum, t) => sum + t.currentAmount, 0), currency)}
+                            </p>
+                        </div>
+                        <div className="flex-1 text-center min-w-0">
+                            <Banknote className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 mx-auto mb-1" />
+                            <p className="text-xs sm:text-sm text-gray-600 truncate">Remaining amount</p>
+                            <p
+                                className={`text-sm sm:text-lg font-semibold truncate ${
+                                    remainingAmountSum >= 0 ? "text-amber-700" : "text-green-600"
+                                }`}
+                                title={
+                                    remainingAmountSum >= 0
+                                        ? "Total target value minus total present value"
+                                        : "Aggregate present value exceeds total target value"
+                                }
+                            >
+                                {remainingAmountSum >= 0
+                                    ? formatCurrency(remainingAmountSum, currency)
+                                    : `Ahead ${formatCurrency(-remainingAmountSum, currency)}`}
                             </p>
                         </div>
                         <div className="flex-1 text-center min-w-0">
