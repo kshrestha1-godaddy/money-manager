@@ -82,7 +82,7 @@ export function NetworthHistoryChart({
     const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [selectedPeriod, setSelectedPeriod] = useState<'30' | '90' | '180' | '365' | 'all'>('90');
+    const [selectedPeriod, setSelectedPeriod] = useState<'30' | '60' | '90' | '180' | '365' | 'all'>('60');
     const [retryKey, setRetryKey] = useState(0);
 
     // Chart statistics
@@ -316,13 +316,13 @@ export function NetworthHistoryChart({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2 border-b border-gray-200">
                     {/* Period selector - on the left (disabled in empty state) */}
                     <div className="flex items-center gap-2 opacity-50">
-                        {(['30', '90', '180', '365', 'all'] as const).map((period) => (
+                        {(['30', '60', '90', '180', '365', 'all'] as const).map((period) => (
                             <button
                                 key={period}
                                 disabled
                                 className="px-3 py-1 text-xs rounded-full bg-gray-100 text-gray-400 cursor-not-allowed"
                             >
-                                {period === 'all' ? 'All' : period === '180' ? '6mo' : `${period}d`}
+                                {period === 'all' ? 'All' : period === '180' ? '6mo' : period === '60' ? '2mo' : `${period}d`}
                             </button>
                         ))}
                     </div>
@@ -372,7 +372,7 @@ export function NetworthHistoryChart({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2 border-b border-gray-200">
                 {/* Period selector - on the left */}
                 <div className="flex items-center gap-2">
-                    {(['30', '90', '180', '365', 'all'] as const).map((period) => (
+                    {(['30', '60', '90', '180', '365', 'all'] as const).map((period) => (
                         <button
                             key={period}
                             onClick={() => setSelectedPeriod(period)}
@@ -382,7 +382,7 @@ export function NetworthHistoryChart({
                                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                         >
-                            {period === 'all' ? 'All' : period === '180' ? '6mo' : `${period}d`}
+                            {period === 'all' ? 'All' : period === '180' ? '6mo' : period === '60' ? '2mo' : `${period}d`}
                         </button>
                     ))}
                 </div>
