@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, Download, RefreshCw, Trash2 } from "lucide-react";
 import {
   getScheduledPayments,
@@ -38,6 +38,7 @@ import { DeleteSelectedScheduledPaymentsModal } from "./components/DeleteSelecte
 import {
   accountDisplay,
   recurringDisplay,
+  recurrenceGroupSortIndex,
   matchesSearch,
 } from "./scheduled-payment-helpers";
 
@@ -246,7 +247,7 @@ export default function ScheduledPaymentsPageClient() {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>([]);
   const [selectedRecurring, setSelectedRecurring] = useState<string[]>([]);
-  const [tableSort, setTableSort] = useState<TableSortState>({ key: "when", dir: "desc" });
+  const [tableSort, setTableSort] = useState<TableSortState>({ key: "when", dir: "asc" });
   const [selectedPaymentIds, setSelectedPaymentIds] = useState<Set<number>>(() => new Set());
   const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
   const [bulkDeleteIds, setBulkDeleteIds] = useState<number[]>([]);
@@ -347,16 +348,35 @@ export default function ScheduledPaymentsPageClient() {
     });
   }, []);
 
-  const sortedTableItems = useMemo(() => {
+  /** Group by recurrence label, sections ordered One-time → Yearly; within each group apply column sort (nearest “When” first when sorted by date ascending). */
+  const groupedTableSections = useMemo(() => {
     const at = new Date();
-    const list = [...filteredItems];
-    list.sort((a, b) => {
-      const r = compareScheduledRows(a, b, tableSort, at, tableDisplayCurrency);
-      if (r !== 0) return r;
-      return a.id - b.id;
+    const byLabel = new Map<string, ScheduledPaymentItem[]>();
+    for (const item of filteredItems) {
+      const label = recurringDisplay(item);
+      const arr = byLabel.get(label) ?? [];
+      arr.push(item);
+      byLabel.set(label, arr);
+    }
+    const labels = [...byLabel.keys()].sort((a, b) => {
+      const i = recurrenceGroupSortIndex(a) - recurrenceGroupSortIndex(b);
+      if (i !== 0) return i;
+      return a.localeCompare(b, undefined, { sensitivity: "base" });
     });
-    return list;
+    return labels.map((label) => {
+      const items = [...(byLabel.get(label) ?? [])].sort((a, b) => {
+        const r = compareScheduledRows(a, b, tableSort, at, tableDisplayCurrency);
+        if (r !== 0) return r;
+        return a.id - b.id;
+      });
+      return { label, items };
+    });
   }, [filteredItems, tableSort, tableDisplayCurrency]);
+
+  const sortedTableItems = useMemo(
+    () => groupedTableSections.flatMap((s) => s.items),
+    [groupedTableSections]
+  );
 
   const handleDownloadCsv = useCallback(() => {
     if (filteredItems.length === 0) return;
@@ -737,7 +757,7 @@ export default function ScheduledPaymentsPageClient() {
                 sort={tableSort}
                 onSort={toggleTableSort}
               />
-              <th className="sticky right-0 z-20 min-w-[10rem] border-l border-gray-200 bg-gray-50 px-3 py-4 text-center font-medium shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.08)] sm:min-w-[12rem] sm:px-4 sm:py-5">
+              <th className="sticky right-0 z-20 min-w-[10rem] border-l border-gray-200 bg-gray-50 px-3 py-4 text-center text-xs font-medium uppercase tracking-wider text-gray-500 shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.08)] sm:min-w-[12rem] sm:px-4 sm:py-5">
                 Actions
               </th>
             </tr>
@@ -765,7 +785,24 @@ export default function ScheduledPaymentsPageClient() {
                 </td>
               </tr>
             ) : (
-              sortedTableItems.map((item) => {
+              groupedTableSections.map((section) => (
+                <Fragment key={section.label}>
+                  <tr className="bg-slate-50/95">
+                    <td
+                      colSpan={10}
+                      className="border-t border-gray-200 px-3 py-2.5 text-left sm:px-4"
+                    >
+                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-700">
+                        {section.label}
+                      </span>
+                      <span className="text-xs font-normal text-gray-500">
+                        {" "}
+                        · {section.items.length}{" "}
+                        {section.items.length === 1 ? "payment" : "payments"}
+                      </span>
+                    </td>
+                  </tr>
+                  {section.items.map((item) => {
                 const displayAmount = convertForDisplaySync(
                   item.amount,
                   item.currency,
@@ -848,20 +885,20 @@ export default function ScheduledPaymentsPageClient() {
                       </span>
                     </td>
                     <td className="sticky right-0 z-10 min-w-[10rem] border-l border-gray-100 bg-white px-3 py-4 text-center align-middle shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] group-hover:bg-gray-50/80 sm:min-w-[12rem] sm:px-4 sm:py-5">
-                      <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+                      <div className="flex flex-nowrap items-center justify-center gap-1">
                       {canDecide && (
                         <>
                           <button
                             type="button"
                             onClick={() => handleAccept(item.id)}
-                            className="text-blue-600 hover:underline font-medium"
+                            className="inline-flex shrink-0 items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-100 hover:text-indigo-800"
                           >
                             Accept
                           </button>
                           <button
                             type="button"
                             onClick={() => handleReject(item.id)}
-                            className="text-gray-600 hover:underline font-medium"
+                            className="inline-flex shrink-0 items-center rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 hover:text-amber-900"
                           >
                             Reject
                           </button>
@@ -874,7 +911,7 @@ export default function ScheduledPaymentsPageClient() {
                             setEditingItem(item);
                             setIsScheduleModalOpen(true);
                           }}
-                          className="text-gray-800 hover:underline font-medium"
+                          className="inline-flex shrink-0 items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-100 hover:text-blue-800"
                         >
                           Edit
                         </button>
@@ -883,7 +920,7 @@ export default function ScheduledPaymentsPageClient() {
                         <button
                           type="button"
                           onClick={() => handleDelete(item.id)}
-                          className="text-red-600 hover:underline font-medium"
+                          className="inline-flex shrink-0 items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-100 hover:text-red-800"
                         >
                           Cancel
                         </button>
@@ -892,7 +929,9 @@ export default function ScheduledPaymentsPageClient() {
                     </td>
                   </tr>
                 );
-              })
+                  })}
+                </Fragment>
+              ))
             )}
           </tbody>
           {filteredItems.length > 0 ? (

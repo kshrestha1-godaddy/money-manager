@@ -16,6 +16,18 @@ export function recurringDisplay(item: ScheduledPaymentItem): string {
   return m[item.recurringFrequency] ?? item.recurringFrequency;
 }
 
+/** Order for table section headers (One-time first, then increasing frequency). */
+export function recurrenceGroupSortIndex(label: string): number {
+  const order: Record<string, number> = {
+    "One-time": 0,
+    Daily: 1,
+    Weekly: 2,
+    Monthly: 3,
+    Yearly: 4,
+  };
+  return order[label] ?? 100;
+}
+
 export function matchesSearch(item: ScheduledPaymentItem, q: string): boolean {
   const s = q.trim().toLowerCase();
   if (!s) return true;
