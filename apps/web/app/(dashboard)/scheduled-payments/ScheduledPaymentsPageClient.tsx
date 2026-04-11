@@ -194,6 +194,16 @@ function formatAmountCsvPlain(n: number): string {
   return (Math.round(n * 100) / 100).toFixed(2);
 }
 
+function sumItemsInDisplayCurrency(
+  items: ScheduledPaymentItem[],
+  displayCurrency: string
+): number {
+  return items.reduce(
+    (sum, item) => sum + convertForDisplaySync(item.amount, item.currency, displayCurrency),
+    0
+  );
+}
+
 function scheduledAtIso(item: ScheduledPaymentItem): string {
   const d = item.scheduledAt instanceof Date ? item.scheduledAt : new Date(item.scheduledAt);
   return d.toISOString();
@@ -1023,15 +1033,61 @@ export default function ScheduledPaymentsPageClient() {
                   </tr>
                 );
                   })}
+                  <tr
+                    className="border-t border-slate-200/90 bg-slate-100/95"
+                    aria-label={`Subtotal for ${section.label}`}
+                  >
+                    <td
+                      className={`border-r border-gray-100/80 bg-slate-100/95 ${TABLE_CELL_X} ${TABLE_CELL_Y}`}
+                      style={{
+                        width: BULK_SELECT_COLUMN_WIDTH_PX,
+                        minWidth: BULK_SELECT_COLUMN_WIDTH_PX,
+                        maxWidth: BULK_SELECT_COLUMN_WIDTH_PX,
+                        boxSizing: "border-box",
+                      }}
+                      aria-hidden
+                    />
+                    <td
+                      colSpan={2}
+                      className={`${TABLE_CELL_X} ${TABLE_CELL_Y} text-left text-sm font-medium text-gray-800`}
+                    >
+                      <span className="text-gray-600">Subtotal</span>
+                      <span className="mx-1.5 text-gray-400" aria-hidden>
+                        ·
+                      </span>
+                      <span>{section.label}</span>
+                      <span className="ml-2 font-normal text-gray-500">
+                        ({section.items.length}{" "}
+                        {section.items.length === 1 ? "payment" : "payments"})
+                      </span>
+                    </td>
+                    <td
+                      className={`${TABLE_CELL_X} ${TABLE_CELL_Y} text-sm font-semibold tabular-nums text-gray-900`}
+                    >
+                      {formatCurrency(
+                        sumItemsInDisplayCurrency(section.items, tableDisplayCurrency),
+                        tableDisplayCurrency
+                      )}
+                    </td>
+                    <td
+                      colSpan={5}
+                      className={`${TABLE_CELL_X} ${TABLE_CELL_Y} bg-slate-100/95`}
+                      aria-hidden
+                    />
+                    <td
+                      className={`sticky right-0 z-10 min-w-[12rem] border-l border-slate-200/90 bg-slate-100/95 ${TABLE_CELL_X} ${TABLE_CELL_Y} shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:min-w-[13.5rem]`}
+                      aria-hidden
+                    />
+                  </tr>
                 </Fragment>
               ))
             )}
           </tbody>
           {filteredItems.length > 0 ? (
-            <tfoot className="border-t border-gray-200 bg-gray-50/90">
+            <tfoot className="border-t-2 border-gray-300 bg-gray-100/95">
               <tr>
                 <td
-                  className={`border-r border-gray-100/80 bg-gray-50 ${TABLE_CELL_X} ${TABLE_CELL_Y}`}
+                  className={`border-r border-gray-100/80 bg-gray-100/95 ${TABLE_CELL_X} ${TABLE_CELL_Y}`}
                   style={{
                     width: BULK_SELECT_COLUMN_WIDTH_PX,
                     minWidth: BULK_SELECT_COLUMN_WIDTH_PX,
@@ -1042,19 +1098,26 @@ export default function ScheduledPaymentsPageClient() {
                 />
                 <td
                   colSpan={2}
-                  className={`${TABLE_CELL_X} ${TABLE_CELL_Y} text-left text-sm font-medium text-gray-900`}
+                  className={`${TABLE_CELL_X} ${TABLE_CELL_Y} text-left text-sm font-semibold text-gray-900`}
                 >
-                  Total ({tableSummary.count}{" "}
-                  {tableSummary.count === 1 ? "payment" : "payments"})
+                  <span className="text-gray-800">Grand total</span>
+                  <span className="ml-2 font-medium text-gray-600">
+                    ({tableSummary.count}{" "}
+                    {tableSummary.count === 1 ? "payment" : "payments"})
+                  </span>
                 </td>
                 <td
-                  className={`${TABLE_CELL_X} ${TABLE_CELL_Y} text-sm font-semibold tabular-nums text-gray-900`}
+                  className={`${TABLE_CELL_X} ${TABLE_CELL_Y} text-sm font-bold tabular-nums text-gray-900`}
                 >
                   {formatCurrency(tableSummary.total, tableDisplayCurrency)}
                 </td>
-                <td colSpan={5} className={`${TABLE_CELL_X} ${TABLE_CELL_Y}`} aria-hidden />
                 <td
-                  className={`sticky right-0 z-10 min-w-[12rem] border-l border-gray-200 bg-gray-50 ${TABLE_CELL_X} ${TABLE_CELL_Y} text-center shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:min-w-[13.5rem]`}
+                  colSpan={5}
+                  className={`${TABLE_CELL_X} ${TABLE_CELL_Y} bg-gray-100/95`}
+                  aria-hidden
+                />
+                <td
+                  className={`sticky right-0 z-10 min-w-[12rem] border-l border-gray-200 bg-gray-100/95 ${TABLE_CELL_X} ${TABLE_CELL_Y} text-center shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:min-w-[13.5rem]`}
                   aria-hidden
                 />
               </tr>

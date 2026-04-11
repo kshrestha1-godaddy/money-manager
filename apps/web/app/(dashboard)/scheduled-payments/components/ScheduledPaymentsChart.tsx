@@ -31,6 +31,79 @@ interface StatusSlice {
   amount: number;
 }
 
+const RECURRENCE_ORDER = ["One-time", "Daily", "Weekly", "Monthly", "Yearly"] as const;
+
+const RECURRENCE_BAR_COLORS: Record<string, string> = {
+  "One-time": "#1d4ed8",
+  Daily: "#2563eb",
+  Weekly: "#3b82f6",
+  Monthly: "#60a5fa",
+  Yearly: "#818cf8",
+  Previous: "#64748b",
+};
+
+function recurrenceLabelForChart(item: ScheduledPaymentItem): string {
+  if (!item.isRecurring || !item.recurringFrequency) return "One-time";
+  const m: Record<string, string> = {
+    DAILY: "Daily",
+    WEEKLY: "Weekly",
+    MONTHLY: "Monthly",
+    YEARLY: "Yearly",
+  };
+  return m[item.recurringFrequency] ?? "One-time";
+}
+
+function buildUpcomingByRecurrenceChartData(
+  items: ScheduledPaymentItem[],
+  userCurrency: string,
+  now: Date
+): { name: string; amount: number; count: number; fill: string }[] {
+  const buckets = new Map<string, { amount: number; count: number }>();
+  for (const k of RECURRENCE_ORDER) {
+    buckets.set(k, { amount: 0, count: 0 });
+  }
+
+  let previousTotal = 0;
+  let previousCount = 0;
+
+  for (const item of items) {
+    const converted = convertForDisplaySync(item.amount, item.currency, userCurrency);
+    if (item.scheduledAt > now) {
+      const label = recurrenceLabelForChart(item);
+      const cur = buckets.get(label) ?? { amount: 0, count: 0 };
+      cur.amount += converted;
+      cur.count += 1;
+      buckets.set(label, cur);
+    } else {
+      previousTotal += converted;
+      previousCount += 1;
+    }
+  }
+
+  const rows: { name: string; amount: number; count: number; fill: string }[] = [];
+  for (const key of RECURRENCE_ORDER) {
+    const b = buckets.get(key);
+    if (!b || b.count === 0) continue;
+    rows.push({
+      name: key,
+      amount: Math.round(b.amount * 100) / 100,
+      count: b.count,
+      fill: RECURRENCE_BAR_COLORS[key] ?? "#3b82f6",
+    });
+  }
+
+  if (previousCount > 0) {
+    rows.push({
+      name: "Previous",
+      amount: Math.round(previousTotal * 100) / 100,
+      count: previousCount,
+      fill: RECURRENCE_BAR_COLORS.Previous,
+    });
+  }
+
+  return rows;
+}
+
 function aggregateByStatus(
   items: ScheduledPaymentItem[],
   userCurrency: string,
@@ -73,36 +146,7 @@ export function ScheduledPaymentsChart({
   onRefresh,
   isRefreshing = false,
 }: ScheduledPaymentsChartProps) {
-  let upcomingTotal = 0;
-  let previousTotal = 0;
-  let upcomingCount = 0;
-  let previousCount = 0;
-
-  for (const item of items) {
-    const converted = convertForDisplaySync(item.amount, item.currency, userCurrency);
-    if (item.scheduledAt > now) {
-      upcomingTotal += converted;
-      upcomingCount += 1;
-    } else {
-      previousTotal += converted;
-      previousCount += 1;
-    }
-  }
-
-  const data = [
-    {
-      name: "Upcoming",
-      amount: Math.round(upcomingTotal * 100) / 100,
-      count: upcomingCount,
-      fill: "#3b82f6",
-    },
-    {
-      name: "Previous",
-      amount: Math.round(previousTotal * 100) / 100,
-      count: previousCount,
-      fill: "#64748b",
-    },
-  ];
+  const data = buildUpcomingByRecurrenceChartData(items, userCurrency, now);
 
   const byStatus = aggregateByStatus(items, userCurrency, now);
 
@@ -165,31 +209,51 @@ export function ScheduledPaymentsChart({
           </button>
         ) : null}
       </div>
-      <div className="mt-4 h-[260px] w-full shrink-0 min-h-[200px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={data}
-            margin={{ top: 8, right: 16, left: 8, bottom: 8 }}
-            barCategoryGap="28%"
-          >
-            <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
-            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-            <YAxis
-              tick={{ fontSize: 12 }}
-              tickFormatter={(v) => formatCurrency(typeof v === "number" ? v : Number(v), userCurrency)}
-            />
-            <Tooltip
-              formatter={(value: number) => formatCurrency(value, userCurrency)}
-              labelFormatter={(label) => String(label)}
-              contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb" }}
-            />
-            <Bar dataKey="amount" radius={[6, 6, 0, 0]} maxBarSize={120}>
-              {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.fill} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+      <div className="mt-4 h-[280px] w-full shrink-0 min-h-[200px]">
+        {data.length === 0 ? (
+          <div className="flex h-full min-h-[200px] items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50/50 px-4 text-center text-sm text-gray-500">
+            No amounts to chart. Add scheduled payments or adjust filters.
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={data}
+              margin={{ top: 8, right: 12, left: 4, bottom: 28 }}
+              barCategoryGap="18%"
+            >
+              <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 11 }}
+                interval={0}
+                angle={data.length > 4 ? -30 : 0}
+                textAnchor={data.length > 4 ? "end" : "middle"}
+                height={data.length > 4 ? 56 : 32}
+              />
+              <YAxis
+                tick={{ fontSize: 12 }}
+                tickFormatter={(v) =>
+                  formatCurrency(typeof v === "number" ? v : Number(v), userCurrency)
+                }
+              />
+              <Tooltip
+                formatter={(value: number, _name, ctx) => {
+                  const payload = ctx?.payload as { count?: number } | undefined;
+                  const c = payload?.count;
+                  const amt = formatCurrency(value, userCurrency);
+                  return c != null ? [`${amt} (${c} ${c === 1 ? "payment" : "payments"})`, "Amount"] : [amt, "Amount"];
+                }}
+                labelFormatter={(label) => String(label)}
+                contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb" }}
+              />
+              <Bar dataKey="amount" radius={[6, 6, 0, 0]} maxBarSize={72}>
+                {data.map((entry, index) => (
+                  <Cell key={`cell-${entry.name}-${index}`} fill={entry.fill} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       <div className="mt-4 flex min-h-0 flex-1 flex-col border-t border-gray-100 pt-4">
