@@ -57,6 +57,7 @@ model User {
   annuityCalculatorPresets AnnuityCalculatorPreset[]
   lifeEvents LifeEvent[]
   appLockSetting UserAppLockSetting?
+  bloodPressureReadings BloodPressureReading[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -1224,4 +1225,31 @@ model UserAppLockSetting {
   usesDefaultPassword Boolean  @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+}
+
+/// Habits Tracker — blood pressure log (mmHg). `measuredAt` is when the reading was taken (date + time).
+/// `category` should match the classification chart at insert time (for graphs and if thresholds change later).
+model BloodPressureReading {
+  id          Int                   @id @default(autoincrement())
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      Int
+  measuredAt  DateTime
+  systolic    Int
+  diastolic   Int
+  category    BloodPressureCategory
+  notes       String?               @db.Text
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  @@index([userId, measuredAt])
+}
+
+/// Regions aligned with the BP classification chart (systolic × diastolic). Use OTHER when the pair does not fall in a single chart cell (e.g. mixed ranges); app logic can follow clinical “higher category” rules if preferred.
+enum BloodPressureCategory {
+  LOW
+  NORMAL
+  PRE_HYPERTENSION
+  HIGH_STAGE_1
+  HIGH_STAGE_2
+  OTHER
 }
