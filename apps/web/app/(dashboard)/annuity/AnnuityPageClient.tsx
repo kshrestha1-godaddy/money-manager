@@ -24,25 +24,25 @@ import {
   UI_STYLES,
 } from "../../config/colorConfig";
 import { CalculatorInputsFields } from "./components/CalculatorInputsFields";
+import { AnnuityCompareView } from "./components/AnnuityCompareView";
+import { AnnuitySummaryCard } from "./components/AnnuitySummaryCard";
 import { SavedPresetsSection } from "./components/SavedPresetsSection";
+import {
+  buildChartScrollWidth,
+  buildChartXTicks,
+  buildCsvFromCalculationRows,
+  computeAnnuitySnapshot,
+  formatChartAxisValue,
+  getInterestSharePercent,
+  roundCurrency,
+} from "./annuity-math";
 import { clampYears } from "./calculator-input-utils";
 import {
   updateAnnuityCalculatorPresetProgress,
   type AnnuityCalculatorPresetDTO,
 } from "./actions/annuity-calculator-presets";
-import type { CalculatorInputs, CompoundingFrequency } from "./types";
+import type { CalculatorInputs } from "./types";
 import { DEFAULT_ANNUITY_INPUTS, normalizeAnnuityInputs } from "./types";
-
-interface MonthlyAnnuityRow {
-  month: number;
-  year: number;
-  investmentAmount: number;
-  interestCalculationBase: number;
-  interestGainedPeriod: number;
-  totalInterestGained: number;
-  accumulatedInvestment: number;
-  finalBalance: number;
-}
 
 const pageContainer = CONTAINER_COLORS.page;
 const pageTitle = TEXT_COLORS.title;
@@ -58,8 +58,11 @@ function formatAmountForDisplay(
   return formatCurrency(converted, displayCurrencyCode);
 }
 
+type PageMode = "single" | "compare";
+
 export default function AnnuityPageClient() {
   const { currency: userCurrency } = useCurrency();
+  const [pageMode, setPageMode] = useState<PageMode>("single");
   const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_ANNUITY_INPUTS);
   const [selectedCurrency, setSelectedCurrency] = useState(userCurrency || "USD");
   const [trackedPresetId, setTrackedPresetId] = useState<number | null>(null);
@@ -139,38 +142,11 @@ export default function AnnuityPageClient() {
     [trackedPresetId, inputsMatchTrackedPreset]
   );
 
-  const effectiveCompoundingFrequency: CompoundingFrequency = inputs.compoundingFrequency;
-
-  const periodConfig = useMemo(() => {
-    return getCompoundingConfig(effectiveCompoundingFrequency);
-  }, [effectiveCompoundingFrequency]);
-
-  const effectiveMonthlyInvestment = useMemo(() => {
-    return getEffectiveMonthlyInvestment(inputs, periodConfig);
-  }, [inputs, periodConfig]);
-
-  const rows = useMemo(() => {
-    return calculateMonthlyAnnuityRows(inputs, periodConfig, effectiveMonthlyInvestment);
-  }, [inputs, periodConfig, effectiveMonthlyInvestment]);
-
-  const totals = useMemo(() => {
-    const lastRow = rows[rows.length - 1];
-    const yearsClamped = clampYears(inputs.years);
-    const totalMonths = yearsClamped * 12;
-    const totalInvestedByContributions =
-      inputs.calculationType === "fixed-deposit"
-        ? 0
-        : effectiveMonthlyInvestment * totalMonths;
-    const principal = Math.max(0, inputs.initialBalance) + totalInvestedByContributions;
-    const finalBalance = lastRow?.finalBalance ?? Math.max(0, inputs.initialBalance);
-    const totalInterest = lastRow?.totalInterestGained ?? 0;
-    return {
-      principal,
-      finalBalance,
-      totalInterest,
-      totalMonths,
-    };
-  }, [rows, inputs, effectiveMonthlyInvestment]);
+  const snapshot = useMemo(() => computeAnnuitySnapshot(inputs), [inputs]);
+  const periodConfig = snapshot.periodConfig;
+  const effectiveMonthlyInvestment = snapshot.effectiveMonthlyInvestment;
+  const rows = snapshot.rows;
+  const totals = snapshot.totals;
 
   const highlightedMonthsText = useMemo(() => {
     if (periodConfig.periodMonths === 3) return "3, 6, 9, 12...";
@@ -201,21 +177,9 @@ export default function AnnuityPageClient() {
     });
   }, [rows, baseCurrency, selectedCurrency, trackedCompletedMonths]);
 
-  const chartXTicks = useMemo(() => {
-    const monthCount = rows.length;
-    if (monthCount === 0) return [];
-    if (monthCount <= 24) return rows.map((row) => row.month);
-    const ticks: number[] = [1];
-    for (let monthNumber = 12; monthNumber < monthCount; monthNumber += 12) {
-      ticks.push(monthNumber);
-    }
-    if (ticks[ticks.length - 1] !== monthCount) ticks.push(monthCount);
-    return ticks;
-  }, [rows]);
+  const chartXTicks = useMemo(() => buildChartXTicks(rows), [rows]);
 
-  const chartScrollWidth = useMemo(() => {
-    return Math.max(800, rows.length * 5);
-  }, [rows.length]);
+  const chartScrollWidth = useMemo(() => buildChartScrollWidth(rows.length), [rows.length]);
 
   const handleDownloadCsv = useCallback(() => {
     const csvContent = buildCsvFromCalculationRows(
@@ -240,15 +204,49 @@ export default function AnnuityPageClient() {
 
   return (
     <div className={pageContainer}>
-      <div className={UI_STYLES.header.container}>
+      <div className={`${UI_STYLES.header.container} flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between`}>
         <div>
           <h1 className={pageTitle}>Annuity & Fixed Deposit</h1>
           <p className={pageSubtitle}>
             Compare annuity and fixed deposit growth, including target future value planning.
           </p>
         </div>
+        <div className="flex shrink-0 flex-wrap gap-2 rounded-lg border border-slate-200/90 bg-slate-50/80 p-1">
+          <button
+            type="button"
+            onClick={() => setPageMode("single")}
+            className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              pageMode === "single"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-600 hover:bg-white/80 hover:text-slate-900"
+            }`}
+          >
+            Calculator
+          </button>
+          <button
+            type="button"
+            onClick={() => setPageMode("compare")}
+            className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              pageMode === "compare"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-600 hover:bg-white/80 hover:text-slate-900"
+            }`}
+          >
+            Compare two scenarios
+          </button>
+        </div>
       </div>
 
+      {pageMode === "compare" ? (
+        <AnnuityCompareView
+          baseCurrency={baseCurrency}
+          selectedCurrency={selectedCurrency}
+          onSelectedCurrencyChange={setSelectedCurrency}
+        />
+      ) : null}
+
+      {pageMode === "single" ? (
+      <>
       {/* lg: saved panel height matches calculator via absolute positioning (in-flow height = calculator only). */}
       <div className="relative w-full">
         <section className="mb-6 w-full min-w-0 rounded-xl border border-slate-200/90 bg-white shadow-sm overflow-hidden lg:mb-0 lg:w-[calc((100%-2rem)/3)]">
@@ -286,7 +284,7 @@ export default function AnnuityPageClient() {
         </div>
         <div className="px-4 py-4 sm:px-6 border-b border-gray-100 bg-gray-50/50">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <SummaryCard
+            <AnnuitySummaryCard
               title={
                 inputs.calculationType === "annuity-target-future-value"
                   ? "Required Monthly Investment"
@@ -305,17 +303,17 @@ export default function AnnuityPageClient() {
                   : "Initial fixed deposit amount"
               }
             />
-            <SummaryCard
+            <AnnuitySummaryCard
               title="Total Interest"
               value={formatAmountForDisplay(totals.totalInterest, baseCurrency, selectedCurrency)}
               subtitle={`After ${totals.totalMonths} months`}
             />
-            <SummaryCard
+            <AnnuitySummaryCard
               title="Final Balance"
               value={formatAmountForDisplay(totals.finalBalance, baseCurrency, selectedCurrency)}
               subtitle={`At end of year ${inputs.years}`}
             />
-            <SummaryCard
+            <AnnuitySummaryCard
               title="Interest Share"
               value={`${getInterestSharePercent(totals.finalBalance, totals.totalInterest).toFixed(2)}%`}
               subtitle="Interest as share of final balance"
@@ -567,210 +565,8 @@ export default function AnnuityPageClient() {
           </tbody>
         </table>
       </section>
+      </>
+      ) : null}
     </div>
   );
-}
-
-interface SummaryCardProps {
-  title: string;
-  value: string;
-  subtitle: string;
-}
-
-function SummaryCard({ title, value, subtitle }: SummaryCardProps) {
-  return (
-    <div className="bg-white rounded-lg shadow border border-gray-100 px-5 py-4">
-      <div className="flex h-full flex-col">
-        <h3 className="text-sm font-medium text-gray-500">{title}</h3>
-        <p className="mt-2 text-2xl font-semibold text-gray-900 tabular-nums">{value}</p>
-        <p className="mt-1 text-xs text-gray-500">{subtitle}</p>
-      </div>
-    </div>
-  );
-}
-
-function calculateMonthlyAnnuityRows(
-  inputs: CalculatorInputs,
-  periodConfig: CompoundingConfig,
-  effectiveMonthlyInvestment: number
-): MonthlyAnnuityRow[] {
-  const monthlyInvestment =
-    inputs.calculationType === "fixed-deposit" ? 0 : Math.max(0, effectiveMonthlyInvestment);
-  const annualInterestRate = Math.max(0, inputs.annualInterestRatePercent) / 100;
-  const years = clampYears(inputs.years);
-  const totalMonths = years * 12;
-  const periodInterestRate = annualInterestRate / periodConfig.periodsPerYear;
-
-  let currentBalance = Math.max(0, inputs.initialBalance);
-  let totalInterest = 0;
-  const results: MonthlyAnnuityRow[] = [];
-
-  for (let month = 1; month <= totalMonths; month += 1) {
-    if (inputs.calculationType !== "fixed-deposit") currentBalance += monthlyInvestment;
-
-    const interestCalculationBase =
-      inputs.calculationType === "fixed-deposit" &&
-      inputs.fixedDepositInterestMode === "not-added-to-principal"
-        ? Math.max(0, inputs.initialBalance)
-        : currentBalance;
-    let interestForPeriod = 0;
-
-    if (month % periodConfig.periodMonths === 0) {
-      interestForPeriod = interestCalculationBase * periodInterestRate;
-      totalInterest += interestForPeriod;
-      if (
-        inputs.calculationType === "fixed-deposit" &&
-        inputs.fixedDepositInterestMode === "not-added-to-principal"
-      ) {
-        currentBalance = Math.max(0, inputs.initialBalance) + totalInterest;
-      } else {
-        currentBalance += interestForPeriod;
-      }
-    }
-
-    results.push({
-      month,
-      year: Math.ceil(month / 12),
-      investmentAmount: roundCurrency(monthlyInvestment),
-      interestCalculationBase: roundCurrency(interestCalculationBase),
-      interestGainedPeriod: roundCurrency(interestForPeriod),
-      totalInterestGained: roundCurrency(totalInterest),
-      accumulatedInvestment:
-        inputs.calculationType !== "fixed-deposit"
-          ? roundCurrency(monthlyInvestment * month)
-          : roundCurrency(Math.max(0, inputs.initialBalance)),
-      finalBalance: roundCurrency(currentBalance),
-    });
-  }
-
-  return results;
-}
-
-function roundCurrency(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-function formatChartAxisValue(value: number, currency: string): string {
-  const absoluteValue = Math.abs(value);
-  if (absoluteValue >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (absoluteValue >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
-  return formatCurrency(value, currency);
-}
-
-function getInterestSharePercent(finalBalance: number, totalInterest: number): number {
-  if (finalBalance <= 0) return 0;
-  return (totalInterest / finalBalance) * 100;
-}
-
-function getEffectiveMonthlyInvestment(
-  inputs: CalculatorInputs,
-  periodConfig: CompoundingConfig
-): number {
-  if (inputs.calculationType === "annuity") return Math.max(0, inputs.monthlyInvestment);
-  if (inputs.calculationType === "fixed-deposit") return 0;
-
-  const annualRate = Math.max(0, inputs.annualInterestRatePercent) / 100;
-  const years = clampYears(inputs.years);
-  const periods = years * periodConfig.periodsPerYear;
-  const periodicRate = annualRate / periodConfig.periodsPerYear;
-  const initialBalance = Math.max(0, inputs.initialBalance);
-  const targetFutureValue = Math.max(0, inputs.targetFutureValue);
-
-  if (periods <= 0) return 0;
-
-  const futureValueFromInitial =
-    periodicRate === 0
-      ? initialBalance
-      : initialBalance * Math.pow(1 + periodicRate, periods);
-  const remainingFutureValue = Math.max(0, targetFutureValue - futureValueFromInitial);
-
-  if (remainingFutureValue <= 0) return 0;
-
-  const requiredPerPeriod =
-    periodicRate === 0
-      ? remainingFutureValue / periods
-      : (remainingFutureValue * periodicRate) / (Math.pow(1 + periodicRate, periods) - 1);
-
-  return roundCurrency(requiredPerPeriod / periodConfig.periodMonths);
-}
-
-interface CompoundingConfig {
-  periodMonths: number;
-  periodsPerYear: number;
-  periodLabelLowercase: string;
-  interestColumnLabel: string;
-}
-
-function getCompoundingConfig(frequency: CompoundingFrequency): CompoundingConfig {
-  if (frequency === "quarterly") {
-    return {
-      periodMonths: 3,
-      periodsPerYear: 4,
-      periodLabelLowercase: "quarterly",
-      interestColumnLabel: "Interest Gained (Quarterly)",
-    };
-  }
-
-  return {
-    periodMonths: 12,
-    periodsPerYear: 1,
-    periodLabelLowercase: "annual",
-    interestColumnLabel: "Interest Gained (Annual)",
-  };
-}
-
-function csvQuoteCell(value: string | number | undefined | null): string {
-  const normalizedValue = String(value ?? "");
-  return `"${normalizedValue.replace(/"/g, '""')}"`;
-}
-
-function formatAmountCsvPlain(value: number): string {
-  return (Math.round(value * 100) / 100).toFixed(2);
-}
-
-function buildCsvFromCalculationRows(
-  rows: MonthlyAnnuityRow[],
-  inputs: CalculatorInputs,
-  periodConfig: CompoundingConfig,
-  displayCurrency: string,
-  baseCurrency: string
-): string {
-  const convert = (amount: number) =>
-    convertForDisplaySync(amount, baseCurrency, displayCurrency);
-
-  const headers = [
-    "Month",
-    "Year",
-    ...(inputs.calculationType !== "fixed-deposit" ? ["Investment Amount"] : []),
-    "Interest Base",
-    periodConfig.interestColumnLabel,
-    "Interest Accrued",
-    ...(inputs.calculationType !== "fixed-deposit" ? ["Total Investment"] : []),
-    "Final Balance",
-    "Currency",
-  ];
-
-  const lines: string[][] = [headers];
-
-  rows.forEach((row) => {
-    lines.push([
-      String(row.month),
-      String(row.year),
-      ...(inputs.calculationType !== "fixed-deposit"
-        ? [formatAmountCsvPlain(convert(row.investmentAmount))]
-        : []),
-      formatAmountCsvPlain(convert(row.interestCalculationBase)),
-      formatAmountCsvPlain(convert(row.interestGainedPeriod)),
-      formatAmountCsvPlain(convert(row.totalInterestGained)),
-      ...(inputs.calculationType !== "fixed-deposit"
-        ? [formatAmountCsvPlain(convert(row.accumulatedInvestment))]
-        : []),
-      formatAmountCsvPlain(convert(row.finalBalance)),
-      displayCurrency.toUpperCase(),
-    ]);
-  });
-
-  return lines
-    .map((line) => line.map((cell) => csvQuoteCell(cell)).join(","))
-    .join("\r\n");
 }
