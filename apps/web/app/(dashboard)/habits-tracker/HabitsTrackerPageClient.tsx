@@ -141,13 +141,7 @@ export default function HabitsTrackerPageClient() {
       </div>
 
       <section className="mb-10">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">Blood pressure</h2>
-          <button type="button" onClick={openAdd} className={`${primaryButton} inline-flex items-center gap-2`}>
-            <Plus className="w-4 h-4" />
-            Log reading
-          </button>
-        </div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">Blood pressure</h2>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start lg:gap-8 mb-6">
           <div className="min-w-0">
@@ -162,6 +156,16 @@ export default function HabitsTrackerPageClient() {
               <p className="text-center text-sm text-gray-500">Second chart</p>
             </div>
           </div>
+        </div>
+
+        <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-center lg:gap-8">
+          <div className="min-w-0 flex justify-start">
+            <button type="button" onClick={openAdd} className={`${primaryButton} inline-flex items-center gap-2`}>
+              <Plus className="w-4 h-4" />
+              Log reading
+            </button>
+          </div>
+          <div className="hidden min-w-0 lg:block" aria-hidden />
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start lg:gap-8">
