@@ -25,6 +25,7 @@ import {
 import { CalculatorInputsFields } from "./components/CalculatorInputsFields";
 import { AnnuityCompareView } from "./components/AnnuityCompareView";
 import { AnnuitySummaryCard } from "./components/AnnuitySummaryCard";
+import { PremiumIrrCalculator } from "./components/PremiumIrrCalculator";
 import { SavedPresetsSection } from "./components/SavedPresetsSection";
 import {
   buildChartScrollWidth,
@@ -57,7 +58,7 @@ function formatAmountForDisplay(
   return formatCurrency(converted, displayCurrencyCode);
 }
 
-type PageMode = "single" | "compare";
+type PageMode = "single" | "compare" | "premium-irr";
 
 export default function AnnuityPageClient() {
   const { currency: userCurrency } = useCurrency();
@@ -203,40 +204,51 @@ export default function AnnuityPageClient() {
 
   return (
     <div className={pageContainer}>
+      <div className="flex flex-col items-start gap-4">
+        <div>
           <h1 className={pageTitle}>Annuity & Fixed Deposit</h1>
           <p className={pageSubtitle}>
             Compare annuity and fixed deposit growth, including target future value planning.
           </p>
-      <div className="flex flex-col items-end">
-        <div>
-          <div
-            className="flex w-fit flex-wrap rounded-lg border border-slate-200/90 bg-slate-50/80 p-1"
-            role="group"
-            aria-label="Calculator or compare mode"
+        </div>
+        <div
+          className="flex w-full max-w-full flex-wrap gap-1 rounded-lg border border-slate-200/90 bg-slate-50/80 p-1 sm:w-fit"
+          role="group"
+          aria-label="Annuity calculator mode"
+        >
+          <button
+            type="button"
+            onClick={() => setPageMode("single")}
+            className={`rounded-md px-2.5 py-2 text-xs font-medium transition-colors sm:px-3 sm:text-sm ${
+              pageMode === "single"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-600 hover:bg-white/80 hover:text-slate-900"
+            }`}
           >
-            <button
-              type="button"
-              onClick={() => setPageMode("single")}
-              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                pageMode === "single"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-600 hover:bg-white/80 hover:text-slate-900"
-              }`}
-            >
-              Calculator
-            </button>
-            <button
-              type="button"
-              onClick={() => setPageMode("compare")}
-              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                pageMode === "compare"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-600 hover:bg-white/80 hover:text-slate-900"
-              }`}
-            >
-              Compare two scenarios
-            </button>
-          </div>
+            Calculator
+          </button>
+          <button
+            type="button"
+            onClick={() => setPageMode("compare")}
+            className={`rounded-md px-2.5 py-2 text-xs font-medium transition-colors sm:px-3 sm:text-sm ${
+              pageMode === "compare"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-600 hover:bg-white/80 hover:text-slate-900"
+            }`}
+          >
+            Compare two scenarios
+          </button>
+          <button
+            type="button"
+            onClick={() => setPageMode("premium-irr")}
+            className={`rounded-md px-2.5 py-2 text-xs font-medium transition-colors sm:px-3 sm:text-sm ${
+              pageMode === "premium-irr"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-600 hover:bg-white/80 hover:text-slate-900"
+            }`}
+          >
+            Premium → lump sum (IRR)
+          </button>
         </div>
       </div>
 
@@ -246,6 +258,10 @@ export default function AnnuityPageClient() {
           selectedCurrency={selectedCurrency}
           onSelectedCurrencyChange={setSelectedCurrency}
         />
+      ) : null}
+
+      {pageMode === "premium-irr" ? (
+        <PremiumIrrCalculator baseCurrency={baseCurrency} selectedCurrency={selectedCurrency} />
       ) : null}
 
       {pageMode === "single" ? (
