@@ -134,7 +134,7 @@ interface ScenarioGapsSummaryCardProps {
 function formatAmountBracketPctMoreLine(gap: MoneyGapDetail): string {
   if (gap.tie || !gap.amountFormatted) return "—";
   const base = `+${gap.amountFormatted}`;
-  if (gap.pctVsLower != null) return `${base} [${gap.pctVsLower.toFixed(2)}%] more`;
+  if (gap.pctVsLower != null) return `${base} [${gap.pctVsLower.toFixed(2)}%]`;
   return `${base} more`;
 }
 
@@ -146,7 +146,7 @@ function formatRoiBracketPctMoreLine(roiGap: RoiGapDetail): string {
   const diff = high - low;
   const pp = roiGap.pp ?? diff;
   const base = `+${pp.toFixed(2)} pp`;
-  if (low > MONEY_GAP_EPS) return `${base} [${((diff / low) * 100).toFixed(2)}%] more`;
+  if (low > MONEY_GAP_EPS) return `${base} [${((diff / low) * 100).toFixed(2)}%]`;
   return `${base} more`;
 }
 
@@ -732,28 +732,6 @@ export function AnnuityCompareView({
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-3 rounded-lg border border-slate-200/90 bg-slate-50/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-slate-700">
-          Compare exactly two scenarios—configure them here or load saved scenarios.
-          Metrics below use the same display currency as the rest of the app.
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-slate-500">Display currency</span>
-          <select
-            value={selectedCurrency}
-            onChange={(e) => onSelectedCurrencyChange(e.target.value)}
-            className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            aria-label="Display currency"
-          >
-            {SUPPORTED_CURRENCIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="rounded-xl border border-slate-200/90 bg-white shadow-sm overflow-hidden">
           <div className="border-b border-slate-100 bg-slate-50/60 px-4 py-4 sm:px-5">
@@ -820,6 +798,21 @@ export function AnnuityCompareView({
         </section>
       </div>
 
+      <div className="flex justify-end">
+        <select
+          value={selectedCurrency}
+          onChange={(e) => onSelectedCurrencyChange(e.target.value)}
+          className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          aria-label="Currency"
+        >
+          {SUPPORTED_CURRENCIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="border-b border-gray-200 px-6 py-5">
           <h2 className="text-lg font-semibold text-gray-900">Comparison summary</h2>
@@ -849,7 +842,12 @@ export function AnnuityCompareView({
           />
           <AnnuitySummaryCard
             title="ROI on principal (%)"
-            value={`A: ${snapshotA.roiPercent.toFixed(2)}% · B: ${snapshotB.roiPercent.toFixed(2)}%`}
+            value={
+              <span className="flex flex-col gap-1 leading-tight">
+                <span>A: {snapshotA.roiPercent.toFixed(2)}%</span>
+                <span>B: {snapshotB.roiPercent.toFixed(2)}%</span>
+              </span>
+            }
             subtitle="(Final balance − principal) ÷ principal"
           />
           <ScenarioGapsSummaryCard
@@ -988,9 +986,6 @@ export function AnnuityCompareView({
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-xs text-gray-500">
-            Figures are denominated in {baseCurrency}. Other currencies convert using your app rates.
-          </p>
         </div>
       </section>
 

@@ -21,7 +21,6 @@ import {
   CONTAINER_COLORS,
   INPUT_COLORS,
   TEXT_COLORS,
-  UI_STYLES,
 } from "../../config/colorConfig";
 import { CalculatorInputsFields } from "./components/CalculatorInputsFields";
 import { AnnuityCompareView } from "./components/AnnuityCompareView";
@@ -204,36 +203,40 @@ export default function AnnuityPageClient() {
 
   return (
     <div className={pageContainer}>
-      <div className={`${UI_STYLES.header.container} flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between`}>
-        <div>
           <h1 className={pageTitle}>Annuity & Fixed Deposit</h1>
           <p className={pageSubtitle}>
             Compare annuity and fixed deposit growth, including target future value planning.
           </p>
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-2 rounded-lg border border-slate-200/90 bg-slate-50/80 p-1">
-          <button
-            type="button"
-            onClick={() => setPageMode("single")}
-            className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              pageMode === "single"
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-600 hover:bg-white/80 hover:text-slate-900"
-            }`}
+      <div className="flex flex-col items-end">
+        <div>
+          <div
+            className="flex w-fit flex-wrap rounded-lg border border-slate-200/90 bg-slate-50/80 p-1"
+            role="group"
+            aria-label="Calculator or compare mode"
           >
-            Calculator
-          </button>
-          <button
-            type="button"
-            onClick={() => setPageMode("compare")}
-            className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              pageMode === "compare"
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-600 hover:bg-white/80 hover:text-slate-900"
-            }`}
-          >
-            Compare two scenarios
-          </button>
+            <button
+              type="button"
+              onClick={() => setPageMode("single")}
+              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                pageMode === "single"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-600 hover:bg-white/80 hover:text-slate-900"
+              }`}
+            >
+              Calculator
+            </button>
+            <button
+              type="button"
+              onClick={() => setPageMode("compare")}
+              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                pageMode === "compare"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-600 hover:bg-white/80 hover:text-slate-900"
+              }`}
+            >
+              Compare two scenarios
+            </button>
+          </div>
         </div>
       </div>
 
