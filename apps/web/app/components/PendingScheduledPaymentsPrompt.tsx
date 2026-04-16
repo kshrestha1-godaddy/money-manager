@@ -8,12 +8,15 @@ import {
   postponeScheduledPayment,
 } from "../(dashboard)/scheduled-payments/actions/scheduled-payments";
 import {
+  formatScheduledPaymentWhenDate,
+  parseDatetimeLocalInTimezone,
   postponeFromOriginalScheduledDate,
   toDatetimeLocalValue,
 } from "../(dashboard)/scheduled-payments/scheduled-payment-helpers";
 import { ScheduledPaymentItem } from "../types/scheduled-payment";
 import { formatCurrency } from "../utils/currency";
 import { useCurrency } from "../providers/CurrencyProvider";
+import { useTimezone } from "../providers/TimezoneProvider";
 import { convertForDisplaySync } from "../utils/currencyDisplay";
 import Link from "next/link";
 
@@ -40,6 +43,7 @@ function addDismissedId(id: number) {
 
 export function PendingScheduledPaymentsPrompt() {
   const { currency: userCurrency } = useCurrency();
+  const { timezone: userTimezone } = useTimezone();
   const [queue, setQueue] = useState<ScheduledPaymentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
@@ -69,9 +73,12 @@ export function PendingScheduledPaymentsPrompt() {
       return;
     }
     setCustomPostpone(
-      toDatetimeLocalValue(postponeFromOriginalScheduledDate(new Date(current.scheduledAt), 1))
+      toDatetimeLocalValue(
+        postponeFromOriginalScheduledDate(new Date(current.scheduledAt), 1, userTimezone),
+        userTimezone
+      )
     );
-  }, [current?.id]);
+  }, [current?.id, userTimezone]);
 
   const handlePostpone = async (when: Date) => {
     if (!current) return;
@@ -89,8 +96,8 @@ export function PendingScheduledPaymentsPrompt() {
 
   const handleCustomPostpone = () => {
     if (!customPostpone.trim()) return;
-    const parsed = new Date(customPostpone);
-    if (Number.isNaN(parsed.getTime())) {
+    const parsed = parseDatetimeLocalInTimezone(customPostpone, userTimezone);
+    if (!parsed || Number.isNaN(parsed.getTime())) {
       alert("Invalid date and time");
       return;
     }
@@ -140,7 +147,7 @@ export function PendingScheduledPaymentsPrompt() {
   );
 
   const scheduledAtDate = new Date(current.scheduledAt);
-  const minDatetimeLocal = toDatetimeLocalValue(new Date(Date.now() + 60_000));
+  const minDatetimeLocal = toDatetimeLocalValue(new Date(Date.now() + 60_000), userTimezone);
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
@@ -173,7 +180,7 @@ export function PendingScheduledPaymentsPrompt() {
           <p>
             <span className="text-gray-500">Scheduled for:</span>{" "}
             <span className="text-gray-900">
-              {new Date(current.scheduledAt).toLocaleString()}
+              {formatScheduledPaymentWhenDate(current.scheduledAt, userTimezone)}
             </span>
           </p>
           {current.account && (
@@ -220,7 +227,9 @@ export function PendingScheduledPaymentsPrompt() {
                 type="button"
                 disabled={acting}
                 onClick={() =>
-                  void handlePostpone(postponeFromOriginalScheduledDate(scheduledAtDate, 1))
+                  void handlePostpone(
+                    postponeFromOriginalScheduledDate(scheduledAtDate, 1, userTimezone)
+                  )
                 }
                 className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50"
               >
@@ -230,7 +239,9 @@ export function PendingScheduledPaymentsPrompt() {
                 type="button"
                 disabled={acting}
                 onClick={() =>
-                  void handlePostpone(postponeFromOriginalScheduledDate(scheduledAtDate, 3))
+                  void handlePostpone(
+                    postponeFromOriginalScheduledDate(scheduledAtDate, 3, userTimezone)
+                  )
                 }
                 className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50"
               >
@@ -240,7 +251,9 @@ export function PendingScheduledPaymentsPrompt() {
                 type="button"
                 disabled={acting}
                 onClick={() =>
-                  void handlePostpone(postponeFromOriginalScheduledDate(scheduledAtDate, 7))
+                  void handlePostpone(
+                    postponeFromOriginalScheduledDate(scheduledAtDate, 7, userTimezone)
+                  )
                 }
                 className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50"
               >

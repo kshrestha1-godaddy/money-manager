@@ -508,7 +508,11 @@ export default function ScheduledPaymentsPageClient() {
   const handlePostponeDays = useCallback(
     async (item: ScheduledPaymentItem, days: 1 | 3 | 7) => {
       try {
-        const when = postponeFromOriginalScheduledDate(new Date(item.scheduledAt), days);
+        const when = postponeFromOriginalScheduledDate(
+          new Date(item.scheduledAt),
+          days,
+          userTimezone
+        );
         await postponeScheduledPayment(item.id, when);
         await load({ silent: true });
         setNotification({
@@ -523,7 +527,7 @@ export default function ScheduledPaymentsPageClient() {
         alert(e instanceof Error ? e.message : "Could not postpone");
       }
     },
-    [load]
+    [load, userTimezone]
   );
 
   if (loading) {

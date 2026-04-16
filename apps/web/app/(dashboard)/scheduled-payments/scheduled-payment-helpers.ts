@@ -5,18 +5,167 @@ function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-/** Value for `<input type="datetime-local" />` in local timezone. */
-export function toDatetimeLocalValue(d: Date): string {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+interface TimezoneDateParts {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+}
+
+const timezoneFormatterCache = new Map<string, Intl.DateTimeFormat>();
+
+function getTimezoneFormatter(timezone: string): Intl.DateTimeFormat {
+  const cached = timezoneFormatterCache.get(timezone);
+  if (cached) return cached;
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  timezoneFormatterCache.set(timezone, formatter);
+  return formatter;
+}
+
+function getDatePartsInTimezone(date: Date, timezone: string): TimezoneDateParts {
+  const formatter = getTimezoneFormatter(timezone);
+  const parts = formatter.formatToParts(date);
+  const getPart = (type: Intl.DateTimeFormatPartTypes): number => {
+    const part = parts.find((item) => item.type === type);
+    return part ? Number(part.value) : 0;
+  };
+  return {
+    year: getPart("year"),
+    month: getPart("month"),
+    day: getPart("day"),
+    hour: getPart("hour"),
+    minute: getPart("minute"),
+    second: getPart("second"),
+  };
+}
+
+function zonedDateTimeToUtc(
+  year: number,
+  monthIndex: number,
+  day: number,
+  hour: number,
+  minute: number,
+  second: number,
+  millisecond: number,
+  timezone: string
+): Date {
+  const targetAsUtcMs = Date.UTC(year, monthIndex, day, hour, minute, second, millisecond);
+  let candidateUtcMs = targetAsUtcMs;
+
+  // Iteratively correct offset to handle DST transitions.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const candidateParts = getDatePartsInTimezone(new Date(candidateUtcMs), timezone);
+    const candidateAsUtcMs = Date.UTC(
+      candidateParts.year,
+      candidateParts.month - 1,
+      candidateParts.day,
+      candidateParts.hour,
+      candidateParts.minute,
+      candidateParts.second,
+      0
+    );
+    const deltaMs = targetAsUtcMs - candidateAsUtcMs;
+    if (deltaMs === 0) break;
+    candidateUtcMs += deltaMs;
+  }
+
+  return new Date(candidateUtcMs);
 }
 
 /**
- * Add N calendar days to the **originally scheduled** date/time (same clock on the new calendar day).
- * If the result is still not after `now`, nudge to `now + 1 minute` so the server accepts it.
+ * Value for `<input type="datetime-local" />` in user's timezone.
+ * Falls back to local timezone formatting if timezone is invalid.
  */
-export function postponeFromOriginalScheduledDate(scheduledAt: Date, days: number): Date {
-  const target = new Date(scheduledAt);
-  target.setDate(target.getDate() + days);
+export function toDatetimeLocalValue(d: Date, timezone?: string): string {
+  if (!timezone) {
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  }
+  try {
+    const parts = getDatePartsInTimezone(d, timezone);
+    return `${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}T${pad2(parts.hour)}:${pad2(parts.minute)}`;
+  } catch {
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  }
+}
+
+/**
+ * Parse datetime-local value as wall-clock time in user's timezone.
+ * Returns null for invalid values.
+ */
+export function parseDatetimeLocalInTimezone(value: string, timezone: string): Date | null {
+  const m =
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(value.trim());
+  if (!m) return null;
+
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const hour = Number(m[4]);
+  const minute = Number(m[5]);
+  const second = Number(m[6] ?? "0");
+
+  if (
+    Number.isNaN(year) ||
+    Number.isNaN(month) ||
+    Number.isNaN(day) ||
+    Number.isNaN(hour) ||
+    Number.isNaN(minute) ||
+    Number.isNaN(second)
+  ) {
+    return null;
+  }
+
+  try {
+    return zonedDateTimeToUtc(year, month - 1, day, hour, minute, second, 0, timezone);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Add N calendar days in user's timezone to the original scheduled datetime.
+ * Keeps the wall-clock time in that timezone, then converts back to UTC Date.
+ */
+export function postponeFromOriginalScheduledDate(
+  scheduledAt: Date,
+  days: number,
+  timezone: string
+): Date {
+  const sourceParts = getDatePartsInTimezone(scheduledAt, timezone);
+  const shifted = new Date(
+    Date.UTC(
+      sourceParts.year,
+      sourceParts.month - 1,
+      sourceParts.day,
+      sourceParts.hour,
+      sourceParts.minute,
+      sourceParts.second,
+      scheduledAt.getMilliseconds()
+    )
+  );
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  const target = zonedDateTimeToUtc(
+    shifted.getUTCFullYear(),
+    shifted.getUTCMonth(),
+    shifted.getUTCDate(),
+    shifted.getUTCHours(),
+    shifted.getUTCMinutes(),
+    shifted.getUTCSeconds(),
+    shifted.getUTCMilliseconds(),
+    timezone
+  );
+
   const now = new Date();
   if (target <= now) {
     target.setTime(now.getTime() + 60_000);

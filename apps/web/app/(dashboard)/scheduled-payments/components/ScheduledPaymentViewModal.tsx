@@ -9,6 +9,7 @@ import { BUTTON_COLORS } from "../../../config/colorConfig";
 import {
   accountDisplay,
   formatScheduledPaymentWhenDate,
+  parseDatetimeLocalInTimezone,
   postponeFromOriginalScheduledDate,
   recurringDisplay,
   scheduledPaymentStatusLabel,
@@ -46,9 +47,12 @@ export function ScheduledPaymentViewModal({
     }
     const scheduledAtDate = new Date(item.scheduledAt);
     setCustomPostpone(
-      toDatetimeLocalValue(postponeFromOriginalScheduledDate(scheduledAtDate, 1))
+      toDatetimeLocalValue(
+        postponeFromOriginalScheduledDate(scheduledAtDate, 1, userTimezone),
+        userTimezone
+      )
     );
-  }, [item?.id]);
+  }, [item?.id, userTimezone]);
 
   if (!isOpen || !item) return null;
 
@@ -61,7 +65,7 @@ export function ScheduledPaymentViewModal({
     displayCurrency
   );
   const scheduledAtDate = new Date(item.scheduledAt);
-  const minDatetimeLocal = toDatetimeLocalValue(new Date(Date.now() + 60_000));
+  const minDatetimeLocal = toDatetimeLocalValue(new Date(Date.now() + 60_000), userTimezone);
 
   async function handlePostpone(when: Date) {
     setActing(true);
@@ -78,8 +82,8 @@ export function ScheduledPaymentViewModal({
 
   function handleCustomPostpone() {
     if (!customPostpone.trim()) return;
-    const parsed = new Date(customPostpone);
-    if (Number.isNaN(parsed.getTime())) {
+    const parsed = parseDatetimeLocalInTimezone(customPostpone, userTimezone);
+    if (!parsed || Number.isNaN(parsed.getTime())) {
       alert("Invalid date and time");
       return;
     }
@@ -206,7 +210,9 @@ export function ScheduledPaymentViewModal({
                 type="button"
                 disabled={acting}
                 onClick={() =>
-                  void handlePostpone(postponeFromOriginalScheduledDate(scheduledAtDate, 1))
+                  void handlePostpone(
+                    postponeFromOriginalScheduledDate(scheduledAtDate, 1, userTimezone)
+                  )
                 }
                 className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50"
               >
@@ -216,7 +222,9 @@ export function ScheduledPaymentViewModal({
                 type="button"
                 disabled={acting}
                 onClick={() =>
-                  void handlePostpone(postponeFromOriginalScheduledDate(scheduledAtDate, 3))
+                  void handlePostpone(
+                    postponeFromOriginalScheduledDate(scheduledAtDate, 3, userTimezone)
+                  )
                 }
                 className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50"
               >
@@ -226,7 +234,9 @@ export function ScheduledPaymentViewModal({
                 type="button"
                 disabled={acting}
                 onClick={() =>
-                  void handlePostpone(postponeFromOriginalScheduledDate(scheduledAtDate, 7))
+                  void handlePostpone(
+                    postponeFromOriginalScheduledDate(scheduledAtDate, 7, userTimezone)
+                  )
                 }
                 className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50"
               >
