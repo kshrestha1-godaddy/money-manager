@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { BudgetTarget } from '../types/financial';
 import { getBudgetTargets, createBudgetTarget, updateBudgetTarget, deleteBudgetTarget, getBudgetComparison, updateOrCreateBudgetTarget, updateCategoryBudgetInclusion, getAllCategoriesWithBudgetStatus } from '../actions/budget-targets';
 
@@ -68,6 +68,7 @@ export function useBudgetTracking(
       }
       return result.data || [];
     },
+    placeholderData: keepPreviousData,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 

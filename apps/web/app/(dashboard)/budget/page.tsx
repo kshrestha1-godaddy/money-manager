@@ -684,7 +684,7 @@ export default function BudgetPage() {
     }
   };
 
-  if (loading) {
+  if (loading && budgetComparison.length === 0) {
     return (
       <div className={loadingContainer}>
         <div className={loadingSpinner}></div>
