@@ -35,6 +35,51 @@ function csvTable(headers: string[], rows: (string | number)[][]): string {
   return arrayToCSV([headers, ...rows]);
 }
 
+function isDecimalLike(v: unknown): v is { toString(): string } {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    "toString" in v &&
+    typeof (v as { toString: unknown }).toString === "function" &&
+    (v as { constructor?: { name?: string } }).constructor?.name === "Decimal"
+  );
+}
+
+function formatCsvValue(v: unknown): string | number {
+  if (v == null) return "";
+  if (v instanceof Date) return v.toISOString();
+  if (typeof v === "number") return v;
+  if (typeof v === "bigint") return v.toString();
+  if (typeof v === "boolean") return v ? "true" : "false";
+  if (typeof v === "string") return v;
+  if (Array.isArray(v)) return jsonCell(v);
+  if (isDecimalLike(v)) return v.toString();
+  if (typeof v === "object") return jsonCell(v);
+  return String(v);
+}
+
+function collectHeaders(rows: Record<string, unknown>[]): string[] {
+  const headers: string[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    for (const key of Object.keys(row)) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+      headers.push(key);
+    }
+  }
+  return headers;
+}
+
+function csvFromRecords(rows: Record<string, unknown>[], headers?: string[]): string {
+  const resolvedHeaders = headers ?? collectHeaders(rows);
+  if (resolvedHeaders.length === 0) return "";
+  const body = rows.map((row) =>
+    resolvedHeaders.map((header) => formatCsvValue(row[header]))
+  );
+  return csvTable(resolvedHeaders, body);
+}
+
 async function categoryTypeMapForUser(userId: number): Promise<Map<string, string>> {
   const categories = await prisma.category.findMany({
     where: { userId },
@@ -56,6 +101,27 @@ export async function buildSupplementalExportCsvForUser(
 
   try {
     switch (piece) {
+      case "user_profile": {
+        const row = await prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            number: true,
+            profilePictureUrl: true,
+            currency: true,
+            timezone: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        });
+        return {
+          csv: csvFromRecords(row ? [row] : []),
+          filename,
+        };
+      }
+
       case "budget_targets": {
         const [map, budgetTargets] = await Promise.all([
           categoryTypeMapForUser(userId),
@@ -111,31 +177,7 @@ export async function buildSupplementalExportCsvForUser(
           where: { userId },
           orderBy: { createdAt: "desc" },
         });
-        const headers = [
-          "ID",
-          "Title",
-          "URL",
-          "Description",
-          "Category",
-          "Favicon",
-          "Tags",
-          "User ID",
-          "Created At",
-          "Updated At",
-        ];
-        const body = rows.map((b) => [
-          b.id,
-          b.title,
-          b.url,
-          b.description ?? "",
-          b.category ?? "",
-          b.favicon ?? "",
-          b.tags.join("; "),
-          b.userId,
-          iso(b.createdAt),
-          iso(b.updatedAt),
-        ]);
-        return { csv: csvTable(headers, body), filename };
+        return { csv: csvFromRecords(rows), filename };
       }
 
       case "transaction_bookmarks": {
@@ -143,31 +185,110 @@ export async function buildSupplementalExportCsvForUser(
           where: { userId },
           orderBy: { createdAt: "desc" },
         });
-        const headers = [
-          "ID",
-          "Transaction Type",
-          "Transaction ID",
-          "Title",
-          "Description",
-          "Notes",
-          "Tags",
-          "User ID",
-          "Created At",
-          "Updated At",
-        ];
-        const body = rows.map((b) => [
-          b.id,
-          b.transactionType,
-          b.transactionId,
-          b.title,
-          b.description ?? "",
-          b.notes ?? "",
-          b.tags.join("; "),
-          b.userId,
-          iso(b.createdAt),
-          iso(b.updatedAt),
-        ]);
-        return { csv: csvTable(headers, body), filename };
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "scheduled_payments": {
+        const rows = await prisma.scheduledPayment.findMany({
+          where: { userId },
+          orderBy: { scheduledAt: "desc" },
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "transaction_locations": {
+        const rows = await prisma.transactionLocation.findMany({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "saved_locations": {
+        const rows = await prisma.savedLocation.findMany({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "loans": {
+        const rows = await prisma.loan.findMany({
+          where: { userId },
+          orderBy: { takenDate: "desc" },
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "loan_repayments": {
+        const rows = await prisma.loanRepayment.findMany({
+          where: { loan: { userId } },
+          orderBy: { repaymentDate: "desc" },
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "notifications": {
+        const rows = await prisma.notification.findMany({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "dismissed_notifications": {
+        const rows = await prisma.dismissedNotification.findMany({
+          where: { userId },
+          orderBy: { dismissedAt: "desc" },
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "notification_settings": {
+        const rows = await prisma.notificationSettings.findMany({
+          where: { userId },
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "account_thresholds": {
+        const rows = await prisma.accountThreshold.findMany({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "user_checkins": {
+        const rows = await prisma.userCheckin.findMany({
+          where: { userId },
+          orderBy: { checkinAt: "desc" },
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "emergency_emails": {
+        const rows = await prisma.emergencyEmail.findMany({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "password_shares": {
+        const rows = await prisma.passwordShare.findMany({
+          where: { userId },
+          orderBy: { sentAt: "desc" },
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "networth_inclusions": {
+        const rows = await prisma.netWorthInclusion.findMany({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+        });
+        return { csv: csvFromRecords(rows), filename };
       }
 
       case "activity_logs": {
@@ -217,6 +338,30 @@ export async function buildSupplementalExportCsvForUser(
         return { csv: csvTable(headers, body), filename };
       }
 
+      case "notes": {
+        const rows = await prisma.note.findMany({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "chat_threads": {
+        const rows = await prisma.chatThread.findMany({
+          where: { userId },
+          orderBy: { lastMessageAt: "desc" },
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "chat_conversations": {
+        const rows = await prisma.chatConversation.findMany({
+          where: { thread: { userId } },
+          orderBy: { createdAt: "asc" },
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
       case "networth_history": {
         const rows = await prisma.networthHistory.findMany({
           where: { userId },
@@ -257,6 +402,69 @@ export async function buildSupplementalExportCsvForUser(
           iso(h.updatedAt),
         ]);
         return { csv: csvTable(headers, body), filename };
+      }
+
+      case "transaction_images": {
+        const rows = await prisma.transactionImage.findMany({
+          where: { userId },
+          orderBy: { uploadedAt: "desc" },
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "goals": {
+        const rows = await prisma.goal.findMany({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "goal_phases": {
+        const rows = await prisma.goalPhase.findMany({
+          where: { userId },
+          orderBy: [{ goalId: "asc" }, { sequenceOrder: "asc" }],
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "goal_progress": {
+        const rows = await prisma.goalProgress.findMany({
+          where: { userId },
+          orderBy: [{ goalId: "asc" }, { progressDate: "asc" }],
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "annuity_calculator_presets": {
+        const rows = await prisma.annuityCalculatorPreset.findMany({
+          where: { userId },
+          orderBy: { updatedAt: "desc" },
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "life_events": {
+        const rows = await prisma.lifeEvent.findMany({
+          where: { userId },
+          orderBy: { eventDate: "asc" },
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "user_app_lock_settings": {
+        const rows = await prisma.userAppLockSetting.findMany({
+          where: { userId },
+        });
+        return { csv: csvFromRecords(rows), filename };
+      }
+
+      case "blood_pressure_readings": {
+        const rows = await prisma.bloodPressureReading.findMany({
+          where: { userId },
+          orderBy: { measuredAt: "desc" },
+        });
+        return { csv: csvFromRecords(rows), filename };
       }
 
       case "investment_target_records": {
