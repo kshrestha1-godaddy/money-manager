@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef } from "react";
 import {
   Bar,
   CartesianGrid,
@@ -46,56 +46,8 @@ interface CandlestickPoint {
   closeSma3?: number;
 }
 
-type RangePreset = "3m" | "4m" | "6m" | "1y" | "all";
-
-interface DateRange {
-  start: Date | null;
-  end: Date | null;
-  label: string;
-}
-
 function getMonthStart(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1);
-}
-
-function getCurrentRange(months: number): DateRange {
-  const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
-
-  let targetMonth = currentMonth - months + 2;
-  let targetYear = currentYear;
-  while (targetMonth <= 0) {
-    targetMonth += 12;
-    targetYear -= 1;
-  }
-
-  const start = new Date(targetYear, targetMonth - 1, 1);
-  start.setHours(0, 0, 0, 0);
-
-  const end = new Date(currentYear, currentMonth + 1, 0);
-  end.setHours(23, 59, 59, 999);
-
-  return {
-    start,
-    end,
-    label: `${months === 12 ? "1 year" : `${months} months`}`,
-  };
-}
-
-function getPresetRange(preset: RangePreset): DateRange {
-  if (preset === "all") return { start: null, end: null, label: "All Time" };
-  if (preset === "1y") return getCurrentRange(12);
-  if (preset === "6m") return getCurrentRange(6);
-  if (preset === "4m") return getCurrentRange(4);
-  return getCurrentRange(3);
-}
-
-function isInRange(date: Date, range: DateRange): boolean {
-  if (!range.start && !range.end) return true;
-  if (range.start && date < range.start) return false;
-  if (range.end && date > range.end) return false;
-  return true;
 }
 
 function buildCandlestickData(transactions: CashflowTransaction[], openingBalance = 0): CandlestickPoint[] {
@@ -170,19 +122,47 @@ function buildCandlestickData(transactions: CashflowTransaction[], openingBalanc
 
 export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps>(({ currency }) => {
   const chartRef = useRef<HTMLDivElement>(null);
-  const [selectedRange, setSelectedRange] = useState<RangePreset>("1y");
-  const { rawIncomes, rawExpenses } = useChartData();
+  const {
+    filteredIncomes,
+    filteredExpenses,
+    rawIncomes,
+    rawExpenses,
+    timeRange,
+    formatTimePeriod,
+  } = useChartData();
 
-  const activeDateRange = useMemo(() => getPresetRange(selectedRange), [selectedRange]);
+  const periodLabel = formatTimePeriod();
+
+  const openingBalance = useMemo(() => {
+    const start = timeRange.startDate;
+    if (!start) return 0;
+    const boundary = new Date(start);
+    boundary.setHours(0, 0, 0, 0);
+
+    let sum = 0;
+    for (const income of rawIncomes) {
+      const d = new Date(income.date);
+      if (d < boundary) {
+        sum += convertForDisplaySync(income.amount, income.currency, currency);
+      }
+    }
+    for (const expense of rawExpenses) {
+      const d = new Date(expense.date);
+      if (d < boundary) {
+        sum -= convertForDisplaySync(expense.amount, expense.currency, currency);
+      }
+    }
+    return sum;
+  }, [rawIncomes, rawExpenses, currency, timeRange.startDate]);
 
   const chartData = useMemo(() => {
-    const incomeTransactions: CashflowTransaction[] = rawIncomes.map((income) => ({
+    const incomeTransactions: CashflowTransaction[] = filteredIncomes.map((income) => ({
       monthKey: `${new Date(income.date).getFullYear()}-${String(new Date(income.date).getMonth() + 1).padStart(2, "0")}`,
       date: new Date(income.date),
       amount: convertForDisplaySync(income.amount, income.currency, currency),
     }));
 
-    const expenseTransactions: CashflowTransaction[] = rawExpenses.map((expense) => ({
+    const expenseTransactions: CashflowTransaction[] = filteredExpenses.map((expense) => ({
       monthKey: `${new Date(expense.date).getFullYear()}-${String(new Date(expense.date).getMonth() + 1).padStart(2, "0")}`,
       date: new Date(expense.date),
       amount: -convertForDisplaySync(expense.amount, expense.currency, currency),
@@ -192,13 +172,8 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
       (a, b) => a.date.getTime() - b.date.getTime(),
     );
 
-    const openingBalance = allTransactions
-      .filter((transaction) => activeDateRange.start && transaction.date < activeDateRange.start)
-      .reduce((sum, transaction) => sum + transaction.amount, 0);
-
-    const rangeTransactions = allTransactions.filter((transaction) => isInRange(transaction.date, activeDateRange));
-    return buildCandlestickData(rangeTransactions, openingBalance);
-  }, [rawIncomes, rawExpenses, currency, activeDateRange]);
+    return buildCandlestickData(allTransactions, openingBalance);
+  }, [filteredIncomes, filteredExpenses, currency, openingBalance]);
 
   const csvData = useMemo(
     () => [
@@ -365,7 +340,7 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
   if (chartData.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow p-6" data-chart-type="cashflow-candlestick">
-        <div className="text-lg font-semibold text-gray-900 mb-2">Monthly Cashflow Candlestick ({activeDateRange.label})</div>
+        <div className="text-lg font-semibold text-gray-900 mb-2">Monthly Cashflow Candlestick {periodLabel}</div>
         <div className="text-sm text-gray-500">
           No data available for this period. Add income or expense transactions to render candlesticks.
         </div>
@@ -380,35 +355,10 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
         fileName="cashflow-candlestick-chart"
         csvData={csvData}
         csvFileName="cashflow-candlestick-data"
-        title={`Monthly Cashflow Candlestick (${activeDateRange.label})`}
+        title={`Monthly Cashflow Candlestick ${periodLabel}`}
         tooltipText="Each candle shows monthly cashflow behavior: open is prior month net position and close is end-of-month position, using only income and expense transactions."
         showExpandButton={false}
       />
-
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        {[
-          { id: "3m", label: "3M" },
-          { id: "4m", label: "4M" },
-          { id: "6m", label: "6M" },
-          { id: "1y", label: "1 Year" },
-          { id: "all", label: "All Time" },
-        ].map((preset) => {
-          const isActive = selectedRange === (preset.id as RangePreset);
-          return (
-            <button
-              key={preset.id}
-              onClick={() => setSelectedRange(preset.id as RangePreset)}
-              className={
-                isActive
-                  ? "px-3 py-1 text-xs border-2 border-blue-500 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium shadow-sm"
-                  : "px-3 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              }
-            >
-              {preset.label}
-            </button>
-          );
-        })}
-      </div>
 
       <div className="mb-4 text-sm text-gray-600">
         <span className="font-medium text-gray-800">How to read:</span> green body = month closed higher than it opened, red body = month closed lower.
