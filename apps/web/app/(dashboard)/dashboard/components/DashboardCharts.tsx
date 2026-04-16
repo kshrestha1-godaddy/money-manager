@@ -65,13 +65,13 @@ export function DashboardCharts({
         </div>
       </div>
 
-      {/* Third Row: Distribution Charts */}
+      {/* Third Row: Distribution Charts (income left, expenses right) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-[500px]">
-        <div key="expense-pie-chart" className="flex flex-col h-full">
-          <CategoryPieChart type="expense" currency={currency} heightClass="h-[32rem] md:h-[40rem]" />
-        </div>
         <div key="income-pie-chart" className="flex flex-col h-full">
           <IncomePieChart currency={currency} heightClass="h-[32rem] md:h-[40rem]" />
+        </div>
+        <div key="expense-pie-chart" className="flex flex-col h-full">
+          <CategoryPieChart type="expense" currency={currency} heightClass="h-[32rem] md:h-[40rem]" />
         </div>
       </div>
 

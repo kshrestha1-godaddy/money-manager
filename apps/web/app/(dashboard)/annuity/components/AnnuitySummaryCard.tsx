@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 interface AnnuitySummaryCardProps {
   title: string;
   value: ReactNode;
-  subtitle: string;
+  /** Short hint or multi-line detail (use a fragment for several lines). */
+  subtitle?: ReactNode;
 }
 
 export function AnnuitySummaryCard({ title, value, subtitle }: AnnuitySummaryCardProps) {
@@ -12,7 +13,9 @@ export function AnnuitySummaryCard({ title, value, subtitle }: AnnuitySummaryCar
       <div className="flex h-full flex-col">
         <h3 className="text-sm font-medium text-gray-500">{title}</h3>
         <div className="mt-2 text-2xl font-semibold text-gray-900 tabular-nums">{value}</div>
-        <p className="mt-1 text-xs text-gray-500">{subtitle}</p>
+        {subtitle != null ? (
+          <div className="mt-2 space-y-1.5 text-xs leading-relaxed text-gray-500">{subtitle}</div>
+        ) : null}
       </div>
     </div>
   );

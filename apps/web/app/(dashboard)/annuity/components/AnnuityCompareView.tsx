@@ -65,116 +65,84 @@ function winnerLabel(side: WinnerSide, labelA: string, labelB: string): string {
   return side === "a" ? labelA : labelB;
 }
 
-const MONEY_GAP_EPS = 0.005;
+const DIFF_EPS = 0.005;
 
-interface MoneyGapDetail {
-  tie: boolean;
-  leaderLabel?: string;
-  otherLabel?: string;
-  amountFormatted?: string;
-  /** (higher − lower) / lower × 100 when the lower value is positive */
-  pctVsLower?: number | null;
-}
-
-function computeMoneyGapDetail(
-  labelA: string,
-  labelB: string,
-  valueA: number,
-  valueB: number,
+function formatSignedCurrencyDiff(
+  a: number,
+  b: number,
   baseCurrency: string,
   displayCurrency: string
-): MoneyGapDetail {
-  if (Math.abs(valueA - valueB) < MONEY_GAP_EPS) return { tie: true };
-  const aHigher = valueA > valueB;
-  const high = aHigher ? valueA : valueB;
-  const low = aHigher ? valueB : valueA;
-  const diff = high - low;
-  const amountFormatted = formatAmountForDisplay(diff, baseCurrency, displayCurrency);
-  const pctVsLower = low > MONEY_GAP_EPS ? (diff / low) * 100 : null;
-  return {
-    tie: false,
-    leaderLabel: aHigher ? labelA : labelB,
-    otherLabel: aHigher ? labelB : labelA,
-    amountFormatted,
-    pctVsLower,
-  };
+): string {
+  const d = a - b;
+  if (Math.abs(d) < DIFF_EPS) return "—";
+  const sign = d > 0 ? "+" : "−";
+  return `${sign}${formatAmountForDisplay(Math.abs(d), baseCurrency, displayCurrency)}`;
 }
 
-interface RoiGapDetail {
-  tie: boolean;
-  leaderLabel?: string;
-  otherLabel?: string;
-  pp?: number;
-  roiA: number;
-  roiB: number;
+function formatSignedPpDiff(a: number, b: number): string {
+  const d = a - b;
+  if (Math.abs(d) < DIFF_EPS) return "—";
+  const sign = d > 0 ? "+" : "−";
+  return `${sign}${Math.abs(d).toFixed(2)} pp`;
 }
 
-function computeRoiGapDetail(labelA: string, labelB: string, roiA: number, roiB: number): RoiGapDetail {
-  if (Math.abs(roiA - roiB) < MONEY_GAP_EPS) {
-    return { tie: true, roiA, roiB };
+function formatMonthsDiff(monthsA: number, monthsB: number): string {
+  if (monthsA === monthsB) return "—";
+  const d = monthsA - monthsB;
+  return `${d > 0 ? "+" : ""}${d} mo`;
+}
+
+function principalDifferenceDisplay(
+  inputsA: CalculatorInputs,
+  inputsB: CalculatorInputs,
+  snapshotA: AnnuitySnapshot,
+  snapshotB: AnnuitySnapshot,
+  baseCurrency: string,
+  selectedCurrency: string
+): string {
+  const tfvA = inputsA.calculationType === "annuity-target-future-value";
+  const tfvB = inputsB.calculationType === "annuity-target-future-value";
+  if (tfvA !== tfvB) return "—";
+  if (tfvA && tfvB) {
+    const d = snapshotA.effectiveMonthlyInvestment - snapshotB.effectiveMonthlyInvestment;
+    if (Math.abs(d) < DIFF_EPS) return "—";
+    const sign = d > 0 ? "+" : "−";
+    return `${sign}${formatAmountForDisplay(Math.abs(d), baseCurrency, selectedCurrency)} /mo`;
   }
-  const aHigher = roiA > roiB;
-  return {
-    tie: false,
-    leaderLabel: aHigher ? labelA : labelB,
-    otherLabel: aHigher ? labelB : labelA,
-    pp: Math.abs(roiA - roiB),
-    roiA,
-    roiB,
-  };
+  return formatSignedCurrencyDiff(
+    snapshotA.totals.principal,
+    snapshotB.totals.principal,
+    baseCurrency,
+    selectedCurrency
+  );
 }
 
-interface ScenarioGapsSummaryCardProps {
-  balanceGap: MoneyGapDetail;
-  interestGap: MoneyGapDetail;
-  roiGap: RoiGapDetail;
-}
-
-/** "+{amount} [{pct}%] more" or "+{amount} more" when % unavailable */
-function formatAmountBracketPctMoreLine(gap: MoneyGapDetail): string {
-  if (gap.tie || !gap.amountFormatted) return "—";
-  const base = `+${gap.amountFormatted}`;
-  if (gap.pctVsLower != null) return `${base} [${gap.pctVsLower.toFixed(2)}%]`;
-  return `${base} more`;
-}
-
-/** "+{pp} pp [{pct}%] more" — pct is lift of the higher ROI vs the lower */
-function formatRoiBracketPctMoreLine(roiGap: RoiGapDetail): string {
-  if (roiGap.tie) return "—";
-  const low = Math.min(roiGap.roiA, roiGap.roiB);
-  const high = Math.max(roiGap.roiA, roiGap.roiB);
-  const diff = high - low;
-  const pp = roiGap.pp ?? diff;
-  const base = `+${pp.toFixed(2)} pp`;
-  if (low > MONEY_GAP_EPS) return `${base} [${((diff / low) * 100).toFixed(2)}%]`;
-  return `${base} more`;
-}
-
-function ScenarioGapsSummaryCard({ balanceGap, interestGap, roiGap }: ScenarioGapsSummaryCardProps) {
+function RoiOnPrincipalCardValue({
+  snapshot,
+  baseCurrency,
+  displayCurrency,
+}: {
+  snapshot: AnnuitySnapshot;
+  baseCurrency: string;
+  displayCurrency: string;
+}) {
+  const principalFormatted = formatAmountForDisplay(
+    snapshot.totals.principal,
+    baseCurrency,
+    displayCurrency
+  );
+  const finalFormatted = formatAmountForDisplay(
+    snapshot.totals.finalBalance,
+    baseCurrency,
+    displayCurrency
+  );
   return (
-    <div className="bg-white rounded-lg shadow border border-gray-100 px-5 py-4">
-      <h3 className="text-sm font-medium text-gray-500">Lead vs other scenario</h3>
-      <dl className="mt-3 space-y-3">
-        <div>
-          <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Final balance</dt>
-          <dd className="mt-1 text-lg font-semibold tabular-nums text-gray-900">
-            {formatAmountBracketPctMoreLine(balanceGap)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Total interest</dt>
-          <dd className="mt-1 text-lg font-semibold tabular-nums text-gray-900">
-            {formatAmountBracketPctMoreLine(interestGap)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">ROI on principal</dt>
-          <dd className="mt-1 text-lg font-semibold tabular-nums text-gray-900">
-            {formatRoiBracketPctMoreLine(roiGap)}
-          </dd>
-        </div>
-      </dl>
-    </div>
+    <span className="flex flex-col gap-2">
+      <span className="text-2xl font-semibold tabular-nums">{snapshot.roiPercent.toFixed(2)}%</span>
+      <span className="text-xs font-normal leading-relaxed text-gray-500">
+        ({finalFormatted} − {principalFormatted}) ÷ {principalFormatted} × 100
+      </span>
+    </span>
   );
 }
 
@@ -256,6 +224,7 @@ function ComparisonMetricRow({
   label,
   valueA,
   valueB,
+  difference,
   winner,
   labelA,
   labelB,
@@ -263,6 +232,8 @@ function ComparisonMetricRow({
   label: string;
   valueA: string;
   valueB: string;
+  /** A − B: signed amount or percentage gap; "—" when not comparable or equal */
+  difference: string;
   winner: WinnerSide;
   labelA: string;
   labelB: string;
@@ -270,22 +241,23 @@ function ComparisonMetricRow({
   const winText = winnerLabel(winner, labelA, labelB);
   return (
     <tr className="border-b border-gray-100 last:border-0">
-      <td className="py-3 pr-4 text-sm font-medium text-gray-700">{label}</td>
+      <td className="py-5 pl-6 pr-4 text-base font-medium text-gray-700">{label}</td>
       <td
-        className={`py-3 px-2 text-sm tabular-nums ${
+        className={`py-5 px-4 text-base tabular-nums ${
           winner === "a" ? "rounded-md bg-emerald-50 font-semibold text-emerald-900" : "text-gray-900"
         }`}
       >
         {valueA}
       </td>
       <td
-        className={`py-3 px-2 text-sm tabular-nums ${
+        className={`py-5 px-4 text-base tabular-nums ${
           winner === "b" ? "rounded-md bg-emerald-50 font-semibold text-emerald-900" : "text-gray-900"
         }`}
       >
         {valueB}
       </td>
-      <td className="py-3 pl-2 text-right text-xs text-gray-600">{winText}</td>
+      <td className="py-5 px-4 text-left text-base tabular-nums text-gray-800">{difference}</td>
+      <td className="py-5 pl-4 pr-6 text-left text-sm text-gray-600">{winText}</td>
     </tr>
   );
 }
@@ -647,53 +619,6 @@ export function AnnuityCompareView({
     };
   }, [snapshotA, snapshotB]);
 
-  const overallWinner = useMemo((): WinnerSide => {
-    const scores = { a: 0, b: 0 };
-    (Object.keys(winners) as (keyof typeof winners)[]).forEach((key) => {
-      const w = winners[key];
-      if (w === "a") scores.a += 1;
-      else if (w === "b") scores.b += 1;
-    });
-    if (scores.a === scores.b) {
-      return pickHigherWinner(snapshotA.totals.finalBalance, snapshotB.totals.finalBalance);
-    }
-    return scores.a > scores.b ? "a" : "b";
-  }, [winners, snapshotA.totals.finalBalance, snapshotB.totals.finalBalance]);
-
-  const scenarioGaps = useMemo(
-    () => ({
-      balanceGap: computeMoneyGapDetail(
-        labelA,
-        labelB,
-        snapshotA.totals.finalBalance,
-        snapshotB.totals.finalBalance,
-        baseCurrency,
-        selectedCurrency
-      ),
-      interestGap: computeMoneyGapDetail(
-        labelA,
-        labelB,
-        snapshotA.totals.totalInterest,
-        snapshotB.totals.totalInterest,
-        baseCurrency,
-        selectedCurrency
-      ),
-      roiGap: computeRoiGapDetail(labelA, labelB, snapshotA.roiPercent, snapshotB.roiPercent),
-    }),
-    [
-      labelA,
-      labelB,
-      snapshotA.totals.finalBalance,
-      snapshotA.totals.totalInterest,
-      snapshotA.roiPercent,
-      snapshotB.totals.finalBalance,
-      snapshotB.totals.totalInterest,
-      snapshotB.roiPercent,
-      baseCurrency,
-      selectedCurrency,
-    ]
-  );
-
   const handleDownloadA = useCallback(() => {
     const csvContent = buildCsvFromCalculationRows(
       snapshotA.rows,
@@ -816,73 +741,141 @@ export function AnnuityCompareView({
       <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="border-b border-gray-200 px-6 py-5">
           <h2 className="text-lg font-semibold text-gray-900">Comparison summary</h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Higher final balance, total interest, and ROI % are highlighted. Overall pick uses wins on these metrics;
-            ties break on final balance.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-4 px-4 py-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 sm:px-6">
-          <AnnuitySummaryCard
-            title={`${labelA} — final balance`}
-            value={formatAmountForDisplay(
-              snapshotA.totals.finalBalance,
-              baseCurrency,
-              selectedCurrency
-            )}
-            subtitle={`After ${snapshotA.totals.totalMonths} months`}
-          />
-          <AnnuitySummaryCard
-            title={`${labelB} — final balance`}
-            value={formatAmountForDisplay(
-              snapshotB.totals.finalBalance,
-              baseCurrency,
-              selectedCurrency
-            )}
-            subtitle={`After ${snapshotB.totals.totalMonths} months`}
-          />
-          <AnnuitySummaryCard
-            title="ROI on principal (%)"
-            value={
-              <span className="flex flex-col gap-1 leading-tight">
-                <span>A: {snapshotA.roiPercent.toFixed(2)}%</span>
-                <span>B: {snapshotB.roiPercent.toFixed(2)}%</span>
-              </span>
-            }
-            subtitle="(Final balance − principal) ÷ principal"
-          />
-          <ScenarioGapsSummaryCard
-            balanceGap={scenarioGaps.balanceGap}
-            interestGap={scenarioGaps.interestGap}
-            roiGap={scenarioGaps.roiGap}
-          />
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 px-5 py-4 shadow-sm">
-            <h3 className="text-sm font-medium text-emerald-900">Stronger scenario (overall)</h3>
-            <p className="mt-2 text-xl font-semibold text-emerald-950">
-              {winnerLabel(overallWinner, labelA, labelB)}
-            </p>
-            <p className="mt-1 text-xs text-emerald-800">
-              By final balance: {winnerLabel(winners.finalBalance, labelA, labelB)} · Interest:{" "}
-              {winnerLabel(winners.totalInterest, labelA, labelB)} · ROI %:{" "}
-              {winnerLabel(winners.roi, labelA, labelB)}
-            </p>
-          </div>
         </div>
 
-        <div className="border-t border-gray-100 px-4 pb-6 sm:px-6">
+        <div className="grid grid-cols-1 gap-8 px-4 py-6 lg:grid-cols-2 lg:items-start lg:gap-8 lg:px-6 lg:pb-6">
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <AnnuitySummaryCard
+                title={
+                  inputsA.calculationType === "annuity-target-future-value"
+                    ? `${labelA} — required flow`
+                    : `${labelA} — principal`
+                }
+                value={
+                  inputsA.calculationType === "annuity-target-future-value"
+                    ? `${formatAmountForDisplay(
+                        snapshotA.effectiveMonthlyInvestment,
+                        baseCurrency,
+                        selectedCurrency
+                      )} / mo`
+                    : formatAmountForDisplay(snapshotA.totals.principal, baseCurrency, selectedCurrency)
+                }
+                subtitle={
+                  inputsA.calculationType === "annuity-target-future-value"
+                    ? "Monthly amount to reach target FV"
+                    : "Initial balance + contributions"
+                }
+              />
+              <AnnuitySummaryCard
+                title={
+                  inputsB.calculationType === "annuity-target-future-value"
+                    ? `${labelB} — required flow`
+                    : `${labelB} — principal`
+                }
+                value={
+                  inputsB.calculationType === "annuity-target-future-value"
+                    ? `${formatAmountForDisplay(
+                        snapshotB.effectiveMonthlyInvestment,
+                        baseCurrency,
+                        selectedCurrency
+                      )} / mo`
+                    : formatAmountForDisplay(snapshotB.totals.principal, baseCurrency, selectedCurrency)
+                }
+                subtitle={
+                  inputsB.calculationType === "annuity-target-future-value"
+                    ? "Monthly amount to reach target FV"
+                    : "Initial balance + contributions"
+                }
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <AnnuitySummaryCard
+                title={`${labelA} — final balance`}
+                value={formatAmountForDisplay(
+                  snapshotA.totals.finalBalance,
+                  baseCurrency,
+                  selectedCurrency
+                )}
+                subtitle={`After ${snapshotA.totals.totalMonths} months`}
+              />
+              <AnnuitySummaryCard
+                title={`${labelB} — final balance`}
+                value={formatAmountForDisplay(
+                  snapshotB.totals.finalBalance,
+                  baseCurrency,
+                  selectedCurrency
+                )}
+                subtitle={`After ${snapshotB.totals.totalMonths} months`}
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <AnnuitySummaryCard
+                title={`${labelA} — total interest`}
+                value={formatAmountForDisplay(
+                  snapshotA.totals.totalInterest,
+                  baseCurrency,
+                  selectedCurrency
+                )}
+                subtitle={`After ${snapshotA.totals.totalMonths} months`}
+              />
+              <AnnuitySummaryCard
+                title={`${labelB} — total interest`}
+                value={formatAmountForDisplay(
+                  snapshotB.totals.totalInterest,
+                  baseCurrency,
+                  selectedCurrency
+                )}
+                subtitle={`After ${snapshotB.totals.totalMonths} months`}
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <AnnuitySummaryCard
+                title={`${labelA} — ROI on principal`}
+                value={
+                  <RoiOnPrincipalCardValue
+                    snapshot={snapshotA}
+                    baseCurrency={baseCurrency}
+                    displayCurrency={selectedCurrency}
+                  />
+                }
+                subtitle="(Final balance − principal) ÷ principal × 100"
+              />
+              <AnnuitySummaryCard
+                title={`${labelB} — ROI on principal`}
+                value={
+                  <RoiOnPrincipalCardValue
+                    snapshot={snapshotB}
+                    baseCurrency={baseCurrency}
+                    displayCurrency={selectedCurrency}
+                  />
+                }
+                subtitle="(Final balance − principal) ÷ principal × 100"
+              />
+            </div>
+          </div>
+
+          <div className="min-w-0 border-t border-gray-100 pt-8 lg:border-t-0 lg:border-l lg:pl-8 lg:pt-0">
           <div className="overflow-x-auto rounded-lg border border-gray-100">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="py-3 pr-4 text-left text-xs font-medium uppercase text-gray-500">
+                  <th className="py-4 pl-6 pr-4 text-left text-sm font-medium uppercase tracking-wide text-gray-500">
                     Metric
                   </th>
-                  <th className="py-3 px-2 text-left text-xs font-medium uppercase text-gray-500">
+                  <th className="py-4 px-4 text-left text-sm font-medium uppercase tracking-wide text-gray-500">
                     {labelA}
                   </th>
-                  <th className="py-3 px-2 text-left text-xs font-medium uppercase text-gray-500">
+                  <th className="py-4 px-4 text-left text-sm font-medium uppercase tracking-wide text-gray-500">
                     {labelB}
                   </th>
-                  <th className="py-3 pl-2 text-right text-xs font-medium uppercase text-gray-500">
+                  <th
+                    className="py-4 px-4 text-left text-sm font-medium uppercase tracking-wide text-gray-500"
+                    title="How much more scenario A has than B (same units as the metric)"
+                  >
+                    Δ (A − B)
+                  </th>
+                  <th className="py-4 pl-4 pr-6 text-left text-sm font-medium uppercase tracking-wide text-gray-500">
                     Higher
                   </th>
                 </tr>
@@ -908,6 +901,14 @@ export function AnnuityCompareView({
                         ) + " / mo"
                       : formatAmountForDisplay(snapshotB.totals.principal, baseCurrency, selectedCurrency)
                   }
+                  difference={principalDifferenceDisplay(
+                    inputsA,
+                    inputsB,
+                    snapshotA,
+                    snapshotB,
+                    baseCurrency,
+                    selectedCurrency
+                  )}
                   winner="tie"
                   labelA={labelA}
                   labelB={labelB}
@@ -920,6 +921,12 @@ export function AnnuityCompareView({
                     selectedCurrency
                   )}
                   valueB={formatAmountForDisplay(
+                    snapshotB.totals.totalInterest,
+                    baseCurrency,
+                    selectedCurrency
+                  )}
+                  difference={formatSignedCurrencyDiff(
+                    snapshotA.totals.totalInterest,
                     snapshotB.totals.totalInterest,
                     baseCurrency,
                     selectedCurrency
@@ -940,6 +947,12 @@ export function AnnuityCompareView({
                     baseCurrency,
                     selectedCurrency
                   )}
+                  difference={formatSignedCurrencyDiff(
+                    snapshotA.totals.finalBalance,
+                    snapshotB.totals.finalBalance,
+                    baseCurrency,
+                    selectedCurrency
+                  )}
                   winner={winners.finalBalance}
                   labelA={labelA}
                   labelB={labelB}
@@ -948,6 +961,7 @@ export function AnnuityCompareView({
                   label="ROI %"
                   valueA={`${snapshotA.roiPercent.toFixed(2)}%`}
                   valueB={`${snapshotB.roiPercent.toFixed(2)}%`}
+                  difference={formatSignedPpDiff(snapshotA.roiPercent, snapshotB.roiPercent)}
                   winner={winners.roi}
                   labelA={labelA}
                   labelB={labelB}
@@ -962,6 +976,16 @@ export function AnnuityCompareView({
                     snapshotB.totals.finalBalance,
                     snapshotB.totals.totalInterest
                   ).toFixed(2)}%`}
+                  difference={formatSignedPpDiff(
+                    getInterestSharePercent(
+                      snapshotA.totals.finalBalance,
+                      snapshotA.totals.totalInterest
+                    ),
+                    getInterestSharePercent(
+                      snapshotB.totals.finalBalance,
+                      snapshotB.totals.totalInterest
+                    )
+                  )}
                   winner={pickHigherWinner(
                     getInterestSharePercent(
                       snapshotA.totals.finalBalance,
@@ -979,12 +1003,17 @@ export function AnnuityCompareView({
                   label="Horizon (months)"
                   valueA={String(clampYears(inputsA.years) * 12)}
                   valueB={String(clampYears(inputsB.years) * 12)}
+                  difference={formatMonthsDiff(
+                    clampYears(inputsA.years) * 12,
+                    clampYears(inputsB.years) * 12
+                  )}
                   winner="tie"
                   labelA={labelA}
                   labelB={labelB}
                 />
               </tbody>
             </table>
+          </div>
           </div>
         </div>
       </section>

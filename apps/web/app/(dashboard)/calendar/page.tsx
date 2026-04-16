@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { 
   formatLocalDateKey, 
@@ -60,6 +60,11 @@ export default function CalendarPage() {
   const [noteEvents, setNoteEvents] = useState<CalendarNoteEvent[]>([]);
   const [calendarDataLoading, setCalendarDataLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const calendarDataCacheRef = useRef(new Map<string, {
+    bookmarkedEvents: CalendarBookmarkEvent[];
+    debtEvents: CalendarDebtEvent[];
+    noteEvents: CalendarNoteEvent[];
+  }>());
   const { currency: userCurrency } = useCurrency();
 
   // Overall loading state - show loading during initial load or timezone changes
@@ -97,7 +102,17 @@ export default function CalendarPage() {
   }, [viewYear, viewMonth, timezone, timezoneLoading]);
 
   // Load bookmarked transactions and debt due dates
-  const refreshCalendarData = async () => {
+  const refreshCalendarData = useCallback(async (options?: { force?: boolean }) => {
+    const cacheKey = timezone && !timezoneLoading ? timezone : "__local__";
+    const cachedData = calendarDataCacheRef.current.get(cacheKey);
+    if (cachedData && !options?.force) {
+      setBookmarkedEvents(cachedData.bookmarkedEvents);
+      setDebtEvents(cachedData.debtEvents);
+      setNoteEvents(cachedData.noteEvents);
+      setIsInitialized(true);
+      return;
+    }
+
     try {
       setCalendarDataLoading(true);
       
@@ -113,6 +128,11 @@ export default function CalendarPage() {
         setBookmarkedEvents(bookmarkedTransactions);
         setDebtEvents(debtsWithDueDates);
         setNoteEvents(notesWithReminders);
+        calendarDataCacheRef.current.set(cacheKey, {
+          bookmarkedEvents: bookmarkedTransactions,
+          debtEvents: debtsWithDueDates,
+          noteEvents: notesWithReminders
+        });
       } else {
         // Fallback to timezone-unaware functions
         const [bookmarkedTransactions, debtsWithDueDates, notesWithReminders] = await Promise.all([
@@ -124,6 +144,11 @@ export default function CalendarPage() {
         setBookmarkedEvents(bookmarkedTransactions);
         setDebtEvents(debtsWithDueDates);
         setNoteEvents(notesWithReminders);
+        calendarDataCacheRef.current.set(cacheKey, {
+          bookmarkedEvents: bookmarkedTransactions,
+          debtEvents: debtsWithDueDates,
+          noteEvents: notesWithReminders
+        });
       }
     } catch (error) {
       console.error("Error loading calendar data:", error);
@@ -134,7 +159,7 @@ export default function CalendarPage() {
       setCalendarDataLoading(false);
       setIsInitialized(true);
     }
-  };
+  }, [timezone, timezoneLoading]);
 
   // Load calendar data when timezone is ready or when timezone changes
   useEffect(() => {
@@ -263,10 +288,6 @@ export default function CalendarPage() {
     // Adjust selected day if it doesn't exist in the new month
     const maxDayInNewMonth = getDaysInMonth(year, monthIndex);
     setSelectedDay(prev => Math.min(prev, maxDayInNewMonth));
-    // Refresh calendar data for the new month (only if already initialized)
-    if (isInitialized) {
-      refreshCalendarData();
-    }
   }
 
   function nextMonth() {
@@ -276,10 +297,6 @@ export default function CalendarPage() {
     // Adjust selected day if it doesn't exist in the new month
     const maxDayInNewMonth = getDaysInMonth(year, monthIndex);
     setSelectedDay(prev => Math.min(prev, maxDayInNewMonth));
-    // Refresh calendar data for the new month (only if already initialized)
-    if (isInitialized) {
-      refreshCalendarData();
-    }
   }
 
   const monthFormatter = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" });
@@ -333,9 +350,6 @@ export default function CalendarPage() {
             setViewYear(now.getFullYear()); 
             setViewMonth(now.getMonth()); 
             setSelectedDay(now.getDate()); 
-            if (isInitialized) {
-              refreshCalendarData();
-            }
           }} className="px-3 py-0.5 rounded-md border bg-white hover:bg-gray-50">Today</button>
           <button onClick={nextMonth} className="px-3 py-0.5 rounded-md border bg-white hover:bg-gray-50">Next</button>
         </div>
