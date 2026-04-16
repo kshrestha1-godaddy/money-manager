@@ -8,6 +8,7 @@ import {
   deleteScheduledPaymentsWithPassword,
   acceptScheduledPayment,
   rejectScheduledPayment,
+  postponeScheduledPayment,
 } from "./actions/scheduled-payments";
 import { ScheduledPaymentItem } from "../../types/scheduled-payment";
 import { useCurrency } from "../../providers/CurrencyProvider";
@@ -45,6 +46,7 @@ import {
   recurringDisplay,
   recurrenceGroupSortIndex,
   matchesSearch,
+  postponeFromOriginalScheduledDate,
   scheduledPaymentStatusLabel,
 } from "./scheduled-payment-helpers";
 import { BULK_SELECT_COLUMN_WIDTH_PX, TABLE_HEAD_Y } from "./scheduled-payments-table-constants";
@@ -503,6 +505,27 @@ export default function ScheduledPaymentsPageClient() {
     }
   };
 
+  const handlePostponeDays = useCallback(
+    async (item: ScheduledPaymentItem, days: 1 | 3 | 7) => {
+      try {
+        const when = postponeFromOriginalScheduledDate(new Date(item.scheduledAt), days);
+        await postponeScheduledPayment(item.id, when);
+        await load({ silent: true });
+        setNotification({
+          title: "Postponed",
+          message:
+            days === 7
+              ? "Scheduled time moved forward by 1 week."
+              : `Scheduled time moved forward by ${days} day${days === 1 ? "" : "s"}.`,
+          type: "success",
+        });
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "Could not postpone");
+      }
+    },
+    [load]
+  );
+
   if (loading) {
     return (
       <div className={loadingContainer}>
@@ -656,10 +679,10 @@ export default function ScheduledPaymentsPageClient() {
           <div className="space-y-6 px-4 pb-6 pt-6 sm:px-6 sm:pb-8 sm:pt-8">
             {items.length === 0 ? (
               <div className="overflow-x-auto overscroll-x-contain">
-                <table className="w-full min-w-[1100px] table-fixed text-sm leading-relaxed">
+                <table className="w-full min-w-[1200px] table-fixed text-sm leading-relaxed">
                   <tbody>
                     <tr>
-                      <td colSpan={10} className="px-5 py-10 text-center text-gray-500 sm:px-8">
+                      <td colSpan={11} className="px-5 py-10 text-center text-gray-500 sm:px-8">
                         No scheduled payments yet. Use{" "}
                         <span className="font-medium text-gray-700">Schedule payment</span> above to
                         add one.
@@ -670,10 +693,10 @@ export default function ScheduledPaymentsPageClient() {
               </div>
             ) : filteredItems.length === 0 ? (
               <div className="overflow-x-auto overscroll-x-contain">
-                <table className="w-full min-w-[1100px] table-fixed text-sm leading-relaxed">
+                <table className="w-full min-w-[1200px] table-fixed text-sm leading-relaxed">
                   <tbody>
                     <tr>
-                      <td colSpan={10} className="px-5 py-10 text-center text-gray-500 sm:px-8">
+                      <td colSpan={11} className="px-5 py-10 text-center text-gray-500 sm:px-8">
                         No scheduled payments match your filters.{" "}
                         <button
                           type="button"
@@ -689,10 +712,10 @@ export default function ScheduledPaymentsPageClient() {
               </div>
             ) : activeFilteredItems.length === 0 ? (
               <div className="overflow-x-auto overscroll-x-contain">
-                <table className="w-full min-w-[1100px] table-fixed text-sm leading-relaxed">
+                <table className="w-full min-w-[1200px] table-fixed text-sm leading-relaxed">
                   <tbody>
                     <tr>
-                      <td colSpan={10} className="px-5 py-10 text-center text-gray-500 sm:px-8">
+                      <td colSpan={11} className="px-5 py-10 text-center text-gray-500 sm:px-8">
                         No active scheduled payments in this view. Open{" "}
                         <button
                           type="button"
@@ -727,6 +750,7 @@ export default function ScheduledPaymentsPageClient() {
                     onCancel={(item) => setCancelTarget({ id: item.id, title: item.title })}
                     onAccept={(id) => void handleAccept(id)}
                     onReject={(id) => void handleReject(id)}
+                    onPostponeDays={handlePostponeDays}
                     sort={tableSort}
                     onSort={toggleTableSort}
                     bulkSelectHeaderCell={
@@ -820,6 +844,7 @@ export default function ScheduledPaymentsPageClient() {
                       onCancel={(item) => setCancelTarget({ id: item.id, title: item.title })}
                       onAccept={(id) => void handleAccept(id)}
                       onReject={(id) => void handleReject(id)}
+                      onPostponeDays={handlePostponeDays}
                       sort={tableSort}
                       onSort={toggleTableSort}
                       bulkSelectHeaderCell={<ScheduledPaymentsBulkSelectHeaderEmptyTh />}

@@ -18,6 +18,7 @@ export function ScheduledPaymentsTableColgroup() {
       <col style={{ width: SCHEDULED_TABLE_COL_PCT.notes }} />
       <col style={{ width: SCHEDULED_TABLE_COL_PCT.recurrence }} />
       <col style={{ width: SCHEDULED_TABLE_COL_PCT.status }} />
+      <col style={{ width: SCHEDULED_TABLE_COL_PCT.postpone }} />
       <col style={{ width: SCHEDULED_TABLE_COL_PCT.actions }} />
     </colgroup>
   );

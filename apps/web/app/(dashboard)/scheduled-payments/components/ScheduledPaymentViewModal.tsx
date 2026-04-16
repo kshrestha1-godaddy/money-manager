@@ -9,7 +9,7 @@ import { BUTTON_COLORS } from "../../../config/colorConfig";
 import {
   accountDisplay,
   formatScheduledPaymentWhenDate,
-  postponeFromNowWithOriginalTime,
+  postponeFromOriginalScheduledDate,
   recurringDisplay,
   scheduledPaymentStatusLabel,
   toDatetimeLocalValue,
@@ -46,7 +46,7 @@ export function ScheduledPaymentViewModal({
     }
     const scheduledAtDate = new Date(item.scheduledAt);
     setCustomPostpone(
-      toDatetimeLocalValue(postponeFromNowWithOriginalTime(scheduledAtDate, 1))
+      toDatetimeLocalValue(postponeFromOriginalScheduledDate(scheduledAtDate, 1))
     );
   }, [item?.id]);
 
@@ -206,7 +206,7 @@ export function ScheduledPaymentViewModal({
                 type="button"
                 disabled={acting}
                 onClick={() =>
-                  void handlePostpone(postponeFromNowWithOriginalTime(scheduledAtDate, 1))
+                  void handlePostpone(postponeFromOriginalScheduledDate(scheduledAtDate, 1))
                 }
                 className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50"
               >
@@ -216,7 +216,7 @@ export function ScheduledPaymentViewModal({
                 type="button"
                 disabled={acting}
                 onClick={() =>
-                  void handlePostpone(postponeFromNowWithOriginalTime(scheduledAtDate, 3))
+                  void handlePostpone(postponeFromOriginalScheduledDate(scheduledAtDate, 3))
                 }
                 className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50"
               >
@@ -226,7 +226,7 @@ export function ScheduledPaymentViewModal({
                 type="button"
                 disabled={acting}
                 onClick={() =>
-                  void handlePostpone(postponeFromNowWithOriginalTime(scheduledAtDate, 7))
+                  void handlePostpone(postponeFromOriginalScheduledDate(scheduledAtDate, 7))
                 }
                 className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50"
               >

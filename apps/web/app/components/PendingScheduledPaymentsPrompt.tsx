@@ -8,7 +8,7 @@ import {
   postponeScheduledPayment,
 } from "../(dashboard)/scheduled-payments/actions/scheduled-payments";
 import {
-  postponeFromNowWithOriginalTime,
+  postponeFromOriginalScheduledDate,
   toDatetimeLocalValue,
 } from "../(dashboard)/scheduled-payments/scheduled-payment-helpers";
 import { ScheduledPaymentItem } from "../types/scheduled-payment";
@@ -69,7 +69,7 @@ export function PendingScheduledPaymentsPrompt() {
       return;
     }
     setCustomPostpone(
-      toDatetimeLocalValue(postponeFromNowWithOriginalTime(new Date(current.scheduledAt), 1))
+      toDatetimeLocalValue(postponeFromOriginalScheduledDate(new Date(current.scheduledAt), 1))
     );
   }, [current?.id]);
 
@@ -220,7 +220,7 @@ export function PendingScheduledPaymentsPrompt() {
                 type="button"
                 disabled={acting}
                 onClick={() =>
-                  void handlePostpone(postponeFromNowWithOriginalTime(scheduledAtDate, 1))
+                  void handlePostpone(postponeFromOriginalScheduledDate(scheduledAtDate, 1))
                 }
                 className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50"
               >
@@ -230,7 +230,7 @@ export function PendingScheduledPaymentsPrompt() {
                 type="button"
                 disabled={acting}
                 onClick={() =>
-                  void handlePostpone(postponeFromNowWithOriginalTime(scheduledAtDate, 3))
+                  void handlePostpone(postponeFromOriginalScheduledDate(scheduledAtDate, 3))
                 }
                 className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50"
               >
@@ -240,7 +240,7 @@ export function PendingScheduledPaymentsPrompt() {
                 type="button"
                 disabled={acting}
                 onClick={() =>
-                  void handlePostpone(postponeFromNowWithOriginalTime(scheduledAtDate, 7))
+                  void handlePostpone(postponeFromOriginalScheduledDate(scheduledAtDate, 7))
                 }
                 className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50"
               >

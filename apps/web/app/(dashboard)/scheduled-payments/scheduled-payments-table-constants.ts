@@ -5,15 +5,16 @@ export const BULK_SELECT_COLUMN_WIDTH_PX = 52;
  * `table-fixed` widths (sum 100%). When column kept wider for `DD Month YYYY | HH:MM:SS`.
  */
 export const SCHEDULED_TABLE_COL_PCT = {
-  title: "18%",
-  when: "14%",
-  amount: "9%",
-  category: "8%",
-  account: "12%",
-  notes: "11%",
+  title: "17%",
+  when: "13%",
+  amount: "8%",
+  category: "7%",
+  account: "11%",
+  notes: "10%",
   recurrence: "6%",
-  status: "7%",
-  actions: "15%",
+  status: "6%",
+  postpone: "8%",
+  actions: "14%",
 } as const;
 
 export const TABLE_CELL_X = "px-4 sm:px-5";

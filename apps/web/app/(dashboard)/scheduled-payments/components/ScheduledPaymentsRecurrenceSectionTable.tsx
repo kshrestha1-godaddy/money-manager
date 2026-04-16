@@ -40,6 +40,7 @@ interface ScheduledPaymentsRecurrenceSectionTableProps {
   onCancel: (item: ScheduledPaymentItem) => void;
   onAccept: (id: number) => void;
   onReject: (id: number) => void;
+  onPostponeDays: (item: ScheduledPaymentItem, days: 1 | 3 | 7) => void | Promise<void>;
   sort: ScheduledPaymentsTableSortState;
   onSort: (key: ScheduledPaymentsSortKey) => void;
   bulkSelectHeaderCell: ReactNode;
@@ -58,13 +59,14 @@ export function ScheduledPaymentsRecurrenceSectionTable({
   onCancel,
   onAccept,
   onReject,
+  onPostponeDays,
   sort,
   onSort,
   bulkSelectHeaderCell,
 }: ScheduledPaymentsRecurrenceSectionTableProps) {
   return (
     <div className="mb-6 overflow-x-auto overscroll-x-contain last:mb-3 rounded-lg border border-gray-200/90 bg-white shadow-sm">
-      <table className="w-full min-w-[1100px] table-fixed text-sm leading-relaxed">
+      <table className="w-full min-w-[1200px] table-fixed text-sm leading-relaxed">
         <caption className="caption-top w-full border-b border-gray-200 bg-slate-50/95 px-5 py-4 text-left sm:px-6 sm:py-5">
           <span className="text-xs font-semibold uppercase tracking-wide text-gray-700">{section.label}</span>
           <span className="text-xs font-normal text-gray-500">
@@ -92,6 +94,7 @@ export function ScheduledPaymentsRecurrenceSectionTable({
             const canDecide = !item.resolution && item.scheduledAt <= now;
             const canDelete = !item.resolution;
             const canEdit = !item.resolution;
+            const canPostpone = item.resolution === null;
             const isDueSoon = isScheduledWithinNextTwoDays(item, now);
             const rowTint = isDueSoon
               ? "bg-amber-50/90 hover:bg-amber-100/80"
@@ -184,13 +187,18 @@ export function ScheduledPaymentsRecurrenceSectionTable({
                   </span>
                 </td>
                 <td
-                  className={`sticky right-0 z-10 min-w-[12rem] border-l border-gray-100 ${TABLE_CELL_X} ${TABLE_CELL_Y} text-center align-middle shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:min-w-[13.5rem] ${
+                  className={`${TABLE_CELL_X} ${TABLE_CELL_Y} text-center align-middle ${rowTint}`}
+                >
+                  {renderPostponeColumnContent(item, canPostpone, onPostponeDays)}
+                </td>
+                <td
+                  className={`sticky right-0 z-10 min-w-[11rem] border-l border-gray-100 ${TABLE_CELL_X} ${TABLE_CELL_Y} text-center align-middle shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:min-w-[12rem] ${
                     isDueSoon
                       ? "border-amber-100/80 bg-amber-50/90 group-hover:bg-amber-100/80"
                       : "border-gray-100 bg-white group-hover:bg-gray-50/80"
                   }`}
                 >
-                  <div className="flex flex-nowrap items-center justify-center gap-x-1">
+                  <div className="flex flex-wrap items-center justify-center gap-x-0.5 gap-y-1.5">
                     {renderActionCells(
                       item,
                       canDecide,
@@ -242,17 +250,57 @@ export function ScheduledPaymentsRecurrenceSectionTable({
               )}
             </td>
             <td
-              colSpan={5}
+              colSpan={6}
               className={`${TABLE_CELL_X} ${TABLE_CELL_Y} bg-slate-100/95`}
               aria-hidden
             />
             <td
-              className={`sticky right-0 z-10 min-w-[12rem] border-l border-slate-200/90 bg-slate-100/95 ${TABLE_CELL_X} ${TABLE_CELL_Y} shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:min-w-[13.5rem]`}
+              className={`sticky right-0 z-10 min-w-[11rem] border-l border-slate-200/90 bg-slate-100/95 ${TABLE_CELL_X} ${TABLE_CELL_Y} shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:min-w-[12rem]`}
               aria-hidden
             />
           </tr>
         </tfoot>
       </table>
+    </div>
+  );
+}
+
+function renderPostponeColumnContent(
+  item: ScheduledPaymentItem,
+  canPostpone: boolean,
+  onPostponeDays: (item: ScheduledPaymentItem, days: 1 | 3 | 7) => void | Promise<void>
+): ReactNode {
+  if (!canPostpone) {
+    return <span className="text-gray-400">—</span>;
+  }
+  const postponeQuickClass =
+    "inline-flex shrink-0 items-center rounded-md bg-violet-50 px-2 py-1.5 text-xs font-semibold tabular-nums text-violet-700 transition-colors hover:bg-violet-100 hover:text-violet-900";
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-1">
+      <button
+        type="button"
+        className={postponeQuickClass}
+        aria-label="Postpone 1 day"
+        onClick={() => void onPostponeDays(item, 1)}
+      >
+        1D
+      </button>
+      <button
+        type="button"
+        className={postponeQuickClass}
+        aria-label="Postpone 3 days"
+        onClick={() => void onPostponeDays(item, 3)}
+      >
+        3D
+      </button>
+      <button
+        type="button"
+        className={postponeQuickClass}
+        aria-label="Postpone 1 week"
+        onClick={() => void onPostponeDays(item, 7)}
+      >
+        1W
+      </button>
     </div>
   );
 }
@@ -269,16 +317,7 @@ function renderActionCells(
   onReject: (id: number) => void
 ): ReactNode[] {
   const pipeClass = "inline-block shrink-0 select-none px-2 text-xs text-gray-300";
-  const nodes: ReactNode[] = [
-    <button
-      key="view"
-      type="button"
-      onClick={() => onView(item)}
-      className="inline-flex shrink-0 items-center rounded-md bg-indigo-50 px-2.5 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-100 hover:text-indigo-800"
-    >
-      View
-    </button>,
-  ];
+  const nodes: ReactNode[] = [];
   let p = 0;
   const pushPipe = () => {
     nodes.push(
@@ -287,6 +326,16 @@ function renderActionCells(
       </span>
     );
   };
+  nodes.push(
+    <button
+      key="view"
+      type="button"
+      onClick={() => onView(item)}
+      className="inline-flex shrink-0 items-center rounded-md bg-indigo-50 px-2.5 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-100 hover:text-indigo-800"
+    >
+      View
+    </button>
+  );
   if (canDecide) {
     pushPipe();
     nodes.push(

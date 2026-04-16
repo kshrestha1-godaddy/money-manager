@@ -77,7 +77,12 @@ export function ScheduledPaymentsTableHeadRow({
       <SortableTh label="Recurrence" columnKey="recurrence" sort={sort} onSort={onSort} />
       <SortableTh label="Status" columnKey="status" sort={sort} onSort={onSort} />
       <th
-        className={`sticky right-0 z-20 min-w-[12rem] border-l border-gray-200 bg-gray-50 ${TABLE_CELL_X} ${TABLE_HEAD_Y} text-center text-xs font-semibold uppercase tracking-wider text-gray-500 shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.08)] sm:min-w-[13.5rem]`}
+        className={`${TABLE_CELL_X} ${TABLE_HEAD_Y} text-center text-xs font-semibold uppercase tracking-wider text-gray-500`}
+      >
+        Postpone
+      </th>
+      <th
+        className={`sticky right-0 z-20 min-w-[11rem] border-l border-gray-200 bg-gray-50 ${TABLE_CELL_X} ${TABLE_HEAD_Y} text-center text-xs font-semibold uppercase tracking-wider text-gray-500 shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.08)] sm:min-w-[12rem]`}
       >
         Actions
       </th>

@@ -11,19 +11,13 @@ export function toDatetimeLocalValue(d: Date): string {
 }
 
 /**
- * Add N calendar days from today, keep the same clock as the original schedule;
- * ensure result is strictly after now (for postpone server validation).
+ * Add N calendar days to the **originally scheduled** date/time (same clock on the new calendar day).
+ * If the result is still not after `now`, nudge to `now + 1 minute` so the server accepts it.
  */
-export function postponeFromNowWithOriginalTime(scheduledAt: Date, days: number): Date {
-  const now = new Date();
-  const target = new Date(now);
+export function postponeFromOriginalScheduledDate(scheduledAt: Date, days: number): Date {
+  const target = new Date(scheduledAt);
   target.setDate(target.getDate() + days);
-  target.setHours(
-    scheduledAt.getHours(),
-    scheduledAt.getMinutes(),
-    scheduledAt.getSeconds(),
-    scheduledAt.getMilliseconds()
-  );
+  const now = new Date();
   if (target <= now) {
     target.setTime(now.getTime() + 60_000);
   }
