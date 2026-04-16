@@ -8,6 +8,102 @@ import { getCurrencyRateConfigQuery } from "../data/currency-rate-config";
 import { convertCurrencySync } from "../utils/currencyConversion";
 import { ImportResult } from "../types/bulkImport";
 import { parseCSV } from "../utils/csvUtils";
+import { isValidTimezone } from "../utils/timezone";
+
+interface TimezoneDateParts {
+    year: number;
+    month: number;
+    day: number;
+    hour: number;
+    minute: number;
+    second: number;
+}
+
+const timezoneFormatterCache = new Map<string, Intl.DateTimeFormat>();
+
+function getTimezoneFormatter(timezone: string): Intl.DateTimeFormat {
+    if (!timezoneFormatterCache.has(timezone)) {
+        timezoneFormatterCache.set(
+            timezone,
+            new Intl.DateTimeFormat("en-US", {
+                timeZone: timezone,
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: false,
+            })
+        );
+    }
+
+    return timezoneFormatterCache.get(timezone)!;
+}
+
+function getDatePartsInTimezone(date: Date, timezone: string): TimezoneDateParts {
+    const formatter = getTimezoneFormatter(timezone);
+    const parts = formatter.formatToParts(date);
+    const getPart = (type: Intl.DateTimeFormatPartTypes): number => {
+        const part = parts.find((item) => item.type === type);
+        return part ? Number(part.value) : 0;
+    };
+
+    return {
+        year: getPart("year"),
+        month: getPart("month"),
+        day: getPart("day"),
+        hour: getPart("hour"),
+        minute: getPart("minute"),
+        second: getPart("second"),
+    };
+}
+
+function zonedDateTimeToUtc(
+    year: number,
+    monthIndex: number,
+    day: number,
+    hour: number,
+    minute: number,
+    second: number,
+    millisecond: number,
+    timezone: string
+): Date {
+    const targetAsUtcMs = Date.UTC(year, monthIndex, day, hour, minute, second, millisecond);
+    let candidateUtcMs = targetAsUtcMs;
+
+    // Iteratively correct for timezone offset (handles DST transitions).
+    for (let attempt = 0; attempt < 4; attempt++) {
+        const candidateParts = getDatePartsInTimezone(new Date(candidateUtcMs), timezone);
+        const candidateAsUtcMs = Date.UTC(
+            candidateParts.year,
+            candidateParts.month - 1,
+            candidateParts.day,
+            candidateParts.hour,
+            candidateParts.minute,
+            candidateParts.second,
+            0
+        );
+
+        const deltaMs = targetAsUtcMs - candidateAsUtcMs;
+        if (deltaMs === 0) break;
+        candidateUtcMs += deltaMs;
+    }
+
+    return new Date(candidateUtcMs);
+}
+
+function getMonthRangeInTimezone(targetYear: number, targetMonth: number, timezone: string): { monthStart: Date; monthEnd: Date } {
+    const monthStart = zonedDateTimeToUtc(targetYear, targetMonth, 1, 0, 0, 0, 0, timezone);
+
+    const hasYearOverflow = targetMonth === 11;
+    const nextMonthYear = hasYearOverflow ? targetYear + 1 : targetYear;
+    const nextMonth = hasYearOverflow ? 0 : targetMonth + 1;
+    const nextMonthStart = zonedDateTimeToUtc(nextMonthYear, nextMonth, 1, 0, 0, 0, 0, timezone);
+    const monthEnd = new Date(nextMonthStart.getTime() - 1);
+
+    return { monthStart, monthEnd };
+}
 
 export async function getBudgetTargets(period?: string): Promise<{ data?: (BudgetTarget & { categoryType?: string })[], error?: string }> {
     try {
@@ -188,12 +284,13 @@ export async function getBudgetComparison(
         const session = await getAuthenticatedSession();
         const userId = getUserIdFromSession(session.user.id);
 
-        // Get user's preferred currency for display
+        // Get user's preferred currency and timezone for display/filtering
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { currency: true }
+            select: { currency: true, timezone: true }
         });
         const userCurrency = user?.currency || 'USD';
+        const userTimezone = user?.timezone && isValidTimezone(user.timezone) ? user.timezone : "UTC";
         const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery();
 
         // Get all user's categories that are included in budget (both expense and income)
@@ -204,13 +301,12 @@ export async function getBudgetComparison(
             },
         });
 
-        // Get selected month's start and end dates (default to current month if not specified)
+        // Get selected month in user's timezone (default to user's current month if not specified)
         const now = new Date();
-        const targetMonth = selectedMonth !== undefined ? selectedMonth : now.getMonth();
-        const targetYear = selectedYear !== undefined ? selectedYear : now.getFullYear();
-        
-        const monthStart = new Date(targetYear, targetMonth, 1);
-        const monthEnd = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59, 999);
+        const nowInUserTimezone = new Date(now.toLocaleString("en-US", { timeZone: userTimezone }));
+        const targetMonth = selectedMonth !== undefined ? selectedMonth : nowInUserTimezone.getMonth();
+        const targetYear = selectedYear !== undefined ? selectedYear : nowInUserTimezone.getFullYear();
+        const { monthStart, monthEnd } = getMonthRangeInTimezone(targetYear, targetMonth, userTimezone);
 
         // Get all expense and income data for the selected month
         const [expenses, incomes] = await Promise.all([
