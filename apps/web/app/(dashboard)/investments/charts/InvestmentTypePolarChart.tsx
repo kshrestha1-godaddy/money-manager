@@ -251,27 +251,17 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
     // Enhanced CSV data preparation with detailed statistics
     const csvData = useMemo(() => {
       const csvDataArray = [
-        ["Investment Type", "Present value", "Percentage", "Positions", "Average per Position", "Min Amount", "Max Amount", "Risk Level", "Description"],
-        ...data.map((d) => {
-          const riskLevel = d.name === 'Cryptocurrency' ? 'High Risk' :
-                           d.name === 'Stocks' ? 'Medium-High Risk' :
-                           d.name === 'Mutual Funds' ? 'Medium Risk' :
-                           d.name === 'Bonds' ? 'Low-Medium Risk' :
-                           d.name === 'Fixed Deposit' || d.name === 'Emergency Fund' ? 'Low Risk' :
-                           'Variable Risk';
-          
-          return [
-            d.name,
-            d.value.toString(),
-            totalPresentValue > 0 ? ((d.value / totalPresentValue) * 100).toFixed(1) + "%" : "0.0%",
-            d.count.toString(),
-            d.averageAmount.toFixed(2),
-            d.minAmount.toFixed(2),
-            d.maxAmount.toFixed(2),
-            riskLevel,
-            d.description
-          ];
-        }),
+        ["Investment Type", "Present value", "Percentage", "Positions", "Average per Position", "Min Amount", "Max Amount", "Description"],
+        ...data.map((d) => [
+          d.name,
+          d.value.toString(),
+          totalPresentValue > 0 ? ((d.value / totalPresentValue) * 100).toFixed(1) + "%" : "0.0%",
+          d.count.toString(),
+          d.averageAmount.toFixed(2),
+          d.minAmount.toFixed(2),
+          d.maxAmount.toFixed(2),
+          d.description,
+        ]),
       ];
 
       // Add detailed breakdown for all types if "Others" category exists
@@ -299,13 +289,6 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
             const averageAmount = agg.count > 0 ? agg.invested / agg.count : 0;
             const minAmount = agg.amounts.length > 0 ? Math.min(...agg.amounts) : 0;
             const maxAmount = agg.amounts.length > 0 ? Math.max(...agg.amounts) : 0;
-            const riskLevel = type === 'CRYPTO' ? 'High Risk' :
-                             type === 'STOCKS' ? 'Medium-High Risk' :
-                             type === 'MUTUAL_FUNDS' ? 'Medium Risk' :
-                             type === 'BONDS' ? 'Low-Medium Risk' :
-                             type === 'FIXED_DEPOSIT' || type === 'EMERGENCY_FUND' ? 'Low Risk' :
-                             'Variable Risk';
-            
             return {
               name: TYPE_LABELS[type] || type,
               value: agg.invested,
@@ -313,7 +296,6 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
               averageAmount,
               minAmount,
               maxAmount,
-              riskLevel,
               description: TYPE_DESCRIPTIONS[type] || "Investment category with various financial instruments."
             };
           })
@@ -321,15 +303,14 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
           .forEach(item => {
             const percentage = totalPresentValue > 0 ? ((item.value / totalPresentValue) * 100).toFixed(1) + '%' : '0.0%';
             csvDataArray.push([
-              item.name, 
-              item.value.toString(), 
-              percentage, 
+              item.name,
+              item.value.toString(),
+              percentage,
               item.count.toString(),
               item.averageAmount.toFixed(2),
               item.minAmount.toFixed(2),
               item.maxAmount.toFixed(2),
-              item.riskLevel,
-              item.description
+              item.description,
             ]);
           });
       }
@@ -388,17 +369,23 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
       ],
     };
 
+    const formatTickValue = (value: number): string => {
+      if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`;
+      if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+      if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K`;
+      return value.toFixed(0);
+    };
+
     const chartOptions: any = {
       responsive: true,
       maintainAspectRatio: false,
-      aspectRatio: 1,
       layout: {
         padding: {
-          top: 10,
-          bottom: 10,
-          left: 10,
-          right: 10
-        }
+          top: 8,
+          bottom: 8,
+          left: 8,
+          right: 8,
+        },
       },
       animation: {
         animateRotate: true,
@@ -412,24 +399,31 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
       },
       scales: {
         r: {
-          angleLines: { 
-            color: "#d1d5db",
-            lineWidth: 1.5,
+          z: 1,
+          angleLines: {
+            color: "#e5e7eb",
+            lineWidth: 1,
           },
-          grid: { 
-            color: "#d1d5db",
+          grid: {
+            color: "#e5e7eb",
             lineWidth: 0.8,
-            borderDash: [4, 4],
-            borderDashOffset: 2,
-            borderWidth: 1,
-            borderRadius: 2,
-            borderJoinStyle: 'round',
+            z: 1,
           },
-          pointLabels: { display: true, color: "rgb(107, 114, 128)", font: { size: 8 }   },
+          pointLabels: {
+            display: true,
+            color: "rgb(55, 65, 81)",
+            font: { size: 11, weight: '600' },
+            padding: 6,
+          },
           ticks: {
             display: true,
             backdropColor: "transparent",
-            maxTicksLimit: 8,
+            backdropPadding: 0,
+            stepSize: 500000,
+            color: "gray",
+            font: { size: 10, weight: '600' },
+            callback: (value: number) => formatTickValue(value),
+            z: 1,
           },
           beginAtZero: true,
           min: 0,
@@ -439,12 +433,10 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
       plugins: {
         legend: { display: false },
         tooltip: {
-          enabled: false, // Disable default tooltip
+          enabled: false,
           external: (context: any) => {
-            // Custom HTML tooltip
             const { chart, tooltip } = context;
-            
-            // Get or create tooltip element
+
             let tooltipEl = chart.canvas.parentNode.querySelector('#chartjs-tooltip');
             if (!tooltipEl) {
               tooltipEl = document.createElement('div');
@@ -452,111 +444,77 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
               tooltipEl.style.position = 'absolute';
               tooltipEl.style.pointerEvents = 'none';
               tooltipEl.style.zIndex = '1000';
+              tooltipEl.style.transition = 'opacity 0.15s ease';
               chart.canvas.parentNode.appendChild(tooltipEl);
             }
 
-            // Hide if no tooltip
             if (tooltip.opacity === 0) {
               tooltipEl.style.opacity = '0';
               return;
             }
 
-            // Get the data for this tooltip
             if (tooltip.dataPoints && tooltip.dataPoints.length > 0) {
               const dataPoint = tooltip.dataPoints[0];
-              const labelName = dataPoint.label;
-              const item = data.find((d) => d.name === labelName);
-              
+              const item = data.find((d) => d.name === dataPoint.label);
+
               if (item) {
-                const riskLevel = item.name === 'Cryptocurrency' ? 'High Risk' :
-                               item.name === 'Stocks' ? 'Medium-High Risk' :
-                               item.name === 'Mutual Funds' ? 'Medium Risk' :
-                               item.name === 'Bonds' ? 'Low-Medium Risk' :
-                               item.name === 'Fixed Deposit' || item.name === 'Emergency Fund' ? 'Low Risk' :
-                               'Variable Risk';
-
-                const riskColor = riskLevel.includes('High') ? 'text-red-600' :
-                                riskLevel.includes('Medium') ? 'text-yellow-600' : 'text-green-600';
-
                 tooltipEl.innerHTML = `
-                  <div class="bg-white border border-gray-200 rounded-lg shadow-lg p-4 min-w-80 max-w-md">
-                    <div class="font-bold text-gray-900 mb-3 text-base">${item.name}</div>
-                    
-                    <!-- Present value by type -->
-                    <div class="flex items-center justify-between mb-3">
-                      <span class="font-medium text-gray-700">Total present value:</span>
-                      <span class="font-bold text-lg text-blue-600">
-                        ${formatCurrency(item.value, currency)}
-                      </span>
+                  <div style="background:white;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.12);padding:14px 16px;min-width:260px;max-width:340px;font-family:inherit">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                      <div style="width:12px;height:12px;border-radius:50%;background:${item.color};flex-shrink:0"></div>
+                      <span style="font-weight:700;font-size:14px;color:#111827">${item.name}</span>
                     </div>
 
-                    <!-- Portfolio Statistics -->
-                    <div class="space-y-2 mb-3 text-sm">
-                      <div class="flex justify-between">
-                        <span class="text-gray-600">Portfolio Share:</span>
-                        <span class="font-medium">${item.percentageOfTotal.toFixed(1)}%</span>
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;background:#eff6ff;border-radius:6px;padding:8px 10px;margin-bottom:10px">
+                      <span style="font-size:12px;color:#3b82f6;font-weight:500">Present Value</span>
+                      <span style="font-size:16px;font-weight:700;color:#1d4ed8">${formatCurrency(item.value, currency)}</span>
+                    </div>
+
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
+                      <div style="background:#f9fafb;border-radius:6px;padding:6px 8px">
+                        <div style="font-size:10px;color:#6b7280;margin-bottom:2px">Portfolio Share</div>
+                        <div style="font-size:13px;font-weight:600;color:#111827">${item.percentageOfTotal.toFixed(1)}%</div>
                       </div>
-                      
-                      <div class="flex justify-between">
-                        <span class="text-gray-600">Number of Positions:</span>
-                        <span class="font-medium">${item.count}</span>
+                      <div style="background:#f9fafb;border-radius:6px;padding:6px 8px">
+                        <div style="font-size:10px;color:#6b7280;margin-bottom:2px">Positions</div>
+                        <div style="font-size:13px;font-weight:600;color:#111827">${item.count}</div>
                       </div>
-                      
                       ${item.count > 0 ? `
-                        <div class="flex justify-between">
-                          <span class="text-gray-600">Average per Position:</span>
-                          <span class="font-medium">${formatCurrency(item.averageAmount, currency)}</span>
-                        </div>
-                        
-                        ${item.count > 1 ? `
-                          <div class="flex justify-between">
-                            <span class="text-gray-600">Range:</span>
-                            <span class="font-medium">
-                              ${formatCurrency(item.minAmount, currency)} - ${formatCurrency(item.maxAmount, currency)}
-                            </span>
-                          </div>
-                        ` : ''}
+                      <div style="background:#f9fafb;border-radius:6px;padding:6px 8px">
+                        <div style="font-size:10px;color:#6b7280;margin-bottom:2px">Avg / Position</div>
+                        <div style="font-size:13px;font-weight:600;color:#111827">${formatCurrency(item.averageAmount, currency)}</div>
+                      </div>
+                      ` : ''}
+                      ${item.count > 1 ? `
+                      <div style="background:#f9fafb;border-radius:6px;padding:6px 8px">
+                        <div style="font-size:10px;color:#6b7280;margin-bottom:2px">Range</div>
+                        <div style="font-size:11px;font-weight:600;color:#111827">${formatCurrency(item.minAmount, currency)} – ${formatCurrency(item.maxAmount, currency)}</div>
+                      </div>
                       ` : ''}
                     </div>
 
-                    <!-- Top Investments Preview -->
                     ${item.investments.length > 0 ? `
-                      <div class="border-t border-gray-200 pt-3 mb-3">
-                        <div class="text-xs text-gray-600 mb-2">
-                          ${item.investments.length > 3 ? 'Top 3 Investments:' : 'Investments:'}
-                        </div>
-                        <div class="space-y-1">
-                          ${item.investments.slice(0, 3).map(investment => `
-                            <div class="flex justify-between text-xs">
-                              <span class="text-gray-600 truncate max-w-32">
-                                ${investment.name}${investment.symbol ? ` (${investment.symbol})` : ''}
-                              </span>
-                              <span class="font-medium ml-2">
-                                ${formatCurrency(investment.amount, currency)}
-                              </span>
-                            </div>
-                          `).join('')}
-                          ${item.investments.length > 3 ? `
-                            <div class="text-xs text-gray-400 text-center pt-1">
-                              +${item.investments.length - 3} more position${item.investments.length - 3 !== 1 ? 's' : ''}
-                            </div>
-                          ` : ''}
-                        </div>
+                    <div style="border-top:1px solid #f3f4f6;padding-top:8px">
+                      <div style="font-size:10px;color:#9ca3af;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em">
+                        ${item.investments.length > 3 ? 'Top 3 positions' : 'Positions'}
                       </div>
+                      ${item.investments.slice(0, 3).map(inv => `
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                          <span style="font-size:11px;color:#4b5563;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                            ${inv.name}${inv.symbol ? ` <span style="color:#9ca3af">(${inv.symbol})</span>` : ''}
+                          </span>
+                          <span style="font-size:11px;font-weight:600;color:#374151;margin-left:8px">${formatCurrency(inv.amount, currency)}</span>
+                        </div>
+                      `).join('')}
+                      ${item.investments.length > 3 ? `
+                        <div style="font-size:10px;color:#9ca3af;text-align:center;margin-top:2px">+${item.investments.length - 3} more</div>
+                      ` : ''}
+                    </div>
                     ` : ''}
 
-                    <!-- Action Context -->
                     ${item.percentageOfTotal > 50 ? `
-                      <div class="border-t border-gray-200 pt-2 mt-2">
-                        <div class="text-xs text-orange-600 text-center">
-                          ⚠️ High concentration - Consider diversification
-                        </div>
-                      </div>
-                    ` : item.percentageOfTotal < 5 && item.name !== 'Others' ? `
-                      <div class="border-t border-gray-200 pt-2 mt-2">
-                        <div class="text-xs text-blue-600 text-center">
-                          💡 Small allocation - Consider increasing if aligned with goals
-                        </div>
+                      <div style="border-top:1px solid #f3f4f6;margin-top:8px;padding-top:6px;font-size:11px;color:#d97706;text-align:center">
+                        High concentration — consider diversifying
                       </div>
                     ` : ''}
                   </div>
@@ -564,85 +522,96 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
               }
             }
 
-            // Position tooltip
-            const position = chart.canvas.getBoundingClientRect();
+            const canvasRect = chart.canvas.getBoundingClientRect();
+            const containerRect = chart.canvas.parentNode.getBoundingClientRect();
+            const x = tooltip.caretX;
+            const y = tooltip.caretY;
+            const tooltipWidth = 280;
+            const leftOverflow = x + tooltipWidth > containerRect.width;
+
             tooltipEl.style.opacity = '1';
-            tooltipEl.style.left = position.left + window.pageXOffset + tooltip.caretX + 'px';
-            tooltipEl.style.top = position.top + window.pageYOffset + tooltip.caretY + 'px';
-          }
+            tooltipEl.style.left = (leftOverflow ? x - tooltipWidth - 10 : x + 12) + 'px';
+            tooltipEl.style.top = Math.max(0, y - 20) + 'px';
+          },
         },
         datalabels: {
-          display: true,
-          color: "#ffffff",
-          font: {
-            size: 10,
+          display: (ctx: any) => {
+            const value = ctx.dataset.data[ctx.dataIndex];
+            const pct = totalPresentValue > 0 ? (value / totalPresentValue) * 100 : 0;
+            return pct >= 12;
           },
-          formatter: (value: number, ctx: any) => {
+          color: "#ffffff",
+          font: { size: 11, weight: 'bold' },
+          formatter: (value: number) => {
             const pct = totalPresentValue > 0 ? ((value / totalPresentValue) * 100).toFixed(0) : "0";
-            const label = ctx.chart.data.labels[ctx.dataIndex];
-            // Only show label if percentage is > 5% to avoid clutter
-            if (parseFloat(pct) < 5) return '';
-            return `${label}\n(${pct}%)`;
+            return `${pct}%`;
           },
           anchor: "center",
           align: "center",
           textAlign: "center",
-          textStrokeColor: "#000000",
-          textStrokeWidth: 1,
+          textStrokeColor: "rgba(0,0,0,0.4)",
+          textStrokeWidth: 2,
         },
       },
     };
 
+    const totalPositions = data.reduce((s, d) => s + d.count, 0);
+
     const ChartContent = () => (
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div className="flex justify-start items-center mb-4 flex-shrink-0">
+        <div className="flex justify-start items-center mb-3 flex-shrink-0">
           <div className="text-left">
-            <p className="text-xs text-gray-600">Total present value</p>
-            <p className="text-base font-semibold text-blue-600">
+            <p className="text-xs text-gray-500">Total present value</p>
+            <p className="text-lg font-bold text-blue-600">
               {formatCurrency(totalPresentValue, currency)}
             </p>
-            <p className="text-xs text-gray-500">{data.reduce((s, d) => s + d.count, 0)} positions</p>
+            <p className="text-xs text-gray-400">{totalPositions} position{totalPositions !== 1 ? 's' : ''}</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
-          {/* Polar chart - takes up 2/3 of the width */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 flex-1 min-h-0">
+          {/* Polar chart — 3/5 width */}
           <div
             ref={chartRef}
-            className={`${isExpanded ? "h-[50rem]" : "h-full min-h-0"} lg:col-span-2 overflow-hidden`}
+            className={`${isExpanded ? "h-[52rem]" : "h-full min-h-[320px]"} lg:col-span-3 relative`}
             role="img"
             aria-label={`Investment portfolio distribution polar chart showing ${formatCurrency(
               totalPresentValue,
               currency
             )} total present value across investment types`}
           >
-            <div className="w-full h-full">
             <PolarArea
               key={`polar-${values.join("|")}-${radialScaleMax}`}
               data={chartData}
               options={chartOptions}
             />
-            </div>
           </div>
 
-          {/* Legend - takes up 1/3 of the width */}
-          <div className="space-y-2 min-h-0 flex flex-col">
-            <h4 className="text-xs font-medium text-gray-900 flex-shrink-0">Type Breakdown</h4>
-            <div className="space-y-1 flex-1 overflow-y-auto min-h-0">
+          {/* Legend — 2/5 width */}
+          <div className="lg:col-span-2 flex flex-col min-h-0 gap-2">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex-shrink-0">Type Breakdown</p>
+            <div className="space-y-1.5 flex-1 overflow-y-auto min-h-0 pr-1">
               {legendData.map((d) => {
-                const pct = totalPresentValue > 0 ? ((d.value / totalPresentValue) * 100).toFixed(1) : "0.0";
+                const pct = totalPresentValue > 0 ? ((d.value / totalPresentValue) * 100) : 0;
                 return (
-                  <div key={d.name} className="flex items-center justify-between gap-1 p-2 bg-gray-50 rounded">
-                    <div className="flex items-center gap-1 min-w-0 flex-1">
-                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
-                      <span className="text-xs text-gray-700 truncate font-medium">{d.name}</span>
-                      <span className="text-xs text-gray-500">({d.count})</span>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <div className="text-xs font-medium text-gray-900">
-                        {formatCurrency(d.value, currency)}
+                  <div key={d.name} className="flex items-center gap-2 p-2.5 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-xs font-semibold text-gray-800 truncate">{d.name}</span>
+                        <span className="text-xs font-bold text-gray-700 flex-shrink-0">{pct.toFixed(1)}%</span>
                       </div>
-                      <div className="text-xs text-gray-500">{pct}%</div>
+                      <div className="flex items-center justify-between gap-1 mt-0.5">
+                        <span className="text-xs text-gray-400">{d.count} position{d.count !== 1 ? 's' : ''}</span>
+                        <span className="text-xs text-gray-500">{formatCurrency(d.value, currency)}</span>
+                      </div>
+                      {/* Mini progress bar */}
+                      <div className="mt-1 h-1 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: d.color }}
+                        />
+                      </div>
                     </div>
                   </div>
                 );
@@ -655,7 +624,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
 
     return (
       <>
-        <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-5 h-[45rem] flex flex-col overflow-hidden" data-chart-type="investment-type-polar">
+        <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-5 h-[50rem] flex flex-col overflow-hidden" data-chart-type="investment-type-polar">
           <ChartControls
             chartRef={chartRef}
             isExpanded={isExpanded}
@@ -663,7 +632,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
             fileName="investment-type-polar-chart"
             csvData={csvData}
             csvFileName="investment-type-polar-data"
-            title={`${title}${data.reduce((s, d) => s + d.count, 0) > 0 ? ` • ${data.reduce((s, d) => s + d.count, 0)} position${data.reduce((s, d) => s + d.count, 0) !== 1 ? 's' : ''}` : ''}`}
+            title={`${title}${totalPositions > 0 ? ` • ${totalPositions} position${totalPositions !== 1 ? 's' : ''}` : ''}`}
             tooltipText="Distribution by investment type using present value (quantity × current price). Cost basis and P/L are in the investments table."
             customDownloadPNG={downloadPNG}
             customDownloadSVG={downloadSVG}
