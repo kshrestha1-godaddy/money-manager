@@ -26,6 +26,7 @@ import { CalculatorInputsFields } from "./components/CalculatorInputsFields";
 import { AnnuityCompareView } from "./components/AnnuityCompareView";
 import { AnnuitySummaryCard } from "./components/AnnuitySummaryCard";
 import { PremiumIrrCalculator } from "./components/PremiumIrrCalculator";
+import { FdIncomeCorpusCalculator } from "./components/FdIncomeCorpusCalculator";
 import { SavedPresetsSection } from "./components/SavedPresetsSection";
 import {
   buildChartScrollWidth,
@@ -58,7 +59,7 @@ function formatAmountForDisplay(
   return formatCurrency(converted, displayCurrencyCode);
 }
 
-type PageMode = "single" | "compare" | "premium-irr";
+type PageMode = "single" | "compare" | "premium-irr" | "fd-income-corpus";
 
 export default function AnnuityPageClient() {
   const { currency: userCurrency } = useCurrency();
@@ -249,6 +250,17 @@ export default function AnnuityPageClient() {
           >
             Premium → lump sum (IRR)
           </button>
+          <button
+            type="button"
+            onClick={() => setPageMode("fd-income-corpus")}
+            className={`rounded-md px-2.5 py-2 text-xs font-medium transition-colors sm:px-3 sm:text-sm ${
+              pageMode === "fd-income-corpus"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-600 hover:bg-white/80 hover:text-slate-900"
+            }`}
+          >
+            FD target income
+          </button>
         </div>
       </div>
 
@@ -262,6 +274,10 @@ export default function AnnuityPageClient() {
 
       {pageMode === "premium-irr" ? (
         <PremiumIrrCalculator baseCurrency={baseCurrency} selectedCurrency={selectedCurrency} />
+      ) : null}
+
+      {pageMode === "fd-income-corpus" ? (
+        <FdIncomeCorpusCalculator baseCurrency={baseCurrency} selectedCurrency={selectedCurrency} />
       ) : null}
 
       {pageMode === "single" ? (

@@ -267,9 +267,9 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
       // Add detailed breakdown for all types if "Others" category exists
       const hasOthers = data.some(d => d.name === 'Others');
       if (hasOthers) {
-        csvDataArray.push(['', '', '', '', '', '', '', '', '']); // Empty row for separation
-        csvDataArray.push(['--- Detailed Breakdown ---', '', '', '', '', '', '', '', '']);
-        csvDataArray.push(['All Types (including < 2%)', '', '', '', '', '', '', '', '']);
+        csvDataArray.push(['', '', '', '', '', '', '', '']);
+        csvDataArray.push(['--- Detailed Breakdown ---', '', '', '', '', '', '', '']);
+        csvDataArray.push(['All Types (including < 2%)', '', '', '', '', '', '', '']);
         
         // Get all original types from investments with enhanced stats
         const allTypes = new Map<string, { invested: number; count: number; amounts: number[] }>();

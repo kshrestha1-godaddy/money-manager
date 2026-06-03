@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useId, useMemo, type ReactNode } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
-  LabelList,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -44,33 +43,25 @@ function getAccountDisplayName(account: AccountInterface | null | undefined): st
   return combined;
 }
 
-function classifyNeedWant(tags: string[] | null | undefined): "need" | "wants" | "unlabeled" {
-  const lowered = new Set((tags || []).map((t) => t.toLowerCase().trim()));
-  if (lowered.has("need")) return "need";
-  if (lowered.has("wants") || lowered.has("want")) return "wants";
-  return "unlabeled";
-}
+const CATEGORY_FALLBACK_COLORS = [
+  "#6366f1", "#f59e0b", "#ef4444", "#10b981", "#3b82f6",
+  "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#84cc16",
+  "#06b6d4", "#a855f7", "#d946ef", "#22c55e", "#e11d48",
+];
 
-const NEED_WANT_STYLE = {
-  Need: { pie: "#3b82f6", solid: "#2563eb" },
-  Wants: { pie: "#10b981", solid: "#059669" },
-  Unlabeled: { pie: "#94a3b8", solid: "#64748b" },
-} as const;
+interface CategoryRow {
+  name: string;
+  color: string;
+  value: number;
+  percentOfTotal: number;
+  totalAmount: number;
+}
 
 interface AccountBarRow {
   name: string;
   count: number;
   percentOfTotal: number;
   totalAmount: number;
-}
-
-interface NeedWantRow {
-  name: string;
-  value: number;
-  percentOfTotal: number;
-  totalAmount: number;
-  pie: string;
-  solid: string;
 }
 
 function toNum(v: unknown): number {
@@ -241,7 +232,6 @@ function AccountYAxisTick(props: {
 
 export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps) {
   const { currency: userCurrency } = useCurrency();
-  const needWantPatternPrefix = useId().replace(/:/g, "");
   const totalCount = expenses.length;
 
   const accountByFrequency = useMemo((): AccountBarRow[] => {
@@ -293,59 +283,35 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
     [expenses, userCurrency]
   );
 
-  const needWantByFrequency = useMemo((): NeedWantRow[] => {
-    let need = 0;
-    let wants = 0;
-    let unlabeled = 0;
-    let needAmt = 0;
-    let wantsAmt = 0;
-    let unlabeledAmt = 0;
+  const categoryByFrequency = useMemo((): CategoryRow[] => {
+    const byKey = new Map<string, { count: number; totalAmount: number; color: string }>();
+    let colorIdx = 0;
     for (const e of expenses) {
+      const name = e.category?.name ?? "Uncategorized";
+      const rawColor = e.category?.color ?? "";
       const amt = convertForDisplaySync(e.amount, e.currency, userCurrency);
-      const c = classifyNeedWant(e.tags);
-      if (c === "need") {
-        need += 1;
-        needAmt += amt;
-      } else if (c === "wants") {
-        wants += 1;
-        wantsAmt += amt;
+      if (!byKey.has(name)) {
+        const color = rawColor || CATEGORY_FALLBACK_COLORS[colorIdx % CATEGORY_FALLBACK_COLORS.length]!;
+        colorIdx++;
+        byKey.set(name, { count: 1, totalAmount: amt, color });
       } else {
-        unlabeled += 1;
-        unlabeledAmt += amt;
+        const prev = byKey.get(name)!;
+        byKey.set(name, { count: prev.count + 1, totalAmount: prev.totalAmount + amt, color: prev.color });
       }
     }
     const denom = expenses.length;
-    const pct = (n: number) => (denom > 0 ? (n / denom) * 100 : 0);
-    const rows: NeedWantRow[] = [
-      {
-        name: "Need",
-        value: need,
-        percentOfTotal: pct(need),
-        totalAmount: needAmt,
-        pie: NEED_WANT_STYLE.Need.pie,
-        solid: NEED_WANT_STYLE.Need.solid,
-      },
-      {
-        name: "Wants",
-        value: wants,
-        percentOfTotal: pct(wants),
-        totalAmount: wantsAmt,
-        pie: NEED_WANT_STYLE.Wants.pie,
-        solid: NEED_WANT_STYLE.Wants.solid,
-      },
-      {
-        name: "Unlabeled",
-        value: unlabeled,
-        percentOfTotal: pct(unlabeled),
-        totalAmount: unlabeledAmt,
-        pie: NEED_WANT_STYLE.Unlabeled.pie,
-        solid: NEED_WANT_STYLE.Unlabeled.solid,
-      },
-    ];
-    return rows.filter((r) => r.value > 0);
+    return Array.from(byKey.entries())
+      .map(([name, { count, totalAmount, color }]) => ({
+        name,
+        color,
+        value: count,
+        percentOfTotal: denom > 0 ? (count / denom) * 100 : 0,
+        totalAmount,
+      }))
+      .sort((a, b) => b.totalAmount - a.totalAmount);
   }, [expenses, userCurrency]);
 
-  const renderNeedWantLabel = useCallback(
+  const renderCategoryLabel = useCallback(
     (entry: {
       cx: number;
       cy: number;
@@ -355,10 +321,10 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
       name: string;
       value: number;
     }) => {
-      const total = needWantByFrequency.reduce((s, x) => s + x.value, 0);
+      const total = categoryByFrequency.reduce((s, x) => s + x.value, 0);
       const percentage = total > 0 ? ((entry.value / total) * 100).toFixed(1) : "0.0";
-      const chartDataEntry = needWantByFrequency.find((item) => item.name === entry.name);
-      const labelColor = chartDataEntry?.solid ?? "#374151";
+      const chartDataEntry = categoryByFrequency.find((item) => item.name === entry.name);
+      const labelColor = chartDataEntry?.color ?? "#374151";
       const transactionCount = chartDataEntry?.value ?? 0;
 
       const RADIAN = Math.PI / 180;
@@ -394,16 +360,16 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
         </g>
       );
     },
-    [needWantByFrequency]
+    [categoryByFrequency]
   );
 
-  const NeedWantTooltip = useCallback(
+  const CategoryTooltip = useCallback(
     ({
       active,
       payload,
     }: {
       active?: boolean;
-      payload?: Array<{ payload?: NeedWantRow }>;
+      payload?: Array<{ payload?: CategoryRow }>;
     }) => {
       if (!active || !payload?.length) return null;
       const row = payload[0]?.payload;
@@ -413,7 +379,10 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
           className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-md"
           style={{ minWidth: 220 }}
         >
-          <div className="font-semibold text-gray-900">{row.name}</div>
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: row.color }} />
+            <div className="font-semibold text-gray-900">{row.name}</div>
+          </div>
           <div className="mt-1 text-gray-600">
             {row.value} transaction{row.value === 1 ? "" : "s"} ({row.percentOfTotal.toFixed(1)}%)
           </div>
@@ -448,10 +417,10 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
     [accountByFrequency]
   );
 
-  const needWantDominant = useMemo(() => {
-    if (needWantByFrequency.length === 0) return null;
-    return needWantByFrequency.reduce((a, b) => (a.value >= b.value ? a : b));
-  }, [needWantByFrequency]);
+  const categoryDominant = useMemo(() => {
+    if (categoryByFrequency.length === 0) return null;
+    return categoryByFrequency.reduce((a, b) => (a.totalAmount >= b.totalAmount ? a : b));
+  }, [categoryByFrequency]);
 
   const accountSummaryItems = useMemo((): SummaryStripItem[] => {
     if (accountByFrequency.length === 0) return [];
@@ -479,10 +448,10 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
     ];
   }, [accountByFrequency.length, accountSpendTotal, totalCount, userCurrency]);
 
-  const needWantSummaryItems = useMemo((): SummaryStripItem[] => {
-    if (expenses.length === 0 || needWantByFrequency.length === 0) return [];
+  const categorySummaryItems = useMemo((): SummaryStripItem[] => {
+    if (expenses.length === 0 || categoryByFrequency.length === 0) return [];
     const avg = totalCount > 0 ? totalAmountInView / totalCount : 0;
-    const top = needWantDominant;
+    const top = categoryDominant;
     return [
       {
         label: "Total spend (this view)",
@@ -492,22 +461,22 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
       {
         label: "Transactions",
         value: totalCount,
-        hint: "Tagged need / wants / unlabeled",
+        hint: `Across ${categoryByFrequency.length} categories`,
       },
       {
         label: "Avg per transaction",
         value: formatCurrency(avg, userCurrency),
       },
       {
-        label: "Most transactions",
-        value: top ? `${top.name} (${top.value}x)` : "—",
-        hint: top ? `${top.percentOfTotal.toFixed(1)}% of expenses` : undefined,
+        label: "Top category",
+        value: top ? top.name : "—",
+        hint: top ? `${formatCurrency(top.totalAmount, userCurrency)} (${top.percentOfTotal.toFixed(1)}%)` : undefined,
       },
     ];
   }, [
     expenses.length,
-    needWantByFrequency.length,
-    needWantDominant,
+    categoryByFrequency,
+    categoryDominant,
     totalAmountInView,
     totalCount,
     userCurrency,
@@ -598,7 +567,7 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
         style={{ height: sharedContainerHeight }}
       >
         <h3 className="mb-1 text-lg font-semibold text-gray-900">
-          Need vs wants
+          Expenses by category
           {totalCount > 0 ? (
             <span className="text-sm font-normal text-gray-500">
               {" "}
@@ -607,72 +576,33 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
           ) : null}
         </h3>
         <p className="mb-4 text-sm text-gray-500">
-          Frequency share of expenses in this view. Labels follow{" "}
-          <span className="font-medium text-gray-700">Name (count×) [percent%]</span> like the category chart.
+          Spend share per category in this view. Labels follow{" "}
+          <span className="font-medium text-gray-700">Name (count×) [percent%]</span>.
         </p>
         {expenses.length === 0 ? (
           <p className="py-12 text-center text-sm text-gray-500">No expenses in this view.</p>
-        ) : needWantByFrequency.length === 0 ? (
-          <p className="py-12 text-center text-sm text-gray-500">No tagged data to display.</p>
+        ) : categoryByFrequency.length === 0 ? (
+          <p className="py-12 text-center text-sm text-gray-500">No category data to display.</p>
         ) : (
           <div className="min-w-0 flex-1 px-0">
-            <SummaryStrip items={needWantSummaryItems} />
+            <SummaryStrip items={categorySummaryItems} />
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start lg:gap-3">
               <div
                 className="flex w-full items-start justify-center lg:col-span-2"
                 role="img"
-                aria-label="Need versus wants donut chart"
+                aria-label="Expenses by category donut chart"
               >
                 <ResponsiveContainer width="100%" height={sharedChartHeight}>
                   <PieChart>
-                    <defs>
-                      <pattern
-                        id={`${needWantPatternPrefix}-need`}
-                        patternUnits="userSpaceOnUse"
-                        width="6"
-                        height="6"
-                      >
-                        <rect width="6" height="6" fill={NEED_WANT_STYLE.Need.pie} />
-                        <path
-                          d="M 0,6 l 6,-6 M -1.5,1.5 l 3,-3 M 4.5,7.5 l 3,-3"
-                          stroke={NEED_WANT_STYLE.Need.solid}
-                          strokeWidth="0.8"
-                          opacity="0.35"
-                        />
-                      </pattern>
-                      <pattern
-                        id={`${needWantPatternPrefix}-wants`}
-                        patternUnits="userSpaceOnUse"
-                        width="8"
-                        height="8"
-                      >
-                        <rect width="8" height="8" fill={NEED_WANT_STYLE.Wants.pie} />
-                        <circle cx="2" cy="2" r="0.8" fill={NEED_WANT_STYLE.Wants.solid} opacity="0.4" />
-                        <circle cx="6" cy="6" r="0.8" fill={NEED_WANT_STYLE.Wants.solid} opacity="0.4" />
-                        <circle cx="4" cy="4" r="0.5" fill={NEED_WANT_STYLE.Wants.solid} opacity="0.3" />
-                      </pattern>
-                      <pattern
-                        id={`${needWantPatternPrefix}-unlabeled`}
-                        patternUnits="userSpaceOnUse"
-                        width="3"
-                        height="3"
-                      >
-                        <rect width="3" height="3" fill="#94a3b8" />
-                        <rect x="0" y="0" width="1" height="1" fill="#64748b" opacity="0.4" />
-                        <rect x="2" y="2" width="1" height="1" fill="#64748b" opacity="0.4" />
-                        <rect x="1" y="1" width="1" height="1" fill="#475569" opacity="0.3" />
-                      </pattern>
-                    </defs>
-
                     <Pie
-                      data={needWantByFrequency}
+                      data={categoryByFrequency}
                       dataKey="value"
                       nameKey="name"
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={renderNeedWantLabel}
+                      label={renderCategoryLabel}
                       innerRadius={68}
                       outerRadius={112}
                       paddingAngle={0.5}
@@ -680,24 +610,16 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
                       stroke="#ffffff"
                       strokeWidth={3}
                     >
-                      {needWantByFrequency.map((entry) => {
-                        const fillId =
-                          entry.name === "Need"
-                            ? `${needWantPatternPrefix}-need`
-                            : entry.name === "Wants"
-                              ? `${needWantPatternPrefix}-wants`
-                              : `${needWantPatternPrefix}-unlabeled`;
-                        return (
-                          <Cell
-                            key={entry.name}
-                            fill={`url(#${fillId})`}
-                            stroke="#ffffff"
-                            strokeWidth={2}
-                          />
-                        );
-                      })}
+                      {categoryByFrequency.map((entry) => (
+                        <Cell
+                          key={entry.name}
+                          fill={entry.color}
+                          stroke="#ffffff"
+                          strokeWidth={2}
+                        />
+                      ))}
                     </Pie>
-                    <Tooltip content={<NeedWantTooltip />} />
+                    <Tooltip content={<CategoryTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -708,12 +630,12 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
                   className="space-y-2 overflow-y-auto pr-1"
                   style={{ maxHeight: sharedChartHeight }}
                 >
-                  {needWantByFrequency.map((entry) => (
+                  {categoryByFrequency.map((entry) => (
                     <div key={entry.name} className="flex items-start justify-between gap-2">
                       <div className="flex min-w-0 items-center gap-2">
                         <div
                           className="h-4 w-4 flex-shrink-0 rounded-full border border-white shadow-sm"
-                          style={{ backgroundColor: entry.pie }}
+                          style={{ backgroundColor: entry.color }}
                         />
                         <span className="truncate text-xs font-medium text-gray-700 sm:text-sm">
                           {entry.name} ({entry.value}x)
