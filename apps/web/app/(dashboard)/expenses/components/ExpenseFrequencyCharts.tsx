@@ -52,9 +52,11 @@ const CATEGORY_FALLBACK_COLORS = [
 interface CategoryRow {
   name: string;
   color: string;
-  value: number;
+  transactionCount: number;
   percentOfTotal: number;
   totalAmount: number;
+  /** Categories grouped under Others (< 1% spend each). */
+  memberCategories?: CategoryRow[];
 }
 
 interface AccountBarRow {
@@ -62,6 +64,43 @@ interface AccountBarRow {
   count: number;
   percentOfTotal: number;
   totalAmount: number;
+}
+
+const CATEGORY_MIN_DISPLAY_PERCENT = 1;
+const OTHERS_CATEGORY_COLOR = "#94a3b8";
+
+function groupSmallCategoriesIntoOthers(rows: CategoryRow[], totalSpend: number): CategoryRow[] {
+  if (rows.length === 0 || totalSpend <= 0) return rows;
+
+  const mainRows: CategoryRow[] = [];
+  const othersMembers: CategoryRow[] = [];
+  let othersAmount = 0;
+  let othersCount = 0;
+
+  for (const row of rows) {
+    if (row.percentOfTotal < CATEGORY_MIN_DISPLAY_PERCENT) {
+      othersAmount += row.totalAmount;
+      othersCount += row.transactionCount;
+      othersMembers.push(row);
+    } else {
+      mainRows.push(row);
+    }
+  }
+
+  if (othersAmount <= 0) return mainRows;
+
+  othersMembers.sort((a, b) => b.totalAmount - a.totalAmount);
+
+  mainRows.push({
+    name: "Others",
+    color: OTHERS_CATEGORY_COLOR,
+    transactionCount: othersCount,
+    totalAmount: othersAmount,
+    percentOfTotal: (othersAmount / totalSpend) * 100,
+    memberCategories: othersMembers,
+  });
+
+  return mainRows.sort((a, b) => b.totalAmount - a.totalAmount);
 }
 
 function toNum(v: unknown): number {
@@ -299,16 +338,18 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
         byKey.set(name, { count: prev.count + 1, totalAmount: prev.totalAmount + amt, color: prev.color });
       }
     }
-    const denom = expenses.length;
-    return Array.from(byKey.entries())
+    const totalSpend = Array.from(byKey.values()).reduce((sum, row) => sum + row.totalAmount, 0);
+    const rows = Array.from(byKey.entries())
       .map(([name, { count, totalAmount, color }]) => ({
         name,
         color,
-        value: count,
-        percentOfTotal: denom > 0 ? (count / denom) * 100 : 0,
+        transactionCount: count,
+        percentOfTotal: totalSpend > 0 ? (totalAmount / totalSpend) * 100 : 0,
         totalAmount,
       }))
       .sort((a, b) => b.totalAmount - a.totalAmount);
+
+    return groupSmallCategoriesIntoOthers(rows, totalSpend);
   }, [expenses, userCurrency]);
 
   const renderCategoryLabel = useCallback(
@@ -319,23 +360,23 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
       innerRadius: number;
       outerRadius: number;
       name: string;
-      value: number;
     }) => {
-      const total = categoryByFrequency.reduce((s, x) => s + x.value, 0);
-      const percentage = total > 0 ? ((entry.value / total) * 100).toFixed(1) : "0.0";
       const chartDataEntry = categoryByFrequency.find((item) => item.name === entry.name);
-      const labelColor = chartDataEntry?.color ?? "#374151";
-      const transactionCount = chartDataEntry?.value ?? 0;
+      if (!chartDataEntry || chartDataEntry.name === "Others") return null;
+
+      const labelColor = chartDataEntry.color;
+      const percentage = chartDataEntry.percentOfTotal.toFixed(1);
+      const transactionCount = chartDataEntry.transactionCount;
 
       const RADIAN = Math.PI / 180;
-      const radius = entry.outerRadius + 15;
+      const radius = entry.outerRadius + 32;
       const x1 = entry.cx + radius * Math.cos(-entry.midAngle * RADIAN);
       const y1 = entry.cy + radius * Math.sin(-entry.midAngle * RADIAN);
-      const horizontalLength = 20;
+      const horizontalLength = 32;
       const isRightSide = x1 > entry.cx;
       const x2 = isRightSide ? x1 + horizontalLength : x1 - horizontalLength;
       const y2 = y1;
-      const textX = isRightSide ? x2 + 5 : x2 - 5;
+      const textX = isRightSide ? x2 + 8 : x2 - 8;
       const textY = y2;
 
       return (
@@ -343,7 +384,7 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
           <polyline
             points={`${entry.cx + entry.outerRadius * Math.cos(-entry.midAngle * RADIAN)},${entry.cy + entry.outerRadius * Math.sin(-entry.midAngle * RADIAN)} ${x1},${y1} ${x2},${y2}`}
             stroke="#9ca3af"
-            strokeWidth={2}
+            strokeWidth={1.5}
             fill="none"
           />
           <text
@@ -352,7 +393,7 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
             fill={labelColor}
             textAnchor={isRightSide ? "start" : "end"}
             dominantBaseline="central"
-            fontSize={10}
+            fontSize={11}
             fontWeight={600}
           >
             {`${entry.name} (${transactionCount}x) [${percentage}%]`}
@@ -384,8 +425,23 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
             <div className="font-semibold text-gray-900">{row.name}</div>
           </div>
           <div className="mt-1 text-gray-600">
-            {row.value} transaction{row.value === 1 ? "" : "s"} ({row.percentOfTotal.toFixed(1)}%)
+            {row.name === "Others"
+              ? `${row.transactionCount} transactions in ${row.memberCategories?.length ?? 0} categories (< ${CATEGORY_MIN_DISPLAY_PERCENT}% each)`
+              : `${row.transactionCount} transaction${row.transactionCount === 1 ? "" : "s"}`}{" "}
+            ({row.percentOfTotal.toFixed(1)}% of spend)
           </div>
+          {row.name === "Others" && row.memberCategories && row.memberCategories.length > 0 ? (
+            <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto border-t border-gray-100 pt-2 text-xs text-gray-500">
+              {row.memberCategories.map((member) => (
+                <li key={member.name} className="flex items-start justify-between gap-2">
+                  <span className="min-w-0 truncate">{member.name}</span>
+                  <span className="flex-shrink-0 tabular-nums text-gray-600">
+                    {formatCurrency(member.totalAmount, userCurrency)} ({member.percentOfTotal.toFixed(1)}%)
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <div className="mt-1 font-medium text-red-600">{formatCurrency(row.totalAmount, userCurrency)}</div>
         </div>
       );
@@ -393,11 +449,11 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
     [userCurrency]
   );
 
-  /** Same pixel height for bar chart and donut so the two visuals align (no extra empty band under the pie). */
-  const sharedChartHeight = useMemo(
-    () => Math.min(480, Math.max(240, accountByFrequency.length * 44)),
-    [accountByFrequency.length]
-  );
+  /** Same pixel height for bar chart and donut so the two visuals align. */
+  const sharedChartHeight = useMemo(() => {
+    const accountHeight = Math.min(480, Math.max(240, accountByFrequency.length * 44));
+    return Math.max(accountHeight, 280);
+  }, [accountByFrequency.length]);
 
   const accountXAxisY = useMemo(() => Math.max(sharedChartHeight - 28, 0), [sharedChartHeight]);
 
@@ -496,8 +552,9 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
         {accountByFrequency.length === 0 ? (
           <p className="py-12 text-center text-sm text-gray-500">No expenses in this view.</p>
         ) : (
-          <div className="min-w-0 w-full flex-1 overflow-x-auto" style={{ minWidth: 520 }}>
+          <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-auto" style={{ minWidth: 520 }}>
             <SummaryStrip items={accountSummaryItems} />
+            <div className="min-h-0 flex-1" style={{ height: sharedChartHeight }}>
             <ResponsiveContainer width="100%" height={sharedChartHeight}>
               <BarChart
                 layout="vertical"
@@ -558,6 +615,7 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
                 />
               </BarChart>
             </ResponsiveContainer>
+            </div>
           </div>
         )}
       </div>
@@ -566,7 +624,7 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
         className="flex w-full flex-col rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6"
         style={{ height: sharedContainerHeight }}
       >
-        <h3 className="mb-1 text-lg font-semibold text-gray-900">
+        <h3 className="mb-4 text-lg font-semibold text-gray-900">
           Expenses by category
           {totalCount > 0 ? (
             <span className="text-sm font-normal text-gray-500">
@@ -576,36 +634,41 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
           ) : null}
         </h3>
         <p className="mb-4 text-sm text-gray-500">
-          Spend share per category in this view. Labels follow{" "}
-          <span className="font-medium text-gray-700">Name (count×) [percent%]</span>.
+          Spend share per category in this view. Slice size and percentages are based on{" "}
+          <span className="font-medium text-gray-700">amount spent</span>. Categories under{" "}
+          {CATEGORY_MIN_DISPLAY_PERCENT}% are grouped as{" "}
+          <span className="font-medium text-gray-700">Others</span> in the chart and breakdown.
         </p>
         {expenses.length === 0 ? (
           <p className="py-12 text-center text-sm text-gray-500">No expenses in this view.</p>
         ) : categoryByFrequency.length === 0 ? (
           <p className="py-12 text-center text-sm text-gray-500">No category data to display.</p>
         ) : (
-          <div className="min-w-0 flex-1 px-0">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <SummaryStrip items={categorySummaryItems} />
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start lg:gap-3">
+            <div
+              className="grid min-h-0 flex-1 grid-cols-1 gap-6 lg:grid-cols-5 lg:items-stretch lg:gap-8"
+              style={{ height: sharedChartHeight }}
+            >
               <div
-                className="flex w-full items-start justify-center lg:col-span-2"
+                className="flex h-full w-full items-center justify-center lg:col-span-3"
                 role="img"
                 aria-label="Expenses by category donut chart"
               >
                 <ResponsiveContainer width="100%" height={sharedChartHeight}>
-                  <PieChart>
+                  <PieChart margin={{ top: 28, right: 64, left: 64, bottom: 28 }}>
                     <Pie
                       data={categoryByFrequency}
-                      dataKey="value"
+                      dataKey="totalAmount"
                       nameKey="name"
                       cx="50%"
                       cy="50%"
                       labelLine={false}
                       label={renderCategoryLabel}
-                      innerRadius={68}
-                      outerRadius={112}
-                      paddingAngle={0.5}
+                      innerRadius="42%"
+                      outerRadius="68%"
+                      paddingAngle={1}
                       cornerRadius={6}
                       stroke="#ffffff"
                       strokeWidth={3}
@@ -624,29 +687,53 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
                 </ResponsiveContainer>
               </div>
 
-              <div className="space-y-2 lg:col-span-1 lg:max-w-sm lg:self-start">
-                <h4 className="text-xs font-medium text-gray-900">Breakdown</h4>
-                <div
-                  className="space-y-2 overflow-y-auto pr-1"
-                  style={{ maxHeight: sharedChartHeight }}
-                >
+              <div className="flex h-full min-h-0 flex-col lg:col-span-2 lg:max-w-md">
+                <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">Breakdown</h4>
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-2">
                   {categoryByFrequency.map((entry) => (
-                    <div key={entry.name} className="flex items-start justify-between gap-2">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <div
-                          className="h-4 w-4 flex-shrink-0 rounded-full border border-white shadow-sm"
-                          style={{ backgroundColor: entry.color }}
-                        />
-                        <span className="truncate text-xs font-medium text-gray-700 sm:text-sm">
-                          {entry.name} ({entry.value}x)
-                        </span>
-                      </div>
-                      <div className="flex-shrink-0 text-right">
-                        <div className="text-xs font-medium text-gray-900 sm:text-sm">
-                          {formatCurrency(entry.totalAmount, userCurrency)}
+                    <div key={entry.name} className="space-y-1.5">
+                      <div className="flex items-start justify-between gap-4 py-1">
+                        <div className="flex min-w-0 items-start gap-2.5">
+                          <div
+                            className="mt-0.5 h-4 w-4 flex-shrink-0 rounded-full border border-white shadow-sm"
+                            style={{ backgroundColor: entry.color }}
+                          />
+                          <div className="min-w-0">
+                            <span className="text-xs font-medium text-gray-700 sm:text-sm">
+                              {entry.name === "Others"
+                                ? `Others (${entry.transactionCount})`
+                                : `${entry.name} (${entry.transactionCount}x)`}
+                            </span>
+                            {entry.name === "Others" && entry.memberCategories && entry.memberCategories.length > 0 ? (
+                              <span className="ml-1.5 text-xs font-normal text-gray-400">
+                                {entry.memberCategories.length} categories
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-500">{entry.percentOfTotal.toFixed(1)}%</div>
+                        <div className="flex-shrink-0 text-right">
+                          <div className="text-xs font-medium text-gray-900 sm:text-sm">
+                            {formatCurrency(entry.totalAmount, userCurrency)}
+                          </div>
+                          <div className="text-xs text-gray-500">{entry.percentOfTotal.toFixed(1)}%</div>
+                        </div>
                       </div>
+
+                      {entry.name === "Others" && entry.memberCategories && entry.memberCategories.length > 0 ? (
+                        <ul className="ml-6 space-y-1 border-l border-gray-200 pl-3">
+                          {entry.memberCategories.map((member) => (
+                            <li
+                              key={member.name}
+                              className="flex items-start justify-between gap-3 text-xs text-gray-500"
+                            >
+                              <span className="min-w-0 truncate">{member.name}</span>
+                              <span className="flex-shrink-0 tabular-nums">
+                                {formatCurrency(member.totalAmount, userCurrency)} ({member.percentOfTotal.toFixed(1)}%)
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
                     </div>
                   ))}
                 </div>
