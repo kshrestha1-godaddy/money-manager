@@ -8,12 +8,235 @@ import type { InvestmentInterface, InvestmentTargetProgress } from "../types/inv
 import type { PasswordInterface } from "../types/passwords";
 import { convertAccountsToCSV } from "../utils/csvExport";
 import { convertDebtsToCSV, convertRepaymentsToCSV } from "../utils/csvExportDebts";
-import { convertExpensesToCSV } from "../utils/csvExportExpenses";
-import { convertIncomesToCSV } from "../utils/csvExportIncomes";
+import { convertExpensesToCSV, convertExpensesToCSVWithDisplayCurrency } from "../utils/csvExportExpenses";
+import { convertIncomesToCSV, convertIncomesToCSVWithDisplayCurrency } from "../utils/csvExportIncomes";
 import { convertInvestmentsToCSV } from "../utils/csvExportInvestments";
 import { convertInvestmentTargetsToCSV } from "../utils/csvExportInvestmentTargets";
 import { convertPasswordsToCSV } from "../utils/csvExportPasswords";
 import { convertCategoriesToCsv } from "../utils/csvExportCategories";
+import { arrayToCSV } from "../utils/csv/csvExportCore";
+import { getFinancialExportHeaders } from "../utils/financialCsvExporter";
+import { getCurrencyRateConfigQuery } from "../data/currency-rate-config";
+import type { ConversionRateMatrix } from "../utils/currencyRates";
+import {
+  PRIMARY_EXPORT_SHEETS,
+  type PrimaryExportSheet,
+} from "../actions/primary-export-sheets.shared";
+
+export { PRIMARY_EXPORT_SHEETS, type PrimaryExportSheet };
+
+const PRIMARY_EXPORT_HEADERS: Record<(typeof PRIMARY_EXPORT_SHEETS)[number], string[]> = {
+  accounts: [
+    "ID",
+    "Holder Name",
+    "Account Number",
+    "Branch Code",
+    "Bank Name",
+    "Branch Name",
+    "Bank Address",
+    "Account Type",
+    "Mobile Numbers",
+    "Branch Contacts",
+    "SWIFT Code",
+    "Bank Email",
+    "Account Opening Date",
+    "Security Questions",
+    "Balance",
+    "App Username",
+    "Notes",
+    "Nickname",
+    "Created At",
+    "Updated At",
+  ],
+  debts: [
+    "ID",
+    "Borrower Name",
+    "Borrower Contact",
+    "Borrower Email",
+    "Amount",
+    "Interest Rate (%)",
+    "Interest Amount",
+    "Total Amount Due",
+    "Amount Repaid",
+    "Outstanding Amount",
+    "Lent Date",
+    "Due Date",
+    "Status",
+    "Purpose",
+    "Notes",
+    "Account",
+    "Bank Name",
+    "Account Number",
+    "Repayments Count",
+    "Created At",
+    "Updated At",
+  ],
+  debt_repayments: [
+    "ID",
+    "Debt ID",
+    "Debt Borrower",
+    "Amount",
+    "Repayment Date",
+    "Notes",
+    "Account ID",
+    "Created At",
+    "Updated At",
+  ],
+  expenses: [
+    "ID",
+    "Title",
+    "Description",
+    "Amount",
+    "Currency",
+    "Date",
+    "Category",
+    "Category Color",
+    "Account",
+    "Bank Name",
+    "Account Type",
+    "Account Number",
+    "Tags",
+    "Location",
+    "Links",
+    "Latitude",
+    "Longitude",
+    "Receipt",
+    "Notes",
+    "Is Recurring",
+    "Recurring Frequency",
+    "Is Bookmarked",
+    "Created At",
+    "Updated At",
+  ],
+  incomes: [
+    "ID",
+    "Title",
+    "Description",
+    "Amount",
+    "Currency",
+    "Date",
+    "Category",
+    "Category Color",
+    "Account",
+    "Bank Name",
+    "Account Type",
+    "Account Number",
+    "Tags",
+    "Location",
+    "Links",
+    "Latitude",
+    "Longitude",
+    "Notes",
+    "Is Recurring",
+    "Recurring Frequency",
+    "Is Bookmarked",
+    "Created At",
+    "Updated At",
+  ],
+  investments: [
+    "ID",
+    "Name",
+    "Type",
+    "Symbol",
+    "Quantity",
+    "Purchase Price",
+    "Current Price",
+    "Total Value",
+    "Gain/Loss",
+    "Gain/Loss %",
+    "Purchase Date",
+    "Account",
+    "Bank Name",
+    "Account Number",
+    "Interest Rate",
+    "Maturity Date",
+    "Notes",
+    "Created At",
+    "Updated At",
+  ],
+  investment_targets: [
+    "Investment Type",
+    "Nickname",
+    "Target Amount",
+    "Present Value",
+    "Progress (%)",
+    "Remaining Amount",
+    "Target Completion Date",
+    "Days Remaining",
+    "Status",
+    "Is Complete",
+    "Is Overdue",
+  ],
+  passwords: [
+    "ID",
+    "Website Name",
+    "Description",
+    "Username",
+    "Password Hash",
+    "Transaction PIN Hash",
+    "Category",
+    "Tags",
+    "Validity",
+    "Notes",
+    "Created At",
+    "Updated At",
+  ],
+  all_categories: [
+    "ID",
+    "Name",
+    "Type",
+    "Color",
+    "Icon",
+    "Included In Budget",
+    "User ID",
+    "Created At",
+    "Updated At",
+  ],
+  income_categories: [
+    "ID",
+    "Name",
+    "Type",
+    "Color",
+    "Icon",
+    "Included In Budget",
+    "User ID",
+    "Created At",
+    "Updated At",
+  ],
+  expense_categories: [
+    "ID",
+    "Name",
+    "Type",
+    "Color",
+    "Icon",
+    "Included In Budget",
+    "User ID",
+    "Created At",
+    "Updated At",
+  ],
+};
+
+export interface BuildPrimaryExportOptions {
+  /** When true, emit header-only sheets for empty datasets (used by Excel export). */
+  includeEmpty?: boolean;
+  /** When true, add converted amount column on expenses/incomes (Excel export). */
+  includeDisplayCurrency?: boolean;
+  /** When set, only build these primary sheets (Excel export). Omit for all (weekly email). */
+  selectedSheets?: PrimaryExportSheet[];
+}
+
+function getPrimaryExportHeaders(
+  name: PrimaryExportSheet,
+  displayCurrency?: string
+): string[] {
+  if (displayCurrency && name === "expenses") {
+    return getFinancialExportHeaders(displayCurrency, true);
+  }
+  if (displayCurrency && name === "incomes") {
+    return getFinancialExportHeaders(displayCurrency, false);
+  }
+  return PRIMARY_EXPORT_HEADERS[name];
+}
 
 function serializeTransactionLocation(location: {
   id: number;
@@ -135,9 +358,33 @@ export interface CsvAttachment {
  */
 export async function buildPrimaryExportCsvAttachments(
   userId: number,
-  dateStr: string
+  dateStr: string,
+  options?: BuildPrimaryExportOptions
 ): Promise<CsvAttachment[]> {
   const attachments: CsvAttachment[] = [];
+  const includeDisplayCurrency = options?.includeDisplayCurrency ?? false;
+  const activeSheets = new Set<PrimaryExportSheet>(
+    options?.selectedSheets ?? [...PRIMARY_EXPORT_SHEETS]
+  );
+
+  const needsAccounts = activeSheets.has("accounts");
+  const needsDebts = activeSheets.has("debts");
+  const needsDebtRepayments = activeSheets.has("debt_repayments");
+  const needsExpenses = activeSheets.has("expenses");
+  const needsIncomes = activeSheets.has("incomes");
+  const needsInvestments =
+    activeSheets.has("investments") || activeSheets.has("investment_targets");
+  const needsInvestmentTargets = activeSheets.has("investment_targets");
+  const needsPasswords = activeSheets.has("passwords");
+  const needsCategories =
+    activeSheets.has("all_categories") ||
+    activeSheets.has("income_categories") ||
+    activeSheets.has("expense_categories");
+  const needsDisplayCurrencyData =
+    includeDisplayCurrency && (needsExpenses || needsIncomes);
+
+  let displayCurrency: string | undefined;
+  let conversionMatrix: ConversionRateMatrix | undefined;
 
   const [
     accountRows,
@@ -148,36 +395,63 @@ export async function buildPrimaryExportCsvAttachments(
     investmentRows,
     passwordRows,
     categoryRows,
+    userRow,
+    rateConfig,
   ] = await Promise.all([
-    prisma.account.findMany({ where: { userId } }),
-    prisma.debt.findMany({
-      where: { userId },
-      include: { repayments: true },
-      orderBy: { lentDate: "desc" },
-    }),
-    prisma.debtRepayment.findMany({
-      where: { debt: { userId } },
-      include: { debt: { select: { id: true, borrowerName: true } } },
-      orderBy: { repaymentDate: "desc" },
-    }),
-    prisma.expense.findMany({
-      where: { userId },
-      include: { category: true, account: true, transactionLocation: true },
-      orderBy: { date: "desc" },
-    }),
-    prisma.income.findMany({
-      where: { userId },
-      include: { category: true, account: true, transactionLocation: true },
-      orderBy: { date: "desc" },
-    }),
-    prisma.investment.findMany({
-      where: { userId },
-      include: { account: true },
-      orderBy: { purchaseDate: "desc" },
-    }),
-    prisma.password.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
-    prisma.category.findMany({ where: { userId }, orderBy: { name: "asc" } }),
+    needsAccounts
+      ? prisma.account.findMany({ where: { userId } })
+      : Promise.resolve([]),
+    needsDebts
+      ? prisma.debt.findMany({
+          where: { userId },
+          include: { repayments: true },
+          orderBy: { lentDate: "desc" },
+        })
+      : Promise.resolve([]),
+    needsDebtRepayments
+      ? prisma.debtRepayment.findMany({
+          where: { debt: { userId } },
+          include: { debt: { select: { id: true, borrowerName: true } } },
+          orderBy: { repaymentDate: "desc" },
+        })
+      : Promise.resolve([]),
+    needsExpenses
+      ? prisma.expense.findMany({
+          where: { userId },
+          include: { category: true, account: true, transactionLocation: true },
+          orderBy: { date: "desc" },
+        })
+      : Promise.resolve([]),
+    needsIncomes
+      ? prisma.income.findMany({
+          where: { userId },
+          include: { category: true, account: true, transactionLocation: true },
+          orderBy: { date: "desc" },
+        })
+      : Promise.resolve([]),
+    needsInvestments
+      ? prisma.investment.findMany({
+          where: { userId },
+          include: { account: true },
+          orderBy: { purchaseDate: "desc" },
+        })
+      : Promise.resolve([]),
+    needsPasswords
+      ? prisma.password.findMany({ where: { userId }, orderBy: { createdAt: "desc" } })
+      : Promise.resolve([]),
+    needsCategories
+      ? prisma.category.findMany({ where: { userId }, orderBy: { name: "asc" } })
+      : Promise.resolve([]),
+    needsDisplayCurrencyData
+      ? prisma.user.findUnique({ where: { id: userId }, select: { currency: true } })
+      : Promise.resolve(null),
+    needsDisplayCurrencyData ? getCurrencyRateConfigQuery() : Promise.resolve(null),
   ]);
+
+  if (needsDisplayCurrencyData) {
+    displayCurrency = userRow?.currency || "USD";
+    conversionMatrix = rateConfig?.matrix;
+  }
 
   const accounts: AccountInterface[] = accountRows.map((account) => ({
     ...account,
@@ -275,13 +549,25 @@ export async function buildPrimaryExportCsvAttachments(
     includedInBudget: c.includedInBudget,
   })) as Category[];
 
-  const tryPushCsv = (name: string, build: () => string) => {
+  const tryPushCsv = (name: PrimaryExportSheet, build: () => string) => {
+    if (!activeSheets.has(name)) return;
+    const pushContent = (csv: string) => {
+      attachments.push({ filename: `${name}_${dateStr}.csv`, content: "\uFEFF" + csv });
+    };
+
     try {
       const csv = build();
-      if (!csv) return;
-      attachments.push({ filename: `${name}_${dateStr}.csv`, content: "\uFEFF" + csv });
+      if (csv) {
+        pushContent(csv);
+        return;
+      }
+      if (options?.includeEmpty) {
+        pushContent(arrayToCSV([getPrimaryExportHeaders(name, displayCurrency)]));
+      }
     } catch {
-      /* empty lists fail validateExportData in some converters */
+      if (options?.includeEmpty) {
+        pushContent(arrayToCSV([getPrimaryExportHeaders(name, displayCurrency)]));
+      }
     }
   };
 
@@ -294,11 +580,21 @@ export async function buildPrimaryExportCsvAttachments(
   tryPushCsv("debt_repayments", () =>
     convertRepaymentsToCSV(transformedRepayments, debtIdMap)
   );
-  tryPushCsv("expenses", () => convertExpensesToCSV(expenses));
-  tryPushCsv("incomes", () => convertIncomesToCSV(incomes));
+  tryPushCsv("expenses", () =>
+    includeDisplayCurrency && displayCurrency
+      ? convertExpensesToCSVWithDisplayCurrency(expenses, displayCurrency, conversionMatrix)
+      : convertExpensesToCSV(expenses)
+  );
+  tryPushCsv("incomes", () =>
+    includeDisplayCurrency && displayCurrency
+      ? convertIncomesToCSVWithDisplayCurrency(incomes, displayCurrency, conversionMatrix)
+      : convertIncomesToCSV(incomes)
+  );
   tryPushCsv("investments", () => convertInvestmentsToCSV(investments));
 
-  const progress = await investmentTargetProgressForUser(userId);
+  const progress = needsInvestmentTargets
+    ? await investmentTargetProgressForUser(userId)
+    : [];
   tryPushCsv("investment_targets", () => convertInvestmentTargetsToCSV(progress));
   tryPushCsv("passwords", () => convertPasswordsToCSV(passwords));
 

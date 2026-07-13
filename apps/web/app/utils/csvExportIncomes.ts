@@ -1,10 +1,12 @@
 import { Income } from '../types/financial';
 import { 
-    convertFinancialDataToCsv, 
+    convertFinancialDataToCsv,
+    convertFinancialDataToCsvWithDisplayCurrency,
     exportIncomesToCsv as exportIncomesWithModules,
     getIncomeExportStatistics,
     type IncomeItem 
 } from './financialCsvExporter';
+import type { ConversionRateMatrix } from './currencyRates';
 
 /**
  * Convert incomes data to CSV format
@@ -12,6 +14,20 @@ import {
  */
 export function convertIncomesToCSV(incomes: Income[]): string {
     return convertFinancialDataToCsv(incomes as IncomeItem[], { includeReceipt: false });
+}
+
+/**
+ * Incomes CSV with an extra column for amount in the user's selected currency.
+ */
+export function convertIncomesToCSVWithDisplayCurrency(
+    incomes: Income[],
+    displayCurrency: string,
+    conversionMatrix?: ConversionRateMatrix
+): string {
+    return convertFinancialDataToCsvWithDisplayCurrency(incomes as IncomeItem[], displayCurrency, {
+        includeReceipt: false,
+        conversionMatrix,
+    });
 }
 
 /**

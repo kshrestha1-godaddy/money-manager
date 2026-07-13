@@ -15,6 +15,12 @@ import {
     getExportStatistics,
     safeStringify
 } from './csvExportUtils';
+import { convertCurrencySync } from './currencyConversion';
+import type { ConversionRateMatrix } from './currencyRates';
+
+function formatAmountForExport(amount: number): string {
+    return (Math.round(amount * 100) / 100).toFixed(2);
+}
 
 // Base interface for financial items
 interface BaseFinancialItem {
@@ -96,10 +102,41 @@ const EXPENSE_HEADERS = [
     ...STANDARD_HEADERS.slice(17), // Notes through Updated At
 ];
 
+function displayAmountHeader(displayCurrency: string): string {
+    return `Amount (${displayCurrency.trim().toUpperCase()})`;
+}
+
+/**
+ * CSV headers for expenses or incomes, optionally including a converted amount column.
+ */
+export function getFinancialExportHeaders(
+    displayCurrency: string,
+    includeReceipt: boolean,
+    includeDisplayAmount = true
+): string[] {
+    const baseHeaders = includeReceipt ? EXPENSE_HEADERS : STANDARD_HEADERS;
+    if (!includeDisplayAmount) return [...baseHeaders];
+
+    const headers = [...baseHeaders];
+    const currencyIndex = headers.indexOf('Currency');
+    headers.splice(currencyIndex + 1, 0, displayAmountHeader(displayCurrency));
+    return headers;
+}
+
+interface ConvertItemRowOptions {
+    includeReceipt?: boolean;
+    displayCurrency?: string;
+    conversionMatrix?: ConversionRateMatrix;
+}
+
 /**
  * Convert financial item to CSV row data
  */
-function convertItemToRow(item: BaseFinancialItem | ExpenseItem, includeReceipt: boolean = false): (string | number)[] {
+function convertItemToRow(
+    item: BaseFinancialItem | ExpenseItem,
+    options: ConvertItemRowOptions = {}
+): (string | number)[] {
+    const includeReceipt = options.includeReceipt ?? false;
     const { locationText, linksText } = splitLocationFieldForExport(item.location || []);
     const tl = item.transactionLocation;
     const latStr =
@@ -107,12 +144,26 @@ function convertItemToRow(item: BaseFinancialItem | ExpenseItem, includeReceipt:
     const lngStr =
         tl != null && Number.isFinite(Number(tl.longitude)) ? safeStringify(tl.longitude) : '';
 
+    const amountCells: (string | number)[] = [
+        safeStringify(item.amount),
+        safeStringify(item.currency || 'INR'),
+    ];
+
+    if (options.displayCurrency) {
+        const converted = convertCurrencySync(
+            item.amount,
+            item.currency || 'INR',
+            options.displayCurrency,
+            options.conversionMatrix
+        );
+        amountCells.push(formatAmountForExport(converted));
+    }
+
     const baseRow = [
         safeStringify(item.id),
         safeStringify(item.title),
         safeStringify(item.description || ''),
-        safeStringify(item.amount),
-        safeStringify(item.currency || 'INR'),
+        ...amountCells,
         formatDateForExport(item.date),
         safeStringify(item.category?.name || ''),
         safeStringify(item.category?.color || ''),
@@ -154,7 +205,33 @@ export function convertFinancialDataToCsv<T extends BaseFinancialItem>(
 
     const headers = config.includeReceipt ? EXPENSE_HEADERS : STANDARD_HEADERS;
     
-    const rows = items.map(item => convertItemToRow(item, config.includeReceipt));
+    const rows = items.map(item => convertItemToRow(item, { includeReceipt: config.includeReceipt }));
+
+    return generateCsvContent(headers, rows);
+}
+
+/**
+ * Convert financial data to CSV with amounts normalized to the user's selected currency.
+ */
+export function convertFinancialDataToCsvWithDisplayCurrency<T extends BaseFinancialItem>(
+    items: T[],
+    displayCurrency: string,
+    config: ExportFieldConfig & { conversionMatrix?: ConversionRateMatrix } = {}
+): string {
+    validateExportData(items, 'Financial');
+
+    const headers = getFinancialExportHeaders(
+        displayCurrency,
+        config.includeReceipt ?? false
+    );
+
+    const rows = items.map(item =>
+        convertItemToRow(item, {
+            includeReceipt: config.includeReceipt,
+            displayCurrency,
+            conversionMatrix: config.conversionMatrix,
+        })
+    );
 
     return generateCsvContent(headers, rows);
 }

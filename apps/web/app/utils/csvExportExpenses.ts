@@ -1,10 +1,12 @@
 import { Expense } from '../types/financial';
 import { 
-    convertFinancialDataToCsv, 
+    convertFinancialDataToCsv,
+    convertFinancialDataToCsvWithDisplayCurrency,
     exportExpensesToCsv as exportExpensesWithModules,
     getExpenseExportStatistics,
     type ExpenseItem 
 } from './financialCsvExporter';
+import type { ConversionRateMatrix } from './currencyRates';
 
 /**
  * Convert expenses data to CSV format
@@ -12,6 +14,20 @@ import {
  */
 export function convertExpensesToCSV(expenses: Expense[]): string {
     return convertFinancialDataToCsv(expenses as ExpenseItem[], { includeReceipt: true });
+}
+
+/**
+ * Expenses CSV with an extra column for amount in the user's selected currency.
+ */
+export function convertExpensesToCSVWithDisplayCurrency(
+    expenses: Expense[],
+    displayCurrency: string,
+    conversionMatrix?: ConversionRateMatrix
+): string {
+    return convertFinancialDataToCsvWithDisplayCurrency(expenses as ExpenseItem[], displayCurrency, {
+        includeReceipt: true,
+        conversionMatrix,
+    });
 }
 
 /**
