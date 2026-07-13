@@ -9,6 +9,10 @@ import {
   processScheduledPaymentsDigestEmails,
   type ScheduledPaymentsDigestEmailResult,
 } from "../../../services/process-scheduled-payments-digest-email";
+import {
+  processMonthlyBalanceSheetEmails,
+  type MonthlyBalanceSheetEmailResult,
+} from "../../../services/process-monthly-balance-sheet-email";
 
 /** 0 = Sunday … 6 = Saturday (UTC). Invalid values default to 0. */
 function getWeeklyExportUtcDay(): number {
@@ -28,12 +32,13 @@ export async function GET(request: NextRequest) {
     }
 
     console.log(
-      "Starting cron job: inactive-user emails, net worth snapshots, weekly data export (if scheduled day), scheduled payments digest"
+      "Starting cron job: inactive-user emails, net worth snapshots, weekly data export (if scheduled day), scheduled payments digest, monthly balance sheet"
     );
 
     const inactiveUsersResult = await processInactiveUsersForEmailNotifications();
     const networthResult = await recordNetworthSnapshotForAllUsers("AUTOMATIC", new Date());
     const scheduledPaymentsDigestResult = await processScheduledPaymentsDigestEmails();
+    const monthlyBalanceSheetResult = await processMonthlyBalanceSheetEmails();
 
     const inactiveUsersSummary = {
       processedUsers: inactiveUsersResult.processedUsers,
@@ -83,6 +88,16 @@ export async function GET(request: NextRequest) {
       errors: (scheduledPaymentsDigestResult.errors || []).slice(0, 5),
     };
 
+    const monthlyBalanceSheetSummary: MonthlyBalanceSheetEmailResult = {
+      eligibleUsers: monthlyBalanceSheetResult.eligibleUsers,
+      emailsAttempted: monthlyBalanceSheetResult.emailsAttempted,
+      emailsSent: monthlyBalanceSheetResult.emailsSent,
+      skippedNotFirst: monthlyBalanceSheetResult.skippedNotFirst,
+      skippedNoTransactions: monthlyBalanceSheetResult.skippedNoTransactions,
+      skippedAlreadySent: monthlyBalanceSheetResult.skippedAlreadySent,
+      errors: (monthlyBalanceSheetResult.errors || []).slice(0, 5),
+    };
+
     const hasInactiveUserErrors = inactiveUsersSummary.errorCount > 0;
     const hasNetworthErrors = !networthResult.success || (networthResult.result?.errorCount || 0) > 0;
     const weeklyHadErrors =
@@ -90,12 +105,15 @@ export async function GET(request: NextRequest) {
       (weeklyDataExport.errors?.length ?? 0) > 0;
     const scheduledPaymentsDigestHadErrors =
       (scheduledPaymentsDigestSummary.errors?.length ?? 0) > 0;
+    const monthlyBalanceSheetHadErrors =
+      (monthlyBalanceSheetSummary.errors?.length ?? 0) > 0;
 
     console.log("Cron job completed:", {
       inactiveUsers: inactiveUsersSummary,
       networthSnapshots: networthSummary,
       weeklyDataExport,
       scheduledPaymentsDigest: scheduledPaymentsDigestSummary,
+      monthlyBalanceSheet: monthlyBalanceSheetSummary,
     });
 
     return NextResponse.json({
@@ -103,13 +121,15 @@ export async function GET(request: NextRequest) {
         !hasInactiveUserErrors &&
         !hasNetworthErrors &&
         !weeklyHadErrors &&
-        !scheduledPaymentsDigestHadErrors,
+        !scheduledPaymentsDigestHadErrors &&
+        !monthlyBalanceSheetHadErrors,
       message: "Daily cron jobs completed",
       result: {
         inactiveUsers: inactiveUsersSummary,
         networthSnapshots: networthSummary,
         weeklyDataExport,
         scheduledPaymentsDigest: scheduledPaymentsDigestSummary,
+        monthlyBalanceSheet: monthlyBalanceSheetSummary,
       }
     });
 

@@ -56,7 +56,7 @@ function getTimezoneFormatter(timezone: string): Intl.DateTimeFormat {
   return formatter;
 }
 
-function getDatePartsInTimezone(date: Date, timezone: string): TimezoneDateParts {
+export function getDatePartsInTimezone(date: Date, timezone: string): TimezoneDateParts {
   const formatter = getTimezoneFormatter(timezone);
   const parts = formatter.formatToParts(date);
   const getPart = (type: Intl.DateTimeFormatPartTypes): number => {
@@ -73,7 +73,7 @@ function getDatePartsInTimezone(date: Date, timezone: string): TimezoneDateParts
   };
 }
 
-function zonedDateTimeToUtc(
+export function zonedDateTimeToUtc(
   year: number,
   monthIndex: number,
   day: number,

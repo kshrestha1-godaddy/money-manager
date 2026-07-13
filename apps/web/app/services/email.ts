@@ -954,3 +954,105 @@ View scheduled payments: https://mymoneylog.vercel.app/scheduled-payments
     html,
   });
 }
+
+export interface MonthlyBalanceSheetEmailParams {
+  to: string;
+  userName?: string;
+  periodLabel: string;
+  transactionCount: number;
+  openingBalance: number;
+  closingBalance: number;
+  displayCurrency: string;
+  attachment: { filename: string; buffer: Buffer };
+}
+
+function formatBalanceSheetMoney(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${amount.toFixed(2)} ${currency}`;
+  }
+}
+
+export async function sendMonthlyBalanceSheetEmail(
+  params: MonthlyBalanceSheetEmailParams
+) {
+  const firstName = params.userName?.split(" ")[0] || "there";
+  const subject = `MoneyManager — balance sheet for ${params.periodLabel}`;
+  const openingLabel = formatBalanceSheetMoney(
+    params.openingBalance,
+    params.displayCurrency
+  );
+  const closingLabel = formatBalanceSheetMoney(
+    params.closingBalance,
+    params.displayCurrency
+  );
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9fafb; padding: 20px;">
+      <div style="background-color: white; border-radius: 16px; padding: 32px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08);">
+        <h1 style="color: #1f2937; margin: 0 0 12px 0; font-size: 22px;">Monthly balance sheet</h1>
+        <p style="color: #4b5563; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">
+          Hi ${firstName},
+        </p>
+        <p style="color: #4b5563; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">
+          Your balance sheet for <strong>${params.periodLabel}</strong> is attached as an Excel file.
+        </p>
+        <div style="background-color: #f3f4f6; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+          <p style="color: #374151; font-size: 14px; margin: 0 0 8px 0;">
+            <strong>Transactions:</strong> ${params.transactionCount}
+          </p>
+          <p style="color: #374151; font-size: 14px; margin: 0 0 8px 0;">
+            <strong>Opening balance:</strong> ${openingLabel}
+          </p>
+          <p style="color: #374151; font-size: 14px; margin: 0;">
+            <strong>Closing balance:</strong> ${closingLabel}
+          </p>
+        </div>
+        <p style="color: #6b7280; font-size: 13px; line-height: 1.5; margin: 0 0 20px 0;">
+          The spreadsheet includes opening and closing balances, debit/credit columns, and a running balance for each transaction.
+        </p>
+        <p style="margin: 0;">
+          <a href="https://mymoneylog.vercel.app/transactions"
+             style="display: inline-block; background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px;">
+            View transactions
+          </a>
+        </p>
+      </div>
+    </div>
+  `;
+
+  const text = `
+MoneyManager — balance sheet for ${params.periodLabel}
+
+Hi ${firstName},
+
+Your balance sheet for ${params.periodLabel} is attached as an Excel file.
+
+Transactions: ${params.transactionCount}
+Opening balance: ${openingLabel}
+Closing balance: ${closingLabel}
+
+View transactions: https://mymoneylog.vercel.app/transactions
+  `.trim();
+
+  return sendEmail({
+    to: params.to,
+    subject,
+    text,
+    html,
+    attachments: [
+      {
+        filename: params.attachment.filename,
+        content: params.attachment.buffer,
+        contentType:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      },
+    ],
+  });
+}

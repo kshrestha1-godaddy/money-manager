@@ -139,14 +139,29 @@ async function loadUnifiedTransactions(
     const debtWhere: any = { userId };
     const investmentWhere: any = { userId };
 
-    if (opts.startDate && opts.endDate) {
-        expenseWhere.date = { gte: opts.startDate, lte: opts.endDate };
-        incomeWhere.date = { gte: opts.startDate, lte: opts.endDate };
-        debtWhere.lentDate = { gte: opts.startDate, lte: opts.endDate };
-        investmentWhere.purchaseDate = {
-            gte: opts.startDate,
-            lte: opts.endDate,
-        };
+    if (opts.startDate || opts.endDate) {
+        const expenseDate: { gte?: Date; lte?: Date } = {};
+        const incomeDate: { gte?: Date; lte?: Date } = {};
+        const debtDate: { gte?: Date; lte?: Date } = {};
+        const investmentDate: { gte?: Date; lte?: Date } = {};
+
+        if (opts.startDate) {
+            expenseDate.gte = opts.startDate;
+            incomeDate.gte = opts.startDate;
+            debtDate.gte = opts.startDate;
+            investmentDate.gte = opts.startDate;
+        }
+        if (opts.endDate) {
+            expenseDate.lte = opts.endDate;
+            incomeDate.lte = opts.endDate;
+            debtDate.lte = opts.endDate;
+            investmentDate.lte = opts.endDate;
+        }
+
+        expenseWhere.date = expenseDate;
+        incomeWhere.date = incomeDate;
+        debtWhere.lentDate = debtDate;
+        investmentWhere.purchaseDate = investmentDate;
     }
 
     const expenseInclude = { category: true, account: true, user: true };
@@ -237,4 +252,12 @@ export async function getAllTransactions(): Promise<Transaction[]> {
         console.error("Failed to fetch all transactions:", error);
         throw new Error("Failed to fetch all transactions");
     }
+}
+
+/** Server-side unified transaction loader (cron, exports) — no session required. */
+export async function loadUnifiedTransactionsForUser(
+    userId: number,
+    opts: { limit?: number; startDate?: Date; endDate?: Date } = {}
+): Promise<Transaction[]> {
+    return loadUnifiedTransactions(userId, opts);
 }
