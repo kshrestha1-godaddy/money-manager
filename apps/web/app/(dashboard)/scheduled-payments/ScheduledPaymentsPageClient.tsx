@@ -740,6 +740,7 @@ export default function ScheduledPaymentsPageClient() {
                   <ScheduledPaymentsRecurrenceSectionTable
                     key={section.label}
                     section={section}
+                    allItems={items}
                     tableDisplayCurrency={tableDisplayCurrency}
                     userTimezone={userTimezone}
                     now={now}
@@ -834,6 +835,7 @@ export default function ScheduledPaymentsPageClient() {
                     <ScheduledPaymentsRecurrenceSectionTable
                       key={section.label}
                       section={section}
+                      allItems={items}
                       tableDisplayCurrency={tableDisplayCurrency}
                       userTimezone={userTimezone}
                       now={now}
@@ -878,6 +880,7 @@ export default function ScheduledPaymentsPageClient() {
         onClose={() => setViewingItem(null)}
         displayCurrency={tableDisplayCurrency}
         userTimezone={userTimezone}
+        allItems={items}
         onPostponeSuccess={async () => {
           await load({ silent: true });
           setNotification({

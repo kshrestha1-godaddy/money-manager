@@ -226,6 +226,47 @@ export function recurringDisplay(item: ScheduledPaymentItem): string {
   return m[item.recurringFrequency] ?? item.recurringFrequency;
 }
 
+/** Still upcoming or awaiting confirmation (not accepted/rejected). */
+export function isScheduledUnresolved(item: ScheduledPaymentItem): boolean {
+  return item.resolution === null;
+}
+
+/**
+ * Heuristic series match for recurring occurrences created by accept/reject
+ * (same title, category, account, currency, and frequency).
+ */
+export function belongsToSameRecurringSeries(
+  current: ScheduledPaymentItem,
+  candidate: ScheduledPaymentItem
+): boolean {
+  if (!current.isRecurring || !current.recurringFrequency) return false;
+  if (!candidate.isRecurring) return false;
+  if (candidate.recurringFrequency !== current.recurringFrequency) return false;
+  if (candidate.title.trim() !== current.title.trim()) return false;
+  if (candidate.categoryId !== current.categoryId) return false;
+  if ((candidate.accountId ?? null) !== (current.accountId ?? null)) return false;
+  if (candidate.currency !== current.currency) return false;
+  return true;
+}
+
+/** Previously accepted occurrences in the same recurring series (newest first). */
+export function getAcceptedRecurringHistoryFromItems(
+  current: ScheduledPaymentItem,
+  all: ScheduledPaymentItem[]
+): ScheduledPaymentItem[] {
+  if (!current.isRecurring || !isScheduledUnresolved(current)) return [];
+  return all
+    .filter(
+      (candidate) =>
+        candidate.id !== current.id &&
+        candidate.resolution === "ACCEPTED" &&
+        belongsToSameRecurringSeries(current, candidate)
+    )
+    .sort(
+      (a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime()
+    );
+}
+
 /** Order for table section headers (One-time first, then increasing frequency). */
 export function recurrenceGroupSortIndex(label: string): number {
   const order: Record<string, number> = {

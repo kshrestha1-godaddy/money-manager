@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   getDueScheduledPaymentsPending,
+  getAcceptedRecurringHistory,
   acceptScheduledPayment,
   rejectScheduledPayment,
   postponeScheduledPayment,
@@ -13,6 +14,7 @@ import {
   postponeFromOriginalScheduledDate,
   toDatetimeLocalValue,
 } from "../(dashboard)/scheduled-payments/scheduled-payment-helpers";
+import { AcceptedRecurringHistoryDropdown } from "../(dashboard)/scheduled-payments/components/AcceptedRecurringHistoryDropdown";
 import { ScheduledPaymentItem } from "../types/scheduled-payment";
 import { formatCurrency } from "../utils/currency";
 import { useCurrency } from "../providers/CurrencyProvider";
@@ -48,6 +50,7 @@ export function PendingScheduledPaymentsPrompt() {
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [customPostpone, setCustomPostpone] = useState("");
+  const [acceptedHistory, setAcceptedHistory] = useState<ScheduledPaymentItem[]>([]);
 
   const refresh = useCallback(async () => {
     try {
@@ -70,6 +73,7 @@ export function PendingScheduledPaymentsPrompt() {
   useEffect(() => {
     if (!current) {
       setCustomPostpone("");
+      setAcceptedHistory([]);
       return;
     }
     setCustomPostpone(
@@ -79,6 +83,24 @@ export function PendingScheduledPaymentsPrompt() {
       )
     );
   }, [current?.id, userTimezone]);
+
+  useEffect(() => {
+    if (!current?.isRecurring || current.resolution !== null) {
+      setAcceptedHistory([]);
+      return;
+    }
+    let cancelled = false;
+    void getAcceptedRecurringHistory(current.id)
+      .then((rows) => {
+        if (!cancelled) setAcceptedHistory(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setAcceptedHistory([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [current?.id, current?.isRecurring, current?.resolution]);
 
   const handlePostpone = async (when: Date) => {
     if (!current) return;
@@ -191,6 +213,11 @@ export function PendingScheduledPaymentsPrompt() {
               </span>
             </p>
           )}
+          <AcceptedRecurringHistoryDropdown
+            items={acceptedHistory}
+            displayCurrency={userCurrency}
+            userTimezone={userTimezone}
+          />
         </div>
         <div className="flex flex-col gap-3 pt-1">
           <div className="flex min-w-0 flex-nowrap items-center justify-end gap-1.5 overflow-x-auto sm:gap-2">

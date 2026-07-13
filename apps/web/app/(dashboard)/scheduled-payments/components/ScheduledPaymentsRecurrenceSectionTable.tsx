@@ -1,13 +1,15 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import type { ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { ScheduledPaymentItem } from "../../../types/scheduled-payment";
 import { formatCurrency } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import {
   accountDisplay,
   formatScheduledPaymentWhenDate,
+  getAcceptedRecurringHistoryFromItems,
+  isScheduledUnresolved,
   isScheduledWithinNextTwoDays,
   recurringDisplay,
   scheduledPaymentStatusLabel,
@@ -19,6 +21,7 @@ import {
   TABLE_CELL_Y,
 } from "../scheduled-payments-table-constants";
 import type { ScheduledPaymentsSortKey, ScheduledPaymentsTableSortState } from "../scheduled-payments-table-types";
+import { AcceptedRecurringHistoryToggle } from "./AcceptedRecurringHistoryDropdown";
 import { ScheduledPaymentsTableColgroup } from "./scheduled-payments-table-colgroup";
 import { ScheduledPaymentsTableHeadRow } from "./scheduled-payments-table-head";
 
@@ -29,6 +32,8 @@ export interface ScheduledPaymentsGroupedSection {
 
 interface ScheduledPaymentsRecurrenceSectionTableProps {
   section: ScheduledPaymentsGroupedSection;
+  /** Full unfiltered list used to resolve accepted history for recurring rows. */
+  allItems: ScheduledPaymentItem[];
   tableDisplayCurrency: string;
   userTimezone: string;
   now: Date;
@@ -48,6 +53,7 @@ interface ScheduledPaymentsRecurrenceSectionTableProps {
 
 export function ScheduledPaymentsRecurrenceSectionTable({
   section,
+  allItems,
   tableDisplayCurrency,
   userTimezone,
   now,
@@ -64,6 +70,19 @@ export function ScheduledPaymentsRecurrenceSectionTable({
   onSort,
   bulkSelectHeaderCell,
 }: ScheduledPaymentsRecurrenceSectionTableProps) {
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState<Set<number>>(
+    () => new Set()
+  );
+
+  function toggleHistoryExpanded(id: number) {
+    setExpandedHistoryIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   return (
     <div className="mb-6 overflow-x-auto overscroll-x-contain last:mb-3 rounded-lg border border-gray-200/90 bg-white shadow-sm">
       <table className="w-full min-w-[1200px] table-fixed text-sm leading-relaxed">
@@ -96,123 +115,150 @@ export function ScheduledPaymentsRecurrenceSectionTable({
             const canEdit = !item.resolution;
             const canPostpone = item.resolution === null;
             const isDueSoon = isScheduledWithinNextTwoDays(item, now);
+            const acceptedHistory =
+              item.isRecurring && isScheduledUnresolved(item)
+                ? getAcceptedRecurringHistoryFromItems(item, allItems)
+                : [];
+            const isHistoryExpanded = expandedHistoryIds.has(item.id);
             const rowTint = isDueSoon
               ? "bg-amber-50/90 hover:bg-amber-100/80"
               : "hover:bg-gray-50/80";
 
             return (
-              <tr key={item.id} className={cn("group align-middle", rowTint)}>
-                <td
-                  className={`border-r border-gray-100/80 px-3 text-center align-middle ${TABLE_CELL_Y} ${rowTint}`}
-                  style={{
-                    width: BULK_SELECT_COLUMN_WIDTH_PX,
-                    minWidth: BULK_SELECT_COLUMN_WIDTH_PX,
-                    maxWidth: BULK_SELECT_COLUMN_WIDTH_PX,
-                    boxSizing: "border-box",
-                  }}
-                >
-                  {showCheckboxes && canDelete ? (
-                    <input
-                      type="checkbox"
-                      checked={selectedPaymentIds.has(item.id)}
-                      onChange={() => onToggleRowSelection(item.id)}
-                      className="mx-auto block h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      aria-label={`Select “${item.title}”`}
-                    />
-                  ) : null}
-                </td>
-                <td
-                  className={`min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle font-medium text-gray-900 ${rowTint}`}
-                >
-                  <span className="block break-words leading-snug" title={item.title}>
-                    {item.title}
-                  </span>
-                </td>
-                <td
-                  className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle whitespace-nowrap text-gray-700 ${rowTint}`}
-                >
-                  {formatScheduledPaymentWhenDate(item.scheduledAt, userTimezone)}
-                </td>
-                <td
-                  className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle whitespace-nowrap tabular-nums text-gray-900 ${rowTint}`}
-                >
-                  {formatCurrency(displayAmount, tableDisplayCurrency)}
-                </td>
-                <td
-                  className={`max-w-0 min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle text-gray-700 ${rowTint}`}
-                >
-                  <span className="block truncate" title={item.category.name}>
-                    {item.category.name}
-                  </span>
-                </td>
-                <td
-                  className={`max-w-0 min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle text-gray-700 ${rowTint}`}
-                >
-                  <span className="block truncate" title={accountDisplay(item)}>
-                    {accountDisplay(item)}
-                  </span>
-                </td>
-                <td
-                  className={`max-w-0 min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle text-gray-600 ${rowTint}`}
-                >
-                  {item.notes?.trim() ? (
-                    <span className="block truncate" title={item.notes}>
-                      {item.notes}
-                    </span>
-                  ) : (
-                    <span className="text-gray-400">—</span>
-                  )}
-                </td>
-                <td
-                  className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle whitespace-nowrap text-gray-700 ${rowTint}`}
-                >
-                  {recurringDisplay(item)}
-                </td>
-                <td
-                  className={`max-w-0 min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle ${rowTint}`}
-                >
-                  <span
-                    className={`block truncate ${
-                      statusLabel === "Accepted"
-                        ? "text-green-700"
-                        : statusLabel === "Rejected"
-                          ? "text-red-700"
-                          : statusLabel === "Awaiting confirmation"
-                            ? "text-amber-700"
-                            : "text-gray-700"
-                    }`}
-                    title={statusLabel}
+              <Fragment key={item.id}>
+                <tr className={cn("group align-middle", rowTint)}>
+                  <td
+                    className={`border-r border-gray-100/80 px-3 text-center align-middle ${TABLE_CELL_Y} ${rowTint}`}
+                    style={{
+                      width: BULK_SELECT_COLUMN_WIDTH_PX,
+                      minWidth: BULK_SELECT_COLUMN_WIDTH_PX,
+                      maxWidth: BULK_SELECT_COLUMN_WIDTH_PX,
+                      boxSizing: "border-box",
+                    }}
                   >
-                    {statusLabel}
-                  </span>
-                </td>
-                <td
-                  className={`${TABLE_CELL_X} ${TABLE_CELL_Y} text-center align-middle ${rowTint}`}
-                >
-                  {renderPostponeColumnContent(item, canPostpone, onPostponeDays)}
-                </td>
-                <td
-                  className={`sticky right-0 z-10 min-w-[11rem] border-l border-gray-100 ${TABLE_CELL_X} ${TABLE_CELL_Y} text-center align-middle shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:min-w-[12rem] ${
-                    isDueSoon
-                      ? "border-amber-100/80 bg-amber-50/90 group-hover:bg-amber-100/80"
-                      : "border-gray-100 bg-white group-hover:bg-gray-50/80"
-                  }`}
-                >
-                  <div className="flex flex-wrap items-center justify-center gap-x-0.5 gap-y-1.5">
-                    {renderActionCells(
-                      item,
-                      canDecide,
-                      canEdit,
-                      canDelete,
-                      onView,
-                      onEdit,
-                      onCancel,
-                      onAccept,
-                      onReject
+                    {showCheckboxes && canDelete ? (
+                      <input
+                        type="checkbox"
+                        checked={selectedPaymentIds.has(item.id)}
+                        onChange={() => onToggleRowSelection(item.id)}
+                        className="mx-auto block h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        aria-label={`Select “${item.title}”`}
+                      />
+                    ) : null}
+                  </td>
+                  <td
+                    className={`min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle font-medium text-gray-900 ${rowTint}`}
+                  >
+                    <span className="block break-words leading-snug" title={item.title}>
+                      {item.title}
+                    </span>
+                    <div className="mt-1.5">
+                      <AcceptedRecurringHistoryToggle
+                        count={acceptedHistory.length}
+                        isOpen={isHistoryExpanded}
+                        onToggle={() => toggleHistoryExpanded(item.id)}
+                        compact
+                      />
+                    </div>
+                  </td>
+                  <td
+                    className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle whitespace-nowrap text-gray-700 ${rowTint}`}
+                  >
+                    {formatScheduledPaymentWhenDate(item.scheduledAt, userTimezone)}
+                  </td>
+                  <td
+                    className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle whitespace-nowrap tabular-nums text-gray-900 ${rowTint}`}
+                  >
+                    {formatCurrency(displayAmount, tableDisplayCurrency)}
+                  </td>
+                  <td
+                    className={`max-w-0 min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle text-gray-700 ${rowTint}`}
+                  >
+                    <span className="block truncate" title={item.category.name}>
+                      {item.category.name}
+                    </span>
+                  </td>
+                  <td
+                    className={`max-w-0 min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle text-gray-700 ${rowTint}`}
+                  >
+                    <span className="block truncate" title={accountDisplay(item)}>
+                      {accountDisplay(item)}
+                    </span>
+                  </td>
+                  <td
+                    className={`max-w-0 min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle text-gray-600 ${rowTint}`}
+                  >
+                    {item.notes?.trim() ? (
+                      <span className="block truncate" title={item.notes}>
+                        {item.notes}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
                     )}
-                  </div>
-                </td>
-              </tr>
+                  </td>
+                  <td
+                    className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle whitespace-nowrap text-gray-700 ${rowTint}`}
+                  >
+                    {recurringDisplay(item)}
+                  </td>
+                  <td
+                    className={`max-w-0 min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle ${rowTint}`}
+                  >
+                    <span
+                      className={`block truncate ${
+                        statusLabel === "Accepted"
+                          ? "text-green-700"
+                          : statusLabel === "Rejected"
+                            ? "text-red-700"
+                            : statusLabel === "Awaiting confirmation"
+                              ? "text-amber-700"
+                              : "text-gray-700"
+                      }`}
+                      title={statusLabel}
+                    >
+                      {statusLabel}
+                    </span>
+                  </td>
+                  <td
+                    className={`${TABLE_CELL_X} ${TABLE_CELL_Y} text-center align-middle ${rowTint}`}
+                  >
+                    {renderPostponeColumnContent(item, canPostpone, onPostponeDays)}
+                  </td>
+                  <td
+                    className={`sticky right-0 z-10 min-w-[11rem] border-l border-gray-100 ${TABLE_CELL_X} ${TABLE_CELL_Y} text-center align-middle shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:min-w-[12rem] ${
+                      isDueSoon
+                        ? "border-amber-100/80 bg-amber-50/90 group-hover:bg-amber-100/80"
+                        : "border-gray-100 bg-white group-hover:bg-gray-50/80"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center justify-center gap-x-0.5 gap-y-1.5">
+                      {renderActionCells(
+                        item,
+                        canDecide,
+                        canEdit,
+                        canDelete,
+                        onView,
+                        onEdit,
+                        onCancel,
+                        onAccept,
+                        onReject
+                      )}
+                    </div>
+                  </td>
+                </tr>
+
+                {isHistoryExpanded
+                  ? acceptedHistory.map((historyItem) => (
+                      <AcceptedHistoryTableRow
+                        key={`${item.id}-history-${historyItem.id}`}
+                        item={historyItem}
+                        tableDisplayCurrency={tableDisplayCurrency}
+                        userTimezone={userTimezone}
+                        onView={onView}
+                      />
+                    ))
+                  : null}
+              </Fragment>
             );
           })}
         </tbody>
@@ -262,6 +308,112 @@ export function ScheduledPaymentsRecurrenceSectionTable({
         </tfoot>
       </table>
     </div>
+  );
+}
+
+function AcceptedHistoryTableRow({
+  item,
+  tableDisplayCurrency,
+  userTimezone,
+  onView,
+}: {
+  item: ScheduledPaymentItem;
+  tableDisplayCurrency: string;
+  userTimezone: string;
+  onView: (item: ScheduledPaymentItem) => void;
+}) {
+  const displayAmount = convertForDisplaySync(
+    item.amount,
+    item.currency,
+    tableDisplayCurrency
+  );
+  const rowTint = "bg-emerald-50/70 hover:bg-emerald-50";
+  const account = accountDisplay(item);
+
+  return (
+    <tr className={cn("align-middle", rowTint)} aria-label={`Previously accepted: ${item.title}`}>
+      <td
+        className={`border-r border-emerald-100/80 px-3 text-center align-middle ${TABLE_CELL_Y} ${rowTint}`}
+        style={{
+          width: BULK_SELECT_COLUMN_WIDTH_PX,
+          minWidth: BULK_SELECT_COLUMN_WIDTH_PX,
+          maxWidth: BULK_SELECT_COLUMN_WIDTH_PX,
+          boxSizing: "border-box",
+        }}
+        aria-hidden
+      />
+      <td
+        className={`min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle font-medium text-gray-800 ${rowTint}`}
+      >
+        <span className="block break-words leading-snug pl-3" title={item.title}>
+          <span className="mr-1.5 text-emerald-600" aria-hidden>
+            ↳
+          </span>
+          {item.title}
+        </span>
+      </td>
+      <td
+        className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle whitespace-nowrap text-gray-700 ${rowTint}`}
+      >
+        {formatScheduledPaymentWhenDate(item.scheduledAt, userTimezone)}
+      </td>
+      <td
+        className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle whitespace-nowrap tabular-nums text-emerald-900 ${rowTint}`}
+      >
+        {formatCurrency(displayAmount, tableDisplayCurrency)}
+      </td>
+      <td
+        className={`max-w-0 min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle text-gray-700 ${rowTint}`}
+      >
+        <span className="block truncate" title={item.category.name}>
+          {item.category.name}
+        </span>
+      </td>
+      <td
+        className={`max-w-0 min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle text-gray-700 ${rowTint}`}
+      >
+        <span className="block truncate" title={account}>
+          {account}
+        </span>
+      </td>
+      <td
+        className={`max-w-0 min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle text-gray-600 ${rowTint}`}
+      >
+        {item.notes?.trim() ? (
+          <span className="block truncate" title={item.notes}>
+            {item.notes}
+          </span>
+        ) : (
+          <span className="text-gray-400">—</span>
+        )}
+      </td>
+      <td
+        className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle whitespace-nowrap text-gray-700 ${rowTint}`}
+      >
+        {recurringDisplay(item)}
+      </td>
+      <td
+        className={`max-w-0 min-w-0 ${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle ${rowTint}`}
+      >
+        <span className="block truncate text-green-700" title="Accepted">
+          Accepted
+        </span>
+      </td>
+      <td className={`${TABLE_CELL_X} ${TABLE_CELL_Y} text-center align-middle ${rowTint}`}>
+        <span className="text-gray-400">—</span>
+      </td>
+      <td
+        className={`sticky right-0 z-10 min-w-[11rem] border-l border-emerald-100/80 bg-emerald-50/70 ${TABLE_CELL_X} ${TABLE_CELL_Y} text-center align-middle shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:min-w-[12rem]`}
+      >
+        <button
+          type="button"
+          onClick={() => onView(item)}
+          className="inline-flex shrink-0 items-center rounded-md bg-indigo-50 px-2.5 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-100 hover:text-indigo-800"
+        >
+          View
+        </button>
+      </td>
+    </tr>
   );
 }
 

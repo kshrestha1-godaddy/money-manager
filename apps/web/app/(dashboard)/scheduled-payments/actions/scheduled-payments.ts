@@ -169,6 +169,43 @@ export async function getDueScheduledPaymentsPending(): Promise<ScheduledPayment
   return rows.map((r) => toScheduledPaymentItem(r as never));
 }
 
+/**
+ * Previously accepted occurrences that belong to the same recurring series as `id`.
+ * Only returns results when the current payment is still unresolved (scheduled).
+ */
+export async function getAcceptedRecurringHistory(
+  id: number
+): Promise<ScheduledPaymentItem[]> {
+  const session = await getServerSession(authOptions);
+  if (!session) throw new Error("Unauthorized");
+  const userId = getUserIdFromSession(session.user.id);
+
+  const current = await prisma.scheduledPayment.findFirst({
+    where: { id, userId },
+  });
+  if (!current) throw new Error("Scheduled payment not found");
+  if (!current.isRecurring || !current.recurringFrequency) return [];
+  if (current.resolution !== null) return [];
+
+  const rows = await prisma.scheduledPayment.findMany({
+    where: {
+      userId,
+      id: { not: id },
+      resolution: ScheduledPaymentResolution.ACCEPTED,
+      isRecurring: true,
+      recurringFrequency: current.recurringFrequency,
+      title: current.title,
+      categoryId: current.categoryId,
+      accountId: current.accountId,
+      currency: current.currency,
+    },
+    include: includeRelations,
+    orderBy: { scheduledAt: "desc" },
+  });
+
+  return rows.map((r) => toScheduledPaymentItem(r as never));
+}
+
 export interface CreateScheduledPaymentInput {
   title: string;
   description?: string;

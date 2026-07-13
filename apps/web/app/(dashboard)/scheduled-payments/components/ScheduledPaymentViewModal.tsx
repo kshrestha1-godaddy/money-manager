@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { postponeScheduledPayment } from "../actions/scheduled-payments";
+import { useEffect, useMemo, useState } from "react";
+import {
+  getAcceptedRecurringHistory,
+  postponeScheduledPayment,
+} from "../actions/scheduled-payments";
 import type { ScheduledPaymentItem } from "../../../types/scheduled-payment";
 import { formatCurrency } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
@@ -9,12 +12,15 @@ import { BUTTON_COLORS } from "../../../config/colorConfig";
 import {
   accountDisplay,
   formatScheduledPaymentWhenDate,
+  getAcceptedRecurringHistoryFromItems,
+  isScheduledUnresolved,
   parseDatetimeLocalInTimezone,
   postponeFromOriginalScheduledDate,
   recurringDisplay,
   scheduledPaymentStatusLabel,
   toDatetimeLocalValue,
 } from "../scheduled-payment-helpers";
+import { AcceptedRecurringHistoryDropdown } from "./AcceptedRecurringHistoryDropdown";
 
 interface ScheduledPaymentViewModalProps {
   item: ScheduledPaymentItem | null;
@@ -24,6 +30,8 @@ interface ScheduledPaymentViewModalProps {
   userTimezone: string;
   onPostponeSuccess: () => void | Promise<void>;
   onEdit?: () => void;
+  /** All payments for client-side series history; falls back to server fetch when omitted. */
+  allItems?: ScheduledPaymentItem[];
 }
 
 const secondaryOutlineButton = BUTTON_COLORS.secondaryBlue;
@@ -36,9 +44,12 @@ export function ScheduledPaymentViewModal({
   userTimezone,
   onPostponeSuccess,
   onEdit,
+  allItems,
 }: ScheduledPaymentViewModalProps) {
   const [acting, setActing] = useState(false);
   const [customPostpone, setCustomPostpone] = useState("");
+  const [fetchedHistory, setFetchedHistory] = useState<ScheduledPaymentItem[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   useEffect(() => {
     if (!item) {
@@ -54,6 +65,43 @@ export function ScheduledPaymentViewModal({
     );
   }, [item?.id, userTimezone]);
 
+  const clientHistory = useMemo(() => {
+    if (!item || !allItems) return null;
+    return getAcceptedRecurringHistoryFromItems(item, allItems);
+  }, [item, allItems]);
+
+  useEffect(() => {
+    if (!isOpen || !item) {
+      setFetchedHistory([]);
+      return;
+    }
+    if (clientHistory !== null) {
+      setFetchedHistory([]);
+      return;
+    }
+    if (!item.isRecurring || !isScheduledUnresolved(item)) {
+      setFetchedHistory([]);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingHistory(true);
+    void getAcceptedRecurringHistory(item.id)
+      .then((rows) => {
+        if (!cancelled) setFetchedHistory(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setFetchedHistory([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingHistory(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, item, clientHistory]);
+
   if (!isOpen || !item) return null;
 
   const now = new Date();
@@ -66,6 +114,11 @@ export function ScheduledPaymentViewModal({
   );
   const scheduledAtDate = new Date(item.scheduledAt);
   const minDatetimeLocal = toDatetimeLocalValue(new Date(Date.now() + 60_000), userTimezone);
+  const acceptedHistory = clientHistory ?? fetchedHistory;
+  const showHistorySection =
+    item.isRecurring &&
+    isScheduledUnresolved(item) &&
+    (acceptedHistory.length > 0 || isLoadingHistory);
 
   async function handlePostpone(when: Date) {
     setActing(true);
@@ -161,6 +214,18 @@ export function ScheduledPaymentViewModal({
               <span className="ml-2 text-gray-900">{accountDisplay(item)}</span>
             </p>
           </div>
+
+          {showHistorySection ? (
+            isLoadingHistory && clientHistory === null ? (
+              <p className="text-xs text-gray-500">Loading previous payments…</p>
+            ) : (
+              <AcceptedRecurringHistoryDropdown
+                items={acceptedHistory}
+                displayCurrency={displayCurrency}
+                userTimezone={userTimezone}
+              />
+            )
+          ) : null}
 
           {item.description?.trim() ? (
             <div>
