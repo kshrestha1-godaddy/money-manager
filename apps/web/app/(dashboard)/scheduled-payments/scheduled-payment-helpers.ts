@@ -1,6 +1,29 @@
 import { ScheduledPaymentItem } from "../../types/scheduled-payment";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
 
+/** YYYY-MM-DD for a Date in the given IANA timezone */
+export function dateKeyInTimeZone(date: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const y = parts.find((p) => p.type === "year")?.value;
+  const m = parts.find((p) => p.type === "month")?.value;
+  const d = parts.find((p) => p.type === "day")?.value;
+  if (!y || !m || !d) return "";
+  return `${y}-${m}-${d}`;
+}
+
+export function isScheduledOnLocalDate(
+  scheduledAt: Date,
+  dateKey: string,
+  timezone: string
+): boolean {
+  return dateKeyInTimeZone(scheduledAt, timezone) === dateKey;
+}
+
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }

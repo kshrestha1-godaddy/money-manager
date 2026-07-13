@@ -793,3 +793,164 @@ Store these files securely.
     })),
   });
 }
+
+export interface ScheduledPaymentDigestItem {
+  title: string;
+  amount: number;
+  currency: string;
+  whenLabel: string;
+  categoryName: string;
+  accountLabel: string;
+  statusLabel: string;
+  recurringLabel: string;
+}
+
+export interface ScheduledPaymentsDigestEmailParams {
+  to: string;
+  userName?: string;
+  dateLabel: string;
+  timezone: string;
+  payments: ScheduledPaymentDigestItem[];
+  totalByCurrency: Record<string, number>;
+}
+
+function formatDigestAmount(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${amount.toFixed(2)} ${currency}`;
+  }
+}
+
+export async function sendScheduledPaymentsDigestEmail(
+  params: ScheduledPaymentsDigestEmailParams
+) {
+  const firstName = params.userName?.split(" ")[0] || "there";
+  const count = params.payments.length;
+  const paymentWord = count === 1 ? "payment" : "payments";
+  const subject = `MoneyManager — ${count} scheduled ${paymentWord} for today`;
+
+  const paymentRowsHtml = params.payments
+    .map(
+      (payment) => `
+        <tr>
+          <td style="padding: 12px 8px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">
+            <strong>${payment.title}</strong><br />
+            <span style="color: #6b7280; font-size: 12px;">${payment.whenLabel}</span>
+          </td>
+          <td style="padding: 12px 8px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; white-space: nowrap;">
+            ${formatDigestAmount(payment.amount, payment.currency)}
+          </td>
+          <td style="padding: 12px 8px; border-bottom: 1px solid #e5e7eb; color: #4b5563; font-size: 13px;">
+            ${payment.categoryName}<br />
+            ${payment.accountLabel}<br />
+            ${payment.recurringLabel}
+          </td>
+          <td style="padding: 12px 8px; border-bottom: 1px solid #e5e7eb; color: #4b5563; font-size: 13px;">
+            ${payment.statusLabel}
+          </td>
+        </tr>
+      `
+    )
+    .join("");
+
+  const totalsHtml = Object.entries(params.totalByCurrency)
+    .map(
+      ([currency, total]) =>
+        `<li style="margin-bottom: 4px;"><strong>${formatDigestAmount(total, currency)}</strong></li>`
+    )
+    .join("");
+
+  const hasAwaitingConfirmation = params.payments.some(
+    (payment) => payment.statusLabel === "Awaiting confirmation"
+  );
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 720px; margin: 0 auto; background-color: #f9fafb; padding: 20px;">
+      <div style="background-color: white; border-radius: 16px; padding: 32px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08);">
+        <h1 style="color: #1f2937; margin: 0 0 12px 0; font-size: 22px;">Scheduled payments for today</h1>
+        <p style="color: #4b5563; font-size: 15px; line-height: 1.6; margin: 0 0 8px 0;">
+          Hi ${firstName},
+        </p>
+        <p style="color: #4b5563; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
+          You have <strong>${count}</strong> scheduled ${paymentWord} for <strong>${params.dateLabel}</strong> (${params.timezone}).
+        </p>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <thead>
+            <tr>
+              <th align="left" style="padding: 8px; border-bottom: 2px solid #d1d5db; color: #374151; font-size: 12px; text-transform: uppercase;">Payment</th>
+              <th align="left" style="padding: 8px; border-bottom: 2px solid #d1d5db; color: #374151; font-size: 12px; text-transform: uppercase;">Amount</th>
+              <th align="left" style="padding: 8px; border-bottom: 2px solid #d1d5db; color: #374151; font-size: 12px; text-transform: uppercase;">Details</th>
+              <th align="left" style="padding: 8px; border-bottom: 2px solid #d1d5db; color: #374151; font-size: 12px; text-transform: uppercase;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${paymentRowsHtml}
+          </tbody>
+        </table>
+
+        <div style="background-color: #f3f4f6; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+          <h3 style="color: #111827; margin: 0 0 8px 0; font-size: 15px;">Today's totals</h3>
+          <ul style="margin: 0; padding-left: 18px; color: #374151; font-size: 14px;">
+            ${totalsHtml}
+          </ul>
+        </div>
+
+        ${
+          hasAwaitingConfirmation
+            ? `<p style="color: #92400e; background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; font-size: 14px; line-height: 1.5; margin: 0 0 20px 0;">
+                Some payments are awaiting confirmation. Open MoneyManager to accept or reject them once they are due.
+              </p>`
+            : ""
+        }
+
+        <p style="margin: 0;">
+          <a href="https://mymoneylog.vercel.app/scheduled-payments"
+             style="display: inline-block; background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px;">
+            View scheduled payments
+          </a>
+        </p>
+      </div>
+    </div>
+  `;
+
+  const paymentLinesText = params.payments
+    .map(
+      (payment) =>
+        `- ${payment.title} | ${formatDigestAmount(payment.amount, payment.currency)} | ${payment.whenLabel} | ${payment.categoryName} | ${payment.accountLabel} | ${payment.recurringLabel} | ${payment.statusLabel}`
+    )
+    .join("\n");
+
+  const totalsText = Object.entries(params.totalByCurrency)
+    .map(([currency, total]) => `- ${formatDigestAmount(total, currency)}`)
+    .join("\n");
+
+  const text = `
+MoneyManager — ${count} scheduled ${paymentWord} for today
+
+Hi ${firstName},
+
+You have ${count} scheduled ${paymentWord} for ${params.dateLabel} (${params.timezone}).
+
+${paymentLinesText}
+
+Today's totals:
+${totalsText}
+
+${hasAwaitingConfirmation ? "Some payments are awaiting confirmation. Open MoneyManager to accept or reject them once they are due.\n" : ""}
+View scheduled payments: https://mymoneylog.vercel.app/scheduled-payments
+  `.trim();
+
+  return sendEmail({
+    to: params.to,
+    subject,
+    text,
+    html,
+  });
+}
