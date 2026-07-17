@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import {
   getJobRun,
   handleCronApiRoute,
-} from "../../../lib/cron-api-handler";
+} from "../../../../../lib/cron-api-handler";
 
 interface RouteParams {
   params: Promise<{ slug: string }>;
