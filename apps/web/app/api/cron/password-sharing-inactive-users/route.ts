@@ -1,39 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { processInactiveUsersPasswordSharing } from '../../../actions/password-sharing';
+import { NextRequest } from "next/server";
+import {
+  getJobResultJson,
+  handleCronApiRoute,
+} from "../../../lib/cron-api-handler";
 
+/** @deprecated Use POST /api/cron/jobs/inactive-password-share/run */
 export async function GET(request: NextRequest) {
-  try {
-    // Verify this is called from a cron job (optional security check)
-    const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET;
-    
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    console.log('Starting password sharing for inactive users...');
-    
-    const result = await processInactiveUsersPasswordSharing();
-    
-    console.log('Password sharing for inactive users completed:', result);
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Password sharing for inactive users completed',
-      result
-    }, { status: 200 });
-
-  } catch (error) {
-    console.error('Error in password sharing for inactive users cron job:', error);
-    
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
-  }
+  return POST(request);
 }
 
-// Also allow POST for testing
+/** @deprecated Use POST /api/cron/jobs/inactive-password-share/run */
 export async function POST(request: NextRequest) {
-  return GET(request);
+  return handleCronApiRoute(request, {
+    jobSlugs: ["inactive_password_share"],
+    triggerSource: "LEGACY",
+    successMessage: "Password sharing for inactive users completed",
+    errorLogLabel: "/api/cron/password-sharing-inactive-users",
+    formatResponse(result) {
+      return {
+        batchRunId: result.batchRunId,
+        result: getJobResultJson(result, "inactive_password_share"),
+      };
+    },
+  });
 }

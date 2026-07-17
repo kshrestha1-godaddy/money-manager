@@ -301,6 +301,7 @@ export interface NetworthSnapshotBatchResult {
   successfulRecords: number;
   errorCount: number;
   errors: Array<{ userId: number; email: string | null; error: string }>;
+  logs: import("../../../services/cron/cron-log-types").CronLogEntry[];
 }
 
 /**
@@ -309,7 +310,10 @@ export interface NetworthSnapshotBatchResult {
 export async function recordNetworthSnapshotForAllUsers(
   recordType: NetWorthRecordType = "AUTOMATIC",
   snapshotDate?: Date
-): Promise<{ success: boolean; result?: NetworthSnapshotBatchResult; error?: string }> {
+): Promise<{ success: boolean; result?: NetworthSnapshotBatchResult; error?: string; logs?: import("../../../services/cron/cron-log-types").CronLogEntry[] }> {
+  const { createCronLogCollector } = await import("../../../services/cron/cron-log-types");
+  const log = createCronLogCollector();
+
   try {
     const users = await prisma.user.findMany({
       select: {
@@ -321,11 +325,20 @@ export async function recordNetworthSnapshotForAllUsers(
     const targetDate = snapshotDate ? new Date(snapshotDate) : new Date();
     targetDate.setHours(0, 0, 0, 0);
 
+    log.info("Starting net worth snapshot batch", {
+      details: {
+        recordType,
+        snapshotDate: targetDate.toISOString(),
+        eligibleUsers: users.length,
+      },
+    });
+
     const result: NetworthSnapshotBatchResult = {
       processedUsers: 0,
       successfulRecords: 0,
       errorCount: 0,
-      errors: []
+      errors: [],
+      logs: [],
     };
 
     for (const user of users) {
@@ -339,28 +352,58 @@ export async function recordNetworthSnapshotForAllUsers(
 
         if (recordResult.success) {
           result.successfulRecords++;
+          log.success("Net worth snapshot recorded", {
+            userId: user.id,
+            email: user.email ?? undefined,
+            details: recordResult.data
+              ? {
+                  netWorth: recordResult.data.netWorth,
+                  currency: recordResult.data.currency,
+                  snapshotDate: recordResult.data.snapshotDate.toISOString(),
+                }
+              : undefined,
+          });
         } else {
           result.errors.push({
             userId: user.id,
             email: user.email,
             error: recordResult.error || "Unknown error"
           });
+          log.error(`Failed to record snapshot: ${recordResult.error ?? "Unknown error"}`, {
+            userId: user.id,
+            email: user.email ?? undefined,
+          });
         }
       } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
         result.errors.push({
           userId: user.id,
           email: user.email,
-          error: error instanceof Error ? error.message : "Unknown error"
+          error: message
+        });
+        log.error(`Error recording snapshot: ${message}`, {
+          userId: user.id,
+          email: user.email ?? undefined,
         });
       }
     }
 
     result.errorCount = result.errors.length;
+    result.logs = log.logs;
+    log.info("Net worth snapshot batch finished", {
+      details: {
+        processedUsers: result.processedUsers,
+        successfulRecords: result.successfulRecords,
+        errorCount: result.errorCount,
+      },
+    });
 
-    return { success: true, result };
+    return { success: true, result, logs: log.logs };
   } catch (error) {
     console.error("Error recording net worth snapshots for all users:", error);
-    return { success: false, error: "Failed to record net worth snapshots" };
+    const message = error instanceof Error ? error.message : "Failed to record net worth snapshots";
+    log.error(`Batch failed: ${message}`);
+    return { success: false, error: message, logs: log.logs };
   }
 }
 

@@ -14,6 +14,7 @@ import {
   sendScheduledPaymentsDigestEmail,
   type ScheduledPaymentDigestItem,
 } from "./email";
+import { createCronLogCollector, type CronLogEntry } from "./cron/cron-log-types";
 
 const DIGEST_MESSAGE_PREFIX = "scheduled-payments-digest:";
 const WINDOW_HOURS = 36;
@@ -25,6 +26,7 @@ export interface ScheduledPaymentsDigestEmailResult {
   skippedNoPayments: number;
   skippedAlreadySent: number;
   errors: string[];
+  logs: CronLogEntry[];
 }
 
 function shiftHours(date: Date, hours: number): Date {
@@ -147,26 +149,20 @@ function buildTotalByCurrency(payments: ScheduledPaymentItem[]): Record<string, 
  * Skips users with no payments today and users already emailed for that local day.
  */
 export async function processScheduledPaymentsDigestEmails(): Promise<ScheduledPaymentsDigestEmailResult> {
+  const log = createCronLogCollector();
   const errors: string[] = [];
   let emailsAttempted = 0;
   let emailsSent = 0;
   let skippedNoPayments = 0;
   let skippedAlreadySent = 0;
 
-  if (process.env.SCHEDULED_PAYMENTS_DIGEST_ENABLED === "false") {
-    return {
-      eligibleUsers: 0,
-      emailsAttempted: 0,
-      emailsSent: 0,
-      skippedNoPayments: 0,
-      skippedAlreadySent: 0,
-      errors: ["SCHEDULED_PAYMENTS_DIGEST_DISABLED"],
-    };
-  }
-
   const now = new Date();
   const windowStart = shiftHours(now, -WINDOW_HOURS);
   const windowEnd = shiftHours(now, WINDOW_HOURS);
+
+  log.info("Starting scheduled payments digest job", {
+    details: { windowStart: windowStart.toISOString(), windowEnd: windowEnd.toISOString() },
+  });
 
   const users = await prisma.user.findMany({
     where: {
@@ -182,6 +178,9 @@ export async function processScheduledPaymentsDigestEmails(): Promise<ScheduledP
   });
 
   const eligible = users.filter((user) => Boolean(user.email?.trim()));
+  log.info(`Found ${eligible.length} users with email addresses`, {
+    details: { eligibleUsers: eligible.length },
+  });
 
   for (const user of eligible) {
     const email = user.email!.trim();
@@ -199,6 +198,11 @@ export async function processScheduledPaymentsDigestEmails(): Promise<ScheduledP
 
       if (alreadySent) {
         skippedAlreadySent += 1;
+        log.skip("Digest already sent for today", {
+          userId: user.id,
+          email,
+          details: { todayKey, timezone },
+        });
         continue;
       }
 
@@ -227,10 +231,25 @@ export async function processScheduledPaymentsDigestEmails(): Promise<ScheduledP
 
       if (payments.length === 0) {
         skippedNoPayments += 1;
+        log.skip("No unresolved scheduled payments due today", {
+          userId: user.id,
+          email,
+          details: { todayKey, timezone },
+        });
         continue;
       }
 
       emailsAttempted += 1;
+      log.info("Sending scheduled payments digest", {
+        userId: user.id,
+        email,
+        details: {
+          todayKey,
+          timezone,
+          paymentCount: payments.length,
+          totalByCurrency: buildTotalByCurrency(payments),
+        },
+      });
 
       const send = await sendScheduledPaymentsDigestEmail({
         to: email,
@@ -243,6 +262,11 @@ export async function processScheduledPaymentsDigestEmails(): Promise<ScheduledP
 
       if (send.success) {
         emailsSent += 1;
+        log.success("Scheduled payments digest email sent", {
+          userId: user.id,
+          email,
+          details: { paymentCount: payments.length, todayKey },
+        });
         await createNotification(
           user.id,
           "Scheduled payments for today",
@@ -253,13 +277,31 @@ export async function processScheduledPaymentsDigestEmails(): Promise<ScheduledP
         );
       } else {
         errors.push(`user ${user.id}: ${send.error ?? "send failed"}`);
+        log.error(`Failed to send digest: ${send.error ?? "send failed"}`, {
+          userId: user.id,
+          email,
+        });
       }
     } catch (e) {
-      errors.push(
-        `user ${user.id}: ${e instanceof Error ? e.message : "unknown error"}`
-      );
+      const message = e instanceof Error ? e.message : "unknown error";
+      errors.push(`user ${user.id}: ${message}`);
+      log.error(`Error processing digest: ${message}`, {
+        userId: user.id,
+        email,
+      });
     }
   }
+
+  log.info("Scheduled payments digest job finished", {
+    details: {
+      eligibleUsers: eligible.length,
+      emailsAttempted,
+      emailsSent,
+      skippedNoPayments,
+      skippedAlreadySent,
+      errorCount: errors.length,
+    },
+  });
 
   return {
     eligibleUsers: eligible.length,
@@ -268,5 +310,6 @@ export async function processScheduledPaymentsDigestEmails(): Promise<ScheduledP
     skippedNoPayments,
     skippedAlreadySent,
     errors: errors.slice(0, 25),
+    logs: log.logs,
   };
 }

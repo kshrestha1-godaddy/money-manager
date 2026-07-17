@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Activity, PiggyBank, Sparkles } from "lucide-react";
+import { Activity, Clock, PiggyBank, Sparkles } from "lucide-react";
 import { SidebarItem } from "../components/sidebar/SidebarItem";
 import { TutorialOverlay } from "../components/TutorialOverlay";
 import { TutorialButton } from "../components/TutorialButton";
@@ -107,6 +107,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             href="/transactions"
                             icon={<TransactionsIcon />}
                             title="Transactions"
+                        />
+                        <SidebarItem
+                            href="/cron-jobs"
+                            icon={<Clock className="h-5 w-5" />}
+                            title="Cron Jobs"
+                            showSeparator={true}
                         />
 
                         {/* Additional items - Moved to profile dropdown */}

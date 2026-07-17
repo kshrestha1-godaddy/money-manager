@@ -4,11 +4,7 @@
   "framework": "nextjs",
   "crons": [
     {
-      "path": "/api/cron/password-sharing-inactive-users",
-      "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/cron/check-inactive-users-email",
+      "path": "/api/cron/run",
       "schedule": "0 10 * * *"
     }
   ]

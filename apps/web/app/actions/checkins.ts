@@ -168,12 +168,20 @@ export async function processInactiveUsersForEmailNotifications(): Promise<{
   emailsSent: number;
   notificationsCreated: number;
   errors: string[];
+  logs: import("../services/cron/cron-log-types").CronLogEntry[];
 }> {
+  const { createCronLogCollector } = await import("../services/cron/cron-log-types");
+  const log = createCronLogCollector();
+
   try {
     console.log("Starting inactive users email notification process...");
-    
+    log.info("Starting inactive user email notification job");
+
     const inactiveUsers = await getInactiveUsers(7); // Users inactive for more than 7 days
     console.log(`Found ${inactiveUsers.length} users inactive for 7+ days`);
+    log.info(`Found ${inactiveUsers.length} users inactive for 7+ days`, {
+      details: { inactiveThresholdDays: 7, eligibleCount: inactiveUsers.length },
+    });
 
     let processedUsers = 0;
     let emailsSent = 0;
@@ -184,6 +192,7 @@ export async function processInactiveUsersForEmailNotifications(): Promise<{
       try {
         if (!user.email) {
           console.log(`User ${user.userId} has no email address, skipping...`);
+          log.skip("No email address on file", { userId: user.userId });
           continue;
         }
 
@@ -203,6 +212,10 @@ export async function processInactiveUsersForEmailNotifications(): Promise<{
 
         if (recentEmailCheck) {
           console.log(`Inactivity email already sent to user ${user.userId} within last 7 days, skipping...`);
+          log.skip("Inactivity email already sent within last 7 days", {
+            userId: user.userId,
+            email: user.email,
+          });
           continue;
         }
 
@@ -210,6 +223,15 @@ export async function processInactiveUsersForEmailNotifications(): Promise<{
         const daysSinceLastCheckin = user.lastCheckin 
           ? Math.floor((Date.now() - user.lastCheckin.getTime()) / (1000 * 60 * 60 * 24))
           : 999; // Never checked in
+
+        log.info("Sending inactivity reminder email", {
+          userId: user.userId,
+          email: user.email,
+          details: {
+            daysSinceLastCheckin: daysSinceLastCheckin === 999 ? null : daysSinceLastCheckin,
+            lastCheckin: user.lastCheckin?.toISOString() ?? null,
+          },
+        });
 
         // Send inactivity reminder email
         const { sendInactivityReminderEmail } = await import('../services/email');
@@ -222,6 +244,11 @@ export async function processInactiveUsersForEmailNotifications(): Promise<{
         if (emailResult.success) {
           emailsSent++;
           console.log(`Inactivity email sent successfully to ${user.email}`);
+          log.success("Inactivity reminder email sent", {
+            userId: user.userId,
+            email: user.email,
+            details: { daysSinceLastCheckin: daysSinceLastCheckin === 999 ? null : daysSinceLastCheckin },
+          });
 
           // Create notification for the user
           const { createNotification } = await import('./notifications');
@@ -244,32 +271,45 @@ export async function processInactiveUsersForEmailNotifications(): Promise<{
         } else {
           errors.push(`Failed to send email to ${user.email}: ${emailResult.error}`);
           console.error(`Failed to send inactivity email to ${user.email}:`, emailResult.error);
+          log.error(`Failed to send inactivity email: ${emailResult.error}`, {
+            userId: user.userId,
+            email: user.email,
+          });
         }
 
         processedUsers++;
 
       } catch (error) {
         console.error(`Error processing inactive user ${user.userId}:`, error);
-        errors.push(`User ${user.userId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        const message = error instanceof Error ? error.message : "Unknown error";
+        errors.push(`User ${user.userId}: ${message}`);
+        log.error(`Error processing user: ${message}`, { userId: user.userId, email: user.email ?? undefined });
       }
     }
 
     console.log(`Processed ${processedUsers} users, sent ${emailsSent} emails, created ${notificationsCreated} notifications`);
-    
+    log.info("Inactive user email job finished", {
+      details: { processedUsers, emailsSent, notificationsCreated, errorCount: errors.length },
+    });
+
     return {
       processedUsers,
       emailsSent,
       notificationsCreated,
-      errors
+      errors,
+      logs: log.logs,
     };
 
   } catch (error) {
     console.error("Error in processInactiveUsersForEmailNotifications:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    log.error(`Job failed: ${message}`);
     return {
       processedUsers: 0,
       emailsSent: 0,
       notificationsCreated: 0,
-      errors: [error instanceof Error ? error.message : "Unknown error"]
+      errors: [message],
+      logs: log.logs,
     };
   }
 }

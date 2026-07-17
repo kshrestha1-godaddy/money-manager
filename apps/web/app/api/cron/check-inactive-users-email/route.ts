@@ -1,149 +1,36 @@
-import { NextRequest, NextResponse } from "next/server";
-import { processInactiveUsersForEmailNotifications } from "../../../actions/checkins";
-import { recordNetworthSnapshotForAllUsers } from "../../../(dashboard)/worth/actions/networth-history";
-import {
-  processWeeklyDataExportEmails,
-  type WeeklyDataExportEmailResult,
-} from "../../../services/process-weekly-data-export-email";
-import {
-  processScheduledPaymentsDigestEmails,
-  type ScheduledPaymentsDigestEmailResult,
-} from "../../../services/process-scheduled-payments-digest-email";
-import {
-  processMonthlyBalanceSheetEmails,
-  type MonthlyBalanceSheetEmailResult,
-} from "../../../services/process-monthly-balance-sheet-email";
+import { NextRequest } from "next/server";
+import { handleCronApiRoute } from "../../../lib/cron-api-handler";
+import { DAILY_CRON_JOB_SLUGS } from "../../../services/cron/cron-registry";
 
-/** 0 = Sunday … 6 = Saturday (UTC). Invalid values default to 0. */
-function getWeeklyExportUtcDay(): number {
-  const raw = process.env.WEEKLY_EXPORT_DAY_UTC;
-  if (raw === undefined || raw === "") return 0;
-  const n = Number(raw);
-  if (!Number.isInteger(n) || n < 0 || n > 6) return 0;
-  return n;
-}
-
+/** @deprecated Use POST /api/cron/run */
 export async function GET(request: NextRequest) {
-  try {
-    // Verify this is a legitimate cron request (optional security check)
-    const authHeader = request.headers.get('authorization');
-    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    console.log(
-      "Starting cron job: inactive-user emails, net worth snapshots, weekly data export (if scheduled day), scheduled payments digest, monthly balance sheet"
-    );
-
-    const inactiveUsersResult = await processInactiveUsersForEmailNotifications();
-    const networthResult = await recordNetworthSnapshotForAllUsers("AUTOMATIC", new Date());
-    const scheduledPaymentsDigestResult = await processScheduledPaymentsDigestEmails();
-    const monthlyBalanceSheetResult = await processMonthlyBalanceSheetEmails();
-
-    const inactiveUsersSummary = {
-      processedUsers: inactiveUsersResult.processedUsers,
-      emailsSent: inactiveUsersResult.emailsSent,
-      notificationsCreated: inactiveUsersResult.notificationsCreated,
-      errorCount: inactiveUsersResult.errors?.length || 0,
-      errors: (inactiveUsersResult.errors || []).slice(0, 5)
-    };
-
-    const networthSummary = networthResult.success && networthResult.result
-      ? {
-          processedUsers: networthResult.result.processedUsers,
-          successfulRecords: networthResult.result.successfulRecords,
-          errorCount: networthResult.result.errorCount,
-          errors: networthResult.result.errors.slice(0, 5)
-        }
-      : {
-          error: networthResult.error || "Failed to record net worth snapshots"
-        };
-
-    const weeklyEnabled = process.env.WEEKLY_DATA_EXPORT_ENABLED !== "false";
-    const utcDay = new Date().getUTCDay();
-    const weeklyTargetDay = getWeeklyExportUtcDay();
-    const shouldRunWeeklyExport = weeklyEnabled && utcDay === weeklyTargetDay;
-
-    let weeklyDataExport:
-      | ({ ran: true } & WeeklyDataExportEmailResult)
-      | { ran: false; reason: string };
-
-    if (shouldRunWeeklyExport) {
-      weeklyDataExport = { ran: true, ...(await processWeeklyDataExportEmails()) };
-    } else if (!weeklyEnabled) {
-      weeklyDataExport = { ran: false, reason: "WEEKLY_DATA_EXPORT_DISABLED" };
-    } else {
-      weeklyDataExport = {
-        ran: false,
-        reason: `not_weekly_day (utc_day=${utcDay}, target=${weeklyTargetDay})`,
-      };
-    }
-
-    const scheduledPaymentsDigestSummary: ScheduledPaymentsDigestEmailResult = {
-      eligibleUsers: scheduledPaymentsDigestResult.eligibleUsers,
-      emailsAttempted: scheduledPaymentsDigestResult.emailsAttempted,
-      emailsSent: scheduledPaymentsDigestResult.emailsSent,
-      skippedNoPayments: scheduledPaymentsDigestResult.skippedNoPayments,
-      skippedAlreadySent: scheduledPaymentsDigestResult.skippedAlreadySent,
-      errors: (scheduledPaymentsDigestResult.errors || []).slice(0, 5),
-    };
-
-    const monthlyBalanceSheetSummary: MonthlyBalanceSheetEmailResult = {
-      eligibleUsers: monthlyBalanceSheetResult.eligibleUsers,
-      emailsAttempted: monthlyBalanceSheetResult.emailsAttempted,
-      emailsSent: monthlyBalanceSheetResult.emailsSent,
-      skippedNotFirst: monthlyBalanceSheetResult.skippedNotFirst,
-      skippedNoTransactions: monthlyBalanceSheetResult.skippedNoTransactions,
-      skippedAlreadySent: monthlyBalanceSheetResult.skippedAlreadySent,
-      errors: (monthlyBalanceSheetResult.errors || []).slice(0, 5),
-    };
-
-    const hasInactiveUserErrors = inactiveUsersSummary.errorCount > 0;
-    const hasNetworthErrors = !networthResult.success || (networthResult.result?.errorCount || 0) > 0;
-    const weeklyHadErrors =
-      weeklyDataExport.ran &&
-      (weeklyDataExport.errors?.length ?? 0) > 0;
-    const scheduledPaymentsDigestHadErrors =
-      (scheduledPaymentsDigestSummary.errors?.length ?? 0) > 0;
-    const monthlyBalanceSheetHadErrors =
-      (monthlyBalanceSheetSummary.errors?.length ?? 0) > 0;
-
-    console.log("Cron job completed:", {
-      inactiveUsers: inactiveUsersSummary,
-      networthSnapshots: networthSummary,
-      weeklyDataExport,
-      scheduledPaymentsDigest: scheduledPaymentsDigestSummary,
-      monthlyBalanceSheet: monthlyBalanceSheetSummary,
-    });
-
-    return NextResponse.json({
-      success:
-        !hasInactiveUserErrors &&
-        !hasNetworthErrors &&
-        !weeklyHadErrors &&
-        !scheduledPaymentsDigestHadErrors &&
-        !monthlyBalanceSheetHadErrors,
-      message: "Daily cron jobs completed",
-      result: {
-        inactiveUsers: inactiveUsersSummary,
-        networthSnapshots: networthSummary,
-        weeklyDataExport,
-        scheduledPaymentsDigest: scheduledPaymentsDigestSummary,
-        monthlyBalanceSheet: monthlyBalanceSheetSummary,
-      }
-    });
-
-  } catch (error) {
-    console.error("Error in check-inactive-users-email cron job:", error);
-    
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error occurred"
-    }, { status: 500 });
-  }
+  return POST(request);
 }
 
-// Also support POST for manual triggering
+/** @deprecated Use POST /api/cron/run */
 export async function POST(request: NextRequest) {
-  return GET(request);
+  return handleCronApiRoute(request, {
+    jobSlugs: [...DAILY_CRON_JOB_SLUGS],
+    triggerSource: "LEGACY",
+    successMessage: "Daily cron jobs completed",
+    errorLogLabel: "/api/cron/check-inactive-users-email",
+    formatResponse(result) {
+      const jobBySlug = Object.fromEntries(
+        result.jobs.map((job) => [job.jobSlug, job])
+      );
+
+      return {
+        inactiveUsers: jobBySlug.inactive_user_email?.resultJson ?? null,
+        networthSnapshots: jobBySlug.networth_snapshot?.resultJson ?? null,
+        weeklyDataExport: jobBySlug.weekly_data_export?.resultJson ?? {
+          ran: jobBySlug.weekly_data_export?.status !== "SKIPPED",
+          reason: jobBySlug.weekly_data_export?.skipReason,
+        },
+        scheduledPaymentsDigest:
+          jobBySlug.scheduled_payments_digest?.resultJson ?? null,
+        monthlyBalanceSheet: jobBySlug.monthly_balance_sheet?.resultJson ?? null,
+        batchRunId: result.batchRunId,
+      };
+    },
+  });
 }

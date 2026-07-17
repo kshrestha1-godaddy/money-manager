@@ -199,12 +199,22 @@ export async function processInactiveUsersPasswordSharing(): Promise<{
   processedUsers: number;
   successfulShares: number;
   errors: string[];
+  logs: import("../services/cron/cron-log-types").CronLogEntry[];
 }> {
+  const { createCronLogCollector } = await import("../services/cron/cron-log-types");
+  const log = createCronLogCollector();
+
   try {
     console.log("Starting inactive users password sharing process...");
-    
+    log.info("Starting inactive user password sharing job", {
+      details: { inactiveThresholdDays: 15 },
+    });
+
     const inactiveUsers = await getInactiveUsers(15); // Users inactive for more than 15 days
     console.log(`Found ${inactiveUsers.length} inactive users`);
+    log.info(`Found ${inactiveUsers.length} users inactive for 15+ days`, {
+      details: { eligibleCount: inactiveUsers.length },
+    });
 
     let processedUsers = 0;
     let successfulShares = 0;
@@ -217,6 +227,10 @@ export async function processInactiveUsersPasswordSharing(): Promise<{
         
         if (emergencyEmails.length === 0) {
           console.log(`User ${user.userId} has no emergency emails configured, skipping...`);
+          log.skip("No emergency contacts configured", {
+            userId: user.userId,
+            email: user.email ?? undefined,
+          });
           continue;
         }
 
@@ -233,6 +247,10 @@ export async function processInactiveUsersPasswordSharing(): Promise<{
 
         if (recentShare) {
           console.log(`Password already shared for user ${user.userId} within last 7 days, skipping...`);
+          log.skip("Passwords already shared within last 7 days", {
+            userId: user.userId,
+            email: user.email ?? undefined,
+          });
           continue;
         }
 
@@ -241,6 +259,7 @@ export async function processInactiveUsersPasswordSharing(): Promise<{
         if (!passwordEncrypter) {
           console.error("PASSWORD_ENCRYPTER not found in environment variables");
           errors.push(`User ${user.userId}: PASSWORD_ENCRYPTER not configured`);
+          log.error("PASSWORD_ENCRYPTER not configured", { userId: user.userId });
           continue;
         }
 
@@ -256,8 +275,22 @@ export async function processInactiveUsersPasswordSharing(): Promise<{
 
         if (userPasswords.length === 0) {
           console.log(`User ${user.userId} has no passwords to share, skipping...`);
+          log.skip("No passwords stored for user", {
+            userId: user.userId,
+            email: user.email ?? undefined,
+          });
           continue;
         }
+
+        log.info("Decrypting passwords for inactive user", {
+          userId: user.userId,
+          email: user.email ?? undefined,
+          details: {
+            passwordCount: userPasswords.length,
+            emergencyContactCount: emergencyEmails.length,
+            lastCheckin: user.lastCheckin?.toISOString() ?? null,
+          },
+        });
 
         // Decrypt and prepare passwords for sharing
         const decryptedPasswords = [];
@@ -295,11 +328,19 @@ export async function processInactiveUsersPasswordSharing(): Promise<{
           } catch (error) {
             console.error(`Failed to decrypt password ${password.id} for user ${user.userId}:`, error);
             errors.push(`User ${user.userId}, Password ${password.id}: Failed to decrypt`);
+            log.warn(`Failed to decrypt password ${password.id}`, {
+              userId: user.userId,
+              details: { passwordId: password.id },
+            });
           }
         }
 
         if (decryptedPasswords.length === 0) {
           console.log(`No passwords could be decrypted for user ${user.userId}, skipping...`);
+          log.skip("No passwords could be decrypted", {
+            userId: user.userId,
+            email: user.email ?? undefined,
+          });
           continue;
         }
 
@@ -319,12 +360,26 @@ export async function processInactiveUsersPasswordSharing(): Promise<{
             if (emailResult.success) {
               emailsSentForUser++;
               console.log(`Password share email sent to ${emergencyEmail.email} for user ${user.userId}`);
+              log.success("Password share email sent to emergency contact", {
+                userId: user.userId,
+                email: emergencyEmail.email,
+                details: { passwordCount: decryptedPasswords.length },
+              });
             } else {
               errors.push(`Failed to send email to ${emergencyEmail.email}: ${emailResult.error}`);
+              log.error(`Failed to send password share email: ${emailResult.error}`, {
+                userId: user.userId,
+                email: emergencyEmail.email,
+              });
             }
           } catch (error) {
             console.error(`Error sending password share email to ${emergencyEmail.email}:`, error);
-            errors.push(`Email to ${emergencyEmail.email}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            const message = error instanceof Error ? error.message : "Unknown error";
+            errors.push(`Email to ${emergencyEmail.email}: ${message}`);
+            log.error(`Error sending password share email: ${message}`, {
+              userId: user.userId,
+              email: emergencyEmail.email,
+            });
           }
         }
 
@@ -342,6 +397,14 @@ export async function processInactiveUsersPasswordSharing(): Promise<{
 
           successfulShares++;
           console.log(`Successfully shared ${decryptedPasswords.length} passwords for user ${user.userId} to ${emailsSentForUser} emergency contacts`);
+          log.success("Passwords shared with emergency contacts", {
+            userId: user.userId,
+            email: user.email ?? undefined,
+            details: {
+              passwordCount: decryptedPasswords.length,
+              emergencyContactsNotified: emailsSentForUser,
+            },
+          });
 
           // Create notification for the user
           await createNotification(
@@ -364,24 +427,36 @@ export async function processInactiveUsersPasswordSharing(): Promise<{
 
       } catch (error) {
         console.error(`Error processing inactive user ${user.userId}:`, error);
-        errors.push(`User ${user.userId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        const message = error instanceof Error ? error.message : "Unknown error";
+        errors.push(`User ${user.userId}: ${message}`);
+        log.error(`Error processing user: ${message}`, {
+          userId: user.userId,
+          email: user.email ?? undefined,
+        });
       }
     }
 
     console.log(`Processed ${processedUsers} users, ${successfulShares} successful shares`);
-    
+    log.info("Inactive password sharing job finished", {
+      details: { processedUsers, successfulShares, errorCount: errors.length },
+    });
+
     return {
       processedUsers,
       successfulShares,
-      errors
+      errors,
+      logs: log.logs,
     };
 
   } catch (error) {
     console.error("Error in processInactiveUsersPasswordSharing:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    log.error(`Job failed: ${message}`);
     return {
       processedUsers: 0,
       successfulShares: 0,
-      errors: [error instanceof Error ? error.message : "Unknown error"]
+      errors: [message],
+      logs: log.logs,
     };
   }
 }
