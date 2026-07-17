@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AddExpenseModal } from "../(dashboard)/expenses/components/AddExpenseModal";
 import { AddIncomeModal } from "../(dashboard)/incomes/components";
 import { useModals } from "../providers/ModalsProvider";
 import { useRouter, usePathname } from "next/navigation";
 import { getCategories } from "../actions/categories";
 import { getUserAccounts } from "../(dashboard)/accounts/actions/accounts";
-import { createExpense } from "../(dashboard)/expenses/actions/expenses";
+import { createExpense, getExpenses } from "../(dashboard)/expenses/actions/expenses";
 import { createIncome } from "../(dashboard)/incomes/actions/incomes";
 import { Expense, Income, Category } from "../types/financial";
 import { AccountInterface } from "../types/accounts";
@@ -16,6 +16,7 @@ import { triggerBalanceRefresh } from "../hooks/useTotalBalance";
 import { DisappearingNotification, NotificationData } from "./DisappearingNotification";
 import { formatCurrency } from "../utils/currency";
 import { useCurrency } from "../providers/CurrencyProvider";
+import { getCategoriesWithFrequency } from "../utils/categoryFrequency";
 
 export function GlobalModals() {
   const { 
@@ -64,6 +65,18 @@ export function GlobalModals() {
       fetchData();
     }
   }, [isExpenseModalOpen, isIncomeModalOpen]);
+
+  const { data: expenses = [] } = useQuery({
+    queryKey: ['expenses'],
+    queryFn: getExpenses,
+    enabled: isExpenseModalOpen,
+    staleTime: 3 * 60 * 1000,
+  });
+
+  const expenseCategoriesWithFrequency = useMemo(
+    () => getCategoriesWithFrequency(expenseCategories, expenses),
+    [expenseCategories, expenses]
+  );
 
   // Handle adding a new expense
   const handleAddExpense = async (expense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -161,8 +174,9 @@ export function GlobalModals() {
         isOpen={isExpenseModalOpen}
         onClose={closeExpenseModal}
         onAdd={handleAddExpense}
-        categories={expenseCategories}
+        categories={expenseCategoriesWithFrequency}
         accounts={accounts}
+        expenses={expenses}
       />
       
       <AddIncomeModal
