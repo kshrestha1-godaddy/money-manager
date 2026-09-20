@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Download, RefreshCw } from 'lucide-react';
+import { useSession } from "next-auth/react";
 import { DebtTable } from './components/DebtTable';
 import { AddDebtModal } from './components/AddDebtModal';
 import { EditDebtModal } from './components/EditDebtModal';
@@ -19,6 +20,10 @@ import DebtDueDatesChart from './charts/DebtDueDatesChart';
 import { useCurrency } from '../../providers/CurrencyProvider';
 import { useOptimizedDebts } from './hooks/useOptimizedDebts';
 import { getEffectiveDebtStatus } from '../../utils/interestCalculation';
+import {
+  groupLendings,
+  type LendingGroupByOption,
+} from '../../utils/lendingDebtGrouping';
 import { getSummaryCardClasses, BUTTON_COLORS, TEXT_COLORS, CONTAINER_COLORS, INPUT_COLORS, LOADING_COLORS, UI_STYLES } from '../../config/colorConfig';
 import { DisappearingNotification, NotificationData } from '../../components/DisappearingNotification';
 
@@ -44,9 +49,11 @@ const clearFilterButton = BUTTON_COLORS.clearFilter;
 const standardInput = INPUT_COLORS.standard;
 
 export default function DebtsPageClient() {
+  const { data: session } = useSession();
   const { currency: userCurrency } = useCurrency();
   const [tableDisplayCurrency, setTableDisplayCurrency] = useState(userCurrency);
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ FULLY_PAID: false });
+  const [groupBySelection, setGroupBySelection] = useState<LendingGroupByOption[]>(["status"]);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ "status:FULLY_PAID": false });
   const [notification, setNotification] = useState<NotificationData | null>(null);
 
   useEffect(() => {
@@ -60,7 +67,6 @@ export default function DebtsPageClient() {
     error,
     financialSummary,
     hasActiveFilters,
-    sections,
     modal,
     openModal,
     closeModal,
@@ -99,6 +105,58 @@ export default function DebtsPageClient() {
     new Set(debts.map((debt) => getEffectiveDebtStatus(debt)))
   ).sort();
 
+  const groupingStorageKey = useMemo(() => {
+    const userId = session?.user?.id ?? "anonymous";
+    return `lending-group-by:${userId}`;
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem(groupingStorageKey);
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved) as unknown;
+      if (Array.isArray(parsed)) {
+        const cleaned = parsed.filter(
+          (value): value is LendingGroupByOption =>
+            value === "status" || value === "borrower"
+        );
+        if (cleaned.length > 0) {
+          setGroupBySelection(cleaned);
+          return;
+        }
+      }
+      if (saved === "status" || saved === "borrower") {
+        setGroupBySelection([saved]);
+      }
+    } catch {
+      if (saved === "status" || saved === "borrower") {
+        setGroupBySelection([saved]);
+      }
+    }
+  }, [groupingStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(groupingStorageKey, JSON.stringify(groupBySelection));
+  }, [groupBySelection, groupingStorageKey]);
+
+  const groupedSections = useMemo(
+    () => groupLendings(filteredDebts, groupBySelection),
+    [filteredDebts, groupBySelection]
+  );
+
+  const handleToggleGroupBy = useCallback((value: LendingGroupByOption) => {
+    setGroupBySelection((prev) => {
+      const has = prev.includes(value);
+      const next = has ? prev.filter((v) => v !== value) : [...prev, value];
+      const ordered = ["status", "borrower"].filter((v) =>
+        next.includes(v as LendingGroupByOption)
+      ) as LendingGroupByOption[];
+      return ordered.length > 0 ? ordered : ["status"];
+    });
+  }, []);
+
   const handleDebtsRefresh = useCallback(async () => {
     await refetchDebts();
   }, [refetchDebts]);
@@ -115,7 +173,7 @@ export default function DebtsPageClient() {
   }, [filteredDebts, tableDisplayCurrency, userCurrency]);
 
   const toggleSection = (sectionKey: string) => {
-    if (sectionKey === 'FULLY_PAID') {
+    if (sectionKey === 'status:FULLY_PAID') {
       setExpandedSections(prev => ({ ...prev, [sectionKey]: !prev[sectionKey] }));
     }
   };
@@ -272,6 +330,31 @@ export default function DebtsPageClient() {
             <Download className="h-4 w-4 shrink-0" aria-hidden />
             Download CSV
           </button>
+          <div className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-2 py-1">
+            <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Group by</span>
+            <button
+              type="button"
+              onClick={() => handleToggleGroupBy("status")}
+              className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
+                groupBySelection.includes("status")
+                  ? "bg-blue-100 text-blue-700"
+                  : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              Status
+            </button>
+            <button
+              type="button"
+              onClick={() => handleToggleGroupBy("borrower")}
+              className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
+                groupBySelection.includes("borrower")
+                  ? "bg-blue-100 text-blue-700"
+                  : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              Borrower
+            </button>
+          </div>
         </div>
       )}
 
@@ -290,9 +373,11 @@ export default function DebtsPageClient() {
         </div>
       ) : (
         <div className="space-y-6">
-          {sections.map(section => {
+          {groupedSections.map(section => {
             if (section.debts.length === 0) return null;
-            const isFullyPaid = section.key === 'FULLY_PAID';
+            const isOnlyStatusGrouping =
+              groupBySelection.length === 1 && groupBySelection[0] === "status";
+            const isFullyPaid = isOnlyStatusGrouping && section.key === 'status:FULLY_PAID';
             const isExpanded = isFullyPaid ? expandedSections[section.key] : true;
             return (
               <div key={section.key} className={CONTAINER_COLORS.white}>
