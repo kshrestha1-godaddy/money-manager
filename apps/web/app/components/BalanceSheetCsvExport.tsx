@@ -6,7 +6,6 @@ import { Transaction } from "../types/financial";
 import { useCurrency } from "../providers/CurrencyProvider";
 import {
   buildBalanceSheetRows,
-  computeNetBalance,
   createSyncConvertAmount,
   sortTransactionsAsc,
 } from "../services/balance-sheet-core";
@@ -56,13 +55,6 @@ function filterByDateRange(
   });
 }
 
-function filterBeforeDateRange(items: Transaction[], start: string): Transaction[] {
-  if (!start) return [];
-  const boundary = new Date(start);
-  boundary.setHours(0, 0, 0, 0);
-  return items.filter((transaction) => new Date(transaction.date) < boundary);
-}
-
 export function BalanceSheetCsvExport({ transactions }: BalanceSheetCsvExportProps) {
   const { currency: displayCurrency } = useCurrency();
   const [isOpen, setIsOpen] = useState(false);
@@ -105,10 +97,7 @@ export function BalanceSheetCsvExport({ transactions }: BalanceSheetCsvExportPro
     try {
       const convertAmount = createSyncConvertAmount(displayCurrency);
       const sorted = sortTransactionsAsc(transactionsForExport);
-      const preRangeTransactions = filterBeforeDateRange(transactions, rangeStart);
-      const openingBalance = rangeStart
-        ? computeNetBalance(preRangeTransactions, displayCurrency, convertAmount)
-        : 0;
+      const openingBalance = 0;
       const built = buildBalanceSheetRows(
         sorted,
         displayCurrency,
@@ -187,8 +176,8 @@ export function BalanceSheetCsvExport({ transactions }: BalanceSheetCsvExportPro
               </button>
             </div>
             <p className="mt-1 text-sm text-gray-500">
-              Choose a date range. Income appears under Credit, expenses
-              under Debit. Opening balance is carried forward when a start date is set.
+              Choose a date range. Income appears under Credit, expenses under
+              Debit. The sheet starts at 0 so totals reflect only this period.
             </p>
 
             <div className="mt-4">

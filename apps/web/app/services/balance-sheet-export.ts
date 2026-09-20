@@ -53,16 +53,7 @@ export async function buildBalanceSheetXlsxBuffer(params: {
 
   if (periodTransactions.length === 0) return null;
 
-  const preRangeEnd = new Date(params.rangeStart.getTime() - 1);
-  const preRangeTransactions = await loadUnifiedTransactionsForUser(params.userId, {
-    endDate: preRangeEnd,
-  });
-
-  const openingBalance = computeNetBalance(
-    preRangeTransactions,
-    params.displayCurrency,
-    convertAmount
-  );
+  const openingBalance = 0;
 
   const sorted = sortTransactionsAsc(periodTransactions);
   const built = buildBalanceSheetRows(
