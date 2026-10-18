@@ -316,14 +316,20 @@ export default function InvestmentsPageClient() {
     setIsBulkDeleteTargetsModalOpen(true);
   }, []);
 
+  const handleExtendTarget = useCallback(async (targetId: number, date: Date) => {
+    await handleUpdateTarget(targetId, { targetCompletionDate: date });
+    await queryClient.invalidateQueries({ queryKey: ['investment-target-progress'] });
+  }, [handleUpdateTarget, queryClient]);
+
   const targetChartProps = useMemo(() => ({ 
     targets: targetProgressForCharts, 
     currency: userCurrency, 
     title: "Investment Target Progress", 
-    onEditTarget: openEditTargetModal, 
+    onEditTarget: openEditTargetModal,
+    onExtendTarget: handleExtendTarget,
     onAddTarget: openAddTargetModal,
     onBulkDelete: handleBulkDeleteTargetsClick
-  }), [targetProgressForCharts, userCurrency, openEditTargetModal, openAddTargetModal, handleBulkDeleteTargetsClick]);
+  }), [targetProgressForCharts, userCurrency, openEditTargetModal, openAddTargetModal, handleBulkDeleteTargetsClick, handleExtendTarget]);
 
   const handleSectionBulkDelete = (sectionInvestments: InvestmentInterface[]) => {
     const selectedIds = sectionInvestments.filter(inv => selectedInvestments.has(inv.id));

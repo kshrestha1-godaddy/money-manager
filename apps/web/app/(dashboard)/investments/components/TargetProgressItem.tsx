@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import { addDays, addMonths } from "date-fns";
 import { InvestmentTargetProgress } from "../../../types/investments";
 import { formatCurrency } from "../../../utils/currency";
 import { formatDateYearMonthDay } from "../../../utils/date";
@@ -55,12 +56,13 @@ interface TargetProgressItemProps {
     target: InvestmentTargetProgress;
     currency: string;
     onEditTarget?: (targetId: number) => void;
+    onExtendTarget?: (targetId: number, date: Date) => Promise<void>;
 }
 
 const getProgressColor = (progress: number): string => {
     // Convert progress to a value between 0 and 1
     const intensity = Math.min(progress / 100, 1);
-    
+
     // Use a blue gradient that gets more intense as progress increases
     if (intensity >= 0.9) return "bg-blue-600";
     if (intensity >= 0.8) return "bg-blue-500";
@@ -112,7 +114,27 @@ const getDateStatusDisplay = (target: InvestmentTargetProgress) => {
     };
 };
 
-export function TargetProgressItem({ target, currency, onEditTarget }: TargetProgressItemProps) {
+export function TargetProgressItem({ target, currency, onEditTarget, onExtendTarget }: TargetProgressItemProps) {
+    const [isExtending, setIsExtending] = useState(false);
+    const [extensionError, setExtensionError] = useState<string | null>(null);
+
+    const extendDueDate = async (period: string) => {
+        if (!onExtendTarget || !target.targetCompletionDate || isExtending) return;
+        setIsExtending(true);
+        setExtensionError(null);
+        try {
+            const date = new Date(target.targetCompletionDate);
+            const nextDate = period.startsWith('T+')
+                ? addDays(new Date(), Number(period.slice(2)))
+                : period === '1W' ? addDays(date, 7) : addMonths(date, Number.parseInt(period, 10));
+            await onExtendTarget(target.targetId, nextDate);
+        } catch {
+            setExtensionError("Could not extend the due date. Please try again.");
+        } finally {
+            setIsExtending(false);
+        }
+    };
+
     const dateStatus = getDateStatusDisplay(target);
     const titleText = target.nickname?.trim() || formatInvestmentType(target.investmentType);
     const targetDateLabel = target.targetCompletionDate
@@ -193,14 +215,37 @@ export function TargetProgressItem({ target, currency, onEditTarget }: TargetPro
                     </div>
                 </div>
 
-                {dateStatus && (
-                    <div className="flex justify-end items-center text-sm pt-0.5">
-                        <div className="flex items-center gap-2">
-                            <dateStatus.icon className="w-4 h-4 shrink-0" />
-                            <span className={dateStatus.className}>{dateStatus.text}</span>
+                <div className="flex flex-wrap justify-between items-center gap-x-4 gap-y-2 pt-0.5">
+                    {onExtendTarget && target.targetCompletionDate && (
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                            {['1W', '1M', '3M', '6M', 'T+30', 'T+45'].map(period => (
+                                <button
+                                    key={period}
+                                    type="button"
+                                    disabled={isExtending}
+                                    onClick={() => void extendDueDate(period)}
+                                    aria-label={period.startsWith('T+')
+                                        ? `Set ${titleText} due date to ${period.slice(2)} days from today`
+                                        : `Extend ${titleText} due date by ${period === '1W' ? '1 week' : `${Number.parseInt(period, 10)} months`}`}
+                                    title={period.startsWith('T+') ? `Today + ${period.slice(2)} days` : `Add ${period} to the current due date`}
+                                    className="rounded border border-blue-200 bg-white px-2 py-1 font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-wait"
+                                >
+                                    {period.startsWith('T+') ? period : `+${period}`}
+                                </button>
+                            ))}
+                            {isExtending && <span role="status" className="text-gray-500">Saving…</span>}
                         </div>
-                    </div>
-                )}
+                    )}
+                    {dateStatus && (
+                        <div className="flex items-center text-sm ml-auto">
+                            <div className="flex items-center gap-2">
+                                <dateStatus.icon className="w-4 h-4 shrink-0" />
+                                <span className={dateStatus.className}>{dateStatus.text}</span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+                {extensionError && <p role="alert" className="text-sm text-red-600 text-right">{extensionError}</p>}
             </div>
         </div>
     );

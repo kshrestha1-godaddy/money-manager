@@ -12,6 +12,7 @@ interface InvestmentTargetProgressChartProps {
     currency?: string;
     title?: string;
     onEditTarget?: (targetId: number) => void;
+    onExtendTarget?: (targetId: number, date: Date) => Promise<void>;
     onAddTarget?: () => void;
     onBulkDelete?: () => void;
 }
@@ -23,6 +24,7 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
     currency = "USD", 
     title = "Investment Target Progress",
     onEditTarget,
+    onExtendTarget,
     onAddTarget,
     onBulkDelete
 }) => {
@@ -143,6 +145,7 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
                         target={target}
                         currency={currency}
                         onEditTarget={onEditTarget}
+                        onExtendTarget={onExtendTarget}
                     />
                 ))}
             </div>
