@@ -18,6 +18,12 @@ interface InvestmentTargetProgressChartProps {
 }
 
 
+type TargetSortField = 'date' | 'targetAmount' | 'remainingAmount';
+type TargetSortConfig = { field: TargetSortField; direction: 'asc' | 'desc' };
+const SORT_STORAGE_KEY = 'investment-target-progress-sort';
+const DEFAULT_SORT: TargetSortConfig = { field: 'date', direction: 'asc' };
+
+
 
 export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgressChartProps>(({ 
     targets, 
@@ -28,6 +34,57 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
     onAddTarget,
     onBulkDelete
 }) => {
+    const [sortConfig, setSortConfig] = React.useState<TargetSortConfig>(DEFAULT_SORT);
+    const [sortLoaded, setSortLoaded] = React.useState(false);
+
+    React.useEffect(() => {
+        try {
+            const stored = window.localStorage.getItem(SORT_STORAGE_KEY);
+            const saved = stored ? JSON.parse(stored) : null;
+            if (saved && ['date', 'targetAmount', 'remainingAmount'].includes(saved.field)
+                && ['asc', 'desc'].includes(saved.direction)) {
+                setSortConfig({ field: saved.field, direction: saved.direction });
+            }
+        } catch {
+            // Keep the default when browser storage is unavailable or invalid.
+        }
+        setSortLoaded(true);
+    }, []);
+
+    React.useEffect(() => {
+        if (!sortLoaded) return;
+        try {
+            window.localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify(sortConfig));
+        } catch {
+            // Sorting remains available when browser storage is unavailable.
+        }
+    }, [sortConfig, sortLoaded]);
+
+    const sortedTargets = React.useMemo(() => {
+        const dateValue = (target: InvestmentTargetProgress) => {
+            const time = target.targetCompletionDate ? new Date(target.targetCompletionDate).getTime() : NaN;
+            return Number.isFinite(time) ? time : null;
+        };
+        return [...(targets || [])].sort((a, b) => {
+            let difference: number;
+            if (sortConfig.field === 'date') {
+                const aDate = dateValue(a);
+                const bDate = dateValue(b);
+                // Undated targets stay last in either direction.
+                if (aDate === null || bDate === null) {
+                    return aDate === bDate ? a.targetId - b.targetId : aDate === null ? 1 : -1;
+                }
+                difference = aDate - bDate;
+            } else if (sortConfig.field === 'targetAmount') {
+                difference = a.targetAmount - b.targetAmount;
+            } else {
+                difference = Math.max(0, a.targetAmount - a.currentAmount)
+                    - Math.max(0, b.targetAmount - b.currentAmount);
+            }
+            return (sortConfig.direction === 'asc' ? difference : -difference) || a.targetId - b.targetId;
+        });
+    }, [targets, sortConfig]);
+
     // Memoize summary calculations
     const summary = React.useMemo(() => {
         if (!targets?.length) {
@@ -138,8 +195,31 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
             </div>
 
 
+            <div className="flex flex-wrap items-center justify-end gap-2 mb-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
+                <label htmlFor="investment-target-sort" className="text-gray-600">Sort by</label>
+                <select
+                    id="investment-target-sort"
+                    value={sortConfig.field}
+                    onChange={event => setSortConfig(previous => ({ ...previous, field: event.target.value as TargetSortField }))}
+                    className="rounded border border-gray-200 bg-white px-2 py-1.5 text-gray-900"
+                >
+                    <option value="date">Due date</option>
+                    <option value="targetAmount">Target amount</option>
+                    <option value="remainingAmount">Remaining amount</option>
+                </select>
+                <select
+                    aria-label="Target sort order"
+                    value={sortConfig.direction}
+                    onChange={event => setSortConfig(previous => ({ ...previous, direction: event.target.value as TargetSortConfig['direction'] }))}
+                    className="rounded border border-gray-200 bg-white px-2 py-1.5 text-gray-900"
+                >
+                    <option value="asc">{sortConfig.field === 'date' ? 'Earliest first' : 'Lowest first'}</option>
+                    <option value="desc">{sortConfig.field === 'date' ? 'Latest first' : 'Highest first'}</option>
+                </select>
+            </div>
+
             <div className="space-y-5 overflow-y-auto pr-2 pb-1 flex-1">
-                {targets.map((target) => (
+                {sortedTargets.map((target) => (
                     <TargetProgressItem
                         key={target.targetId}
                         target={target}
