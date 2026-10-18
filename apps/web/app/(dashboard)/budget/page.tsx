@@ -16,6 +16,7 @@ import { BulkDeleteBudgetTargetsModal } from "./components/BulkDeleteBudgetTarge
 import { BudgetActionSuccessModal } from "./components/BudgetActionSuccessModal";
 import { CategoryPerformanceGauge } from "./components/CategoryPerformanceGauge";
 import { CategorySpendTrendChart } from "./components/CategorySpendTrendChart";
+import { CategoryBudgetSummary } from "./components/CategoryBudgetSummary";
 import { DeleteBudgetTargetModal } from "./components/DeleteBudgetTargetModal";
 import { MonthNavigation } from "./components/MonthNavigation";
 import { getCategoryHistoricalTrends, CategoryTrendData } from "../../actions/budget-trends";
@@ -1461,6 +1462,13 @@ export default function BudgetPage() {
         </div>
       )}
 
+
+      <CategoryBudgetSummary
+        month={selectedMonth}
+        year={selectedYear}
+        period={selectedPeriod}
+        refreshKey={budgetComparison}
+      />
 
       {/* Bulk Import Modal */}
       <UnifiedBulkImportModal

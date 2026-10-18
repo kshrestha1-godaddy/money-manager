@@ -21,6 +21,99 @@ interface TimezoneDateParts {
 
 const timezoneFormatterCache = new Map<string, Intl.DateTimeFormat>();
 
+export interface BudgetRangeCategory {
+    categoryId: number;
+    categoryName: string;
+    categoryType: 'EXPENSE' | 'INCOME';
+    actual: number;
+    target: number;
+    months: { month: string; actual: number; target: number }[];
+}
+
+/** Compare exact calendar dates against the current recurring budget targets. */
+export async function getBudgetRangeSummary(
+    start: string,
+    end: string,
+    period: 'MONTHLY' | 'QUARTERLY' | 'YEARLY' = 'MONTHLY'
+): Promise<{ data?: BudgetRangeCategory[]; error?: string }> {
+    const parseDate = (value: string) => {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+        const date = new Date(`${value}T00:00:00.000Z`);
+        return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value ? date : null;
+    };
+    let first = start === 'all' ? parseDate(end) : parseDate(start);
+    const last = parseDate(end);
+    if (!first || !last || first > last || !['MONTHLY', 'QUARTERLY', 'YEARLY'].includes(period)) {
+        return { error: 'Choose a valid start and end date.' };
+    }
+    if ((last.getTime() - first.getTime()) / 86400000 > 3660) {
+        return { error: 'Choose a range of 10 years or less.' };
+    }
+    try {
+        const session = await getAuthenticatedSession();
+        const userId = getUserIdFromSession(session.user.id);
+        const user = await prisma.user.findUnique({ where: { id: userId }, select: { currency: true, timezone: true } });
+        const timezone = user?.timezone && isValidTimezone(user.timezone) ? user.timezone : 'UTC';
+        if (start === 'all') {
+            const [expense, income] = await Promise.all([
+                prisma.expense.findFirst({ where: { userId }, orderBy: { date: 'asc' }, select: { date: true } }),
+                prisma.income.findFirst({ where: { userId }, orderBy: { date: 'asc' }, select: { date: true } }),
+            ]);
+            const earliest = [expense?.date, income?.date].filter((date): date is Date => !!date).sort((a, b) => a.getTime() - b.getTime())[0];
+            if (earliest) {
+                const parts = getDatePartsInTimezone(earliest, timezone);
+                const candidate = new Date(Date.UTC(parts.year, parts.month - 1, 1));
+                if (candidate < first) first = candidate;
+            }
+        }
+        const from = zonedDateTimeToUtc(first.getUTCFullYear(), first.getUTCMonth(), first.getUTCDate(), 0, 0, 0, 0, timezone);
+        const next = new Date(last.getTime() + 86400000);
+        const until = zonedDateTimeToUtc(next.getUTCFullYear(), next.getUTCMonth(), next.getUTCDate(), 0, 0, 0, 0, timezone);
+        const [categories, targets, expenses, incomes, rates] = await Promise.all([
+            prisma.category.findMany({ where: { userId, includedInBudget: true } }),
+            prisma.budgetTarget.findMany({ where: { userId, isActive: true, period }, orderBy: { updatedAt: 'desc' } }),
+            prisma.expense.findMany({ where: { userId, date: { gte: from, lt: until } }, select: { categoryId: true, amount: true, currency: true, date: true } }),
+            prisma.income.findMany({ where: { userId, date: { gte: from, lt: until } }, select: { categoryId: true, amount: true, currency: true, date: true } }),
+            getCurrencyRateConfigQuery(),
+        ]);
+        // Compute one prorated target per calendar month, including empty months.
+        const weights = new Map<string, number>();
+        for (let cursor = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), 1)); cursor <= last; cursor.setUTCMonth(cursor.getUTCMonth() + 1)) {
+            const days = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 0)).getUTCDate();
+            const monthStart = cursor.getTime();
+            const monthEnd = Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth(), days);
+            const includedDays = (Math.min(last.getTime(), monthEnd) - Math.max(first.getTime(), monthStart)) / 86400000 + 1;
+            weights.set(cursor.toISOString().slice(0, 7), includedDays / days);
+        }
+        const monthWeight = [...weights.values()].reduce((sum, weight) => sum + weight, 0);
+        const totals = new Map<number, number>();
+        const monthlyTotals = new Map<string, number>();
+        for (const transaction of [...expenses, ...incomes]) {
+            const amount = convertCurrencySync(Number(transaction.amount), transaction.currency || 'USD', user?.currency || 'USD', rates.matrix);
+            totals.set(transaction.categoryId, (totals.get(transaction.categoryId) || 0) + amount);
+            const parts = getDatePartsInTimezone(transaction.date, timezone);
+            const key = `${transaction.categoryId}:${parts.year}-${String(parts.month).padStart(2, '0')}`;
+            monthlyTotals.set(key, (monthlyTotals.get(key) || 0) + amount);
+        }
+        const divisor = period === 'YEARLY' ? 12 : period === 'QUARTERLY' ? 3 : 1;
+        return { data: categories.map(category => ({
+            categoryId: category.id,
+            categoryName: category.name,
+            categoryType: category.type,
+            actual: totals.get(category.id) || 0,
+            target: Number(targets.find(target => target.name === category.name)?.targetAmount || 0) / divisor * monthWeight,
+            months: [...weights].map(([month, weight]) => ({
+                month,
+                actual: monthlyTotals.get(`${category.id}:${month}`) || 0,
+                target: Number(targets.find(target => target.name === category.name)?.targetAmount || 0) / divisor * weight,
+            })),
+        })) };
+    } catch (error) {
+        console.error('Error fetching budget range summary:', error);
+        return { error: 'Unable to load the budget summary. Please try again.' };
+    }
+}
+
 function getTimezoneFormatter(timezone: string): Intl.DateTimeFormat {
     if (!timezoneFormatterCache.has(timezone)) {
         timezoneFormatterCache.set(
