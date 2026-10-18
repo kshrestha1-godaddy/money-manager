@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { Fragment, useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { DebtInterface } from "../../../types/debts";
 import { formatDate } from "../../../utils/date";
 import { formatCurrency } from "../../../utils/currency";
@@ -17,6 +17,7 @@ type SortDirection = 'asc' | 'desc';
 
 interface DebtTableProps {
     debts: DebtInterface[];
+    groupByBorrower?: boolean;
     /** Amounts are stored in this currency (typically user profile currency). */
     baseCurrency: string;
     /** Selected display currency for the table (may differ from base). */
@@ -35,6 +36,7 @@ interface DebtTableProps {
 
 export function DebtTable({ 
     debts,
+    groupByBorrower = false,
     baseCurrency,
     displayCurrency,
     onEdit, 
@@ -50,6 +52,7 @@ export function DebtTable({
 }: DebtTableProps) {
     const [sortField, setSortField] = useState<SortField>('dueDate');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+    const [expandedBorrowers, setExpandedBorrowers] = useState<Set<string>>(new Set());
     
     // Column resizing state - optimized for better space utilization
     const [columnWidths, setColumnWidths] = useState<DebtColumnWidths>(
@@ -186,6 +189,45 @@ export function DebtTable({
 
         return sorted;
     }, [debts, sortField, sortDirection, baseCurrency, displayCurrency]);
+
+    const borrowerGroups = useMemo(() => {
+        const groups = new Map<string, { name: string; debts: DebtInterface[]; total: number }>();
+        for (const debt of sortedDebts) {
+            const name = debt.borrowerName.trim() || 'Unknown Borrower';
+            const key = name.toLowerCase();
+            const group = groups.get(key) ?? { name, debts: [], total: 0 };
+            group.debts.push(debt);
+            group.total += calculateInterest(debt.amount, debt.interestRate, debt.lentDate, debt.dueDate).totalAmountWithInterest;
+            groups.set(key, group);
+        }
+        return Array.from(groups, ([key, group]) => ({ key, ...group }));
+    }, [sortedDebts]);
+
+    const toggleBorrower = (key: string) => {
+        setExpandedBorrowers(previous => {
+            const next = new Set(previous);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
+            return next;
+        });
+    };
+
+    const renderDebtRow = (debt: DebtInterface) => (
+        <DebtRow
+            key={debt.id}
+            debt={debt}
+            baseCurrency={baseCurrency}
+            displayCurrency={displayCurrency}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onViewDetails={onViewDetails}
+            onAddRepayment={onAddRepayment}
+            isSelected={selectedDebts.has(debt.id)}
+            onSelect={onDebtSelect}
+            showCheckbox={showBulkActions}
+            columnWidths={columnWidths}
+        />
+    );
 
     const tableFooterSummary = useMemo(() => {
         if (sortedDebts.length === 0) {
@@ -476,22 +518,32 @@ export function DebtTable({
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {sortedDebts.map((debt) => (
-                                <DebtRow 
-                                    key={debt.id} 
-                                    debt={debt}
-                                    baseCurrency={baseCurrency}
-                                    displayCurrency={displayCurrency}
-                                    onEdit={onEdit}
-                                    onDelete={onDelete}
-                                    onViewDetails={onViewDetails}
-                                    onAddRepayment={onAddRepayment}
-                                    isSelected={selectedDebts.has(debt.id)}
-                                    onSelect={onDebtSelect}
-                                    showCheckbox={showBulkActions}
-                                    columnWidths={columnWidths}
-                                />
-                            ))}
+                            {groupByBorrower ? borrowerGroups.map(group => (
+                                <Fragment key={group.key}>
+                                    <tr className="bg-gray-50/60">
+                                        <td colSpan={summaryFooterColSpan} className="p-0">
+                                            <button
+                                                type="button"
+                                                aria-expanded={expandedBorrowers.has(group.key)}
+                                                onClick={() => toggleBorrower(group.key)}
+                                                className="flex w-full flex-wrap items-center gap-3 px-6 py-4 text-left hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+                                            >
+                                                <span aria-hidden="true" className="text-xs text-gray-500">
+                                                    {expandedBorrowers.has(group.key) ? '▼' : '▶'}
+                                                </span>
+                                                <span className="text-sm font-semibold text-gray-900">{group.name}</span>
+                                                <span className="text-xs text-gray-500">
+                                                    {group.debts.length} {group.debts.length === 1 ? 'loan' : 'loans'}
+                                                </span>
+                                                <span className="ml-auto text-sm font-semibold tabular-nums text-green-600">
+                                                    {formatCurrency(convertForDisplaySync(group.total, baseCurrency, displayCurrency), displayCurrency)}
+                                                </span>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {expandedBorrowers.has(group.key) && group.debts.map(renderDebtRow)}
+                                </Fragment>
+                            )) : sortedDebts.map(renderDebtRow)}
                         </tbody>
                         <tfoot>
                             <tr className="bg-transparent">
@@ -821,4 +873,4 @@ function DebtRow({
             </td>
         </tr>
     );
-} 
+}

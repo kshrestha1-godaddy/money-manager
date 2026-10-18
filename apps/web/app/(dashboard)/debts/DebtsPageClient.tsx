@@ -421,6 +421,7 @@ export default function DebtsPageClient() {
                 {isExpanded && (
                   <DebtTable
                     debts={section.debts}
+                    groupByBorrower={isFullyPaid}
                     baseCurrency={userCurrency}
                     displayCurrency={tableDisplayCurrency}
                     selectedDebts={selectedDebts}
