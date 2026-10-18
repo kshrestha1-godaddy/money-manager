@@ -401,8 +401,10 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
         r: {
           z: 1,
           angleLines: {
-            color: "#e5e7eb",
+            display: true,
+            color: "rgba(148, 163, 184, 0.45)",
             lineWidth: 1,
+            borderDash: [4, 4],
           },
           grid: {
             color: "#e5e7eb",
