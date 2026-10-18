@@ -1,29 +1,10 @@
 import type { DebtInterface } from "../types/debts";
-import { calculateRemainingWithInterest } from "./interestCalculation";
-
-function roundToCents(value: number): number {
-  return Math.round(Number(value) * 100) / 100;
-}
+import { getDebtSectionKey } from "./interestCalculation";
 
 export type DebtTableSection = "ACTIVE" | "PARTIALLY_PAID" | "FULLY_PAID";
 
 export function getDebtSectionForTable(debt: DebtInterface): DebtTableSection {
-  const calculation = calculateRemainingWithInterest(
-    debt.amount,
-    debt.interestRate,
-    debt.lentDate,
-    debt.dueDate,
-    debt.repayments || [],
-    new Date(),
-    debt.status
-  );
-
-  const totalToBePaid = Math.max(0, roundToCents(calculation.totalWithInterest));
-  const remaining = Math.max(0, roundToCents(calculation.remainingAmount));
-
-  if (remaining <= 0) return "FULLY_PAID";
-  if (remaining < totalToBePaid) return "PARTIALLY_PAID";
-  return "ACTIVE";
+  return getDebtSectionKey(debt);
 }
 
 export function getDebtDisplayStatus(debt: DebtInterface): DebtInterface["status"] {

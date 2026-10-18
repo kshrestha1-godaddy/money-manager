@@ -98,7 +98,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
     });
 
     const data: DueDateDataPoint[] = activeDebts.map((debt) => {
-      const dueDate = debt.dueDate instanceof Date ? debt.dueDate : new Date(debt.dueDate!);
+      const dueDate = new Date(debt.dueDate!);
       dueDate.setHours(0, 0, 0, 0);
       
       const diffTime = dueDate.getTime() - today.getTime();
@@ -109,7 +109,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
         debt.amount,
         debt.interestRate,
         debt.lentDate instanceof Date ? debt.lentDate : new Date(debt.lentDate),
-        dueDate,
+        debt.dueDate,
         debt.repayments || [],
         new Date(),
         debt.status

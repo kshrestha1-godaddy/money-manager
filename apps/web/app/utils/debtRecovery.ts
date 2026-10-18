@@ -3,6 +3,8 @@ import { calculateRemainingWithInterest, getDebtSectionKey, type DebtLikeForStat
 /** Recovery amounts use the same balance calculations and sections as the debts table. */
 export function calculateDebtRecovery(debts: DebtLikeForStatus[]) {
     let totalWithInterest = 0;
+    let totalPrincipal = 0;
+    let totalInterest = 0;
     let fullyPaidAmount = 0;
     let partialRepaidAmount = 0;
     let partialRemainingAmount = 0;
@@ -16,6 +18,8 @@ export function calculateDebtRecovery(debts: DebtLikeForStatus[]) {
             debt.repayments || [], now, debt.status
         );
         const section = getDebtSectionKey(debt);
+        totalPrincipal += debt.amount;
+        totalInterest += result.interestAmount;
         totalWithInterest += result.totalWithInterest;
         counts.total++;
         if (section === "FULLY_PAID") {
@@ -31,5 +35,5 @@ export function calculateDebtRecovery(debts: DebtLikeForStatus[]) {
         }
     }
 
-    return { totalWithInterest, fullyPaidAmount, partialRepaidAmount, partialRemainingAmount, activeAmount, counts };
+    return { totalPrincipal, totalInterest, totalRepaid: fullyPaidAmount + partialRepaidAmount, totalOutstanding: activeAmount + partialRemainingAmount, totalWithInterest, fullyPaidAmount, partialRepaidAmount, partialRemainingAmount, activeAmount, counts };
 }

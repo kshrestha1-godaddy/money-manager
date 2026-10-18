@@ -1,4 +1,5 @@
 "use client";
+import { calculateDebtRecovery } from "../../../utils/debtRecovery";
 
 import { addDays, addMonths } from "date-fns";
 import { Fragment, useState, useMemo, useRef, useCallback, useEffect } from "react";
@@ -246,45 +247,15 @@ export function DebtTable({
             };
         }
 
-        let totalPrincipal = 0;
-        let totalInterest = 0;
-        let totalWithInterest = 0;
-        let totalRemaining = 0;
+        const summary = calculateDebtRecovery(sortedDebts);
+        const totalPrincipal = summary.totalPrincipal;
+        const totalInterest = summary.totalInterest;
+        const totalWithInterest = summary.totalWithInterest;
+        const totalRemaining = summary.totalOutstanding;
         const lentTimes: number[] = [];
         const dueTimes: number[] = [];
-        const now = new Date();
 
         for (const debt of sortedDebts) {
-            const interestCalc = calculateInterest(
-                debt.amount,
-                debt.interestRate,
-                debt.lentDate instanceof Date ? debt.lentDate : new Date(debt.lentDate),
-                debt.dueDate
-                    ? debt.dueDate instanceof Date
-                        ? debt.dueDate
-                        : new Date(debt.dueDate)
-                    : undefined,
-                now
-            );
-            const remainingCalc = calculateRemainingWithInterest(
-                debt.amount,
-                debt.interestRate,
-                debt.lentDate instanceof Date ? debt.lentDate : new Date(debt.lentDate),
-                debt.dueDate
-                    ? debt.dueDate instanceof Date
-                        ? debt.dueDate
-                        : new Date(debt.dueDate)
-                    : undefined,
-                debt.repayments || [],
-                now,
-                debt.status
-            );
-
-            totalPrincipal += debt.amount;
-            totalInterest += interestCalc.interestAmount;
-            totalWithInterest += interestCalc.totalAmountWithInterest;
-            totalRemaining += remainingCalc.remainingAmount;
-
             const lent = debt.lentDate instanceof Date ? debt.lentDate : new Date(debt.lentDate);
             lentTimes.push(lent.getTime());
             if (debt.dueDate) {

@@ -1,6 +1,6 @@
 import type { DebtInterface } from "../types/debts";
-import { calculateRemainingWithInterest } from "./interestCalculation";
-import { getDebtSectionForTable } from "./debtClassification";
+import { calculateDebtRecovery } from "./debtRecovery";
+import { getDebtSectionForTable, type DebtTableSection } from "./debtClassification";
 
 export type LendingGroupByOption = "status" | "borrower";
 
@@ -23,28 +23,15 @@ const GROUP_BY_ORDER: LendingGroupByOption[] = [
   "borrower",
 ];
 
-const STATUS_GROUP_META: Record<string, { title: string; order: number }> = {
+const STATUS_GROUP_META: Record<DebtTableSection, { title: string; order: number }> = {
   ACTIVE: { title: "Active Lendings", order: 0 },
   PARTIALLY_PAID: { title: "Partially Paid Lendings", order: 1 },
   FULLY_PAID: { title: "Fully Paid Lendings", order: 2 },
 };
 
 function summarizeSection(debts: DebtInterface[]) {
-  const totalAmount = debts.reduce((sum, debt) => sum + debt.amount, 0);
-  const totalRemaining = debts.reduce((sum, debt) => {
-    const remaining = calculateRemainingWithInterest(
-      debt.amount,
-      debt.interestRate,
-      debt.lentDate,
-      debt.dueDate,
-      debt.repayments || [],
-      new Date(),
-      debt.status
-    );
-    return sum + remaining.remainingAmount;
-  }, 0);
-
-  return { totalAmount, totalRemaining };
+  const summary = calculateDebtRecovery(debts);
+  return { totalAmount: summary.totalPrincipal, totalRemaining: summary.totalOutstanding };
 }
 
 function getStatusPart(debt: DebtInterface): GroupPart {

@@ -1,3 +1,4 @@
+import { calculateDebtRecovery } from "../utils/debtRecovery";
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DebtInterface } from "../types/debts";
@@ -216,50 +217,15 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
     // Calculate financial summary
 
     const financialSummary = useMemo(() => {
-        let totalPrincipal = 0;
-        let totalInterestAccrued = 0;
-        let totalRepaid = 0;
-        let totalOutstanding = 0;
-        let activeCount = 0;
-        let overdueCount = 0;
-
-        filteredDebts.forEach((debt) => {
-            totalPrincipal += debt.amount;
-
-            const calculation = calculateRemainingWithInterest(
-                debt.amount,
-                debt.interestRate,
-                debt.lentDate,
-                debt.dueDate,
-                debt.repayments || [],
-                new Date(),
-                debt.status
-            );
-
-            totalInterestAccrued += calculation.interestAmount;
-            totalOutstanding += calculation.remainingAmount;
-
-            const repaymentAmount =
-                debt.repayments?.reduce((sum, repayment) => sum + repayment.amount, 0) || 0;
-            totalRepaid += repaymentAmount;
-
-            const effective = getEffectiveDebtStatus(debt);
-            if (effective === "ACTIVE" || effective === "PARTIALLY_PAID") {
-                activeCount++;
-            }
-            if (effective === "OVERDUE") {
-                overdueCount++;
-            }
-        });
-
+        const recovery = calculateDebtRecovery(filteredDebts);
         return {
-            totalDebts: filteredDebts.length,
-            activeCount,
-            overdueCount,
-            totalPrincipal,
-            totalInterestAccrued,
-            totalRepaid,
-            totalOutstanding
+            totalDebts: recovery.counts.total,
+            activeCount: recovery.counts.active + recovery.counts.partial,
+            overdueCount: filteredDebts.filter(debt => getEffectiveDebtStatus(debt) === "OVERDUE").length,
+            totalPrincipal: recovery.totalPrincipal,
+            totalInterestAccrued: recovery.totalInterest,
+            totalRepaid: recovery.totalRepaid,
+            totalOutstanding: recovery.totalOutstanding,
         };
     }, [filteredDebts]);
 
