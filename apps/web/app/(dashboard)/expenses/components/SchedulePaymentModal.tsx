@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react";
 import { CategoryWithFrequencyData } from "../../../utils/categoryFrequency";
 import { AccountInterface } from "../../../types/accounts";
+import { useTimezone } from "../../../providers/TimezoneProvider";
+import { toDatetimeLocalValue, parseDatetimeLocalInTimezone } from "../../../utils/scheduledPaymentTime";
 import { useCurrency } from "../../../providers/CurrencyProvider";
-import { getUserDualCurrency } from "../../../utils/currency";
+import { getUserSupportedCurrency } from "../../../utils/currency";
 import {
   inputClasses,
   selectClasses,
@@ -30,18 +32,6 @@ interface SchedulePaymentModalProps {
   editingItem?: ScheduledPaymentItem | null;
 }
 
-function defaultLocalDatetime(): string {
-  const d = new Date();
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
-}
-
-function toLocalDatetimeInput(d: Date): string {
-  const x = new Date(d.getTime());
-  x.setMinutes(x.getMinutes() - x.getTimezoneOffset());
-  return x.toISOString().slice(0, 16);
-}
-
 export function SchedulePaymentModal({
   isOpen,
   onClose,
@@ -51,7 +41,8 @@ export function SchedulePaymentModal({
   editingItem = null,
 }: SchedulePaymentModalProps) {
   const { currency: userCurrency } = useCurrency();
-  const defaultCurrency = getUserDualCurrency(userCurrency);
+  const { timezone, isLoading: isTimezoneLoading } = useTimezone();
+  const defaultCurrency = getUserSupportedCurrency(userCurrency);
   const expenseCategories = categories.filter((c) => c.type === "EXPENSE");
 
   const [title, setTitle] = useState("");
@@ -60,7 +51,7 @@ export function SchedulePaymentModal({
   const [categoryId, setCategoryId] = useState("");
   const [accountId, setAccountId] = useState("0");
   const [notes, setNotes] = useState("");
-  const [scheduledAtLocal, setScheduledAtLocal] = useState(defaultLocalDatetime());
+  const [scheduledAtLocal, setScheduledAtLocal] = useState("");
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringFrequency, setRecurringFrequency] = useState<RecurringChoice>("MONTHLY");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,11 +61,10 @@ export function SchedulePaymentModal({
     if (editingItem) {
       setTitle(editingItem.title);
       setAmount(String(editingItem.amount));
-      setAmountCurrency(editingItem.currency);
+      setAmountCurrency(getUserSupportedCurrency(editingItem.currency));
       setCategoryId(String(editingItem.categoryId));
       setAccountId(editingItem.accountId ? String(editingItem.accountId) : "0");
       setNotes(editingItem.notes ?? "");
-      setScheduledAtLocal(toLocalDatetimeInput(new Date(editingItem.scheduledAt)));
       setIsRecurring(editingItem.isRecurring);
       const rf = editingItem.recurringFrequency;
       setRecurringFrequency(
@@ -86,12 +76,16 @@ export function SchedulePaymentModal({
       setCategoryId("");
       setAccountId("0");
       setNotes("");
-      setScheduledAtLocal(defaultLocalDatetime());
       setIsRecurring(false);
       setRecurringFrequency("MONTHLY");
-      setAmountCurrency(getUserDualCurrency(userCurrency));
+      setAmountCurrency(getUserSupportedCurrency(userCurrency));
     }
   }, [isOpen, editingItem, userCurrency]);
+
+  useEffect(() => {
+    if (!isOpen || isTimezoneLoading) return;
+    setScheduledAtLocal(toDatetimeLocalValue(editingItem ? new Date(editingItem.scheduledAt) : new Date(), timezone));
+  }, [isOpen, editingItem, timezone, isTimezoneLoading]);
 
   const handleClose = () => {
     setTitle("");
@@ -111,7 +105,7 @@ export function SchedulePaymentModal({
       return;
     }
     const n = parseFloat(amount);
-    if (!amount || Number.isNaN(n) || n <= 0) {
+    if (!amount || !Number.isFinite(n) || n <= 0) {
       alert("Enter a valid amount");
       return;
     }
@@ -120,9 +114,10 @@ export function SchedulePaymentModal({
       return;
     }
 
-    const scheduledAt = new Date(scheduledAtLocal);
-    if (Number.isNaN(scheduledAt.getTime())) {
-      alert("Invalid date and time");
+    if (isTimezoneLoading) return;
+    const scheduledAt = parseDatetimeLocalInTimezone(scheduledAtLocal, timezone);
+    if (!scheduledAt) {
+      alert(`Enter a valid date and time in ${timezone}. This time may not exist due to a daylight-saving change.`);
       return;
     }
 
@@ -260,13 +255,13 @@ export function SchedulePaymentModal({
             </select>
           </div>
           <div>
-            <label className={labelClasses}>Scheduled date &amp; time</label>
+            <label className={labelClasses}>Scheduled date &amp; time ({timezone})</label>
             <input
               type="datetime-local"
               className={inputClasses}
               value={scheduledAtLocal}
               onChange={(e) => setScheduledAtLocal(e.target.value)}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isTimezoneLoading}
               required
             />
           </div>
@@ -321,7 +316,7 @@ export function SchedulePaymentModal({
             <button
               type="submit"
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isTimezoneLoading}
             >
               {isSubmitting ? "Saving…" : isEdit ? "Save changes" : "Schedule"}
             </button>

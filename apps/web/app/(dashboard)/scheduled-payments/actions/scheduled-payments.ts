@@ -1,12 +1,15 @@
 "use server";
 
+import { computeNextScheduledAt } from "../../../utils/scheduledPaymentTime";
+import { SUPPORTED_CURRENCIES } from "../../../utils/currency";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import prisma from "@repo/db/client";
-import { RecurringFrequency, ScheduledPaymentResolution } from "@prisma/client";
+import { Prisma, RecurringFrequency, ScheduledPaymentResolution } from "@prisma/client";
 import { authOptions } from "../../../lib/auth";
 import { getUserIdFromSession } from "../../../utils/auth";
-import { createExpense } from "../../expenses/actions/expenses";
+import { createExpenseInTransaction } from "../../../utils/createExpenseInTransaction";
+import { autoBookmarkHighValueTransaction } from "../../../utils/autoBookmarkUtils";
 import { Expense, Category } from "../../../types/financial";
 import { ScheduledPaymentItem } from "../../../types/scheduled-payment";
 import { AccountInterface } from "../../../types/accounts";
@@ -85,15 +88,6 @@ function toScheduledPaymentItem(row: {
   };
 }
 
-function computeNextScheduledAt(from: Date, frequency: RecurringFrequency): Date {
-  const d = new Date(from.getTime());
-  if (frequency === "DAILY") d.setDate(d.getDate() + 1);
-  else if (frequency === "WEEKLY") d.setDate(d.getDate() + 7);
-  else if (frequency === "MONTHLY") d.setMonth(d.getMonth() + 1);
-  else if (frequency === "YEARLY") d.setFullYear(d.getFullYear() + 1);
-  return d;
-}
-
 async function createNextRecurringOccurrence(
   source: {
     title: string;
@@ -108,11 +102,13 @@ async function createNextRecurringOccurrence(
     notes: string | null;
     isRecurring: boolean;
     recurringFrequency: RecurringFrequency | null;
-  }
+  },
+  tx: Prisma.TransactionClient
 ) {
   if (!source.isRecurring || !source.recurringFrequency) return;
-  const nextAt = computeNextScheduledAt(source.scheduledAt, source.recurringFrequency);
-  await prisma.scheduledPayment.create({
+  const user = await tx.user.findUnique({ where: { id: source.userId }, select: { timezone: true } });
+  const nextAt = computeNextScheduledAt(source.scheduledAt, source.recurringFrequency, user?.timezone ?? "UTC");
+  await tx.scheduledPayment.create({
     data: {
       title: source.title,
       description: source.description,
@@ -220,10 +216,49 @@ export interface CreateScheduledPaymentInput {
   recurringFrequency?: RecurringFrequency;
 }
 
+function validateScheduledPaymentInput(input: CreateScheduledPaymentInput) {
+  if (!input || typeof input !== "object") throw new Error("Invalid scheduled payment");
+  if (typeof input.title !== "string" || !input.title.trim()) {
+    throw new Error("Title is required");
+  }
+  if (typeof input.amount !== "number" || !Number.isFinite(input.amount) || input.amount <= 0) {
+    throw new Error("Amount must be a positive finite number");
+  }
+  if (!SUPPORTED_CURRENCIES.some(currency => currency === input.currency)) {
+    throw new Error("Unsupported currency");
+  }
+  if (!(input.scheduledAt instanceof Date) || !Number.isFinite(input.scheduledAt.getTime())) {
+    throw new Error("Invalid scheduled date and time");
+  }
+  if (!Number.isSafeInteger(input.categoryId) || input.categoryId <= 0) {
+    throw new Error("Invalid expense category");
+  }
+  if (input.accountId !== null && (!Number.isSafeInteger(input.accountId) || input.accountId <= 0)) {
+    throw new Error("Invalid account");
+  }
+  if (input.isRecurring !== undefined && typeof input.isRecurring !== "boolean") {
+    throw new Error("Invalid recurring setting");
+  }
+  const frequencies: readonly string[] = ["DAILY", "WEEKLY", "MONTHLY", "YEARLY"];
+  if ((input.isRecurring && !input.recurringFrequency) ||
+      (input.recurringFrequency !== undefined && !frequencies.includes(input.recurringFrequency))) {
+    throw new Error("Select a valid recurring frequency");
+  }
+  for (const field of ["description", "notes"] as const) {
+    if (input[field] !== undefined && typeof input[field] !== "string") {
+      throw new Error(`Invalid ${field}`);
+    }
+  }
+  if (input.tags !== undefined && (!Array.isArray(input.tags) || input.tags.some(tag => typeof tag !== "string"))) {
+    throw new Error("Tags must be a list of strings");
+  }
+}
+
 export async function createScheduledPayment(input: CreateScheduledPaymentInput) {
   const session = await getServerSession(authOptions);
   if (!session) throw new Error("Unauthorized");
   const userId = getUserIdFromSession(session.user.id);
+  validateScheduledPaymentInput(input);
 
   const category = await prisma.category.findFirst({
     where: { id: input.categoryId, userId, type: "EXPENSE" },
@@ -279,6 +314,10 @@ export async function updateScheduledPayment(input: UpdateScheduledPaymentInput)
   const session = await getServerSession(authOptions);
   if (!session) throw new Error("Unauthorized");
   const userId = getUserIdFromSession(session.user.id);
+  validateScheduledPaymentInput(input);
+  if (!Number.isSafeInteger(input.id) || input.id <= 0) {
+    throw new Error("Invalid scheduled payment ID");
+  }
 
   const existing = await prisma.scheduledPayment.findFirst({
     where: { id: input.id, userId },
@@ -306,13 +345,15 @@ export async function updateScheduledPayment(input: UpdateScheduledPaymentInput)
     where: { id: input.id },
     data: {
       title: input.title.trim(),
-      description: input.description?.trim() || null,
+      // The scheduling modal does not edit these fields. Omission preserves
+      // their saved values; an explicit empty string/array still clears them.
+      ...(input.description !== undefined ? { description: input.description.trim() || null } : {}),
       amount: input.amount,
       currency: input.currency,
       scheduledAt: input.scheduledAt,
       categoryId: input.categoryId,
       accountId: input.accountId ?? null,
-      tags: input.tags ?? [],
+      ...(input.tags !== undefined ? { tags: input.tags } : {}),
       notes: input.notes?.trim() || null,
       isRecurring,
       recurringFrequency: isRecurring ? input.recurringFrequency : null,
@@ -421,63 +462,63 @@ export async function acceptScheduledPayment(id: number) {
   if (!session) throw new Error("Unauthorized");
   const userId = getUserIdFromSession(session.user.id);
 
-  const sp = await prisma.scheduledPayment.findFirst({
-    where: { id, userId },
-    include: { category: true },
+  const expense = await prisma.$transaction(async (tx) => {
+    const sp = await tx.scheduledPayment.findFirst({ where: { id, userId }, include: { category: true } });
+    if (!sp) throw new Error("Scheduled payment not found");
+    if (sp.resolution !== null) throw new Error("This scheduled payment was already resolved");
+    if (sp.scheduledAt > new Date()) throw new Error("This payment is not due yet");
+
+    // The conditional write locks this occurrence. Concurrent accept/reject requests
+    // cannot claim it again; all changes roll back if any following step fails.
+    const claimed = await tx.scheduledPayment.updateMany({
+      where: { id, userId, resolution: null },
+      data: { resolution: ScheduledPaymentResolution.ACCEPTED, resolvedAt: new Date() },
+    });
+    if (claimed.count !== 1) throw new Error("This scheduled payment was already resolved");
+
+    const user = await tx.user.findUnique({ where: { id: userId }, select: { currency: true } });
+    const expensePayload: Omit<Expense, "id" | "createdAt" | "updatedAt"> = {
+      title: sp.title,
+      description: sp.description ?? undefined,
+      amount: parseFloat(String(sp.amount)),
+      currency: sp.currency,
+      date: sp.scheduledAt,
+      categoryId: sp.categoryId,
+      category: sp.category as Category,
+      accountId: sp.accountId ?? null,
+      account: null,
+      userId,
+      tags: sp.tags || [],
+      location: [],
+      notes: sp.notes ?? undefined,
+      isRecurring: false,
+      recurringFrequency: undefined,
+      transactionLocation: null,
+      transactionLocationId: null,
+    };
+    const created = await createExpenseInTransaction(tx, expensePayload, userId, user);
+    await tx.scheduledPayment.update({ where: { id }, data: { createdExpenseId: created.id } });
+    await createNextRecurringOccurrence(sp, tx);
+    return { id: created.id, title: sp.title, amount: Number(sp.amount) };
   });
-  if (!sp) throw new Error("Scheduled payment not found");
-  if (sp.resolution !== null) throw new Error("This scheduled payment was already resolved");
-  if (sp.scheduledAt > new Date()) throw new Error("This payment is not due yet");
 
-  const expensePayload: Omit<Expense, "id" | "createdAt" | "updatedAt"> = {
-    title: sp.title,
-    description: sp.description ?? undefined,
-    amount: parseFloat(String(sp.amount)),
-    currency: sp.currency,
-    date: sp.scheduledAt,
-    categoryId: sp.categoryId,
-    category: sp.category as Category,
-    accountId: sp.accountId ?? null,
-    account: null,
-    userId,
-    tags: sp.tags || [],
-    location: [],
-    notes: sp.notes ?? undefined,
-    isRecurring: false,
-    recurringFrequency: undefined,
-    transactionLocation: null,
-    transactionLocationId: null,
-  };
-
-  const expense = await createExpense(expensePayload);
-
-  await prisma.scheduledPayment.update({
-    where: { id },
-    data: {
-      resolution: ScheduledPaymentResolution.ACCEPTED,
-      resolvedAt: new Date(),
-      createdExpenseId: expense.id,
-    },
-  });
-
-  await createNextRecurringOccurrence({
-    title: sp.title,
-    description: sp.description,
-    amount: sp.amount,
-    currency: sp.currency,
-    scheduledAt: sp.scheduledAt,
-    categoryId: sp.categoryId,
-    accountId: sp.accountId,
-    userId: sp.userId,
-    tags: sp.tags,
-    notes: sp.notes,
-    isRecurring: sp.isRecurring,
-    recurringFrequency: sp.recurringFrequency,
-  });
+  // These optional side effects run only after the financial transaction commits.
+  try {
+    await autoBookmarkHighValueTransaction(expense.id, "EXPENSE", expense.title, expense.amount);
+  } catch (error) {
+    console.error("Failed to auto-bookmark scheduled expense:", error);
+  }
+  try {
+    const { generateNotificationsForUser } = await import("../../../actions/notifications");
+    await generateNotificationsForUser(userId);
+  } catch (error) {
+    console.error("Failed to check notifications after scheduled expense:", error);
+  }
 
   revalidatePath("/expenses");
   revalidatePath("/accounts");
   revalidatePath("/dashboard");
+  revalidatePath("/scheduled-payments");
 }
 
 export async function rejectScheduledPayment(id: number) {
@@ -485,36 +526,21 @@ export async function rejectScheduledPayment(id: number) {
   if (!session) throw new Error("Unauthorized");
   const userId = getUserIdFromSession(session.user.id);
 
-  const sp = await prisma.scheduledPayment.findFirst({
-    where: { id, userId },
-  });
-  if (!sp) throw new Error("Scheduled payment not found");
-  if (sp.resolution !== null) throw new Error("This scheduled payment was already resolved");
-  if (sp.scheduledAt > new Date()) throw new Error("This payment is not due yet");
+  await prisma.$transaction(async (tx) => {
+    const sp = await tx.scheduledPayment.findFirst({ where: { id, userId } });
+    if (!sp) throw new Error("Scheduled payment not found");
+    if (sp.resolution !== null) throw new Error("This scheduled payment was already resolved");
+    if (sp.scheduledAt > new Date()) throw new Error("This payment is not due yet");
 
-  await prisma.scheduledPayment.update({
-    where: { id },
-    data: {
-      resolution: ScheduledPaymentResolution.REJECTED,
-      resolvedAt: new Date(),
-    },
-  });
-
-  await createNextRecurringOccurrence({
-    title: sp.title,
-    description: sp.description,
-    amount: sp.amount,
-    currency: sp.currency,
-    scheduledAt: sp.scheduledAt,
-    categoryId: sp.categoryId,
-    accountId: sp.accountId,
-    userId: sp.userId,
-    tags: sp.tags,
-    notes: sp.notes,
-    isRecurring: sp.isRecurring,
-    recurringFrequency: sp.recurringFrequency,
+    const claimed = await tx.scheduledPayment.updateMany({
+      where: { id, userId, resolution: null },
+      data: { resolution: ScheduledPaymentResolution.REJECTED, resolvedAt: new Date() },
+    });
+    if (claimed.count !== 1) throw new Error("This scheduled payment was already resolved");
+    await createNextRecurringOccurrence(sp, tx);
   });
 
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
+  revalidatePath("/scheduled-payments");
 }
