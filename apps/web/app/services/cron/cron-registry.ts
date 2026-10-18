@@ -140,6 +140,16 @@ function resultFromRaw(
 
 export function getCronRegistry(): Record<string, CronRegistryEntry> {
   return {
+    cron_history_cleanup: {
+      slug: "cron_history_cleanup",
+      async run() {
+        const { cleanupCronHistory } = await import("./cleanup-cron-history");
+        return cleanupCronHistory();
+      },
+      normalizeResult(raw) {
+        return resultFromRaw(raw);
+      },
+    },
     inactive_user_email: {
       slug: "inactive_user_email",
       async run() {
@@ -290,6 +300,7 @@ export const DAILY_CRON_JOB_SLUGS = [
   "scheduled_payments_digest",
   "monthly_balance_sheet",
   "weekly_data_export",
+  "cron_history_cleanup",
 ] as const;
 
 export function getAllCronJobSlugs(): string[] {
