@@ -1,5 +1,6 @@
 "use client";
 
+import { addDays, addMonths } from "date-fns";
 import { Fragment, useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { DebtInterface } from "../../../types/debts";
 import { formatDate } from "../../../utils/date";
@@ -26,6 +27,7 @@ interface DebtTableProps {
     onDelete?: (debt: DebtInterface) => void;
     onViewDetails?: (debt: DebtInterface) => void;
     onAddRepayment?: (debt: DebtInterface) => void;
+    onPostpone?: (id: number, dueDate: Date) => Promise<void>;
     selectedDebts?: Set<number>;
     onDebtSelect?: (debtId: number, selected: boolean) => void;
     onSelectAll?: (selected: boolean) => void;
@@ -43,6 +45,7 @@ export function DebtTable({
     onDelete, 
     onViewDetails, 
     onAddRepayment,
+    onPostpone,
     selectedDebts = new Set(),
     onDebtSelect,
     onSelectAll,
@@ -222,6 +225,7 @@ export function DebtTable({
             onDelete={onDelete}
             onViewDetails={onViewDetails}
             onAddRepayment={onAddRepayment}
+            onPostpone={onPostpone}
             isSelected={selectedDebts.has(debt.id)}
             onSelect={onDebtSelect}
             showCheckbox={showBulkActions}
@@ -340,7 +344,7 @@ export function DebtTable({
         displayCurrency
     );
 
-    const summaryFooterColSpan = 8 + (showBulkActions ? 1 : 0);
+    const summaryFooterColSpan = 9 + (showBulkActions ? 1 : 0);
 
     const handleSort = (field: SortField) => {
         if (field === sortField) {
@@ -515,6 +519,12 @@ export function DebtTable({
                                 >
                                     Actions
                                 </th>
+                                <th
+                                    className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                    style={{ width: `${columnWidths.postpone}px` }}
+                                >
+                                    Postpone
+                                </th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -625,6 +635,10 @@ export function DebtTable({
                                     className="px-3 py-4 text-center"
                                     style={{ width: `${columnWidths.actions}px` }}
                                 />
+                                <td
+                                    className="px-1 py-4 text-center"
+                                    style={{ width: `${columnWidths.postpone}px` }}
+                                />
                             </tr>
                             <tr className="bg-transparent">
                                 <td colSpan={summaryFooterColSpan} className="p-0 border-0">
@@ -650,6 +664,7 @@ function DebtRow({
     onDelete, 
     onViewDetails, 
     onAddRepayment,
+    onPostpone,
     isSelected = false,
     onSelect,
     showCheckbox = false,
@@ -662,11 +677,35 @@ function DebtRow({
     onDelete?: (debt: DebtInterface) => void;
     onViewDetails?: (debt: DebtInterface) => void;
     onAddRepayment?: (debt: DebtInterface) => void;
+    onPostpone?: (id: number, dueDate: Date) => Promise<void>;
     isSelected?: boolean;
     onSelect?: (debtId: number, selected: boolean) => void;
     showCheckbox?: boolean;
     columnWidths: DebtColumnWidths;
 }) {
+    const [postponing, setPostponing] = useState(false);
+    const postponeLock = useRef(false);
+    const [postponeError, setPostponeError] = useState<string | null>(null);
+
+    const handlePostpone = async (period: '1W' | '1M' | '2M') => {
+        if (!onPostpone || !debt.dueDate || postponeLock.current) return;
+        postponeLock.current = true;
+        setPostponing(true);
+        setPostponeError(null);
+        try {
+            const currentDueDate = new Date(debt.dueDate);
+            const dueDate = period === '1W'
+                ? addDays(currentDueDate, 7)
+                : addMonths(currentDueDate, period === '1M' ? 1 : 2);
+            await onPostpone(debt.id, dueDate);
+        } catch {
+            setPostponeError('Could not postpone the due date. Please try again.');
+        } finally {
+            postponeLock.current = false;
+            setPostponing(false);
+        }
+    };
+
     function displayMoney(amount: number) {
         return formatCurrency(
             convertForDisplaySync(amount, baseCurrency, displayCurrency),
@@ -870,6 +909,26 @@ function DebtRow({
                         </button>
                     )}
                 </div>
+            </td>
+            <td className="px-1 py-4 text-center text-sm font-medium align-middle" style={{ width: `${columnWidths.postpone}px` }}>
+                    {onPostpone && debt.dueDate && remainingCalc.remainingAmount > 0 && (
+                        <div className="flex justify-center gap-1" aria-label="Postpone due date" aria-busy={postponing}>
+                            {(['1W', '1M', '2M'] as const).map(period => (
+                                <button
+                                    key={period}
+                                    type="button"
+                                    onClick={() => void handlePostpone(period)}
+                                    disabled={postponing}
+                                    title={`Postpone current due date by ${period === '1W' ? '1 week' : period === '1M' ? '1 month' : '2 months'}`}
+                                    aria-label={`Postpone due date for ${debt.borrowerName} by ${period === '1W' ? '1 week' : period === '1M' ? '1 month' : '2 months'}`}
+                                    className="inline-flex shrink-0 items-center px-2 py-1 rounded-md text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors disabled:opacity-50 disabled:cursor-wait"
+                                >
+                                    {period}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                {postponeError && <p role="alert" className="mt-1 whitespace-normal text-xs text-red-600">{postponeError}</p>}
             </td>
         </tr>
     );

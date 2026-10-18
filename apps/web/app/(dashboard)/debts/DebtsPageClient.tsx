@@ -259,7 +259,7 @@ export default function DebtsPageClient() {
       </div>
 
       <div className="mb-6">
-        <DebtStatusWaterfallChart debts={filteredDebts} currency={userCurrency} hasPageFilters={hasActiveFilters} pageStartDate={startDate} pageEndDate={endDate} />
+        <DebtStatusWaterfallChart debts={filteredDebts} baseCurrency={userCurrency} currency={tableDisplayCurrency} hasPageFilters={hasActiveFilters} pageStartDate={startDate} pageEndDate={endDate} />
       </div>
 
       <div className="mb-6">
@@ -388,7 +388,7 @@ export default function DebtsPageClient() {
                         <h3 className={`text-lg font-semibold ${TEXT_COLORS.title}`}>{section.title} ({section.debts.length})</h3>
                         <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
                           <span>
-                            Total:{' '}
+                            Principal:{' '}
                             {formatCurrency(
                               convertForDisplaySync(section.totalAmount, userCurrency, tableDisplayCurrency),
                               tableDisplayCurrency
@@ -431,6 +431,7 @@ export default function DebtsPageClient() {
                     onDelete={(debt) => openModal('delete', debt)}
                     onViewDetails={(debt) => openModal('view', debt)}
                     onAddRepayment={(debt) => openModal('repayment', debt)}
+                    onPostpone={(id, dueDate) => handleEditDebt(id, { dueDate })}
                     showBulkActions={true}
                     onBulkDelete={() => handleBulkDelete(section.debts)}
                     onClearSelection={() => clearFilters()}

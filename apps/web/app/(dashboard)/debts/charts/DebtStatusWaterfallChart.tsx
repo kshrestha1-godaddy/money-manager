@@ -17,11 +17,13 @@ import { ChartControls } from "../../../components/ChartControls";
 import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import type { DebtInterface } from "../../../types/debts";
-import { calculateRemainingWithInterest } from "../../../utils/interestCalculation";
+import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import { calculateDebtRecovery } from "../../../utils/debtRecovery";
 
 interface DebtStatusWaterfallChartProps {
   debts: DebtInterface[];
   currency: string;
+  baseCurrency?: string;
   hasPageFilters?: boolean;
   pageStartDate?: string;
   pageEndDate?: string;
@@ -57,6 +59,7 @@ const PATTERN_IDS = {
 export function DebtStatusWaterfallChart({ 
   debts, 
   currency,
+  baseCurrency = currency,
   hasPageFilters = false,
   pageStartDate,
   pageEndDate
@@ -91,48 +94,13 @@ export function DebtStatusWaterfallChart({
   }, [debts, startDate, endDate, pageStartDate, pageEndDate, hasPageFilters]);
 
   const waterfallData = useMemo(() => {
-    let totalWithInterest = 0;
-    let activeAmount = 0;
-    let partialRemainingAmount = 0; // Only the remaining balance for partially paid
-    let fullyPaidAmount = 0;
-    
-    const counts = { total: 0, active: 0, partial: 0, full: 0 };
-
-    filteredDebts.forEach((debt) => {
-      const result = calculateRemainingWithInterest(
-        debt.amount,
-        debt.interestRate,
-        debt.lentDate instanceof Date ? debt.lentDate : new Date(debt.lentDate),
-        debt.dueDate ? (debt.dueDate instanceof Date ? debt.dueDate : new Date(debt.dueDate)) : undefined,
-        debt.repayments || [],
-        new Date(),
-        debt.status
-      );
-
-      const total = result.totalWithInterest;
-      totalWithInterest += total;
-      counts.total += 1;
-
-      if (debt.status === "FULLY_PAID") {
-        fullyPaidAmount += total;
-        counts.full += 1;
-      } else if (debt.status === "PARTIALLY_PAID") {
-        // Use remainingAmount (what's still owed) instead of total
-        partialRemainingAmount += result.remainingAmount;
-        counts.partial += 1;
-      } else {
-        activeAmount += total;
-        counts.active += 1;
-      }
-    });
-
-    // Total outstanding = active + remaining from partial
+    const { totalWithInterest, activeAmount, partialRemainingAmount, partialRepaidAmount, fullyPaidAmount, counts } = calculateDebtRecovery(filteredDebts);
     const totalOutstanding = activeAmount + partialRemainingAmount;
 
-    // Build waterfall: Total → Fully Paid → Partially Paid (remaining) → Active
+    // Every step joins the next: total minus recovered amounts leaves outstanding balances.
     const data: WaterfallDataPoint[] = [
       {
-        name: "Total Lendings",
+        name: "Total Including Interest",
         value: totalWithInterest,
         displayValue: totalWithInterest,
         start: 0,
@@ -149,7 +117,17 @@ export function DebtStatusWaterfallChart({
         end: totalWithInterest,
         type: "result",
         count: counts.full,
-        description: "Debts completely repaid"
+        description: "Total including interest on completely repaid loans"
+      },
+      {
+        name: "Partial Repaid",
+        value: partialRepaidAmount,
+        displayValue: partialRepaidAmount,
+        start: totalOutstanding,
+        end: totalOutstanding + partialRepaidAmount,
+        type: "result",
+        count: counts.partial,
+        description: "Amount already repaid on partially paid loans"
       },
       {
         name: "Partial Remaining",
@@ -178,8 +156,22 @@ export function DebtStatusWaterfallChart({
       ...data.map((d) => [d.name, d.displayValue, d.count, d.description]),
     ];
 
-    return { data, totalWithInterest, totalOutstanding, csvData, totalDebts: counts.total };
-  }, [filteredDebts]);
+    const convert = (amount: number) => convertForDisplaySync(amount, baseCurrency, currency);
+    const displayData = data.map(point => ({
+      ...point,
+      value: convert(point.value),
+      displayValue: convert(point.displayValue),
+      start: convert(point.start),
+      end: convert(point.end),
+    }));
+    return {
+      data: displayData,
+      totalWithInterest: convert(totalWithInterest),
+      totalOutstanding: convert(totalOutstanding),
+      csvData: [csvData[0]!, ...displayData.map(d => [d.name, d.displayValue, d.count, d.description])],
+      totalDebts: counts.total,
+    };
+  }, [filteredDebts, baseCurrency, currency]);
 
   // Get currency symbol for the user's selected currency
   const currencySymbol = getCurrencySymbol(currency);
@@ -450,11 +442,11 @@ export function DebtStatusWaterfallChart({
           isExpanded={isExpanded}
           onToggleExpanded={toggleExpanded}
           title="Debt Recovery Waterfall"
-          subtitle="Flow from total lendings to outstanding balance"
+          subtitle="Including interest: total − fully paid − partial repayments = partial remaining + active"
           fileName="debt-waterfall"
           csvData={[["Category", "Amount"]]}
           csvFileName="debt-waterfall-data"
-          tooltipText="Waterfall chart showing how total lendings flow through repayment statuses to outstanding balance"
+          tooltipText="Uses the same repayment-based groups as the table. Total includes interest; fully paid loans and repayments on partial loans are deducted to leave outstanding balances. Date filters use the lent date and apply only to this chart."
           customDownloadPNG={downloadCustomPNG}
           customDownloadSVG={downloadCustomSVG}
         />
@@ -488,11 +480,11 @@ export function DebtStatusWaterfallChart({
         isExpanded={isExpanded}
         onToggleExpanded={toggleExpanded}
         title={`Debt Recovery Waterfall${waterfallData.totalDebts > 0 ? ` • ${waterfallData.totalDebts} debt${waterfallData.totalDebts !== 1 ? 's' : ''}` : ''}`}
-        subtitle="Flow from total lendings to outstanding balance"
+        subtitle="Including interest: total − fully paid − partial repayments = partial remaining + active"
         fileName="debt-waterfall"
         csvData={waterfallData.csvData}
         csvFileName="debt-waterfall-data"
-        tooltipText="Waterfall chart showing how total lendings flow through repayment statuses to outstanding balance"
+        tooltipText="Uses the same repayment-based groups as the table. Total includes interest; fully paid loans and repayments on partial loans are deducted to leave outstanding balances. Date filters use the lent date and apply only to this chart."
         customDownloadPNG={downloadCustomPNG}
         customDownloadSVG={downloadCustomSVG}
       />
@@ -612,7 +604,7 @@ export function DebtStatusWaterfallChart({
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: COLORS.result }} />
-          <span className="text-gray-600">Fully Paid</span>
+          <span className="text-gray-600">Repaid (full / partial)</span>
         </div>
       </div>
     </div>

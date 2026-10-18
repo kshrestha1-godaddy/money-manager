@@ -31,6 +31,7 @@ export const TABLE_COLUMN_WIDTHS = {
     interest: 130,
     total: 130,
     remaining: 250,
+    postpone: 120,
     actions: 248,
   },
 
@@ -73,6 +74,7 @@ export type DebtColumnWidths = {
   interest: number;
   total: number;
   remaining: number;
+  postpone: number;
   actions: number;
 };
 
