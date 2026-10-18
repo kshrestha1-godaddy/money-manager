@@ -77,9 +77,9 @@ const getProgressColor = (progress: number): string => {
 };
 
 const getProgressBgColor = (progress: number, isComplete: boolean, isOverdue?: boolean): string => {
-    if (isComplete) return "bg-green-50 border-green-200";
-    if (isOverdue) return "bg-red-50 border-red-200";
-    return "bg-blue-50/30 border-blue-100";
+    if (isComplete) return "bg-green-50 border-green-300";
+    if (isOverdue) return "bg-red-50 border-red-300";
+    return "bg-white border-slate-300";
 };
 
 /** Footer status for in-progress targets only (date lives in title). */
@@ -142,8 +142,8 @@ export function TargetProgressItem({ target, currency, onEditTarget, onExtendTar
         : null;
 
     return (
-        <div className={`p-4 rounded-lg border ${getProgressBgColor(target.progress, target.isComplete, target.isOverdue)}`}>
-            <div className="flex items-start justify-between gap-2 mb-2">
+        <div className={`p-4 rounded-lg border shadow-sm ${getProgressBgColor(target.progress, target.isComplete, target.isOverdue)}`}>
+            <div className="flex items-start justify-between gap-2 mb-3">
                 <div className="min-w-0 flex-1">
                     <h4 className="font-medium text-gray-900 leading-snug">
                         [{target.targetId}] {titleText}
@@ -173,7 +173,7 @@ export function TargetProgressItem({ target, currency, onEditTarget, onExtendTar
             </div>
 
             {/* Progress Bar */}
-            <div className="w-full bg-gray-100 rounded-full h-2 mb-2 overflow-hidden">
+            <div className="w-full bg-gray-100 rounded-full h-2 mb-3 overflow-hidden">
                 <div
                     className={`h-full transition-all duration-500 ease-out ${getProgressColor(target.progress)}`}
                     style={{ width: `${Math.min(target.progress, 100)}%` }}
@@ -181,7 +181,7 @@ export function TargetProgressItem({ target, currency, onEditTarget, onExtendTar
             </div>
 
             {/* Progress Details */}
-            <div className="space-y-2">
+            <div className="space-y-3">
                 <div className="flex flex-wrap justify-between items-start gap-x-4 gap-y-1 text-sm">
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                         <span className="text-gray-600">
@@ -215,7 +215,7 @@ export function TargetProgressItem({ target, currency, onEditTarget, onExtendTar
                     </div>
                 </div>
 
-                <div className="flex flex-wrap justify-between items-center gap-x-4 gap-y-2 pt-0.5">
+                <div className="flex flex-wrap justify-between items-center gap-x-4 gap-y-2 pt-1">
                     {onExtendTarget && target.targetCompletionDate && (
                         <div className="flex flex-wrap items-center gap-1.5 text-xs">
                             {['1W', '1M', '3M', '6M', 'T+30', 'T+45'].map(period => (

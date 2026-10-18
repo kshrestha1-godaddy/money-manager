@@ -320,7 +320,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
 
     if (!data.length) {
       return (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 h-[45rem] flex flex-col" data-chart-type="investment-type-polar">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 h-[50rem] flex flex-col" data-chart-type="investment-type-polar">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
               <PieChart className="w-5 h-5 text-blue-600 mr-2" />
