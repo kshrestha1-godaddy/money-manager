@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { signOut } from "next-auth/react";
 import { InvestmentInterface } from '../../../types/investments';
@@ -14,7 +14,7 @@ import {
 import { triggerBalanceRefresh } from '../../../hooks/useTotalBalance';
 import { exportInvestmentsToCSV } from '../../../utils/csvExportInvestments';
 import { exportInvestmentTargetsToCSV } from '../../../utils/csvExportInvestmentTargets';
-import { sortInvestmentsByTargetCompletionAsc } from '../utils/investmentTargetSort';
+import { groupInvestments, isInvestmentGrouping, INVESTMENT_GROUPING_STORAGE_KEY, type InvestmentGrouping } from '../utils/investmentGrouping';
 import { applyMetalSpotRatesToInvestments } from '../utils/applyMetalSpotRatesToInvestments';
 import { useCurrency } from '../../../providers/CurrencyProvider';
 import { useGoldSpotRate } from './useGoldSpotRate';
@@ -24,22 +24,6 @@ interface Modal {
     type: 'add' | 'edit' | 'delete' | 'view' | 'import' | null;
     investment?: InvestmentInterface | null;
 }
-
-interface InvestmentSection {
-    title: string;
-    investments: InvestmentInterface[];
-    count: number;
-    totalInvested: number;
-    currentValue: number;
-    gainLoss: number;
-    gainLossPercentage: number;
-}
-
-const INVESTMENT_SECTIONS = {
-    GAINERS: 'gainers',
-    LOSERS: 'losers',
-    BREAK_EVEN: 'break_even'
-} as const;
 
 export function useOptimizedInvestments() {
     const queryClient = useQueryClient();
@@ -120,6 +104,28 @@ export function useOptimizedInvestments() {
     const [endDate, setEndDate] = useState('');
     /** "" = any target; "none" = not linked to a target; otherwise target id as string */
     const [selectedTargetFilter, setSelectedTargetFilter] = useState('');
+    const [groupBy, setGroupBy] = useState<InvestmentGrouping>('performance');
+    const [groupingLoaded, setGroupingLoaded] = useState(false);
+
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem(INVESTMENT_GROUPING_STORAGE_KEY);
+            if (isInvestmentGrouping(saved)) setGroupBy(saved);
+        } catch {
+            // Grouping remains available when browser storage is disabled.
+        }
+        setGroupingLoaded(true);
+    }, []);
+
+    useEffect(() => {
+        if (!groupingLoaded) return;
+        try {
+            localStorage.setItem(INVESTMENT_GROUPING_STORAGE_KEY, groupBy);
+        } catch {
+            // Keep the in-memory selection when browser storage is unavailable.
+        }
+    }, [groupBy, groupingLoaded]);
+
 
     // Selection states
     const [selectedInvestments, setSelectedInvestments] = useState<Set<number>>(new Set());
@@ -269,80 +275,10 @@ export function useOptimizedInvestments() {
         );
     }, [searchTerm, selectedTypes, selectedBank, startDate, endDate, selectedTargetFilter]);
 
-    // Organize investments by sections
-    const sections = useMemo((): InvestmentSection[] => {
-        const gainers = sortInvestmentsByTargetCompletionAsc(
-            filteredInvestments.filter(
-                (investment) => investment.currentPrice > investment.purchasePrice
-            )
-        );
-
-        const losers = sortInvestmentsByTargetCompletionAsc(
-            filteredInvestments.filter(
-                (investment) => investment.currentPrice < investment.purchasePrice
-            )
-        );
-
-        const breakEven = sortInvestmentsByTargetCompletionAsc(
-            filteredInvestments.filter(
-                (investment) => investment.currentPrice === investment.purchasePrice
-            )
-        );
-
-        const calculateSectionStats = (sectionInvestments: InvestmentInterface[]) => {
-            const invested = sectionInvestments.reduce((sum, inv) => 
-                sum + (inv.quantity * inv.purchasePrice), 0);
-            const current = sectionInvestments.reduce((sum, inv) => 
-                sum + (inv.quantity * inv.currentPrice), 0);
-            const gainLoss = current - invested;
-            const gainLossPercentage = invested > 0 ? ((gainLoss / invested) * 100) : 0;
-            
-            return { invested, current, gainLoss, gainLossPercentage };
-        };
-
-        const sections: InvestmentSection[] = [];
-
-        if (gainers.length > 0) {
-            const stats = calculateSectionStats(gainers);
-            sections.push({
-                title: `Gainers (${gainers.length})`,
-                investments: gainers,
-                count: gainers.length,
-                totalInvested: stats.invested,
-                currentValue: stats.current,
-                gainLoss: stats.gainLoss,
-                gainLossPercentage: stats.gainLossPercentage
-            });
-        }
-
-        if (breakEven.length > 0) {
-            const stats = calculateSectionStats(breakEven);
-            sections.push({
-                title: `Break Even (${breakEven.length})`,
-                investments: breakEven,
-                count: breakEven.length,
-                totalInvested: stats.invested,
-                currentValue: stats.current,
-                gainLoss: stats.gainLoss,
-                gainLossPercentage: stats.gainLossPercentage
-            });
-        }
-
-        if (losers.length > 0) {
-            const stats = calculateSectionStats(losers);
-            sections.push({
-                title: `Losers (${losers.length})`,
-                investments: losers,
-                count: losers.length,
-                totalInvested: stats.invested,
-                currentValue: stats.current,
-                gainLoss: stats.gainLoss,
-                gainLossPercentage: stats.gainLossPercentage
-            });
-        }
-
-        return sections;
-    }, [filteredInvestments]);
+    const sections = useMemo(
+        () => groupInvestments(filteredInvestments, groupBy),
+        [filteredInvestments, groupBy]
+    );
 
     // ==================== MUTATIONS ====================
     
@@ -625,6 +561,8 @@ export function useOptimizedInvestments() {
         closeModal,
 
         // Filter states
+        groupBy,
+        setGroupBy,
         searchTerm,
         setSearchTerm,
         selectedTypes,

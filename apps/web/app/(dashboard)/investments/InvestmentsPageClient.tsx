@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useQueryClient } from '@tanstack/react-query';
 import { InvestmentTable } from "./components/InvestmentTable";
@@ -29,6 +30,7 @@ import { DEFAULT_SILVER_SPOT_INR_PER_UNIT } from "./utils/silverSpotStorage";
 import { DisappearingNotification, NotificationData } from "../../components/DisappearingNotification";
 import { exportInvestmentTargetsToCSV } from "../../utils/csvExportInvestmentTargets";
 import { presentValueForPosition } from "./utils/stocksExpenseBasis";
+import { INVESTMENT_GROUPING_OPTIONS, isInvestmentGrouping } from "./utils/investmentGrouping";
 // import { InvestmentTypePieChart } from "./charts/InvestmentTypePieChart";
 
 const pageContainer = CONTAINER_COLORS.page;
@@ -46,15 +48,15 @@ const cardTitle = TEXT_COLORS.cardTitle;
 const cardSubtitle = TEXT_COLORS.cardSubtitle;
 const emptyTitle = TEXT_COLORS.emptyTitle;
 const emptyMessage = TEXT_COLORS.emptyMessage;
-const labelText = TEXT_COLORS.label;
+const labelText = cn(TEXT_COLORS.label, "mb-1 text-xs");
 
 const primaryButton = BUTTON_COLORS.primary;
 const secondaryBlueButton = BUTTON_COLORS.secondaryBlue;
 const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
 const clearButton = BUTTON_COLORS.clear;
-const clearFilterButton = BUTTON_COLORS.clearFilter;
+const clearFilterButton = cn(BUTTON_COLORS.clearFilter, "h-8 whitespace-nowrap rounded-md px-2 py-1 text-xs");
 
-const standardInput = INPUT_COLORS.standard;
+const standardInput = cn(INPUT_COLORS.standard, "h-8 min-w-0 rounded-md px-2 py-1 text-xs");
 
 const blueIcon = ICON_COLORS.blue;
 const greenIcon = ICON_COLORS.green;
@@ -99,6 +101,8 @@ export default function InvestmentsPageClient() {
     loading,
     error,
     sections,
+    groupBy,
+    setGroupBy,
     uniqueTypes,
     uniqueBanks,
     hasActiveFilters,
@@ -529,12 +533,12 @@ export default function InvestmentsPageClient() {
         </div>
 
         <div className={UI_STYLES.filters.containerWithMargin}>
-          <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 xl:items-end">
-            <div className="min-w-0 xl:min-w-[8rem]">
+          <div className="grid w-full grid-cols-1 items-end gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,2fr)_repeat(7,minmax(0,1fr))]">
+            <div className="min-w-0">
               <label className={labelText}>Search Investments</label>
               <input type="text" placeholder="Search by name, symbol, notes..." value={searchTerm} onChange={e => debouncedSetSearchTerm(e.target.value)} className={standardInput} />
             </div>
-            <div className="relative min-w-0 xl:min-w-[8rem]" ref={typeMenuRef}>
+            <div className="relative min-w-0" ref={typeMenuRef}>
               <label className={labelText} id="investment-type-filter-label">
                 Filter by Type
               </label>
@@ -544,7 +548,7 @@ export default function InvestmentsPageClient() {
                 aria-haspopup="listbox"
                 aria-labelledby="investment-type-filter-label"
                 onClick={() => setTypeMenuOpen((o) => !o)}
-                className={`${standardInput} flex h-10 w-full items-center justify-between gap-2 text-left`}
+                className={`${standardInput} flex w-full items-center justify-between gap-2 text-left`}
               >
                 <span className="min-w-0 truncate">
                   {investmentTypeFilterSummary(selectedTypes)}
@@ -596,7 +600,7 @@ export default function InvestmentsPageClient() {
                 </div>
               ) : null}
             </div>
-            <div className="min-w-0 xl:min-w-[8rem]">
+            <div className="min-w-0">
               <label className={labelText}>Filter by Bank</label>
               <select value={selectedBank} onChange={e => setSelectedBank(e.target.value)} className={standardInput}>
                 <option value="">All Banks</option>
@@ -607,7 +611,7 @@ export default function InvestmentsPageClient() {
                 ))}
               </select>
             </div>
-            <div className="min-w-0 xl:min-w-[8rem]">
+            <div className="min-w-0">
               <label className={labelText}>Filter by Target</label>
               <select
                 value={selectedTargetFilter}
@@ -626,15 +630,30 @@ export default function InvestmentsPageClient() {
                 ))}
               </select>
             </div>
-            <div className="min-w-0 xl:min-w-[8rem]">
+            <div className="min-w-0">
               <label className={labelText}>Start Date</label>
               <input type="date" value={startDate} onChange={e => debouncedSetStartDate(e.target.value)} className={standardInput} />
             </div>
-            <div className="min-w-0 xl:min-w-[8rem]">
+            <div className="min-w-0">
               <label className={labelText}>End Date</label>
               <input type="date" value={endDate} onChange={e => debouncedSetEndDate(e.target.value)} className={standardInput} />
             </div>
-            <div className="min-w-0 xl:min-w-[8rem]">
+            <div className="min-w-0">
+              <label htmlFor="investment-group-by" className={labelText}>Group by</label>
+              <select
+                id="investment-group-by"
+                value={groupBy}
+                onChange={(e) => {
+                  if (isInvestmentGrouping(e.target.value)) setGroupBy(e.target.value);
+                }}
+                className={standardInput}
+              >
+                {INVESTMENT_GROUPING_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="min-w-0">
               <label className={`${labelText} pointer-events-none select-none text-transparent`} aria-hidden>
                 Clear
               </label>
@@ -701,8 +720,8 @@ export default function InvestmentsPageClient() {
           </div>
         ) : (
           <div className="space-y-6">
-            {sections.map((section, index) => (
-              <div key={index} className={CONTAINER_COLORS.white}>
+            {sections.map((section) => (
+              <div key={`${groupBy}:${section.key}`} className={CONTAINER_COLORS.white}>
                 <div className="px-6 py-4 border-b border-gray-200">
                   <div className="flex items-center justify-between">
                     <div>
