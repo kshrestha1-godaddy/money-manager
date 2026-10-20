@@ -13,6 +13,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { LOADING_COLORS } from "../../config/colorConfig";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { SUPPORTED_CURRENCIES } from "../../utils/currencyConversion";
@@ -292,12 +293,9 @@ export default function NetWorthPage() {
 
   if (loading)
     return (
-      <div className="space-y-6 p-4 sm:p-8" role="status">
-        <p className="text-sm text-slate-500">
-          Loading your financial overview…
-        </p>
-        <div className="h-44 animate-pulse rounded-2xl bg-slate-100" />
-        <div className="h-96 animate-pulse rounded-2xl bg-slate-100" />
+      <div className={LOADING_COLORS.container} role="status">
+        <div className={LOADING_COLORS.spinner} aria-hidden="true" />
+        <p className={LOADING_COLORS.text}>Loading net worth data...</p>
       </div>
     );
   if (error)
