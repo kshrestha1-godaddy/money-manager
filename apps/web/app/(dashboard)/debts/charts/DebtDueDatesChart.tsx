@@ -248,11 +248,11 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
   };
 
   // Calculate dynamic height based on number of items (increased to account for larger margins)
-  const chartHeight = Math.max(480, chartData.data.length * 60);
+  const chartHeight = Math.max(480, chartData.data.length * 64 + 100);
 
   if (chartData.data.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow p-4 sm:p-6" ref={chartRef}>
+      <div className="h-full rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6" ref={chartRef}>
         <ChartControls
           chartRef={chartRef}
           isExpanded={isExpanded}
@@ -281,8 +281,8 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
 
   return (
     <div
-      className={`bg-white rounded-lg shadow p-4 sm:p-6 ${
-        isExpanded ? "fixed inset-4 z-50 overflow-auto" : ""
+      className={`rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6 ${
+        isExpanded ? "fixed inset-4 z-50 overflow-auto" : "h-full"
       }`}
       ref={chartRef}
     >
@@ -375,10 +375,20 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
             <YAxis
               type="category"
               dataKey="borrowerName"
-              tick={{ fontSize: 11, fill: "#374151" }}
-              axisLine={{ stroke: "#9ca3af" }}
+              interval={0}
+              tick={({ x, y, payload }: { x: number; y: number; payload: { value: string } }) => {
+                const name = String(payload.value).replace(/\s+/g, " ").trim();
+                const label = name.length > 24 ? `${name.slice(0, 23)}…` : name;
+                return (
+                  <text x={x - 10} y={y} textAnchor="end" dominantBaseline="middle" fontSize={12} fill="#374151">
+                    <title>{name}</title>
+                    {label}
+                  </text>
+                );
+              }}
+              axisLine={false}
               tickLine={false}
-              width={120}
+              width={180}
             />
             <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
 
@@ -519,7 +529,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
                   }
                   
                   // Project line to x-axis area - use a consistent bottom position for all bars
-                  const chartAreaHeight = Math.max(400, chartData.data.length * 60); // Total height minus increased margins
+                  const chartAreaHeight = Math.max(400, chartData.data.length * 64 + 100); // Total height minus increased margins
                   const projectionEndY = chartAreaHeight;
                   const labelY = projectionEndY + 20; // More space for the labels
                   

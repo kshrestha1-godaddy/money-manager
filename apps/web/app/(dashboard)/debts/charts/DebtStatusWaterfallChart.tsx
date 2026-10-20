@@ -1,20 +1,8 @@
 "use client";
 
 import React, { useMemo, useRef, useState } from "react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-  LabelList,
-} from "recharts";
-import type { TooltipProps } from "recharts";
 import { ChartControls } from "../../../components/ChartControls";
-import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
+import { formatCurrency } from "../../../utils/currency";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import type { DebtInterface } from "../../../types/debts";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
@@ -29,584 +17,210 @@ interface DebtStatusWaterfallChartProps {
   pageEndDate?: string;
 }
 
-interface WaterfallDataPoint {
-  name: string;
-  value: number;
-  displayValue: number;
-  start: number;
-  end: number;
-  type: "total" | "decrease" | "partial" | "result";
-  count: number;
-  description: string;
-}
+const RECOVERED_COLOR = "#0d9488";
+const OUTSTANDING_COLOR = "#f59e0b";
+const localDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
-// Dashboard-consistent colors for each bar type
-const COLORS = {
-  total: "#6b7280",      // Neutral gray for total lendings
-  decrease: "#ef4444",   // Dashboard red for active (outstanding)
-  partial: "#3b82f6",    // Dashboard blue for partially paid
-  result: "#10b981",     // Dashboard green for fully paid
-};
-
-// Pattern IDs for textures
-const PATTERN_IDS = {
-  total: "pattern-total",
-  decrease: "pattern-decrease",
-  partial: "pattern-partial",
-  result: "pattern-result",
-};
-
-export function DebtStatusWaterfallChart({ 
-  debts, 
+export function DebtStatusWaterfallChart({
+  debts,
   currency,
   baseCurrency = currency,
   hasPageFilters = false,
   pageStartDate,
-  pageEndDate
+  pageEndDate,
 }: DebtStatusWaterfallChartProps) {
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
+  const [activeSegment, setActiveSegment] = useState<number | null>(null);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const { isExpanded, toggleExpanded } = useChartExpansion();
   const chartRef = useRef<HTMLDivElement>(null);
-  const rechartRef = useRef<HTMLDivElement>(null);
 
-  // Filter debts based on date range
   const filteredDebts = useMemo(() => {
-    const effectiveStartDate = startDate || (hasPageFilters ? pageStartDate : '');
-    const effectiveEndDate = endDate || (hasPageFilters ? pageEndDate : '');
-
-    if (!effectiveStartDate && !effectiveEndDate) return debts || [];
-    if (!debts) return [];
-
-    return debts.filter(debt => {
-      const lentDate = debt.lentDate instanceof Date ? debt.lentDate : new Date(debt.lentDate);
-      const lentDateStr = `${lentDate.getFullYear()}-${String(lentDate.getMonth() + 1).padStart(2, '0')}-${String(lentDate.getDate()).padStart(2, '0')}`;
-
-      if (effectiveStartDate && effectiveEndDate) {
-        return lentDateStr >= effectiveStartDate && lentDateStr <= effectiveEndDate;
-      } else if (effectiveStartDate) {
-        return lentDateStr >= effectiveStartDate;
-      } else if (effectiveEndDate) {
-        return lentDateStr <= effectiveEndDate;
-      }
-      return true;
+    const from = startDate || (hasPageFilters ? pageStartDate : "");
+    const to = endDate || (hasPageFilters ? pageEndDate : "");
+    return (debts || []).filter(debt => {
+      if (!from && !to) return true;
+      const date = localDate(new Date(debt.lentDate));
+      return (!from || date >= from) && (!to || date <= to);
     });
-  }, [debts, startDate, endDate, pageStartDate, pageEndDate, hasPageFilters]);
+  }, [debts, startDate, endDate, hasPageFilters, pageStartDate, pageEndDate]);
 
-  const waterfallData = useMemo(() => {
-    const { totalWithInterest, activeAmount, partialRemainingAmount, partialRepaidAmount, fullyPaidAmount, counts } = calculateDebtRecovery(filteredDebts);
-    const totalOutstanding = activeAmount + partialRemainingAmount;
-
-    // Every step joins the next: total minus recovered amounts leaves outstanding balances.
-    const data: WaterfallDataPoint[] = [
-      {
-        name: "Total Including Interest",
-        value: totalWithInterest,
-        displayValue: totalWithInterest,
-        start: 0,
-        end: totalWithInterest,
-        type: "total",
-        count: counts.total,
-        description: "Total amount lent including interest"
-      },
-      {
-        name: "Fully Paid",
-        value: fullyPaidAmount,
-        displayValue: fullyPaidAmount,
-        start: totalWithInterest - fullyPaidAmount,
-        end: totalWithInterest,
-        type: "result",
-        count: counts.full,
-        description: "Total including interest on completely repaid loans"
-      },
-      {
-        name: "Partial Repaid",
-        value: partialRepaidAmount,
-        displayValue: partialRepaidAmount,
-        start: totalOutstanding,
-        end: totalOutstanding + partialRepaidAmount,
-        type: "result",
-        count: counts.partial,
-        description: "Amount already repaid on partially paid loans"
-      },
-      {
-        name: "Partial Remaining",
-        value: partialRemainingAmount,
-        displayValue: partialRemainingAmount,
-        start: activeAmount,
-        end: activeAmount + partialRemainingAmount,
-        type: "partial",
-        count: counts.partial,
-        description: "Remaining balance on partially paid debts"
-      },
-      {
-        name: "Active",
-        value: activeAmount,
-        displayValue: activeAmount,
-        start: 0,
-        end: activeAmount,
-        type: "decrease",
-        count: counts.active,
-        description: "Outstanding debts to be recovered"
-      },
-    ];
-
-    const csvData: (string | number)[][] = [
-      ["Category", "Amount", "Count", "Description"],
-      ...data.map((d) => [d.name, d.displayValue, d.count, d.description]),
-    ];
-
-    const convert = (amount: number) => convertForDisplaySync(amount, baseCurrency, currency);
-    const displayData = data.map(point => ({
-      ...point,
-      value: convert(point.value),
-      displayValue: convert(point.displayValue),
-      start: convert(point.start),
-      end: convert(point.end),
-    }));
-    return {
-      data: displayData,
-      totalWithInterest: convert(totalWithInterest),
-      totalOutstanding: convert(totalOutstanding),
-      csvData: [csvData[0]!, ...displayData.map(d => [d.name, d.displayValue, d.count, d.description])],
-      totalDebts: counts.total,
-    };
-  }, [filteredDebts, baseCurrency, currency]);
-
-  // Get currency symbol for the user's selected currency
-  const currencySymbol = getCurrencySymbol(currency);
-
-  // Format large numbers compactly with proper currency symbol
-  const formatCompact = (value: number): string => {
-    if (value >= 1000000) {
-      return `${currencySymbol}${(value / 1000000).toFixed(1)}M`;
-    } else if (value >= 1000) {
-      return `${currencySymbol}${(value / 1000).toFixed(1)}K`;
-    }
-    return formatCurrency(value, currency);
-  };
-
-  // Custom label component for values inside the bars
-  const renderCustomLabel = (props: any) => {
-    const { x, y, width, height, index } = props;
-    const dataPoint = waterfallData.data[index];
-    if (!dataPoint || dataPoint.displayValue === 0) return null;
-
-    // Calculate percentage of total
-    const percent = waterfallData.totalWithInterest > 0
-      ? ((dataPoint.displayValue / waterfallData.totalWithInterest) * 100).toFixed(1)
-      : "0.0";
-
-    const amountText = formatCurrency(dataPoint.displayValue, currency);
-    const percentText = `(${percent}%)`;
-    
-    // Check if bar is tall enough to fit text inside
-    const minHeightForInside = 50;
-    const isInsideBar = height >= minHeightForInside;
-    
-    // White text for inside bars, colored text for outside
-    const textColor = isInsideBar ? "#ffffff" : 
-      dataPoint.type === "total" ? "#6b7280" :
-      dataPoint.type === "decrease" ? "#ef4444" :
-      dataPoint.type === "partial" ? "#3b82f6" : "#10b981";
-
-    if (isInsideBar) {
-      // Render inside the bar with amount and percentage
-      return (
-        <g>
-          <text
-            x={x + width / 2}
-            y={y + height / 2 - 6}
-            fill={textColor}
-            textAnchor="middle"
-            fontSize={isExpanded ? 13 : 11}
-            fontWeight="600"
-          >
-            {amountText}
-          </text>
-          <text
-            x={x + width / 2}
-            y={y + height / 2 + 12}
-            fill={textColor}
-            textAnchor="middle"
-            fontSize={isExpanded ? 12 : 10}
-            fontWeight="500"
-            opacity={0.9}
-          >
-            {percentText}
-          </text>
-        </g>
-      );
-    }
-
-    // Render outside the bar for small bars
-    const isFloatingBar = dataPoint.type === "decrease" || dataPoint.type === "partial";
-    return (
-      <text
-        x={x + width / 2}
-        y={isFloatingBar ? y + height + 16 : y - 8}
-        fill={textColor}
-        textAnchor="middle"
-        fontSize={isExpanded ? 11 : 9}
-        fontWeight="600"
-      >
-        {`${amountText} ${percentText}`}
-      </text>
-    );
-  };
-
-  const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
-    if (!active || !payload || payload.length === 0) return null;
-    
-    const dataPoint = waterfallData.data.find(d => d.name === label);
-    if (!dataPoint) return null;
-
-    const percent = waterfallData.totalWithInterest > 0
-      ? ((dataPoint.displayValue / waterfallData.totalWithInterest) * 100).toFixed(1)
-      : "0.0";
-
-    const avgPerDebt = dataPoint.count > 0 
-      ? dataPoint.displayValue / dataPoint.count 
-      : 0;
-
-    const colorClass = 
-      dataPoint.type === 'total' ? 'text-gray-600' :
-      dataPoint.type === 'decrease' ? 'text-red-500' :
-      dataPoint.type === 'partial' ? 'text-blue-500' : 'text-green-600';
-
-    return (
-      <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-4 py-3 min-w-[200px]">
-        <div className="font-semibold text-gray-800 mb-2">{label}</div>
-        
-        <div className={`text-xl font-bold ${colorClass} mb-2`}>
-          {formatCurrency(dataPoint.displayValue, currency)}
-        </div>
-        
-        <div className="space-y-1 text-xs text-gray-600">
-          <div className="flex justify-between">
-            <span>% of Total:</span>
-            <span className="font-medium text-gray-800">{percent}%</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Debts:</span>
-            <span className="font-medium text-gray-800">{dataPoint.count}</span>
-          </div>
-          {dataPoint.count > 0 && (
-            <div className="flex justify-between">
-              <span>Avg per Debt:</span>
-              <span className="font-medium text-gray-800">{formatCompact(avgPerDebt)}</span>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const clearFilters = () => {
-    setStartDate("");
-    setEndDate("");
-  };
-
-  const getDateRange = (months: number) => {
-    const today = new Date();
-    const start = new Date(today);
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
-    const targetMonth = currentMonth - months;
-
-    if (targetMonth >= 0) {
-      start.setMonth(targetMonth);
-    } else {
-      const yearsBack = Math.ceil(Math.abs(targetMonth) / 12);
-      const newMonth = 12 + (targetMonth % 12);
-      start.setFullYear(currentYear - yearsBack);
-      start.setMonth(newMonth === 12 ? 0 : newMonth);
-    }
-
-    return {
-      start: start.toISOString().split('T')[0] || '',
-      end: today.toISOString().split('T')[0] || ''
-    };
-  };
+  const recovery = useMemo(() => calculateDebtRecovery(filteredDebts), [filteredDebts]);
+  const convert = (value: number) => convertForDisplaySync(value, baseCurrency, currency);
+  const money = (value: number) => formatCurrency(convert(value), currency);
+  const recoveryPercent = recovery.totalWithInterest > 0
+    ? (recovery.totalRepaid / recovery.totalWithInterest) * 100 : 0;
+  const rows = [
+    { name: "Fully repaid", count: recovery.counts.full, recovered: convert(recovery.fullyPaidAmount), outstanding: 0, description: "Loans with no remaining balance." },
+    { name: "Partially repaid", count: recovery.counts.partial, recovered: convert(recovery.partialRepaidAmount), outstanding: convert(recovery.partialRemainingAmount), description: "Repayments received and the balance still to collect." },
+    { name: "Awaiting repayment", count: recovery.counts.active, recovered: 0, outstanding: convert(recovery.activeAmount), description: "Loans with no repayments received." },
+  ];
+  const csvData: (string | number)[][] = [
+    ["Loan group", "Loans", `Recovered (${currency})`, `Outstanding (${currency})`, `Total including interest (${currency})`],
+    ...rows.map(row => [row.name, row.count, row.recovered, row.outstanding, row.recovered + row.outstanding]),
+    ["Total", recovery.counts.total, convert(recovery.totalRepaid), convert(recovery.totalOutstanding), convert(recovery.totalWithInterest)],
+  ];
+  const donutSegments = [
+    { name: "Fully paid", amount: recovery.fullyPaidAmount, count: recovery.counts.full, color: RECOVERED_COLOR },
+    { name: "Partially paid", amount: recovery.partialRepaidAmount + recovery.partialRemainingAmount, count: recovery.counts.partial, color: "#3b82f6" },
+    { name: "Awaiting repayment", amount: recovery.activeAmount, count: recovery.counts.active, color: OUTSTANDING_COLOR },
+  ];
+  const hoveredSegment = activeSegment === null ? null : donutSegments[activeSegment];
+  const hoveredRow = activeSegment === null ? null : rows[activeSegment];
+  const outstandingLoans = recovery.counts.partial + recovery.counts.active;
+  const segments = [
+    { name: "Recovered", amount: recovery.totalRepaid, color: RECOVERED_COLOR },
+    { name: "Outstanding", amount: recovery.totalOutstanding, color: OUTSTANDING_COLOR },
+  ];
 
   const handleQuickFilter = (months: number) => {
-    const { start, end } = getDateRange(months);
-    setStartDate(start);
-    setEndDate(end);
+    const today = new Date();
+    const from = new Date(today);
+    from.setDate(1);
+    from.setMonth(from.getMonth() - months);
+    const lastDay = new Date(from.getFullYear(), from.getMonth() + 1, 0).getDate();
+    from.setDate(Math.min(today.getDate(), lastDay));
+    setStartDate(localDate(from));
+    setEndDate(localDate(today));
   };
-
-  // Download functions
-  const downloadCustomPNG = async () => {
-    const element = rechartRef.current;
-    if (!element) return;
-
-    const svgElement = element.querySelector('svg');
-    if (!svgElement) return;
-
-    try {
-      const clonedSvg = svgElement.cloneNode(true) as SVGElement;
-      const bbox = svgElement.getBoundingClientRect();
-      const width = bbox.width || 800;
-      const height = bbox.height || 400;
-      const titleHeight = 60;
-      const exportHeight = height + titleHeight;
-      
-      clonedSvg.setAttribute('width', width.toString());
-      clonedSvg.setAttribute('height', exportHeight.toString());
-      clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-      
-      // Add background
-      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      rect.setAttribute('width', '100%');
-      rect.setAttribute('height', '100%');
-      rect.setAttribute('fill', 'white');
-      clonedSvg.insertBefore(rect, clonedSvg.firstChild);
-      
-      // Add title
-      const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      title.setAttribute('x', (width / 2).toString());
-      title.setAttribute('y', '30');
-      title.setAttribute('font-family', 'system-ui, sans-serif');
-      title.setAttribute('font-size', '18');
-      title.setAttribute('font-weight', 'bold');
-      title.setAttribute('fill', '#111827');
-      title.setAttribute('text-anchor', 'middle');
-      title.textContent = 'Debt Recovery Waterfall';
-      clonedSvg.appendChild(title);
-      
-      const svgData = new XMLSerializer().serializeToString(clonedSvg);
-      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-      const svgUrl = URL.createObjectURL(svgBlob);
-      
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const img = new Image();
-      
-      canvas.width = width * 2;
-      canvas.height = exportHeight * 2;
-      
-      img.onload = () => {
-        if (ctx) {
-          ctx.scale(2, 2);
-          ctx.drawImage(img, 0, 0);
-          canvas.toBlob((blob) => {
-            if (blob) {
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement('a');
-              link.download = 'debt-waterfall.png';
-              link.href = url;
-              link.click();
-              URL.revokeObjectURL(url);
-            }
-          }, 'image/png', 1.0);
-        }
-        URL.revokeObjectURL(svgUrl);
-      };
-      
-      img.src = svgUrl;
-    } catch (error) {
-      console.error('Error downloading PNG:', error);
-    }
-  };
-
-  const downloadCustomSVG = () => {
-    const element = rechartRef.current;
-    if (!element) return;
-
-    const svgElement = element.querySelector('svg');
-    if (!svgElement) return;
-
-    try {
-      const clonedSvg = svgElement.cloneNode(true) as SVGElement;
-      clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-      
-      const svgData = new XMLSerializer().serializeToString(clonedSvg);
-      const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.download = 'debt-waterfall.svg';
-      link.href = url;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error downloading SVG:', error);
-    }
-  };
-
-  // Empty state
-  if (waterfallData.data.length === 0 || waterfallData.totalWithInterest === 0) {
-    return (
-      <div className={`bg-white rounded-lg shadow p-4 sm:p-6 ${isExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`} ref={chartRef}>
-        <ChartControls
-          chartRef={chartRef}
-          isExpanded={isExpanded}
-          onToggleExpanded={toggleExpanded}
-          title="Debt Recovery Waterfall"
-          subtitle="Including interest: total − fully paid − partial repayments = partial remaining + active"
-          fileName="debt-waterfall"
-          csvData={[["Category", "Amount"]]}
-          csvFileName="debt-waterfall-data"
-          tooltipText="Uses the same repayment-based groups as the table. Total includes interest; fully paid loans and repayments on partial loans are deducted to leave outstanding balances. Date filters use the lent date and apply only to this chart."
-          customDownloadPNG={downloadCustomPNG}
-          customDownloadSVG={downloadCustomSVG}
-        />
-        
-        <DateFilterControls
-          startDate={startDate}
-          endDate={endDate}
-          setStartDate={setStartDate}
-          setEndDate={setEndDate}
-          handleQuickFilter={handleQuickFilter}
-          clearFilters={clearFilters}
-          hasPageFilters={hasPageFilters}
-          pageStartDate={pageStartDate}
-          pageEndDate={pageEndDate}
-        />
-
-        <div className="flex items-center justify-center h-64 text-gray-500">
-          <div className="text-center">
-            <div className="text-4xl mb-2">💰</div>
-            <p>No debt data to display</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className={`bg-white rounded-lg shadow p-4 sm:p-6 ${isExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`} ref={chartRef}>
+    <div ref={chartRef} className={`rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6 ${isExpanded ? "fixed inset-4 z-50 overflow-auto" : "h-full"}`}>
       <ChartControls
         chartRef={chartRef}
         isExpanded={isExpanded}
         onToggleExpanded={toggleExpanded}
-        title={`Debt Recovery Waterfall${waterfallData.totalDebts > 0 ? ` • ${waterfallData.totalDebts} debt${waterfallData.totalDebts !== 1 ? 's' : ''}` : ''}`}
-        subtitle="Including interest: total − fully paid − partial repayments = partial remaining + active"
-        fileName="debt-waterfall"
-        csvData={waterfallData.csvData}
-        csvFileName="debt-waterfall-data"
-        tooltipText="Uses the same repayment-based groups as the table. Total includes interest; fully paid loans and repayments on partial loans are deducted to leave outstanding balances. Date filters use the lent date and apply only to this chart."
-        customDownloadPNG={downloadCustomPNG}
-        customDownloadSVG={downloadCustomSVG}
+        title="Debt recovery"
+        subtitle="Loan status by value, with recovered and outstanding balances."
+        fileName="debt-recovery"
+        csvData={csvData}
+        csvFileName="debt-recovery-data"
       />
-
       <DateFilterControls
-        startDate={startDate}
-        endDate={endDate}
-        setStartDate={setStartDate}
-        setEndDate={setEndDate}
+        startDate={startDate} endDate={endDate}
+        setStartDate={setStartDate} setEndDate={setEndDate}
         handleQuickFilter={handleQuickFilter}
-        clearFilters={clearFilters}
-        hasPageFilters={hasPageFilters}
-        pageStartDate={pageStartDate}
-        pageEndDate={pageEndDate}
+        clearFilters={() => { setStartDate(""); setEndDate(""); }}
+        hasPageFilters={hasPageFilters} pageStartDate={pageStartDate} pageEndDate={pageEndDate}
       />
-
-      <div className={`w-full ${isExpanded ? 'h-[75vh]' : 'h-96 sm:h-[450px]'}`} ref={rechartRef}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={waterfallData.data}
-            margin={{ top: 36, right: 20, left: 16, bottom: 12 }}
-            barCategoryGap="15%"
-          >
-            {/* SVG Pattern Definitions for Textures */}
-            <defs>
-              {/* Total - Subtle diagonal lines */}
-              <pattern id={PATTERN_IDS.total} patternUnits="userSpaceOnUse" width="8" height="8">
-                <rect width="8" height="8" fill={COLORS.total} />
-                <path d="M-2,2 l4,-4 M0,8 l8,-8 M6,10 l4,-4" stroke="#4b5563" strokeWidth="1" opacity="0.3" />
-              </pattern>
-              
-              {/* Decrease (Active) - Horizontal lines */}
-              <pattern id={PATTERN_IDS.decrease} patternUnits="userSpaceOnUse" width="6" height="6">
-                <rect width="6" height="6" fill={COLORS.decrease} />
-                <line x1="0" y1="3" x2="6" y2="3" stroke="#dc2626" strokeWidth="1" opacity="0.25" />
-              </pattern>
-              
-              {/* Partial - Dots pattern */}
-              <pattern id={PATTERN_IDS.partial} patternUnits="userSpaceOnUse" width="8" height="8">
-                <rect width="8" height="8" fill={COLORS.partial} />
-                <circle cx="4" cy="4" r="1.5" fill="#1d4ed8" opacity="0.3" />
-              </pattern>
-              
-              {/* Result (Fully Paid) - Subtle crosshatch */}
-              <pattern id={PATTERN_IDS.result} patternUnits="userSpaceOnUse" width="8" height="8">
-                <rect width="8" height="8" fill={COLORS.result} />
-                <path d="M0,0 l8,8 M8,0 l-8,8" stroke="#059669" strokeWidth="0.8" opacity="0.2" />
-              </pattern>
-            </defs>
-            
-            <CartesianGrid 
-              strokeDasharray="3 3" 
-              stroke="#e5e7eb" 
-              horizontal={true} 
-              vertical={true} 
-            />
-            <XAxis 
-              dataKey="name" 
-              tick={{ fontSize: isExpanded ? 13 : 12, fill: '#374151' }}
-              axisLine={{ stroke: '#9ca3af', strokeWidth: 1.5 }}
-              tickLine={{ stroke: '#9ca3af' }}
-              interval={0}
-              dy={8}
-            />
-            <YAxis 
-              tickFormatter={(v) => formatCompact(Number(v))}
-              tick={{ fontSize: isExpanded ? 12 : 11, fill: '#6b7280' }}
-              axisLine={{ stroke: '#9ca3af', strokeWidth: 1.5 }}
-              tickLine={{ stroke: '#d1d5db' }}
-              width={70}
-            />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
-
-            {/* Invisible spacer bar */}
-            <Bar 
-              dataKey="start" 
-              stackId="waterfall" 
-              fill="transparent"
-              isAnimationActive={false}
-            />
-            
-            {/* Main value bar */}
-            <Bar 
-              dataKey="value" 
-              stackId="waterfall"
-              radius={[4, 4, 0, 0]}
-              isAnimationActive={true}
-              animationDuration={600}
-            >
-              <LabelList content={renderCustomLabel} />
-              {waterfallData.data.map((entry, index) => (
-                <Cell 
-                  key={`cell-${index}`} 
-                  fill={`url(#${PATTERN_IDS[entry.type]})`}
-                  stroke={COLORS[entry.type]}
-                  strokeWidth={1}
-                />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Legend */}
-      <div className="mt-4 flex flex-wrap justify-center gap-4 sm:gap-6 text-xs sm:text-sm">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: COLORS.total }} />
-          <span className="text-gray-600">Total</span>
+      {filteredDebts.length === 0 ? (
+        <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
+          <p className="font-medium text-gray-700">No loans in this period</p>
+          <p className="text-sm text-gray-500">Adjust the lending dates to see your recovery breakdown.</p>
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: COLORS.decrease }} />
-          <span className="text-gray-600">Active</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: COLORS.partial }} />
-          <span className="text-gray-600">Partially Paid</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: COLORS.result }} />
-          <span className="text-gray-600">Repaid (full / partial)</span>
-        </div>
-      </div>
+      ) : (
+        <>
+          <div className="mx-auto grid max-w-5xl items-center gap-6 py-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:gap-6 md:py-8">
+            <div className="relative text-center">
+              <svg
+                viewBox="0 0 320 320"
+                className={`mx-auto w-full ${isExpanded ? "max-w-[420px]" : "max-w-[320px]"}`}
+                role="group"
+                aria-label={`Loan status by value: ${donutSegments.map(segment => `${segment.name}: ${money(segment.amount)}`).join(", ")}. Overall ${recoveryPercent.toFixed(1)}% recovered.`}
+              >
+                <title>Loan value by repayment status, including interest</title>
+                <circle cx="160" cy="160" r="120" fill="none" stroke="#f1f5f9" strokeWidth="28" />
+                {donutSegments.map((segment, index) => {
+                  const percent = recovery.totalWithInterest > 0 ? segment.amount / recovery.totalWithInterest * 100 : 0;
+                  const precedingAmount = donutSegments.slice(0, index).reduce((sum, item) => sum + item.amount, 0);
+                  const offset = recovery.totalWithInterest > 0 ? precedingAmount / recovery.totalWithInterest * 100 : 0;
+                  const gap = Math.min(percent * 0.2, 0.8);
+                  const arcLength = percent - gap;
+                  const cornerRadius = Math.min(3, (arcLength / 100) * Math.PI * 120 * 0.4);
+                  const cornerAngle = cornerRadius / 120;
+                  const startAngle = ((offset + gap / 2) / 100) * Math.PI * 2 - Math.PI / 2 + cornerAngle;
+                  const endAngle = startAngle + (arcLength / 100) * Math.PI * 2 - 2 * cornerAngle;
+                  const outerRadius = 134 - cornerRadius;
+                  const innerRadius = 106 + cornerRadius;
+                  const point = (radius: number, angle: number) => `${160 + radius * Math.cos(angle)},${160 + radius * Math.sin(angle)}`;
+                  const largeArc = arcLength > 50 ? 1 : 0;
+                  const arcPath = `M ${point(outerRadius, startAngle)} A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${point(outerRadius, endAngle)} L ${point(innerRadius, endAngle)} A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${point(innerRadius, startAngle)} Z`;
+                  return percent > 0 ? (
+                    <path
+                      key={segment.name}
+                      d={arcPath}
+                      fill={segment.color} stroke={segment.color} strokeWidth={cornerRadius * 2}
+                      strokeLinejoin="round"
+                      tabIndex={0}
+                      role="graphics-symbol"
+                      aria-label={`${segment.name}: ${segment.count} loans, ${money(segment.amount)}, ${percent.toFixed(1)}% of total loan value`}
+                      aria-describedby={activeSegment === index ? "debt-recovery-segment-tooltip" : undefined}
+                      onMouseEnter={() => setActiveSegment(index)}
+                      onMouseLeave={() => setActiveSegment(null)}
+                      onFocus={() => setActiveSegment(index)}
+                      onBlur={() => setActiveSegment(null)}
+                      onClick={() => setActiveSegment(activeSegment === index ? null : index)}
+                      onKeyDown={(event) => { if (event.key === "Escape") setActiveSegment(null); }}
+                      className="cursor-pointer outline-none transition-opacity hover:opacity-80 focus:opacity-70"
+                    >
+                      <title>{segment.name}: {money(segment.amount)} ({percent.toFixed(1)}%)</title>
+                    </path>
+                  ) : null;
+                })}
+                <text x="160" y="155" textAnchor="middle" fill="#0f172a" fontSize="44" fontWeight="600" fontFamily="system-ui, sans-serif">{recoveryPercent.toFixed(1)}%</text>
+                <text x="160" y="184" textAnchor="middle" fill="#64748b" fontSize="14" fontFamily="system-ui, sans-serif">recovered</text>
+                <text x="160" y="207" textAnchor="middle" fill="#94a3b8" fontSize="11" fontFamily="system-ui, sans-serif">overall recovery rate</text>
+              </svg>
+              {hoveredSegment && hoveredRow && (
+                <div id="debt-recovery-segment-tooltip" role="tooltip" className="pointer-events-none absolute left-1/2 top-2 z-10 w-64 max-w-full -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-4 text-left text-xs shadow-lg">
+                  <p className="font-semibold text-gray-900">{hoveredSegment.name} · {hoveredSegment.count} {hoveredSegment.count === 1 ? "loan" : "loans"}</p>
+                  <p className="mt-1 leading-relaxed text-gray-500">{hoveredRow.description}</p>
+                  <dl className="mt-3 space-y-2 tabular-nums">
+                    <div className="flex justify-between gap-2"><dt>Loan value</dt><dd className="font-medium">{money(hoveredSegment.amount)}</dd></div>
+                    <div className="flex justify-between gap-2"><dt>Share of total</dt><dd>{recovery.totalWithInterest > 0 ? (hoveredSegment.amount / recovery.totalWithInterest * 100).toFixed(1) : "0.0"}%</dd></div>
+                    <div className="flex justify-between gap-2 text-teal-700"><dt>Recovered</dt><dd>{formatCurrency(hoveredRow.recovered, currency)}</dd></div>
+                    <div className="flex justify-between gap-2 text-amber-700"><dt>Outstanding</dt><dd>{formatCurrency(hoveredRow.outstanding, currency)}</dd></div>
+                    <div className="flex justify-between gap-2 border-t border-gray-100 pt-2"><dt>Average loan value</dt><dd>{money(hoveredSegment.count > 0 ? hoveredSegment.amount / hoveredSegment.count : 0)}</dd></div>
+                  </dl>
+                </div>
+              )}
+              <p className="mb-3 text-xs text-gray-500">Loan status · share of total value including interest</p>
+              <ul className="mx-auto max-w-xs space-y-2 text-xs text-gray-600">
+                {donutSegments.map(segment => (
+                  <li key={segment.name} className="flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: segment.color }} />{segment.name} ({segment.count})</span>
+                    <span className="tabular-nums">{recovery.totalWithInterest > 0 ? (segment.amount / recovery.totalWithInterest * 100).toFixed(1) : "0.0"}%</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="min-w-0">
+              <div className="mb-6 border-b border-gray-100 pb-5">
+                <p className="text-xs font-medium text-gray-500">Total loan value</p>
+                <p className="mt-1 text-2xl font-semibold tracking-tight text-gray-900 tabular-nums sm:text-3xl">{money(recovery.totalWithInterest)}</p>
+                <p className="mt-2 text-xs leading-relaxed text-gray-500">{money(recovery.totalPrincipal)} principal + {money(recovery.totalInterest)} interest</p>
+              </div>
+              <div className="space-y-6">
+                {segments.map((segment, index) => (
+                  <div key={segment.name}>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="flex items-center gap-2 text-sm font-medium text-gray-700"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: segment.color }} />{segment.name}</span>
+                      <span className="text-xs text-gray-500 tabular-nums">{recovery.totalWithInterest > 0 ? (segment.amount / recovery.totalWithInterest * 100).toFixed(1) : "0.0"}%</span>
+                    </div>
+                    <p className={`mt-1.5 text-xl font-semibold tabular-nums ${index === 0 ? "text-teal-700" : "text-amber-700"}`}>{money(segment.amount)}</p>
+                    <dl className="mt-3 space-y-2 border-l border-gray-200 pl-4 text-xs">
+                      {(index === 0
+                        ? [{ label: `Fully repaid loans (${recovery.counts.full})`, amount: recovery.fullyPaidAmount }, { label: `Partial repayments (${recovery.counts.partial})`, amount: recovery.partialRepaidAmount }]
+                        : [{ label: `Partially repaid loans (${recovery.counts.partial})`, amount: recovery.partialRemainingAmount }, { label: `Awaiting repayment (${recovery.counts.active})`, amount: recovery.activeAmount }]
+                      ).map(item => (
+                        <div key={item.label} className="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt className="text-gray-500">{item.label}</dt><dd className="font-medium text-gray-700 tabular-nums">{money(item.amount)}</dd></div>
+                      ))}
+                    </dl>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <dl className="grid grid-cols-1 gap-3 rounded-lg border border-gray-100 bg-gray-50/70 p-4 sm:grid-cols-3">
+            {[
+              { label: "Loans fully repaid", value: `${recovery.counts.full} / ${recovery.counts.total}`, detail: `${recovery.counts.total > 0 ? (recovery.counts.full / recovery.counts.total * 100).toFixed(1) : "0.0"}% of loan count` },
+              { label: "Loans still outstanding", value: String(outstandingLoans), detail: `${recovery.counts.partial} partial · ${recovery.counts.active} awaiting repayment` },
+              { label: "Average outstanding balance", value: money(outstandingLoans > 0 ? recovery.totalOutstanding / outstandingLoans : 0), detail: "Per loan with a balance due" },
+            ].map(item => <div key={item.label}><dt className="text-xs text-gray-500">{item.label}</dt><dd className="mt-1 text-base font-semibold text-gray-900 tabular-nums">{item.value}</dd><dd className="mt-1 text-xs text-gray-500">{item.detail}</dd></div>)}
+          </dl>
+          <p className="mt-4 border-t border-gray-100 pt-3 text-xs leading-relaxed text-gray-400">Filtered by lending date. Amounts reflect current repayments and include interest.</p>
+        </>
+      )}
     </div>
   );
 }
@@ -633,7 +247,7 @@ function DateFilterControls({
   pageStartDate?: string;
   pageEndDate?: string;
 }) {
-  const hasFilters = startDate || endDate || (hasPageFilters && (pageStartDate || pageEndDate));
+  const hasFilters = startDate || endDate;
   
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
@@ -649,16 +263,18 @@ function DateFilterControls({
       
       <span className="text-gray-300 mx-1">|</span>
       
-      <span className="text-gray-500">From:</span>
+      <label htmlFor="debt-recovery-start-date" className="text-gray-500">From:</label>
       <input
         type="date"
+        id="debt-recovery-start-date"
         value={startDate || (hasPageFilters ? pageStartDate : '') || ''}
         onChange={(e) => setStartDate(e.target.value)}
         className="px-2 py-1 border border-gray-200 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
       />
-      <span className="text-gray-400">to</span>
+      <label htmlFor="debt-recovery-end-date" className="text-gray-400">to</label>
       <input
         type="date"
+        id="debt-recovery-end-date"
         value={endDate || (hasPageFilters ? pageEndDate : '') || ''}
         onChange={(e) => setEndDate(e.target.value)}
         className="px-2 py-1 border border-gray-200 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
@@ -669,7 +285,7 @@ function DateFilterControls({
           onClick={clearFilters}
           className="px-2 py-1 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
         >
-          Clear
+          Reset dates
         </button>
       )}
     </div>

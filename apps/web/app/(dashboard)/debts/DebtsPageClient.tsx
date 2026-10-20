@@ -258,12 +258,13 @@ export default function DebtsPageClient() {
         </div>
       </div>
 
-      <div className="mb-6">
-        <DebtStatusWaterfallChart debts={filteredDebts} baseCurrency={userCurrency} currency={tableDisplayCurrency} hasPageFilters={hasActiveFilters} pageStartDate={startDate} pageEndDate={endDate} />
-      </div>
-
-      <div className="mb-6">
-        <DebtDueDatesChart debts={filteredDebts} currency={userCurrency} />
+      <div className="mb-6 grid min-w-0 grid-cols-1 items-stretch gap-6 xl:grid-cols-2">
+        <div className="min-w-0">
+          <DebtStatusWaterfallChart debts={filteredDebts} baseCurrency={userCurrency} currency={tableDisplayCurrency} hasPageFilters={hasActiveFilters} pageStartDate={startDate} pageEndDate={endDate} />
+        </div>
+        <div className="min-w-0">
+          <DebtDueDatesChart debts={filteredDebts} currency={userCurrency} />
+        </div>
       </div>
 
       <div className={UI_STYLES.filters.containerWithMargin}>
