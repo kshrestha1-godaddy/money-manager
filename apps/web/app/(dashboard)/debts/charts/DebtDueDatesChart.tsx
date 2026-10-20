@@ -278,10 +278,15 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
   const overdueCount = chartData.data.filter((d) => d.isOverdue).length;
   const dueThisWeek = chartData.data.filter((d) => !d.isOverdue && d.daysUntilDue <= 7).length;
   const dueThisMonth = chartData.data.filter((d) => !d.isOverdue && d.daysUntilDue > 7 && d.daysUntilDue <= 30).length;
+  const overdueAmount = chartData.data.filter(entry => entry.isOverdue).reduce((sum, entry) => sum + entry.remainingAmount, 0);
+  const dueSoon = chartData.data.filter(entry => !entry.isOverdue && entry.daysUntilDue <= 30);
+  const dueSoonAmount = dueSoon.reduce((sum, entry) => sum + entry.remainingAmount, 0);
+  const nextDue = chartData.data.filter(entry => !entry.isOverdue).sort((a, b) => a.daysUntilDue - b.daysUntilDue)[0];
+
 
   return (
     <div
-      className={`rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6 ${
+      className={`flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6 ${
         isExpanded ? "fixed inset-4 z-50 overflow-auto" : "h-full"
       }`}
       ref={chartRef}
@@ -348,14 +353,15 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
       </div>
 
       <div
-        className={`w-full ${isExpanded ? "h-[75vh]" : ""}`}
-        style={{ height: isExpanded ? undefined : chartHeight }}
+        className="relative w-full flex-1"
+        style={{ minHeight: isExpanded ? "65vh" : chartHeight }}
       >
+        <div className="absolute inset-0">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={chartData.data}
             layout="vertical"
-            margin={{ top: 40, right: 30, left: 10, bottom: 50 }}
+            margin={{ top: 35, right: 150, left: 10, bottom: 25 }}
             barCategoryGap="20%"
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={true} vertical={true} />
@@ -513,7 +519,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
                   
                   // Format the days text for bottom label with date
                   const dateString = entry.dueDate 
-                    ? entry.dueDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+                    ? entry.dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                     : '';
                   
                   let daysText = "";
@@ -527,11 +533,6 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
                   } else {
                     daysText = `${entry.daysUntilDue}d${dateString ? ` (${dateString})` : ''}`;
                   }
-                  
-                  // Project line to x-axis area - use a consistent bottom position for all bars
-                  const chartAreaHeight = Math.max(400, chartData.data.length * 64 + 100); // Total height minus increased margins
-                  const projectionEndY = chartAreaHeight;
-                  const labelY = projectionEndY + 20; // More space for the labels
                   
                   // Enhanced label with partial payment info
                   let statusIndicator = "";
@@ -583,25 +584,15 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
                       >
                         {displayText}
                       </text>
-                      {/* Vertical projection line from bar tip DOWN to x-axis area */}
-                      <line
-                        x1={barEndX}
-                        y1={barCenterY}
-                        x2={barEndX}
-                        y2={projectionEndY}
-                        stroke="#9ca3af"
-                        strokeWidth={1.5}
-                        strokeDasharray="3 3"
-                        opacity={0.6}
-                      />
-                      {/* Days label below x-axis */}
+                      {/* Each annotation stays in its own borrower row. */}
                       <text
-                        x={barEndX}
-                        y={labelY}
+                        x={Math.max(x, barEndX) + 10}
+                        y={barCenterY}
+                        dominantBaseline="middle"
                         fill={textColor}
-                        fontSize={10}
+                        fontSize={11}
                         fontWeight={600}
-                        textAnchor="middle"
+                        textAnchor="start"
                       >
                         {daysText}
                       </text>
@@ -623,10 +614,11 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
             </Bar>
           </BarChart>
         </ResponsiveContainer>
+        </div>
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap justify-center gap-4 text-xs">
+      <div className="mt-4 flex shrink-0 flex-wrap justify-center gap-4 text-xs">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: COLORS.overdue }} />
           <span className="text-gray-600">Overdue</span>
@@ -648,6 +640,24 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
           <span className="text-gray-600">{"> 3 Months"}</span>
         </div>
       </div>
+      <dl className="mt-6 grid shrink-0 grid-cols-1 gap-4 rounded-lg border border-gray-100 bg-gray-50/70 p-4 sm:grid-cols-3">
+        <div>
+          <dt className="text-xs text-gray-500">Overdue balance</dt>
+          <dd className={`mt-1 text-base font-semibold tabular-nums ${overdueAmount > 0 ? "text-red-600" : "text-gray-900"}`}>{formatCurrency(overdueAmount, currency)}</dd>
+          <dd className="mt-1 text-xs text-gray-500">{overdueCount} {overdueCount === 1 ? "loan" : "loans"} past due</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-gray-500">Due in the next 30 days</dt>
+          <dd className="mt-1 text-base font-semibold text-gray-900 tabular-nums">{formatCurrency(dueSoonAmount, currency)}</dd>
+          <dd className="mt-1 text-xs text-gray-500">{dueSoon.length} {dueSoon.length === 1 ? "loan" : "loans"} including today</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-gray-500">Next payment due</dt>
+          <dd className="mt-1 text-base font-semibold text-gray-900">{nextDue ? nextDue.daysUntilDue === 0 ? "Today" : `In ${nextDue.daysUntilDue} days` : "No upcoming payments"}</dd>
+          <dd className="mt-1 text-xs text-gray-500">{nextDue ? `${nextDue.borrowerName} · ${formatCurrency(nextDue.remainingAmount, currency)}` : "All scheduled balances are overdue"}</dd>
+        </div>
+      </dl>
+      <p className="mt-3 text-xs leading-relaxed text-gray-400">Balances include interest. Only outstanding loans with a due date appear here.</p>
     </div>
   );
 }

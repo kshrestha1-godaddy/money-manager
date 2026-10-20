@@ -85,7 +85,7 @@ export function DebtStatusWaterfallChart({
   };
 
   return (
-    <div ref={chartRef} className={`rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6 ${isExpanded ? "fixed inset-4 z-50 overflow-auto" : "h-full"}`}>
+    <div ref={chartRef} className={`flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6 ${isExpanded ? "fixed inset-4 z-50 overflow-auto" : "h-full"}`}>
       <ChartControls
         chartRef={chartRef}
         isExpanded={isExpanded}
@@ -110,7 +110,8 @@ export function DebtStatusWaterfallChart({
         </div>
       ) : (
         <>
-          <div className="mx-auto grid max-w-5xl items-center gap-6 py-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:gap-6 md:py-8">
+          <div className="flex flex-1 items-center justify-center py-6">
+          <div className="mx-auto grid w-full max-w-5xl items-center gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:gap-6">
             <div className="relative text-center">
               <svg
                 viewBox="0 0 320 320"
@@ -135,9 +136,14 @@ export function DebtStatusWaterfallChart({
                   const point = (radius: number, angle: number) => `${160 + radius * Math.cos(angle)},${160 + radius * Math.sin(angle)}`;
                   const largeArc = arcLength > 50 ? 1 : 0;
                   const arcPath = `M ${point(outerRadius, startAngle)} A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${point(outerRadius, endAngle)} L ${point(innerRadius, endAngle)} A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${point(innerRadius, startAngle)} Z`;
+                  const middleAngle = (startAngle + endAngle) / 2;
+                  const labelX = 160 + 120 * Math.cos(middleAngle);
+                  const labelY = 160 + 120 * Math.sin(middleAngle);
+                  let labelRotation = (middleAngle * 180 / Math.PI + 90) % 360;
+                  if (labelRotation > 90 && labelRotation < 270) labelRotation += 180;
                   return percent > 0 ? (
+                    <g key={segment.name}>
                     <path
-                      key={segment.name}
                       d={arcPath}
                       fill={segment.color} stroke={segment.color} strokeWidth={cornerRadius * 2}
                       strokeLinejoin="round"
@@ -155,6 +161,17 @@ export function DebtStatusWaterfallChart({
                     >
                       <title>{segment.name}: {money(segment.amount)} ({percent.toFixed(1)}%)</title>
                     </path>
+                    <text
+                      x={labelX}
+                      y={labelY}
+                      transform={`rotate(${labelRotation} ${labelX} ${labelY})`}
+                      textAnchor="middle" dominantBaseline="middle"
+                      fill="#ffffff" fontSize={percent < 6 ? 9 : 12} fontWeight="600"
+                      fontFamily="system-ui, sans-serif" pointerEvents="none"
+                    >
+                      {percent.toFixed(1)}%
+                    </text>
+                    </g>
                   ) : null;
                 })}
                 <text x="160" y="155" textAnchor="middle" fill="#0f172a" fontSize="44" fontWeight="600" fontFamily="system-ui, sans-serif">{recoveryPercent.toFixed(1)}%</text>
@@ -174,15 +191,7 @@ export function DebtStatusWaterfallChart({
                   </dl>
                 </div>
               )}
-              <p className="mb-3 text-xs text-gray-500">Loan status · share of total value including interest</p>
-              <ul className="mx-auto max-w-xs space-y-2 text-xs text-gray-600">
-                {donutSegments.map(segment => (
-                  <li key={segment.name} className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: segment.color }} />{segment.name} ({segment.count})</span>
-                    <span className="tabular-nums">{recovery.totalWithInterest > 0 ? (segment.amount / recovery.totalWithInterest * 100).toFixed(1) : "0.0"}%</span>
-                  </li>
-                ))}
-              </ul>
+
             </div>
             <div className="min-w-0">
               <div className="mb-6 border-b border-gray-100 pb-5">
@@ -211,7 +220,8 @@ export function DebtStatusWaterfallChart({
               </div>
             </div>
           </div>
-          <dl className="grid grid-cols-1 gap-3 rounded-lg border border-gray-100 bg-gray-50/70 p-4 sm:grid-cols-3">
+          </div>
+          <dl className="grid shrink-0 grid-cols-1 gap-3 rounded-lg border border-gray-100 bg-gray-50/70 p-4 sm:grid-cols-3">
             {[
               { label: "Loans fully repaid", value: `${recovery.counts.full} / ${recovery.counts.total}`, detail: `${recovery.counts.total > 0 ? (recovery.counts.full / recovery.counts.total * 100).toFixed(1) : "0.0"}% of loan count` },
               { label: "Loans still outstanding", value: String(outstandingLoans), detail: `${recovery.counts.partial} partial · ${recovery.counts.active} awaiting repayment` },
