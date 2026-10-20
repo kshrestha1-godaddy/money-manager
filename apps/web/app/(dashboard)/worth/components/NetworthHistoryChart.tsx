@@ -6,6 +6,7 @@ import {
   AreaChart,
   CartesianGrid,
   ReferenceLine,
+  ReferenceDot,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -49,7 +50,7 @@ export function NetworthHistoryChart({
   const { currency: userCurrency, currencyRateAnchors } = useCurrency();
   const currency = displayCurrency ?? userCurrency;
   const gradientId = useId().replace(/:/g, "");
-  const [period, setPeriod] = useState("60");
+  const [period, setPeriod] = useState("30");
   const [records, setRecords] = useState<NetworthHistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -230,7 +231,7 @@ export function NetworthHistoryChart({
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
                 data={data}
-                margin={{ top: 12, right: 16, bottom: 12, left: 8 }}
+                margin={{ top: 56, right: 24, bottom: 12, left: 8 }}
               >
                 <defs>
                   <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -320,9 +321,53 @@ export function NetworthHistoryChart({
                   stroke={trendColor}
                   strokeWidth={2.5}
                   fill={`url(#${gradientId})`}
-                  dot={data.length === 1 ? { r: 4, fill: trendColor } : false}
+                  dot={{
+                    r: 3,
+                    fill: trendColor,
+                    stroke: "#fff",
+                    strokeWidth: 1.5,
+                  }}
                   activeDot={{ r: 5, stroke: "#fff", strokeWidth: 3 }}
                   isAnimationActive={false}
+                />
+                <ReferenceDot
+                  x={latest.timestamp}
+                  y={latest.netWorth}
+                  r={5}
+                  fill={trendColor}
+                  stroke="#fff"
+                  strokeWidth={2}
+                  isFront
+                  label={{
+                    content: ({ viewBox }) => {
+                      const point = viewBox as { x?: number; y?: number };
+                      if (point.x === undefined || point.y === undefined)
+                        return <g />;
+                      return (
+                        <g>
+                          <text
+                            x={point.x - 10}
+                            y={point.y - 30}
+                            textAnchor="end"
+                            fill="#64748b"
+                            fontSize={10}
+                          >
+                            Latest · {formatDate(new Date(latest.snapshotDate))}
+                          </text>
+                          <text
+                            x={point.x - 10}
+                            y={point.y - 14}
+                            textAnchor="end"
+                            fill={trendColor}
+                            fontSize={12}
+                            fontWeight={600}
+                          >
+                            {money(latest.netWorth)}
+                          </text>
+                        </g>
+                      );
+                    },
+                  }}
                 />
               </AreaChart>
             </ResponsiveContainer>

@@ -54,7 +54,7 @@ export default function NetWorthPage() {
   const displayCurrency = currencyOverride ?? currency;
   const [expandedSections, setExpandedSections] = useState<
     Record<SectionKey, boolean>
-  >({ accounts: true, investments: false, debts: false });
+  >({ accounts: false, investments: false, debts: false });
   const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set());
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -284,7 +284,7 @@ export default function NetWorthPage() {
       `net_worth_${displayCurrency}_${new Date().toISOString().slice(0, 10)}`,
     );
   };
-  const colors = ["#0d9488", "#6366f1", "#d97706"];
+  const colors = ["#0d9488", "#6366f1", "#ef4444"];
   const refresh = () => {
     refreshData();
     setChartRefreshTrigger((value) => value + 1);
@@ -502,6 +502,19 @@ export default function NetWorthPage() {
                   }
                 />
                 <ReferenceLine y={0} stroke="#cbd5e1" />
+                {chartData.map((item, index) => (
+                  <ReferenceLine
+                    key={`reference-${item.name}`}
+                    y={convertForDisplaySync(
+                      item.value,
+                      currency,
+                      displayCurrency,
+                    )}
+                    stroke={colors[index]}
+                    strokeDasharray="5 4"
+                    strokeOpacity={0.5}
+                  />
+                ))}
                 <Tooltip
                   cursor={{ fill: "#f8fafc" }}
                   content={({ active, payload }) => {
