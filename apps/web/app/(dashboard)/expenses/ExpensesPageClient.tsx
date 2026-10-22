@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Info } from 'lucide-react';
 import { useOptimizedFinancialData } from '../../hooks/useOptimizedFinancialData';
@@ -137,6 +137,21 @@ export default function ExpensesPageClient() {
     onNotification: setNotification,
     userCurrency: userCurrency
   });
+
+  // Resolve linked expenses from the full dataset, regardless of active month or filters.
+  const openedExpenseLink = useRef<string | null>(null);
+  const linkedExpenseId = searchParams.get('view');
+  useEffect(() => {
+    if (!linkedExpenseId) {
+      openedExpenseLink.current = null;
+      return;
+    }
+    if (!/^\d+$/.test(linkedExpenseId) || openedExpenseLink.current === linkedExpenseId) return;
+    const expense = allExpenses.find(item => item.id === Number(linkedExpenseId));
+    if (!expense) return;
+    openedExpenseLink.current = linkedExpenseId;
+    openViewModal(expense);
+  }, [linkedExpenseId, allExpenses, openViewModal]);
 
   // Sort categories by frequency for the add/edit modals (last 6 months)
   const categoriesWithFrequency = useMemo(() => {

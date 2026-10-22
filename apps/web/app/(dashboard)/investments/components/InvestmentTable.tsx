@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { Download, RefreshCw } from "lucide-react";
 import { InvestmentInterface } from "../../../types/investments";
@@ -729,6 +731,7 @@ function InvestmentRow({
                     <input
                         type="checkbox"
                         checked={isSelected}
+                        disabled={investment.id < 0}
                         onChange={handleSelect}
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mx-auto"
                     />
@@ -737,7 +740,7 @@ function InvestmentRow({
             <td className="px-6 py-4 text-left align-top" style={{ width: `${columnWidths.investment}px` }}>
                 <div>
                     <div className="text-sm font-medium text-gray-900 break-words leading-tight">
-                        {investment.name}
+                        {investment.type === "STOCKS" ? <Link href="/stocks" className="text-indigo-700 hover:underline">{investment.name}</Link> : investment.name}
                     </div>
                     {investment.symbol && (
                         <div className="text-sm text-gray-500 break-words leading-tight">

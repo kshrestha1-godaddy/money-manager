@@ -117,6 +117,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
       });
       // Refresh accounts cache for balance updates
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
+      if (categoryType === "EXPENSE") queryClient.invalidateQueries({ queryKey: ["investments"] });
       triggerBalanceRefresh();
       setIsAddModalOpen(false);
     },
@@ -146,6 +147,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
         return oldItems.map(item => item.id === updatedItem.id ? updatedItem : item);
       });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
+      if (categoryType === "EXPENSE") queryClient.invalidateQueries({ queryKey: ["investments"] });
       triggerBalanceRefresh();
       setIsEditModalOpen(false);
       setItemToEdit(null);
@@ -164,6 +166,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
         return oldItems.filter(item => item.id !== deletedId);
       });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
+      if (categoryType === "EXPENSE") queryClient.invalidateQueries({ queryKey: ["investments"] });
       triggerBalanceRefresh();
       setIsDeleteModalOpen(false);
       setItemToDelete(null);
@@ -187,6 +190,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
         return oldItems.filter(item => !deletedIds.includes(item.id));
       });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
+      if (categoryType === "EXPENSE") queryClient.invalidateQueries({ queryKey: ["investments"] });
       triggerBalanceRefresh();
       setSelectedItems(new Set());
     },
@@ -376,8 +380,9 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     // Invalidate and refetch items data
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.items });
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
+    if (categoryType === "EXPENSE") queryClient.invalidateQueries({ queryKey: ["investments"] });
     triggerBalanceRefresh();
-  }, [queryClient, QUERY_KEYS]);
+  }, [queryClient, QUERY_KEYS, categoryType]);
 
   const handleExportToCSV = useCallback(() => {
     if (filteredItems.length === 0) {
@@ -493,6 +498,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     invalidateQueries: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.items });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
+      if (categoryType === "EXPENSE") queryClient.invalidateQueries({ queryKey: ["investments"] });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.thresholds });
     }
   };

@@ -616,7 +616,7 @@ export function AccountTable({
                         return (
                     <tbody key={group.key} className="bg-white divide-y divide-gray-200">
                         {grouping !== "none" && (
-                            <tr className="bg-gray-50/80">
+                            <tr className="bg-gray-50/80 [&>th]:border-y [&>td]:border-y [&>th]:border-gray-300 [&>td]:border-gray-300">
                                 <th scope="rowgroup" colSpan={showBulkActions ? 5 : 4} className="px-6 py-3 text-left text-sm font-medium text-gray-700">
                                     {group.label} <span className="ml-2 font-normal text-gray-400">({group.accounts.length})</span>
                                 </th>

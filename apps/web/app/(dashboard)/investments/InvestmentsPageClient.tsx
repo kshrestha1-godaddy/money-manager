@@ -3,6 +3,8 @@
 import { cn } from "@/lib/utils";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useQueryClient } from '@tanstack/react-query';
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { InvestmentTable } from "./components/InvestmentTable";
 import { AddInvestmentModal } from "./components/AddInvestmentModal";
 import { EditInvestmentModal } from "./components/EditInvestmentModal";
@@ -67,6 +69,7 @@ const redNegativeIcon = ICON_COLORS.redNegative;
 
 export default function InvestmentsPageClient() {
   const { currency: userCurrency } = useCurrency();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
@@ -453,6 +456,7 @@ export default function InvestmentsPageClient() {
             <p className={pageSubtitle}>Track your investment portfolio and performance</p>
           </div>
           <div className={UI_STYLES.header.buttonGroup}>
+            <Link href="/stocks" className={secondaryBlueButton}>Stocks dashboard</Link>
             <button onClick={() => openModal('add')} className={primaryButton}>Add Investment</button>
             <button onClick={() => openModal('import')} className={secondaryBlueButton}>Import CSV</button>
             <button onClick={handleCombinedExportToCSV} className={secondaryGreenButton} disabled={filteredInvestments.length === 0 && (!targetProgress || targetProgress.length === 0)}>Export CSV</button>
@@ -749,9 +753,9 @@ export default function InvestmentsPageClient() {
                   investments={section.investments}
                   selectedInvestments={selectedInvestments}
                   onInvestmentSelect={handleInvestmentSelect}
-                  onEdit={(investment: InvestmentInterface) => openModal('edit', investment)}
-                  onDelete={(investment: InvestmentInterface) => openModal('delete', investment)}
-                  onViewDetails={(investment: InvestmentInterface) => openModal('view', investment)}
+                  onEdit={(investment: InvestmentInterface) => investment.id < 0 ? router.push('/stocks') : openModal('edit', investment)}
+                  onDelete={(investment: InvestmentInterface) => investment.id < 0 ? router.push('/stocks') : openModal('delete', investment)}
+                  onViewDetails={(investment: InvestmentInterface) => investment.id < 0 ? router.push('/stocks') : openModal('view', investment)}
                   showBulkActions={true}
                   onRefresh={handleInvestmentsRefresh}
                 />
@@ -780,7 +784,7 @@ export default function InvestmentsPageClient() {
           isOpen={modal.type === 'add'}
           onClose={closeModal}
           onAdd={(data) => handleModalAction('add', data)}
-          hasExistingStocksInvestment={investments.some((i) => i.type === 'STOCKS')}
+          hasExistingStocksInvestment={true}
         />
         <EditInvestmentModal
           key={modal.type === 'edit' && modal.investment ? `edit-investment-${modal.investment.id}` : 'edit-investment-closed'}

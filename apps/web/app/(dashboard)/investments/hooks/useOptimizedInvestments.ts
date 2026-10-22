@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getStockPurchases } from "../actions/stocks";
 import { signOut } from "next-auth/react";
 import { InvestmentInterface } from '../../../types/investments';
 import { 
@@ -69,7 +70,7 @@ export function useOptimizedInvestments() {
                 }
             }
         },
-        staleTime: 3 * 60 * 1000, // 3 minutes
+        staleTime: 0, // Cost basis follows expense changes on navigation.
         gcTime: 10 * 60 * 1000,   // 10 minutes
         retry: (failureCount, error) => {
             // Don't retry on auth errors
@@ -81,14 +82,39 @@ export function useOptimizedInvestments() {
         },
     });
 
+    const stockPurchasesQuery = useQuery({
+        queryKey: ['investments', 'stock-purchases', currency],
+        queryFn: getStockPurchases,
+        staleTime: 0,
+    });
+    const stockPurchases = useMemo(() => stockPurchasesQuery.data?.purchases ?? [], [stockPurchasesQuery.data]);
+    const investmentsWithStocks = useMemo(() => {
+        const stocks = investmentsRaw.filter(i => i.type === 'STOCKS');
+        if (stocks.length) {
+            if (!stockPurchasesQuery.data) return investmentsRaw;
+            const cost = stockPurchases.reduce((sum, p) => sum + p.amount, 0);
+            return investmentsRaw.map(i => i.type === 'STOCKS'
+                ? { ...i, purchasePrice: i.quantity > 0 ? cost / stocks.length / i.quantity : 0 }
+                : i);
+        }
+        if (!stockPurchases.length) return investmentsRaw;
+        const date = new Date(stockPurchases[stockPurchases.length - 1]!.date);
+        return [...investmentsRaw, {
+            id: -1, userId: 0, name: 'Stocks portfolio', type: 'STOCKS' as const,
+            quantity: 1, purchasePrice: stockPurchases.reduce((sum, p) => sum + p.amount, 0),
+            currentPrice: 0, purchaseDate: date, createdAt: date, updatedAt: date,
+            deductFromAccount: false,
+        }];
+    }, [investmentsRaw, stockPurchases, stockPurchasesQuery.data]);
+
     const investments = useMemo(
         () =>
             applyMetalSpotRatesToInvestments(
-                investmentsRaw,
+                investmentsWithStocks,
                 goldSpotPerUnitDisplay,
                 silverSpotPerUnitDisplay
             ),
-        [investmentsRaw, goldSpotPerUnitDisplay, silverSpotPerUnitDisplay]
+        [investmentsWithStocks, goldSpotPerUnitDisplay, silverSpotPerUnitDisplay]
     );
 
     // ==================== STATE MANAGEMENT ====================
@@ -486,6 +512,7 @@ export function useOptimizedInvestments() {
 
     // Selection handlers
     const handleInvestmentSelect = useCallback((investmentId: number, selected: boolean) => {
+        if (investmentId < 0) return;
         setSelectedInvestments(prev => {
             const newSet = new Set(prev);
             if (selected) {
@@ -499,7 +526,7 @@ export function useOptimizedInvestments() {
 
     const handleSelectAll = useCallback((selected: boolean) => {
         if (selected) {
-            setSelectedInvestments(new Set(filteredInvestments.map(i => i.id)));
+            setSelectedInvestments(new Set(filteredInvestments.filter(i => i.id > 0).map(i => i.id)));
         } else {
             setSelectedInvestments(new Set());
         }
@@ -538,9 +565,12 @@ export function useOptimizedInvestments() {
     return {
         // Data
         investments,
+        stockPurchases,
+        stocksLoading: stockPurchasesQuery.isLoading,
+        stocksError: stockPurchasesQuery.error,
         filteredInvestments,
         loading,
-        error,
+        error: error || queryError?.message || null,
         sections,
         uniqueTypes,
         uniqueBanks,

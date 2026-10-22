@@ -67,7 +67,7 @@ type PurchaseFields = {
 /**
  * For STOCKS positions, cost basis per unit is derived from the sum of Stocks-category expenses
  * (converted to user currency), split equally across STOCKS positions, then divided by quantity.
- * When there are no such expenses, falls back to stored purchasePrice.
+ * With no matching expenses, Stocks has a zero purchase cost.
  */
 export function resolvePurchasePriceForInvestmentDisplay(
     investment: PurchaseFields,
@@ -75,7 +75,7 @@ export function resolvePurchasePriceForInvestmentDisplay(
     stocksPositionCount: number
 ): number {
     const dbPrice = parseFloat(String(investment.purchasePrice));
-    if (investment.type !== "STOCKS" || stocksExpenseTotal <= 0 || stocksPositionCount <= 0) {
+    if (investment.type !== "STOCKS" || stocksPositionCount <= 0) {
         return dbPrice;
     }
     const quantity = Math.max(parseFloat(String(investment.quantity)) || 0, 1e-12);
