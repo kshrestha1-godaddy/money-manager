@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback, useId } from "react";
 import { createPortal } from "react-dom";
-import { Download } from "lucide-react";
+import { ChevronDown, Download } from "lucide-react";
 import { AccountInterface } from "../../../types/accounts";
 import { formatDate } from "../../../utils/date";
 import { formatCurrency } from "../../../utils/currency";
@@ -11,6 +11,7 @@ import { SUPPORTED_CURRENCIES } from "../../../utils/currencyConversion";
 import { useCurrency } from "../../../providers/CurrencyProvider";
 import { getDefaultColumnWidths, getMinColumnWidth, type AccountColumnWidths } from "../../../config/tableConfig";
 import { getActionButtonClasses } from "../../../config/colorConfig";
+import { groupAccounts, type AccountGrouping } from "../utils/accountGrouping";
 import { cn } from "@/lib/utils";
 
 function computeAccountFreeBalance(
@@ -138,6 +139,7 @@ export function AccountTable({
     ), [withheldDetails]);
     const { currency: userCurrency } = useCurrency();
     const [selectedCurrency, setSelectedCurrency] = useState(userCurrency);
+    const [grouping, setGrouping] = useState<AccountGrouping>("nickname");
     const [sortField, setSortField] = useState<SortField>('bankName');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
@@ -321,9 +323,14 @@ export function AccountTable({
         return sorted;
     }, [accounts, sortField, sortDirection, withheldAmounts, userCurrency, selectedCurrency]);
 
+    const accountGroups = useMemo(
+        () => groupAccounts(sortedAccounts, grouping, withheldDetails),
+        [sortedAccounts, grouping, withheldDetails]
+    );
+
     const handleDownloadCsv = useCallback(() => {
         const csv = buildAccountsTableCsv(
-            sortedAccounts,
+            accountGroups.flatMap((group) => group.accounts),
             accounts,
             withheldAmounts,
             userCurrency,
@@ -339,7 +346,7 @@ export function AccountTable({
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(link.href);
-    }, [sortedAccounts, accounts, withheldAmounts, userCurrency, selectedCurrency]);
+    }, [accountGroups, accounts, withheldAmounts, userCurrency, selectedCurrency]);
 
     const balanceHeaderLabel = `Balance (${selectedCurrency.toUpperCase()})`;
     const freeBalanceHeaderLabel = `Free balance (${selectedCurrency.toUpperCase()})`;
@@ -431,11 +438,27 @@ export function AccountTable({
                             </div>
                         )}
                         <div className="flex flex-wrap items-center gap-2">
+                            <label htmlFor="accounts-grouping" className="text-sm text-gray-500">Group by</label>
+                            <div className="relative">
+                            <select
+                                id="accounts-grouping"
+                                value={grouping}
+                                onChange={(event) => setGrouping(event.target.value as AccountGrouping)}
+                                className="h-9 appearance-none rounded-md border border-gray-300 bg-white pl-3 pr-9 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                            >
+                                <option value="nickname">Nickname</option>
+                                <option value="accountType">Account type</option>
+                                <option value="withheld">Withheld or not</option>
+                                <option value="none">No grouping</option>
+                            </select>
+                                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" aria-hidden="true" />
+                            </div>
+                            <div className="relative">
                             <select
                                 id="accounts-display-currency"
                                 value={selectedCurrency}
                                 onChange={(event) => setSelectedCurrency(event.target.value)}
-                                className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                className="h-9 appearance-none rounded-md border border-gray-300 bg-white pl-3 pr-9 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                             >
                                 {SUPPORTED_CURRENCIES.map((currencyOption) => (
                                     <option key={currencyOption} value={currencyOption}>
@@ -443,6 +466,8 @@ export function AccountTable({
                                     </option>
                                 ))}
                             </select>
+                                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" aria-hidden="true" />
+                            </div>
                             <button
                                 type="button"
                                 onClick={handleDownloadCsv}
@@ -584,8 +609,24 @@ export function AccountTable({
                             </th>
                         </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {sortedAccounts.map((account) => (
+                    {accountGroups.map((group) => {
+                        const balance = group.accounts.reduce((sum, account) => sum + (account.balance ?? 0), 0);
+                        const withheld = group.accounts.reduce((sum, account) => sum + (withheldAmounts[account.id] ?? 0), 0);
+                        const displayAmount = (amount: number) => formatCurrency(convertForDisplaySync(amount, userCurrency, selectedCurrency), selectedCurrency);
+                        return (
+                    <tbody key={group.key} className="bg-white divide-y divide-gray-200">
+                        {grouping !== "none" && (
+                            <tr className="bg-gray-50/80">
+                                <th scope="rowgroup" colSpan={showBulkActions ? 5 : 4} className="px-6 py-3 text-left text-sm font-medium text-gray-700">
+                                    {group.label} <span className="ml-2 font-normal text-gray-400">({group.accounts.length})</span>
+                                </th>
+                                <td className="px-3 py-3 text-center text-xs font-medium text-gray-500 tabular-nums">{displayAmount(balance)}</td>
+                                <td className="px-3 py-3 text-center text-xs font-medium text-gray-500 tabular-nums">{displayAmount(withheld)}</td>
+                                <td className="px-3 py-3 text-center text-xs font-medium text-gray-500 tabular-nums">{displayAmount(balance - withheld)}</td>
+                                <td />
+                            </tr>
+                        )}
+                        {group.accounts.map((account) => (
                             <AccountRow
                                 key={account.id}
                                 account={account}
@@ -607,6 +648,8 @@ export function AccountTable({
                             />
                         ))}
                     </tbody>
+                        );
+                    })}
                     <tfoot className="bg-gray-50 border-t-2 border-gray-200">
                         <tr>
                             {showBulkActions && (
