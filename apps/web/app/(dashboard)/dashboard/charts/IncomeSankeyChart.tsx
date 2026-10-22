@@ -39,6 +39,13 @@ interface CategoryStats {
     amounts: number[];
 }
 
+// Fixed color palette keeps source colors consistent between redraws.
+const COLORS = [
+    '#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
+    '#06b6d4', '#84cc16', '#ec4899', '#a855f7', '#10b981',
+    '#6366f1', '#dc2626', '#7c3aed', '#0891b2', '#65a30d'
+];
+
 export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency = "USD", title, heightClass }) => {
     const chartRef = useRef<HTMLDivElement>(null);
     const { filteredIncomes, formatTimePeriod } = useChartData();
@@ -47,13 +54,6 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
     const chartId = "income-sankey";
     const { hasAnimated } = useChartAnimationState(chartId);
     
-    // Fixed color palette - no randomization
-    const COLORS = [
-        '#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
-        '#06b6d4', '#84cc16', '#ec4899', '#a855f7', '#10b981', 
-        '#6366f1', '#dc2626', '#7c3aed', '#0891b2', '#65a30d'
-    ];
-
     // Process data with useMemo for stability and optimized dependencies
     const { sankeyData, total, csvData } = useMemo(() => {
         const categoryStatsMap = new Map<string, CategoryStats>();
@@ -237,6 +237,15 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
                 // console.log('Chart data rows:', rows);
                 data.addRows(rows);
 
+                // Google Charts assigns node colors in first-appearance order.
+                // Each source keeps its own color along the entire flow.
+                const nodeColors = new Map<string, string>();
+                validData.forEach((item, index) => {
+                    const sourceLabel = rows[index]![0] as string;
+                    nodeColors.set(sourceLabel, COLORS[index % COLORS.length]!);
+                    if (!nodeColors.has(item.to)) nodeColors.set(item.to, '#64748b');
+                });
+
                 // Chart options with HTML tooltip and optimized animations
                 const options = {
                     width: width,
@@ -250,7 +259,7 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
                     },
                     sankey: {
                         node: {
-                            colors: COLORS.slice(0, validData.length + 1),
+                            colors: Array.from(nodeColors.values()),
                             label: {
                                 fontName: 'Arial',
                                 fontSize: 16,
@@ -259,7 +268,8 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
                             width: 10
                         },
                         link: {
-                            colorMode: 'gradient'
+                            colorMode: 'source',
+                            color: { fillOpacity: 0.65 }
                         }
                     }
                 };
@@ -312,7 +322,7 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency 
             window.removeEventListener('resize', handleResize);
             currentChart = null;
         };
-        }, [sankeyData, total, COLORS, hasAnimated]);
+        }, [sankeyData, total, currency, hasAnimated]);
 
     // Calculate total transactions for display
     const totalTransactions = sankeyData.reduce((sum, item) => sum + item.count, 0);

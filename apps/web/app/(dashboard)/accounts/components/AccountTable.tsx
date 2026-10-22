@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback, useId } from "react";
+import { createPortal } from "react-dom";
 import { Download } from "lucide-react";
 import { AccountInterface } from "../../../types/accounts";
 import { formatDate } from "../../../utils/date";
@@ -14,17 +15,10 @@ import { cn } from "@/lib/utils";
 
 function computeAccountFreeBalance(
     account: AccountInterface,
-    allAccounts: AccountInterface[],
+    _allAccounts: AccountInterface[],
     withheldAmounts: Record<string, number>
 ): number {
-    const bankName = account.bankName;
-    const withheldAmountForBank = withheldAmounts[bankName] || 0;
-    if (withheldAmountForBank === 0) return account.balance || 0;
-    const accountsInBank = allAccounts.filter((acc) => acc.bankName === bankName);
-    const totalBankBalance = accountsInBank.reduce((sum, acc) => sum + (acc.balance || 0), 0);
-    const accountProportion = totalBankBalance > 0 ? (account.balance || 0) / totalBankBalance : 0;
-    const accountWithheldAmount = withheldAmountForBank * accountProportion;
-    return (account.balance || 0) - accountWithheldAmount;
+    return (account.balance ?? 0) - (withheldAmounts[account.id] ?? 0);
 }
 
 function csvQuoteCell(value: string | number | undefined | null): string {
@@ -64,6 +58,8 @@ function buildAccountsTableCsv(
         "Balance currency (stored)",
         `Balance (${storedCode})`,
         `Balance (${displayCode})`,
+        `Withheld balance (${storedCode})`,
+        `Withheld balance (${displayCode})`,
         `Free balance (${storedCode})`,
         `Free balance (${displayCode})`,
     ];
@@ -84,6 +80,8 @@ function buildAccountsTableCsv(
             storedCode,
             formatAmountCsvPlain(bal),
             formatAmountCsvPlain(balDisplay),
+            formatAmountCsvPlain(bal - free),
+            formatAmountCsvPlain(balDisplay - freeDisplay),
             formatAmountCsvPlain(free),
             formatAmountCsvPlain(freeDisplay),
         ]);
@@ -99,6 +97,8 @@ const maskAccountNumber = (accountNumber: string) => {
     return maskedPart + visiblePart;
 };
 
+type WithheldDetails = Record<string, { id: number; name: string; amount: number }[]>;
+
 interface AccountTableProps {
     accounts: AccountInterface[];
     onEdit?: (account: AccountInterface) => void;
@@ -112,16 +112,16 @@ interface AccountTableProps {
     onBulkDelete?: () => void;
     onClearSelection?: () => void;
     headerActions?: React.ReactNode;
-    withheldAmounts?: Record<string, number>;
+    withheldDetails?: WithheldDetails;
 }
 
-type SortField = 'holderName' | 'bankName' | 'accountNumber' | 'accountOpeningDate' | 'balance' | 'freeBalance';
+type SortField = 'holderName' | 'bankName' | 'accountNumber' | 'accountOpeningDate' | 'balance' | 'freeBalance' | 'withheldBalance';
 type SortDirection = 'asc' | 'desc';
 
-export function AccountTable({ 
-    accounts, 
-    onEdit, 
-    onDelete, 
+export function AccountTable({
+    accounts,
+    onEdit,
+    onDelete,
     onViewDetails,
     onShare,
     selectedAccounts = new Set(),
@@ -131,8 +131,11 @@ export function AccountTable({
     onBulkDelete,
     onClearSelection,
     headerActions,
-    withheldAmounts = {}
+    withheldDetails = {}
 }: AccountTableProps) {
+    const withheldAmounts = useMemo(() => Object.fromEntries(
+        Object.entries(withheldDetails).map(([id, items]) => [id, items.reduce((sum, item) => sum + item.amount, 0)])
+    ), [withheldDetails]);
     const { currency: userCurrency } = useCurrency();
     const [selectedCurrency, setSelectedCurrency] = useState(userCurrency);
     const [sortField, setSortField] = useState<SortField>('bankName');
@@ -141,7 +144,7 @@ export function AccountTable({
     useEffect(() => {
         setSelectedCurrency(userCurrency);
     }, [userCurrency]);
-    
+
     // Track which account numbers are visible
     const [visibleAccountNumbers, setVisibleAccountNumbers] = useState<Set<number>>(new Set());
     // Track timers for auto-hiding account numbers
@@ -151,7 +154,7 @@ export function AccountTable({
     const [columnWidths, setColumnWidths] = useState<AccountColumnWidths>(
         getDefaultColumnWidths('accounts')
     );
-    
+
     const tableRef = useRef<HTMLTableElement>(null);
     const [resizing, setResizing] = useState<string | null>(null);
     const [startX, setStartX] = useState(0);
@@ -161,7 +164,7 @@ export function AccountTable({
     const toggleAccountNumberVisibility = (accountId: number) => {
         setVisibleAccountNumbers(prev => {
             const newSet = new Set(prev);
-            
+
                 // Clear ALL existing timers and hide all other account numbers
             hideTimers.forEach((timer, id) => {
                 clearTimeout(timer);
@@ -169,10 +172,10 @@ export function AccountTable({
                     newSet.delete(id);
                 }
             });
-            
+
             // Clear the timers map
             setHideTimers(new Map());
-            
+
             if (newSet.has(accountId)) {
                 // Hide the current account number
                 newSet.delete(accountId);
@@ -191,7 +194,7 @@ export function AccountTable({
                         return newTimers;
                     });
                 }, 3000);
-                
+
                 setHideTimers(new Map([[accountId, timer]]));
             }
             return newSet;
@@ -215,10 +218,10 @@ export function AccountTable({
 
     const handleMouseMove = useCallback((e: MouseEvent) => {
         if (!resizing) return;
-        
+
         const diff = e.pageX - startX;
         const newWidth = Math.max(getMinColumnWidth(), startWidth + diff);
-        
+
         setColumnWidths(prev => ({
             ...prev,
             [resizing]: newWidth
@@ -285,6 +288,10 @@ export function AccountTable({
                 case 'balance':
                     aValue = convertForDisplaySync(a.balance || 0, userCurrency, selectedCurrency);
                     bValue = convertForDisplaySync(b.balance || 0, userCurrency, selectedCurrency);
+                    break;
+                case 'withheldBalance':
+                    aValue = withheldAmounts[a.id] ?? 0;
+                    bValue = withheldAmounts[b.id] ?? 0;
                     break;
                 case 'freeBalance':
                     aValue = convertForDisplaySync(
@@ -370,7 +377,7 @@ export function AccountTable({
                 </svg>
             );
         }
-        
+
         if (sortDirection === 'asc') {
             return (
                 <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -454,7 +461,7 @@ export function AccountTable({
                     <thead className="bg-gray-50">
                         <tr>
                             {showBulkActions && (
-                                <th 
+                                <th
                                     className="px-2 py-3 text-center relative border-r border-gray-200"
                                     style={{ width: `${columnWidths.checkbox}px` }}
                                 >
@@ -467,13 +474,13 @@ export function AccountTable({
                                         onChange={handleSelectAll}
                                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                     />
-                                    <div 
+                                    <div
                                         className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
                                         onMouseDown={(e) => handleMouseDown(e, 'checkbox')}
                                     />
                                 </th>
                             )}
-                            <th 
+                            <th
                                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.accountDetails}px` }}
                                 onClick={() => handleSort('holderName')}
@@ -482,12 +489,12 @@ export function AccountTable({
                                     <span>Account Details</span>
                                     {getSortIcon('holderName')}
                                 </div>
-                                <div 
+                                <div
                                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
                                     onMouseDown={(e) => handleMouseDown(e, 'accountDetails')}
                                 />
                             </th>
-                            <th 
+                            <th
                                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.bankBranch}px` }}
                                 onClick={() => handleSort('bankName')}
@@ -496,12 +503,12 @@ export function AccountTable({
                                     <span>Bank & Branch</span>
                                     {getSortIcon('bankName')}
                                 </div>
-                                <div 
+                                <div
                                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
                                     onMouseDown={(e) => handleMouseDown(e, 'bankBranch')}
                                 />
                             </th>
-                            <th 
+                            <th
                                 className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.openingDate}px` }}
                                 onClick={() => handleSort('accountOpeningDate')}
@@ -510,12 +517,12 @@ export function AccountTable({
                                     <span>Opening Date</span>
                                     {getSortIcon('accountOpeningDate')}
                                 </div>
-                                <div 
+                                <div
                                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
                                     onMouseDown={(e) => handleMouseDown(e, 'openingDate')}
                                 />
                             </th>
-                            <th 
+                            <th
                                 className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.accountNumber}px` }}
                                 onClick={() => handleSort('accountNumber')}
@@ -524,12 +531,12 @@ export function AccountTable({
                                     <span>Account Number</span>
                                     {getSortIcon('accountNumber')}
                                 </div>
-                                <div 
+                                <div
                                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
                                     onMouseDown={(e) => handleMouseDown(e, 'accountNumber')}
                                 />
                             </th>
-                            <th 
+                            <th
                                 className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.balance}px` }}
                                 onClick={() => handleSort('balance')}
@@ -538,12 +545,24 @@ export function AccountTable({
                                     <span>{balanceHeaderLabel}</span>
                                     {getSortIcon('balance')}
                                 </div>
-                                <div 
+                                <div
                                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
                                     onMouseDown={(e) => handleMouseDown(e, 'balance')}
                                 />
                             </th>
-                            <th 
+                            <th
+                                className="relative px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                                style={{ width: `${columnWidths.withheldBalance}px` }}
+                                onClick={() => handleSort('withheldBalance')}
+                                title="Purchase amounts of investments marked withheld from this account"
+                            >
+                                <div className="flex items-center justify-center gap-1">
+                                    <span>Withheld ({selectedCurrency.toUpperCase()})</span>
+                                    {getSortIcon('withheldBalance')}
+                                </div>
+                                <div className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-blue-500" onMouseDown={(e) => handleMouseDown(e, 'withheldBalance')} />
+                            </th>
+                            <th
                                 className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.freeBalance}px` }}
                                 onClick={() => handleSort('freeBalance')}
@@ -552,12 +571,12 @@ export function AccountTable({
                                     <span>{freeBalanceHeaderLabel}</span>
                                     {getSortIcon('freeBalance')}
                                 </div>
-                                <div 
+                                <div
                                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
                                     onMouseDown={(e) => handleMouseDown(e, 'freeBalance')}
                                 />
                             </th>
-                            <th 
+                            <th
                                 className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
                                 style={{ width: `${columnWidths.actions}px` }}
                             >
@@ -567,8 +586,8 @@ export function AccountTable({
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {sortedAccounts.map((account) => (
-                            <AccountRow 
-                                key={account.id} 
+                            <AccountRow
+                                key={account.id}
                                 account={account}
                                 userCurrency={userCurrency}
                                 displayCurrency={selectedCurrency}
@@ -584,6 +603,7 @@ export function AccountTable({
                                 toggleAccountNumberVisibility={toggleAccountNumberVisibility}
                                 withheldAmounts={withheldAmounts}
                                 allAccounts={accounts}
+                                withheldDetails={withheldDetails}
                             />
                         ))}
                     </tbody>
@@ -615,6 +635,9 @@ export function AccountTable({
                                     {formatCurrency(displayTotalBalance, selectedCurrency)}
                                 </span>
                             </td>
+                            <td className="px-3 py-3 text-center text-sm font-semibold text-gray-600 tabular-nums" style={{ width: `${columnWidths.withheldBalance}px` }}>
+                                {formatCurrency(displayTotalBalance - displayTotalFreeBalance, selectedCurrency)}
+                            </td>
                             <td
                                 className="px-3 py-3 whitespace-nowrap text-sm font-semibold text-center tabular-nums"
                                 style={{ width: `${columnWidths.freeBalance}px` }}
@@ -641,7 +664,7 @@ export function AccountTable({
     );
 }
 
-function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, onViewDetails, onShare, isSelected = false, onSelect, showCheckbox = false, columnWidths, visibleAccountNumbers, toggleAccountNumberVisibility, withheldAmounts = {}, allAccounts = [] }: { 
+function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, onViewDetails, onShare, isSelected = false, onSelect, showCheckbox = false, columnWidths, visibleAccountNumbers, toggleAccountNumberVisibility, withheldAmounts = {}, allAccounts = [], withheldDetails = {} }: {
     account: AccountInterface;
     userCurrency: string;
     displayCurrency: string;
@@ -657,6 +680,7 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
     toggleAccountNumberVisibility: (accountId: number) => void;
     withheldAmounts?: Record<string, number>;
     allAccounts?: AccountInterface[];
+    withheldDetails?: WithheldDetails;
 }) {
     const handleEdit = () => {
         if (onEdit) {
@@ -697,7 +721,7 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
     return (
         <tr className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
             {showCheckbox && (
-                <td 
+                <td
                     className="px-2 py-4 text-center whitespace-nowrap"
                     style={{ width: `${columnWidths.checkbox}px` }}
                 >
@@ -709,7 +733,7 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
                     />
                 </td>
             )}
-            <td 
+            <td
                 className="px-6 py-4 whitespace-nowrap truncate"
                 style={{ width: `${columnWidths.accountDetails}px` }}
             >
@@ -727,7 +751,7 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
                     </div>
                 </div>
             </td>
-            <td 
+            <td
                 className="px-6 py-4 whitespace-nowrap truncate"
                 style={{ width: `${columnWidths.bankBranch}px` }}
             >
@@ -739,13 +763,13 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
                     )}
                 </div>
             </td>
-            <td 
+            <td
                 className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center truncate"
                 style={{ width: `${columnWidths.openingDate}px` }}
             >
                 {formatDate(account.accountOpeningDate)}
             </td>
-            <td 
+            <td
                 className="px-4 py-4 whitespace-nowrap"
                 style={{ width: `${columnWidths.accountNumber}px` }}
             >
@@ -772,7 +796,7 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
                     </button>
                 </div>
             </td>
-            <td 
+            <td
                 className="px-3 py-4 whitespace-nowrap text-sm font-medium text-center tabular-nums truncate"
                 style={{ width: `${columnWidths.balance}px` }}
             >
@@ -784,7 +808,14 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
                     <span className="text-gray-400">-</span>
                 )}
             </td>
-            <td 
+            <td className="px-3 py-4 text-sm text-gray-600" style={{ width: `${columnWidths.withheldBalance}px` }}>
+                <WithheldTooltip
+                    items={withheldDetails[account.id] ?? []}
+                    userCurrency={userCurrency}
+                    displayCurrency={displayCurrency}
+                />
+            </td>
+            <td
                 className="px-3 py-4 whitespace-nowrap text-sm font-medium text-center tabular-nums truncate"
                 style={{ width: `${columnWidths.freeBalance}px` }}
             >
@@ -796,13 +827,13 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
                     <span className="text-gray-400">-</span>
                 )}
             </td>
-            <td 
+            <td
                 className="px-3 py-4 whitespace-nowrap text-center text-sm font-medium"
                 style={{ width: `${columnWidths.actions}px` }}
             >
                 <div className="flex justify-center flex-nowrap gap-1">
                     {onShare && (
-                        <button 
+                        <button
                             type="button"
                             onClick={handleShare}
                             className={cn(
@@ -814,7 +845,7 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
                         </button>
                     )}
                     {onViewDetails && (
-                        <button 
+                        <button
                             type="button"
                             onClick={handleViewDetails}
                             className={cn(
@@ -826,7 +857,7 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
                         </button>
                     )}
                     {onEdit && (
-                        <button 
+                        <button
                             type="button"
                             onClick={handleEdit}
                             className={cn(
@@ -838,7 +869,7 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
                         </button>
                     )}
                     {onDelete && (
-                        <button 
+                        <button
                             type="button"
                             onClick={handleDelete}
                             className={cn(
@@ -853,4 +884,110 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
             </td>
         </tr>
     );
-} 
+}
+function WithheldTooltip({ items, userCurrency, displayCurrency }: {
+    items: WithheldDetails[string];
+    userCurrency: string;
+    displayCurrency: string;
+}) {
+    const id = useId();
+    const triggerRef = useRef<HTMLButtonElement>(null);
+    const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [position, setPosition] = useState<{ top: number; left: number; above: boolean } | null>(null);
+    const total = items.reduce((sum, item) => sum + item.amount, 0);
+    const displayAmount = (amount: number) => formatCurrency(
+        convertForDisplaySync(amount, userCurrency, displayCurrency), displayCurrency
+    );
+    const cancelClose = () => {
+        if (closeTimer.current) clearTimeout(closeTimer.current);
+    };
+    const open = () => {
+        cancelClose();
+        const rect = triggerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const above = window.innerHeight - rect.bottom < 320;
+        setPosition({
+            top: above ? rect.top - 8 : rect.bottom + 8,
+            left: Math.max(12, Math.min(rect.left + rect.width / 2 - 180, window.innerWidth - 372)),
+            above,
+        });
+    };
+    const scheduleClose = () => {
+        cancelClose();
+        closeTimer.current = setTimeout(() => setPosition(null), 150);
+    };
+    useEffect(() => () => {
+        if (closeTimer.current) clearTimeout(closeTimer.current);
+    }, []);
+    useEffect(() => {
+        if (!position) return;
+        const close = () => setPosition(null);
+        const onScroll = (event: Event) => {
+            if (event.target instanceof Element && event.target.closest('[data-withheld-tooltip]')) return;
+            close();
+        };
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") close();
+        };
+        window.addEventListener("scroll", onScroll, true);
+        window.addEventListener("resize", close);
+        window.addEventListener("keydown", onKeyDown);
+        return () => {
+            window.removeEventListener("scroll", onScroll, true);
+            window.removeEventListener("resize", close);
+            window.removeEventListener("keydown", onKeyDown);
+        };
+    }, [position]);
+
+    if (!items.length) return <span className="block text-center text-gray-400 tabular-nums">—</span>;
+
+    return (
+        <div className="text-center">
+            <button
+                ref={triggerRef}
+                type="button"
+                aria-describedby={position ? id : undefined}
+                aria-label={`${displayAmount(total)} withheld in ${items.length} ${items.length === 1 ? "investment" : "investments"}. Show details`}
+                onMouseEnter={open}
+                onMouseLeave={scheduleClose}
+                onFocus={open}
+                onBlur={scheduleClose}
+                onClick={open}
+                className="rounded-sm border-b border-dotted border-gray-400 font-medium tabular-nums text-gray-700 hover:text-gray-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-4"
+            >
+                <span className="mr-1 text-gray-500">({items.length})</span>
+                {displayAmount(total)}
+            </button>
+            {position && createPortal(
+                <div
+                    id={id}
+                    role="tooltip"
+                    data-withheld-tooltip
+                    tabIndex={0}
+                    onMouseEnter={cancelClose}
+                    onMouseLeave={scheduleClose}
+                    onFocus={cancelClose}
+                    onBlur={scheduleClose}
+                    className="fixed z-[100] w-[360px] max-w-[calc(100vw-24px)] overflow-hidden rounded-xl border border-gray-200 bg-white text-sm text-gray-700 shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    style={{ top: position.top, left: position.left, transform: position.above ? "translateY(-100%)" : undefined }}
+                >
+                    <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                        <span className="font-medium text-gray-900">Withheld investments</span>
+                        <span className="text-xs text-gray-500">{items.length}</span>
+                    </div>
+                    <ul className="max-h-[min(240px,40vh)] overflow-y-auto overscroll-contain divide-y divide-gray-100 px-4">
+                        {items.map((item) => (
+                            <li key={item.id} className="flex items-start justify-between gap-4 py-3">
+                                <span className="min-w-0 break-words">{item.name}</span>
+                                <span className="shrink-0 font-medium tabular-nums text-gray-900">{displayAmount(item.amount)}</span>
+                            </li>
+                        ))}
+                    </ul>
+                    <div className="flex justify-between border-t border-gray-100 bg-gray-50 px-4 py-3 font-medium text-gray-900">
+                        <span>Total withheld</span><span className="tabular-nums">{displayAmount(total)}</span>
+                    </div>
+                </div>, document.body
+            )}
+        </div>
+    );
+}

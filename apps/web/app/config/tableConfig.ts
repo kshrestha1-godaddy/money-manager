@@ -12,12 +12,13 @@ export const TABLE_COLUMN_WIDTHS = {
   // Account table column widths
   accounts: {
     checkbox: 48,
-    accountDetails: 180,
-    bankBranch: 260,
+    accountDetails: 160,
+    bankBranch: 200,
     openingDate: 120,
-    accountNumber: 160,
+    accountNumber: 140,
     balance: 100,
     freeBalance: 100,
+    withheldBalance: 160,
     actions: 248,
   },
 
@@ -62,6 +63,7 @@ export type AccountColumnWidths = {
   openingDate: number;
   balance: number;
   freeBalance: number;
+  withheldBalance: number;
   actions: number;
 };
 

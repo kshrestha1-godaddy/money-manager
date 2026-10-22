@@ -299,6 +299,7 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
 
         let isMounted = true;
         let currentChart: any = null;
+        let savingsObserver: MutationObserver | null = null;
 
         const drawChart = () => {
             if (!chartRef.current || !isMounted || !window.google?.visualization) return;
@@ -328,6 +329,9 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
                     return;
                 }
 
+                // Stop observing the previous drawing before rebuilding it.
+                savingsObserver?.disconnect();
+                savingsObserver = null;
                 // Clear container
                 container.innerHTML = '';
 
@@ -484,6 +488,50 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
 
                 // Create and draw chart
                 currentChart = new window.google.visualization.Sankey(container);
+                // Keep the existing source colors; highlight only the savings ribbon.
+                const highlightSavings = () => {
+                    if (!isMounted || !validData.some(flow => flow.type === 'savings')) return;
+                    const savingsColor = getMinimalColor('savings');
+                    const savingsNode = Array.from(container.querySelectorAll<SVGRectElement>('svg rect'))
+                        .find(rect => rect.getAttribute('fill')?.toLowerCase() === savingsColor);
+                    if (!savingsNode) return;
+
+                    // Locate the ribbon where it enters the savings node. Google Charts
+                    // can add extra paths, so DOM path order does not match data rows.
+                    const bounds = savingsNode.getBoundingClientRect();
+                    const entryPoint = new DOMPoint(bounds.left - 1, bounds.top + bounds.height / 2);
+                    container.querySelectorAll<SVGPathElement>('svg path').forEach(path => {
+                        const matrix = path.getScreenCTM();
+                        if (!matrix || path.getAttribute('fill') === 'none') return;
+                        const localPoint = entryPoint.matrixTransform(matrix.inverse());
+                        if (path.isPointInFill(localPoint)) {
+                            if (path.style.getPropertyValue('fill') !== savingsColor || path.style.getPropertyPriority('fill') !== 'important') {
+                                path.style.setProperty('fill', savingsColor, 'important');
+                            }
+                            if (path.style.getPropertyValue('fill-opacity') !== '0.65' || path.style.getPropertyPriority('fill-opacity') !== 'important') {
+                                path.style.setProperty('fill-opacity', '0.65', 'important');
+                            }
+                        }
+                    });
+                };
+                window.google.visualization.events.addListener(currentChart, 'ready', () => {
+                    highlightSavings();
+                    if (!validData.some(flow => flow.type === 'savings')) return;
+                    // Hover interactions replace/restyle SVG paths without another ready event.
+                    // Reapply only when the chart changes; guarded writes avoid observer loops.
+                    savingsObserver?.disconnect();
+                    savingsObserver = new MutationObserver(records => {
+                        if (records.some(record => record.target instanceof SVGElement)) {
+                            highlightSavings();
+                        }
+                    });
+                    savingsObserver.observe(container, {
+                        subtree: true,
+                        childList: true,
+                        attributes: true,
+                        attributeFilter: ['fill', 'style', 'd', 'transform'],
+                    });
+                });
                 currentChart.draw(data, options);
                 
             } catch (error) {
@@ -523,10 +571,11 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
 
         return () => {
             isMounted = false;
+            savingsObserver?.disconnect();
             window.removeEventListener('resize', handleResize);
             currentChart = null;
         };
-    }, [sankeyData, currency, hasAnimated]);
+    }, [sankeyData, currency, hasAnimated, getMinimalColor]);
 
     const timePeriodText = formatTimePeriod();
     const baseTitle = title || `Cash Flow Analysis ${timePeriodText}`;

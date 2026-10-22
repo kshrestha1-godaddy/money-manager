@@ -16,7 +16,7 @@ import { useCurrency } from "../../providers/CurrencyProvider";
 import { BankBalanceChart } from "./components/BankBalanceChart";
 import { AccountIncomeExpenseActivityTable } from "./components/AccountIncomeExpenseActivityTable";
 import { useOptimizedAccounts } from "../../hooks/useOptimizedAccounts";
-import { getWithheldAmountsByBank } from "./actions/accounts";
+import { getWithheldAmountsByBank, getWithheldInvestmentDetailsByAccount } from "./actions/accounts";
 import { 
     getSummaryCardClasses,
     BUTTON_COLORS,
@@ -141,6 +141,11 @@ export default function Accounts() {
         queryFn: getWithheldAmountsByBank,
     });
     
+    const { data: withheldDetails = {}, isLoading: withheldDetailsLoading, error: withheldDetailsError } = useQuery({
+        queryKey: ['withheld-amounts', 'account-details'],
+        queryFn: getWithheldInvestmentDetailsByAccount,
+    });
+
     // Calculate total withheld amount
     const totalWithheldAmount = Object.values(withheldAmounts).reduce((sum, amount) => sum + amount, 0);
     
@@ -162,12 +167,12 @@ export default function Accounts() {
     };
 
     // Display error if there's one
-    if (error) {
+    if (error || withheldDetailsError) {
         return (
             <div className="p-8 text-center">
                 <div className={errorContainer}>
                     <h3 className={errorTitle}>Error Loading Accounts</h3>
-                    <p className={errorMessage}>{error}</p>
+                    <p className={errorMessage}>{error || "Unable to load withheld investment details. Please retry."}</p>
                     <button 
                         onClick={() => window.location.reload()} 
                         className={primaryButton + " mt-4"}
@@ -180,7 +185,7 @@ export default function Accounts() {
     }
 
     // Loading state
-    if (loading) {
+    if (loading || withheldDetailsLoading) {
         return (
             <div className={loadingContainer}>
                 <div className={loadingSpinner}></div>
@@ -409,7 +414,7 @@ export default function Accounts() {
                     onDelete={openDeleteModal}
                     onViewDetails={openViewModal}
                     onShare={openShareModal}
-                    withheldAmounts={withheldAmounts}
+                    withheldDetails={withheldDetails}
                     headerActions={
                         <div className="flex flex-wrap items-center gap-2 justify-end">
                             <button

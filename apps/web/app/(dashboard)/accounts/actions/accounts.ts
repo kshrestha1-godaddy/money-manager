@@ -495,6 +495,27 @@ export async function bulkCreateAccounts(accounts: Omit<AccountInterface, 'id' |
     }
 }
 
+/** Purchase amounts of withheld positions, grouped by their linked account. */
+export async function getWithheldInvestmentDetailsByAccount(): Promise<Record<string, { id: number; name: string; amount: number }[]>> {
+    const session = await getAuthenticatedSession();
+    const userId = getUserIdFromSession(session.user.id);
+    const investments = await prisma.investment.findMany({
+        where: { userId, deductFromAccount: true, accountId: { not: null } },
+        select: { id: true, name: true, accountId: true, quantity: true, purchasePrice: true },
+        orderBy: [{ name: "asc" }, { id: "asc" }],
+    });
+    const details: Record<string, { id: number; name: string; amount: number }[]> = {};
+    for (const investment of investments) {
+        if (investment.accountId === null) continue;
+        (details[investment.accountId] ??= []).push({
+            id: investment.id,
+            name: investment.name,
+            amount: Number(investment.quantity) * Number(investment.purchasePrice),
+        });
+    }
+    return details;
+}
+
 /**
  * Get withheld amounts from investments grouped by bank name
  * Only includes investments where deductFromAccount is true (user has chosen to mark as withheld)
