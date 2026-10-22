@@ -740,7 +740,7 @@ function InvestmentRow({
             <td className="px-6 py-4 text-left align-top" style={{ width: `${columnWidths.investment}px` }}>
                 <div>
                     <div className="text-sm font-medium text-gray-900 break-words leading-tight">
-                        {investment.type === "STOCKS" ? <Link href="/stocks" className="text-indigo-700 hover:underline">{investment.name}</Link> : investment.name}
+                        {(investment.type === "STOCKS" || investment.type === "SIP") ? <Link href={investment.type === "SIP" ? "/sip" : "/stocks"} className="text-indigo-700 hover:underline">{investment.name}</Link> : investment.name}
                     </div>
                     {investment.symbol && (
                         <div className="text-sm text-gray-500 break-words leading-tight">

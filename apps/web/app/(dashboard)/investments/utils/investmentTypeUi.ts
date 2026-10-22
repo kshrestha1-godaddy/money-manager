@@ -1,6 +1,7 @@
 import { InvestmentInterface } from "../../../types/investments";
 
 const KNOWN_TYPES: InvestmentInterface["type"][] = [
+    "SIP",
     "STOCKS",
     "CRYPTO",
     "MUTUAL_FUNDS",
@@ -63,6 +64,7 @@ export const INVESTMENT_TYPE_LABELS: { value: InvestmentInterface["type"]; label
     { value: "EMERGENCY_FUND", label: "Emergency Fund" },
     { value: "MARRIAGE", label: "Marriage" },
     { value: "VACATION", label: "Vacation" },
+    { value: "SIP", label: "SIP" },
     { value: "STOCKS", label: "Stocks" },
     { value: "CRYPTO", label: "Cryptocurrency" },
     { value: "MUTUAL_FUNDS", label: "Mutual Funds" },
@@ -86,6 +88,7 @@ export function getInvestmentTypeBadgeClassName(type: InvestmentInterface["type"
         EMERGENCY_FUND: "bg-teal-100 text-teal-900 ring-1 ring-teal-200/80",
         MARRIAGE: "bg-rose-100 text-rose-900 ring-1 ring-rose-200/80",
         VACATION: "bg-sky-100 text-sky-900 ring-1 ring-sky-200/80",
+        SIP: "bg-teal-100 text-teal-900 ring-1 ring-teal-200/80",
         STOCKS: "bg-blue-100 text-blue-900 ring-1 ring-blue-200/80",
         CRYPTO: "bg-violet-100 text-violet-900 ring-1 ring-violet-200/80",
         MUTUAL_FUNDS: "bg-indigo-100 text-indigo-900 ring-1 ring-indigo-200/80",

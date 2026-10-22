@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Activity, ChartCandlestick, Clock, PiggyBank, Sparkles } from "lucide-react";
+import { Activity, ChartCandlestick, Repeat, Clock, PiggyBank, Sparkles } from "lucide-react";
 import { SidebarItem } from "../components/sidebar/SidebarItem";
 import { TutorialOverlay } from "../components/TutorialOverlay";
 import { TutorialButton } from "../components/TutorialButton";
@@ -86,6 +86,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             href="/stocks"
                             icon={<ChartCandlestick className="size-6 shrink-0" strokeWidth={1.5} aria-hidden />}
                             title="Stocks"
+                        />
+                        <SidebarItem
+                            href="/sip"
+                            icon={<Repeat className="size-6 shrink-0" strokeWidth={1.5} aria-hidden />}
+                            title="SIP"
                         />
                         <SidebarItem
                             href="/annuity"

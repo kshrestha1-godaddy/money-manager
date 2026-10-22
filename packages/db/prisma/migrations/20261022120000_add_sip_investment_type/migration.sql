@@ -1,0 +1,1 @@
+ALTER TYPE "InvestmentType" ADD VALUE IF NOT EXISTS 'SIP';

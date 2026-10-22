@@ -19,6 +19,7 @@ const parseDateFromInput = (dateString: string): Date | undefined => {
 
 // Shared constants for investment components
 export const INVESTMENT_TYPES = [
+    { value: 'SIP', label: 'SIP' },
     { value: 'STOCKS', label: 'Stocks' },
     { value: 'CRYPTO', label: 'Cryptocurrency' },
     { value: 'MUTUAL_FUNDS', label: 'Mutual Funds' },
@@ -39,6 +40,7 @@ export const formatInvestmentType = (type: string): string => {
     switch (type) {
         case 'STOCKS': return 'Stocks';
         case 'CRYPTO': return 'Cryptocurrency';
+        case 'SIP': return 'SIP';
         case 'MUTUAL_FUNDS': return 'Mutual Funds';
         case 'BONDS': return 'Bonds';
         case 'REAL_ESTATE': return 'Real Estate';

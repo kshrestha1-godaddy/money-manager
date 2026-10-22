@@ -36,6 +36,7 @@ const INVESTMENT_TYPE_OPTIONS: { value: InvestmentInterface["type"]; label: stri
     { value: "EMERGENCY_FUND", label: "Emergency Fund" },
     { value: "MARRIAGE", label: "Marriage" },
     { value: "VACATION", label: "Vacation" },
+    { value: "SIP", label: "SIP" },
     { value: "STOCKS", label: "Stocks" },
     { value: "CRYPTO", label: "Cryptocurrency" },
     { value: "MUTUAL_FUNDS", label: "Mutual Funds" },
@@ -50,6 +51,7 @@ const INVESTMENT_TYPE_OPTIONS: { value: InvestmentInterface["type"]; label: stri
 
 export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: EditInvestmentModalProps) {
     const { currency: userCurrency } = useCurrency();
+    const isExpensePreview = !!investment && investment.id < 0;
     
     const [formData, setFormData] = useState({
         name: "",
@@ -166,8 +168,10 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                 setError("Quantity must be greater than 0");
                 return;
             }
-            if (!formData.purchasePrice || parseFloat(formData.purchasePrice) <= 0) {
-                setError("Purchase price must be greater than 0");
+            const expenseBacked = resolvedType === "SIP" || resolvedType === "STOCKS";
+            const cost = Number(formData.purchasePrice);
+            if (!formData.purchasePrice || !Number.isFinite(cost) || (expenseBacked ? cost < 0 : cost <= 0)) {
+                setError(expenseBacked ? "Purchase price must be 0 or greater" : "Purchase price must be greater than 0");
                 return;
             }
             if (needsCurrentPrice && (!formData.currentPrice || parseFloat(formData.currentPrice) < 0)) {
@@ -286,6 +290,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                         </label>
                         <select
                             id="type"
+                            disabled={isExpensePreview}
                             value={formData.type}
                             onChange={(e) =>
                                 handleInputChange(
@@ -334,6 +339,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                                     id="purchasePrice"
                                     step="0.01"
                                     min="0"
+                                    readOnly={isExpensePreview}
                                     value={formData.purchasePrice}
                                     onChange={(e) => handleInputChange("purchasePrice", e.target.value)}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -387,6 +393,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                                     id="purchasePrice"
                                     step="0.01"
                                     min="0"
+                                    readOnly={isExpensePreview}
                                     value={formData.purchasePrice}
                                     onChange={(e) => handleInputChange("purchasePrice", e.target.value)}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -458,7 +465,8 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                                         id="purchasePrice"
                                         step="0.01"
                                         min="0"
-                                        value={formData.purchasePrice}
+                                        readOnly={isExpensePreview}
+                                    value={formData.purchasePrice}
                                         onChange={(e) => handleInputChange("purchasePrice", e.target.value)}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         placeholder="0.00"
@@ -511,7 +519,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                     <div>
                         <label htmlFor="accountId" className="block text-sm font-medium text-gray-700 mb-1">
                             Account (Optional)
-                            {formData.accountId && (() => {
+                            {formData.accountId && !isExpensePreview && (() => {
                                 const selectedAccount = accounts.find(
                                     (acc) => acc.id === parseInt(formData.accountId, 10)
                                 );
@@ -554,7 +562,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                         </p>
                         
                         {/* Withhold from Account Option - only show when account is selected */}
-                        {formData.accountId && (
+                        {formData.accountId && !isExpensePreview && (
                             <div className="mt-3">
                                 <label className="flex items-center">
                                     <input

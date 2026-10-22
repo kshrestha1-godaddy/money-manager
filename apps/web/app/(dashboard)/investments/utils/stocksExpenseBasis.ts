@@ -23,7 +23,7 @@ const STOCKS_EXPENSE_CATEGORY_NAME = getInvestmentTypeLabel("STOCKS");
  * - With **multiple** STOCKS investment positions, purchase price uses **equal split** of this total
  *   across positions (see `resolvePurchasePriceForInvestmentDisplay`).
  */
-export async function sumStocksCategoryExpenseAmountsForUser(userId: number): Promise<number> {
+export async function sumStocksCategoryExpenseAmountsForUser(userId: number, categoryName = STOCKS_EXPENSE_CATEGORY_NAME): Promise<number> {
     const user = await prisma.user.findUnique({
         where: { id: userId },
         select: { currency: true },
@@ -35,7 +35,7 @@ export async function sumStocksCategoryExpenseAmountsForUser(userId: number): Pr
             userId,
             category: {
                 type: CategoryType.EXPENSE,
-                name: { equals: STOCKS_EXPENSE_CATEGORY_NAME, mode: "insensitive" },
+                name: { equals: categoryName, mode: "insensitive" },
             },
         },
         select: { amount: true, currency: true },
@@ -65,9 +65,10 @@ type PurchaseFields = {
 };
 
 /**
- * For STOCKS positions, cost basis per unit is derived from the sum of Stocks-category expenses
+ * For Stocks and SIP positions, pass the matching category expense total and position count.
+ * Cost basis per unit is derived from the matching category expenses
  * (converted to user currency), split equally across STOCKS positions, then divided by quantity.
- * With no matching expenses, Stocks has a zero purchase cost.
+ * With no matching expenses, expense-backed positions have a zero purchase cost.
  */
 export function resolvePurchasePriceForInvestmentDisplay(
     investment: PurchaseFields,
@@ -75,7 +76,7 @@ export function resolvePurchasePriceForInvestmentDisplay(
     stocksPositionCount: number
 ): number {
     const dbPrice = parseFloat(String(investment.purchasePrice));
-    if (investment.type !== "STOCKS" || stocksPositionCount <= 0) {
+    if ((investment.type !== "STOCKS" && investment.type !== "SIP") || stocksPositionCount <= 0) {
         return dbPrice;
     }
     const quantity = Math.max(parseFloat(String(investment.quantity)) || 0, 1e-12);

@@ -18,10 +18,12 @@ export function StockPurchaseList({
   purchases,
   currency,
   hasFilters = false,
+  label = "Stocks",
 }: {
   purchases: StockPurchase[];
   currency: string;
   hasFilters?: boolean;
+  label?: string;
 }) {
   const [requestedPage, setPage] = useState(1);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
@@ -58,7 +60,9 @@ export function StockPurchaseList({
             id="stock-purchases-heading"
             className="text-lg font-semibold text-gray-900"
           >
-            {hasFilters ? "Matching stock purchases" : "All stock purchases"}{" "}
+            {hasFilters
+              ? `Matching ${label} purchases`
+              : `All ${label} purchases`}{" "}
             <span className="text-sm font-normal text-gray-500">
               ({rows.length})
             </span>
@@ -72,7 +76,7 @@ export function StockPurchaseList({
         <p className="px-6 py-10 text-center text-sm text-gray-500">
           {hasFilters
             ? "No purchases match your search or date range."
-            : "No Stocks purchases with a cost greater than zero yet."}
+            : `No ${label} purchases with a cost greater than zero yet.`}
         </p>
       ) : (
         <div className="overflow-x-auto">
@@ -260,7 +264,7 @@ export function StockPurchaseList({
       )}
       {rows.length > 0 && (
         <nav
-          aria-label="Stock purchases pagination"
+          aria-label={`${label} purchases pagination`}
           className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-6 py-4"
         >
           <p aria-live="polite" className="text-sm text-gray-500">

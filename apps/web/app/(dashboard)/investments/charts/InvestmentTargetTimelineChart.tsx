@@ -36,6 +36,7 @@ interface TimelineDataPoint {
 }
 
 const TYPE_COLORS: Record<string, string> = {
+    SIP: "#0d9488",
     STOCKS: "#3b82f6",
     CRYPTO: "#10b981", 
     MUTUAL_FUNDS: "#f59e0b",
@@ -62,6 +63,7 @@ const MAX_INVESTMENT_TIMELINE_WIDTH_PX = 5200;
 const PX_PER_TIMELINE_POINT = 168;
 
 const TYPE_LABELS: Record<string, string> = {
+    SIP: "SIP",
     STOCKS: "Stocks",
     CRYPTO: "Cryptocurrency", 
     MUTUAL_FUNDS: "Mutual Funds",

@@ -189,7 +189,7 @@ export default function InvestmentsPageClient() {
     debounceTimeoutRef.current = setTimeout(() => setEndDate(value), 150);
   }, [setEndDate]);
 
-  const formatType = (type: string) => type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+  const formatType = (type: string) => type === 'SIP' ? 'SIP' : type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
 
   function investmentTypeFilterSummary(types: string[]): string {
     if (types.length === 0) return "All types";
@@ -457,6 +457,7 @@ export default function InvestmentsPageClient() {
           </div>
           <div className={UI_STYLES.header.buttonGroup}>
             <Link href="/stocks" className={secondaryBlueButton}>Stocks dashboard</Link>
+            <Link href="/sip" className={secondaryBlueButton}>SIP dashboard</Link>
             <button onClick={() => openModal('add')} className={primaryButton}>Add Investment</button>
             <button onClick={() => openModal('import')} className={secondaryBlueButton}>Import CSV</button>
             <button onClick={handleCombinedExportToCSV} className={secondaryGreenButton} disabled={filteredInvestments.length === 0 && (!targetProgress || targetProgress.length === 0)}>Export CSV</button>
@@ -753,9 +754,9 @@ export default function InvestmentsPageClient() {
                   investments={section.investments}
                   selectedInvestments={selectedInvestments}
                   onInvestmentSelect={handleInvestmentSelect}
-                  onEdit={(investment: InvestmentInterface) => investment.id < 0 ? router.push('/stocks') : openModal('edit', investment)}
-                  onDelete={(investment: InvestmentInterface) => investment.id < 0 ? router.push('/stocks') : openModal('delete', investment)}
-                  onViewDetails={(investment: InvestmentInterface) => investment.id < 0 ? router.push('/stocks') : openModal('view', investment)}
+                  onEdit={(investment: InvestmentInterface) => openModal('edit', investment)}
+                  onDelete={(investment: InvestmentInterface) => investment.id < 0 ? router.push(investment.type === 'SIP' ? '/sip' : '/stocks') : openModal('delete', investment)}
+                  onViewDetails={(investment: InvestmentInterface) => openModal('view', investment)}
                   showBulkActions={true}
                   onRefresh={handleInvestmentsRefresh}
                 />

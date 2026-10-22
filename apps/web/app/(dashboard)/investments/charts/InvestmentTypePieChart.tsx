@@ -22,6 +22,7 @@ interface TypeData {
 }
 
 const INVESTMENT_TYPE_COLORS = {
+    SIP: "#0d9488",
     STOCKS: '#0088FE',
     CRYPTO: '#00C49F', 
     MUTUAL_FUNDS: '#FFBB28',
@@ -36,6 +37,7 @@ const INVESTMENT_TYPE_COLORS = {
 };
 
 const TYPE_LABELS = {
+    SIP: 'SIP',
     STOCKS: 'Stocks',
     CRYPTO: 'Cryptocurrency',
     MUTUAL_FUNDS: 'Mutual Funds',

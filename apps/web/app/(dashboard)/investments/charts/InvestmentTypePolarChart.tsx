@@ -40,6 +40,7 @@ interface TypeDatum {
 }
 
 const TYPE_COLORS: Record<string, string> = {
+  SIP: "#0d9488",
   STOCKS: "#3b82f6",
   CRYPTO: "#10b981",
   MUTUAL_FUNDS: "#f59e0b",
@@ -57,6 +58,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 const TYPE_LABELS: Record<string, string> = {
+  SIP: "SIP",
   STOCKS: "Stocks",
   CRYPTO: "Cryptocurrency",
   MUTUAL_FUNDS: "Mutual Funds",
@@ -74,6 +76,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const TYPE_DESCRIPTIONS: Record<string, string> = {
+  SIP: "Regular contributions through a systematic investment plan.",
   STOCKS: "Equity investments in publicly traded companies. Offers potential for capital appreciation and dividends but carries market risk.",
   CRYPTO: "Digital assets and cryptocurrencies. High volatility investments with potential for significant gains or losses.",
   MUTUAL_FUNDS: "Professionally managed investment funds that pool money from multiple investors. Provides diversification across various assets.",

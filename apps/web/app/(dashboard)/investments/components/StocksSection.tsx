@@ -22,9 +22,10 @@ import {
 import { useCurrency } from "../../../providers/CurrencyProvider";
 import { convertCurrencySync } from "../../../utils/currencyConversion";
 import { buildStaticConversionRates } from "../../../utils/currencyRates";
-import { saveStocksCurrentValue } from "../actions/stocks";
+import { saveExpensePortfolioCurrentValue } from "../actions/expense-portfolios";
 
 export function StocksSection({
+  portfolioType = "STOCKS",
   purchases,
   chartPurchases = purchases,
   chartDateRange,
@@ -37,6 +38,7 @@ export function StocksSection({
   loading,
   error,
 }: {
+  portfolioType?: "STOCKS" | "SIP";
   purchases: StockPurchase[];
   chartPurchases?: StockPurchase[];
   chartDateRange?: { start: string; end: string };
@@ -49,6 +51,7 @@ export function StocksSection({
   loading: boolean;
   error: Error | null;
 }) {
+  const label = portfolioType === "SIP" ? "SIP" : "Stocks";
   const queryClient = useQueryClient();
   const { currencyRateAnchors } = useCurrency();
   const [editing, setEditing] = useState(false);
@@ -77,7 +80,8 @@ export function StocksSection({
   ).size;
   const mutation = useMutation({
     mutationFn: (value: number) =>
-      saveStocksCurrentValue(
+      saveExpensePortfolioCurrentValue(
+        portfolioType,
         convertCurrencySync(
           value,
           currency,
@@ -114,14 +118,14 @@ export function StocksSection({
   const money = (value: number) => formatCurrency(value, currency);
   return (
     <section
-      aria-labelledby="stocks-heading"
+      aria-labelledby={`${portfolioType.toLowerCase()}-heading`}
       className="mt-6 overflow-hidden rounded-xl border border-indigo-100 bg-white shadow-sm"
     >
       {loading ? (
-        <p className="p-6 text-gray-500">Loading stock purchases…</p>
+        <p className="p-6 text-gray-500">Loading {label} purchases…</p>
       ) : error ? (
         <div className="p-6 text-red-600" role="alert">
-          Could not load stock purchases.{" "}
+          Could not load {label} purchases.{" "}
           <button
             className="underline"
             onClick={() =>
@@ -149,7 +153,7 @@ export function StocksSection({
               {editing ? (
                 <form onSubmit={save} className="mt-2">
                   <label className="sr-only" htmlFor="stocks-current-value">
-                    Current Stocks portfolio value in {currency}
+                    Current {label} portfolio value in {currency}
                   </label>
                   <input
                     autoFocus
@@ -195,13 +199,13 @@ export function StocksSection({
                       setEditing(true);
                     }}
                     className="mt-2 inline-flex items-center gap-2 text-left text-2xl font-semibold tabular-nums text-indigo-700 hover:text-indigo-900"
-                    aria-label="Edit current Stocks portfolio value"
+                    aria-label={`Edit current ${label} portfolio value`}
                   >
                     {hasValuation ? money(currentValue) : "Set current value"}
                     <Pencil className="h-4 w-4" />
                   </button>
                   <p className="mt-1 text-xs text-gray-500">
-                    Total value of all stocks · editable inline
+                    Total {label} value · editable inline
                   </p>
                   {updatedAt && (
                     <p className="mt-1 text-xs text-gray-400">
@@ -235,7 +239,7 @@ export function StocksSection({
                 {purchaseMonthCount}
               </p>
               <p className="mt-1 text-xs text-gray-500">
-                Months with stock purchases · all time
+                Months with {label} purchases · all time
               </p>
             </div>
           </div>
@@ -245,12 +249,12 @@ export function StocksSection({
                 <p className="font-medium text-gray-900">
                   {hasFilters
                     ? "No purchases match your filters"
-                    : "Your stock journey starts with a purchase"}
+                    : `Your ${label} journey starts with a purchase`}
                 </p>
                 <p className="mt-2 text-sm text-gray-500">
                   {hasFilters
                     ? "Try a different search or date range."
-                    : "Add an expense with the Stocks category. Its amount becomes your purchase cost and appears here automatically."}
+                    : `Add an expense with the ${label} category. Its amount becomes your purchase cost and appears here automatically.`}
                 </p>
                 <Link
                   href="/expenses"
@@ -264,7 +268,7 @@ export function StocksSection({
                 <div
                   className="h-64 w-full"
                   role="img"
-                  aria-label="Monthly stock purchases with a line connecting the top of each bar. Hover over a month for its purchase cost."
+                  aria-label={`Monthly ${label} purchases with a line connecting the top of each bar. Hover over a month for its purchase cost.`}
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart

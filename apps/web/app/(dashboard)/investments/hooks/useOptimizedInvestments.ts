@@ -2,6 +2,8 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { materializeExpensePortfolio } from "../utils/materializeExpensePortfolio";
+import { getSIPPurchases } from "../actions/sip";
 import { getStockPurchases } from "../actions/stocks";
 import { signOut } from "next-auth/react";
 import { InvestmentInterface } from '../../../types/investments';
@@ -88,24 +90,35 @@ export function useOptimizedInvestments() {
         staleTime: 0,
     });
     const stockPurchases = useMemo(() => stockPurchasesQuery.data?.purchases ?? [], [stockPurchasesQuery.data]);
+    const sipPurchasesQuery = useQuery({
+        queryKey: ['investments', 'sip-purchases', currency],
+        queryFn: getSIPPurchases,
+        staleTime: 0,
+    });
+    const sipPurchases = useMemo(() => sipPurchasesQuery.data?.purchases ?? [], [sipPurchasesQuery.data]);
     const investmentsWithStocks = useMemo(() => {
-        const stocks = investmentsRaw.filter(i => i.type === 'STOCKS');
-        if (stocks.length) {
-            if (!stockPurchasesQuery.data) return investmentsRaw;
-            const cost = stockPurchases.reduce((sum, p) => sum + p.amount, 0);
-            return investmentsRaw.map(i => i.type === 'STOCKS'
-                ? { ...i, purchasePrice: i.quantity > 0 ? cost / stocks.length / i.quantity : 0 }
-                : i);
+        let result = [...investmentsRaw];
+        for (const portfolio of [
+            { type: 'STOCKS' as const, label: 'Stocks', purchases: stockPurchases, data: stockPurchasesQuery.data, id: -1 },
+            { type: 'SIP' as const, label: 'SIP', purchases: sipPurchases, data: sipPurchasesQuery.data, id: -2 },
+        ]) {
+            const positions = result.filter(i => i.type === portfolio.type);
+            const cost = portfolio.purchases.reduce((sum, p) => sum + p.amount, 0);
+            if (positions.length) {
+                if (portfolio.data) result = result.map(i => i.type === portfolio.type
+                    ? { ...i, purchasePrice: i.quantity > 0 ? cost / positions.length / i.quantity : 0 }
+                    : i);
+            } else if (portfolio.purchases.length) {
+                const date = new Date(portfolio.purchases[portfolio.purchases.length - 1]!.date);
+                result.push({
+                    id: portfolio.id, userId: 0, name: `${portfolio.label} portfolio`, type: portfolio.type,
+                    quantity: 1, purchasePrice: cost, currentPrice: 0, purchaseDate: date, createdAt: date,
+                    updatedAt: date, deductFromAccount: false,
+                });
+            }
         }
-        if (!stockPurchases.length) return investmentsRaw;
-        const date = new Date(stockPurchases[stockPurchases.length - 1]!.date);
-        return [...investmentsRaw, {
-            id: -1, userId: 0, name: 'Stocks portfolio', type: 'STOCKS' as const,
-            quantity: 1, purchasePrice: stockPurchases.reduce((sum, p) => sum + p.amount, 0),
-            currentPrice: 0, purchaseDate: date, createdAt: date, updatedAt: date,
-            deductFromAccount: false,
-        }];
-    }, [investmentsRaw, stockPurchases, stockPurchasesQuery.data]);
+        return result;
+    }, [investmentsRaw, stockPurchases, stockPurchasesQuery.data, sipPurchases, sipPurchasesQuery.data]);
 
     const investments = useMemo(
         () =>
@@ -369,8 +382,12 @@ export function useOptimizedInvestments() {
 
     // Update Investment
     const updateMutation = useMutation({
-        mutationFn: ({ id, data }: { id: number, data: Partial<Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account'>> }) =>
-            updateInvestment(id, data),
+        mutationFn: ({ id, data }: { id: number, data: Partial<Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account'>> }) => {
+            if (id > 0) return updateInvestment(id, data);
+            const preview = investments.find(investment => investment.id === id);
+            if (!preview) throw new Error("Portfolio not found. Refresh and try again.");
+            return createInvestment(materializeExpensePortfolio(preview, data));
+        },
         onMutate: async ({ id, data }) => {
             await queryClient.cancelQueries({ queryKey: ['investments'] });
             
@@ -384,10 +401,12 @@ export function useOptimizedInvestments() {
 
             return { previousInvestments };
         },
-        onSuccess: (data) => {
-            queryClient.setQueryData<InvestmentInterface[]>(['investments'], (old = []) =>
-                old.map(investment => investment.id === data.id ? data : investment)
-            );
+        onSuccess: (data, variables) => {
+            queryClient.setQueryData<InvestmentInterface[]>(['investments'], (old = []) => {
+                const updated = old.map(investment => investment.id === variables.id ? data : investment);
+                return updated.some(investment => investment.id === data.id) ? updated : [data, ...updated];
+            });
+            queryClient.invalidateQueries({ queryKey: ['investments'], exact: true });
             // Invalidate investment target progress since current amounts changed
             queryClient.invalidateQueries({ queryKey: ['investment-target-progress'] });
             // Invalidate withheld amounts since investment was updated
@@ -503,7 +522,7 @@ export function useOptimizedInvestments() {
     }, [createMutation]);
 
     const handleEditInvestment = useCallback(async (id: number, data: Partial<Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account' | 'investmentTarget'>>) => {
-        updateMutation.mutate({ id, data });
+        return updateMutation.mutateAsync({ id, data });
     }, [updateMutation]);
 
     const handleDeleteInvestment = useCallback(async (investment: InvestmentInterface) => {
@@ -566,6 +585,9 @@ export function useOptimizedInvestments() {
         // Data
         investments,
         stockPurchases,
+        sipPurchases,
+        sipLoading: sipPurchasesQuery.isLoading,
+        sipError: sipPurchasesQuery.error,
         stocksLoading: stockPurchasesQuery.isLoading,
         stocksError: stockPurchasesQuery.error,
         filteredInvestments,

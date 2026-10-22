@@ -151,7 +151,11 @@ export async function getUserInvestments(): Promise<{ data?: InvestmentInterface
             return { error: "Invalid investments data" };
         }
 
-        const stocksExpenseTotal = await sumStocksCategoryExpenseAmountsForUser(userId);
+        const [stocksExpenseTotal, sipExpenseTotal] = await Promise.all([
+            sumStocksCategoryExpenseAmountsForUser(userId),
+            sumStocksCategoryExpenseAmountsForUser(userId, "SIP"),
+        ]);
+        const sipPositionCount = investments.filter(inv => inv.type === "SIP").length;
         const stocksPositionCount = investments.filter((inv) => inv.type === "STOCKS").length;
 
         const fulfilledByTargetId = new Map<number, number>();
@@ -175,8 +179,8 @@ export async function getUserInvestments(): Promise<{ data?: InvestmentInterface
                         quantity: investment.quantity,
                         purchasePrice: investment.purchasePrice,
                     },
-                    stocksExpenseTotal,
-                    stocksPositionCount
+                    investment.type === "SIP" ? sipExpenseTotal : stocksExpenseTotal,
+                    investment.type === "SIP" ? sipPositionCount : stocksPositionCount
                 );
                 const currentPrice = parseFloat(investment.currentPrice.toString());
                 

@@ -527,6 +527,7 @@ enum ScheduledPaymentResolution {
 }
 
 enum InvestmentType {
+  SIP
   STOCKS
   CRYPTO
   MUTUAL_FUNDS

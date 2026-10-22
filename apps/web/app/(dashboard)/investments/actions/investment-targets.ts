@@ -49,6 +49,7 @@ const formatInvestmentType = (type: string): string => {
     switch (type) {
         case 'STOCKS': return 'Stocks';
         case 'CRYPTO': return 'Cryptocurrency';
+        case 'SIP': return 'SIP';
         case 'MUTUAL_FUNDS': return 'Mutual Funds';
         case 'BONDS': return 'Bonds';
         case 'REAL_ESTATE': return 'Real Estate';
