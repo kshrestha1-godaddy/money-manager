@@ -70,6 +70,11 @@ export function StocksSection({
   );
   const invested = purchases.reduce((sum, p) => sum + p.amount, 0);
   const gain = currentValue - invested;
+  const purchaseMonthCount = new Set(
+    purchases
+      .filter((p) => p.originalAmount > 0)
+      .map((p) => p.date.slice(0, 7)),
+  ).size;
   const mutation = useMutation({
     mutationFn: (value: number) =>
       saveStocksCurrentValue(
@@ -128,7 +133,7 @@ export function StocksSection({
         </div>
       ) : (
         <>
-          <div className="grid gap-6 p-6 md:grid-cols-3">
+          <div className="grid gap-6 p-6 sm:grid-cols-2 xl:grid-cols-4">
             <div>
               <p className="text-sm text-gray-500">Purchase cost · all time</p>
               <p className="mt-2 text-2xl font-semibold tabular-nums text-gray-900">
@@ -222,6 +227,15 @@ export function StocksSection({
                 {hasValuation && invested > 0
                   ? `${gain >= 0 ? "+" : ""}${((gain / invested) * 100).toFixed(2)}% return`
                   : "Set a current value to track returns"}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Months invested</p>
+              <p className="mt-2 text-2xl font-semibold tabular-nums text-gray-900">
+                {purchaseMonthCount}
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                Months with stock purchases · all time
               </p>
             </div>
           </div>
