@@ -821,3 +821,29 @@ export async function getIncomeExpenseAccountBalanceActivityLogs(
         throw new Error("Failed to fetch account activity");
     }
 }
+
+/** Delete only the signed-in user's oldest balance activity records. */
+export async function deleteOldestAccountBalanceActivityLogs(): Promise<number> {
+    const session = await getAuthenticatedSession();
+    const userId = getUserIdFromSession(session.user.id);
+
+    return prisma.$transaction(async (tx) => {
+        const where = {
+            userId,
+            OR: ACCOUNT_BALANCE_ACTIVITY_SOURCES.map((source) => ({
+                metadata: { path: ["source"], equals: source },
+            })),
+        };
+        const oldest = await tx.activityLog.findMany({
+            where,
+            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+            take: 25,
+            select: { id: true },
+        });
+        if (!oldest.length) return 0;
+        const result = await tx.activityLog.deleteMany({
+            where: { ...where, id: { in: oldest.map((row) => row.id) } },
+        });
+        return result.count;
+    });
+}
