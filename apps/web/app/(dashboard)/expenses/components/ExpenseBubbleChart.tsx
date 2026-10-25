@@ -13,6 +13,7 @@ interface ExpenseBubbleChartProps {
 
 const EXPENSE_CONFIG = {
   highValueThreshold: 20000,
+  hideHighValueByDefault: true,
   defaultColor: '#f56565',
   thresholdColor: '#dc2626',
   title: 'Expense Categories Analysis'

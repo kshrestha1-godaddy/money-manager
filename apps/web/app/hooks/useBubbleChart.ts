@@ -28,6 +28,7 @@ interface AxisRange {
 
 interface BubbleChartConfig {
   highValueThreshold: number;
+  hideHighValueByDefault?: boolean;
   defaultColor: string;
   thresholdColor: string;
   title: string;
@@ -45,7 +46,7 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
   const [showAxisControls, setShowAxisControls] = useState(false);
   const [customXRange, setCustomXRange] = useState<AxisRange | null>(null);
   const [customYRange, setCustomYRange] = useState<AxisRange | null>(null);
-  const [excludedCategories, setExcludedCategories] = useState<Set<string>>(new Set());
+  const [categoryExclusionOverride, setExcludedCategories] = useState<Set<string> | null>(null);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   const [minAverage, setMinAverage] = useState<number>(0);
@@ -129,6 +130,15 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
     
     return Array.from(categoryMap.values());
   }, [filteredTransactions, currency, config.defaultColor]);
+
+  const excludedCategories = useMemo(
+    () => categoryExclusionOverride ?? new Set(
+      config.hideHighValueByDefault
+        ? allCategoryData.filter(category => category.averageAmount > config.highValueThreshold).map(category => category.name)
+        : []
+    ),
+    [categoryExclusionOverride, allCategoryData, config.hideHighValueByDefault, config.highValueThreshold]
+  );
 
   // Filter visible categories
   const visibleCategoryData = useMemo(() => 
@@ -315,7 +325,7 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
   // Category management functions
   const toggleCategoryExclusion = useCallback((categoryName: string) => {
     setExcludedCategories(prev => {
-      const newSet = new Set(prev);
+      const newSet = new Set(prev ?? excludedCategories);
       if (newSet.has(categoryName)) {
         newSet.delete(categoryName);
       } else {
@@ -324,7 +334,7 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
       return newSet;
     });
     if (customXRange) setCustomXRange(null);
-  }, [customXRange]);
+  }, [customXRange, excludedCategories]);
 
   const includeAllCategories = useCallback(() => {
     setExcludedCategories(new Set());

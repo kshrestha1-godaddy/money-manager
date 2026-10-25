@@ -297,6 +297,10 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
   }, [expenses, userCurrency]);
 
   const accountYTicks = useMemo(() => accountByFrequency.map((d) => d.name), [accountByFrequency]);
+  const accountYAxisWidth = useMemo(
+    () => Math.max(72, ...accountYTicks.map((name) => name.length * 6 + 16)),
+    [accountYTicks]
+  );
 
   const accountChartMaxCount = useMemo(
     () => accountByFrequency.reduce((m, r) => Math.max(m, r.count), 0),
@@ -559,7 +563,7 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
               <BarChart
                 layout="vertical"
                 data={accountByFrequency}
-                margin={{ top: 12, right: 28, left: 28, bottom: 20 }}
+                margin={{ top: 12, right: 28, left: 8, bottom: 20 }}
                 barCategoryGap="14%"
               >
                 <CartesianGrid
@@ -583,7 +587,7 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
                   type="category"
                   dataKey="name"
                   ticks={accountYTicks}
-                  width={292}
+                  width={Math.min(220, accountYAxisWidth)}
                   interval={0}
                   tick={(tickProps) => (
                     <AccountYAxisTick x={tickProps.x} y={tickProps.y} payload={tickProps.payload} />
