@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@repo/db/client";
+import { getInvestmentTypeLabel } from "../../investments/utils/investmentTypeUi";
 import {
     ActivityAction,
     ActivityCategory,
@@ -496,20 +497,26 @@ export async function bulkCreateAccounts(accounts: Omit<AccountInterface, 'id' |
 }
 
 /** Purchase amounts of withheld positions, grouped by their linked account. */
-export async function getWithheldInvestmentDetailsByAccount(): Promise<Record<string, { id: number; name: string; amount: number }[]>> {
+export async function getWithheldInvestmentDetailsByAccount(): Promise<Record<string, { id: number; name: string; targetName: string | null; amount: number }[]>> {
     const session = await getAuthenticatedSession();
     const userId = getUserIdFromSession(session.user.id);
     const investments = await prisma.investment.findMany({
         where: { userId, deductFromAccount: true, accountId: { not: null } },
-        select: { id: true, name: true, accountId: true, quantity: true, purchasePrice: true },
+        select: {
+            id: true, name: true, accountId: true, quantity: true, purchasePrice: true,
+            investmentTarget: { select: { nickname: true, investmentType: true } },
+        },
         orderBy: [{ name: "asc" }, { id: "asc" }],
     });
-    const details: Record<string, { id: number; name: string; amount: number }[]> = {};
+    const details: Record<string, { id: number; name: string; targetName: string | null; amount: number }[]> = {};
     for (const investment of investments) {
         if (investment.accountId === null) continue;
         (details[investment.accountId] ??= []).push({
             id: investment.id,
             name: investment.name,
+            targetName: investment.investmentTarget
+                ? investment.investmentTarget.nickname?.trim() || getInvestmentTypeLabel(investment.investmentTarget.investmentType)
+                : null,
             amount: Number(investment.quantity) * Number(investment.purchasePrice),
         });
     }

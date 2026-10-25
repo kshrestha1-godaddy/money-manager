@@ -98,7 +98,7 @@ const maskAccountNumber = (accountNumber: string) => {
     return maskedPart + visiblePart;
 };
 
-type WithheldDetails = Record<string, { id: number; name: string; amount: number }[]>;
+type WithheldDetails = Record<string, { id: number; name: string; targetName: string | null; amount: number }[]>;
 
 interface AccountTableProps {
     accounts: AccountInterface[];
@@ -1021,7 +1021,10 @@ function WithheldTooltip({ items, userCurrency, displayCurrency }: {
                     <ul className="max-h-[min(240px,40vh)] overflow-y-auto overscroll-contain divide-y divide-gray-100 px-4">
                         {items.map((item) => (
                             <li key={item.id} className="flex items-start justify-between gap-4 py-3">
-                                <span className="min-w-0 break-words">{item.name}</span>
+                                <div className="min-w-0 break-words">
+                                    <div>{item.name}</div>
+                                    <div className="mt-1 text-xs text-gray-500">Target: {item.targetName ?? "No target"}</div>
+                                </div>
                                 <span className="shrink-0 font-medium tabular-nums text-gray-900">{displayAmount(item.amount)}</span>
                             </li>
                         ))}
