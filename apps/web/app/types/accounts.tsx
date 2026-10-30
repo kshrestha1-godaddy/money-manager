@@ -21,6 +21,7 @@ export interface AccountInterface {
     // Notes and Nicknames
     notes?: string;
     nickname?: string;
+    showInBalanceChart?: boolean;
     userId: number;
     createdAt: Date;
     updatedAt: Date;

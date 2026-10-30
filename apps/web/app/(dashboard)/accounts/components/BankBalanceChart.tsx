@@ -126,7 +126,8 @@ export function BankBalanceChart({ accounts, currency = "USD", withheldAmounts =
                 <div className="flex items-center justify-center h-64 text-gray-500">
                     <div className="text-center">
                         <div className="text-4xl mb-2">🏦</div>
-                        <p>No account data to display</p>
+                        <p>No accounts selected for the chart.</p>
+                        <p className="mt-2 text-sm">Use the eye buttons in the accounts table to show accounts.</p>
                     </div>
                 </div>
             </div>
@@ -271,4 +272,4 @@ export function BankBalanceChart({ accounts, currency = "USD", withheldAmounts =
             </div>
         </div>
     );
-} 
+}

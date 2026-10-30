@@ -86,6 +86,7 @@ model Account {
   // Notes and Nicknames
   notes String?
   nickname String?
+  showInBalanceChart Boolean @default(true)
   // Liquidity and Risk Assessment
   isLiquid Boolean @default(true)
   liquidityTimeframe LiquidityTimeframe @default(IMMEDIATE)

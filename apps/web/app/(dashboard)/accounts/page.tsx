@@ -146,6 +146,13 @@ export default function Accounts() {
         queryFn: getWithheldInvestmentDetailsByAccount,
     });
 
+    const chartAccounts = accounts.filter(account => account.showInBalanceChart !== false);
+    const chartWithheldAmounts: Record<string, number> = {};
+    for (const account of chartAccounts) {
+        const amount = (withheldDetails[account.id] ?? []).reduce((sum, item) => sum + item.amount, 0);
+        chartWithheldAmounts[account.bankName] = (chartWithheldAmounts[account.bankName] ?? 0) + amount;
+    }
+
     // Calculate total withheld amount
     const totalWithheldAmount = Object.values(withheldAmounts).reduce((sum, amount) => sum + amount, 0);
     
@@ -284,9 +291,9 @@ export default function Accounts() {
             {!loading && accounts.length > 0 && (
                 <div className={UI_STYLES.chart.container}>
                     <BankBalanceChart 
-                        accounts={accounts} 
+                        accounts={chartAccounts}
                         currency={userCurrency} 
-                        withheldAmounts={withheldAmounts}
+                        withheldAmounts={chartWithheldAmounts}
                     />
                 </div>
             )}

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback, useId } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Download } from "lucide-react";
+import { ChevronDown, Download, Eye } from "lucide-react";
 import { AccountInterface } from "../../../types/accounts";
 import { formatDate } from "../../../utils/date";
 import { formatCurrency } from "../../../utils/currency";
@@ -13,6 +13,7 @@ import { getDefaultColumnWidths, getMinColumnWidth, type AccountColumnWidths } f
 import { getActionButtonClasses } from "../../../config/colorConfig";
 import { groupAccounts, type AccountGrouping } from "../utils/accountGrouping";
 import { cn } from "@/lib/utils";
+import { AccountChartVisibilityToggle } from "./AccountChartVisibilityToggle";
 
 function computeAccountFreeBalance(
     account: AccountInterface,
@@ -505,6 +506,10 @@ export function AccountTable({
                                     />
                                 </th>
                             )}
+                            <th scope="col" className="w-9 px-1 py-2 text-center text-gray-500" title="Balance chart visibility">
+                                <Eye className="mx-auto h-4 w-4" aria-hidden="true" />
+                                <span className="sr-only">Chart visibility</span>
+                            </th>
                             <th
                                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.accountDetails}px` }}
@@ -617,7 +622,7 @@ export function AccountTable({
                     <tbody key={group.key} className="bg-white divide-y divide-gray-200">
                         {grouping !== "none" && (
                             <tr className="bg-gray-50/80 [&>th]:border-y [&>td]:border-y [&>th]:border-gray-300 [&>td]:border-gray-300">
-                                <th scope="rowgroup" colSpan={showBulkActions ? 5 : 4} className="px-6 py-3 text-left text-sm font-medium text-gray-700">
+                                <th scope="rowgroup" colSpan={showBulkActions ? 6 : 5} className="px-6 py-3 text-left text-sm font-medium text-gray-700">
                                     {group.label} <span className="ml-2 font-normal text-gray-400">({group.accounts.length})</span>
                                 </th>
                                 <td className="px-3 py-3 text-center text-xs font-medium text-gray-500 tabular-nums">{displayAmount(balance)}</td>
@@ -658,6 +663,7 @@ export function AccountTable({
                                     style={{ width: `${columnWidths.checkbox}px` }}
                                 />
                             )}
+                            <td className="w-9 px-1 py-2" />
                             <td
                                 colSpan={4}
                                 className="px-6 py-3 text-right text-sm font-semibold text-gray-900"
@@ -776,6 +782,9 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
                     />
                 </td>
             )}
+            <td className="w-9 px-1 py-2 text-center">
+                <AccountChartVisibilityToggle account={account} />
+            </td>
             <td
                 className="px-6 py-4 whitespace-nowrap truncate"
                 style={{ width: `${columnWidths.accountDetails}px` }}
