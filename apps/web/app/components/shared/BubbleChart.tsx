@@ -1,4 +1,5 @@
 import { formatCurrency } from '../../utils/currency';
+import { useEffect, useRef, type HTMLAttributes } from 'react';
 
 interface CategoryData {
   name: string;
@@ -23,6 +24,10 @@ interface BubbleChartProps {
   title: string;
   highValueThreshold: number;
   thresholdColor: string;
+  panEnabled?: boolean;
+  isPanning?: boolean;
+  panHandlers?: Pick<HTMLAttributes<HTMLDivElement>, 'onPointerDown' | 'onPointerMove' | 'onPointerUp' | 'onPointerCancel' | 'onLostPointerCapture' | 'onDoubleClick' | 'onKeyDown'>;
+  onWheelZoom?: (event: WheelEvent) => void;
 }
 
 export function BubbleChart({
@@ -39,8 +44,19 @@ export function BubbleChart({
   currency,
   title,
   highValueThreshold,
-  thresholdColor
+  thresholdColor,
+  panEnabled = false,
+  isPanning = false,
+  panHandlers,
+  onWheelZoom
 }: BubbleChartProps) {
+  const interactionRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = interactionRef.current;
+    if (!element || !onWheelZoom) return;
+    element.addEventListener('wheel', onWheelZoom, { passive: false });
+    return () => element.removeEventListener('wheel', onWheelZoom);
+  }, [onWheelZoom, allCategoryData.length, visibleCategoryData.length]);
   // No data state
   if (allCategoryData.length === 0) {
     return (
@@ -97,7 +113,15 @@ export function BubbleChart({
   }
 
   return (
-    <div className="relative">
+    <div
+      {...panHandlers}
+      ref={interactionRef}
+      tabIndex={onWheelZoom ? 0 : undefined}
+      role={onWheelZoom ? 'region' : undefined}
+      aria-label={onWheelZoom ? `${title}. Use plus and minus to zoom, arrow keys to pan, and zero to reset.` : undefined}
+      className={`relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${panEnabled ? 'select-none [&_*]:!cursor-[inherit]' : ''}`}
+      style={{ cursor: panEnabled ? (isPanning ? 'grabbing' : 'grab') : undefined, touchAction: panEnabled ? 'none' : 'auto' }}
+    >
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-50 rounded z-10">
           <div className="flex flex-col items-center">

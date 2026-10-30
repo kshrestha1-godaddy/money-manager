@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
+import { useEffect, useRef, useMemo, useState, useCallback, type PointerEvent, type MouseEvent, type KeyboardEvent } from 'react';
 import { convertForDisplaySync } from '../utils/currencyDisplay';
 import { formatCurrency } from '../utils/currency';
 
@@ -46,6 +46,18 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
   const [showAxisControls, setShowAxisControls] = useState(false);
   const [customXRange, setCustomXRange] = useState<AxisRange | null>(null);
   const [customYRange, setCustomYRange] = useState<AxisRange | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const dragRef = useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+    offsetX: number;
+    offsetY: number;
+    xPerPixel: number;
+    yPerPixel: number;
+  } | null>(null);
   const [categoryExclusionOverride, setExcludedCategories] = useState<Set<string> | null>(null);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
@@ -157,7 +169,7 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
   );
 
   // Calculate axis ranges
-  const axisRanges = useMemo(() => {
+  const baseAxisRanges = useMemo(() => {
     if (visibleCategoryData.length === 0) {
       return { xMin: 0, xMax: 100, yMin: 0, yMax: 100 };
     }
@@ -169,7 +181,7 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
     const minAvg = Math.min(...averageAmounts);
     const maxCount = Math.max(...transactionCounts);
 
-    const xPadding = Math.max((maxAvg - minAvg) * 0.15, maxAvg * 0.1);
+    const xPadding = Math.max((maxAvg - minAvg) * 0.15, Math.abs(maxAvg) * 0.1, 1);
     const shouldUseFixedX = visibleCategoryData.length >= allCategoryData.length && !customXRange;
 
     return {
@@ -179,6 +191,135 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
       yMax: customYRange?.max ?? Math.max(110, maxCount + 100)
     };
   }, [visibleCategoryData, allCategoryData, customXRange, customYRange]);
+
+  const axisRanges = useMemo(() => {
+    const { xMin, xMax, yMin, yMax } = baseAxisRanges;
+    const xHalfRange = (xMax - xMin) / (2 * zoomLevel);
+    const yHalfRange = (yMax - yMin) / (2 * zoomLevel);
+    const xLimit = Math.max(0, (xMax - xMin) / 2 - xHalfRange);
+    const yLimit = Math.max(0, (yMax - yMin) / 2 - yHalfRange);
+    const xCenter = (xMin + xMax) / 2 + Math.max(-xLimit, Math.min(xLimit, panOffset.x));
+    const yCenter = (yMin + yMax) / 2 + Math.max(-yLimit, Math.min(yLimit, panOffset.y));
+
+    return {
+      xMin: xCenter - xHalfRange,
+      xMax: xCenter + xHalfRange,
+      yMin: yCenter - yHalfRange,
+      yMax: yCenter + yHalfRange
+    };
+  }, [baseAxisRanges, zoomLevel, panOffset]);
+
+  // Start with the full view whenever the data or manual scale changes.
+  useEffect(() => {
+    setZoomLevel(1);
+    setPanOffset({ x: 0, y: 0 });
+    dragRef.current = null;
+    setIsPanning(false);
+  }, [baseAxisRanges]);
+
+  const resetZoom = useCallback(() => {
+    setZoomLevel(1);
+    setPanOffset({ x: 0, y: 0 });
+  }, []);
+
+  const changeZoom = useCallback((value: number, clientX?: number, clientY?: number) => {
+    if (!Number.isFinite(value) || visibleCategoryData.length === 0) return;
+    const next = Math.max(0.5, Math.min(8, value));
+    const bounds = chartRef.current?.getBoundingClientRect();
+    const xFraction = bounds && clientX !== undefined
+      ? Math.max(0, Math.min(1, (clientX - bounds.left - (dimensions.width < 640 ? 40 : 60)) / (bounds.width * (dimensions.width < 640 ? 0.92 : 0.95)))) : 0.5;
+    const yFraction = bounds && clientY !== undefined
+      ? Math.max(0, Math.min(1, 1 - (clientY - bounds.top - 10) / (dimensions.height * 0.9))) : 0.5;
+    const xSpan = axisRanges.xMax - axisRanges.xMin;
+    const ySpan = axisRanges.yMax - axisRanges.yMin;
+    setPanOffset({
+      x: axisRanges.xMin + xFraction * xSpan + (0.5 - xFraction) * (baseAxisRanges.xMax - baseAxisRanges.xMin) / next - (baseAxisRanges.xMin + baseAxisRanges.xMax) / 2,
+      y: axisRanges.yMin + yFraction * ySpan + (0.5 - yFraction) * (baseAxisRanges.yMax - baseAxisRanges.yMin) / next - (baseAxisRanges.yMin + baseAxisRanges.yMax) / 2
+    });
+    setZoomLevel(next);
+  }, [visibleCategoryData.length, dimensions, axisRanges, baseAxisRanges]);
+
+  const zoomIn = useCallback(() => changeZoom(zoomLevel * 1.5), [changeZoom, zoomLevel]);
+  const zoomOut = useCallback(() => changeZoom(zoomLevel / 1.5), [changeZoom, zoomLevel]);
+
+  const handleWheelZoom = useCallback((event: WheelEvent) => {
+    // Require a modifier so scrolling the page over the chart still works.
+    if (!(event.ctrlKey || event.metaKey) || !visibleCategoryData.length) return;
+    event.preventDefault();
+    const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? dimensions.height : 1);
+    changeZoom(zoomLevel * Math.exp(-Math.max(-100, Math.min(100, delta)) * 0.005), event.clientX, event.clientY);
+  }, [changeZoom, zoomLevel, visibleCategoryData.length, dimensions.height]);
+
+  const handleDoubleClickZoom = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    changeZoom(event.shiftKey ? zoomLevel / 1.5 : zoomLevel * 1.5, event.clientX, event.clientY);
+  }, [changeZoom, zoomLevel]);
+
+  const handleChartKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget || !visibleCategoryData.length) return;
+    if (event.key === '+' || event.key === '=') changeZoom(zoomLevel * 1.5);
+    else if (event.key === '-') changeZoom(zoomLevel / 1.5);
+    else if (event.key === '0' || event.key === 'Escape') resetZoom();
+    else if (zoomLevel > 1 && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+      const x = (axisRanges.xMin + axisRanges.xMax - baseAxisRanges.xMin - baseAxisRanges.xMax) / 2;
+      const y = (axisRanges.yMin + axisRanges.yMax - baseAxisRanges.yMin - baseAxisRanges.yMax) / 2;
+      setPanOffset({
+        x: x + (event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0) * (axisRanges.xMax - axisRanges.xMin) * 0.1,
+        y: y + (event.key === 'ArrowUp' ? 1 : event.key === 'ArrowDown' ? -1 : 0) * (axisRanges.yMax - axisRanges.yMin) * 0.1
+      });
+    } else return;
+    event.preventDefault();
+  }, [visibleCategoryData.length, changeZoom, zoomLevel, resetZoom, axisRanges, baseAxisRanges]);
+
+  const fitToData = useCallback(() => {
+    if (!visibleCategoryData.length) return;
+    const xs = visibleCategoryData.map(category => category.averageAmount);
+    const ys = visibleCategoryData.map(category => category.transactionCount);
+    const xMin = Math.min(...xs), xMax = Math.max(...xs);
+    const yMin = Math.min(...ys), yMax = Math.max(...ys);
+    const xPadding = Math.max((xMax - xMin) * 0.2, Math.abs(xMax) * 0.1, 1);
+    const yPadding = Math.max((yMax - yMin) * 0.2, yMax * 0.1, 1);
+    setCustomXRange({ min: xMin - xPadding, max: xMax + xPadding });
+    setCustomYRange({ min: yMin - yPadding, max: yMax + yPadding });
+  }, [visibleCategoryData]);
+
+  const handlePanStart = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    if (zoomLevel <= 1 || event.button !== 0 || !event.isPrimary || !chartRef.current) return;
+    const bounds = chartRef.current.getBoundingClientRect();
+    const plotWidth = bounds.width * (dimensions.width < 640 ? 0.92 : 0.95);
+    const plotHeight = dimensions.height * 0.9;
+    if (plotWidth <= 0 || plotHeight <= 0) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      offsetX: (axisRanges.xMin + axisRanges.xMax - baseAxisRanges.xMin - baseAxisRanges.xMax) / 2,
+      offsetY: (axisRanges.yMin + axisRanges.yMax - baseAxisRanges.yMin - baseAxisRanges.yMax) / 2,
+      xPerPixel: (axisRanges.xMax - axisRanges.xMin) / plotWidth,
+      yPerPixel: (axisRanges.yMax - axisRanges.yMin) / plotHeight
+    };
+    setIsPanning(true);
+  }, [zoomLevel, dimensions, axisRanges, baseAxisRanges]);
+
+  const handlePanMove = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    setPanOffset({
+      x: drag.offsetX - (event.clientX - drag.x) * drag.xPerPixel,
+      y: drag.offsetY + (event.clientY - drag.y) * drag.yPerPixel
+    });
+  }, []);
+
+  const handlePanEnd = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    if (dragRef.current?.pointerId !== event.pointerId) return;
+    dragRef.current = null;
+    setIsPanning(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }, []);
 
   // Chart drawing function
   const drawChart = useCallback(() => {
@@ -374,6 +515,8 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
   const resetToDefaults = useCallback(() => {
     setCustomXRange(null);
     setCustomYRange(null);
+    setZoomLevel(1);
+    setPanOffset({ x: 0, y: 0 });
   }, []);
 
   // Average amount filter handlers
@@ -404,6 +547,19 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
 
   return {
     chartRef,
+    zoomLevel,
+    zoomIn,
+    zoomOut,
+    resetZoom,
+    changeZoom,
+    handleWheelZoom,
+    handleDoubleClickZoom,
+    handleChartKeyDown,
+    fitToData,
+    isPanning,
+    handlePanStart,
+    handlePanMove,
+    handlePanEnd,
     isLoading,
     dimensions,
     showAxisControls,

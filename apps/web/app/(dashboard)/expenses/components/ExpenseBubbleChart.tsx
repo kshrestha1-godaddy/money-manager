@@ -4,6 +4,7 @@ import { Expense } from '../../../types/financial';
 import { useBubbleChart } from '../../../hooks/useBubbleChart';
 import { BubbleChartControls } from '../../../components/shared/BubbleChartControls';
 import { BubbleChart } from '../../../components/shared/BubbleChart';
+import { BubbleChartZoomControls } from '../../../components/shared/BubbleChartZoomControls';
 
 interface ExpenseBubbleChartProps {
   expenses: Expense[];
@@ -97,7 +98,21 @@ export function ExpenseBubbleChart({ expenses, currency }: ExpenseBubbleChartPro
         resetToDefaults={resetToDefaults}
       />
 
+      <BubbleChartZoomControls chartData={chartData} chartLabel="expense" />
+
       <BubbleChart
+        onWheelZoom={chartData.handleWheelZoom}
+        panEnabled={chartData.zoomLevel > 1 && visibleCategoryData.length > 0}
+        isPanning={chartData.isPanning}
+        panHandlers={{
+          onPointerDown: chartData.handlePanStart,
+          onPointerMove: chartData.handlePanMove,
+          onPointerUp: chartData.handlePanEnd,
+          onPointerCancel: chartData.handlePanEnd,
+          onLostPointerCapture: chartData.handlePanEnd,
+          onDoubleClick: chartData.handleDoubleClickZoom,
+          onKeyDown: chartData.handleChartKeyDown
+        }}
         chartRef={chartRef}
         isLoading={isLoading}
         dimensions={dimensions}
