@@ -1,3 +1,4 @@
+import { financialItemsKey, financialItemsQuery } from "./financial-items-query";
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Category, FinancialItem, FinancialDataActions } from "../types/financial";
@@ -28,7 +29,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   
   // Query keys for caching - memoize to prevent unnecessary re-renders
   const QUERY_KEYS = useMemo(() => ({
-    items: [`${categoryType.toLowerCase()}s`] as const,
+    items: financialItemsKey(categoryType),
     categories: ['categories', categoryType] as const,
     accounts: ['accounts'] as const,
     thresholds: ['user-thresholds'] as const,
@@ -57,12 +58,9 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   const [itemToDelete, setItemToDelete] = useState<T | null>(null);
 
   // Cached data queries
-  const { data: items = [], isLoading: itemsLoading } = useQuery({
-    queryKey: QUERY_KEYS.items,
-    queryFn: actions.getItems,
-    staleTime: 3 * 60 * 1000, // 3 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
-  });
+  const { data: items = [], isLoading: itemsLoading } = useQuery(
+    financialItemsQuery(categoryType, actions.getItems)
+  );
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: QUERY_KEYS.categories,

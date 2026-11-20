@@ -7,6 +7,7 @@ import { useOptimizedDebts } from './useOptimizedDebts';
 import { useOptimizedInvestments } from '../(dashboard)/investments/hooks/useOptimizedInvestments';
 import { getIncomes } from '../(dashboard)/incomes/actions/incomes';
 import { getExpenses } from '../(dashboard)/expenses/actions/expenses';
+import { financialItemsKey, financialItemsQuery } from './financial-items-query';
 import { calculateRemainingWithInterest } from '../utils/interestCalculation';
 import { convertForDisplaySync } from '../utils/currencyDisplay';
 import { useCurrency } from '../providers/CurrencyProvider';
@@ -79,18 +80,13 @@ export function useOptimizedWorth() {
     const {
         accounts,
         loading: accountsLoading,
-        error: accountsError,
-        freeBalance: totalAccountBalance // Use freeBalance to avoid double-counting withheld amounts
+        error: accountsError
     } = useOptimizedAccounts();
 
     const {
         investments,
         loading: investmentsLoading,
-        error: investmentsError,
-        totalInvested,
-        totalCurrentValue: totalInvestmentValue,
-        totalGainLoss: totalInvestmentGain,
-        totalGainLossPercentage: totalInvestmentGainPercentage
+        error: investmentsError
     } = useOptimizedInvestments();
 
     const {
@@ -100,31 +96,13 @@ export function useOptimizedWorth() {
         financialSummary: debtSummary
     } = useOptimizedDebts();
 
-    // Income and expense data
-    const { 
-        data: incomes = [], 
-        isLoading: incomesLoading,
-        error: incomesError 
-    } = useQuery({
-        queryKey: ['incomes'],
-        queryFn: getIncomes,
-        staleTime: 5 * 60 * 1000, // 5 minutes
-        gcTime: 15 * 60 * 1000, // 15 minutes
-    });
-
-    const { 
-        data: expenses = [], 
-        isLoading: expensesLoading,
-        error: expensesError 
-    } = useQuery({
-        queryKey: ['expenses'],
-        queryFn: getExpenses,
-        staleTime: 5 * 60 * 1000, // 5 minutes
-        gcTime: 15 * 60 * 1000, // 15 minutes
-    });
+    const { data: incomes = [], isLoading: incomesLoading, error: incomesError } =
+        useQuery(financialItemsQuery('INCOME', getIncomes));
+    const { data: expenses = [], isLoading: expensesLoading, error: expensesError } =
+        useQuery(financialItemsQuery('EXPENSE', getExpenses));
 
     // Fetch withheld amounts by bank
-    const { data: withheldAmounts = {} } = useQuery({
+    const { data: withheldAmounts = {}, isLoading: withheldLoading, error: withheldError } = useQuery({
         queryKey: ['withheld-amounts'],
         queryFn: getWithheldAmountsByBank,
         staleTime: 5 * 60 * 1000, // 5 minutes
@@ -132,9 +110,13 @@ export function useOptimizedWorth() {
     });
 
     // Fetch net worth inclusions
-    const { data: inclusionsResponse, isLoading: inclusionsLoading } = useQuery({
+    const { data: inclusionsResponse, isLoading: inclusionsLoading, error: inclusionsError } = useQuery({
         queryKey: ['net-worth-inclusions'],
-        queryFn: getNetWorthInclusions,
+        queryFn: async () => {
+            const result = await getNetWorthInclusions();
+            if (!result.success) throw new Error(result.error);
+            return result;
+        },
         staleTime: 5 * 60 * 1000, // 5 minutes
         gcTime: 15 * 60 * 1000, // 15 minutes
     });
@@ -174,19 +156,10 @@ export function useOptimizedWorth() {
 
     // ==================== LOADING & ERROR STATES ====================
 
-    const loading = accountsLoading || investmentsLoading || debtsLoading || incomesLoading || expensesLoading || inclusionsLoading;
-    const error = accountsError || investmentsError || debtsError || incomesError || expensesError;
+    const loading = accountsLoading || investmentsLoading || debtsLoading || incomesLoading || expensesLoading || inclusionsLoading || withheldLoading;
+    const error = accountsError || investmentsError || debtsError || incomesError || expensesError || inclusionsError || withheldError;
 
     // ==================== COMPUTED VALUES ====================
-
-    // Filter accounts based on net worth inclusions
-    const includedAccounts = useMemo(() => {
-        return accounts.filter(account => {
-            // If no explicit inclusion exists, default to included (true)
-            const isIncluded = inclusionMaps.accounts.get(account.id);
-            return isIncluded === undefined ? true : isIncluded;
-        });
-    }, [accounts, inclusionMaps]);
 
     // Filter investments based on net worth inclusions
     const includedInvestments = useMemo(() => {
@@ -506,10 +479,8 @@ export function useOptimizedWorth() {
     const exportData = useMemo(() => {
         return [
             ['Metric', 'Value', 'Percentage'],
-            ['Bank Balance', netWorthStats.totalAccountBalance.toString(), `${((netWorthStats.totalAccountBalance / netWorthStats.totalAssets) * 100).toFixed(1)}%`],
-            ['Investments', netWorthStats.totalInvestmentValue.toString(), `${((netWorthStats.totalInvestmentValue / netWorthStats.totalAssets) * 100).toFixed(1)}%`],
-            ['Money Lent', netWorthStats.totalMoneyLent.toString(), `${((netWorthStats.totalMoneyLent / netWorthStats.totalAssets) * 100).toFixed(1)}%`],
-            ['Total Assets', netWorthStats.totalAssets.toString(), '100.0%'],
+            ...chartData.map(({ name, value, percentage }) => [name, value.toString(), `${percentage}%`]),
+            ['Total Assets', netWorthStats.totalAssets.toString(), netWorthStats.totalAssets > 0 ? '100.0%' : ''],
             ['Net Worth', netWorthStats.netWorth.toString(), ''],
             ['Savings Rate', `${netWorthStats.savingsRate.toFixed(1)}%`, ''],
             ['Investment Allocation', `${netWorthStats.investmentAllocation.toFixed(1)}%`, ''],
@@ -517,39 +488,21 @@ export function useOptimizedWorth() {
             ['Monthly Growth Rate', `${netWorthStats.monthlyGrowthRate.toFixed(1)}%`, ''],
             ['Projected Yearly Growth', `${netWorthStats.projectedYearlyGrowth.toFixed(1)}%`, ''],
         ];
-    }, [netWorthStats]);
+    }, [chartData, netWorthStats]);
 
-    // ==================== HANDLERS ====================
+    const refreshInclusions = useCallback(() =>
+        queryClient.invalidateQueries({ queryKey: ['net-worth-inclusions'] }),
+    [queryClient]);
 
-    const handleExportCSV = useCallback(() => {
-        if (exportData.length <= 1) {
-            alert("No net worth data to export");
-            return;
-        }
-        
-        const csvContent = exportData
-            .map(row => row.map(cell => `"${cell}"`).join(','))
-            .join('\n');
-        
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', `net_worth_${new Date().toISOString().split('T')[0]}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }, [exportData]);
-
-    const refreshData = useCallback(() => {
-        queryClient.invalidateQueries({ queryKey: ['accounts'] });
-        queryClient.invalidateQueries({ queryKey: ['investments'] });
-        queryClient.invalidateQueries({ queryKey: ['debts'] });
-        queryClient.invalidateQueries({ queryKey: ['incomes'] });
-        queryClient.invalidateQueries({ queryKey: ['expenses'] });
-        queryClient.invalidateQueries({ queryKey: ['net-worth-inclusions'] });
-    }, [queryClient]);
+    const refreshData = useCallback(() => Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['accounts'] }),
+        queryClient.invalidateQueries({ queryKey: ['investments'] }),
+        queryClient.invalidateQueries({ queryKey: ['debts'] }),
+        queryClient.invalidateQueries({ queryKey: financialItemsKey('INCOME') }),
+        queryClient.invalidateQueries({ queryKey: financialItemsKey('EXPENSE') }),
+        queryClient.invalidateQueries({ queryKey: ['withheld-amounts'] }),
+        refreshInclusions(),
+    ]), [queryClient, refreshInclusions]);
 
     // ==================== RETURN ====================
 
@@ -577,8 +530,8 @@ export function useOptimizedWorth() {
         error,
         
         // Handlers
-        handleExportCSV,
         refreshData,
+        refreshInclusions,
         
         // Export data
         exportData,

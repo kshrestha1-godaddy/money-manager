@@ -6,7 +6,6 @@ import {
   Bar,
   CartesianGrid,
   Cell,
-  LabelList,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -58,6 +57,7 @@ export default function NetWorthPage() {
   >({ accounts: false, investments: false, debts: false });
   const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set());
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [notification, setNotification] = useState<NotificationData | null>(
     null,
@@ -75,153 +75,67 @@ export default function NetWorthPage() {
     error,
     exportData,
     refreshData,
+    refreshInclusions,
   } = useOptimizedWorth();
-  // Helper to create unique key for tracking updates
   const getItemKey = (entityType: string, entityId: number) =>
     `${entityType}-${entityId}`;
 
-  // Handler for toggling net worth inclusion
-  const handleToggleInclusion = useCallback(
-    async (
-      entityType: "ACCOUNT" | "INVESTMENT" | "DEBT",
-      entityId: number,
-      currentlyIncluded: boolean,
-    ) => {
-      const itemKey = getItemKey(entityType, entityId);
-
-      // Mark this item as updating
-      setUpdatingItems((prev) => new Set(prev).add(itemKey));
-
-      try {
-        await toggleNetWorthInclusion(entityType, entityId, !currentlyIncluded);
-        // Refresh data to update the UI
-        refreshData();
-      } catch (error) {
-        console.error("Error toggling net worth inclusion:", error);
-        alert("Failed to update item inclusion. Please try again.");
-      } finally {
-        // Remove from updating set after a short delay to ensure UI has updated
-        setTimeout(() => {
-          setUpdatingItems((prev) => {
-            const newSet = new Set(prev);
-            newSet.delete(itemKey);
-            return newSet;
-          });
-        }, 500);
-      }
-    },
-    [refreshData],
+  const eligibleDebts = allDebts.filter(
+    ({ status }) => status === "ACTIVE" || status === "PARTIALLY_PAID",
   );
+  const hasItems = allAccounts.length > 0 || allInvestments.length > 0 || eligibleDebts.length > 0;
 
-  // Bulk operations: Show All
-  const handleShowAll = useCallback(async () => {
+  function notifyInclusionError(error: unknown) {
+    console.error("Error updating net worth inclusions:", error);
+    setNotification({
+      title: "Inclusion update failed",
+      message: "Couldn’t update which assets count toward net worth. Please try again.",
+      type: "error",
+    });
+  }
+
+  async function handleToggleInclusion(
+    entityType: "ACCOUNT" | "INVESTMENT" | "DEBT",
+    entityId: number,
+    currentlyIncluded: boolean,
+  ) {
+    const itemKey = getItemKey(entityType, entityId);
+    setUpdatingItems((previous) => new Set(previous).add(itemKey));
+
+    try {
+      const result = await toggleNetWorthInclusion(entityType, entityId, !currentlyIncluded);
+      if (!result.success) throw new Error(result.error);
+      await refreshInclusions();
+    } catch (error) {
+      notifyInclusionError(error);
+    } finally {
+      setUpdatingItems((previous) => {
+        const next = new Set(previous);
+        next.delete(itemKey);
+        return next;
+      });
+    }
+  }
+
+  async function handleBulkInclusion(includeInNetWorth: boolean) {
+    const updates = [
+      ...allAccounts.map(({ id }) => ({ entityType: "ACCOUNT" as const, entityId: id })),
+      ...allInvestments.map(({ id }) => ({ entityType: "INVESTMENT" as const, entityId: id })),
+      ...eligibleDebts.map(({ id }) => ({ entityType: "DEBT" as const, entityId: id })),
+    ].map((item) => ({ ...item, includeInNetWorth }));
+
+    if (!updates.length) return;
     setIsBulkUpdating(true);
     try {
-      // Collect all items that need to be included
-      const updates: Array<{
-        entityType: "ACCOUNT" | "INVESTMENT" | "DEBT";
-        entityId: number;
-        includeInNetWorth: boolean;
-      }> = [];
-
-      // Add all accounts
-      allAccounts?.forEach((account) => {
-        updates.push({
-          entityType: "ACCOUNT",
-          entityId: account.id,
-          includeInNetWorth: true,
-        });
-      });
-
-      // Add all investments
-      allInvestments?.forEach((investment) => {
-        updates.push({
-          entityType: "INVESTMENT",
-          entityId: investment.id,
-          includeInNetWorth: true,
-        });
-      });
-
-      // Add all debts (only active and partially paid)
-      allDebts
-        ?.filter(
-          (debt) =>
-            debt.status === "ACTIVE" || debt.status === "PARTIALLY_PAID",
-        )
-        .forEach((debt) => {
-          updates.push({
-            entityType: "DEBT",
-            entityId: debt.id,
-            includeInNetWorth: true,
-          });
-        });
-
-      if (updates.length > 0) {
-        await bulkUpdateNetWorthInclusions(updates);
-        refreshData();
-      }
+      const result = await bulkUpdateNetWorthInclusions(updates);
+      if (!result.success) throw new Error(result.error);
+      await refreshInclusions();
     } catch (error) {
-      console.error("Error showing all items:", error);
-      alert("Failed to show all items. Please try again.");
+      notifyInclusionError(error);
     } finally {
-      setTimeout(() => setIsBulkUpdating(false), 500);
+      setIsBulkUpdating(false);
     }
-  }, [allAccounts, allInvestments, allDebts, refreshData]);
-
-  // Bulk operations: Hide All
-  const handleHideAll = useCallback(async () => {
-    setIsBulkUpdating(true);
-    try {
-      // Collect all items that need to be excluded
-      const updates: Array<{
-        entityType: "ACCOUNT" | "INVESTMENT" | "DEBT";
-        entityId: number;
-        includeInNetWorth: boolean;
-      }> = [];
-
-      // Add all accounts
-      allAccounts?.forEach((account) => {
-        updates.push({
-          entityType: "ACCOUNT",
-          entityId: account.id,
-          includeInNetWorth: false,
-        });
-      });
-
-      // Add all investments
-      allInvestments?.forEach((investment) => {
-        updates.push({
-          entityType: "INVESTMENT",
-          entityId: investment.id,
-          includeInNetWorth: false,
-        });
-      });
-
-      // Add all debts (only active and partially paid)
-      allDebts
-        ?.filter(
-          (debt) =>
-            debt.status === "ACTIVE" || debt.status === "PARTIALLY_PAID",
-        )
-        .forEach((debt) => {
-          updates.push({
-            entityType: "DEBT",
-            entityId: debt.id,
-            includeInNetWorth: false,
-          });
-        });
-
-      if (updates.length > 0) {
-        await bulkUpdateNetWorthInclusions(updates);
-        refreshData();
-      }
-    } catch (error) {
-      console.error("Error hiding all items:", error);
-      alert("Failed to hide all items. Please try again.");
-    } finally {
-      setTimeout(() => setIsBulkUpdating(false), 500);
-    }
-  }, [allAccounts, allInvestments, allDebts, refreshData]);
+  }
 
   // Handler for manually recording net worth
   const handleRecordNetworth = useCallback(async () => {
@@ -235,8 +149,6 @@ export default function NetWorthPage() {
           message: "Net worth snapshot recorded successfully.",
           type: "success",
         });
-        // Optionally refresh data to show the latest state
-        refreshData();
         setChartRefreshTrigger((prev) => prev + 1);
       } else {
         console.error("Error recording net worth:", result.error);
@@ -254,9 +166,9 @@ export default function NetWorthPage() {
         type: "error",
       });
     } finally {
-      setTimeout(() => setIsRecording(false), 500);
+      setIsRecording(false);
     }
-  }, [refreshData]);
+  }, []);
 
   const money = (value: number) =>
     formatCurrency(
@@ -286,10 +198,15 @@ export default function NetWorthPage() {
     );
   };
   const colors = ["#0d9488", "#6366f1", "#ef4444"];
-  const refresh = () => {
-    refreshData();
+  async function refresh() {
+    setIsRefreshing(true);
     setChartRefreshTrigger((value) => value + 1);
-  };
+    try {
+      await refreshData();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
 
   if (loading)
     return (
@@ -300,11 +217,11 @@ export default function NetWorthPage() {
     );
   if (error)
     return (
-      <div className={`${panel} m-6 p-8 text-center`}>
+      <div className={`${panel} m-4 p-6 text-center sm:m-6 sm:p-8`} role="alert">
         <h1 className="text-lg font-semibold">Unable to load net worth</h1>
-        <p className="my-3 text-sm text-slate-500">{String(error)}</p>
-        <button className={button} onClick={refresh}>
-          Try again
+        <p className="my-3 text-sm text-slate-500">Try refreshing your financial data.</p>
+        <button className={button} onClick={refresh} disabled={isRefreshing}>
+          {isRefreshing ? "Retrying…" : "Try again"}
         </button>
       </div>
     );
@@ -313,13 +230,7 @@ export default function NetWorthPage() {
     <div className="w-full min-w-0 space-y-6 p-4 text-slate-900 sm:p-6 lg:p-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.18em] text-teal-700">
-            Your financial picture
-          </p>
           <h1 className="text-3xl font-semibold tracking-tight">Net worth</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            See where you stand. Understand what makes it up.
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <label
@@ -340,9 +251,9 @@ export default function NetWorthPage() {
               </option>
             ))}
           </select>
-          <button onClick={refresh} className={button}>
-            <RefreshCw size={15} />
-            Refresh
+          <button onClick={refresh} className={button} disabled={isRefreshing}>
+            <RefreshCw size={15} aria-hidden="true" className={isRefreshing ? "animate-spin" : undefined} />
+            {isRefreshing ? "Refreshing…" : "Refresh"}
           </button>
           <button onClick={handleExportCSV} className={button}>
             <Download size={15} />
@@ -452,9 +363,9 @@ export default function NetWorthPage() {
           </h2>
           <p className="text-xs text-slate-500">Share of included assets</p>
         </div>
-        <div className="mb-6 overflow-x-auto">
+        <div className="mb-6 min-w-0">
           <div
-            className="h-80 min-w-[480px] sm:h-96"
+            className="h-64 min-w-0 sm:h-96"
             role="img"
             aria-label={chartData
               .map(
@@ -474,7 +385,7 @@ export default function NetWorthPage() {
                   ),
                   color: colors[index],
                 }))}
-                margin={{ top: 30, right: 24, bottom: 12, left: 12 }}
+                margin={{ top: 12, right: 8, bottom: 8, left: 0 }}
                 barCategoryGap="8%"
               >
                 <CartesianGrid vertical={false} stroke="#f1f5f9" />
@@ -483,12 +394,14 @@ export default function NetWorthPage() {
                   axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 12, fill: "#64748b" }}
+                  interval={0}
+                  tickFormatter={(name: string) => name === "Bank Balance" ? "Banks" : name === "Money Lent" ? "Lent" : name}
                   dy={8}
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  width={80}
+                  width={64}
                   tick={{ fontSize: 11, fill: "#94a3b8" }}
                   tickFormatter={(value) =>
                     new Intl.NumberFormat("en", {
@@ -540,20 +453,6 @@ export default function NetWorthPage() {
                   {chartData.map((item, index) => (
                     <Cell key={item.name} fill={colors[index]} />
                   ))}
-                  <LabelList
-                    dataKey="value"
-                    position="top"
-                    formatter={(value: number) =>
-                      formatCurrency(value, displayCurrency)
-                    }
-                    style={{ fill: "#334155", fontSize: 12, fontWeight: 600 }}
-                  />
-                  <LabelList
-                    dataKey="percentage"
-                    position="center"
-                    formatter={(value: string) => `${value}%`}
-                    style={{ fill: "#fff", fontSize: 12, fontWeight: 600 }}
-                  />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -611,18 +510,18 @@ export default function NetWorthPage() {
               Choose which assets count toward your net worth.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               className={button}
-              disabled={isBulkUpdating || updatingItems.size > 0}
-              onClick={handleShowAll}
+              disabled={!hasItems || isBulkUpdating || updatingItems.size > 0}
+              onClick={() => handleBulkInclusion(true)}
             >
               Include all
             </button>
             <button
               className={button}
-              disabled={isBulkUpdating || updatingItems.size > 0}
-              onClick={handleHideAll}
+              disabled={!hasItems || isBulkUpdating || updatingItems.size > 0}
+              onClick={() => handleBulkInclusion(false)}
             >
               Exclude all
             </button>
@@ -641,11 +540,7 @@ export default function NetWorthPage() {
               ? allAccounts
               : key === "investments"
                 ? allInvestments
-                : allDebts.filter(
-                    (item) =>
-                      item.status === "ACTIVE" ||
-                      item.status === "PARTIALLY_PAID",
-                  );
+                : eligibleDebts;
           const map = inclusionMaps[key];
           const included = items.filter(
             (item) => map.get(item.id) ?? true,

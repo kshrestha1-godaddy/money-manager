@@ -15,11 +15,6 @@ import { useOptimizedWorth } from "../../../hooks/useOptimizedWorth";
 // @ts-ignore
 import html2canvas from "html2canvas";
 
-interface SimplePDFReportGeneratorProps {
-    startDate?: string;
-    endDate?: string;
-}
-
 interface FinancialSummary {
     totalIncome: number;
     totalExpenses: number;
@@ -63,13 +58,10 @@ interface NetWorthData {
     monthlyGrowthRate: number;
 }
 
-export function SimplePDFReportGenerator({
-    startDate,
-    endDate
-}: SimplePDFReportGeneratorProps) {
+export function SimplePDFReportGenerator() {
     const { data: session } = useSession();
     const { currency } = useCurrency();
-    const { filteredIncomes, filteredExpenses } = useChartData();
+    const { filteredIncomes, filteredExpenses, timeRange: { startDate, endDate } } = useChartData();
     const [isGenerating, setIsGenerating] = useState(false);
 
     // Use data from chart context
@@ -94,9 +86,8 @@ export function SimplePDFReportGenerator({
         return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
     };
 
-    const formatDate = (date: string) => {
-        if (!date) return '';
-        return new Date(date).toLocaleDateString('en-US', {
+    const formatDate = (date: Date) => {
+        return date.toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'long',
             day: 'numeric'

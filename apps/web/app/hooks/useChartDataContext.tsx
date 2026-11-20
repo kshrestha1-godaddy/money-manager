@@ -93,20 +93,25 @@ const formatMonthDisplay = (date: Date): string => {
   return date.toLocaleDateString('en', { month: 'short', year: 'numeric' });
 };
 
+// Date inputs represent a calendar day in the user's local time zone.
+function parseDateInput(value: string) {
+  return new Date(`${value}T00:00:00`);
+}
+
 // Generate time period text
 const generateTimePeriodText = (startDate?: string, endDate?: string, defaultRange?: { start: Date; end: Date }): string => {
   if (startDate && endDate) {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const start = parseDateInput(startDate);
+    const end = parseDateInput(endDate);
     const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
     const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
     return `(${startMonth} - ${endMonth})`;
   } else if (startDate) {
-    const start = new Date(startDate);
+    const start = parseDateInput(startDate);
     const startMonth = start.toLocaleDateString('en', { month: 'short', year: 'numeric' });
     return `(From ${startMonth})`;
   } else if (endDate) {
-    const end = new Date(endDate);
+    const end = parseDateInput(endDate);
     const endMonth = end.toLocaleDateString('en', { month: 'short', year: 'numeric' });
     return `(Until ${endMonth})`;
   } else if (defaultRange) {
@@ -131,8 +136,8 @@ const processChartData = (
   if (startDate || endDate) {
     timeRange = {
       hasExplicitRange: true,
-      startDate: startDate ? new Date(startDate) : null,
-      endDate: endDate ? new Date(endDate) : null,
+      startDate: startDate ? parseDateInput(startDate) : null,
+      endDate: endDate ? parseDateInput(endDate) : null,
       timePeriodText: generateTimePeriodText(startDate, endDate)
     };
   } else if (isAllTime) {
@@ -171,30 +176,16 @@ const processChartData = (
     };
   }
 
-  // Filter data efficiently
+  const start = timeRange.startDate;
+  const end = timeRange.endDate ? new Date(timeRange.endDate) : null;
+  end?.setHours(23, 59, 59, 999);
+
   const filterItems = <T extends Income | Expense>(items: T[]): T[] => {
-    if (!timeRange.startDate && !timeRange.endDate) return items;
-    
-    return items.filter(item => {
-      const itemDate = normalizeDate(item.date);
-      
-      if (timeRange.startDate && timeRange.endDate) {
-        const start = new Date(timeRange.startDate);
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(timeRange.endDate);
-        end.setHours(23, 59, 59, 999);
-        return itemDate >= start && itemDate <= end;
-      } else if (timeRange.startDate) {
-        const start = new Date(timeRange.startDate);
-        start.setHours(0, 0, 0, 0);
-        return itemDate >= start;
-      } else if (timeRange.endDate) {
-        const end = new Date(timeRange.endDate);
-        end.setHours(23, 59, 59, 999);
-        return itemDate <= end;
-      }
-      
-      return true;
+    if (!start && !end) return items;
+
+    return items.filter((item) => {
+      const date = normalizeDate(item.date);
+      return (!start || date >= start) && (!end || date <= end);
     });
   };
 
@@ -370,23 +361,9 @@ export function ChartDataProvider({
   isAllTime = false,
   userCurrency
 }: ChartDataProviderProps) {
-  // Use useMemo with stable dependencies and deep comparison for arrays
   const processedData = useMemo(
-    () => {
-      // Only recalculate if data actually changed, not just reference
-      return processChartData(incomes, expenses, startDate, endDate, isAllTime, userCurrency);
-    },
-    [
-      incomes.length, 
-      expenses.length, 
-      startDate, 
-      endDate,
-      isAllTime,
-      userCurrency,
-      // Add checksums to detect actual data changes
-      incomes.reduce((sum, income) => sum + income.amount + income.id, 0),
-      expenses.reduce((sum, expense) => sum + expense.amount + expense.id, 0)
-    ]
+    () => processChartData(incomes, expenses, startDate, endDate, isAllTime, userCurrency),
+    [incomes, expenses, startDate, endDate, isAllTime, userCurrency]
   );
 
   const contextValue: ChartDataContextType = useMemo(() => ({
