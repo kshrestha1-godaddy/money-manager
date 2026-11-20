@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { accountOpeningDay } from "../(dashboard)/accounts/utils/accountOpeningDate";
 import { AccountInterface } from "../types/accounts";
 import { 
     getUserAccounts, 
@@ -9,7 +10,6 @@ import {
     bulkDeleteAccounts,
     bulkCreateAccounts,
     transferMoney,
-    getWithheldAmountsByBank,
     bulkUpdateAccountBalances
 } from "../(dashboard)/accounts/actions/accounts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
@@ -22,8 +22,11 @@ interface UseOptimizedAccountsReturn {
     accounts: AccountInterface[];
     loading: boolean;
     error: string | null;
-    totalBalance: number;
-    freeBalance: number; // Total balance minus withheld amounts from investments
+    actionError: string | null;
+    clearActionError: () => void;
+    retryAccounts: () => Promise<unknown>;
+    isDeleting: boolean;
+    isFetching: boolean;
     hasActiveFilters: boolean;
 
     // Modal states
@@ -77,7 +80,7 @@ interface UseOptimizedAccountsReturn {
     handleEditAccount: (id: number, account: Partial<Omit<AccountInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>) => Promise<void>;
     handleDeleteAccount: () => Promise<void>;
     handleBulkDelete: () => Promise<void>;
-    handleBulkImportSuccess: (accounts: ParsedAccountData[]) => void;
+    handleBulkImportSuccess: (accounts: ParsedAccountData[]) => ReturnType<typeof bulkCreateAccounts>;
     handleExportToCSV: () => void;
     handleTransfer: (transfer: TransferData) => Promise<void>;
     handleBulkBalanceUpdate: (updates: { id: number; balance: number }[]) => Promise<void>;
@@ -102,7 +105,7 @@ interface UseOptimizedAccountsReturn {
 
 export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
     const queryClient = useQueryClient();
-    const [error, setError] = useState<string | null>(null);
+    const [actionError, setActionError] = useState<string | null>(null);
 
     // Query keys for caching
     const QUERY_KEYS = {
@@ -137,19 +140,9 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
     const [viewMode, setViewMode] = useState<"cards" | "table">("table");
 
     // Cached data query
-    const { data: accountsResponse, isLoading: loading } = useQuery({
+    const { data: accountsResponse, isLoading: loading, isFetching, error: accountQueryError, refetch: retryAccounts } = useQuery({
         queryKey: QUERY_KEYS.accounts,
         queryFn: getUserAccounts,
-        staleTime: 5 * 60 * 1000, // 5 minutes
-        gcTime: 15 * 60 * 1000, // 15 minutes
-        retry: 1,
-        refetchOnWindowFocus: false,
-    });
-
-    // Fetch withheld amounts from investments
-    const { data: withheldAmounts = {} } = useQuery({
-        queryKey: ['withheld-amounts'],
-        queryFn: getWithheldAmountsByBank,
         staleTime: 5 * 60 * 1000, // 5 minutes
         gcTime: 15 * 60 * 1000, // 15 minutes
         retry: 1,
@@ -164,16 +157,19 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         return [];
     }, [accountsResponse]);
 
+    const error = accountQueryError?.message ??
+        (accountsResponse && "error" in accountsResponse ? accountsResponse.error : null);
+
     // Filter logic (memoized for performance)
     const hasActiveFilters = useMemo(() => {
-        return !!(searchTerm || selectedBank || selectedAccountType || startDate || endDate);
+        return !!(searchTerm.trim() || selectedBank || selectedAccountType || startDate || endDate);
     }, [searchTerm, selectedBank, selectedAccountType, startDate, endDate]);
 
     const filteredAccounts = useMemo(() => {
         let filtered = [...allAccounts];
 
-        if (searchTerm) {
-            const lowerSearchTerm = searchTerm.toLowerCase();
+        if (searchTerm.trim()) {
+            const lowerSearchTerm = searchTerm.trim().toLowerCase();
             filtered = filtered.filter(account =>
                 account.holderName.toLowerCase().includes(lowerSearchTerm) ||
                 account.bankName.toLowerCase().includes(lowerSearchTerm) ||
@@ -190,70 +186,24 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
             filtered = filtered.filter(account => account.accountType === selectedAccountType);
         }
 
-        // Date filtering based on account opening date
-        if (startDate) {
-            const start = new Date(startDate);
-            start.setHours(0, 0, 0, 0);
-            filtered = filtered.filter(account => {
-                const accountDate = account.accountOpeningDate instanceof Date 
-                    ? account.accountOpeningDate 
-                    : new Date(account.accountOpeningDate);
-                return accountDate >= start;
-            });
-        }
-
-        if (endDate) {
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
-            filtered = filtered.filter(account => {
-                const accountDate = account.accountOpeningDate instanceof Date 
-                    ? account.accountOpeningDate 
-                    : new Date(account.accountOpeningDate);
-                return accountDate <= end;
+        if (startDate || endDate) {
+            filtered = filtered.filter((account) => {
+                const day = accountOpeningDay(account.accountOpeningDate);
+                return day && (!startDate || day >= startDate) && (!endDate || day <= endDate);
             });
         }
 
         return filtered;
     }, [allAccounts, searchTerm, selectedBank, selectedAccountType, startDate, endDate]);
 
-    // Calculate total balance
-    const totalBalance = useMemo(() => {
-        return filteredAccounts.reduce((sum, account) => sum + (account.balance || 0), 0);
-    }, [filteredAccounts]);
+    const visibleSelection = useMemo(() => new Set(filteredAccounts
+        .filter(({ id }) => selectedAccounts.has(id))
+        .map(({ id }) => id)), [filteredAccounts, selectedAccounts]);
 
-    // Calculate free balance (properly distributed by bank)
-    const freeBalance = useMemo(() => {
-        if (filteredAccounts.length === 0) return 0;
-
-        // Group accounts by bank name to calculate proportional withheld amounts
-        const bankGroups = new Map<string, typeof filteredAccounts>();
-        filteredAccounts.forEach(account => {
-            const bankName = account.bankName;
-            if (!bankGroups.has(bankName)) {
-                bankGroups.set(bankName, []);
-            }
-            bankGroups.get(bankName)!.push(account);
-        });
-
-        // Calculate free balance for each bank and sum them up
-        let totalFreeBalance = 0;
-        
-        for (const [bankName, accountsInBank] of bankGroups.entries()) {
-            const withheldAmountForBank = withheldAmounts[bankName] || 0;
-            const totalBankBalance = accountsInBank.reduce((sum, acc) => sum + (acc.balance || 0), 0);
-            
-            // If no withheld amount for this bank, add full balance
-            if (withheldAmountForBank === 0) {
-                totalFreeBalance += totalBankBalance;
-            } else {
-                // Calculate free balance for this bank (total bank balance minus withheld amount)
-                const bankFreeBalance = totalBankBalance - withheldAmountForBank;
-                totalFreeBalance += bankFreeBalance;
-            }
-        }
-        
-        return totalFreeBalance;
-    }, [filteredAccounts, withheldAmounts]);
+    const refreshAccountActivity = () => {
+        triggerBalanceRefresh();
+        void queryClient.invalidateQueries({ queryKey: ["account-balance-activity"] });
+    };
 
     // Optimized mutations with cache updates
     const createAccountMutation = useMutation({
@@ -263,13 +213,13 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
             queryClient.setQueryData(QUERY_KEYS.accounts, (oldAccounts: AccountInterface[] = []) => {
                 return [newAccount, ...oldAccounts];
             });
-            triggerBalanceRefresh();
+            refreshAccountActivity();
             setIsAddModalOpen(false);
-            setError(null);
+            setActionError(null);
         },
         onError: (error: Error) => {
             console.error("Error adding account:", error);
-            setError(`Failed to add account: ${error.message}`);
+            setActionError(`Failed to add account: ${error.message}`);
         },
     });
 
@@ -283,14 +233,14 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
                     account.id === variables.id ? updatedAccount : account
                 );
             });
-            triggerBalanceRefresh();
+            refreshAccountActivity();
             setIsEditModalOpen(false);
             setAccountToEdit(null);
-            setError(null);
+            setActionError(null);
         },
         onError: (error: Error) => {
             console.error("Error updating account:", error);
-            setError(`Failed to update account: ${error.message}`);
+            setActionError(`Failed to update account: ${error.message}`);
         },
     });
 
@@ -301,14 +251,14 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
             queryClient.setQueryData(QUERY_KEYS.accounts, (oldAccounts: AccountInterface[] = []) => {
                 return oldAccounts.filter(account => account.id !== deletedId);
             });
-            triggerBalanceRefresh();
+            refreshAccountActivity();
             setIsDeleteModalOpen(false);
             setAccountToDelete(null);
-            setError(null);
+            setActionError(null);
         },
         onError: (error: Error) => {
             console.error("Error deleting account:", error);
-            setError(`Failed to delete account: ${error.message}`);
+            setActionError(`Failed to delete account: ${error.message}`);
         },
     });
 
@@ -319,13 +269,13 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
             queryClient.setQueryData(QUERY_KEYS.accounts, (oldAccounts: AccountInterface[] = []) => {
                 return oldAccounts.filter(account => !deletedIds.includes(account.id));
             });
-            triggerBalanceRefresh();
+            refreshAccountActivity();
             setSelectedAccounts(new Set());
-            setError(null);
+            setActionError(null);
         },
         onError: (error: Error) => {
             console.error("Error bulk deleting accounts:", error);
-            setError(`Failed to delete accounts: ${error.message}`);
+            setActionError(`Failed to delete accounts: ${error.message}`);
         },
     });
 
@@ -338,11 +288,11 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
                 queryClient.setQueryData(QUERY_KEYS.accounts, (oldAccounts: AccountInterface[] = []) => {
                     return [...result.data, ...oldAccounts];
                 });
-                triggerBalanceRefresh();
+                refreshAccountActivity();
             }
             // Don't automatically close modal - let the ImportAccountModal handle this
             // setIsImportModalOpen(false);
-            setError(null);
+            setActionError(null);
             
             // Show success/error summary
             if (result.errors.length > 0) {
@@ -351,7 +301,7 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         },
         onError: (error: Error) => {
             console.error("Error bulk creating accounts:", error);
-            setError(`Failed to import accounts: ${error.message}`);
+            setActionError(`Failed to import accounts: ${error.message}`);
         },
     });
 
@@ -359,13 +309,13 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         mutationFn: (updates: { id: number; balance: number }[]) => bulkUpdateAccountBalances(updates),
         onSuccess: (updatedList: AccountInterface[]) => {
             queryClient.setQueryData(QUERY_KEYS.accounts, updatedList);
-            triggerBalanceRefresh();
+            refreshAccountActivity();
             setIsBulkBalancesModalOpen(false);
-            setError(null);
+            setActionError(null);
         },
         onError: (err: Error) => {
             console.error("Error bulk updating balances:", err);
-            setError(`Failed to update balances: ${err.message}`);
+            setActionError(`Failed to update balances: ${err.message}`);
         },
     });
 
@@ -384,58 +334,39 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
                     return account;
                 });
             });
-            triggerBalanceRefresh();
+            refreshAccountActivity();
+            void queryClient.invalidateQueries({ queryKey: ["expenses"] });
             setIsTransferModalOpen(false);
-            setError(null);
+            setActionError(null);
             console.info(result.message);
         },
         onError: (error: Error) => {
             console.error("Error transferring money:", error);
-            setError(`Transfer failed: ${error.message}`);
+            setActionError(`Transfer failed: ${error.message}`);
         },
     });
 
-    // CRUD Handlers
-    const handleAddAccount = useCallback(async (newAccount: Omit<AccountInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => {
-        return new Promise<void>((resolve, reject) => {
-            createAccountMutation.mutate(newAccount, {
-                onSuccess: () => resolve(),
-                onError: (error) => reject(error)
-            });
-        });
-    }, [createAccountMutation]);
+    const handleAddAccount: UseOptimizedAccountsReturn["handleAddAccount"] = async (account) => {
+        await createAccountMutation.mutateAsync(account);
+    };
 
-    const handleEditAccount = useCallback(async (id: number, updatedAccount: Partial<Omit<AccountInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>) => {
-        return new Promise<void>((resolve, reject) => {
-            updateAccountMutation.mutate({ id, account: updatedAccount }, {
-                onSuccess: () => resolve(),
-                onError: (error) => reject(error)
-            });
-        });
-    }, [updateAccountMutation]);
+    const handleEditAccount: UseOptimizedAccountsReturn["handleEditAccount"] = async (id, account) => {
+        await updateAccountMutation.mutateAsync({ id, account });
+    };
 
-    const handleDeleteAccount = useCallback(async () => {
+    const handleDeleteAccount = async () => {
         if (!accountToDelete) return;
-        
-        return new Promise<void>((resolve, reject) => {
-            deleteAccountMutation.mutate(accountToDelete.id, {
-                onSuccess: () => resolve(),
-                onError: (error) => reject(error)
-            });
-        });
-    }, [deleteAccountMutation, accountToDelete]);
+        await deleteAccountMutation.mutateAsync(accountToDelete.id);
+    };
 
-    const handleBulkDelete = useCallback(async () => {
-        const idsToDelete = Array.from(selectedAccounts);
-        if (idsToDelete.length === 0) return;
-
-        return new Promise<void>((resolve, reject) => {
-            bulkDeleteMutation.mutate(idsToDelete, {
-                onSuccess: () => resolve(),
-                onError: (error) => reject(error)
-            });
-        });
-    }, [bulkDeleteMutation, selectedAccounts]);
+    const handleBulkDelete = async () => {
+        if (visibleSelection.size === 0 || bulkDeleteMutation.isPending) return;
+        try {
+            await bulkDeleteMutation.mutateAsync([...visibleSelection]);
+        } catch {
+            // The mutation reports the failure through actionError.
+        }
+    };
 
     // Modal handlers
     const openEditModal = useCallback((account: AccountInterface) => {
@@ -502,38 +433,25 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
             nickname: account.nickname
         }));
 
-        bulkCreateMutation.mutate(accountsToCreate);
+        return bulkCreateMutation.mutateAsync(accountsToCreate);
     }, [bulkCreateMutation]);
 
-    const handleTransfer = useCallback(async (transferData: TransferData) => {
-        return new Promise<void>((resolve, reject) => {
-            transferMutation.mutate(transferData, {
-                onSuccess: () => resolve(),
-                onError: (error) => reject(error)
-            });
-        });
-    }, [transferMutation]);
+    const handleTransfer = async (transferData: TransferData) => {
+        await transferMutation.mutateAsync(transferData);
+    };
 
-    const handleBulkBalanceUpdate = useCallback(
-        async (updates: { id: number; balance: number }[]) => {
-            if (updates.length === 0) {
-                setIsBulkBalancesModalOpen(false);
-                return;
-            }
-            return new Promise<void>((resolve, reject) => {
-                bulkBalanceMutation.mutate(updates, {
-                    onSuccess: () => resolve(),
-                    onError: (error) => reject(error),
-                });
-            });
-        },
-        [bulkBalanceMutation]
-    );
+    const handleBulkBalanceUpdate = async (updates: { id: number; balance: number }[]) => {
+        if (updates.length === 0) {
+            setIsBulkBalancesModalOpen(false);
+            return;
+        }
+        await bulkBalanceMutation.mutateAsync(updates);
+    };
 
     const handleExportToCSV = useCallback(() => {
         const result = exportAccountsToCSV(filteredAccounts);
         if (!result.success) {
-            setError(result.error || 'Failed to export accounts');
+            setActionError(result.error || 'Failed to export accounts');
         }
     }, [filteredAccounts]);
 
@@ -555,8 +473,11 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         accounts: filteredAccounts,
         loading,
         error,
-        totalBalance,
-        freeBalance,
+        actionError,
+        clearActionError: () => setActionError(null),
+        retryAccounts,
+        isFetching,
+        isDeleting: deleteAccountMutation.isPending || bulkDeleteMutation.isPending,
         hasActiveFilters,
 
         // Modal states
@@ -578,7 +499,7 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         setIsBulkBalancesModalOpen,
 
         // Filter states
-        selectedAccounts,
+        selectedAccounts: visibleSelection,
         setSelectedAccounts,
         searchTerm,
         setSearchTerm,

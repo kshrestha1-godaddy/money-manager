@@ -23,6 +23,7 @@ import { exportExpensesToCSV } from '../../utils/csvExportExpenses';
 import { createTransactionBookmark, deleteTransactionBookmarkByTransaction } from '../transactions/actions/transaction-bookmarks';
 import { Expense } from '../../types/financial';
 import { useCurrency } from '../../providers/CurrencyProvider';
+import { createTransactionDayFormatter, getVisibleSelection } from "../../utils/transaction-calendar";
 import { useTimezone } from '../../providers/TimezoneProvider';
 import { DisappearingNotification, NotificationData } from '../../components/DisappearingNotification';
 import { convertForDisplaySync } from '../../utils/currencyDisplay';
@@ -44,7 +45,6 @@ const cardTitle = TEXT_COLORS.cardTitle;
 const cardValue = TEXT_COLORS.cardValue;
 const cardSubtitle = TEXT_COLORS.cardSubtitle;
 const pageTitle = TEXT_COLORS.title;
-const pageSubtitle = TEXT_COLORS.subtitle;
 const primaryButton = BUTTON_COLORS.primary;
 const secondaryBlueButton = BUTTON_COLORS.secondaryBlue;
 const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
@@ -56,15 +56,18 @@ export default function ExpensesPageClient() {
   const [notification, setNotification] = useState<NotificationData | null>(null);
   
   // Month navigation state
-  const currentDate = new Date();
-  const [selectedMonth, setSelectedMonth] = useState<number>(currentDate.getMonth());
-  const [selectedYear, setSelectedYear] = useState<number>(currentDate.getFullYear());
+  const getTransactionDay = useMemo(() => createTransactionDayFormatter(userTimezone), [userTimezone]);
+  const today = getTransactionDay(new Date());
+  const currentYear = Number(today.slice(0, 4));
+  const currentMonth = Number(today.slice(5, 7)) - 1;
+  const [monthOverride, setMonthOverride] = useState<{ month: number; year: number } | null>(null);
+  const selectedMonth = monthOverride?.month ?? currentMonth;
+  const selectedYear = monthOverride?.year ?? currentYear;
   const [isMonthFilterActive, setIsMonthFilterActive] = useState<boolean>(true);
 
   // Month navigation handler
   const handleMonthChange = (month: number, year: number) => {
-    setSelectedMonth(month);
-    setSelectedYear(year);
+    setMonthOverride({ month, year });
     setIsMonthFilterActive(true);
   };
 
@@ -75,6 +78,10 @@ export default function ExpensesPageClient() {
     categories,
     accounts,
     loading: isLoading,
+    itemsError,
+    retryItems,
+    itemsFetching,
+    isBulkDeleting,
     totalAmount: totalExpenseAmount,
     uniqueBankNames,
     hasActiveFilters,
@@ -135,7 +142,8 @@ export default function ExpensesPageClient() {
     exportToCSV: exportExpensesToCSV,
   }, {
     onNotification: setNotification,
-    userCurrency: userCurrency
+    userCurrency: userCurrency,
+    userTimezone
   });
 
   // Resolve linked expenses from the full dataset, regardless of active month or filters.
@@ -179,27 +187,15 @@ export default function ExpensesPageClient() {
     }
   };
 
-  // Filter expenses by selected month if month filter is active
-  // When any filter/search is active, bypass month filter to show all-time results
   const filteredExpenses = useMemo(() => {
-    // If any filter is active (search, category, bank, date, bookmarked), show all matching results
-    if (hasActiveFilters) {
-      return expenses;
-    }
-    
-    // If month filter is manually disabled (user clicked "Show All Expenses"), show all
-    if (!isMonthFilterActive) {
-      return expenses;
-    }
-    
-    // Default: filter by selected month
-    return expenses.filter(expense => {
-      const expenseDate = new Date(expense.date);
-      const expenseDateInUserTimezone = new Date(expenseDate.toLocaleString("en-US", { timeZone: userTimezone }));
-      return expenseDateInUserTimezone.getMonth() === selectedMonth && 
-             expenseDateInUserTimezone.getFullYear() === selectedYear;
-    });
-  }, [expenses, hasActiveFilters, isMonthFilterActive, selectedMonth, selectedYear, userTimezone]);
+    if (hasActiveFilters || !isMonthFilterActive) return expenses;
+    const month = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}`;
+    return expenses.filter((transaction) => getTransactionDay(transaction.date).startsWith(month));
+  }, [expenses, hasActiveFilters, isMonthFilterActive, selectedMonth, selectedYear, getTransactionDay]);
+  const visibleSelection = useMemo(
+    () => getVisibleSelection(filteredExpenses, selectedItems),
+    [filteredExpenses, selectedItems]
+  );
 
   useEffect(() => {
     if (searchParams.get('action') === 'add') setIsAddModalOpen(true);
@@ -226,10 +222,6 @@ export default function ExpensesPageClient() {
   }, [searchParams, setIsAddModalOpen, setStartDate, setEndDate, setSelectedCategories]);
 
   // Use timezone-aware date calculations to match notification system
-  const now = new Date();
-  const nowInUserTimezone = new Date(now.toLocaleString("en-US", { timeZone: userTimezone }));
-  const currentMonth = nowInUserTimezone.getMonth();
-  const currentYear = nowInUserTimezone.getFullYear();
   const currentQuarter = Math.floor(currentMonth / 3);
   const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
   const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
@@ -272,14 +264,15 @@ export default function ExpensesPageClient() {
   });
   const lastQuarterExpenses = lastQuarterExpensesData.reduce((sum: number, expense: Expense) => sum + convertForDisplaySync(expense.amount, expense.currency, userCurrency), 0);
 
-  const monthlyChange = lastMonthExpenses > 0 ? ((currentMonthExpenses - lastMonthExpenses) / lastMonthExpenses) * 100 : 0;
-  const quarterlyChange = lastQuarterExpenses > 0 ? ((currentQuarterExpenses - lastQuarterExpenses) / lastQuarterExpenses) * 100 : 0;
+  const monthlyChange = lastMonthExpenses > 0 ? ((currentMonthExpenses - lastMonthExpenses) / lastMonthExpenses) * 100 : null;
+  const quarterlyChange = lastQuarterExpenses > 0 ? ((currentQuarterExpenses - lastQuarterExpenses) / lastQuarterExpenses) * 100 : null;
   const averagePerExpense = allExpenses.length > 0 ? allExpenses.reduce((sum: number, expense: Expense) => sum + convertForDisplaySync(expense.amount, expense.currency, userCurrency), 0) / allExpenses.length : 0;
 
   const chartProps = useMemo(
     () => ({
       data: chartItems,
       currency: userCurrency,
+      timezone: userTimezone,
       type: 'expense' as const,
       hasPageFilters: hasActiveFilters,
       pageStartDate: startDate,
@@ -291,7 +284,7 @@ export default function ExpensesPageClient() {
       } : undefined,
       thresholdsLoading
     }),
-    [chartItems, userCurrency, hasActiveFilters, startDate, endDate, userThresholds, thresholdsLoading]
+    [chartItems, userCurrency, userTimezone, hasActiveFilters, startDate, endDate, userThresholds, thresholdsLoading]
   );
 
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -299,28 +292,33 @@ export default function ExpensesPageClient() {
   const currentMonthName = monthNames[currentMonth];
   const currentQuarterName = quarterNames[currentQuarter];
 
+  const visibleTotal = useMemo(
+    () => filteredExpenses.reduce((total, item) => total + convertForDisplaySync(item.amount, item.currency, userCurrency), 0),
+    [filteredExpenses, userCurrency]
+  );
+
   const summaryCards = [
     { 
-      title: 'Total Expenses', 
+      title: 'Expenses in View', 
       value: formatCurrency(totalExpenseAmount, userCurrency), 
-      subtitle: `${allExpenses.length} transaction${allExpenses.length !== 1 ? 's' : ''}`, 
+      subtitle: `${filteredExpenses.length} transaction${filteredExpenses.length !== 1 ? 's' : ''}`, 
       dotColor: 'bg-red-500' 
     },
     { 
       title: `This Month (${currentMonthName})`, 
       value: formatCurrency(currentMonthExpenses, userCurrency), 
-      subtitle: `${currentMonthExpensesCount} transaction${currentMonthExpensesCount !== 1 ? 's' : ''} • ${monthlyChange >= 0 ? '+' : ''}${monthlyChange.toFixed(1)}%`, 
-      subtitleColor: monthlyChange >= 0 ? 'text-red-600' : 'text-green-600', 
-      dotColor: monthlyChange >= 0 ? 'bg-red-500' : 'bg-green-500', 
+      subtitle: `${currentMonthExpensesCount} transaction${currentMonthExpensesCount !== 1 ? 's' : ''}${monthlyChange === null ? '' : ` • ${(monthlyChange ?? 0) >= 0 ? '+' : ''}${monthlyChange.toFixed(1)}%`}`, 
+      subtitleColor: (monthlyChange ?? 0) >= 0 ? 'text-red-600' : 'text-green-600', 
+      dotColor: (monthlyChange ?? 0) >= 0 ? 'bg-red-500' : 'bg-green-500', 
       hasPercentage: true, 
       tooltipText: `Compared to last month (${monthNames[lastMonth]}): ${formatCurrency(lastMonthExpenses, userCurrency)} (${lastMonthExpensesData.length} transaction${lastMonthExpensesData.length !== 1 ? 's' : ''})` 
     },
     { 
       title: `${currentQuarterName} (${currentQuarterName === 'Q1' ? 'Jan-Mar' : currentQuarterName === 'Q2' ? 'Apr-Jun' : currentQuarterName === 'Q3' ? 'Jul-Sep' : 'Oct-Dec'})`, 
       value: formatCurrency(currentQuarterExpenses, userCurrency), 
-      subtitle: `${currentQuarterExpensesCount} transaction${currentQuarterExpensesCount !== 1 ? 's' : ''} • ${quarterlyChange >= 0 ? '+' : ''}${quarterlyChange.toFixed(1)}%`, 
-      subtitleColor: quarterlyChange >= 0 ? 'text-red-600' : 'text-green-600', 
-      dotColor: quarterlyChange >= 0 ? 'bg-red-500' : 'bg-green-500', 
+      subtitle: `${currentQuarterExpensesCount} transaction${currentQuarterExpensesCount !== 1 ? 's' : ''}${quarterlyChange === null ? '' : ` • ${(quarterlyChange ?? 0) >= 0 ? '+' : ''}${quarterlyChange.toFixed(1)}%`}`, 
+      subtitleColor: (quarterlyChange ?? 0) >= 0 ? 'text-red-600' : 'text-green-600', 
+      dotColor: (quarterlyChange ?? 0) >= 0 ? 'bg-red-500' : 'bg-green-500', 
       hasPercentage: true, 
       tooltipText: `Compared to last quarter (${quarterNames[currentQuarter === 0 ? 3 : currentQuarter - 1]}): ${formatCurrency(lastQuarterExpenses, userCurrency)} (${lastQuarterExpensesData.length} transaction${lastQuarterExpensesData.length !== 1 ? 's' : ''})` 
     },
@@ -334,10 +332,22 @@ export default function ExpensesPageClient() {
     },
   ];
 
+  if (itemsError) {
+    return (
+      <section className="rounded-lg border border-gray-200 bg-white p-6" role="alert">
+        <h1 className={pageTitle}>Expenses</h1>
+        <p className="my-3 text-sm text-gray-700">Couldn’t load transactions.</p>
+        <button type="button" onClick={() => void retryItems()} disabled={itemsFetching} className={primaryButton}>
+          {itemsFetching ? "Retrying…" : "Try again"}
+        </button>
+      </section>
+    );
+  }
+
   if (isLoading) {
     return (
-      <div className={loadingContainer}>
-        <div className={loadingSpinner}></div>
+      <div className={loadingContainer} role="status">
+        <div className={loadingSpinner} aria-hidden="true" />
         <p className={loadingText}>Loading expenses...</p>
       </div>
     );
@@ -345,22 +355,21 @@ export default function ExpensesPageClient() {
 
   return (
     <div className={pageContainer}>
-      <div className={UI_STYLES.header.container}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className={pageTitle}>Expenses</h1>
-          <p className={pageSubtitle}>Track and manage your expenses</p>
         </div>
-        <div className={UI_STYLES.header.buttonGroup}>
+        <div className="flex flex-wrap items-center gap-2">
           <button onClick={() => setIsAddModalOpen(true)} className={primaryButton}>Add Expense</button>
           <button onClick={() => setIsAddCategoryModalOpen(true)} className={primaryButton}>Manage Categories</button>
           <button onClick={() => setIsBulkImportModalOpen(true)} className={secondaryBlueButton}>Import CSV</button>
-          <button onClick={handleExportToCSV} disabled={allExpenses.length === 0} className={`${secondaryGreenButton} disabled:opacity-50`}>Export CSV</button>
+          <button onClick={() => handleExportToCSV(filteredExpenses)} disabled={filteredExpenses.length === 0} className={`${secondaryGreenButton} disabled:opacity-50`}>Export CSV</button>
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-6 mb-6">
-        {summaryCards.map((card: any, index: number) => (
-          <div key={index} className={`${cardLargeContainer} relative`}>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {summaryCards.map((card) => (
+          <div key={card.title} className={`${cardLargeContainer} relative`}>
             <div className={`absolute top-4 left-4 w-3 h-3 rounded-full ${card.dotColor}`}></div>
             {card.hasPercentage && card.tooltipText && (
               <div className="absolute top-4 right-4">
@@ -375,7 +384,7 @@ export default function ExpensesPageClient() {
             )}
             <div className="flex flex-col items-center justify-center h-full text-center pt-6">
               <h3 className={`${cardTitle} mb-2`}>{card.title}</h3>
-              <p className={`${cardValue} ${card.title.includes('Total') ? 'text-red-600' : 'text-black'} mb-1`}>{card.value}</p>
+              <p className={`${cardValue} ${card.title === 'Expenses in View' ? 'text-red-600' : 'text-black'} mb-1`}>{card.value}</p>
               <p className={`${cardSubtitle} ${card.subtitleColor || 'text-gray-500'}`}>{card.subtitle}</p>
             </div>
           </div>
@@ -387,7 +396,7 @@ export default function ExpensesPageClient() {
       <ExpenseFrequencyCharts expenses={filteredExpenses} />
 
       <ExpenseBubbleChart 
-        expenses={expenses}
+        expenses={filteredExpenses}
         currency={userCurrency}
         hasActiveFilters={hasActiveFilters}
       />
@@ -412,13 +421,13 @@ export default function ExpensesPageClient() {
         onShowBookmarkedOnlyChange={setShowBookmarkedOnly}
       />
 
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <MonthNavigation
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}
           onMonthChange={handleMonthChange}
         />
-        {isMonthFilterActive && (
+        {isMonthFilterActive && !hasActiveFilters && (
           <button
             onClick={() => setIsMonthFilterActive(false)}
             className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
@@ -437,11 +446,11 @@ export default function ExpensesPageClient() {
           onDelete={openDeleteModal}
           onBookmark={handleBookmarkToggle}
           onRefresh={invalidateQueries}
-          selectedExpenses={selectedItems}
+          selectedExpenses={visibleSelection}
           onExpenseSelect={handleItemSelect}
-          onSelectAll={handleSelectAll}
+          onSelectAll={(selected) => handleSelectAll(selected, filteredExpenses)}
           showBulkActions={true}
-          onBulkDelete={handleBulkDelete}
+          onBulkDelete={isBulkDeleting ? undefined : handleBulkDelete}
           onClearSelection={() => handleSelectAll(false)}
         />
       </Suspense>

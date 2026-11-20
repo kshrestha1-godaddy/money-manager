@@ -1,5 +1,6 @@
 import { AccountInterface } from "../../../types/accounts";
 import { formatDate } from "../../../utils/date";
+import { formatAccountOpeningDate } from "../utils/accountOpeningDate";
 import { formatCurrency } from "../../../utils/currency";
 import { useCurrency } from "../../../providers/CurrencyProvider";
 
@@ -91,7 +92,7 @@ export function ViewAccountModal({ isOpen, onClose, account }: ViewAccountModalP
                     <Section title="Account Details">
                         <InfoItem label="Account Holder" value={account.holderName} />
                         <InfoItem label="Account Number" value={account.accountNumber} />
-                        <InfoItem label="Opening Date" value={formatDate(account.accountOpeningDate)} />
+                        <InfoItem label="Opening Date" value={formatAccountOpeningDate(account.accountOpeningDate)} />
                         <InfoItem label="IFSC Code" value={account.branchCode} />
                     </Section>
 

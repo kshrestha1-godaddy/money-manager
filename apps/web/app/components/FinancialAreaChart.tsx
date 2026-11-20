@@ -6,6 +6,7 @@ import { Income, Expense } from "../types/financial";
 import { formatCurrency } from "../utils/currency";
 import { useChartExpansion } from "../utils/chartUtils";
 import { ChartControls } from "./ChartControls";
+import { createTransactionDayFormatter } from "../utils/transaction-calendar";
 import { convertForDisplaySync } from "../utils/currencyDisplay";
 
 type FinancialTransaction = Income | Expense;
@@ -13,6 +14,7 @@ type FinancialTransaction = Income | Expense;
 interface FinancialAreaChartProps {
     data: FinancialTransaction[];
     currency?: string;
+    timezone: string;
     type: 'income' | 'expense';
     title?: string;
     hasPageFilters?: boolean; // New prop to indicate if page-level filters are applied
@@ -41,6 +43,7 @@ interface ChartDataPoint {
 export function FinancialAreaChart({
     data,
     currency = "USD",
+    timezone,
     type,
     title,
     hasPageFilters = false,
@@ -65,89 +68,26 @@ export function FinancialAreaChart({
         income: {
             color: "#10b981",
             label: "Income",
-            title: title || "Income Trend (Last 30 Days)"
+            title: title || "Income Trend"
         },
         expense: {
             color: "#ef4444",
             label: "Expense",
-            title: title || "Expense Trend (Last 30 Days)"
+            title: title || "Expense Trend"
         }
     }[type];
 
-    // Filter data based on date range
-    const filteredData = useMemo(() => {
-        // Use chart filters if they exist, otherwise use page filters
-        const effectiveStartDate = startDate || (hasPageFilters ? pageStartDate : '');
-        const effectiveEndDate = endDate || (hasPageFilters ? pageEndDate : '');
-
-
-        if (!effectiveStartDate && !effectiveEndDate) return data || [];
-
-        if (!data) return [];
-
-        const filtered = data.filter(item => {
-            const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
-            const itemDateStr = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}-${String(itemDate.getDate()).padStart(2, '0')}`;
-
-            if (effectiveStartDate && effectiveEndDate) {
-                const result = itemDateStr >= effectiveStartDate && itemDateStr <= effectiveEndDate;
-                if (data.indexOf(item) < 3) {
-                    console.log(`Date comparison for ${itemDateStr}:`, {
-                        effectiveStartDate,
-                        effectiveEndDate,
-                        result,
-                        item: item.title
-                    });
-                }
-                return result;
-            } else if (effectiveStartDate) {
-                return itemDateStr >= effectiveStartDate;
-            } else if (effectiveEndDate) {
-                return itemDateStr <= effectiveEndDate;
-            }
-            return true;
-        });
-
-        // console.log(`${type} chart filtered result:`, filtered.length, 'items');
-        return filtered;
-    }, [data, startDate, endDate, pageStartDate, pageEndDate, hasPageFilters, type, currency]);
+    const getTransactionDay = useMemo(() => createTransactionDayFormatter(timezone), [timezone]);
+    const today = getTransactionDay(new Date());
+    const effectiveStartDate = startDate || (hasPageFilters ? pageStartDate : "");
+    const effectiveEndDate = endDate || (hasPageFilters ? pageEndDate : "");
+    const isDefaultRange = !hasPageFilters && !effectiveStartDate && !effectiveEndDate;
 
     const chartData = useMemo(() => {
-        if (!data) return [];
-
-        let chartDisplayData;
-        const effectiveStartDate = startDate || (hasPageFilters ? pageStartDate : '');
-        const effectiveEndDate = endDate || (hasPageFilters ? pageEndDate : '');
-
-        // If any filters are active, use the filtered data
-        if (hasPageFilters || effectiveStartDate || effectiveEndDate) {
-            chartDisplayData = filteredData;
-        } else {
-            // No filters active - show default 30-day view
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-            chartDisplayData = data.filter(item => {
-                const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
-                return itemDate >= thirtyDaysAgo;
-            });
-        }
-
-        let recentData = chartDisplayData;
-
-        // console.log(`${chartConfig.label} chart filtering:`, {
-        //     chartStartDate: startDate,
-        //     chartEndDate: endDate,
-        //     pageStartDate,
-        //     pageEndDate,
-        //     effectiveStartDate,
-        //     effectiveEndDate,
-        //     hasPageFilters,
-        //     originalDataLength: data?.length || 0,
-        //     filteredDataLength: filteredData?.length || 0,
-        //     finalDataLength: recentData?.length || 0,
-        //     appliedDefaultFilter: !effectiveStartDate && !effectiveEndDate && !hasPageFilters
-        // });
+        const defaultStart = new Date(today);
+        defaultStart.setUTCDate(defaultStart.getUTCDate() - 29);
+        const firstDay = isDefaultRange ? defaultStart.toISOString().slice(0, 10) : effectiveStartDate;
+        const lastDay = isDefaultRange ? today : effectiveEndDate;
 
         // Group data by date with enhanced statistics
         const dateMap = new Map<string, {
@@ -157,61 +97,29 @@ export function FinancialAreaChart({
             amounts: number[];
         }>();
 
-        if (recentData) {
-            recentData.forEach(item => {
-                // Use local date to avoid timezone issues
-                const dateObj = item.date instanceof Date ? item.date : new Date(item.date);
-                const year = dateObj.getFullYear();
-                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-                const day = String(dateObj.getDate()).padStart(2, '0');
-                const dateStr = `${year}-${month}-${day}`;
+        for (const item of data) {
+            const day = getTransactionDay(item.date);
+            if (!day || (firstDay && day < firstDay) || (lastDay && day > lastDay)) continue;
 
-                if (!dateStr) return;
-                
-                // Convert amount to user's currency before adding to chart data
-                const convertedAmount = convertForDisplaySync(item.amount, item.currency, currency);
-                
-                if (!dateMap.has(dateStr)) {
-                    dateMap.set(dateStr, {
-                        amount: 0,
-                        count: 0,
-                        transactions: [],
-                        amounts: []
-                    });
-                }
-                
-                const current = dateMap.get(dateStr)!;
-                current.amount += convertedAmount;
-                current.count += 1;
-                current.amounts.push(convertedAmount);
-                current.transactions.push({
-                    title: item.title || 'Untitled',
-                    amount: convertedAmount,
-                    category: item.category?.name
-                });
+            const amount = convertForDisplaySync(item.amount, item.currency, currency);
+            const entry = dateMap.get(day) ?? { amount: 0, count: 0, transactions: [], amounts: [] };
+            entry.amount += amount;
+            entry.count += 1;
+            entry.amounts.push(amount);
+            entry.transactions.push({
+                title: item.title || "Untitled",
+                amount,
+                category: item.category?.name,
             });
+            dateMap.set(day, entry);
         }
-
-        // console.log(`${chartConfig.label} chart data processing:`, {
-        //     totalItems: recentData?.length || 0,
-        //     dateMapEntries: Array.from(dateMap.entries()),
-        //     firstFewItems: recentData?.slice(0, 5).map(item => {
-        //         const dateObj = item.date instanceof Date ? item.date : new Date(item.date);
-        //         return {
-        //             title: item.title,
-        //             originalDate: item.date,
-        //             processedDate: `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`,
-        //             amount: item.amount
-        //         };
-        //     }) || []
-        // });
 
         // Convert to array and sort by date with enhanced statistics
         const chartDataPoints: ChartDataPoint[] = Array.from(dateMap.entries())
             .map(([date, dayData]) => {
                 const dateObj = new Date(date);
-                const month = dateObj.toLocaleDateString('en', { month: 'short' });
-                const day = dateObj.getDate().toString();
+                const month = dateObj.toLocaleDateString('en', { month: 'short', timeZone: 'UTC' });
+                const day = dateObj.getUTCDate().toString();
                 
                 const averageAmount = dayData.count > 0 ? dayData.amount / dayData.count : 0;
                 const minAmount = dayData.amounts.length > 0 ? Math.min(...dayData.amounts) : 0;
@@ -243,17 +151,9 @@ export function FinancialAreaChart({
             
             chartDataPoints.forEach(item => {
                 const date = new Date(item.date);
-                const weekStart = new Date(date);
-                weekStart.setDate(date.getDate() - date.getDay());
+                date.setUTCDate(date.getUTCDate() - date.getUTCDay());
+                const weekKey = date.toISOString().slice(0, 10);
 
-                // Use local date formatting to avoid timezone issues
-                const year = weekStart.getFullYear();
-                const month = String(weekStart.getMonth() + 1).padStart(2, '0');
-                const day = String(weekStart.getDate()).padStart(2, '0');
-                const weekKey = `${year}-${month}-${day}`;
-
-                if (!weekKey) return;
-                
                 if (!weekMap.has(weekKey)) {
                     weekMap.set(weekKey, {
                         amount: 0,
@@ -273,8 +173,8 @@ export function FinancialAreaChart({
             return Array.from(weekMap.entries())
                 .map(([date, weekData]) => {
                     const dateObj = new Date(date);
-                    const month = dateObj.toLocaleDateString('en', { month: 'short' });
-                    const day = dateObj.getDate().toString();
+                    const month = dateObj.toLocaleDateString('en', { month: 'short', timeZone: 'UTC' });
+                    const day = dateObj.getUTCDate().toString();
                     
                     const averageAmount = weekData.count > 0 ? weekData.amount / weekData.count : 0;
                     const minAmount = weekData.amounts.length > 0 ? Math.min(...weekData.amounts) : 0;
@@ -296,10 +196,8 @@ export function FinancialAreaChart({
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         }
 
-        // console.log(`${chartConfig.label} chart final data:`, chartDataPoints.length, 'points');
-
         return chartDataPoints;
-    }, [filteredData, startDate, endDate, pageStartDate, pageEndDate, chartConfig.label, hasPageFilters, data, currency, activeThresholds, type]);
+    }, [data, currency, activeThresholds, type, today, effectiveStartDate, effectiveEndDate, isDefaultRange, getTransactionDay]);
 
 
     const formatTooltip = (value: number) => {
@@ -311,10 +209,10 @@ export function FinancialAreaChart({
         const dataPoint = chartData.find(d => d.formattedDate === label);
         if (dataPoint) {
             const date = new Date(dataPoint.date);
-            const weekday = date.toLocaleDateString('en', { weekday: 'short' });
-            const month = date.toLocaleDateString('en', { month: 'short' });
-            const day = date.getDate();
-            const year = date.getFullYear();
+            const weekday = date.toLocaleDateString('en', { weekday: 'short', timeZone: 'UTC' });
+            const month = date.toLocaleDateString('en', { month: 'short', timeZone: 'UTC' });
+            const day = date.getUTCDate();
+            const year = date.getUTCFullYear();
             return `${weekday}, ${month} ${day}, ${year}`;
         }
         // Fallback if we can't find the data point
@@ -393,34 +291,17 @@ export function FinancialAreaChart({
     };
 
     const getDateRange = (months: number) => {
-        const today = new Date();
-        const startDate = new Date(today);
+        const current = new Date(today);
+        const year = current.getUTCFullYear();
+        const month = current.getUTCMonth() - months;
+        const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+        const start = new Date(Date.UTC(year, month, Math.min(current.getUTCDate(), lastDay)));
 
-        // Handle month rollover properly
-        const currentMonth = today.getMonth();
-        const currentYear = today.getFullYear();
-        const targetMonth = currentMonth - months;
-
-        if (targetMonth >= 0) {
-            startDate.setMonth(targetMonth);
-        } else {
-            // Handle year rollover
-            const yearsBack = Math.ceil(Math.abs(targetMonth) / 12);
-            const newMonth = 12 + (targetMonth % 12);
-            startDate.setFullYear(currentYear - yearsBack);
-            startDate.setMonth(newMonth === 12 ? 0 : newMonth);
-        }
-
-        const start = startDate.toISOString().split('T')[0] || '';
-        const end = today.toISOString().split('T')[0] || '';
-        
-        return { start, end };
+        return { start: start.toISOString().slice(0, 10), end: today };
     };
 
     const handleQuickFilter = (months: number) => {
-        console.log(`Quick filter clicked: ${months} months`);
         const { start, end } = getDateRange(months);
-        console.log(`Setting date range: ${start} to ${end}`);
         setStartDate(start);
         setEndDate(end);
     };
@@ -477,7 +358,7 @@ export function FinancialAreaChart({
                     fileName={`${type}-chart`}
                     csvData={csvData}
                     csvFileName={`${type}-data`}
-                    title={chartConfig.title}
+                    title={isDefaultRange ? `${chartConfig.title} (Last 30 Days)` : chartConfig.title}
                 />
                 <div className="mb-4">
                     <div className="flex flex-wrap items-center gap-3 p-3 bg-gray-50 rounded-lg border">
@@ -567,7 +448,7 @@ export function FinancialAreaChart({
                 fileName={`${type}-chart`}
                 csvData={csvData}
                 csvFileName={`${type}-data`}
-                title={chartConfig.title}
+                title={isDefaultRange ? `${chartConfig.title} (Last 30 Days)` : chartConfig.title}
             />
             <div className="mb-3 sm:mb-4">
                 <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-gray-50 rounded-lg border">
@@ -674,10 +555,10 @@ export function FinancialAreaChart({
                                     const dataPoint = chartData.find(d => d.formattedDate === label);
                                     if (dataPoint) {
                                         const date = new Date(dataPoint.date);
-                                        const weekday = date.toLocaleDateString('en', { weekday: 'short' });
-                                        const month = date.toLocaleDateString('en', { month: 'short' });
-                                        const day = date.getDate();
-                                        const year = date.getFullYear();
+                                        const weekday = date.toLocaleDateString('en', { weekday: 'short', timeZone: 'UTC' });
+                                        const month = date.toLocaleDateString('en', { month: 'short', timeZone: 'UTC' });
+                                        const day = date.getUTCDate();
+                                        const year = date.getUTCFullYear();
                                         const formattedDate = `${weekday}, ${month} ${day}, ${year}`;
                                         const isWeekly = chartData.length <= 30 ? false : true;
 

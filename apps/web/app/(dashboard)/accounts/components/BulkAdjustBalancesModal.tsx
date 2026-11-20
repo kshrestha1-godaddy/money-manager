@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { AccountInterface } from "../../../types/accounts";
 import { formatCurrency } from "../../../utils/currency";
 import {
@@ -8,11 +8,6 @@ import {
     modalOverlayClasses,
     buttonClasses,
 } from "../../../utils/formUtils";
-import {
-    accountsWithDraftBalances,
-    getProportionalWithheldForAccount,
-} from "../utils/accountWithheld";
-
 interface BulkAdjustBalancesModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -32,25 +27,8 @@ export function BulkAdjustBalancesModal({
     onApply,
     isSaving,
 }: BulkAdjustBalancesModalProps) {
-    const [draftBalances, setDraftBalances] = useState<Record<number, number>>({});
-
-    const accountsKey = useMemo(
-        () =>
-            accounts
-                .map((a) => `${a.id}:${a.balance ?? 0}`)
-                .sort()
-                .join("|"),
-        [accounts]
-    );
-
-    useEffect(() => {
-        if (!isOpen || accounts.length === 0) return;
-        const next: Record<number, number> = {};
-        for (const a of accounts) {
-            next[a.id] = a.balance ?? 0;
-        }
-        setDraftBalances(next);
-    }, [isOpen, accountsKey, accounts]);
+    const [draftBalances, setDraftBalances] = useState<Record<number, string>>({});
+    const [saveError, setSaveError] = useState<string | null>(null);
 
     const sortedAccounts = useMemo(() => {
         return [...accounts].sort((a, b) => {
@@ -60,54 +38,35 @@ export function BulkAdjustBalancesModal({
         });
     }, [accounts]);
 
-    const draftAccountList = useMemo(
-        () => accountsWithDraftBalances(accounts, draftBalances),
-        [accounts, draftBalances]
-    );
-
-    const handleBalanceChange = useCallback((id: number, raw: string) => {
-        const parsed = parseFloat(raw);
-        setDraftBalances((prev) => ({
-            ...prev,
-            [id]: Number.isFinite(parsed) ? parsed : 0,
-        }));
-    }, []);
-
     const handleResetRow = useCallback((account: AccountInterface) => {
-        setDraftBalances((prev) => ({
-            ...prev,
-            [account.id]: account.balance ?? 0,
-        }));
+        setDraftBalances((previous) => {
+            const next = { ...previous };
+            delete next[account.id];
+            return next;
+        });
     }, []);
 
-    const handleResetAll = useCallback(() => {
-        const next: Record<number, number> = {};
-        for (const a of accounts) {
-            next[a.id] = a.balance ?? 0;
-        }
-        setDraftBalances(next);
-    }, [accounts]);
+    const updates = accounts.flatMap((account) => {
+        const raw = draftBalances[account.id];
+        const balance = raw?.trim() ? Number(raw) : NaN;
+        return Number.isFinite(balance) && balance !== (account.balance ?? 0)
+            ? [{ id: account.id, balance }]
+            : [];
+    });
+    const hasInvalidBalance = accounts.some(({ id }) => {
+        const draft = draftBalances[id];
+        return draft !== undefined && (!draft.trim() || !Number.isFinite(Number(draft)));
+    });
 
-    const handleApply = useCallback(async () => {
-        const updates: { id: number; balance: number }[] = [];
-        for (const a of accounts) {
-            const next = draftBalances[a.id];
-            if (next === undefined) continue;
-            const prev = a.balance ?? 0;
-            if (next !== prev) {
-                updates.push({ id: a.id, balance: next });
-            }
+    async function handleApply() {
+        if (isSaving || hasInvalidBalance || !updates.length) return;
+        setSaveError(null);
+        try {
+            await onApply(updates);
+        } catch (error) {
+            setSaveError(error instanceof Error ? error.message : "Couldn’t save the balances. Please try again.");
         }
-        await onApply(updates);
-    }, [accounts, draftBalances, onApply]);
-
-    const hasChanges = useMemo(() => {
-        return accounts.some((a) => {
-            const next = draftBalances[a.id];
-            if (next === undefined) return false;
-            return next !== (a.balance ?? 0);
-        });
-    }, [accounts, draftBalances]);
+    }
 
     if (!isOpen) return null;
 
@@ -119,12 +78,13 @@ export function BulkAdjustBalancesModal({
                         <h2 className="text-xl font-semibold text-gray-900">Adjust all balances</h2>
                         <p className="text-sm text-gray-600 mt-1">
                             Set each account&apos;s new balance. Withheld amounts follow the same bank-wide split as
-                            your accounts table. Free = new balance − withheld share.
+                            your accounts table. Free balance is the new balance minus investments withheld from that account.
                         </p>
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
+                        disabled={isSaving}
                         className="text-gray-400 hover:text-gray-600 text-2xl leading-none self-end sm:self-start"
                         aria-label="Close"
                     >
@@ -149,20 +109,13 @@ export function BulkAdjustBalancesModal({
                         <tbody className="divide-y divide-gray-100 bg-white">
                             {sortedAccounts.map((account) => {
                                 const current = account.balance ?? 0;
-                                const next = draftBalances[account.id] ?? current;
+                                const draft = draftBalances[account.id] ?? String(current);
+                                const next = draft.trim() ? Number(draft) : NaN;
+                                const valid = Number.isFinite(next);
                                 const delta = next - current;
 
-                                const withheldBefore = getProportionalWithheldForAccount(
-                                    account,
-                                    accounts,
-                                    withheldAmounts
-                                );
-                                const withheldAfter = getProportionalWithheldForAccount(
-                                    { ...account, balance: next },
-                                    draftAccountList,
-                                    withheldAmounts
-                                );
-                                const freeAfter = next - withheldAfter;
+                                const withheld = withheldAmounts[account.id] ?? 0;
+                                const freeAfter = next - withheld;
 
                                 return (
                                     <tr key={account.id} className="hover:bg-gray-50/80">
@@ -173,12 +126,7 @@ export function BulkAdjustBalancesModal({
                                             </div>
                                         </td>
                                         <td className="px-3 py-2 text-right tabular-nums text-gray-700">
-                                            <div>{formatCurrency(withheldBefore, currency)}</div>
-                                            {withheldAfter !== withheldBefore && (
-                                                <div className="text-xs text-blue-600">
-                                                    → {formatCurrency(withheldAfter, currency)}
-                                                </div>
-                                            )}
+                                            {formatCurrency(withheld, currency)}
                                         </td>
                                         <td className="px-3 py-2 text-right tabular-nums text-gray-800">
                                             {formatCurrency(current, currency)}
@@ -188,8 +136,13 @@ export function BulkAdjustBalancesModal({
                                             <input
                                                 type="number"
                                                 step="0.01"
-                                                value={Number.isFinite(next) ? String(next) : "0"}
-                                                onChange={(e) => handleBalanceChange(account.id, e.target.value)}
+                                                value={draft}
+                                                aria-label={`New balance for ${account.bankName} · ${account.holderName}`}
+                                                aria-invalid={!valid}
+                                                onChange={(event) => {
+                                                    const value = event.target.value;
+                                                    setDraftBalances((previous) => ({ ...previous, [account.id]: value }));
+                                                }}
                                                 className="w-full min-w-[7rem] px-2 py-1.5 border border-gray-300 rounded-md text-right tabular-nums focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                                 disabled={isSaving}
                                             />
@@ -203,10 +156,10 @@ export function BulkAdjustBalancesModal({
                                                       : "text-gray-500"
                                             }`}
                                         >
-                                            {delta === 0 ? "—" : `${delta > 0 ? "+" : ""}${formatCurrency(delta, currency)}`}
+                                            {!valid || delta === 0 ? "—" : `${delta > 0 ? "+" : ""}${formatCurrency(delta, currency)}`}
                                         </td>
                                         <td className="px-3 py-2 text-right tabular-nums text-gray-800">
-                                            {formatCurrency(freeAfter, currency)}
+                                            {valid ? formatCurrency(freeAfter, currency) : "—"}
                                         </td>
                                         <td className="px-3 py-2">
                                             <button
@@ -225,10 +178,15 @@ export function BulkAdjustBalancesModal({
                     </table>
                 </div>
 
+                {(saveError || hasInvalidBalance) && (
+                    <p role="alert" className="px-4 pt-3 text-sm text-red-700">
+                        {saveError || "Enter a valid balance in each edited row."}
+                    </p>
+                )}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-6 pt-4 border-t border-gray-200">
                     <button
                         type="button"
-                        onClick={handleResetAll}
+                        onClick={() => setDraftBalances({})}
                         className="text-sm text-gray-600 hover:text-gray-900 underline"
                         disabled={isSaving}
                     >
@@ -247,7 +205,7 @@ export function BulkAdjustBalancesModal({
                             type="button"
                             onClick={() => void handleApply()}
                             className={buttonClasses.primary}
-                            disabled={isSaving || !hasChanges}
+                            disabled={isSaving || hasInvalidBalance || !updates.length}
                         >
                             {isSaving ? "Saving…" : "Save all changes"}
                         </button>

@@ -57,7 +57,7 @@ export function BankBalanceChart({ accounts, currency = "USD", withheldAmounts =
                     bank,
                     balance: totalBalance,
                     withheld: withheld,
-                    free: actualFree >= 0 ? actualFree : 0, // Prevent negative free balance for bars
+                    free: actualFree,
                     actualFree: actualFree, // Store actual free balance (can be negative) for tooltip
                     accountCount: data.accountCount
                 };
@@ -143,14 +143,15 @@ export function BankBalanceChart({ accounts, currency = "USD", withheldAmounts =
                     {chartData.length} bank{chartData.length !== 1 ? 's' : ''}
                 </div>
             </div>
-                         <div className="h-80 sm:h-96 lg:h-[500px] w-full">
+                         <div className="h-80 w-full sm:h-96 lg:h-[500px]">
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                         data={chartData}
+                        stackOffset="sign"
                         margin={{
                             top: 20,
-                            right: 30,
-                            left: 20,
+                            right: 12,
+                            left: 4,
                             bottom: 5
                         }}
                         maxBarSize={chartData.length === 1 ? 100 : undefined}
@@ -178,7 +179,7 @@ export function BankBalanceChart({ accounts, currency = "USD", withheldAmounts =
                             stroke="#666"
                             tickFormatter={formatYAxisTick}
                             width={50}
-                            domain={chartData.length === 1 ? [0, 'dataMax * 1.2'] : ['dataMin < 0 ? dataMin * 1.1 : 0', 'dataMax * 1.1']}
+                            domain={[(min: number) => Math.min(0, min * 1.1), (max: number) => Math.max(0, max * 1.2)]}
                             axisLine={true}
                             tickLine={true}
                         />

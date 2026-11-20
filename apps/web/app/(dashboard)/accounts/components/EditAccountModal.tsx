@@ -6,11 +6,18 @@ import { AccountInterface } from "../../../types/accounts";
 interface EditAccountModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onEdit: (id: number, account: Partial<Omit<AccountInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>) => void;
+    onEdit: (id: number, account: Partial<Omit<AccountInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>) => Promise<void>;
     account: AccountInterface | null;
 }
 
 export function EditAccountModal({ isOpen, onClose, onEdit, account }: EditAccountModalProps) {
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!isOpen) setSaveError(null);
+    }, [isOpen]);
+
     const [formData, setFormData] = useState({
         holderName: "",
         accountNumber: "",
@@ -63,8 +70,9 @@ export function EditAccountModal({ isOpen, onClose, onEdit, account }: EditAccou
         }
     }, [account]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSaving) return;
         
         if (!account) return;
 
@@ -77,8 +85,16 @@ export function EditAccountModal({ isOpen, onClose, onEdit, account }: EditAccou
             accountOpeningDate: new Date(formData.accountOpeningDate || new Date()),
         };
 
-        onEdit(account.id, processedData);
-        handleClose();
+        setIsSaving(true);
+        setSaveError(null);
+        try {
+            await onEdit(account.id, processedData);
+            handleClose();
+        } catch (error) {
+            setSaveError(error instanceof Error ? error.message : "Couldn’t save the account. Please try again.");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleClose = () => {
@@ -115,6 +131,7 @@ export function EditAccountModal({ isOpen, onClose, onEdit, account }: EditAccou
                     <h2 className="text-xl font-semibold text-gray-900">Edit Account</h2>
                     <button
                         onClick={handleClose}
+                            disabled={isSaving}
                         className="text-gray-400 hover:text-gray-600"
                     >
                         ✕
@@ -122,6 +139,7 @@ export function EditAccountModal({ isOpen, onClose, onEdit, account }: EditAccou
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    {saveError && <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -449,15 +467,17 @@ export function EditAccountModal({ isOpen, onClose, onEdit, account }: EditAccou
                         <button
                             type="button"
                             onClick={handleClose}
+                            disabled={isSaving}
                             className="px-4 py-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
+                            disabled={isSaving}
                             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                            Update Account
+                            {isSaving ? "Saving…" : "Update Account"}
                         </button>
                     </div>
                 </form>

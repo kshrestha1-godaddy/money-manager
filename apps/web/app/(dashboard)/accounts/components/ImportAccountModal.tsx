@@ -16,7 +16,7 @@ interface ImportResult {
 interface ImportAccountModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onImport: (accounts: ParsedAccountData[]) => void;
+    onImport: (accounts: ParsedAccountData[]) => Promise<{ data: unknown[]; errors: string[] }>;
     isImporting?: boolean;
 }
 
@@ -37,6 +37,7 @@ export function ImportAccountModal({ isOpen, onClose, onImport, isImporting: ser
     };
 
     const handleFileSelect = (selectedFile: File) => {
+        if (importing || serverImporting) return;
         if (selectedFile.type === 'text/csv' || selectedFile.name.endsWith('.csv')) {
             setFile(selectedFile);
             setResult(null);
@@ -67,19 +68,26 @@ export function ImportAccountModal({ isOpen, onClose, onImport, isImporting: ser
     };
 
     const handleImport = async () => {
-        if (!file) return;
+        if (!file || importing || serverImporting) return;
 
         setImporting(true);
+        setResult(null);
+        setShowSuccessResult(false);
         try {
             const importResult = await processAccountImport(file);
-            setResult(importResult);
-            
-            // Only call onImport if we have valid data - this will trigger the actual save
-            if (importResult.success && importResult.validatedData && importResult.validatedData.length > 0) {
-                // Don't close modal automatically - let user see warnings first
-                setShowSuccessResult(true);
-                onImport(importResult.validatedData);
+            if (!importResult.success || !importResult.validatedData?.length) {
+                setResult(importResult);
+                return;
             }
+
+            const saved = await onImport(importResult.validatedData);
+            setResult({
+                ...importResult,
+                success: saved.data.length > 0,
+                validRows: saved.data.length,
+                errors: [...importResult.errors, ...saved.errors],
+            });
+            setShowSuccessResult(saved.data.length > 0);
         } catch (error) {
             setResult({
                 success: false,
@@ -109,6 +117,7 @@ export function ImportAccountModal({ isOpen, onClose, onImport, isImporting: ser
                     <h2 className="text-xl font-semibold text-gray-900">Bulk Import Accounts</h2>
                     <button 
                         onClick={resetModal}
+                        disabled={importing || serverImporting}
                         className="text-gray-400 hover:text-gray-500"
                     >
                         <X size={24} />
@@ -148,6 +157,7 @@ export function ImportAccountModal({ isOpen, onClose, onImport, isImporting: ser
                                         id="file-upload"
                                         name="file-upload"
                                         type="file"
+                                        disabled={importing || serverImporting}
                                         accept=".csv"
                                         className="sr-only"
                                         onChange={(e) => {
@@ -207,7 +217,7 @@ export function ImportAccountModal({ isOpen, onClose, onImport, isImporting: ser
                                     <CheckCircle className="h-5 w-5 mr-2" />
                                     <span className="font-medium">
                                         {showSuccessResult 
-                                            ? `${result.validRows} accounts imported successfully!` 
+                                            ? `${result.validRows} ${result.validRows === 1 ? "account" : "accounts"} imported`
                                             : `${result.validRows} accounts ready to import`
                                         }
                                     </span>

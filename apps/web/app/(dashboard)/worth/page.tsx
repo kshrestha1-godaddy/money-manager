@@ -644,7 +644,7 @@ export default function NetWorthPage() {
                           <button
                             aria-label={`${isIncluded ? "Exclude" : "Include"} ${name} ${isIncluded ? "from" : "in"} net worth`}
                             aria-pressed={isIncluded}
-                            disabled={isUpdating || isBulkUpdating}
+                            disabled={updatingItems.size > 0 || isBulkUpdating}
                             onClick={() =>
                               handleToggleInclusion(
                                 entityType,

@@ -1,15 +1,32 @@
     "use client";
 
+import { useEffect, useState } from "react";
 import { AccountInterface } from "../../../types/accounts";
 
 interface DeleteAccountModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: () => void;
+    onConfirm: () => Promise<void>;
+    isDeleting: boolean;
     account: AccountInterface | null;
 }
 
-export function DeleteAccountModal({ isOpen, onClose, onConfirm, account }: DeleteAccountModalProps) {
+export function DeleteAccountModal({ isOpen, onClose, onConfirm, isDeleting, account }: DeleteAccountModalProps) {
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!isOpen) setError(null);
+    }, [isOpen]);
+
+    async function confirmDelete() {
+        setError(null);
+        try {
+            await onConfirm();
+        } catch (error) {
+            setError(error instanceof Error ? error.message : "Couldn’t delete the account. Please try again.");
+        }
+    }
+
     if (!isOpen || !account) return null;
 
     return (
@@ -19,6 +36,7 @@ export function DeleteAccountModal({ isOpen, onClose, onConfirm, account }: Dele
                     <h2 className="text-xl font-semibold text-red-600">Delete Account</h2>
                     <button
                         onClick={onClose}
+                        disabled={isDeleting}
                         className="text-gray-400 hover:text-gray-600"
                     >
                         ✕
@@ -39,18 +57,21 @@ export function DeleteAccountModal({ isOpen, onClose, onConfirm, account }: Dele
                     </p>
                 </div>
 
+                {error && <p role="alert" className="mb-4 text-sm text-red-700">{error}</p>}
                 <div className="flex justify-end space-x-3">
                     <button
                         onClick={onClose}
+                        disabled={isDeleting}
                         className="px-4 py-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                         Cancel
                     </button>
                     <button
-                        onClick={onConfirm}
+                        onClick={confirmDelete}
+                        disabled={isDeleting}
                         className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
                     >
-                        Delete Account
+                        {isDeleting ? "Deleting…" : "Delete Account"}
                     </button>
                 </div>
             </div>

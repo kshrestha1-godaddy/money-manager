@@ -11,13 +11,14 @@ import { ViewAccountModal } from "./components/ViewAccountModal";
 import { ShareAccountModal } from "./components/ShareAccountModal";
 import { ImportAccountModal } from "./components/ImportAccountModal";
 import { TransferModal } from "./components/TransferModal";
+import { getAccountBalanceTotals, sumAccountWithheld } from "./utils/accountWithheld";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { BankBalanceChart } from "./components/BankBalanceChart";
 import { AccountIncomeExpenseActivityTable } from "./components/AccountIncomeExpenseActivityTable";
 import { useOptimizedAccounts } from "../../hooks/useOptimizedAccounts";
-import { getWithheldAmountsByBank, getWithheldInvestmentDetailsByAccount } from "./actions/accounts";
-import { 
+import { getWithheldInvestmentDetailsByAccount } from "./actions/accounts";
+import {
     getSummaryCardClasses,
     BUTTON_COLORS,
     TEXT_COLORS,
@@ -30,14 +31,12 @@ import {
 // Extract color variables for better readability
 const pageContainer = CONTAINER_COLORS.page;
 const errorContainer = CONTAINER_COLORS.error;
-const whiteContainer = CONTAINER_COLORS.whiteWithPadding;
 const cardContainer = CONTAINER_COLORS.card;
 const loadingContainer = LOADING_COLORS.container;
 const loadingSpinner = LOADING_COLORS.spinner;
 const loadingText = LOADING_COLORS.text;
 
 const pageTitle = TEXT_COLORS.title;
-const pageSubtitle = TEXT_COLORS.subtitle;
 const errorTitle = TEXT_COLORS.errorTitle;
 const errorMessage = TEXT_COLORS.errorMessage;
 const cardTitle = TEXT_COLORS.cardTitle;
@@ -64,8 +63,11 @@ export default function Accounts() {
         accounts,
         loading,
         error,
-        totalBalance,
-        freeBalance,
+        actionError,
+        clearActionError,
+        retryAccounts,
+        isFetching: accountsFetching,
+        isDeleting,
         hasActiveFilters,
 
         // Modal states
@@ -131,60 +133,52 @@ export default function Accounts() {
         isBulkBalanceSaving,
     } = useOptimizedAccounts();
 
-    // The accounts from the hook are already filtered
-    const filteredAccounts = accounts;
-    const filteredTotalBalance = totalBalance;
-
-    // Fetch withheld amounts from investments
-    const { data: withheldAmounts = {} } = useQuery({
-        queryKey: ['withheld-amounts'],
-        queryFn: getWithheldAmountsByBank,
-    });
-    
-    const { data: withheldDetails = {}, isLoading: withheldDetailsLoading, error: withheldDetailsError } = useQuery({
+    const {
+        data: withheldDetails = {},
+        isLoading: withheldDetailsLoading,
+        error: withheldDetailsError,
+        refetch: retryWithheldDetails,
+        isFetching: withheldDetailsFetching,
+    } = useQuery({
         queryKey: ['withheld-amounts', 'account-details'],
         queryFn: getWithheldInvestmentDetailsByAccount,
     });
+    const withheldByAccount = sumAccountWithheld(withheldDetails);
+    const totals = getAccountBalanceTotals(accounts, withheldByAccount);
 
     const chartAccounts = accounts.filter(account => account.showInBalanceChart !== false);
-    const chartWithheldAmounts: Record<string, number> = {};
+    const chartWithheldAmounts = new Map<string, number>();
     for (const account of chartAccounts) {
-        const amount = (withheldDetails[account.id] ?? []).reduce((sum, item) => sum + item.amount, 0);
-        chartWithheldAmounts[account.bankName] = (chartWithheldAmounts[account.bankName] ?? 0) + amount;
+        chartWithheldAmounts.set(account.bankName, (chartWithheldAmounts.get(account.bankName) ?? 0) +
+            (withheldByAccount[account.id] ?? 0));
     }
 
-    // Calculate total withheld amount
-    const totalWithheldAmount = Object.values(withheldAmounts).reduce((sum, amount) => sum + amount, 0);
-    
-    const uniqueBankNames = Array.from(new Set(allAccounts.map(account => account.bankName)));
-    const uniqueAccountTypes = Array.from(new Set(allAccounts.map(account => account.accountType)));
+    const uniqueBankNames = Array.from(new Set(allAccounts.map(account => account.bankName))).sort();
+    const uniqueAccountTypes = Array.from(new Set(allAccounts.map(account => account.accountType).filter(Boolean))).sort();
 
     // Set localStorage when user has accounts (for tutorial system)
     useEffect(() => {
         if (allAccounts.length > 0) {
-            localStorage.setItem('user-has-accounts', 'true');
+            try { localStorage.setItem('user-has-accounts', 'true'); } catch {}
         }
     }, [allAccounts.length]);
-
-    const handleClearFilters = () => {
-        setSearchTerm("");
-        setSelectedBank("");
-        setSelectedAccountType("");
-        clearFilters();
-    };
 
     // Display error if there's one
     if (error || withheldDetailsError) {
         return (
             <div className="p-8 text-center">
-                <div className={errorContainer}>
+                <div className={errorContainer} role="alert">
                     <h3 className={errorTitle}>Error Loading Accounts</h3>
                     <p className={errorMessage}>{error || "Unable to load withheld investment details. Please retry."}</p>
-                    <button 
-                        onClick={() => window.location.reload()} 
+                    <button
+                        onClick={() => {
+                            if (error) void retryAccounts();
+                            if (withheldDetailsError) void retryWithheldDetails();
+                        }}
+                        disabled={(!!error && accountsFetching) || (!!withheldDetailsError && withheldDetailsFetching)}
                         className={primaryButton + " mt-4"}
                     >
-                        Retry
+                        {(error && accountsFetching) || (withheldDetailsError && withheldDetailsFetching) ? "Retrying…" : "Retry"}
                     </button>
                 </div>
             </div>
@@ -194,8 +188,8 @@ export default function Accounts() {
     // Loading state
     if (loading || withheldDetailsLoading) {
         return (
-            <div className={loadingContainer}>
-                <div className={loadingSpinner}></div>
+            <div className={loadingContainer} role="status">
+                <div className={loadingSpinner} aria-hidden="true" />
                 <p className={loadingText}>Loading accounts...</p>
             </div>
         );
@@ -204,12 +198,11 @@ export default function Accounts() {
     return (
         <div className={pageContainer}>
             {/* Header */}
-            <div className={UI_STYLES.header.container}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h1 className={pageTitle}>Accounts</h1>
-                    <p className={pageSubtitle}>Manage your bank accounts and financial institutions</p>
                 </div>
-                <div className={UI_STYLES.header.buttonGroup}>
+                <div className="flex flex-wrap items-center gap-2">
                     <button
                         id="add-account-btn"
                         onClick={() => setIsAddModalOpen(true)}
@@ -226,24 +219,31 @@ export default function Accounts() {
                     <button
                         onClick={handleExportToCSV}
                         className={secondaryGreenButton}
-                        disabled={filteredAccounts.length === 0}
+                        disabled={accounts.length === 0}
                     >
                         Export CSV
                     </button>
                 </div>
             </div>
 
+            {actionError && (
+                <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                    <p>{actionError}</p>
+                    <button type="button" onClick={clearActionError} className="underline">Dismiss</button>
+                </div>
+            )}
+
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 <div className={cardContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRow}>
                         <div className={`${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('totalAccounts', 'accounts').indicator}`}></div>
                         <h3 className={cardTitle}>Total Accounts</h3>
                     </div>
                     <p className={`${cardValue} ${getSummaryCardClasses('totalAccounts', 'accounts').text}`}>
-                        {loading ? "..." : filteredAccounts.length}
+                        {accounts.length}
                     </p>
-                    <p className={cardSubtitle}>active accounts</p>
+                    <p className={cardSubtitle}>matching accounts</p>
                 </div>
                 <div className={cardContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRow}>
@@ -251,17 +251,17 @@ export default function Accounts() {
                         <h3 className={cardTitle}>Total Balance</h3>
                     </div>
                     <p className={`${cardValue} ${getSummaryCardClasses('totalBalance', 'accounts').text}`}>
-                        {loading ? "..." : formatCurrency(filteredTotalBalance, userCurrency)}
+                        {formatCurrency(totals.balance, userCurrency)}
                     </p>
                     <p className={cardSubtitle}>accounts total</p>
                 </div>
                 <div className={cardContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRow}>
-                        <div className={`${UI_STYLES.summaryCard.indicator} ${freeBalance >= 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <div className={`${UI_STYLES.summaryCard.indicator} ${totals.free >= 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
                         <h3 className={cardTitle}>Free Balance</h3>
                     </div>
-                    <p className={`${cardValue} ${freeBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {loading ? "..." : formatCurrency(freeBalance, userCurrency)}
+                    <p className={`${cardValue} ${totals.free >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {formatCurrency(totals.free, userCurrency)}
                     </p>
                     <p className={cardSubtitle}>available to use</p>
                 </div>
@@ -271,118 +271,124 @@ export default function Accounts() {
                         <h3 className={cardTitle}>Withheld Balance</h3>
                     </div>
                     <p className={`${cardValue} text-gray-600`}>
-                        {loading ? "..." : formatCurrency(totalWithheldAmount, userCurrency)}
+                        {formatCurrency(totals.withheld, userCurrency)}
                     </p>
                     <p className={cardSubtitle}>in investments</p>
                 </div>
                 <div className={cardContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRow}>
                         <div className={`${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('bankTypes', 'accounts').indicator}`}></div>
-                        <h3 className={cardTitle}>Bank Types</h3>
+                        <h3 className={cardTitle}>Banks</h3>
                     </div>
                     <p className={`${cardValue} ${getSummaryCardClasses('bankTypes', 'accounts').text}`}>
-                        {loading ? "..." : [...new Set(filteredAccounts.map(acc => acc.bankName))].length}
+                        {new Set(accounts.map(account => account.bankName)).size}
                     </p>
                     <p className={cardSubtitle}>unique banks</p>
                 </div>
             </div>
 
             {/* Balance Chart */}
-            {!loading && accounts.length > 0 && (
+            {accounts.length > 0 && (
                 <div className={UI_STYLES.chart.container}>
-                    <BankBalanceChart 
+                    <BankBalanceChart
                         accounts={chartAccounts}
-                        currency={userCurrency} 
-                        withheldAmounts={chartWithheldAmounts}
+                        currency={userCurrency}
+                        withheldAmounts={Object.fromEntries(chartWithheldAmounts)}
                     />
                 </div>
             )}
 
-            {/* Filters and Actions */}
-            {/* <div className={UI_STYLES.filters.container}>
-                <div className={UI_STYLES.filters.gridSix}>
-                    <div>
-                        <label className={labelText}>
-                            Search Accounts
-                        </label>
-                        <input
-                            type="text"
-                            placeholder="Search by name, bank, number..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className={standardInput}
-                        />
-                    </div>
-                    <div>
-                        <label className={labelText}>
-                            Filter by Bank
-                        </label>
-                        <select
-                            value={selectedBank}
-                            onChange={(e) => setSelectedBank(e.target.value)}
-                            className={standardInput}
-                        >
-                            <option value="">All Banks</option>
-                            {uniqueBankNames.map((bank) => (
-                                <option key={bank} value={bank}>
-                                    {bank}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label className={labelText}>
-                            Filter by Type
-                        </label>
-                        <select
-                            value={selectedAccountType}
-                            onChange={(e) => setSelectedAccountType(e.target.value)}
-                            className={standardInput}
-                        >
-                            <option value="">All Types</option>
-                            {uniqueAccountTypes.map((type) => (
-                                <option key={type} value={type}>
-                                    {type}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label className={labelText}>
-                            Start Date
-                        </label>
-                        <input
-                            type="date"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                            className={standardInput}
-                        />
-                    </div>
-                    <div>
-                        <label className={labelText}>
-                            End Date
-                        </label>
-                        <input
-                            type="date"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            className={standardInput}
-                        />
-                    </div>
-                    <div className={UI_STYLES.filters.clearButtonContainer}>
-                        <button
-                            onClick={handleClearFilters}
-                            className={clearFilterButton}
-                            disabled={!hasActiveFilters}
-                        >
-                            Clear Filters
-                        </button>
+            {allAccounts.length > 0 && (
+                <div className={UI_STYLES.filters.container}>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+                        <div>
+                            <label htmlFor="account-search" className={labelText}>
+                                Search Accounts
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="Search by name, bank, number..."
+                                id="account-search"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className={standardInput}
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="account-bank-filter" className={labelText}>
+                                Filter by Bank
+                            </label>
+                            <select
+                                id="account-bank-filter"
+                                value={selectedBank}
+                                onChange={(e) => setSelectedBank(e.target.value)}
+                                className={standardInput}
+                            >
+                                <option value="">All Banks</option>
+                                {uniqueBankNames.map((bank) => (
+                                    <option key={bank} value={bank}>
+                                        {bank}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="account-type-filter" className={labelText}>
+                                Filter by Type
+                            </label>
+                            <select
+                                id="account-type-filter"
+                                value={selectedAccountType}
+                                onChange={(e) => setSelectedAccountType(e.target.value)}
+                                className={standardInput}
+                            >
+                                <option value="">All Types</option>
+                                {uniqueAccountTypes.map((type) => (
+                                    <option key={type} value={type}>
+                                        {type}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="account-start-date" className={labelText}>
+                                Start Date
+                            </label>
+                            <input
+                                type="date"
+                                id="account-start-date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                className={standardInput}
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="account-end-date" className={labelText}>
+                                End Date
+                            </label>
+                            <input
+                                type="date"
+                                id="account-end-date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                className={standardInput}
+                            />
+                        </div>
+                        <div className={UI_STYLES.filters.clearButtonContainer}>
+                            <button
+                                onClick={clearFilters}
+                                className={clearFilterButton}
+                                disabled={!hasActiveFilters}
+                            >
+                                Clear Filters
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div> */}
+            )}
 
             {/* Accounts List/Table */}
-            {filteredAccounts.length === 0 ? (
+            {accounts.length === 0 ? (
                 <div className={UI_STYLES.empty.container}>
                     <div className={UI_STYLES.empty.icon}>
                         <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -393,13 +399,13 @@ export default function Accounts() {
                         {hasActiveFilters ? "No accounts match your filters" : "No accounts yet"}
                     </h3>
                     <p className={emptyMessage}>
-                        {hasActiveFilters 
-                            ? "Try adjusting your search criteria or clearing filters." 
+                        {hasActiveFilters
+                            ? "Try adjusting your search criteria or clearing filters."
                             : "Get started by adding your first bank account."
                         }
                     </p>
                     {hasActiveFilters ? (
-                        <button onClick={handleClearFilters} className={clearButton}>
+                        <button onClick={clearFilters} className={clearButton}>
                             Clear Filters
                         </button>
                     ) : (
@@ -410,12 +416,13 @@ export default function Accounts() {
                 </div>
             ) : (
                 <AccountTable
-                    accounts={filteredAccounts}
+                    accounts={accounts}
                     selectedAccounts={selectedAccounts}
                     onAccountSelect={handleAccountSelect}
                     onSelectAll={(checked: boolean) => handleSelectAll(checked)}
                     showBulkActions={true}
                     onBulkDelete={handleBulkDelete}
+                    isDeleting={isDeleting}
                     onClearSelection={() => setSelectedAccounts(new Set())}
                     onEdit={openEditModal}
                     onDelete={openDeleteModal}
@@ -440,20 +447,20 @@ export default function Accounts() {
                                 type="button"
                                 onClick={() => setIsTransferModalOpen(true)}
                                 className={`${primaryButton} flex items-center space-x-2 disabled:opacity-50`}
-                                disabled={filteredAccounts.length < 2}
-                                title={filteredAccounts.length < 2 ? "You need at least 2 accounts to transfer money" : "Transfer money between accounts"}
+                                disabled={allAccounts.length < 2}
+                                title={allAccounts.length < 2 ? "You need at least 2 accounts to transfer money" : "Transfer money between accounts"}
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                                 </svg>
-                                <span>Self Transfer of Money</span>
+                                <span>Transfer between accounts</span>
                             </button>
                         </div>
                     }
                 />
             )}
 
-            {!loading && <AccountIncomeExpenseActivityTable />}
+            {allAccounts.length > 0 && <AccountIncomeExpenseActivityTable />}
 
             {/* Modals */}
             <AddAccountModal
@@ -479,6 +486,7 @@ export default function Accounts() {
                     setAccountToDelete(null);
                 }}
                 onConfirm={handleDeleteAccount}
+                isDeleting={isDeleting}
                 account={accountToDelete}
             />
 
@@ -514,15 +522,17 @@ export default function Accounts() {
                 accounts={allAccounts}
             />
 
-            <BulkAdjustBalancesModal
-                isOpen={isBulkBalancesModalOpen}
-                onClose={() => setIsBulkBalancesModalOpen(false)}
-                accounts={allAccounts}
-                withheldAmounts={withheldAmounts}
-                currency={userCurrency}
-                onApply={handleBulkBalanceUpdate}
-                isSaving={isBulkBalanceSaving}
-            />
+            {isBulkBalancesModalOpen && (
+                <BulkAdjustBalancesModal
+                    isOpen={isBulkBalancesModalOpen}
+                    onClose={() => setIsBulkBalancesModalOpen(false)}
+                    accounts={allAccounts}
+                    withheldAmounts={withheldByAccount}
+                    currency={userCurrency}
+                    onApply={handleBulkBalanceUpdate}
+                    isSaving={isBulkBalanceSaving}
+                />
+            )}
         </div>
     );
 }

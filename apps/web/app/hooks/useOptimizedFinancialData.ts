@@ -10,14 +10,18 @@ import { exportCategoriesByType } from "../utils/csvExportCategories";
 import { NotificationData } from "../components/DisappearingNotification";
 import { formatCurrency } from "../utils/currency";
 import { convertForDisplaySync } from "../utils/currencyDisplay";
+import { createTransactionDayFormatter } from "../utils/transaction-calendar";
 import { getUserThresholds } from "../actions/notifications";
 
+
+const EMPTY_ITEMS: [] = [];
 
 export interface UseOptimizedFinancialDataOptions {
   fetchCategories?: boolean;
   fetchAccounts?: boolean;
   onNotification?: (notification: NotificationData) => void;
   userCurrency?: string;
+  userTimezone?: string;
 }
 
 export function useOptimizedFinancialData<T extends FinancialItem>(
@@ -58,9 +62,11 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   const [itemToDelete, setItemToDelete] = useState<T | null>(null);
 
   // Cached data queries
-  const { data: items = [], isLoading: itemsLoading } = useQuery(
+  const { data: itemData, isLoading: itemsLoading, error: itemsError, refetch: retryItems, isFetching: itemsFetching } = useQuery(
     financialItemsQuery(categoryType, actions.getItems)
   );
+
+  const items = itemData ?? EMPTY_ITEMS;
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: QUERY_KEYS.categories,
@@ -230,7 +236,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   // Filter logic (memoized for performance)
   const hasActiveFilters = useMemo(() => {
     return !!(
-      searchTerm ||
+      searchTerm.trim() ||
       selectedCategories.length > 0 ||
       selectedBank ||
       startDate ||
@@ -239,11 +245,17 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     );
   }, [searchTerm, selectedCategories, selectedBank, startDate, endDate, showBookmarkedOnly]);
   
+  const getTransactionDay = useMemo(
+    () => createTransactionDayFormatter(options.userTimezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone),
+    [options.userTimezone]
+  );
   const filteredItems = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!hasActiveFilters) return items;
+
     return items.filter(item => {
-      const q = searchTerm.toLowerCase();
       // Search term filtering (includes location strings from expense/income rows)
-      const matchesSearch = !searchTerm ||
+      const matchesSearch = !q ||
         item.title.toLowerCase().includes(q) ||
         item.description?.toLowerCase().includes(q) ||
         item.notes?.toLowerCase().includes(q) ||
@@ -259,33 +271,16 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
       // Bank filtering
       const matchesBank = !selectedBank || (item.account && item.account.bankName === selectedBank);
       
-      // Date filtering
-      let matchesDateRange = true;
-      if (startDate && endDate) {
-        const itemDate = new Date(item.date);
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);  // Set to start of day
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);  // Set to end of day
-        matchesDateRange = itemDate >= start && itemDate <= end;
-      } else if (startDate) {
-        const itemDate = new Date(item.date);
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);  // Set to start of day
-        matchesDateRange = itemDate >= start;
-      } else if (endDate) {
-        const itemDate = new Date(item.date);
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);  // Set to end of day
-        matchesDateRange = itemDate <= end;
-      }
-      
+      const day = startDate || endDate ? getTransactionDay(item.date) : "";
+      const matchesDateRange = (!startDate && !endDate) ||
+        Boolean(day && (!startDate || day >= startDate) && (!endDate || day <= endDate));
+
       // Bookmark filtering
       const matchesBookmark = !showBookmarkedOnly || (item as any).isBookmarked;
 
       return matchesSearch && matchesCategory && matchesBank && matchesDateRange && matchesBookmark;
     });
-  }, [items, searchTerm, selectedCategories, selectedBank, startDate, endDate, showBookmarkedOnly]);
+  }, [items, searchTerm, selectedCategories, selectedBank, startDate, endDate, showBookmarkedOnly, hasActiveFilters, getTransactionDay]);
 
   // Memoized calculations with currency conversion
   const totalAmount = useMemo(() => 
@@ -297,13 +292,6 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     Array.from(new Set(accounts.map(account => account.bankName))).sort(), 
     [accounts]
   );
-
-  // Chart data - optimized to balance performance with filter responsiveness
-  const chartItems = useMemo(() => {
-    // If page filters are active, use filtered data to respect user's filtering intent
-    // If no page filters, use all items to show complete trend (chart handles its own default filtering)
-    return hasActiveFilters ? filteredItems : items;
-  }, [items, filteredItems, hasActiveFilters]);
 
   // CRUD Handlers
   const handleAddItem = useCallback((newItem: Omit<T, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -357,19 +345,19 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     });
   }, []);
 
-  const handleSelectAll = useCallback((selected: boolean) => {
+  const handleSelectAll = useCallback((selected: boolean, visibleItems: T[] = filteredItems) => {
     if (selected) {
-      setSelectedItems(new Set(filteredItems.map(item => item.id)));
+      setSelectedItems(new Set(visibleItems.map(item => item.id)));
     } else {
       setSelectedItems(new Set());
     }
   }, [filteredItems]);
 
-  const handleBulkDelete = useCallback(() => {
-    if (selectedItems.size === 0) return;
-    
-    const itemIds = Array.from(selectedItems);
-    if (confirm(`Are you sure you want to delete ${itemIds.length} items?`)) {
+  const handleBulkDelete = useCallback((visibleIds: number[]) => {
+    const itemIds = visibleIds.filter((id) => selectedItems.has(id));
+    if (itemIds.length === 0 || bulkDeleteMutation.isPending) return;
+
+    if (confirm(`Delete ${itemIds.length} selected transaction(s)? This cannot be undone.`)) {
       bulkDeleteMutation.mutate(itemIds);
     }
   }, [selectedItems, bulkDeleteMutation]);
@@ -382,15 +370,15 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     triggerBalanceRefresh();
   }, [queryClient, QUERY_KEYS, categoryType]);
 
-  const handleExportToCSV = useCallback(() => {
-    if (filteredItems.length === 0) {
+  const handleExportToCSV = useCallback((visibleItems: T[] = filteredItems) => {
+    if (visibleItems.length === 0) {
       alert(`No ${categoryType.toLowerCase()}s to export`);
       return;
     }
     
     try {
       // Export the main financial data
-      actions.exportToCSV(filteredItems);
+      actions.exportToCSV(visibleItems);
       
       // Also export categories for this type in a separate file
       if (categories && categories.length > 0) {
@@ -419,7 +407,11 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     // Data
     items: filteredItems,
     allItems: items,
-    chartItems,
+    chartItems: filteredItems,
+    itemsError: itemData ? null : itemsError,
+    retryItems,
+    itemsFetching,
+    isBulkDeleting: bulkDeleteMutation.isPending,
     categories,
     accounts,
     loading,

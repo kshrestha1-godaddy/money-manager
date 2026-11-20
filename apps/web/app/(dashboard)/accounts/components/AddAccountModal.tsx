@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AccountInterface } from "../../../types/accounts";
 
 interface AddAccountModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onAdd: (account: Omit<AccountInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => void;
+    onAdd: (account: Omit<AccountInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => Promise<void>;
 }
 
 // Move InputField component outside to prevent recreation on every render
@@ -62,6 +62,13 @@ const InputField = ({
 };
 
 export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps) {
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!isOpen) setSaveError(null);
+    }, [isOpen]);
+
     const [formData, setFormData] = useState({
         holderName: "",
         accountNumber: "",
@@ -126,8 +133,9 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSaving) return;
         
         if (!validateForm()) {
             return;
@@ -149,8 +157,16 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
             })()),
         };
 
-        onAdd(processedData);
-        resetForm();
+        setIsSaving(true);
+        setSaveError(null);
+        try {
+            await onAdd(processedData);
+            resetForm();
+        } catch (error) {
+            setSaveError(error instanceof Error ? error.message : "Couldn’t save the account. Please try again.");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const resetForm = () => {
@@ -226,6 +242,7 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
                         </div>
                         <button
                             onClick={handleClose}
+                            disabled={isSaving}
                             className="text-gray-400 hover:text-gray-600 transition-colors p-1 sm:p-2 hover:bg-gray-100 rounded-lg self-end sm:self-auto"
                         >
                             <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -236,6 +253,7 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
                 </div>
 
                 <form onSubmit={handleSubmit} className="px-4 sm:px-8 py-4 sm:py-6">
+                    {saveError && <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}
                     {/* Basic Account Information */}
                     <div className="mb-6 sm:mb-8">
                         <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-4 sm:mb-6">Basic Information</h3>
@@ -520,15 +538,17 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
                         <button
                             type="button"
                             onClick={handleClose}
+                            disabled={isSaving}
                             className="px-4 sm:px-6 py-2 sm:py-3 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-lg font-medium transition-all order-2 sm:order-1"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
+                            disabled={isSaving}
                             className="px-6 sm:px-8 py-2 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-all shadow-sm order-1 sm:order-2"
                         >
-                            Add Account
+                            {isSaving ? "Saving…" : "Add Account"}
                         </button>
                     </div>
                 </form>

@@ -43,7 +43,7 @@ export function TransferModal({ isOpen, onClose, onTransfer, accounts }: Transfe
         if (formData.fromAccountId === formData.toAccountId) {
             newErrors.toAccountId = "Source and destination accounts cannot be the same";
         }
-        if (!formData.amount || formData.amount <= 0) {
+        if (!Number.isFinite(formData.amount) || formData.amount <= 0) {
             newErrors.amount = "Amount must be greater than 0";
         }
         
@@ -60,7 +60,7 @@ export function TransferModal({ isOpen, onClose, onTransfer, accounts }: Transfe
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        if (!validateForm()) {
+        if (isSubmitting || !validateForm()) {
             return;
         }
 
@@ -70,8 +70,7 @@ export function TransferModal({ isOpen, onClose, onTransfer, accounts }: Transfe
             resetForm();
             onClose();
         } catch (error) {
-            console.error("Transfer failed:", error);
-            // Error handling is done in the parent component
+            setErrors({ submit: error instanceof Error ? error.message : "Couldn’t transfer the money. Please try again." });
         } finally {
             setIsSubmitting(false);
         }
@@ -88,6 +87,7 @@ export function TransferModal({ isOpen, onClose, onTransfer, accounts }: Transfe
     };
 
     const handleClose = () => {
+        if (isSubmitting) return;
         resetForm();
         onClose();
     };
@@ -122,6 +122,7 @@ export function TransferModal({ isOpen, onClose, onTransfer, accounts }: Transfe
                 </div>
 
                 <form onSubmit={handleSubmit} className="px-6 py-6">
+                    {errors.submit && <p role="alert" className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{errors.submit}</p>}
                     {/* Transfer Direction Visual */}
                     <div className="mb-8">
                         <div className="flex items-center justify-center space-x-4 p-4 bg-blue-50 rounded-lg">

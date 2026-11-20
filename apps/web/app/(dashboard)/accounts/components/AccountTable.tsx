@@ -4,20 +4,20 @@ import { useState, useMemo, useEffect, useRef, useCallback, useId } from "react"
 import { createPortal } from "react-dom";
 import { ChevronDown, Download, Eye } from "lucide-react";
 import { AccountInterface } from "../../../types/accounts";
-import { formatDate } from "../../../utils/date";
+import { accountOpeningDay, formatAccountOpeningDate } from "../utils/accountOpeningDate";
 import { formatCurrency } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { SUPPORTED_CURRENCIES } from "../../../utils/currencyConversion";
 import { useCurrency } from "../../../providers/CurrencyProvider";
 import { getDefaultColumnWidths, getMinColumnWidth, type AccountColumnWidths } from "../../../config/tableConfig";
 import { getActionButtonClasses } from "../../../config/colorConfig";
+import { getAccountBalanceTotals, sumAccountWithheld } from "../utils/accountWithheld";
 import { groupAccounts, type AccountGrouping } from "../utils/accountGrouping";
 import { cn } from "@/lib/utils";
 import { AccountChartVisibilityToggle } from "./AccountChartVisibilityToggle";
 
 function computeAccountFreeBalance(
     account: AccountInterface,
-    _allAccounts: AccountInterface[],
     withheldAmounts: Record<string, number>
 ): number {
     return (account.balance ?? 0) - (withheldAmounts[account.id] ?? 0);
@@ -32,17 +32,8 @@ function formatAmountCsvPlain(n: number): string {
     return (Math.round(n * 100) / 100).toFixed(2);
 }
 
-function formatDateIso(date: Date | string): string {
-    const d = date instanceof Date ? date : new Date(date);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-}
-
 function buildAccountsTableCsv(
     rows: AccountInterface[],
-    allAccounts: AccountInterface[],
     withheldAmounts: Record<string, number>,
     storedCurrency: string,
     displayCurrency: string
@@ -68,7 +59,7 @@ function buildAccountsTableCsv(
     const lines: string[][] = [headers];
     rows.forEach((account) => {
         const bal = account.balance ?? 0;
-        const free = computeAccountFreeBalance(account, allAccounts, withheldAmounts);
+        const free = computeAccountFreeBalance(account, withheldAmounts);
         const balDisplay = convertForDisplaySync(bal, storedCode, displayCode);
         const freeDisplay = convertForDisplaySync(free, storedCode, displayCode);
         lines.push([
@@ -77,7 +68,7 @@ function buildAccountsTableCsv(
             account.bankName,
             account.branchName,
             account.branchCode ?? "",
-            formatDateIso(account.accountOpeningDate),
+            accountOpeningDay(account.accountOpeningDate),
             account.accountNumber,
             storedCode,
             formatAmountCsvPlain(bal),
@@ -112,6 +103,7 @@ interface AccountTableProps {
     onSelectAll?: (selected: boolean) => void;
     showBulkActions?: boolean;
     onBulkDelete?: () => void;
+    isDeleting?: boolean;
     onClearSelection?: () => void;
     headerActions?: React.ReactNode;
     withheldDetails?: WithheldDetails;
@@ -131,13 +123,12 @@ export function AccountTable({
     onSelectAll,
     showBulkActions = false,
     onBulkDelete,
+    isDeleting = false,
     onClearSelection,
     headerActions,
     withheldDetails = {}
 }: AccountTableProps) {
-    const withheldAmounts = useMemo(() => Object.fromEntries(
-        Object.entries(withheldDetails).map(([id, items]) => [id, items.reduce((sum, item) => sum + item.amount, 0)])
-    ), [withheldDetails]);
+    const withheldAmounts = useMemo(() => sumAccountWithheld(withheldDetails), [withheldDetails]);
     const { currency: userCurrency } = useCurrency();
     const [selectedCurrency, setSelectedCurrency] = useState(userCurrency);
     const [grouping, setGrouping] = useState<AccountGrouping>("nickname");
@@ -148,10 +139,8 @@ export function AccountTable({
         setSelectedCurrency(userCurrency);
     }, [userCurrency]);
 
-    // Track which account numbers are visible
-    const [visibleAccountNumbers, setVisibleAccountNumbers] = useState<Set<number>>(new Set());
-    // Track timers for auto-hiding account numbers
-    const [hideTimers, setHideTimers] = useState<Map<number, NodeJS.Timeout>>(new Map());
+    const [visibleAccountNumber, setVisibleAccountNumber] = useState<number | null>(null);
+    const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Column resizing state - optimized for better space utilization
     const [columnWidths, setColumnWidths] = useState<AccountColumnWidths>(
@@ -163,57 +152,29 @@ export function AccountTable({
     const [startX, setStartX] = useState(0);
     const [startWidth, setStartWidth] = useState(0);
 
-    // Toggle account number visibility
     const toggleAccountNumberVisibility = (accountId: number) => {
-        setVisibleAccountNumbers(prev => {
-            const newSet = new Set(prev);
+        if (hideTimer.current !== null) clearTimeout(hideTimer.current);
+        if (visibleAccountNumber === accountId) {
+            hideTimer.current = null;
+            setVisibleAccountNumber(null);
+            return;
+        }
 
-                // Clear ALL existing timers and hide all other account numbers
-            hideTimers.forEach((timer, id) => {
-                clearTimeout(timer);
-                if (id !== accountId) {
-                    newSet.delete(id);
-                }
-            });
-
-            // Clear the timers map
-            setHideTimers(new Map());
-
-            if (newSet.has(accountId)) {
-                // Hide the current account number
-                newSet.delete(accountId);
-            } else {
-                // Show only this account number and set timer to hide after 3 seconds
-                newSet.add(accountId);
-                const timer = setTimeout(() => {
-                    setVisibleAccountNumbers(current => {
-                        const updated = new Set(current);
-                        updated.delete(accountId);
-                        return updated;
-                    });
-                    setHideTimers(currentTimers => {
-                        const newTimers = new Map(currentTimers);
-                        newTimers.delete(accountId);
-                        return newTimers;
-                    });
-                }, 3000);
-
-                setHideTimers(new Map([[accountId, timer]]));
-            }
-            return newSet;
-        });
+        setVisibleAccountNumber(accountId);
+        hideTimer.current = setTimeout(() => {
+            hideTimer.current = null;
+            setVisibleAccountNumber(null);
+        }, 3000);
     };
 
-    // Cleanup timers on unmount
-    useEffect(() => {
-        return () => {
-            hideTimers.forEach(timer => clearTimeout(timer));
-        };
-    }, [hideTimers]);
+    useEffect(() => () => {
+        if (hideTimer.current !== null) clearTimeout(hideTimer.current);
+    }, []);
 
     // Resizing handlers
     const handleMouseDown = useCallback((e: React.MouseEvent, column: string) => {
         e.preventDefault();
+        e.stopPropagation();
         setResizing(column);
         setStartX(e.pageX);
         setStartWidth(columnWidths[column as keyof typeof columnWidths]);
@@ -247,12 +208,8 @@ export function AccountTable({
     }, [resizing, handleMouseMove, handleMouseUp]);
 
     const columnTotals = useMemo(() => {
-        const totalBalance = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
-        const totalFreeBalance = accounts.reduce(
-            (sum, acc) => sum + computeAccountFreeBalance(acc, accounts, withheldAmounts),
-            0
-        );
-        return { totalBalance, totalFreeBalance };
+        const { balance, withheld, free } = getAccountBalanceTotals(accounts, withheldAmounts);
+        return { totalBalance: balance, totalWithheld: withheld, totalFreeBalance: free };
     }, [accounts, withheldAmounts]);
 
     const displayTotalBalance = convertForDisplaySync(
@@ -298,12 +255,12 @@ export function AccountTable({
                     break;
                 case 'freeBalance':
                     aValue = convertForDisplaySync(
-                        computeAccountFreeBalance(a, accounts, withheldAmounts),
+                        computeAccountFreeBalance(a, withheldAmounts),
                         userCurrency,
                         selectedCurrency
                     );
                     bValue = convertForDisplaySync(
-                        computeAccountFreeBalance(b, accounts, withheldAmounts),
+                        computeAccountFreeBalance(b, withheldAmounts),
                         userCurrency,
                         selectedCurrency
                     );
@@ -332,7 +289,6 @@ export function AccountTable({
     const handleDownloadCsv = useCallback(() => {
         const csv = buildAccountsTableCsv(
             accountGroups.flatMap((group) => group.accounts),
-            accounts,
             withheldAmounts,
             userCurrency,
             selectedCurrency
@@ -369,7 +325,8 @@ export function AccountTable({
     };
 
     const handleBulkDelete = () => {
-        if (onBulkDelete && selectedAccounts.size > 0) {
+        if (onBulkDelete && !isDeleting && selectedAccounts.size > 0 &&
+            window.confirm(`Delete ${selectedAccounts.size} selected account(s)? This cannot be undone.`)) {
             onBulkDelete();
         }
     };
@@ -432,9 +389,10 @@ export function AccountTable({
                                 <button
                                     type="button"
                                     onClick={handleBulkDelete}
+                                    disabled={isDeleting}
                                     className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
                                 >
-                                    Delete Selected ({selectedAccounts.size})
+                                    {isDeleting ? "Deleting…" : `Delete Selected (${selectedAccounts.size})`}
                                 </button>
                             </div>
                         )}
@@ -457,6 +415,7 @@ export function AccountTable({
                             <div className="relative">
                             <select
                                 id="accounts-display-currency"
+                                aria-label="Table display currency"
                                 value={selectedCurrency}
                                 onChange={(event) => setSelectedCurrency(event.target.value)}
                                 className="h-9 appearance-none rounded-md border border-gray-300 bg-white pl-3 pr-9 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
@@ -475,7 +434,7 @@ export function AccountTable({
                                 className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                             >
                                 <Download className="h-4 w-4 shrink-0" aria-hidden />
-                                Download CSV
+                                Download balances CSV
                             </button>
                         </div>
                         {headerActions}
@@ -493,6 +452,7 @@ export function AccountTable({
                                 >
                                     <input
                                         type="checkbox"
+                                        aria-label="Select all matching accounts"
                                         checked={isAllSelected}
                                         ref={(el) => {
                                             if (el) el.indeterminate = isPartiallySelected;
@@ -513,12 +473,13 @@ export function AccountTable({
                             <th
                                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.accountDetails}px` }}
-                                onClick={() => handleSort('holderName')}
+                                aria-sort={sortField === 'holderName' ? (sortDirection === "asc" ? "ascending" : "descending") : undefined}
+                                scope="col"
                             >
-                                <div className="flex items-center justify-start gap-2">
+                                <button type="button" className="flex w-full items-center justify-start gap-2" onClick={() => handleSort('holderName')}>
                                     <span>Account Details</span>
                                     {getSortIcon('holderName')}
-                                </div>
+                                </button>
                                 <div
                                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
                                     onMouseDown={(e) => handleMouseDown(e, 'accountDetails')}
@@ -527,12 +488,13 @@ export function AccountTable({
                             <th
                                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.bankBranch}px` }}
-                                onClick={() => handleSort('bankName')}
+                                aria-sort={sortField === 'bankName' ? (sortDirection === "asc" ? "ascending" : "descending") : undefined}
+                                scope="col"
                             >
-                                <div className="flex items-center justify-start gap-2">
+                                <button type="button" className="flex w-full items-center justify-start gap-2" onClick={() => handleSort('bankName')}>
                                     <span>Bank & Branch</span>
                                     {getSortIcon('bankName')}
-                                </div>
+                                </button>
                                 <div
                                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
                                     onMouseDown={(e) => handleMouseDown(e, 'bankBranch')}
@@ -541,12 +503,13 @@ export function AccountTable({
                             <th
                                 className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.openingDate}px` }}
-                                onClick={() => handleSort('accountOpeningDate')}
+                                aria-sort={sortField === 'accountOpeningDate' ? (sortDirection === "asc" ? "ascending" : "descending") : undefined}
+                                scope="col"
                             >
-                                <div className="flex items-center justify-center gap-2">
+                                <button type="button" className="flex w-full items-center justify-center gap-2" onClick={() => handleSort('accountOpeningDate')}>
                                     <span>Opening Date</span>
                                     {getSortIcon('accountOpeningDate')}
-                                </div>
+                                </button>
                                 <div
                                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
                                     onMouseDown={(e) => handleMouseDown(e, 'openingDate')}
@@ -555,12 +518,13 @@ export function AccountTable({
                             <th
                                 className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.accountNumber}px` }}
-                                onClick={() => handleSort('accountNumber')}
+                                aria-sort={sortField === 'accountNumber' ? (sortDirection === "asc" ? "ascending" : "descending") : undefined}
+                                scope="col"
                             >
-                                <div className="flex items-center justify-center gap-2">
+                                <button type="button" className="flex w-full items-center justify-center gap-2" onClick={() => handleSort('accountNumber')}>
                                     <span>Account Number</span>
                                     {getSortIcon('accountNumber')}
-                                </div>
+                                </button>
                                 <div
                                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
                                     onMouseDown={(e) => handleMouseDown(e, 'accountNumber')}
@@ -569,12 +533,13 @@ export function AccountTable({
                             <th
                                 className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.balance}px` }}
-                                onClick={() => handleSort('balance')}
+                                aria-sort={sortField === 'balance' ? (sortDirection === "asc" ? "ascending" : "descending") : undefined}
+                                scope="col"
                             >
-                                <div className="flex items-center justify-center gap-2">
+                                <button type="button" className="flex w-full items-center justify-center gap-2" onClick={() => handleSort('balance')}>
                                     <span>{balanceHeaderLabel}</span>
                                     {getSortIcon('balance')}
-                                </div>
+                                </button>
                                 <div
                                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
                                     onMouseDown={(e) => handleMouseDown(e, 'balance')}
@@ -583,24 +548,26 @@ export function AccountTable({
                             <th
                                 className="relative px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                                 style={{ width: `${columnWidths.withheldBalance}px` }}
-                                onClick={() => handleSort('withheldBalance')}
+                                aria-sort={sortField === 'withheldBalance' ? (sortDirection === "asc" ? "ascending" : "descending") : undefined}
+                                scope="col"
                                 title="Purchase amounts of investments marked withheld from this account"
                             >
-                                <div className="flex items-center justify-center gap-1">
+                                <button type="button" className="flex w-full items-center justify-center gap-1" onClick={() => handleSort('withheldBalance')}>
                                     <span>Withheld ({selectedCurrency.toUpperCase()})</span>
                                     {getSortIcon('withheldBalance')}
-                                </div>
+                                </button>
                                 <div className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-blue-500" onMouseDown={(e) => handleMouseDown(e, 'withheldBalance')} />
                             </th>
                             <th
                                 className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.freeBalance}px` }}
-                                onClick={() => handleSort('freeBalance')}
+                                aria-sort={sortField === 'freeBalance' ? (sortDirection === "asc" ? "ascending" : "descending") : undefined}
+                                scope="col"
                             >
-                                <div className="flex items-center justify-center gap-2">
+                                <button type="button" className="flex w-full items-center justify-center gap-2" onClick={() => handleSort('freeBalance')}>
                                     <span>{freeBalanceHeaderLabel}</span>
                                     {getSortIcon('freeBalance')}
-                                </div>
+                                </button>
                                 <div
                                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
                                     onMouseDown={(e) => handleMouseDown(e, 'freeBalance')}
@@ -645,10 +612,9 @@ export function AccountTable({
                                 onSelect={onAccountSelect}
                                 showCheckbox={showBulkActions}
                                 columnWidths={columnWidths}
-                                visibleAccountNumbers={visibleAccountNumbers}
+                                accountNumberVisible={visibleAccountNumber === account.id}
                                 toggleAccountNumberVisibility={toggleAccountNumberVisibility}
                                 withheldAmounts={withheldAmounts}
-                                allAccounts={accounts}
                                 withheldDetails={withheldDetails}
                             />
                         ))}
@@ -713,7 +679,7 @@ export function AccountTable({
     );
 }
 
-function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, onViewDetails, onShare, isSelected = false, onSelect, showCheckbox = false, columnWidths, visibleAccountNumbers, toggleAccountNumberVisibility, withheldAmounts = {}, allAccounts = [], withheldDetails = {} }: {
+function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, onViewDetails, onShare, isSelected = false, onSelect, showCheckbox = false, columnWidths, accountNumberVisible, toggleAccountNumberVisibility, withheldAmounts = {}, withheldDetails = {} }: {
     account: AccountInterface;
     userCurrency: string;
     displayCurrency: string;
@@ -725,10 +691,9 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
     onSelect?: (accountId: number, selected: boolean) => void;
     showCheckbox?: boolean;
     columnWidths: AccountColumnWidths;
-    visibleAccountNumbers: Set<number>;
+    accountNumberVisible: boolean;
     toggleAccountNumberVisibility: (accountId: number) => void;
     withheldAmounts?: Record<string, number>;
-    allAccounts?: AccountInterface[];
     withheldDetails?: WithheldDetails;
 }) {
     const handleEdit = () => {
@@ -761,9 +726,9 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
         }
     };
 
-    const isAccountNumberVisible = visibleAccountNumbers.has(account.id);
+    const isAccountNumberVisible = accountNumberVisible;
 
-    const accountFreeBalance = computeAccountFreeBalance(account, allAccounts, withheldAmounts);
+    const accountFreeBalance = computeAccountFreeBalance(account, withheldAmounts);
     const displayBalance = convertForDisplaySync(account.balance ?? 0, userCurrency, displayCurrency);
     const displayFreeBalance = convertForDisplaySync(accountFreeBalance, userCurrency, displayCurrency);
 
@@ -776,6 +741,7 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
                 >
                     <input
                         type="checkbox"
+                        aria-label={`Select ${account.holderName} at ${account.bankName}`}
                         checked={isSelected}
                         onChange={handleSelect}
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mx-auto"
@@ -819,7 +785,7 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
                 className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center truncate"
                 style={{ width: `${columnWidths.openingDate}px` }}
             >
-                {formatDate(account.accountOpeningDate)}
+                {formatAccountOpeningDate(account.accountOpeningDate)}
             </td>
             <td
                 className="px-4 py-4 whitespace-nowrap"
