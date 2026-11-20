@@ -1,31 +1,33 @@
 "use client";
 
-import { Expense } from '../../../types/financial';
-import { useBubbleChart } from '../../../hooks/useBubbleChart';
-import { BubbleChartControls } from '../../../components/shared/BubbleChartControls';
-import { BubbleChart } from '../../../components/shared/BubbleChart';
-import { BubbleChartZoomControls } from '../../../components/shared/BubbleChartZoomControls';
+import type { Expense, Income } from "../../types/financial";
+import { useBubbleChart } from '../../hooks/useBubbleChart';
+import { BubbleChartControls } from './BubbleChartControls';
+import { BubbleChart } from './BubbleChart';
+import { BubbleChartZoomControls } from './BubbleChartZoomControls';
 
-interface ExpenseBubbleChartProps {
-  expenses: Expense[];
+interface TransactionCategoryAnalysisProps {
+  transactions: (Income | Expense)[];
+  timeframeTransactions: (Income | Expense)[];
   currency: string;
-  hasActiveFilters?: boolean;
+  timezone: string;
+  type: "income" | "expense";
 }
 
-const EXPENSE_CONFIG = {
-  highValueThreshold: 20000,
-  hideHighValueByDefault: true,
-  defaultColor: '#f56565',
-  thresholdColor: '#dc2626',
-  title: 'Expense Categories Analysis'
+const chartConfig = {
+  income: { highValueThreshold: 50000, defaultColor: "#4285f4", thresholdColor: "#059669", title: "Income Categories Analysis" },
+  expense: { highValueThreshold: 20000, defaultColor: "#f56565", thresholdColor: "#dc2626", title: "Expense Categories Analysis" },
 };
 
-export function ExpenseBubbleChart({ expenses, currency }: ExpenseBubbleChartProps) {
-  const chartData = useBubbleChart({
-    transactions: expenses,
-    currency,
-    config: EXPENSE_CONFIG
-  });
+export function TransactionCategoryAnalysis({
+  transactions,
+  timeframeTransactions,
+  currency,
+  timezone,
+  type,
+}: TransactionCategoryAnalysisProps) {
+  const config = chartConfig[type];
+  const chartData = useBubbleChart({ transactions, timeframeTransactions, currency, timezone, config });
 
   const {
     chartRef,
@@ -52,6 +54,10 @@ export function ExpenseBubbleChart({ expenses, currency }: ExpenseBubbleChartPro
     handleQuickFilter,
     isActiveQuickFilter,
     clearTimeframeFilters,
+    setMonthToDate,
+    setTableTimeframe,
+    usesTableTimeframe,
+    isMonthToDate,
     handleXRangeChange,
     handleYRangeChange,
     resetToDefaults,
@@ -65,7 +71,7 @@ export function ExpenseBubbleChart({ expenses, currency }: ExpenseBubbleChartPro
     <div className={`bg-white rounded-lg shadow-sm border border-gray-200 ${dimensions.width < 640 ? 'p-4' : 'p-6'} mb-6 w-full`}>
       <div className="mb-4">
         <h3 className={`${dimensions.width < 640 ? 'text-base' : 'text-lg'} font-semibold text-gray-900 mb-4`}>
-          {EXPENSE_CONFIG.title}
+          {config.title}
         </h3>
       </div>
 
@@ -76,7 +82,20 @@ export function ExpenseBubbleChart({ expenses, currency }: ExpenseBubbleChartPro
         setEndDate={setEndDate}
         handleQuickFilter={handleQuickFilter}
         isActiveQuickFilter={isActiveQuickFilter}
-        clearTimeframeFilters={clearTimeframeFilters}
+        clearTimeframeFilters={() => {
+          clearTimeframeFilters();
+          resetToDefaults();
+        }}
+        onMonthToDate={() => {
+          setMonthToDate();
+          resetToDefaults();
+        }}
+        isMonthToDate={isMonthToDate}
+        onTableView={() => {
+          setTableTimeframe();
+          resetToDefaults();
+        }}
+        usesTableTimeframe={usesTableTimeframe}
         isDefaultTimeframe={isDefaultTimeframe}
         minAverage={minAverage}
         maxAverage={maxAverage}
@@ -98,7 +117,7 @@ export function ExpenseBubbleChart({ expenses, currency }: ExpenseBubbleChartPro
         resetToDefaults={resetToDefaults}
       />
 
-      <BubbleChartZoomControls chartData={chartData} chartLabel="expense" />
+      <BubbleChartZoomControls chartData={chartData} chartLabel={type} />
 
       <BubbleChart
         onWheelZoom={chartData.handleWheelZoom}
@@ -115,18 +134,16 @@ export function ExpenseBubbleChart({ expenses, currency }: ExpenseBubbleChartPro
         }}
         chartRef={chartRef}
         isLoading={isLoading}
+        loadError={chartData.loadError}
+        retryLoad={chartData.retryLoad}
         dimensions={dimensions}
         allCategoryData={allCategoryData}
         visibleCategoryData={visibleCategoryData}
-        highValueCategories={highValueCategories}
-        excludedCategories={excludedCategories}
         thresholdPosition={thresholdPosition}
-        toggleCategoryExclusion={toggleCategoryExclusion}
-        includeAllCategories={includeAllCategories}
         currency={currency}
-        title={EXPENSE_CONFIG.title}
-        highValueThreshold={EXPENSE_CONFIG.highValueThreshold}
-        thresholdColor={EXPENSE_CONFIG.thresholdColor}
+        title={config.title}
+        highValueThreshold={config.highValueThreshold}
+        thresholdColor={config.thresholdColor}
       />
     </div>
   );

@@ -1,54 +1,67 @@
-declare global {
-  interface Window {
-    google: any;
-  }
-}
-
+const LOADER_URL = "https://www.gstatic.com/charts/loader.js";
+const LOAD_TIMEOUT_MS = 15000;
 let loaderPromise: Promise<void> | null = null;
-const loadedPackages = new Set<string>();
+const packagePromises = new Map<string, Promise<void>>();
 
-function ensureScript(): Promise<void> {
+function ensureScript() {
+  if (window.google?.charts) return Promise.resolve();
   if (loaderPromise) return loaderPromise;
-  loaderPromise = new Promise((resolve, reject) => {
-    if (typeof window === 'undefined') {
-      resolve();
-      return;
-    }
-    if (window.google?.charts) {
-      resolve();
-      return;
-    }
-    const existing = document.querySelector('script[src="https://www.gstatic.com/charts/loader.js"]') as HTMLScriptElement | null;
-    if (existing) {
-      existing.addEventListener('load', () => resolve());
-      existing.addEventListener('error', reject);
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = 'https://www.gstatic.com/charts/loader.js';
+
+  loaderPromise = new Promise<void>((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = LOADER_URL;
     script.async = true;
-    script.onload = () => resolve();
-    script.onerror = reject;
+
+    const finish = (error?: Error) => {
+      clearTimeout(timeout);
+      script.onload = null;
+      script.onerror = null;
+      if (error) {
+        script.remove();
+        reject(error);
+      } else {
+        resolve();
+      }
+    };
+    const timeout = setTimeout(() => finish(new Error("Chart library loading timed out")), LOAD_TIMEOUT_MS);
+    script.onload = () => finish(window.google?.charts ? undefined : new Error("Chart library is unavailable"));
+    script.onerror = () => finish(new Error("Could not load the chart library"));
     document.head.appendChild(script);
+  }).catch((error) => {
+    loaderPromise = null;
+    throw error;
   });
+
   return loaderPromise;
 }
 
-export async function loadGoogleCharts(packages: string[]): Promise<void> {
-  await ensureScript();
-  if (!packages || packages.length === 0) return;
+function loadPackage(name: string) {
+  const existing = packagePromises.get(name);
+  if (existing) return existing;
 
-  // Determine which packages still need to be loaded
-  const missing = packages.filter((p) => !loadedPackages.has(p));
-  if (missing.length === 0) return;
-
-  await new Promise<void>((resolve) => {
-    window.google.charts.load('current', { packages: missing });
-    window.google.charts.setOnLoadCallback(() => {
-      missing.forEach((p) => loadedPackages.add(p));
-      resolve();
-    });
+  const promise = new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(`Chart package ${name} timed out`)), LOAD_TIMEOUT_MS);
+    try {
+      window.google.charts.load("current", { packages: [name] });
+      window.google.charts.setOnLoadCallback(() => {
+        clearTimeout(timeout);
+        resolve();
+      });
+    } catch (error) {
+      clearTimeout(timeout);
+      reject(error);
+    }
+  }).catch((error) => {
+    packagePromises.delete(name);
+    throw error;
   });
+
+  packagePromises.set(name, promise);
+  return promise;
 }
 
-
+export async function loadGoogleCharts(packages: string[]) {
+  if (typeof window === "undefined" || packages.length === 0) return;
+  await ensureScript();
+  await Promise.all(packages.map(loadPackage));
+}

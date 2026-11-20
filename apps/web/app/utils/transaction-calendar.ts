@@ -25,3 +25,13 @@ export function getVisibleSelection<T extends { id: number }>(
 ) {
     return new Set(items.filter(({ id }) => selected.has(id)).map(({ id }) => id));
 }
+
+export function getTrailingMonthRange(today: string, months: number) {
+    const current = new Date(today);
+    const year = current.getUTCFullYear();
+    const month = current.getUTCMonth() - months;
+    const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    const start = new Date(Date.UTC(year, month, Math.min(current.getUTCDate(), lastDay)));
+
+    return { start: start.toISOString().slice(0, 10), end: today };
+}

@@ -12,14 +12,12 @@ interface CategoryData {
 interface BubbleChartProps {
   chartRef: React.RefObject<HTMLDivElement | null>;
   isLoading: boolean;
+  loadError: boolean;
+  retryLoad: () => void;
   dimensions: { width: number; height: number };
   allCategoryData: CategoryData[];
   visibleCategoryData: CategoryData[];
-  highValueCategories: CategoryData[];
-  excludedCategories: Set<string>;
   thresholdPosition: number | null;
-  toggleCategoryExclusion: (categoryName: string) => void;
-  includeAllCategories: () => void;
   currency: string;
   title: string;
   highValueThreshold: number;
@@ -33,14 +31,12 @@ interface BubbleChartProps {
 export function BubbleChart({
   chartRef,
   isLoading,
+  loadError,
+  retryLoad,
   dimensions,
   allCategoryData,
   visibleCategoryData,
-  highValueCategories,
-  excludedCategories,
   thresholdPosition,
-  toggleCategoryExclusion,
-  includeAllCategories,
   currency,
   title,
   highValueThreshold,
@@ -57,72 +53,20 @@ export function BubbleChart({
     element.addEventListener('wheel', onWheelZoom, { passive: false });
     return () => element.removeEventListener('wheel', onWheelZoom);
   }, [onWheelZoom, allCategoryData.length, visibleCategoryData.length]);
-  // No data state
-  if (allCategoryData.length === 0) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6 w-full">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">{title}</h3>
-        <div className="text-center py-8 text-gray-500">
-          No data available to display
-        </div>
-      </div>
-    );
-  }
-
-  // All categories excluded state
-  if (visibleCategoryData.length === 0 && excludedCategories.size > 0 && highValueCategories.length > 0) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6 w-full">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-        </div>
-        
-        <div className="mb-4 p-3 bg-gray-50 rounded-lg border">
-          <div className="flex flex-wrap items-center gap-2">
-            {highValueCategories
-              .sort((a, b) => b.averageAmount - a.averageAmount)
-              .map(category => (
-                <button
-                  key={category.name}
-                  onClick={() => toggleCategoryExclusion(category.name)}
-                  className="flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium transition-all bg-gray-200 text-gray-500 line-through opacity-60 hover:opacity-80"
-                  title={`Click to show ${category.name} (Avg: ${formatCurrency(category.averageAmount, currency)})`}
-                >
-                  <div className="w-4 h-4 rounded bg-gray-400" />
-                  <span>{category.name}</span>
-                </button>
-              ))}
-            
-            <div className="h-6 w-px bg-gray-300 mx-1"></div>
-            <button
-              onClick={includeAllCategories}
-              className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded whitespace-nowrap font-medium"
-            >
-              Show All
-            </button>
-          </div>
-        </div>
-        
-        <div className="text-center py-8 text-gray-500">
-          <div className="text-4xl mb-2">👁️</div>
-          <p>All high-value categories are hidden</p>
-          <p className="text-sm mt-2">Click "Show All" to display the chart</p>
-        </div>
-      </div>
-    );
-  }
+  const isEmpty = visibleCategoryData.length === 0;
+  const canInteract = !isEmpty && !loadError && !isLoading;
 
   return (
     <div
       {...panHandlers}
       ref={interactionRef}
-      tabIndex={onWheelZoom ? 0 : undefined}
+      tabIndex={onWheelZoom && canInteract ? 0 : undefined}
       role={onWheelZoom ? 'region' : undefined}
       aria-label={onWheelZoom ? `${title}. Use plus and minus to zoom, arrow keys to pan, and zero to reset.` : undefined}
       className={`relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${panEnabled ? 'select-none [&_*]:!cursor-[inherit]' : ''}`}
       style={{ cursor: panEnabled ? (isPanning ? 'grabbing' : 'grab') : undefined, touchAction: panEnabled ? 'none' : 'auto' }}
     >
-      {isLoading && (
+      {isLoading && !isEmpty && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-50 rounded z-10">
           <div className="flex flex-col items-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
@@ -134,11 +78,35 @@ export function BubbleChart({
       <div 
         ref={chartRef} 
         style={{ width: '100%', height: `${dimensions.height}px`, minHeight: '500px' }}
-        className="overflow-hidden w-full"
+        className={`w-full overflow-hidden ${isEmpty || loadError ? "invisible" : ""}`}
       />
       
+      {isEmpty && (
+        <div className="absolute inset-0 flex flex-col p-3 sm:p-5">
+          <div
+            className="grid flex-1 place-items-center border-b border-l border-slate-300 bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] bg-[size:10%_20%]"
+          >
+            <p role="status" className="rounded-md bg-white px-3 py-2 text-sm text-gray-500">
+              {allCategoryData.length === 0 ? "No transactions in this view" : "No categories match the chart filters"}
+            </p>
+          </div>
+          <p className="pt-2 text-center text-xs text-gray-500">Average Amount per Transaction ({currency})</p>
+        </div>
+      )}
+
+      {loadError && !isEmpty && (
+        <div className="absolute inset-0 grid place-items-center rounded-md bg-slate-50" role="alert">
+          <div className="space-y-2 text-center text-sm text-slate-600">
+            <p>Couldn’t load the category chart.</p>
+            <button type="button" onClick={retryLoad} className="font-medium text-blue-700 underline">
+              Try again
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Threshold Line Overlay */}
-      {thresholdPosition !== null && (
+      {canInteract && thresholdPosition !== null && (
         <div 
           className="absolute pointer-events-none"
           style={{

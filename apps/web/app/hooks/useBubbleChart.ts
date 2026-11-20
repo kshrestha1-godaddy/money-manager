@@ -1,6 +1,9 @@
+import { createTransactionDayFormatter, getTrailingMonthRange } from "../utils/transaction-calendar";
 import { useEffect, useRef, useMemo, useState, useCallback, type PointerEvent, type MouseEvent, type KeyboardEvent } from 'react';
 import { convertForDisplaySync } from '../utils/currencyDisplay';
-import { formatCurrency } from '../utils/currency';
+import { loadGoogleCharts } from "../utils/googleCharts";
+
+const EMPTY_EXCLUSIONS = new Set<string>();
 
 interface Transaction {
   categoryId: number;
@@ -28,21 +31,23 @@ interface AxisRange {
 
 interface BubbleChartConfig {
   highValueThreshold: number;
-  hideHighValueByDefault?: boolean;
   defaultColor: string;
   thresholdColor: string;
-  title: string;
 }
 
 interface UseBubbleChartProps {
   transactions: Transaction[];
+  timeframeTransactions?: Transaction[];
   currency: string;
+  timezone: string;
   config: BubbleChartConfig;
 }
 
-export function useBubbleChart({ transactions, currency, config }: UseBubbleChartProps) {
+export function useBubbleChart({ transactions, timeframeTransactions, currency, timezone, config }: UseBubbleChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [showAxisControls, setShowAxisControls] = useState(false);
   const [customXRange, setCustomXRange] = useState<AxisRange | null>(null);
   const [customYRange, setCustomYRange] = useState<AxisRange | null>(null);
@@ -59,8 +64,7 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
     yPerPixel: number;
   } | null>(null);
   const [categoryExclusionOverride, setExcludedCategories] = useState<Set<string> | null>(null);
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
+  const [dateRange, setDateRange] = useState<{ start: string; end: string } | "mtd" | null>(null);
   const [minAverage, setMinAverage] = useState<number>(0);
   const [maxAverage, setMaxAverage] = useState<number>(Infinity);
 
@@ -78,43 +82,32 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
     return { width: innerWidth, height };
   }, []);
 
-  // Date filtering utilities
-  const getDateRange = useCallback((months: number) => {
-    const today = new Date();
-    const startDate = new Date(today);
-    const targetMonth = today.getMonth() - months;
+  const getTransactionDay = useMemo(() => createTransactionDayFormatter(timezone), [timezone]);
+  const today = getTransactionDay(new Date());
+  const isMonthToDate = dateRange === "mtd";
+  const usesTableTimeframe = timeframeTransactions !== undefined && dateRange === null;
+  const startDate = isMonthToDate ? `${today.slice(0, 7)}-01` : (dateRange?.start ?? "");
+  const endDate = isMonthToDate ? today : (dateRange?.end ?? "");
+  const setStartDate = (start: string) => setDateRange({ start, end: endDate });
+  const setEndDate = (end: string) => setDateRange({ start: startDate, end });
+  const getDateRange = useCallback((months: number) => getTrailingMonthRange(today, months), [today]);
 
-    if (targetMonth >= 0) {
-      startDate.setMonth(targetMonth);
-    } else {
-      const yearsBack = Math.ceil(Math.abs(targetMonth) / 12);
-      const newMonth = 12 + (targetMonth % 12);
-      startDate.setFullYear(today.getFullYear() - yearsBack);
-      startDate.setMonth(newMonth === 12 ? 0 : newMonth);
-    }
-
-    return {
-      start: startDate.toISOString().split('T')[0] || '',
-      end: today.toISOString().split('T')[0] || ''
-    };
-  }, []);
+  const chartTransactions = dateRange === null ? transactions : (timeframeTransactions ?? transactions);
 
   // Filter transactions by date range
   const filteredTransactions = useMemo(() => {
-    if (!startDate && !endDate) return transactions;
+    if (!startDate && !endDate) return chartTransactions;
 
-    return transactions.filter(transaction => {
-      const transactionDate = transaction.date instanceof Date 
-        ? transaction.date 
-        : new Date(transaction.date);
-      const dateStr = transactionDate.toISOString().split('T')[0] || '';
+    return chartTransactions.filter(transaction => {
+      const dateStr = getTransactionDay(transaction.date);
+      if (!dateStr) return false;
 
       if (startDate && endDate) return dateStr >= startDate && dateStr <= endDate;
       if (startDate) return dateStr >= startDate;
       if (endDate) return dateStr <= endDate;
       return true;
     });
-  }, [transactions, startDate, endDate]);
+  }, [chartTransactions, startDate, endDate, getTransactionDay]);
 
   // Process category data efficiently
   const allCategoryData = useMemo(() => {
@@ -143,14 +136,7 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
     return Array.from(categoryMap.values());
   }, [filteredTransactions, currency, config.defaultColor]);
 
-  const excludedCategories = useMemo(
-    () => categoryExclusionOverride ?? new Set(
-      config.hideHighValueByDefault
-        ? allCategoryData.filter(category => category.averageAmount > config.highValueThreshold).map(category => category.name)
-        : []
-    ),
-    [categoryExclusionOverride, allCategoryData, config.hideHighValueByDefault, config.highValueThreshold]
-  );
+  const excludedCategories = categoryExclusionOverride ?? EMPTY_EXCLUSIONS;
 
   // Filter visible categories
   const visibleCategoryData = useMemo(() => 
@@ -174,23 +160,24 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
       return { xMin: 0, xMax: 100, yMin: 0, yMax: 100 };
     }
 
-    const averageAmounts = visibleCategoryData.map(cat => cat.averageAmount);
-    const transactionCounts = allCategoryData.map(cat => cat.transactionCount);
-
-    const maxAvg = Math.max(...averageAmounts);
+    const averageAmounts = visibleCategoryData.map(category => category.averageAmount);
+    const transactionCounts = visibleCategoryData.map(category => category.transactionCount);
     const minAvg = Math.min(...averageAmounts);
+    const maxAvg = Math.max(...averageAmounts);
+    const minCount = Math.min(...transactionCounts);
     const maxCount = Math.max(...transactionCounts);
+    const xPadding = Math.max((maxAvg - minAvg) * 0.2, Math.abs(maxAvg) * 0.1, 1);
+    const yPadding = Math.max((maxCount - minCount) * 0.2, maxCount * 0.1, 1);
 
-    const xPadding = Math.max((maxAvg - minAvg) * 0.15, Math.abs(maxAvg) * 0.1, 1);
-    const shouldUseFixedX = visibleCategoryData.length >= allCategoryData.length && !customXRange;
-
+    const xRange = customXRange && customXRange.min < customXRange.max ? customXRange : null;
+    const yRange = customYRange && customYRange.min < customYRange.max ? customYRange : null;
     return {
-      xMin: customXRange?.min ?? (shouldUseFixedX ? -5000 : Math.max(0, minAvg - xPadding)),
-      xMax: customXRange?.max ?? (shouldUseFixedX ? Math.max(51100, maxAvg + 20000) : maxAvg + xPadding),
-      yMin: customYRange?.min ?? -50,
-      yMax: customYRange?.max ?? Math.max(110, maxCount + 100)
+      xMin: xRange?.min ?? minAvg - xPadding,
+      xMax: xRange?.max ?? maxAvg + xPadding,
+      yMin: yRange?.min ?? minCount - yPadding,
+      yMax: yRange?.max ?? maxCount + yPadding
     };
-  }, [visibleCategoryData, allCategoryData, customXRange, customYRange]);
+  }, [visibleCategoryData, customXRange, customYRange]);
 
   const axisRanges = useMemo(() => {
     const { xMin, xMax, yMin, yMax } = baseAxisRanges;
@@ -218,6 +205,8 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
   }, [baseAxisRanges]);
 
   const resetZoom = useCallback(() => {
+    setCustomXRange(null);
+    setCustomYRange(null);
     setZoomLevel(1);
     setPanOffset({ x: 0, y: 0 });
   }, []);
@@ -271,18 +260,6 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
     event.preventDefault();
   }, [visibleCategoryData.length, changeZoom, zoomLevel, resetZoom, axisRanges, baseAxisRanges]);
 
-  const fitToData = useCallback(() => {
-    if (!visibleCategoryData.length) return;
-    const xs = visibleCategoryData.map(category => category.averageAmount);
-    const ys = visibleCategoryData.map(category => category.transactionCount);
-    const xMin = Math.min(...xs), xMax = Math.max(...xs);
-    const yMin = Math.min(...ys), yMax = Math.max(...ys);
-    const xPadding = Math.max((xMax - xMin) * 0.2, Math.abs(xMax) * 0.1, 1);
-    const yPadding = Math.max((yMax - yMin) * 0.2, yMax * 0.1, 1);
-    setCustomXRange({ min: xMin - xPadding, max: xMax + xPadding });
-    setCustomYRange({ min: yMin - yPadding, max: yMax + yPadding });
-  }, [visibleCategoryData]);
-
   const handlePanStart = useCallback((event: PointerEvent<HTMLDivElement>) => {
     if (zoomLevel <= 1 || event.button !== 0 || !event.isPrimary || !chartRef.current) return;
     const bounds = chartRef.current.getBoundingClientRect();
@@ -323,15 +300,8 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
 
   // Chart drawing function
   const drawChart = useCallback(() => {
-    if (!chartRef.current || visibleCategoryData.length === 0) {
-      setIsLoading(false);
-      return;
-    }
-
-    if (!window.google?.visualization?.BubbleChart) {
-      setTimeout(drawChart, 100);
-      return;
-    }
+    if (!chartRef.current) return;
+    if (!window.google?.visualization?.BubbleChart) throw new Error("Bubble chart is unavailable");
 
     const dataArray: (string | number)[][] = [
       ['ID', 'Avg', 'Count', 'Category', 'Total']
@@ -428,40 +398,45 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
 
     const chart = new window.google.visualization.BubbleChart(chartRef.current);
     chart.draw(data, options);
-    setIsLoading(false);
   }, [visibleCategoryData, axisRanges, currency, dimensions]);
 
-  // Load Google Charts and draw
   useEffect(() => {
     if (visibleCategoryData.length === 0) {
       setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
+    let active = true;
+    setLoadError(false);
 
-    const loadGoogleCharts = () => {
-      if (window.google?.visualization?.BubbleChart) {
+    if (window.google?.visualization?.BubbleChart) {
+      try {
         drawChart();
-        return;
+      } catch (error) {
+        console.error("Could not draw category chart:", error);
+        setLoadError(true);
+      } finally {
+        setIsLoading(false);
       }
+      return;
+    }
 
-      if (!window.google?.charts) {
-        const script = document.createElement('script');
-        script.src = 'https://www.gstatic.com/charts/loader.js';
-        script.onload = () => {
-          window.google.charts.load('current', { packages: ['corechart'] });
-          window.google.charts.setOnLoadCallback(drawChart);
-        };
-        document.head.appendChild(script);
-      } else {
-        window.google.charts.load('current', { packages: ['corechart'] });
-        window.google.charts.setOnLoadCallback(drawChart);
-      }
-    };
+    setIsLoading(true);
+    void loadGoogleCharts(["corechart"])
+      .then(() => {
+        if (active) drawChart();
+      })
+      .catch((error) => {
+        if (!active) return;
+        console.error("Could not load category chart:", error);
+        setLoadError(true);
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
 
-    loadGoogleCharts();
-  }, [drawChart, visibleCategoryData.length]);
+    return () => { active = false; };
+  }, [drawChart, visibleCategoryData.length, loadAttempt]);
 
   // Category management functions
   const toggleCategoryExclusion = useCallback((categoryName: string) => {
@@ -488,20 +463,19 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
 
   // Date filter functions
   const handleQuickFilter = useCallback((months: number) => {
-    const { start, end } = getDateRange(months);
-    setStartDate(start);
-    setEndDate(end);
+    setDateRange(getDateRange(months));
   }, [getDateRange]);
 
   const isActiveQuickFilter = useCallback((months: number) => {
     const { start, end } = getDateRange(months);
-    return startDate === start && endDate === end;
-  }, [startDate, endDate, getDateRange]);
+    return !isMonthToDate && startDate === start && endDate === end;
+  }, [startDate, endDate, getDateRange, isMonthToDate]);
 
   const clearTimeframeFilters = useCallback(() => {
-    setStartDate("");
-    setEndDate("");
+    setDateRange({ start: "", end: "" });
   }, []);
+
+  const setMonthToDate = useCallback(() => setDateRange("mtd"), []);
 
   // Axis range functions
   const handleXRangeChange = useCallback((min: number, max: number) => {
@@ -510,13 +484,6 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
 
   const handleYRangeChange = useCallback((min: number, max: number) => {
     setCustomYRange({ min, max });
-  }, []);
-
-  const resetToDefaults = useCallback(() => {
-    setCustomXRange(null);
-    setCustomYRange(null);
-    setZoomLevel(1);
-    setPanOffset({ x: 0, y: 0 });
   }, []);
 
   // Average amount filter handlers
@@ -555,12 +522,14 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
     handleWheelZoom,
     handleDoubleClickZoom,
     handleChartKeyDown,
-    fitToData,
+    fitToData: resetZoom,
     isPanning,
     handlePanStart,
     handlePanMove,
     handlePanEnd,
     isLoading,
+    loadError,
+    retryLoad: () => setLoadAttempt((attempt) => attempt + 1),
     dimensions,
     showAxisControls,
     setShowAxisControls,
@@ -583,12 +552,16 @@ export function useBubbleChart({ transactions, currency, config }: UseBubbleChar
     handleQuickFilter,
     isActiveQuickFilter,
     clearTimeframeFilters,
+    setMonthToDate,
+    setTableTimeframe: () => setDateRange(null),
+    usesTableTimeframe,
+    isMonthToDate,
     handleXRangeChange,
     handleYRangeChange,
-    resetToDefaults,
+    resetToDefaults: resetZoom,
     handleMinAverageChange,
     handleMaxAverageChange,
     resetAverageFilters,
-    isDefaultTimeframe: !startDate && !endDate
+    isDefaultTimeframe: !usesTableTimeframe && !startDate && !endDate
   };
 }

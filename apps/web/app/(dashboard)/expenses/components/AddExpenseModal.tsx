@@ -24,7 +24,7 @@ import {
 interface AddExpenseModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onAdd: (expense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => void;
+    onAdd: (expense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => void | Promise<unknown>;
     categories: CategoryWithFrequencyData[];
     accounts: AccountInterface[];
     expenses?: Expense[];
@@ -51,6 +51,7 @@ export function AddExpenseModal({
     const defaultCurrency = getUserDualCurrency(userCurrency);
     const [formData, setFormData] = useState<BaseFormData>(initializeFormData(true, defaultCurrency));
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
 
     const validCategoryIds = useMemo(
@@ -80,6 +81,7 @@ export function AddExpenseModal({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSubmitting) return;
         
         const validation = validateFormData(formData, categories, accounts);
         if (!validation.isValid) {
@@ -88,22 +90,25 @@ export function AddExpenseModal({
         }
 
         setIsSubmitting(true);
+        setSaveError(null);
         try {
             const expense = transformFormData(formData, categories, accounts, userCurrency);
-            onAdd(expense as Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>);
+            await onAdd({ ...expense, location: [] });
             
             const resetDefaultCurrency = getUserDualCurrency(userCurrency);
             setFormData(initializeFormData(true, resetDefaultCurrency));
             onClose();
         } catch (error) {
             console.error('Error creating expense:', error);
-            alert('Failed to create expense. Please try again.');
+            setSaveError(error instanceof Error ? error.message : "Couldn’t save the expense.");
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const handleClose = () => {
+        if (isSubmitting) return;
+        setSaveError(null);
         setFormData(initializeFormData());
         setIsSuggestionsOpen(false);
         onClose();
@@ -185,6 +190,7 @@ export function AddExpenseModal({
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-6">
+                    {saveError && <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}
                     <ExpenseForm 
                         formData={formData}
                         onFormDataChange={setFormData}

@@ -8,7 +8,7 @@ import { CategoryWithFrequencyData } from "../../../utils/categoryFrequency";
 interface EditExpenseModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onEdit: (id: number, expense: Partial<Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>>) => void;
+    onEdit: (id: number, expense: Partial<Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>>) => void | Promise<unknown>;
     categories: CategoryWithFrequencyData[];
     accounts: AccountInterface[];
     expense: Expense | null;
@@ -17,7 +17,7 @@ interface EditExpenseModalProps {
 export function EditExpenseModal({ isOpen, onClose, onEdit, categories, accounts, expense }: EditExpenseModalProps) {
     const handleSubmit = (data: any) => {
         if (expense) {
-            onEdit(expense.id, data.data);
+            return onEdit(expense.id, data.data);
         }
     };
 

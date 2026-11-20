@@ -23,6 +23,10 @@ interface BubbleChartControlsProps {
   isActiveQuickFilter: (months: number) => boolean;
   clearTimeframeFilters: () => void;
   isDefaultTimeframe: boolean;
+  onMonthToDate?: () => void;
+  isMonthToDate?: boolean;
+  onTableView?: () => void;
+  usesTableTimeframe?: boolean;
   
   // Average amount filter controls
   minAverage: number;
@@ -64,6 +68,10 @@ export function BubbleChartControls({
   isActiveQuickFilter,
   clearTimeframeFilters,
   isDefaultTimeframe,
+  onMonthToDate,
+  isMonthToDate = false,
+  onTableView,
+  usesTableTimeframe = false,
   minAverage,
   maxAverage,
   handleMinAverageChange,
@@ -91,8 +99,31 @@ export function BubbleChartControls({
           <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3">
             {/* Quick Filter Buttons */}
             <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+              {onTableView && (
+                <button
+                  type="button"
+                  onClick={onTableView}
+                  aria-pressed={usesTableTimeframe}
+                  className={getButtonStyle(usesTableTimeframe)}
+                >
+                  Table View
+                </button>
+              )}
+              {onMonthToDate && (
+                <button
+                  type="button"
+                  onClick={onMonthToDate}
+                  aria-label="Month to date"
+                  aria-pressed={isMonthToDate}
+                  className={getButtonStyle(isMonthToDate)}
+                >
+                  MTD
+                </button>
+              )}
               <button
+                type="button"
                 onClick={clearTimeframeFilters}
+                aria-pressed={isDefaultTimeframe}
                 className={getButtonStyle(isDefaultTimeframe)}
               >
                 All Time
@@ -136,7 +167,7 @@ export function BubbleChartControls({
             {/* Clear Button */}
             {(startDate || endDate) && (
               <button
-                onClick={clearTimeframeFilters}
+                onClick={onTableView ?? clearTimeframeFilters}
                 className="px-2 py-1 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors w-full sm:w-auto text-center"
               >
                 Clear
@@ -152,7 +183,9 @@ export function BubbleChartControls({
                 <span className="text-xs font-medium text-gray-600">Min Avg:</span>
                 <input
                   type="number"
-                  value={minAverage}
+                  value={minAverage || ""}
+                  placeholder="0"
+                  aria-label="Minimum average amount"
                   onChange={(e) => handleMinAverageChange(Number(e.target.value))}
                   className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white w-20"
                   min="0"
@@ -163,14 +196,15 @@ export function BubbleChartControls({
                 <span className="text-xs text-gray-500">to</span>
                 <input
                   type="number"
-                  value={maxAverage}
-                  onChange={(e) => handleMaxAverageChange(Number(e.target.value))}
+                  value={Number.isFinite(maxAverage) ? maxAverage : ""}
+                  aria-label="Maximum average amount"
+                  onChange={(e) => handleMaxAverageChange(e.target.value === "" ? Infinity : Number(e.target.value))}
                   className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white w-20"
                   min="0"
                   step="1000"
                 />
               </div>
-              {(minAverage !== 5000 || maxAverage !== 300000) && (
+              {(minAverage !== 0 || Number.isFinite(maxAverage)) && (
                 <button
                   onClick={resetAverageFilters}
                   className="px-2 py-1 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
@@ -197,7 +231,7 @@ export function BubbleChartControls({
       {highValueCategories.length > 0 && (
         <div className="mb-4 p-3 bg-gray-50 rounded-lg border">
           <div className="flex flex-wrap items-center gap-2">
-            {highValueCategories
+            {[...highValueCategories]
               .sort((a, b) => b.averageAmount - a.averageAmount)
               .map(category => {
                 const isExcluded = excludedCategories.has(category.name);
@@ -332,6 +366,11 @@ export function BubbleChartControls({
             </div>
           </div>
           
+          {((customXRange && customXRange.min >= customXRange.max) ||
+            (customYRange && customYRange.min >= customYRange.max)) && (
+            <p role="status" className="mt-3 text-xs text-red-700">Set the maximum above the minimum to apply the scale.</p>
+          )}
+
           <div className="flex justify-end mt-4">
             <button
               onClick={resetToDefaults}

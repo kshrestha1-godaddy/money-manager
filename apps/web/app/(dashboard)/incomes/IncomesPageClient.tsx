@@ -2,13 +2,13 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Info } from 'lucide-react';
 import { useOptimizedFinancialData } from '../../hooks/useOptimizedFinancialData';
-import { IncomeList, AddIncomeModal, EditIncomeModal, ViewIncomeModal, IncomeBubbleChart } from './components';
+import { IncomeList, AddIncomeModal, EditIncomeModal, ViewIncomeModal } from './components';
 import { UnifiedBulkImportModal } from '../../components/shared/UnifiedBulkImportModal';
 import { incomeImportConfig } from '../../config/bulkImportConfig';
 import { DeleteConfirmationModal } from '../../components/DeleteConfirmationModal';
 import { AddCategoryModal } from '../../components/category/AddCategoryModal';
+import { TransactionCategoryAnalysis } from "../../components/shared/TransactionCategoryAnalysis";
 import { FinancialAreaChart } from '../../components/FinancialAreaChart';
 import { FinancialFilters } from '../../components/shared/FinancialFilters';
 import { MonthNavigation } from '../../components/shared/MonthNavigation';
@@ -18,6 +18,7 @@ import { exportIncomesToCSV } from '../../utils/csvExportIncomes';
 import { createTransactionBookmark, deleteTransactionBookmarkByTransaction } from '../transactions/actions/transaction-bookmarks';
 import { Income } from '../../types/financial';
 import { useCurrency } from '../../providers/CurrencyProvider';
+import { getTransactionPeriodTotals } from "../../utils/transaction-period-totals";
 import { createTransactionDayFormatter, getVisibleSelection } from "../../utils/transaction-calendar";
 import { useTimezone } from '../../providers/TimezoneProvider';
 import { DisappearingNotification, NotificationData } from '../../components/DisappearingNotification';
@@ -43,7 +44,7 @@ export default function IncomesPageClient() {
   const { timezone: userTimezone } = useTimezone();
   const searchParams = useSearchParams();
   const [notification, setNotification] = useState<NotificationData | null>(null);
-  
+
   // Month navigation state
   const getTransactionDay = useMemo(() => createTransactionDayFormatter(userTimezone), [userTimezone]);
   const today = getTransactionDay(new Date());
@@ -62,8 +63,8 @@ export default function IncomesPageClient() {
 
   const {
     items: incomes,
+    itemsWithoutDateFilter,
     allItems: allIncomes,
-    chartItems,
     categories,
     accounts,
     loading: isLoading,
@@ -172,7 +173,7 @@ export default function IncomesPageClient() {
 
   useEffect(() => {
     if (searchParams.get('action') === 'add') setIsAddModalOpen(true);
-    
+
     // Handle date filter URL parameters
     const urlStartDate = searchParams.get('startDate');
     const urlEndDate = searchParams.get('endDate');
@@ -194,56 +195,29 @@ export default function IncomesPageClient() {
     }
   }, [searchParams, setIsAddModalOpen, setStartDate, setEndDate, setSelectedCategories]);
 
-  // Use timezone-aware date calculations to match notification system
+  const periods = useMemo(
+    () => getTransactionPeriodTotals(
+      allIncomes,
+      getTransactionDay,
+      (item) => convertForDisplaySync(item.amount, item.currency, userCurrency),
+      currentYear,
+      currentMonth
+    ),
+    [allIncomes, getTransactionDay, userCurrency, currentYear, currentMonth]
+  );
   const currentQuarter = Math.floor(currentMonth / 3);
-  const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-  const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-
-  // Current month incomes and count
-  const currentMonthIncomesData = allIncomes.filter(income => {
-    const incomeDate = new Date(income.date);
-    const incomeDateInUserTimezone = new Date(incomeDate.toLocaleString("en-US", { timeZone: userTimezone }));
-    return incomeDateInUserTimezone.getMonth() === currentMonth && incomeDateInUserTimezone.getFullYear() === currentYear;
-  });
-  const currentMonthIncomes = currentMonthIncomesData.reduce((sum: number, income: Income) => sum + convertForDisplaySync(income.amount, income.currency, userCurrency), 0);
-  const currentMonthIncomesCount = currentMonthIncomesData.length;
-
-  // Last month incomes and count
-  const lastMonthIncomesData = allIncomes.filter(income => {
-    const incomeDate = new Date(income.date);
-    const incomeDateInUserTimezone = new Date(incomeDate.toLocaleString("en-US", { timeZone: userTimezone }));
-    return incomeDateInUserTimezone.getMonth() === lastMonth && incomeDateInUserTimezone.getFullYear() === lastMonthYear;
-  });
-  const lastMonthIncomes = lastMonthIncomesData.reduce((sum: number, income: Income) => sum + convertForDisplaySync(income.amount, income.currency, userCurrency), 0);
-
-  // Current quarter incomes and count
-  const currentQuarterIncomesData = allIncomes.filter(income => {
-    const incomeDate = new Date(income.date);
-    const incomeDateInUserTimezone = new Date(incomeDate.toLocaleString("en-US", { timeZone: userTimezone }));
-    const incomeQuarter = Math.floor(incomeDateInUserTimezone.getMonth() / 3);
-    return incomeQuarter === currentQuarter && incomeDateInUserTimezone.getFullYear() === currentYear;
-  });
-  const currentQuarterIncomes = currentQuarterIncomesData.reduce((sum: number, income: Income) => sum + convertForDisplaySync(income.amount, income.currency, userCurrency), 0);
-  const currentQuarterIncomesCount = currentQuarterIncomesData.length;
-
-  // Last quarter incomes and count
-  const lastQuarterIncomesData = allIncomes.filter(income => {
-    const incomeDate = new Date(income.date);
-    const incomeDateInUserTimezone = new Date(incomeDate.toLocaleString("en-US", { timeZone: userTimezone }));
-    const lastQuarter = currentQuarter === 0 ? 3 : currentQuarter - 1;
-    const lastQuarterYear = currentQuarter === 0 ? currentYear - 1 : currentYear;
-    const incomeQuarter = Math.floor(incomeDateInUserTimezone.getMonth() / 3);
-    return incomeQuarter === lastQuarter && incomeDateInUserTimezone.getFullYear() === lastQuarterYear;
-  });
-  const lastQuarterIncomes = lastQuarterIncomesData.reduce((sum: number, income: Income) => sum + convertForDisplaySync(income.amount, income.currency, userCurrency), 0);
-
-  const monthlyChange = lastMonthIncomes > 0 ? ((currentMonthIncomes - lastMonthIncomes) / lastMonthIncomes) * 100 : null;
-  const quarterlyChange = lastQuarterIncomes > 0 ? ((currentQuarterIncomes - lastQuarterIncomes) / lastQuarterIncomes) * 100 : null;
-  const averagePerIncome = allIncomes.length > 0 ? allIncomes.reduce((sum: number, income: Income) => sum + convertForDisplaySync(income.amount, income.currency, userCurrency), 0) / allIncomes.length : 0;
+  const lastMonth = (currentMonth + 11) % 12;
+  const monthlyChange = periods.previousMonth.amount > 0
+    ? ((periods.currentMonth.amount - periods.previousMonth.amount) / periods.previousMonth.amount) * 100
+    : null;
+  const quarterlyChange = periods.previousQuarter.amount > 0
+    ? ((periods.currentQuarter.amount - periods.previousQuarter.amount) / periods.previousQuarter.amount) * 100
+    : null;
+  const averagePerIncome = periods.allTime.count ? periods.allTime.amount / periods.allTime.count : 0;
 
   const chartProps = useMemo(
     () => ({
-      data: chartItems,
+      data: incomes,
       currency: userCurrency,
       timezone: userTimezone,
       type: 'income' as const,
@@ -257,7 +231,7 @@ export default function IncomesPageClient() {
       } : undefined,
       thresholdsLoading
     }),
-    [chartItems, userCurrency, userTimezone, hasActiveFilters, startDate, endDate, userThresholds, thresholdsLoading]
+    [incomes, userCurrency, userTimezone, hasActiveFilters, startDate, endDate, userThresholds, thresholdsLoading]
   );
 
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -271,37 +245,33 @@ export default function IncomesPageClient() {
   );
 
   const summaryCards = [
-    { 
-      title: 'Incomes in View', 
-      value: formatCurrency(visibleTotal, userCurrency), 
-      subtitle: `${filteredIncomes.length} transaction${filteredIncomes.length !== 1 ? 's' : ''}`, 
-      dotColor: 'bg-green-500' 
+    {
+      title: 'Incomes in View',
+      value: formatCurrency(visibleTotal, userCurrency),
+      subtitle: `${filteredIncomes.length} transaction${filteredIncomes.length !== 1 ? 's' : ''}`,
+      dotColor: 'bg-green-500'
     },
-    { 
-      title: `This Month (${currentMonthName})`, 
-      value: formatCurrency(currentMonthIncomes, userCurrency), 
-      subtitle: `${currentMonthIncomesCount} transaction${currentMonthIncomesCount !== 1 ? 's' : ''}${monthlyChange === null ? '' : ` • ${(monthlyChange ?? 0) >= 0 ? '+' : ''}${monthlyChange.toFixed(1)}%`}`, 
-      subtitleColor: (monthlyChange ?? 0) >= 0 ? 'text-green-600' : 'text-red-600', 
-      dotColor: (monthlyChange ?? 0) >= 0 ? 'bg-green-500' : 'bg-red-500', 
-      hasPercentage: true, 
-      tooltipText: `Compared to last month (${monthNames[lastMonth]}): ${formatCurrency(lastMonthIncomes, userCurrency)} (${lastMonthIncomesData.length} transaction${lastMonthIncomesData.length !== 1 ? 's' : ''})` 
+    {
+      title: `This Month (${currentMonthName})`,
+      value: formatCurrency(periods.currentMonth.amount, userCurrency),
+      subtitle: `${periods.currentMonth.count} transaction${periods.currentMonth.count !== 1 ? 's' : ''}${monthlyChange === null ? '' : ` • ${(monthlyChange ?? 0) >= 0 ? '+' : ''}${monthlyChange.toFixed(1)}%`}`,
+      subtitleColor: (monthlyChange ?? 0) >= 0 ? 'text-green-600' : 'text-red-600',
+      dotColor: (monthlyChange ?? 0) >= 0 ? 'bg-green-500' : 'bg-red-500',
+      tooltipText: `Last month (${monthNames[lastMonth]}): ${formatCurrency(periods.previousMonth.amount, userCurrency)} (${periods.previousMonth.count} transaction${periods.previousMonth.count !== 1 ? 's' : ''})`
     },
-    { 
-      title: `${currentQuarterName} (${currentQuarterName === 'Q1' ? 'Jan-Mar' : currentQuarterName === 'Q2' ? 'Apr-Jun' : currentQuarterName === 'Q3' ? 'Jul-Sep' : 'Oct-Dec'})`, 
-      value: formatCurrency(currentQuarterIncomes, userCurrency), 
-      subtitle: `${currentQuarterIncomesCount} transaction${currentQuarterIncomesCount !== 1 ? 's' : ''}${quarterlyChange === null ? '' : ` • ${(quarterlyChange ?? 0) >= 0 ? '+' : ''}${quarterlyChange.toFixed(1)}%`}`, 
-      subtitleColor: (quarterlyChange ?? 0) >= 0 ? 'text-green-600' : 'text-red-600', 
-      dotColor: (quarterlyChange ?? 0) >= 0 ? 'bg-green-500' : 'bg-red-500', 
-      hasPercentage: true, 
-      tooltipText: `Compared to last quarter (${quarterNames[currentQuarter === 0 ? 3 : currentQuarter - 1]}): ${formatCurrency(lastQuarterIncomes, userCurrency)} (${lastQuarterIncomesData.length} transaction${lastQuarterIncomesData.length !== 1 ? 's' : ''})` 
+    {
+      title: `${currentQuarterName} (${currentQuarterName === 'Q1' ? 'Jan-Mar' : currentQuarterName === 'Q2' ? 'Apr-Jun' : currentQuarterName === 'Q3' ? 'Jul-Sep' : 'Oct-Dec'})`,
+      value: formatCurrency(periods.currentQuarter.amount, userCurrency),
+      subtitle: `${periods.currentQuarter.count} transaction${periods.currentQuarter.count !== 1 ? 's' : ''}${quarterlyChange === null ? '' : ` • ${(quarterlyChange ?? 0) >= 0 ? '+' : ''}${quarterlyChange.toFixed(1)}%`}`,
+      subtitleColor: (quarterlyChange ?? 0) >= 0 ? 'text-green-600' : 'text-red-600',
+      dotColor: (quarterlyChange ?? 0) >= 0 ? 'bg-green-500' : 'bg-red-500',
+      tooltipText: `Last quarter (${quarterNames[currentQuarter === 0 ? 3 : currentQuarter - 1]}): ${formatCurrency(periods.previousQuarter.amount, userCurrency)} (${periods.previousQuarter.count} transaction${periods.previousQuarter.count !== 1 ? 's' : ''})`
     },
-    { 
-      title: 'Average per Transaction', 
-      value: formatCurrency(averagePerIncome, userCurrency), 
-      subtitle: `across ${allIncomes.length} transaction${allIncomes.length !== 1 ? 's' : ''}`, 
-      dotColor: 'bg-purple-500', 
-      hasPercentage: true, 
-      tooltipText: 'Average amount of income per transaction' 
+    {
+      title: 'Average per Transaction',
+      value: formatCurrency(averagePerIncome, userCurrency),
+      subtitle: `across ${allIncomes.length} transaction${allIncomes.length !== 1 ? 's' : ''}`,
+      dotColor: 'bg-purple-500',
     },
   ];
 
@@ -342,23 +312,13 @@ export default function IncomesPageClient() {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {summaryCards.map((card) => (
-          <div key={card.title} className={`${cardLargeContainer} relative`}>
+          <div key={card.title} className={`${cardLargeContainer} relative min-w-0`}>
             <div className={`absolute top-4 left-4 w-3 h-3 rounded-full ${card.dotColor}`}></div>
-            {card.hasPercentage && card.tooltipText && (
-              <div className="absolute top-4 right-4">
-                <div className="relative group">
-                  <Info className="w-3 h-3 text-gray-400 hover:text-gray-600 cursor-help" />
-                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                    {card.tooltipText}
-                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                  </div>
-                </div>
-              </div>
-            )}
             <div className="flex flex-col items-center justify-center h-full text-center pt-6">
               <h3 className={`${cardTitle} mb-2`}>{card.title}</h3>
               <p className={`${cardValue} ${card.title === 'Incomes in View' ? 'text-green-600' : 'text-black'} mb-1`}>{card.value}</p>
               <p className={`${cardSubtitle} ${card.subtitleColor || 'text-gray-500'}`}>{card.subtitle}</p>
+              {card.tooltipText && <p className="mt-2 text-xs text-gray-500">{card.tooltipText}</p>}
             </div>
           </div>
         ))}
@@ -366,10 +326,12 @@ export default function IncomesPageClient() {
 
       <FinancialAreaChart {...chartProps} />
 
-      <IncomeBubbleChart 
-        incomes={filteredIncomes}
+      <TransactionCategoryAnalysis
+        type="income"
+        transactions={filteredIncomes}
+        timeframeTransactions={itemsWithoutDateFilter}
         currency={userCurrency}
-        hasActiveFilters={hasActiveFilters}
+        timezone={userTimezone}
       />
 
       <FinancialFilters
@@ -392,21 +354,24 @@ export default function IncomesPageClient() {
         onShowBookmarkedOnlyChange={setShowBookmarkedOnly}
       />
 
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
-        <MonthNavigation
-          selectedMonth={selectedMonth}
-          selectedYear={selectedYear}
-          onMonthChange={handleMonthChange}
-        />
-        {isMonthFilterActive && !hasActiveFilters && (
+      {hasActiveFilters ? (
+        <p className="text-sm text-gray-600">Showing matches across all months.</p>
+      ) : (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
+          <MonthNavigation
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+            onMonthChange={handleMonthChange}
+          />
           <button
-            onClick={() => setIsMonthFilterActive(false)}
-            className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+            type="button"
+            onClick={() => setIsMonthFilterActive(!isMonthFilterActive)}
+            className="rounded-md px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 hover:text-blue-800"
           >
-            Show All Incomes
+            {isMonthFilterActive ? "Show All Incomes" : "Show Selected Month"}
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       <Suspense fallback={<div>Loading incomes...</div>}>
         <IncomeList
@@ -431,9 +396,9 @@ export default function IncomesPageClient() {
       <ViewIncomeModal isOpen={isViewModalOpen} onClose={() => { setIsViewModalOpen(false); setItemToView(null); }} onEdit={openEditModal} income={itemToView} />
       <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setItemToDelete(null); }} onConfirm={handleDeleteItem} />
       <AddCategoryModal isOpen={isAddCategoryModalOpen} onClose={() => setIsAddCategoryModalOpen(false)} onAdd={handleAddCategory} onDelete={handleDeleteCategory} type="INCOME" categories={categories} />
-      <UnifiedBulkImportModal 
-        isOpen={isBulkImportModalOpen} 
-        onClose={() => setIsBulkImportModalOpen(false)} 
+      <UnifiedBulkImportModal
+        isOpen={isBulkImportModalOpen}
+        onClose={() => setIsBulkImportModalOpen(false)}
         onSuccess={handleBulkImportSuccess}
         config={incomeImportConfig}
       />

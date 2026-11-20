@@ -125,21 +125,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
       triggerBalanceRefresh();
       setIsAddModalOpen(false);
     },
-    onError: (error: Error) => {
-      console.error("Error adding item:", error);
-      
-      // Show error notification if callback provided
-      if (options.onNotification) {
-        options.onNotification({
-          title: `Failed to Add ${categoryType === "EXPENSE" ? 'Expense' : 'Income'}`,
-          message: "Please try again or contact support if the issue persists",
-          type: "error",
-          duration: 4000
-        });
-      } else {
-        alert("Failed to add item. Please try again.");
-      }
-    },
+
   });
 
   const updateItemMutation = useMutation({
@@ -156,10 +142,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
       setIsEditModalOpen(false);
       setItemToEdit(null);
     },
-    onError: (error: Error) => {
-      console.error("Error updating item:", error);
-      alert("Failed to update item. Please try again.");
-    },
+
   });
 
   const deleteItemMutation = useMutation({
@@ -249,9 +232,9 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     () => createTransactionDayFormatter(options.userTimezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone),
     [options.userTimezone]
   );
-  const filteredItems = useMemo(() => {
+  const itemsWithoutDateFilter = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    if (!hasActiveFilters) return items;
+    if (!q && !selectedCategories.length && !selectedBank && !showBookmarkedOnly) return items;
 
     return items.filter(item => {
       // Search term filtering (includes location strings from expense/income rows)
@@ -271,22 +254,21 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
       // Bank filtering
       const matchesBank = !selectedBank || (item.account && item.account.bankName === selectedBank);
       
-      const day = startDate || endDate ? getTransactionDay(item.date) : "";
-      const matchesDateRange = (!startDate && !endDate) ||
-        Boolean(day && (!startDate || day >= startDate) && (!endDate || day <= endDate));
-
       // Bookmark filtering
       const matchesBookmark = !showBookmarkedOnly || (item as any).isBookmarked;
 
-      return matchesSearch && matchesCategory && matchesBank && matchesDateRange && matchesBookmark;
+      return matchesSearch && matchesCategory && matchesBank && matchesBookmark;
     });
-  }, [items, searchTerm, selectedCategories, selectedBank, startDate, endDate, showBookmarkedOnly, hasActiveFilters, getTransactionDay]);
+  }, [items, searchTerm, selectedCategories, selectedBank, showBookmarkedOnly]);
 
-  // Memoized calculations with currency conversion
-  const totalAmount = useMemo(() => 
-    filteredItems.reduce((sum, item) => sum + convertForDisplaySync(item.amount, item.currency, options.userCurrency || 'USD'), 0), 
-    [filteredItems, options.userCurrency]
-  );
+  const filteredItems = useMemo(() => {
+    if (!startDate && !endDate) return itemsWithoutDateFilter;
+
+    return itemsWithoutDateFilter.filter(item => {
+      const day = getTransactionDay(item.date);
+      return day && (!startDate || day >= startDate) && (!endDate || day <= endDate);
+    });
+  }, [itemsWithoutDateFilter, startDate, endDate, getTransactionDay]);
 
   const uniqueBankNames = useMemo(() => 
     Array.from(new Set(accounts.map(account => account.bankName))).sort(), 
@@ -295,11 +277,11 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
 
   // CRUD Handlers
   const handleAddItem = useCallback((newItem: Omit<T, 'id' | 'createdAt' | 'updatedAt'>) => {
-    createItemMutation.mutate(newItem);
+    return createItemMutation.mutateAsync(newItem);
   }, [createItemMutation]);
 
   const handleEditItem = useCallback((id: number, updatedItem: Partial<Omit<T, 'id' | 'createdAt' | 'updatedAt'>>) => {
-    updateItemMutation.mutate({ id, data: updatedItem });
+    return updateItemMutation.mutateAsync({ id, data: updatedItem });
   }, [updateItemMutation]);
 
   const handleDeleteItem = useCallback(() => {
@@ -362,13 +344,19 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     }
   }, [selectedItems, bulkDeleteMutation]);
 
-  const handleBulkImportSuccess = useCallback(async () => {
-    // Invalidate and refetch items data
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.items });
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
-    if (categoryType === "EXPENSE") queryClient.invalidateQueries({ queryKey: ["investments"] });
-    triggerBalanceRefresh();
+  const invalidateFinancialQueries = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.items }),
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts }),
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.thresholds }),
+      ...(categoryType === "EXPENSE" ? [queryClient.invalidateQueries({ queryKey: ["investments"] })] : []),
+    ]);
   }, [queryClient, QUERY_KEYS, categoryType]);
+
+  const handleBulkImportSuccess = useCallback(async () => {
+    await invalidateFinancialQueries();
+    triggerBalanceRefresh();
+  }, [invalidateFinancialQueries]);
 
   const handleExportToCSV = useCallback((visibleItems: T[] = filteredItems) => {
     if (visibleItems.length === 0) {
@@ -406,8 +394,8 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   return {
     // Data
     items: filteredItems,
+    itemsWithoutDateFilter,
     allItems: items,
-    chartItems: filteredItems,
     itemsError: itemData ? null : itemsError,
     retryItems,
     itemsFetching,
@@ -415,7 +403,6 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     categories,
     accounts,
     loading,
-    totalAmount,
     uniqueBankNames,
     hasActiveFilters,
 
@@ -484,12 +471,6 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     userThresholds,
     thresholdsLoading,
     
-    // Query invalidation helper
-    invalidateQueries: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.items });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
-      if (categoryType === "EXPENSE") queryClient.invalidateQueries({ queryKey: ["investments"] });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.thresholds });
-    }
+    invalidateQueries: invalidateFinancialQueries,
   };
-} 
+}

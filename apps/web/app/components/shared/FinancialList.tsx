@@ -4,7 +4,8 @@ import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { Bookmark, Download, RefreshCw } from "lucide-react";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { splitLocationFieldForExport } from "../../utils/csvExportUtils";
-import { formatDate } from "../../utils/date";
+import { useTimezone } from "../../providers/TimezoneProvider";
+import { createTransactionDayFormatter } from "../../utils/transaction-calendar";
 import { TransactionType } from "../../utils/formUtils";
 import { SUPPORTED_CURRENCIES } from "../../utils/currencyConversion";
 import { Pagination } from "./Pagination";
@@ -62,20 +63,13 @@ const AMOUNT_VALUE_FORMATTER = new Intl.NumberFormat('en-US', {
     maximumFractionDigits: 2
 });
 
-function formatDateNumericOnly(date: Date): string {
+function formatDateNumericOnly(date: Date, timezone: string): string {
     return new Date(date).toLocaleDateString('en-US', {
         month: 'numeric',
         day: 'numeric',
-        year: 'numeric'
+        year: 'numeric',
+        timeZone: timezone,
     });
-}
-
-function formatDateIso(date: Date | string): string {
-    const d = date instanceof Date ? date : new Date(date);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
 }
 
 /**
@@ -100,7 +94,8 @@ function formatAccountForCsv(transaction: FinancialTransaction): string {
 function buildCsvFromTransactions(
     rows: FinancialTransaction[],
     displayCurrency: string,
-    transactionType: TransactionType
+    transactionType: TransactionType,
+    getTransactionDay: (date: Date | string) => string,
 ): string {
     const typeLabel = transactionType === "EXPENSE" ? "Expense" : "Income";
     const displayCurrencySafe = (displayCurrency || "USD").trim();
@@ -148,7 +143,7 @@ function buildCsvFromTransactions(
             t.title,
             t.description ?? "",
             t.category.name,
-            formatDateIso(t.date),
+            getTransactionDay(t.date),
             formatAccountForCsv(t),
             t.tags.join("; "),
             locationText,
@@ -184,6 +179,11 @@ export function FinancialList({
     onClearSelection,
     onRefresh
 }: FinancialListProps) {
+    const { timezone } = useTimezone();
+    const getTransactionDay = useMemo(() => createTransactionDayFormatter(timezone), [timezone]);
+    const dateFormatter = useMemo(() => new Intl.DateTimeFormat("en-US", {
+        timeZone: timezone, day: "numeric", month: "long", year: "numeric",
+    }), [timezone]);
     const [selectedCurrency, setSelectedCurrency] = useState(currency);
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -285,8 +285,8 @@ export function FinancialList({
         const maxTime = Math.max(...times);
         const minDate = new Date(minTime);
         const maxDate = new Date(maxTime);
-        const startStr = formatDateNumericOnly(minDate);
-        const endStr = formatDateNumericOnly(maxDate);
+        const startStr = formatDateNumericOnly(minDate, timezone);
+        const endStr = formatDateNumericOnly(maxDate, timezone);
         const dateRangeText = startStr === endStr ? startStr : `${startStr} – ${endStr}`;
 
         const uniqueCategoryCount = new Set(transactions.map((t) => t.category.name)).size;
@@ -296,7 +296,7 @@ export function FinancialList({
             dateRangeText,
             uniqueCategoryCount
         };
-    }, [transactions, selectedCurrency]);
+    }, [transactions, selectedCurrency, timezone]);
 
     const sortedTransactions = useMemo(() => {
         return [...transactions].sort((a, b) => {
@@ -344,7 +344,8 @@ export function FinancialList({
         const csv = buildCsvFromTransactions(
             sortedTransactions,
             selectedCurrency,
-            transactionType
+            transactionType,
+            getTransactionDay,
         );
         const blob = new Blob(["\uFEFF", csv], {
             type: "text/csv;charset=utf-8",
@@ -358,7 +359,7 @@ export function FinancialList({
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(link.href);
-    }, [sortedTransactions, selectedCurrency, transactionType]);
+    }, [sortedTransactions, selectedCurrency, transactionType, getTransactionDay]);
 
     const handleRefresh = useCallback(async () => {
         if (!onRefresh || isRefreshing) return;
@@ -433,6 +434,7 @@ export function FinancialList({
                                 </span>
                                 <button
                                     onClick={handleBulkDelete}
+                                    disabled={!onBulkDelete}
                                     className="px-3 py-1.5 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors"
                                 >
                                     Delete Selected
@@ -628,7 +630,8 @@ export function FinancialList({
                     <tbody className="bg-white divide-y divide-gray-200">
                         {paginatedTransactions.map((transaction, index) => (
                             <FinancialRow 
-                                key={transaction.id} 
+                                key={transaction.id}
+                                dateLabel={dateFormatter.format(new Date(transaction.date))}
                                 transaction={transaction} 
                                 transactionType={transactionType}
                                 currency={selectedCurrency}
@@ -701,7 +704,8 @@ export function FinancialList({
 }
 
 function FinancialRow({ 
-    transaction, 
+    transaction,
+    dateLabel,
     transactionType,
     currency = "USD", 
     onEdit, 
@@ -715,7 +719,8 @@ function FinancialRow({
     columnWidths,
     rowIndex
 }: { 
-    transaction: FinancialTransaction; 
+    transaction: FinancialTransaction;
+    dateLabel: string;
     transactionType: TransactionType;
     currency?: string;
     onEdit?: (transaction: FinancialTransaction) => void;
@@ -838,7 +843,7 @@ function FinancialRow({
                 </div>
             </td>
             <td className="px-4 py-4 text-sm text-gray-900 whitespace-nowrap text-center align-middle" style={{ width: `${columnWidths.date}px` }}>
-                {formatDate(transaction.date)}
+                {dateLabel}
             </td>
             <td className="px-6 py-4 text-sm text-gray-900 text-left align-middle" style={{ width: `${columnWidths.account}px` }}>
                 {transaction.account ? (
