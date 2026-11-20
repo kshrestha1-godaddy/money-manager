@@ -143,7 +143,7 @@ model Expense {
   notes String? // User notes/remarks for the expense
   isRecurring Boolean @default(false)
   recurringFrequency RecurringFrequency?
-  transactionLocation TransactionLocation? @relation(fields: [transactionLocationId], references: [id])
+  transactionLocation TransactionLocation? @relation(fields: [transactionLocationId], references: [id], onDelete: Restrict)
   transactionLocationId Int?
   fulfilledScheduledPayment ScheduledPayment?
   createdAt DateTime @default(now())
@@ -197,7 +197,7 @@ model Income {
   notes String? // User notes/remarks for the income
   isRecurring Boolean @default(false)
   recurringFrequency RecurringFrequency?
-  transactionLocation TransactionLocation? @relation(fields: [transactionLocationId], references: [id])
+  transactionLocation TransactionLocation? @relation(fields: [transactionLocationId], references: [id], onDelete: Restrict)
   transactionLocationId Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
