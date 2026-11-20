@@ -4,13 +4,7 @@ import { authOptions } from '../../lib/auth';
 import { getUserIdFromSession } from '../../utils/auth';
 import prisma from '@repo/db/client';
 
-function serializeLocation(location: { latitude: unknown; longitude: unknown }) {
-    return {
-        ...location,
-        latitude: Number(location.latitude),
-        longitude: Number(location.longitude)
-    };
-}
+import { readCoordinates, serializeLocation } from './location-data';
 
 // GET /api/transaction-locations - Get user's transaction locations
 export async function GET() {
@@ -54,24 +48,13 @@ export async function POST(request: Request) {
         }
 
         const userId = getUserIdFromSession(session.user.id);
-        const body = await request.json();
-        
-        const { latitude, longitude } = body;
-
-        // Validate required fields
-        if (latitude === undefined || longitude === undefined) {
-            return NextResponse.json(
-                { error: 'Latitude and longitude are required' },
-                { status: 400 }
-            );
+        const coordinates = await readCoordinates(request);
+        if (!coordinates) {
+            return NextResponse.json({ error: 'Invalid latitude or longitude' }, { status: 400 });
         }
 
         const location = await prisma.transactionLocation.create({
-            data: {
-                latitude: Number(latitude),
-                longitude: Number(longitude),
-                userId
-            }
+            data: { ...coordinates, userId }
         });
 
         return NextResponse.json(

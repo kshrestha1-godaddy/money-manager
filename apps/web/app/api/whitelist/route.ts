@@ -1,113 +1,91 @@
-import { NextRequest, NextResponse } from "next/server";
-import { 
-  isEmailWhitelisted, 
-  addEmailToWhitelist, 
-  removeEmailFromWhitelist, 
-  getAllWhitelistedEmails 
-} from "../../actions/whitelist";
+import { Prisma } from "@prisma/client";
+import prisma from "@repo/db/client";
+import { readJsonObject } from "../../lib/api-json";
+import { requireAdminSession } from "../../lib/require-admin";
 import { sendAccessApprovalEmail } from "../../services/email";
+import { validateEmail } from "../../utils/auth";
 
-// GET - Get all whitelisted emails
+function readEmail(value: unknown) {
+  const email = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return validateEmail(email) ? email : null;
+}
+
+function handleError(error: unknown) {
+  if (error instanceof Error && error.message === "Unauthorized") {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  console.error("Whitelist API failed:", error);
+  return Response.json({ error: "Internal server error" }, { status: 500 });
+}
+
 export async function GET() {
   try {
-    const whitelistedEmails = await getAllWhitelistedEmails();
-    return NextResponse.json({
-      success: true,
-      data: whitelistedEmails
+    await requireAdminSession();
+    const data = await prisma.whitelistedEmail.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: "desc" },
     });
+    return Response.json({ success: true, data });
   } catch (error) {
-    console.error("Error fetching whitelisted emails:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch whitelisted emails" },
-      { status: 500 }
-    );
+    return handleError(error);
   }
 }
 
-// POST - Add email to whitelist
-export async function POST(req: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const { email, addedBy, reason } = await req.json();
-
-    if (!email) {
-      return NextResponse.json(
-        { error: "Email is required" },
-        { status: 400 }
-      );
+    const admin = await requireAdminSession();
+    const body = await readJsonObject(request);
+    const email = readEmail(body?.email);
+    const reason = body?.reason;
+    if (!email || (reason != null && typeof reason !== "string")) {
+      return Response.json({ error: "A valid email and optional text reason are required" }, { status: 400 });
     }
 
-    // Check if email is already whitelisted
-    const isAlreadyWhitelisted = await isEmailWhitelisted(email);
-    if (isAlreadyWhitelisted) {
-      return NextResponse.json(
-        { error: "Email is already whitelisted" },
-        { status: 409 }
-      );
-    }
-
-    const success = await addEmailToWhitelist(email, addedBy, reason);
-    
-    if (success) {
-      // Send approval email to the newly whitelisted user
-      try {
-        await sendAccessApprovalEmail(email);
-        console.log(`Approval email sent to ${email}`);
-      } catch (emailError) {
-        console.error(`Failed to send approval email to ${email}:`, emailError);
-        // Don't fail the whole request if email fails - just log it
+    const data = { isActive: true, addedBy: admin.email, reason };
+    await prisma.$transaction(async (transaction) => {
+      const { count } = await transaction.whitelistedEmail.updateMany({
+        where: { email, isActive: false },
+        data,
+      });
+      if (count === 0) {
+        await transaction.whitelistedEmail.create({ data: { email, ...data } });
       }
+    });
 
-      return NextResponse.json({
-        success: true,
-        message: `Email ${email} has been added to whitelist`
-      });
-    } else {
-      return NextResponse.json(
-        { error: "Failed to add email to whitelist" },
-        { status: 500 }
-      );
+    try {
+      await sendAccessApprovalEmail(email);
+    } catch (error) {
+      console.error("Failed to send whitelist approval email:", error);
     }
 
+    return Response.json({ success: true, message: `Email ${email} has been added to whitelist` });
   } catch (error) {
-    console.error("Error adding email to whitelist:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return Response.json({ error: "Email is already whitelisted" }, { status: 409 });
+    }
+    return handleError(error);
   }
 }
 
-// DELETE - Remove email from whitelist
-export async function DELETE(req: NextRequest) {
+export async function DELETE(request: Request) {
   try {
-    const { email } = await req.json();
-
+    await requireAdminSession();
+    const body = await readJsonObject(request);
+    const email = readEmail(body?.email);
     if (!email) {
-      return NextResponse.json(
-        { error: "Email is required" },
-        { status: 400 }
-      );
+      return Response.json({ error: "A valid email is required" }, { status: 400 });
     }
 
-    const success = await removeEmailFromWhitelist(email);
-    
-    if (success) {
-      return NextResponse.json({
-        success: true,
-        message: `Email ${email} has been removed from whitelist`
-      });
-    } else {
-      return NextResponse.json(
-        { error: "Failed to remove email from whitelist" },
-        { status: 500 }
-      );
-    }
-
+    await prisma.whitelistedEmail.update({
+      where: { email },
+      data: { isActive: false },
+    });
+    return Response.json({ success: true, message: `Email ${email} has been removed from whitelist` });
   } catch (error) {
-    console.error("Error removing email from whitelist:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return Response.json({ error: "Email is not on the whitelist" }, { status: 404 });
+    }
+    return handleError(error);
   }
-} 
+}

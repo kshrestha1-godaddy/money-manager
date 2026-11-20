@@ -1,4 +1,4 @@
-import { FinancialContext } from "../../(dashboard)/chat/types/chat";
+import type { FinancialContext } from "../../(dashboard)/chat/types/chat";
 
 export function generateDefaultSystemPrompt(): string {
   const currentDate = new Date().toLocaleDateString('en-US', {
@@ -25,7 +25,7 @@ CURRENT DATE: ${currentDate}
 Keep responses helpful and concise.`;
 }
 
-export function generateFinancialSystemPrompt(context: FinancialContext): string {
+export function generateFinancialSystemPrompt(context: Pick<FinancialContext, "markdownData">): string {
   const currentDate = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',

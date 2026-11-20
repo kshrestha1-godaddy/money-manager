@@ -6,11 +6,6 @@ import {
 } from "../../../lib/cron-api-handler";
 
 /** @deprecated Use POST /api/cron/jobs/networth-snapshot/run */
-export async function GET(request: NextRequest) {
-  return POST(request);
-}
-
-/** @deprecated Use POST /api/cron/jobs/networth-snapshot/run */
 export async function POST(request: NextRequest) {
   return handleCronApiRoute(request, {
     jobSlugs: ["networth_snapshot"],
@@ -24,10 +19,5 @@ export async function POST(request: NextRequest) {
         result: unwrapNestedResultJson(job?.resultJson ?? null),
       };
     },
-    isSuccess(result) {
-      const job = getJobRun(result, "networth_snapshot");
-      return Boolean(job && job.status !== "FAILED");
-    },
-    failureStatus: 500,
   });
 }

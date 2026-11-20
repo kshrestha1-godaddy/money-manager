@@ -3,11 +3,15 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
 import OpenAI from "openai";
 import { generateDefaultSystemPrompt, generateFinancialSystemPrompt } from "../../../lib/chat/prompts";
-import { ChatSettings, FinancialContext } from "../../../(dashboard)/chat/types/chat";
+import { DEFAULT_CHAT_SETTINGS, type FinancialContext } from "../../../(dashboard)/chat/types/chat";
+import { readJsonObject } from "../../../lib/api-json";
 
 // Configuration
 const MODEL_NAME = process.env.OPENAI_MODEL || "gpt-4o-mini";
-const MAX_MESSAGES = parseInt(process.env.MAX_CHAT_MESSAGES || "50");
+const configuredMessageLimit = Number(process.env.MAX_CHAT_MESSAGES);
+const MAX_MESSAGES = Number.isSafeInteger(configuredMessageLimit) && configuredMessageLimit > 0
+  ? configuredMessageLimit
+  : 50;
 
 interface ChatRequestMessage {
   sender: "USER" | "ASSISTANT";
@@ -19,190 +23,142 @@ interface StreamEvent {
   data: string | { ok: true } | { error: string };
 }
 
-// Lazy initialize OpenAI client to avoid build-time issues
-function getOpenAIClient() {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error("Missing OPENAI_API_KEY environment variable");
-  }
-  
-  return new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function isChatMessage(message: unknown): message is ChatRequestMessage {
+  if (!message || typeof message !== "object") return false;
+  return "content" in message &&
+    typeof message.content === "string" &&
+    message.content.trim() !== "" &&
+    "sender" in message &&
+    (message.sender === "USER" || message.sender === "ASSISTANT");
 }
 
-// Optimized async generator for token streaming
 async function* streamTokens(
-  requestMessages: ChatRequestMessage[],
-  settings: ChatSettings,
-  financialContext?: FinancialContext
+  messages: ChatRequestMessage[],
+  options: Omit<OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, "messages">,
+  signal: AbortSignal,
+  financialContext?: Pick<FinancialContext, "markdownData">
 ): AsyncGenerator<StreamEvent, void, unknown> {
-  // Validate and limit message history
-  const validMessages = requestMessages
-    .filter((msg): msg is ChatRequestMessage =>
-      msg &&
-      typeof msg.content === "string" &&
-      msg.content.trim() !== "" &&
-      (msg.sender === "USER" || msg.sender === "ASSISTANT")
-    )
-    .slice(-MAX_MESSAGES);
-
-  if (validMessages.length === 0) {
-    yield { event: "error", data: { error: "No valid messages provided" } };
-    return;
-  }
-
   try {
-    // Check for API key before proceeding
-    if (!process.env.OPENAI_API_KEY) {
-      yield { event: "error", data: { error: "OpenAI API key not configured" } };
-      return;
-    }
-
     const systemPrompt = financialContext
       ? generateFinancialSystemPrompt(financialContext)
       : generateDefaultSystemPrompt();
 
-    // Convert conversation to OpenAI messages format
-    const openAiMessages = [
-      { role: "system" as const, content: systemPrompt },
-      ...validMessages.map((msg) => ({
-      role: msg.sender === "USER" ? "user" as const : "assistant" as const,
-      content: msg.content,
-      })),
-    ];
+    const client = new OpenAI();
+    const stream = await client.chat.completions.create({
+      ...options,
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...messages.map((message) => ({
+          role: message.sender === "USER" ? "user" as const : "assistant" as const,
+          content: message.content,
+        })),
+      ],
+    }, { signal });
 
-    // Build API request with user settings
-    const requestOptions: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming = {
-      model: settings.model || MODEL_NAME,
-      messages: openAiMessages,
-      stream: true,
-      temperature: settings.temperature,
-      max_tokens: settings.max_output_tokens,
-      top_p: settings.top_p,
-    };
-
-    // Add optional parameters only if they have values
-    if (settings.top_logprobs > 0) {
-      (requestOptions as any).logprobs = true;
-      (requestOptions as any).top_logprobs = settings.top_logprobs;
-    }
-
-    const client = getOpenAIClient();
-    const stream = await client.chat.completions.create(requestOptions);
-
-    // Process stream chunks efficiently
     for await (const chunk of stream) {
-      // Extract and yield text deltas from chat completions
       if (chunk.choices?.[0]?.delta?.content) {
         yield { event: "text", data: chunk.choices[0].delta.content };
       } 
       
-      // Handle completion events
       if (chunk.choices?.[0]?.finish_reason) {
         break;
       }
     }
 
-    // Signal completion
     yield { event: "done", data: { ok: true } };
     
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "OpenAI API error";
-    yield { event: "error", data: { error: errorMessage } };
+    if (!signal.aborted) {
+      console.error("OpenAI chat request failed:", error);
+      yield { event: "error", data: { error: "Chat request failed" } };
+    }
   }
 }
 
-// Optimized POST handler
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    // Authentication check
     const session = await getServerSession(authOptions);
     if (!session) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { 
-        status: 401, 
-        headers: { "Content-Type": "application/json" } 
-      });
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Parse and validate request body
-    let body: { messages?: unknown; settings?: Partial<ChatSettings>; financialContext?: FinancialContext };
-    try {
-      body = await req.json();
-    } catch {
-      return new Response(JSON.stringify({ error: "Invalid JSON payload" }), { 
-        status: 400, 
-        headers: { "Content-Type": "application/json" } 
-      });
+    const body = await readJsonObject(request);
+    const messages = Array.isArray(body?.messages)
+      ? body.messages.filter(isChatMessage).slice(-MAX_MESSAGES)
+      : [];
+    if (!body || !messages.length) {
+      return Response.json({ error: "Valid messages array is required" }, { status: 400 });
     }
 
-    const { messages, settings, financialContext } = body;
-    
-    // Use default settings if not provided
-    const defaultSettings: ChatSettings = {
-      model: MODEL_NAME,
-      temperature: 1,
-      max_output_tokens: 4096,
-      top_p: 1,
+    const { settings, financialContext } = body;
+    if (settings != null && (typeof settings !== "object" || Array.isArray(settings))) {
+      return Response.json({ error: "Invalid chat settings" }, { status: 400 });
+    }
+    const markdownData = financialContext && typeof financialContext === "object" &&
+      "markdownData" in financialContext ? financialContext.markdownData : undefined;
+    if (financialContext != null && typeof markdownData !== "string") {
+      return Response.json({ error: "Invalid financial context" }, { status: 400 });
+    }
+
+    const {
+      model,
+      temperature,
+      top_p,
+      max_output_tokens,
+      top_logprobs,
+      service_tier,
+    } = { ...DEFAULT_CHAT_SETTINGS, model: MODEL_NAME, ...settings };
+    if (typeof model !== "string" || !model.trim() ||
+        !Number.isFinite(temperature) || temperature < 0 || temperature > 2 ||
+        !Number.isFinite(top_p) || top_p < 0 || top_p > 1 ||
+        !Number.isInteger(max_output_tokens) || max_output_tokens < 1 || max_output_tokens > 8192 ||
+        !Number.isInteger(top_logprobs) || top_logprobs < 0 || top_logprobs > 20 ||
+        !["auto", "default", "flex", "priority"].includes(service_tier)) {
+      return Response.json({ error: "Invalid chat settings" }, { status: 400 });
+    }
+
+    const abortController = new AbortController();
+    const signal = AbortSignal.any([request.signal, abortController.signal]);
+    const tokens = streamTokens(messages, {
+      model,
       stream: true,
-      parallel_tool_calls: true,
       store: false,
-      reasoning: false,
-      truncation: 'auto',
-      top_logprobs: 0,
-      safety_identifier: "",
-      service_tier: 'auto',
-    };
+      temperature,
+      top_p,
+      max_tokens: max_output_tokens,
+      logprobs: top_logprobs > 0,
+      top_logprobs: top_logprobs || undefined,
+      service_tier,
+    }, signal, typeof markdownData === "string" ? { markdownData } : undefined);
 
-    const apiSettings = { ...defaultSettings, ...settings };
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return new Response(JSON.stringify({ error: "Valid messages array is required" }), { 
-        status: 400, 
-        headers: { "Content-Type": "application/json" } 
-      });
-    }
-
-    // Create optimized streaming response
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
-      async start(controller) {
-        const sendEvent = (event: string, data: unknown) => {
-          const eventData = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-          controller.enqueue(encoder.encode(eventData));
-        };
-
-        try {
-          // Stream tokens efficiently
-          for await (const token of streamTokens(messages as ChatRequestMessage[], apiSettings, financialContext)) {
-            sendEvent(token.event, token.data);
-          }
+      async pull(controller) {
+        const result = await tokens.next();
+        if (abortController.signal.aborted) return;
+        if (result.done || signal.aborted) {
           controller.close();
-        } catch (error) {
-          // Send error event and close stream
-          sendEvent("error", { error: "Streaming failed" });
-          controller.close();
+          await tokens.return();
+          return;
         }
+
+        const { event, data } = result.value;
+        controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+      },
+      async cancel() {
+        abortController.abort();
+        await tokens.return();
       },
     });
 
-    // Return streaming response with optimal headers
     return new Response(stream, {
       headers: {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Connection": "keep-alive",
       },
     });
-    
   } catch (error) {
-    // Log error for debugging (only in development)
-    if (process.env.NODE_ENV === "development") {
-      console.error("Chat stream error:", error);
-    }
-    
-    return new Response(JSON.stringify({ error: "Internal server error" }), { 
-      status: 500, 
-      headers: { "Content-Type": "application/json" } 
-    });
+    console.error("Chat stream error:", error);
+    return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
-

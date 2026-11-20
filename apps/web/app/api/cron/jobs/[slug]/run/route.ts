@@ -8,10 +8,6 @@ interface RouteParams {
   params: Promise<{ slug: string }>;
 }
 
-export async function GET(request: NextRequest, context: RouteParams) {
-  return POST(request, context);
-}
-
 export async function POST(request: NextRequest, context: RouteParams) {
   const { slug } = await context.params;
   const jobSlug = slug.replace(/-/g, "_");

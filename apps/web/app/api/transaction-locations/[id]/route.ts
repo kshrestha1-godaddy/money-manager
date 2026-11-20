@@ -1,15 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import prisma from '@repo/db/client';
+import { readCoordinates, serializeLocation } from '../location-data';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../lib/auth';
 import { getUserIdFromSession } from '../../../utils/auth';
 
-const prisma = new PrismaClient();
+type RouteContext = { params: Promise<{ id: string }> };
+
+async function readLocationId(params: RouteContext['params']) {
+    const { id } = await params;
+    const locationId = Number(id);
+    return /^\d+$/.test(id) && locationId > 0 && locationId <= 2147483647
+        ? locationId
+        : null;
+}
 
 // GET /api/transaction-locations/[id] - Get specific transaction location
 export async function GET(
-    request: NextRequest,
-    { params }: { params: { id: string } }
+    _request: NextRequest,
+    { params }: RouteContext
 ) {
     try {
         const session = await getServerSession(authOptions);
@@ -19,9 +29,9 @@ export async function GET(
         }
 
         const userId = getUserIdFromSession(session.user.id);
-        const locationId = parseInt(params.id);
+        const locationId = await readLocationId(params);
 
-        if (isNaN(locationId)) {
+        if (locationId === null) {
             return NextResponse.json({ error: 'Invalid location ID' }, { status: 400 });
         }
 
@@ -36,7 +46,7 @@ export async function GET(
             return NextResponse.json({ error: 'Location not found' }, { status: 404 });
         }
 
-        return NextResponse.json({ location });
+        return NextResponse.json({ location: serializeLocation(location) });
     } catch (error) {
         console.error('Error fetching transaction location:', error);
         return NextResponse.json(
@@ -49,7 +59,7 @@ export async function GET(
 // PUT /api/transaction-locations/[id] - Update transaction location
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: RouteContext
 ) {
     try {
         const session = await getServerSession(authOptions);
@@ -59,45 +69,27 @@ export async function PUT(
         }
 
         const userId = getUserIdFromSession(session.user.id);
-        const locationId = parseInt(params.id);
+        const locationId = await readLocationId(params);
 
-        if (isNaN(locationId)) {
+        if (locationId === null) {
             return NextResponse.json({ error: 'Invalid location ID' }, { status: 400 });
         }
 
-        const body = await request.json();
-        const { latitude, longitude } = body;
-
-        // Validate required fields
-        if (latitude === undefined || longitude === undefined) {
-            return NextResponse.json(
-                { error: 'Latitude and longitude are required' },
-                { status: 400 }
-            );
-        }
-
-        // Check if location exists and belongs to user
-        const existingLocation = await prisma.transactionLocation.findFirst({
-            where: {
-                id: locationId,
-                userId
-            }
-        });
-
-        if (!existingLocation) {
-            return NextResponse.json({ error: 'Location not found' }, { status: 404 });
+        const coordinates = await readCoordinates(request);
+        if (!coordinates) {
+            return NextResponse.json({ error: 'Invalid latitude or longitude' }, { status: 400 });
         }
 
         const location = await prisma.transactionLocation.update({
-            where: { id: locationId },
-            data: {
-                latitude: Number(latitude),
-                longitude: Number(longitude)
-            }
+            where: { id: locationId, userId },
+            data: coordinates
         });
 
-        return NextResponse.json({ location });
+        return NextResponse.json({ location: serializeLocation(location) });
     } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+            return NextResponse.json({ error: 'Location not found' }, { status: 404 });
+        }
         console.error('Error updating transaction location:', error);
         return NextResponse.json(
             { error: 'Failed to update transaction location' },
@@ -106,10 +98,10 @@ export async function PUT(
     }
 }
 
-// DELETE /api/transaction-locations/[id] - Soft delete transaction location
+// DELETE /api/transaction-locations/[id] - Delete transaction location
 export async function DELETE(
-    request: NextRequest,
-    { params }: { params: { id: string } }
+    _request: NextRequest,
+    { params }: RouteContext
 ) {
     try {
         const session = await getServerSession(authOptions);
@@ -119,9 +111,9 @@ export async function DELETE(
         }
 
         const userId = getUserIdFromSession(session.user.id);
-        const locationId = parseInt(params.id);
+        const locationId = await readLocationId(params);
 
-        if (isNaN(locationId)) {
+        if (locationId === null) {
             return NextResponse.json({ error: 'Invalid location ID' }, { status: 400 });
         }
 
@@ -163,11 +155,20 @@ export async function DELETE(
 
         // Delete the location
         await prisma.transactionLocation.delete({
-            where: { id: locationId }
+            where: { id: locationId, userId }
         });
 
         return NextResponse.json({ message: 'Location deleted successfully' });
     } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+            return NextResponse.json({ error: 'Location not found' }, { status: 404 });
+        }
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+            return NextResponse.json(
+                { error: 'Cannot delete location that is being used by transactions' },
+                { status: 400 }
+            );
+        }
         console.error('Error deleting transaction location:', error);
         return NextResponse.json(
             { error: 'Failed to delete transaction location' },

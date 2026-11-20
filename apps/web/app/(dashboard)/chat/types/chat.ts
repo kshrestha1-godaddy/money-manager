@@ -53,13 +53,7 @@ export interface ChatSettings {
   temperature: number;
   max_output_tokens: number;
   top_p: number;
-  stream: boolean;
-  parallel_tool_calls: boolean;
-  store: boolean;
-  reasoning: boolean;
-  truncation: 'auto' | 'disabled';
   top_logprobs: number;
-  safety_identifier: string;
   service_tier: 'auto' | 'default' | 'flex' | 'priority';
 }
 
@@ -123,12 +117,6 @@ export const DEFAULT_CHAT_SETTINGS: ChatSettings = {
   temperature: 1,
   max_output_tokens: 4096,
   top_p: 1,
-  stream: true,
-  parallel_tool_calls: true,
-  store: true,
-  reasoning: false,
-  truncation: 'auto',
   top_logprobs: 0,
-  safety_identifier: "",
   service_tier: 'auto'
 };

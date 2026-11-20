@@ -5,11 +5,6 @@ import {
 } from "../../../lib/cron-api-handler";
 
 /** @deprecated Use POST /api/cron/jobs/inactive-password-share/run */
-export async function GET(request: NextRequest) {
-  return POST(request);
-}
-
-/** @deprecated Use POST /api/cron/jobs/inactive-password-share/run */
 export async function POST(request: NextRequest) {
   return handleCronApiRoute(request, {
     jobSlugs: ["inactive_password_share"],

@@ -1,15 +1,10 @@
-import express, { Request, Response } from "express";
-import bodyParser from "body-parser";
-
-import prisma from "@repo/db/client";
+import express from "express";
 
 const app = express();
+app.use(express.json());
 
-// Middleware to parse JSON request bodies
-app.use(bodyParser.json());
-
-app.post("/hdfcWebhook", async (req: Request, res: Response): Promise<any> => {
-  return res.status(200).json({ message: "Webhook received" });
+app.post("/hdfcWebhook", (_request, response) => {
+  response.status(200).json({ message: "Webhook received" });
 });
 
 app.listen(3050, () => {

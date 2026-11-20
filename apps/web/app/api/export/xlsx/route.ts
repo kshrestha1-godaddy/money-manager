@@ -1,3 +1,4 @@
+import { readJsonObject } from "../../../lib/api-json";
 import { getVerifiedUserIdForDataAccess } from "../../../utils/auth";
 import { sanitizeExportDateStrForFilename } from "../../../utils/exportFilename";
 import { parseExportTableIds } from "../../../actions/export-table-catalog.shared";
@@ -8,7 +9,7 @@ export const maxDuration = 60;
 export async function POST(request: Request) {
   try {
     const userId = await getVerifiedUserIdForDataAccess();
-    const body = await request.json();
+    const body = await readJsonObject(request);
     const tables = parseExportTableIds(body?.tables);
 
     if (!tables) {

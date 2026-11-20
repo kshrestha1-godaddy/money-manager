@@ -10,16 +10,10 @@ export interface CronApiRouteOptions {
   successMessage: string;
   errorLogLabel: string;
   formatResponse?: (result: CronBatchRunSummary) => unknown;
-  isSuccess?: (result: CronBatchRunSummary) => boolean;
-  failureStatus?: number;
 }
 
 function defaultFormatResponse(result: CronBatchRunSummary) {
   return result;
-}
-
-function defaultIsSuccess(result: CronBatchRunSummary) {
-  return result.status !== "FAILED";
 }
 
 export async function handleCronApiRoute(
@@ -30,7 +24,6 @@ export async function handleCronApiRoute(
   if (authError) return authError;
 
   const formatResponse = options.formatResponse ?? defaultFormatResponse;
-  const isSuccess = options.isSuccess ?? defaultIsSuccess;
 
   try {
     const result = await runCronJobs({
@@ -39,22 +32,22 @@ export async function handleCronApiRoute(
       requestContext: getCronRequestContext(request),
     });
 
-    const success = isSuccess(result);
+    const success = result.status === "SUCCESS" || result.status === "SKIPPED";
 
     return NextResponse.json(
       {
         success,
-        message: options.successMessage,
+        message: success ? options.successMessage : `Cron run ended with status ${result.status}`,
         result: formatResponse(result),
       },
-      success ? undefined : { status: options.failureStatus ?? 500 }
+      success ? undefined : { status: 500 }
     );
   } catch (error) {
     console.error(`Error in ${options.errorLogLabel}:`, error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error occurred",
+        error: "Cron run failed",
       },
       { status: 500 }
     );
@@ -65,7 +58,7 @@ export function getJobResultJson(
   result: CronBatchRunSummary,
   jobSlug: string
 ): unknown {
-  return result.jobs.find((job) => job.jobSlug === jobSlug)?.resultJson ?? null;
+  return getJobRun(result, jobSlug)?.resultJson ?? null;
 }
 
 export function getJobRun(
