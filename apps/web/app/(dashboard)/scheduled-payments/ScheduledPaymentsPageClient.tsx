@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { triggerBalanceRefresh } from "../../hooks/useTotalBalance";
 import { ChevronDown, ChevronRight, Download, RefreshCw, Trash2 } from "lucide-react";
 import {
   getScheduledPayments,
@@ -20,15 +22,12 @@ import {
   CONTAINER_COLORS,
   LOADING_COLORS,
   TEXT_COLORS,
-  UI_STYLES,
 } from "../../config/colorConfig";
 import { getCategories } from "../../actions/categories";
 import { getUserAccounts } from "../accounts/actions/accounts";
 import {
   getCategoriesWithFrequency,
-  CategoryWithFrequencyData,
 } from "../../utils/categoryFrequency";
-import { AccountInterface } from "../../types/accounts";
 import { SchedulePaymentModal } from "../expenses/components/SchedulePaymentModal";
 import { DisappearingNotification, NotificationData } from "../../components/DisappearingNotification";
 import { ScheduledPaymentsChart } from "./components/ScheduledPaymentsChart";
@@ -59,6 +58,7 @@ const pageTitle = TEXT_COLORS.title;
 const primaryButton = BUTTON_COLORS.primary;
 const secondaryOutlineButton = BUTTON_COLORS.secondaryBlue;
 const dangerButton = BUTTON_COLORS.danger;
+const EMPTY_PAYMENTS: ScheduledPaymentItem[] = [];
 
 function compareScheduledRows(
   a: ScheduledPaymentItem,
@@ -107,6 +107,23 @@ function compareScheduledRows(
       c = 0;
   }
   return sort.dir === "asc" ? c : -c;
+}
+
+function groupScheduledRows(
+  items: ScheduledPaymentItem[],
+  compare: (a: ScheduledPaymentItem, b: ScheduledPaymentItem) => number,
+) {
+  const groups = new Map<string, ScheduledPaymentItem[]>();
+  for (const item of items) {
+    const label = recurringDisplay(item);
+    const group = groups.get(label) ?? [];
+    group.push(item);
+    groups.set(label, group);
+  }
+  return [...groups]
+    .sort(([a], [b]) => recurrenceGroupSortIndex(a) - recurrenceGroupSortIndex(b) ||
+      a.localeCompare(b, undefined, { sensitivity: "base" }))
+    .map(([label, group]) => ({ label, items: group.sort(compare) }));
 }
 
 function csvQuoteCell(value: string | number | undefined | null): string {
@@ -174,14 +191,29 @@ function buildScheduledPaymentsCsv(
 export default function ScheduledPaymentsPageClient() {
   const { currency: userCurrency } = useCurrency();
   const { timezone: userTimezone } = useTimezone();
-  const [items, setItems] = useState<ScheduledPaymentItem[]>([]);
-  const [categoriesWithFrequency, setCategoriesWithFrequency] = useState<CategoryWithFrequencyData[]>([]);
-  const [accounts, setAccounts] = useState<AccountInterface[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const queryClient = useQueryClient();
+  const paymentsQuery = useQuery({
+    queryKey: ["scheduled-payments"],
+    queryFn: getScheduledPayments,
+  });
+  const formQuery = useQuery({
+    queryKey: ["scheduled-payment-form-options"],
+    queryFn: async () => {
+      const [categories, accounts] = await Promise.all([getCategories("EXPENSE"), getUserAccounts()]);
+      if ("error" in accounts) throw new Error(accounts.error);
+      return { categories: getCategoriesWithFrequency(categories, []), accounts };
+    },
+  });
+  const items = paymentsQuery.data ?? EMPTY_PAYMENTS;
+  const isRefreshing = paymentsQuery.isFetching;
+  const refreshPayments = paymentsQuery.refetch;
+  const [now, setNow] = useState(() => new Date());
+  const busyPaymentsRef = useRef(new Set<number>());
+  const [busyPaymentIds, setBusyPaymentIds] = useState<ReadonlySet<number>>(() => new Set());
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ScheduledPaymentItem | null>(null);
-  const [viewingItem, setViewingItem] = useState<ScheduledPaymentItem | null>(null);
+  const [viewingId, setViewingId] = useState<number | null>(null);
+  const viewingItem = items.find(({ id }) => id === viewingId) ?? null;
   const [notification, setNotification] = useState<NotificationData | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -205,39 +237,25 @@ export default function ScheduledPaymentsPageClient() {
     setTableDisplayCurrency(userCurrency);
   }, [userCurrency]);
 
-  const load = useCallback(async (options?: { silent?: boolean }) => {
-    const silent = options?.silent ?? false;
-    if (silent) {
-      setIsRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-    try {
-      const [scheduledData, expenseCategories, accResult] = await Promise.all([
-        getScheduledPayments(),
-        getCategories("EXPENSE"),
-        getUserAccounts(),
-      ]);
-      setItems(scheduledData);
-      const accs = Array.isArray(accResult) ? accResult : [];
-      setAccounts(accs);
-      setCategoriesWithFrequency(getCategoriesWithFrequency(expenseCategories, []));
-    } catch (e) {
-      console.error(e);
-    } finally {
-      if (silent) {
-        setIsRefreshing(false);
-      } else {
-        setLoading(false);
+  useEffect(() => {
+    const clockTime = Date.now();
+    let nextUpdate = 30_000;
+    for (const item of items) {
+      const dueAt = new Date(item.scheduledAt).getTime();
+      if (item.resolution === null && dueAt > now.getTime()) {
+        nextUpdate = Math.min(nextUpdate, Math.max(1, dueAt - clockTime));
       }
     }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const now = new Date();
+    const timeout = window.setTimeout(() => setNow(new Date()), Math.max(1, nextUpdate));
+    const updateClock = () => {
+      if (!document.hidden) setNow(new Date());
+    };
+    document.addEventListener("visibilitychange", updateClock);
+    return () => {
+      window.clearTimeout(timeout);
+      document.removeEventListener("visibilitychange", updateClock);
+    };
+  }, [items, now]);
 
   const filterOptions = useMemo(() => {
     const categoryNames = [...new Set(items.map((i) => i.category.name))].sort();
@@ -260,7 +278,6 @@ export default function ScheduledPaymentsPageClient() {
   }, [items]);
 
   const filteredItems = useMemo(() => {
-    const nowInner = new Date();
     return items.filter((item) => {
       if (!matchesSearch(item, searchQuery)) return false;
       if (selectedCategories.length > 0 && !selectedCategories.includes(item.category.name)) {
@@ -268,7 +285,7 @@ export default function ScheduledPaymentsPageClient() {
       }
       const acc = accountDisplay(item);
       if (selectedAccounts.length > 0 && !selectedAccounts.includes(acc)) return false;
-      const st = scheduledPaymentStatusLabel(item, nowInner);
+      const st = scheduledPaymentStatusLabel(item, now);
       if (selectedStatuses.length > 0 && !selectedStatuses.includes(st)) return false;
       if (selectedCurrencies.length > 0 && !selectedCurrencies.includes(item.currency)) {
         return false;
@@ -285,6 +302,7 @@ export default function ScheduledPaymentsPageClient() {
     selectedStatuses,
     selectedCurrencies,
     selectedRecurring,
+    now,
   ]);
 
   const activeFilteredItems = useMemo(
@@ -306,63 +324,18 @@ export default function ScheduledPaymentsPageClient() {
     });
   }, []);
 
-  /** Group by recurrence label, sections ordered One-time → Yearly; within each group apply column sort (nearest “When” first when sorted by date ascending). */
-  const groupedTableSections = useMemo(() => {
-    const at = new Date();
-    const byLabel = new Map<string, ScheduledPaymentItem[]>();
-    for (const item of activeFilteredItems) {
-      const label = recurringDisplay(item);
-      const arr = byLabel.get(label) ?? [];
-      arr.push(item);
-      byLabel.set(label, arr);
-    }
-    const labels = [...byLabel.keys()].sort((a, b) => {
-      const i = recurrenceGroupSortIndex(a) - recurrenceGroupSortIndex(b);
-      if (i !== 0) return i;
-      return a.localeCompare(b, undefined, { sensitivity: "base" });
-    });
-    return labels.map((label) => {
-      const sectionItems = [...(byLabel.get(label) ?? [])].sort((a, b) => {
-        const r = compareScheduledRows(a, b, tableSort, at, tableDisplayCurrency);
-        if (r !== 0) return r;
-        return a.id - b.id;
-      });
-      return { label, items: sectionItems };
-    });
-  }, [activeFilteredItems, tableSort, tableDisplayCurrency]);
-
-  const groupedCompletedSections = useMemo(() => {
-    const at = new Date();
-    const byLabel = new Map<string, ScheduledPaymentItem[]>();
-    for (const item of completedFilteredItems) {
-      const label = recurringDisplay(item);
-      const arr = byLabel.get(label) ?? [];
-      arr.push(item);
-      byLabel.set(label, arr);
-    }
-    const labels = [...byLabel.keys()].sort((a, b) => {
-      const i = recurrenceGroupSortIndex(a) - recurrenceGroupSortIndex(b);
-      if (i !== 0) return i;
-      return a.localeCompare(b, undefined, { sensitivity: "base" });
-    });
-    return labels.map((label) => {
-      const sectionItems = [...(byLabel.get(label) ?? [])].sort((a, b) => {
-        const r = compareScheduledRows(a, b, tableSort, at, tableDisplayCurrency);
-        if (r !== 0) return r;
-        return a.id - b.id;
-      });
-      return { label, items: sectionItems };
-    });
-  }, [completedFilteredItems, tableSort, tableDisplayCurrency]);
-
-  const sortedTableItems = useMemo(() => {
-    const at = new Date();
-    return [...filteredItems].sort((a, b) => {
-      const r = compareScheduledRows(a, b, tableSort, at, tableDisplayCurrency);
-      if (r !== 0) return r;
-      return a.id - b.id;
-    });
-  }, [filteredItems, tableSort, tableDisplayCurrency]);
+  const compareTableRows = useCallback((a: ScheduledPaymentItem, b: ScheduledPaymentItem) =>
+    compareScheduledRows(a, b, tableSort, now, tableDisplayCurrency) || a.id - b.id,
+  [tableSort, now, tableDisplayCurrency]);
+  const groupedTableSections = useMemo(
+    () => groupScheduledRows(activeFilteredItems, compareTableRows), [activeFilteredItems, compareTableRows]
+  );
+  const groupedCompletedSections = useMemo(
+    () => groupScheduledRows(completedFilteredItems, compareTableRows), [completedFilteredItems, compareTableRows]
+  );
+  const sortedTableItems = useMemo(
+    () => [...filteredItems].sort(compareTableRows), [filteredItems, compareTableRows]
+  );
 
   const handleDownloadCsv = useCallback(() => {
     if (filteredItems.length === 0) return;
@@ -375,7 +348,7 @@ export default function ScheduledPaymentsPageClient() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(link.href);
-  }, [sortedTableItems, tableDisplayCurrency, filteredItems.length]);
+  }, [sortedTableItems, tableDisplayCurrency, filteredItems.length, now]);
 
   const hasActiveFilters =
     searchQuery.trim().length > 0 ||
@@ -402,8 +375,8 @@ export default function ScheduledPaymentsPageClient() {
   }, [completedFilteredItems, tableDisplayCurrency]);
 
   const deletableVisibleIds = useMemo(
-    () => activeFilteredItems.map((i) => i.id),
-    [activeFilteredItems]
+    () => activeFilteredItems.filter((item) => !busyPaymentIds.has(item.id)).map((item) => item.id),
+    [activeFilteredItems, busyPaymentIds]
   );
 
   const allDeletableVisibleSelected =
@@ -437,7 +410,7 @@ export default function ScheduledPaymentsPageClient() {
   }, []);
 
   function openBulkDeleteModal() {
-    const ids = [...selectedPaymentIds];
+    const ids = deletableVisibleIds.filter((id) => selectedPaymentIds.has(id));
     if (ids.length === 0) return;
     setBulkDeleteIds(ids);
     setBulkDeleteModalOpen(true);
@@ -455,9 +428,9 @@ export default function ScheduledPaymentsPageClient() {
         message: `${result.deleted} scheduled payment${result.deleted === 1 ? "" : "s"} deleted.`,
         type: "success",
       });
-      await load({ silent: true });
+      await refreshPayments();
     },
-    [bulkDeleteIds, load]
+    [bulkDeleteIds, refreshPayments]
   );
 
   function clearFilters() {
@@ -479,76 +452,95 @@ export default function ScheduledPaymentsPageClient() {
       next.delete(id);
       return next;
     });
-    await load({ silent: true });
+    await refreshPayments();
     setNotification({
       title: "Cancelled",
       message: "Scheduled payment removed.",
       type: "success",
     });
-  }, [cancelTarget, load]);
+  }, [cancelTarget, refreshPayments]);
 
-  const handleAccept = async (id: number) => {
+  async function runPaymentAction(
+    id: number,
+    action: () => Promise<void>,
+    success: NotificationData,
+  ) {
+    if (busyPaymentsRef.current.has(id)) return;
+    busyPaymentsRef.current.add(id);
+    setBusyPaymentIds(new Set(busyPaymentsRef.current));
     try {
+      await action();
+      setNotification(success);
+      await refreshPayments();
+    } catch (error) {
+      setNotification({
+        title: "Payment update failed",
+        message: error instanceof Error ? error.message : "Try again.",
+        type: "error",
+      });
+    } finally {
+      busyPaymentsRef.current.delete(id);
+      setBusyPaymentIds(new Set(busyPaymentsRef.current));
+    }
+  }
+
+  function handleAccept(id: number) {
+    return runPaymentAction(id, async () => {
       await acceptScheduledPayment(id);
-      await load({ silent: true });
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to accept");
-    }
-  };
+      triggerBalanceRefresh();
+      void queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      void queryClient.invalidateQueries({ queryKey: ["account-balance-activity"] });
+    }, { title: "Accepted", message: "Payment recorded as an expense.", type: "success" });
+  }
 
-  const handleReject = async (id: number) => {
-    try {
-      await rejectScheduledPayment(id);
-      await load({ silent: true });
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to reject");
-    }
-  };
+  function handleReject(id: number) {
+    return runPaymentAction(id, () => rejectScheduledPayment(id), {
+      title: "Rejected", message: "Payment marked as rejected.", type: "success",
+    });
+  }
 
-  const handlePostponeDays = useCallback(
-    async (item: ScheduledPaymentItem, days: 1 | 3 | 7) => {
-      try {
-        const when = postponeFromOriginalScheduledDate(
-          new Date(item.scheduledAt),
-          days,
-          userTimezone
-        );
-        await postponeScheduledPayment(item.id, when);
-        await load({ silent: true });
-        setNotification({
-          title: "Postponed",
-          message:
-            days === 7
-              ? "Scheduled time moved forward by 1 week."
-              : `Scheduled time moved forward by ${days} day${days === 1 ? "" : "s"}.`,
-          type: "success",
-        });
-      } catch (e) {
-        alert(e instanceof Error ? e.message : "Could not postpone");
-      }
-    },
-    [load, userTimezone]
-  );
+  function handlePostponeDays(item: ScheduledPaymentItem, days: 1 | 3 | 7) {
+    return runPaymentAction(item.id, () => postponeScheduledPayment(
+      item.id, postponeFromOriginalScheduledDate(new Date(item.scheduledAt), days, userTimezone)
+    ), {
+      title: "Postponed",
+      message: `Payment moved forward by ${days} ${days === 1 ? "day" : "days"}.`,
+      type: "success",
+    });
+  }
 
-  if (loading) {
+  if (paymentsQuery.isPending) {
     return (
-      <div className={loadingContainer}>
-        <div className={loadingSpinner} />
+      <div className={loadingContainer} role="status">
+        <div className={loadingSpinner} aria-hidden="true" />
         <p className={loadingText}>Loading scheduled payments…</p>
       </div>
     );
   }
 
+  if (paymentsQuery.isError && !paymentsQuery.data) {
+    return (
+      <section className="rounded-lg border border-gray-200 bg-white p-6" role="alert">
+        <h1 className={pageTitle}>Scheduled payments</h1>
+        <p className="my-3 text-sm text-gray-700">Couldn’t load scheduled payments.</p>
+        <button type="button" onClick={() => void refreshPayments()} disabled={isRefreshing} className={primaryButton}>
+          {isRefreshing ? "Retrying…" : "Try again"}
+        </button>
+      </section>
+    );
+  }
+
   return (
     <div className={pageContainer}>
-      <div className={UI_STYLES.header.container}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className={pageTitle}>Scheduled payments</h1>
         </div>
-        <div className={UI_STYLES.header.buttonGroup}>
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => void load({ silent: true })}
+            onClick={() => void refreshPayments()}
             disabled={isRefreshing}
             className={`${secondaryOutlineButton} inline-flex items-center gap-2 disabled:opacity-50`}
             aria-busy={isRefreshing}
@@ -565,12 +557,27 @@ export default function ScheduledPaymentsPageClient() {
               setEditingItem(null);
               setIsScheduleModalOpen(true);
             }}
-            className={primaryButton}
+            disabled={!formQuery.data}
+            className={`${primaryButton} disabled:opacity-50`}
           >
             Schedule a payment
           </button>
         </div>
       </div>
+
+      {paymentsQuery.isRefetchError && (
+        <p role="alert" className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          Refresh failed. Showing the last loaded schedule.
+        </p>
+      )}
+      {formQuery.isError && !formQuery.data && (
+        <div role="alert" className="flex flex-wrap items-center gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <p>Couldn’t load the categories and accounts needed to schedule payments.</p>
+          <button type="button" className="underline" disabled={formQuery.isFetching} onClick={() => void formQuery.refetch()}>
+            Try again
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 items-stretch lg:grid-cols-3">
         <div className="flex h-full min-h-0 min-w-0 flex-col lg:col-span-1">
@@ -578,8 +585,6 @@ export default function ScheduledPaymentsPageClient() {
             items={filteredItems}
             userCurrency={userCurrency}
             now={now}
-            onRefresh={() => void load({ silent: true })}
-            isRefreshing={isRefreshing}
           />
         </div>
         <div className="flex min-w-0 flex-col lg:col-span-2">
@@ -745,9 +750,11 @@ export default function ScheduledPaymentsPageClient() {
                     userTimezone={userTimezone}
                     now={now}
                     showCheckboxes
+                    busyPaymentIds={busyPaymentIds}
+                    canEditSchedule={!!formQuery.data}
                     selectedPaymentIds={selectedPaymentIds}
                     onToggleRowSelection={togglePaymentRowSelection}
-                    onView={(item) => setViewingItem(item)}
+                    onView={(item) => setViewingId(item.id)}
                     onEdit={(item) => {
                       setEditingItem(item);
                       setIsScheduleModalOpen(true);
@@ -840,9 +847,11 @@ export default function ScheduledPaymentsPageClient() {
                       userTimezone={userTimezone}
                       now={now}
                       showCheckboxes={false}
+                      busyPaymentIds={busyPaymentIds}
+                      canEditSchedule={!!formQuery.data}
                       selectedPaymentIds={selectedPaymentIds}
                       onToggleRowSelection={togglePaymentRowSelection}
-                      onView={(item) => setViewingItem(item)}
+                      onView={(item) => setViewingId(item.id)}
                       onEdit={(item) => {
                         setEditingItem(item);
                         setIsScheduleModalOpen(true);
@@ -877,12 +886,12 @@ export default function ScheduledPaymentsPageClient() {
       <ScheduledPaymentViewModal
         item={viewingItem}
         isOpen={viewingItem !== null}
-        onClose={() => setViewingItem(null)}
+        onClose={() => setViewingId(null)}
         displayCurrency={tableDisplayCurrency}
         userTimezone={userTimezone}
         allItems={items}
         onPostponeSuccess={async () => {
-          await load({ silent: true });
+          await refreshPayments();
           setNotification({
             title: "Postponed",
             message: "Scheduled time updated.",
@@ -890,10 +899,10 @@ export default function ScheduledPaymentsPageClient() {
           });
         }}
         onEdit={
-          viewingItem && !viewingItem.resolution
+          viewingItem && !viewingItem.resolution && formQuery.data && !busyPaymentIds.has(viewingItem.id)
             ? () => {
                 const v = viewingItem;
-                setViewingItem(null);
+                setViewingId(null);
                 setEditingItem(v);
                 setIsScheduleModalOpen(true);
               }
@@ -916,10 +925,10 @@ export default function ScheduledPaymentsPageClient() {
               : "Payment scheduled successfully.",
             type: "success",
           });
-          void load({ silent: true });
+          void refreshPayments();
         }}
-        categories={categoriesWithFrequency}
-        accounts={accounts}
+        categories={formQuery.data?.categories ?? []}
+        accounts={formQuery.data?.accounts ?? []}
       />
       <DeleteSelectedScheduledPaymentsModal
         isOpen={bulkDeleteModalOpen}

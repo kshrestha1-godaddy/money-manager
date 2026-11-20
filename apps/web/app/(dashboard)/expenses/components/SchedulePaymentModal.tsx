@@ -55,9 +55,11 @@ export function SchedulePaymentModal({
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringFrequency, setRecurringFrequency] = useState<RecurringChoice>("MONTHLY");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
+    setFormError(null);
     if (editingItem) {
       setTitle(editingItem.title);
       setAmount(String(editingItem.amount));
@@ -100,24 +102,30 @@ export function SchedulePaymentModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting || isTimezoneLoading) return;
+    setFormError(null);
     if (!title.trim()) {
-      alert("Title is required");
+      setFormError("Title is required");
       return;
     }
-    const n = parseFloat(amount);
+    const n = Number(amount);
     if (!amount || !Number.isFinite(n) || n <= 0) {
-      alert("Enter a valid amount");
+      setFormError("Enter a valid amount");
       return;
     }
     if (!categoryId) {
-      alert("Select a category");
+      setFormError("Select a category");
       return;
     }
 
-    if (isTimezoneLoading) return;
-    const scheduledAt = parseDatetimeLocalInTimezone(scheduledAtLocal, timezone);
+    // Keep the original instant (including seconds and ambiguous DST times)
+    // when a user edits other fields without changing the date input.
+    const existingTime = editingItem ? new Date(editingItem.scheduledAt) : null;
+    const scheduledAt = existingTime && scheduledAtLocal === toDatetimeLocalValue(existingTime, timezone)
+      ? existingTime
+      : parseDatetimeLocalInTimezone(scheduledAtLocal, timezone);
     if (!scheduledAt) {
-      alert(`Enter a valid date and time in ${timezone}. This time may not exist due to a daylight-saving change.`);
+      setFormError(`Enter a valid date and time in ${timezone}. This time may not exist due to a daylight-saving change.`);
       return;
     }
 
@@ -133,7 +141,7 @@ export function SchedulePaymentModal({
         notes: notes.trim() || undefined,
         isRecurring,
         recurringFrequency: isRecurring
-          ? (recurringFrequency as "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY")
+          ? recurringFrequency
           : undefined,
       };
       if (editingItem) {
@@ -145,7 +153,7 @@ export function SchedulePaymentModal({
       handleClose();
     } catch (err) {
       console.error(err);
-      alert(err instanceof Error ? err.message : "Failed to save scheduled payment");
+      setFormError(err instanceof Error ? err.message : "Failed to save scheduled payment");
     } finally {
       setIsSubmitting(false);
     }
@@ -165,6 +173,7 @@ export function SchedulePaymentModal({
           <button
             type="button"
             onClick={handleClose}
+            disabled={isSubmitting}
             className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
             aria-label="Close"
           >
@@ -183,6 +192,7 @@ export function SchedulePaymentModal({
           </p>
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
+          {formError && <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">{formError}</p>}
           <div>
             <label className={labelClasses}>Title</label>
             <input

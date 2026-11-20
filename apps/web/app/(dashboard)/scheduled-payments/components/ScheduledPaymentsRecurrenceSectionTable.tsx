@@ -38,6 +38,8 @@ interface ScheduledPaymentsRecurrenceSectionTableProps {
   userTimezone: string;
   now: Date;
   showCheckboxes: boolean;
+  busyPaymentIds: ReadonlySet<number>;
+  canEditSchedule: boolean;
   selectedPaymentIds: Set<number>;
   onToggleRowSelection: (id: number) => void;
   onView: (item: ScheduledPaymentItem) => void;
@@ -58,6 +60,8 @@ export function ScheduledPaymentsRecurrenceSectionTable({
   userTimezone,
   now,
   showCheckboxes,
+  busyPaymentIds,
+  canEditSchedule,
   selectedPaymentIds,
   onToggleRowSelection,
   onView,
@@ -110,9 +114,10 @@ export function ScheduledPaymentsRecurrenceSectionTable({
               tableDisplayCurrency
             );
             const statusLabel = scheduledPaymentStatusLabel(item, now);
-            const canDecide = !item.resolution && item.scheduledAt <= now;
+            const isBusy = busyPaymentIds.has(item.id);
+            const canDecide = !item.resolution && new Date(item.scheduledAt) <= now;
             const canDelete = !item.resolution;
-            const canEdit = !item.resolution;
+            const canEdit = !item.resolution && canEditSchedule;
             const canPostpone = item.resolution === null;
             const isDueSoon = isScheduledWithinNextTwoDays(item, now);
             const acceptedHistory =
@@ -126,7 +131,7 @@ export function ScheduledPaymentsRecurrenceSectionTable({
 
             return (
               <Fragment key={item.id}>
-                <tr className={cn("group align-middle", rowTint)}>
+                <tr aria-busy={isBusy} className={cn("group align-middle", rowTint)}>
                   <td
                     className={`border-r border-gray-100/80 px-3 text-center align-middle ${TABLE_CELL_Y} ${rowTint}`}
                     style={{
@@ -140,6 +145,7 @@ export function ScheduledPaymentsRecurrenceSectionTable({
                       <input
                         type="checkbox"
                         checked={selectedPaymentIds.has(item.id)}
+                        disabled={isBusy}
                         onChange={() => onToggleRowSelection(item.id)}
                         className="mx-auto block h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         aria-label={`Select “${item.title}”`}
@@ -222,7 +228,7 @@ export function ScheduledPaymentsRecurrenceSectionTable({
                   <td
                     className={`${TABLE_CELL_X} ${TABLE_CELL_Y} text-center align-middle ${rowTint}`}
                   >
-                    {renderPostponeColumnContent(item, canPostpone, onPostponeDays)}
+                    {renderPostponeColumnContent(item, canPostpone, isBusy, onPostponeDays)}
                   </td>
                   <td
                     className={`sticky right-0 z-10 min-w-[11rem] border-l border-gray-100 ${TABLE_CELL_X} ${TABLE_CELL_Y} text-center align-middle shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] sm:min-w-[12rem] ${
@@ -237,6 +243,7 @@ export function ScheduledPaymentsRecurrenceSectionTable({
                         canDecide,
                         canEdit,
                         canDelete,
+                        isBusy,
                         onView,
                         onEdit,
                         onCancel,
@@ -420,17 +427,19 @@ function AcceptedHistoryTableRow({
 function renderPostponeColumnContent(
   item: ScheduledPaymentItem,
   canPostpone: boolean,
+  isBusy: boolean,
   onPostponeDays: (item: ScheduledPaymentItem, days: 1 | 3 | 7) => void | Promise<void>
 ): ReactNode {
   if (!canPostpone) {
     return <span className="text-gray-400">—</span>;
   }
   const postponeQuickClass =
-    "inline-flex shrink-0 items-center rounded-md bg-violet-50 px-2 py-1.5 text-xs font-semibold tabular-nums text-violet-700 transition-colors hover:bg-violet-100 hover:text-violet-900";
+    "inline-flex shrink-0 items-center rounded-md bg-violet-50 px-2 py-1.5 text-xs font-semibold tabular-nums text-violet-700 transition-colors disabled:opacity-50 hover:bg-violet-100 hover:text-violet-900";
   return (
     <div className="flex flex-wrap items-center justify-center gap-1">
       <button
         type="button"
+        disabled={isBusy}
         className={postponeQuickClass}
         aria-label="Postpone 1 day"
         onClick={() => void onPostponeDays(item, 1)}
@@ -439,6 +448,7 @@ function renderPostponeColumnContent(
       </button>
       <button
         type="button"
+        disabled={isBusy}
         className={postponeQuickClass}
         aria-label="Postpone 3 days"
         onClick={() => void onPostponeDays(item, 3)}
@@ -447,6 +457,7 @@ function renderPostponeColumnContent(
       </button>
       <button
         type="button"
+        disabled={isBusy}
         className={postponeQuickClass}
         aria-label="Postpone 1 week"
         onClick={() => void onPostponeDays(item, 7)}
@@ -462,6 +473,7 @@ function renderActionCells(
   canDecide: boolean,
   canEdit: boolean,
   canDelete: boolean,
+  isBusy: boolean,
   onView: (item: ScheduledPaymentItem) => void,
   onEdit: (item: ScheduledPaymentItem) => void,
   onCancel: (item: ScheduledPaymentItem) => void,
@@ -482,8 +494,9 @@ function renderActionCells(
     <button
       key="view"
       type="button"
+      disabled={isBusy}
       onClick={() => onView(item)}
-      className="inline-flex shrink-0 items-center rounded-md bg-indigo-50 px-2.5 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-100 hover:text-indigo-800"
+      className="inline-flex shrink-0 items-center rounded-md bg-indigo-50 px-2.5 py-1.5 text-xs font-medium text-indigo-600 transition-colors disabled:opacity-50 hover:bg-indigo-100 hover:text-indigo-800"
     >
       View
     </button>
@@ -494,8 +507,9 @@ function renderActionCells(
       <button
         key="accept"
         type="button"
+        disabled={isBusy}
         onClick={() => onAccept(item.id)}
-        className="inline-flex shrink-0 items-center rounded-md bg-indigo-50 px-2.5 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-100 hover:text-indigo-800"
+        className="inline-flex shrink-0 items-center rounded-md bg-indigo-50 px-2.5 py-1.5 text-xs font-medium text-indigo-600 transition-colors disabled:opacity-50 hover:bg-indigo-100 hover:text-indigo-800"
       >
         Accept
       </button>
@@ -505,8 +519,9 @@ function renderActionCells(
       <button
         key="reject"
         type="button"
+        disabled={isBusy}
         onClick={() => onReject(item.id)}
-        className="inline-flex shrink-0 items-center rounded-md bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 hover:text-amber-900"
+        className="inline-flex shrink-0 items-center rounded-md bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800 transition-colors disabled:opacity-50 hover:bg-amber-100 hover:text-amber-900"
       >
         Reject
       </button>
@@ -518,8 +533,9 @@ function renderActionCells(
       <button
         key="edit"
         type="button"
+        disabled={isBusy}
         onClick={() => onEdit(item)}
-        className="inline-flex shrink-0 items-center rounded-md bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-100 hover:text-blue-800"
+        className="inline-flex shrink-0 items-center rounded-md bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-600 transition-colors disabled:opacity-50 hover:bg-blue-100 hover:text-blue-800"
       >
         Edit
       </button>
@@ -531,8 +547,9 @@ function renderActionCells(
       <button
         key="cancel"
         type="button"
+        disabled={isBusy}
         onClick={() => onCancel(item)}
-        className="inline-flex shrink-0 items-center rounded-md bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100 hover:text-red-800"
+        className="inline-flex shrink-0 items-center rounded-md bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors disabled:opacity-50 hover:bg-red-100 hover:text-red-800"
       >
         Cancel
       </button>

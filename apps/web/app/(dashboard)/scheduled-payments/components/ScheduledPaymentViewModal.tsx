@@ -47,11 +47,13 @@ export function ScheduledPaymentViewModal({
   allItems,
 }: ScheduledPaymentViewModalProps) {
   const [acting, setActing] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [customPostpone, setCustomPostpone] = useState("");
   const [fetchedHistory, setFetchedHistory] = useState<ScheduledPaymentItem[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   useEffect(() => {
+    setActionError(null);
     if (!item) {
       setCustomPostpone("");
       return;
@@ -63,7 +65,7 @@ export function ScheduledPaymentViewModal({
         userTimezone
       )
     );
-  }, [item?.id, userTimezone]);
+  }, [item, userTimezone]);
 
   const clientHistory = useMemo(() => {
     if (!item || !allItems) return null;
@@ -104,6 +106,7 @@ export function ScheduledPaymentViewModal({
 
   if (!isOpen || !item) return null;
 
+  const paymentId = item.id;
   const now = new Date();
   const status = scheduledPaymentStatusLabel(item, now);
   const canPostpone = item.resolution === null;
@@ -121,13 +124,18 @@ export function ScheduledPaymentViewModal({
     (acceptedHistory.length > 0 || isLoadingHistory);
 
   async function handlePostpone(when: Date) {
+    if (acting || when <= new Date()) {
+      if (!acting) setActionError("Choose a time in the future.");
+      return;
+    }
+    setActionError(null);
     setActing(true);
     try {
-      await postponeScheduledPayment(item.id, when);
+      await postponeScheduledPayment(paymentId, when);
       await onPostponeSuccess();
       onClose();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Could not postpone");
+      setActionError(e instanceof Error ? e.message : "Could not postpone");
     } finally {
       setActing(false);
     }
@@ -137,7 +145,7 @@ export function ScheduledPaymentViewModal({
     if (!customPostpone.trim()) return;
     const parsed = parseDatetimeLocalInTimezone(customPostpone, userTimezone);
     if (!parsed || Number.isNaN(parsed.getTime())) {
-      alert("Invalid date and time");
+      setActionError("Enter a valid date and time.");
       return;
     }
     void handlePostpone(parsed);
@@ -166,12 +174,14 @@ export function ScheduledPaymentViewModal({
           <button
             type="button"
             onClick={onClose}
+            disabled={acting}
             className="shrink-0 text-gray-400 hover:text-gray-600"
             aria-label="Close"
           >
             ✕
           </button>
         </div>
+        {actionError && <p role="alert" className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{actionError}</p>}
 
         <div className="space-y-4 text-sm">
           <div className="flex flex-wrap items-center gap-2">
@@ -347,6 +357,7 @@ export function ScheduledPaymentViewModal({
           <button
             type="button"
             onClick={onClose}
+            disabled={acting}
             className="rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700"
           >
             Close

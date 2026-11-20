@@ -41,7 +41,7 @@ interface UpcomingScheduleCalendarProps {
 function getCalendarRowKind(p: ScheduledPaymentItem, now: Date): CalendarRowKind {
   if (p.resolution === "ACCEPTED") return "accepted";
   if (p.resolution === "REJECTED") return "rejected";
-  if (p.scheduledAt > now) return "upcoming";
+  if (new Date(p.scheduledAt) > now) return "upcoming";
   return "awaiting";
 }
 
@@ -82,10 +82,12 @@ export function UpcomingScheduleCalendar({
   userTimezone,
   now,
 }: UpcomingScheduleCalendarProps) {
-  const [view, setView] = useState(() => ({
-    year: now.getFullYear(),
-    month: now.getMonth(),
-  }));
+  const todayKey = dateKeyInTimeZone(now, userTimezone);
+  const todayMonth = {
+    year: Number(todayKey.slice(0, 4)),
+    month: Number(todayKey.slice(5, 7)) - 1,
+  };
+  const [view, setView] = useState<{ year: number; month: number } | null>(null);
 
   const byDateKey = useMemo(() => {
     const map = new Map<string, ScheduledPaymentItem[]>();
@@ -99,7 +101,7 @@ export function UpcomingScheduleCalendar({
     return map;
   }, [items, userTimezone]);
 
-  const { year, month } = view;
+  const { year, month } = view ?? todayMonth;
   const lastDay = daysInMonth(year, month);
   const firstWeekday = new Date(year, month, 1).getDay();
   const weekdays = getWeekdayLabels();
@@ -119,8 +121,9 @@ export function UpcomingScheduleCalendar({
 
   function shiftMonth(delta: number) {
     setView((prev) => {
-      let m = prev.month + delta;
-      let y = prev.year;
+      const current = prev ?? todayMonth;
+      let m = current.month + delta;
+      let y = current.year;
       while (m < 0) {
         m += 12;
         y -= 1;
@@ -132,8 +135,6 @@ export function UpcomingScheduleCalendar({
       return { year: y, month: m };
     });
   }
-
-  const todayKey = dateKeyInTimeZone(now, userTimezone);
 
   return (
     <div className={card}>
@@ -173,10 +174,7 @@ export function UpcomingScheduleCalendar({
           </span>
           <button
             type="button"
-            onClick={() => {
-              const t = new Date();
-              setView({ year: t.getFullYear(), month: t.getMonth() });
-            }}
+            onClick={() => setView(null)}
             className="text-xs font-medium text-blue-600 hover:text-blue-800"
           >
             Today
@@ -193,76 +191,80 @@ export function UpcomingScheduleCalendar({
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-gray-500 mb-1">
-        {weekdays.map((w) => (
-          <div key={w} className="py-1">
-            {w}
+      <div className="overflow-x-auto" role="region" aria-label="Monthly payment calendar" tabIndex={0}>
+        <div className="min-w-[560px]">
+          <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-gray-500 mb-1">
+            {weekdays.map((w) => (
+              <div key={w} className="py-1">
+                {w}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      <div className="grid grid-cols-7 gap-1">
-        {cells.map((cell, idx) => {
-          if (!cell.inMonth || !cell.dateKey || cell.day === null) {
-            return (
-              <div
-                key={`pad-${idx}`}
-                className="min-h-[72px] rounded-lg border border-transparent bg-gray-50/50"
-              />
-            );
-          }
-          const rawList = byDateKey.get(cell.dateKey) ?? [];
-          const list = sortPaymentsForDay(rawList, now);
-          const hasAny = list.length > 0;
-          const isToday = cell.dateKey === todayKey;
+          <div className="grid grid-cols-7 gap-1">
+            {cells.map((cell, idx) => {
+              if (!cell.inMonth || !cell.dateKey || cell.day === null) {
+                return (
+                  <div
+                    key={`pad-${idx}`}
+                    className="min-h-[72px] rounded-lg border border-transparent bg-gray-50/50"
+                  />
+                );
+              }
+              const rawList = byDateKey.get(cell.dateKey) ?? [];
+              const list = sortPaymentsForDay(rawList, now);
+              const hasAny = list.length > 0;
+              const isToday = cell.dateKey === todayKey;
 
-          return (
-            <div
-              key={cell.dateKey}
-              className={`rounded-lg border p-1 text-left flex flex-col min-h-[72px] ${cellClass}`}
-            >
-              <span
-                className={`text-xs font-semibold shrink-0 mb-1 ${
-                  isToday
-                    ? "inline-flex h-6 min-w-7 items-center justify-center rounded-full border-2 border-blue-500 px-1 text-blue-700 tabular-nums"
-                    : "text-gray-800"
-                }`}
-              >
-                {cell.day}
-              </span>
-              {hasAny ? (
-                <div className="flex flex-col gap-1 min-h-0 flex-1 max-h-[220px] overflow-y-auto overflow-x-hidden pr-0.5">
-                  {list.map((p) => {
-                    const rowKind = getCalendarRowKind(p, now);
-                    const converted = convertForDisplaySync(
-                      p.amount,
-                      p.currency,
-                      userCurrency
-                    );
-                    return (
-                      <div
-                        key={p.id}
-                        className={paymentRowClass(rowKind)}
-                        title={`${p.title} — ${formatCurrency(converted, userCurrency)}`}
-                      >
-                        <div className="flex items-start justify-between gap-1.5 min-w-0">
-                          <p className="text-[10px] font-medium leading-snug line-clamp-2 min-w-0 flex-1">
-                            {p.title}
-                          </p>
-                          <div className="shrink-0 text-right leading-tight">
-                            <p className="text-[10px] font-semibold tabular-nums whitespace-nowrap">
-                              {formatCurrency(converted, userCurrency)}
-                            </p>
+              return (
+                <div
+                  key={cell.dateKey}
+                  className={`rounded-lg border p-1 text-left flex flex-col min-h-[72px] ${cellClass}`}
+                >
+                  <span
+                    className={`text-xs font-semibold shrink-0 mb-1 ${
+                      isToday
+                        ? "inline-flex h-6 min-w-7 items-center justify-center rounded-full border-2 border-blue-500 px-1 text-blue-700 tabular-nums"
+                        : "text-gray-800"
+                    }`}
+                  >
+                    {cell.day}
+                  </span>
+                  {hasAny ? (
+                    <div className="flex flex-col gap-1 min-h-0 flex-1 max-h-[220px] overflow-y-auto overflow-x-hidden pr-0.5">
+                      {list.map((p) => {
+                        const rowKind = getCalendarRowKind(p, now);
+                        const converted = convertForDisplaySync(
+                          p.amount,
+                          p.currency,
+                          userCurrency
+                        );
+                        return (
+                          <div
+                            key={p.id}
+                            className={paymentRowClass(rowKind)}
+                            title={`${p.title} — ${formatCurrency(converted, userCurrency)}`}
+                          >
+                            <div className="flex items-start justify-between gap-1.5 min-w-0">
+                              <p className="text-[10px] font-medium leading-snug line-clamp-2 min-w-0 flex-1">
+                                {p.title}
+                              </p>
+                              <div className="shrink-0 text-right leading-tight">
+                                <p className="text-[10px] font-semibold tabular-nums whitespace-nowrap">
+                                  {formatCurrency(converted, userCurrency)}
+                                </p>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
-          );
-        })}
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );

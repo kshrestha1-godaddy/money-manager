@@ -19,7 +19,7 @@ function load(relative, dependencies) {
   return exports;
 }
 
-function setup({ failNext = false, loseClaim = false, accountId = 2, scheduledAt = new Date('2026-01-01'), recurringFrequency = 'MONTHLY', timezone = 'UTC', categoryOwned = true, accountOwned = true } = {}) {
+function setup({ failNext = false, loseClaim = false, resolveBeforeWrite = false, accountId = 2, scheduledAt = new Date('2026-01-01'), recurringFrequency = 'MONTHLY', timezone = 'UTC', categoryOwned = true, accountOwned = true } = {}) {
   let state = { writes: 0, createdPayment: null, resolution: null, expenses: [], balance: 1000, next: 0, nextDates: [], editedPayment: { description: "Imported rent details", tags: ["housing", "imported"] } };
   let queue = Promise.resolve();
   const enums = { ScheduledPaymentResolution: { ACCEPTED: 'ACCEPTED', REJECTED: 'REJECTED' }, ActivityAction: { CREATE: 'CREATE' }, ActivityCategory: { TRANSACTION: 'TRANSACTION' }, ActivityEntityType: { EXPENSE: 'EXPENSE' } };
@@ -36,10 +36,15 @@ function setup({ failNext = false, loseClaim = false, accountId = 2, scheduledAt
         return { id: 1, resolution: null, account: null, category: { id: 3 }, createdAt: new Date(), updatedAt: new Date(), ...data };
       },
       findFirst: async () => ({ id: 1, userId: 1, resolution: null, ...state.editedPayment }),
-      update: async ({ data }) => {
+      update: async ({ where, data }) => {
+        if (resolveBeforeWrite && where.resolution === null) throw new Error('Payment already resolved');
         state.writes++;
         state.editedPayment = { ...state.editedPayment, ...data };
         return { id: 1, userId: 1, resolution: null, account: null, category: { id: 3 }, createdAt: new Date(), updatedAt: new Date(), ...state.editedPayment };
+      },
+      delete: async ({ where }) => {
+        if (resolveBeforeWrite && where.resolution === null) throw new Error('Payment already resolved');
+        state.writes++;
       },
     },
     category: { findFirst: async () => categoryOwned ? { id: 3 } : null },
@@ -338,3 +343,43 @@ for (const id of [0, -1, 1.5, '1', undefined]) {
     assert.equal(app.state().writes, 0);
   });
 }
+
+const { postponeFromOriginalScheduledDate, scheduledPaymentStatusLabel, isScheduledWithinNextTwoDays } =
+  load('(dashboard)/scheduled-payments/scheduled-payment-helpers.ts', {
+    '../../utils/scheduledPaymentTime': time,
+    '../../utils/currencyDisplay': { convertForDisplaySync: (amount) => amount },
+  });
+
+test('overdue postponement adds the selected number of days from today in the saved timezone', () => {
+  const now = new Date('2026-03-07T14:00:00.123Z');
+  const overdue = new Date('2026-02-20T15:00:00Z');
+  const timezone = 'America/New_York';
+  assert.equal(postponeFromOriginalScheduledDate(overdue, 1, timezone, now).toISOString(), '2026-03-08T13:00:00.123Z');
+  assert.equal(postponeFromOriginalScheduledDate(overdue, 3, timezone, now).toISOString(), '2026-03-10T13:00:00.123Z');
+  assert.equal(postponeFromOriginalScheduledDate(overdue, 7, timezone, now).toISOString(), '2026-03-14T13:00:00.123Z');
+});
+
+test('upcoming postponement preserves the original local clock time', () => {
+  const now = new Date('2026-03-05T12:00:00Z');
+  const upcoming = new Date('2026-03-07T16:30:00Z');
+  assert.equal(
+    postponeFromOriginalScheduledDate(upcoming, 1, 'America/New_York', now).toISOString(),
+    '2026-03-08T15:30:00.000Z',
+  );
+});
+
+test('a payment becomes actionable at the due instant and resolved payments are never due soon', () => {
+  const item = { scheduledAt: '2026-03-07T14:00:00.000Z', resolution: null };
+  assert.equal(scheduledPaymentStatusLabel(item, new Date('2026-03-07T13:59:59.999Z')), 'Upcoming');
+  assert.equal(scheduledPaymentStatusLabel(item, new Date(item.scheduledAt)), 'Awaiting confirmation');
+  assert.equal(isScheduledWithinNextTwoDays(item, new Date('2026-03-07T13:00:00Z')), true);
+  assert.equal(isScheduledWithinNextTwoDays({ ...item, resolution: 'ACCEPTED' }, new Date('2026-03-07T13:00:00Z')), false);
+});
+
+test('edit, postpone and delete cannot change a payment resolved after their initial read', async () => {
+  const app = setup({ resolveBeforeWrite: true });
+  await assert.rejects(app.updateScheduledPayment(editPayload), /already resolved/);
+  await assert.rejects(app.postponeScheduledPayment(1, new Date(Date.now() + 3_600_000)), /already resolved/);
+  await assert.rejects(app.deleteScheduledPayment(1), /already resolved/);
+  assert.equal(app.state().writes, 0);
+});

@@ -27,15 +27,17 @@ export function isScheduledOnLocalDate(
 }
 
 /**
- * Add N calendar days in user's timezone to the original scheduled datetime.
- * Keeps the wall-clock time in that timezone, then converts back to UTC Date.
+ * Move an upcoming payment by calendar days from its scheduled time.
+ * For overdue payments, count calendar days from the current time.
  */
 export function postponeFromOriginalScheduledDate(
   scheduledAt: Date,
   days: number,
-  timezone: string
+  timezone: string,
+  now = new Date()
 ): Date {
-  const sourceParts = getDatePartsInTimezone(scheduledAt, timezone);
+  const source = scheduledAt > now ? scheduledAt : now;
+  const sourceParts = getDatePartsInTimezone(source, timezone);
   const shifted = new Date(
     Date.UTC(
       sourceParts.year,
@@ -44,11 +46,11 @@ export function postponeFromOriginalScheduledDate(
       sourceParts.hour,
       sourceParts.minute,
       sourceParts.second,
-      scheduledAt.getMilliseconds()
+      source.getUTCMilliseconds()
     )
   );
   shifted.setUTCDate(shifted.getUTCDate() + days);
-  const target = zonedDateTimeToUtc(
+  return zonedDateTimeToUtc(
     shifted.getUTCFullYear(),
     shifted.getUTCMonth(),
     shifted.getUTCDate(),
@@ -58,18 +60,12 @@ export function postponeFromOriginalScheduledDate(
     shifted.getUTCMilliseconds(),
     timezone
   );
-
-  const now = new Date();
-  if (target <= now) {
-    target.setTime(now.getTime() + 60_000);
-  }
-  return target;
 }
 
 export function scheduledPaymentStatusLabel(item: ScheduledPaymentItem, now: Date): string {
   if (item.resolution === "ACCEPTED") return "Accepted";
   if (item.resolution === "REJECTED") return "Rejected";
-  if (item.scheduledAt > now) return "Upcoming";
+  if (new Date(item.scheduledAt) > now) return "Upcoming";
   return "Awaiting confirmation";
 }
 
@@ -97,10 +93,10 @@ export function formatScheduledPaymentWhenDate(
 
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 
-/** Scheduled time is between `now` and two calendar days from `now` (upcoming due soon). */
+/** Scheduled time is between `now` and 48 hours from `now` (upcoming due soon). */
 export function isScheduledWithinNextTwoDays(item: ScheduledPaymentItem, now: Date): boolean {
   const t = new Date(item.scheduledAt).getTime();
-  return t >= now.getTime() && t <= now.getTime() + TWO_DAYS_MS;
+  return item.resolution === null && t >= now.getTime() && t <= now.getTime() + TWO_DAYS_MS;
 }
 
 export function accountDisplay(item: ScheduledPaymentItem): string {

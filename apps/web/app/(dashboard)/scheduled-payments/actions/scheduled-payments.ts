@@ -342,7 +342,7 @@ export async function updateScheduledPayment(input: UpdateScheduledPaymentInput)
   const isRecurring = Boolean(input.isRecurring && input.recurringFrequency);
 
   const row = await prisma.scheduledPayment.update({
-    where: { id: input.id },
+    where: { id: input.id, userId, resolution: null },
     data: {
       title: input.title.trim(),
       // The scheduling modal does not edit these fields. Omission preserves
@@ -388,7 +388,7 @@ export async function postponeScheduledPayment(id: number, newScheduledAt: Date)
   }
 
   await prisma.scheduledPayment.update({
-    where: { id },
+    where: { id, userId, resolution: null },
     data: { scheduledAt: at },
   });
 
@@ -410,7 +410,7 @@ export async function deleteScheduledPayment(id: number) {
     throw new Error("Cannot delete a scheduled payment that was already accepted or rejected");
   }
 
-  await prisma.scheduledPayment.delete({ where: { id } });
+  await prisma.scheduledPayment.delete({ where: { id, userId, resolution: null } });
   revalidatePath("/expenses");
   revalidatePath("/scheduled-payments");
 }

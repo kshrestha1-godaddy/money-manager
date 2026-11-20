@@ -10,11 +10,11 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import { RefreshCw } from "lucide-react";
+import { recurringDisplay } from "../scheduled-payment-helpers";
 import { formatCurrency } from "../../../utils/currency";
 import { ScheduledPaymentItem } from "../../../types/scheduled-payment";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
-import { BUTTON_COLORS, CONTAINER_COLORS } from "../../../config/colorConfig";
+import { CONTAINER_COLORS } from "../../../config/colorConfig";
 
 const card = `${CONTAINER_COLORS.whiteWithPadding} text-left`;
 
@@ -22,8 +22,6 @@ interface ScheduledPaymentsChartProps {
   items: ScheduledPaymentItem[];
   userCurrency: string;
   now: Date;
-  onRefresh?: () => void;
-  isRefreshing?: boolean;
 }
 
 interface StatusSlice {
@@ -33,7 +31,7 @@ interface StatusSlice {
 
 const RECURRENCE_ORDER = ["One-time", "Daily", "Weekly", "Monthly", "Yearly"] as const;
 
-const RECURRENCE_BAR_COLORS: Record<string, string> = {
+const RECURRENCE_BAR_COLORS = {
   "One-time": "#1d4ed8",
   Daily: "#2563eb",
   Weekly: "#3b82f6",
@@ -41,17 +39,6 @@ const RECURRENCE_BAR_COLORS: Record<string, string> = {
   Yearly: "#818cf8",
   Previous: "#64748b",
 };
-
-function recurrenceLabelForChart(item: ScheduledPaymentItem): string {
-  if (!item.isRecurring || !item.recurringFrequency) return "One-time";
-  const m: Record<string, string> = {
-    DAILY: "Daily",
-    WEEKLY: "Weekly",
-    MONTHLY: "Monthly",
-    YEARLY: "Yearly",
-  };
-  return m[item.recurringFrequency] ?? "One-time";
-}
 
 function buildUpcomingByRecurrenceChartData(
   items: ScheduledPaymentItem[],
@@ -68,8 +55,8 @@ function buildUpcomingByRecurrenceChartData(
 
   for (const item of items) {
     const converted = convertForDisplaySync(item.amount, item.currency, userCurrency);
-    if (item.scheduledAt > now) {
-      const label = recurrenceLabelForChart(item);
+    if (new Date(item.scheduledAt) > now) {
+      const label = recurringDisplay(item);
       const cur = buckets.get(label) ?? { amount: 0, count: 0 };
       cur.amount += converted;
       cur.count += 1;
@@ -88,7 +75,7 @@ function buildUpcomingByRecurrenceChartData(
       name: key,
       amount: Math.round(b.amount * 100) / 100,
       count: b.count,
-      fill: RECURRENCE_BAR_COLORS[key] ?? "#3b82f6",
+      fill: RECURRENCE_BAR_COLORS[key],
     });
   }
 
@@ -121,7 +108,7 @@ function aggregateByStatus(
 
   for (const item of items) {
     const converted = convertForDisplaySync(item.amount, item.currency, userCurrency);
-    if (item.scheduledAt > now) {
+    if (new Date(item.scheduledAt) > now) {
       upcoming.count += 1;
       upcoming.amount += converted;
     } else if (item.resolution === "ACCEPTED") {
@@ -143,14 +130,10 @@ export function ScheduledPaymentsChart({
   items,
   userCurrency,
   now,
-  onRefresh,
-  isRefreshing = false,
 }: ScheduledPaymentsChartProps) {
   const data = buildUpcomingByRecurrenceChartData(items, userCurrency, now);
 
   const byStatus = aggregateByStatus(items, userCurrency, now);
-
-  const secondaryOutline = BUTTON_COLORS.secondaryBlue;
 
   const summaryRows: {
     key: string;
@@ -191,24 +174,7 @@ export function ScheduledPaymentsChart({
 
   return (
     <div className={`${card} flex h-full min-h-0 flex-col`}>
-      <div className="flex flex-wrap items-start justify-between gap-3 shrink-0">
-        <h3 className="text-lg font-semibold text-gray-900 m-0">Overview</h3>
-        {onRefresh ? (
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            className={`${secondaryOutline} inline-flex items-center gap-2 shrink-0 disabled:opacity-50`}
-            aria-busy={isRefreshing}
-          >
-            <RefreshCw
-              className={`h-4 w-4 shrink-0 ${isRefreshing ? "animate-spin" : ""}`}
-              aria-hidden
-            />
-            Refresh
-          </button>
-        ) : null}
-      </div>
+      <h3 className="shrink-0 text-lg font-semibold text-gray-900">Overview</h3>
       <div className="mt-4 h-[280px] w-full shrink-0 min-h-[200px]">
         {data.length === 0 ? (
           <div className="flex h-full min-h-[200px] items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50/50 px-4 text-center text-sm text-gray-500">
