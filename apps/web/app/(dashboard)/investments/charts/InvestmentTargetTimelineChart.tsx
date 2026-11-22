@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useMemo, useRef, useCallback } from "react";
-import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea, Dot } from "recharts";
+import React, { useMemo, useRef, useCallback, useState } from "react";
+import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea, Dot, Text } from "recharts";
 import { Banknote, Calendar, Target, TrendingUp } from "lucide-react";
 import { formatCurrency } from "../../../utils/currency";
 import { InvestmentTargetProgress } from "../../../types/investments";
@@ -472,6 +472,11 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
         return value.toString();
     }, []);
 
+    const [chartWidth, setChartWidth] = useState(0);
+    // Reserve the chart margins, Y axis, and X-axis padding before sizing each label.
+    const tickWidth = Math.max(1, (Math.max(chartWidth, timelineScrollMinWidthPx) - 212)
+        / Math.max(timelineData.length, 1) - 12);
+
     const CustomXAxisTick = useCallback(
         (props: { x?: number; y?: number; payload?: { value?: string } }) => {
             const { x = 0, y = 0, payload } = props;
@@ -493,33 +498,50 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                           row.investmentType;
 
             return (
-                <g transform={`translate(${x},${y})`}>
-                    <text
+                <g
+                    transform={`translate(${x},${y})`}
+                    ref={(tick) => {
+                        const name = tick?.querySelector(".timeline-tick-name");
+                        const date = tick?.querySelector(".timeline-tick-date");
+                        if (name instanceof SVGGraphicsElement && date instanceof SVGGraphicsElement) {
+                            const bounds = name.getBBox();
+                            date.setAttribute("transform", `translate(0,${bounds.y + bounds.height + 10})`);
+                        }
+                    }}
+                >
+                    <title>{titleLine} — {row.formattedDate}</title>
+                    <Text
                         x={0}
-                        y={0}
-                        dy={16}
+                        y={16}
+                        className="timeline-tick-name"
+                        width={tickWidth}
+                        maxLines={2}
+                        lineHeight="16px"
                         textAnchor="middle"
+                        verticalAnchor="start"
                         fill="#666"
-                        fontSize="10"
-                        fontWeight="500"
+                        style={{ fontSize: 10, fontWeight: 500 }}
                     >
                         {titleLine}
-                    </text>
-                    <text
-                        x={0}
-                        y={0}
-                        dy={30}
-                        textAnchor="middle"
-                        fill="#888"
-                        fontSize="9"
-                        fontWeight="400"
-                    >
-                        {row.formattedDate}
-                    </text>
+                    </Text>
+                    <g className="timeline-tick-date">
+                        <Text
+                            x={0}
+                            y={0}
+                            verticalAnchor="start"
+                            width={tickWidth}
+                            maxLines={1}
+                            textAnchor="middle"
+                            fill="#888"
+                            style={{ fontSize: 9 }}
+                        >
+                            {row.formattedDate}
+                        </Text>
+                    </g>
                 </g>
             );
         },
-        [timelineData]
+        [timelineData, tickWidth]
     );
 
     const remainingAmountSum = useMemo(() => {
@@ -657,7 +679,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                         role="img"
                         aria-label={`Investment targets timeline chart showing ${timelineData.length} timeline points. Scroll horizontally if needed.`}
                     >
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" onResize={setChartWidth}>
                         <ComposedChart
                             data={timelineData}
                             margin={{ top: 18, right: 32, left: 52, bottom: 16 }}
