@@ -29,35 +29,52 @@ interface ExpenseFrequencyChartsProps {
   expenses: Expense[];
 }
 
-function renderCategoryPercentage({
-  cx, cy, innerRadius, outerRadius, midAngle, percent,
+function renderCategoryLabel({
+  cx, cy, outerRadius, midAngle, payload,
 }: PieLabelRenderProps) {
-  if (!percent || midAngle === undefined) return null;
+  const category = payload as CategoryRow | undefined;
+  if (!category || midAngle === undefined) return null;
 
-  const inner = Number(innerRadius);
-  const outer = Number(outerRadius);
-  const radius = (inner + outer) / 2;
-  const label = `${(percent * 100).toFixed(1)}%`;
-  const labelWidth = label.length * 7;
-  if (outer - inner < 22 || 2 * Math.PI * radius * percent < labelWidth + 8) return null;
-
+  const centerX = Number(cx);
+  const centerY = Number(cy);
+  const radius = Number(outerRadius);
   const angle = -midAngle * Math.PI / 180;
+  const edgeX = centerX + radius * Math.cos(angle);
+  const edgeY = centerY + radius * Math.sin(angle);
+  const elbowX = centerX + (radius + 8) * Math.cos(angle);
+  const labelY = centerY + (radius + 8) * Math.sin(angle);
+  const onRight = elbowX >= centerX;
+  const lineEndX = elbowX + (onRight ? 10 : -10);
+  const textWidth = centerX - Math.abs(lineEndX - centerX) - 5;
+  if (textWidth <= 0) return null;
+
+  const percentage = `${category.percentOfTotal.toFixed(1)}%`;
+
   return (
-    <text
-      x={Number(cx) + radius * Math.cos(angle)}
-      y={Number(cy) + radius * Math.sin(angle)}
-      textAnchor="middle"
-      dominantBaseline="central"
-      fontSize={12}
-      fontWeight={700}
-      fill="#fff"
-      stroke="#0f172a"
-      strokeWidth={2}
-      paintOrder="stroke"
-      pointerEvents="none"
-    >
-      {label}
-    </text>
+    <g pointerEvents="none">
+      <polyline
+        points={`${edgeX},${edgeY} ${elbowX},${labelY} ${lineEndX},${labelY}`}
+        stroke="#9ca3af"
+        strokeWidth={1.5}
+        fill="none"
+      />
+      <foreignObject
+        x={onRight ? lineEndX + 4 : 1}
+        y={labelY - 8}
+        width={textWidth}
+        height={16}
+      >
+        <div
+          className={`flex items-center gap-1 whitespace-nowrap text-[10px] font-semibold leading-4 ${onRight ? "" : "justify-end"}`}
+          style={{ color: category.color }}
+        >
+          {textWidth >= 72 && <span className="min-w-0 truncate">{category.name}</span>}
+          <span className="shrink-0">
+            {textWidth >= 72 ? `(${category.transactionCount}x) [${percentage}]` : percentage}
+          </span>
+        </div>
+      </foreignObject>
+    </g>
   );
 }
 
@@ -422,10 +439,10 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
           <SummaryStrip items={categorySummaryItems} />
 
           <div
-            className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,15rem),1fr))] items-center gap-x-6 gap-y-4"
+            className="grid min-w-0 grid-cols-1 items-center gap-x-4 gap-y-4 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,22rem)]"
           >
               <div
-                className="relative mx-auto w-full min-w-0 max-w-[28rem]"
+                className="relative mx-auto w-full min-w-0"
                 role="img"
                 aria-label="Expenses by category donut chart"
               >
@@ -438,9 +455,9 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={renderCategoryPercentage}
-                      innerRadius="58%"
-                      outerRadius="91%"
+                      label={renderCategoryLabel}
+                      innerRadius="40%"
+                      outerRadius="63%"
                       paddingAngle={1}
                       cornerRadius={6}
                       stroke="#ffffff"
@@ -469,10 +486,13 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
                 )}
               </div>
 
-            <div className="min-w-0">
-              <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">Breakdown</h4>
+            <div className="w-full min-w-0 max-w-[22rem]">
+              <h4 id="expense-category-breakdown" className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">Breakdown</h4>
               <div
-                className="divide-y divide-slate-100 overflow-y-auto pr-2"
+                role="region"
+                aria-labelledby="expense-category-breakdown"
+                tabIndex={0}
+                className="divide-y divide-slate-100 overflow-y-auto pr-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
                 style={{ maxHeight: plotHeight - 28 }}
               >
                 {categoryByFrequency.map((entry) => (
@@ -511,7 +531,7 @@ export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps
                             key={member.key}
                             className="flex items-start justify-between gap-3 text-xs text-gray-500"
                           >
-                            <span className="min-w-0 truncate">{member.name}</span>
+                            <span className="min-w-0 break-words">{member.name}</span>
                             <span className="flex-shrink-0 tabular-nums">
                               {formatCurrency(member.totalAmount, userCurrency)} ({member.percentOfTotal.toFixed(1)}%)
                             </span>
