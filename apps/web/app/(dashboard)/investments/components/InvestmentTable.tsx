@@ -3,7 +3,7 @@
 import { useResizableColumnWidths } from "../../../hooks/usePersistentColumnWidths";
 import Link from "next/link";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useId, useCallback, useEffect, useMemo } from "react";
 import { Download, RefreshCw } from "lucide-react";
 import { InvestmentInterface } from "../../../types/investments";
 import {
@@ -42,6 +42,8 @@ const defaultColumnWidths = getDefaultColumnWidths("investments");
 
 interface InvestmentTableProps {
     tableId: string;
+    selectedCurrency: string;
+    setSelectedCurrency: (currency: string) => void;
     investments: InvestmentInterface[];
     onEdit: (investment: InvestmentInterface) => void;
     onDelete: (investment: InvestmentInterface) => void;
@@ -71,6 +73,8 @@ type SortOrder = 'asc' | 'desc';
 
 export function InvestmentTable({ 
     tableId,
+    selectedCurrency,
+    setSelectedCurrency,
     investments, 
     onEdit, 
     onDelete, 
@@ -85,12 +89,8 @@ export function InvestmentTable({
     const [sortField, setSortField] = useState<SortField>('targetCompletion');
     const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
     const { currency: userCurrency } = useCurrency();
-    const [selectedCurrency, setSelectedCurrency] = useState(userCurrency);
+    const currencySelectId = useId();
     const [isRefreshing, setIsRefreshing] = useState(false);
-
-    useEffect(() => {
-        setSelectedCurrency(userCurrency);
-    }, [userCurrency]);
 
     const toDisplay = useCallback(
         (amount: number) =>
@@ -290,11 +290,11 @@ export function InvestmentTable({
                     </button>
                 )}
                 <div className="flex items-center space-x-2">
-                    <label htmlFor="investment-table-display-currency" className="sr-only">
+                    <label htmlFor={currencySelectId} className="sr-only">
                         Display currency
                     </label>
                     <select
-                        id="investment-table-display-currency"
+                        id={currencySelectId}
                         value={selectedCurrency}
                         onChange={(e) => setSelectedCurrency(e.target.value)}
                         className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"

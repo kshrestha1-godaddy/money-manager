@@ -16,6 +16,7 @@ import { investmentImportConfig } from "../../config/bulkImportConfig";
 import { BulkDeleteInvestmentModal } from "./components/BulkDeleteInvestmentModal";
 import { InvestmentTargetModal } from "./components/InvestmentTargetModal";
 import { BulkDeleteTargetsModal } from "./components/BulkDeleteTargetsModal";
+import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { useOptimizedInvestments } from "./hooks/useOptimizedInvestments";
@@ -70,6 +71,12 @@ const redNegativeIcon = ICON_COLORS.redNegative;
 
 export default function InvestmentsPageClient() {
   const { currency: userCurrency } = useCurrency();
+  const [displayCurrency, setDisplayCurrency] = useState(userCurrency);
+
+  useEffect(() => {
+    setDisplayCurrency(userCurrency);
+  }, [userCurrency]);
+
   const router = useRouter();
   const queryClient = useQueryClient();
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -279,6 +286,12 @@ export default function InvestmentsPageClient() {
       };
     });
   }, [targetProgress, investments]);
+
+  const timelineTargets = useMemo(() => targetProgressForCharts.map(target => ({
+    ...target,
+    targetAmount: convertForDisplaySync(target.targetAmount, userCurrency, displayCurrency),
+    currentAmount: convertForDisplaySync(target.currentAmount, userCurrency, displayCurrency),
+  })), [targetProgressForCharts, userCurrency, displayCurrency]);
 
   const polarChartProps = useMemo(() => ({ investments: stableFilteredInvestments, currency: userCurrency, title: "Portfolio Distribution by Investment Type" }), [stableFilteredInvestments, userCurrency]);
   // Bulk delete targets handlers
@@ -494,8 +507,8 @@ export default function InvestmentsPageClient() {
         {/* Investment Target Timeline Chart - Full Width (min-w-0 so horizontal chart scroll works inside flex/grid ancestors) */}
         <div className="mt-6 min-w-0">
           <InvestmentTargetTimelineChart 
-            targets={targetProgressForCharts} 
-            currency={userCurrency} 
+            targets={timelineTargets}
+            currency={displayCurrency}
             title="Investment Target Timeline" 
           />
         </div>
@@ -652,6 +665,8 @@ export default function InvestmentsPageClient() {
                   </div>
                 </div>
                 <InvestmentTable
+                  selectedCurrency={displayCurrency}
+                  setSelectedCurrency={setDisplayCurrency}
                   tableId={`${groupBy}:${section.key}`}
                   investments={section.investments}
                   selectedInvestments={selectedInvestments}
