@@ -652,6 +652,7 @@ export default function InvestmentsPageClient() {
                   </div>
                 </div>
                 <InvestmentTable
+                  tableId={`${groupBy}:${section.key}`}
                   investments={section.investments}
                   selectedInvestments={selectedInvestments}
                   onInvestmentSelect={handleInvestmentSelect}

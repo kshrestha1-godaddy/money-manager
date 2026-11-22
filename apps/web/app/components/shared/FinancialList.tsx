@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { useResizableColumnWidths } from "../../hooks/usePersistentColumnWidths";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Bookmark, Download, RefreshCw } from "lucide-react";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { splitLocationFieldForExport } from "../../utils/csvExportUtils";
@@ -54,6 +55,19 @@ interface FinancialListProps {
     onClearSelection?: () => void;
     onRefresh?: () => void | Promise<void>;
 }
+
+const defaultColumnWidths = {
+    checkbox: 48,
+    bookmark: 20,
+    date: 120,
+    title: 260,
+    category: 130,
+    account: 180,
+    tags: 90,
+    notes: 190,
+    amount: 86,
+    actions: 200
+};
 
 type SortField = 'title' | 'category' | 'account' | 'date' | 'amount';
 type SortDirection = 'asc' | 'desc';
@@ -191,24 +205,12 @@ export function FinancialList({
     const [isRefreshing, setIsRefreshing] = useState(false);
     const ITEMS_PER_PAGE = 25;
     
-    // Column resizing state
-    const [columnWidths, setColumnWidths] = useState({
-        checkbox: 48,
-        bookmark: 20,
-        date: 120,
-        title: 260,
-        category: 130,
-        account: 180,
-        tags: 90,
-        notes: 190,
-        amount: 86,
-        actions: 200
-    });
-    
-    const tableRef = useRef<HTMLTableElement>(null);
-    const [resizing, setResizing] = useState<string | null>(null);
-    const [startX, setStartX] = useState(0);
-    const [startWidth, setStartWidth] = useState(0);
+    const { columnWidths, handleMouseDown } = useResizableColumnWidths(
+        transactionType === 'INCOME' ? 'incomes' : 'expenses', 'transactions', defaultColumnWidths, 50
+    );
+    const tableWidth = Object.values(columnWidths).reduce((sum, width) => sum + width, 0)
+        - (showBulkActions ? 0 : columnWidths.checkbox)
+        - (onBookmark ? 0 : columnWidths.bookmark);
 
     const handleSort = useCallback((field: SortField) => {
         if (sortField === field) {
@@ -219,39 +221,6 @@ export function FinancialList({
         }
     }, [sortField, sortDirection]);
 
-    const handleMouseDown = useCallback((e: React.MouseEvent, column: string) => {
-        e.preventDefault();
-        setResizing(column);
-        setStartX(e.pageX);
-        setStartWidth(columnWidths[column as keyof typeof columnWidths]);
-    }, [columnWidths]);
-
-    const handleMouseMove = useCallback((e: MouseEvent) => {
-        if (!resizing) return;
-        
-        const diff = e.pageX - startX;
-        const newWidth = Math.max(50, startWidth + diff); // Minimum width of 50px
-        
-        setColumnWidths(prev => ({
-            ...prev,
-            [resizing]: newWidth
-        }));
-    }, [resizing, startX, startWidth]);
-
-    const handleMouseUp = useCallback(() => {
-        setResizing(null);
-    }, []);
-
-    useEffect(() => {
-        if (resizing) {
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('mouseup', handleMouseUp);
-            return () => {
-                document.removeEventListener('mousemove', handleMouseMove);
-                document.removeEventListener('mouseup', handleMouseUp);
-            };
-        }
-    }, [resizing, handleMouseMove, handleMouseUp]);
 
     useEffect(() => {
         setSelectedCurrency(currency);
@@ -498,7 +467,7 @@ export function FinancialList({
             </div>
 
             <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 table-fixed">
+                <table className="min-w-full divide-y divide-gray-200 table-fixed" style={{ width: tableWidth }}>
                     <thead className="bg-gray-50">
                         <tr>
                             {showBulkActions && (

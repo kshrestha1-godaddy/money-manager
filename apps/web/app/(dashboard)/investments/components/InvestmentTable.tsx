@@ -1,8 +1,9 @@
 "use client";
 
+import { useResizableColumnWidths } from "../../../hooks/usePersistentColumnWidths";
 import Link from "next/link";
 
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { Download, RefreshCw } from "lucide-react";
 import { InvestmentInterface } from "../../../types/investments";
 import {
@@ -37,7 +38,10 @@ function formatLinkedTargetDisplay(inv: InvestmentInterface): string | null {
     return `[${id}] ${label}`;
 }
 
+const defaultColumnWidths = getDefaultColumnWidths("investments");
+
 interface InvestmentTableProps {
+    tableId: string;
     investments: InvestmentInterface[];
     onEdit: (investment: InvestmentInterface) => void;
     onDelete: (investment: InvestmentInterface) => void;
@@ -66,6 +70,7 @@ type SortField =
 type SortOrder = 'asc' | 'desc';
 
 export function InvestmentTable({ 
+    tableId,
     investments, 
     onEdit, 
     onDelete, 
@@ -120,15 +125,11 @@ export function InvestmentTable({
         }
     }, [onRefresh, isRefreshing]);
 
-    // Column resizing state - optimized for better space utilization
-    const [columnWidths, setColumnWidths] = useState<InvestmentColumnWidths>(
-        getDefaultColumnWidths('investments')
+    const { columnWidths, handleMouseDown } = useResizableColumnWidths(
+        "investments", tableId, defaultColumnWidths, getMinColumnWidth()
     );
-    
-    const tableRef = useRef<HTMLTableElement>(null);
-    const [resizing, setResizing] = useState<string | null>(null);
-    const [startX, setStartX] = useState(0);
-    const [startWidth, setStartWidth] = useState(0);
+    const tableWidth = Object.values(columnWidths).reduce((sum, width) => sum + width, 0)
+        - (showBulkActions ? 0 : columnWidths.checkbox);
 
     const handleSort = (field: SortField) => {
         if (sortField === field) {
@@ -139,40 +140,6 @@ export function InvestmentTable({
         }
     };
 
-    // Resizing handlers
-    const handleMouseDown = useCallback((e: React.MouseEvent, column: string) => {
-        e.preventDefault();
-        setResizing(column);
-        setStartX(e.pageX);
-        setStartWidth(columnWidths[column as keyof typeof columnWidths]);
-    }, [columnWidths]);
-
-    const handleMouseMove = useCallback((e: MouseEvent) => {
-        if (!resizing) return;
-        
-        const diff = e.pageX - startX;
-        const newWidth = Math.max(getMinColumnWidth(), startWidth + diff);
-        
-        setColumnWidths(prev => ({
-            ...prev,
-            [resizing]: newWidth
-        }));
-    }, [resizing, startX, startWidth]);
-
-    const handleMouseUp = useCallback(() => {
-        setResizing(null);
-    }, []);
-
-    useEffect(() => {
-        if (resizing) {
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('mouseup', handleMouseUp);
-            return () => {
-                document.removeEventListener('mousemove', handleMouseMove);
-                document.removeEventListener('mouseup', handleMouseUp);
-            };
-        }
-    }, [resizing, handleMouseMove, handleMouseUp]);
 
     const handleSelectAll = () => {
         if (!onInvestmentSelect) return;
@@ -349,7 +316,7 @@ export function InvestmentTable({
                 </button>
             </div>
             <div className="overflow-x-auto">
-            <table ref={tableRef} className="min-w-full divide-y divide-gray-200 table-fixed">
+            <table className="min-w-full divide-y divide-gray-200 table-fixed" style={{ width: tableWidth }}>
                 <thead className="bg-gray-50">
                     <tr>
                         {showBulkActions && (
