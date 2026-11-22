@@ -28,12 +28,14 @@ export const TABLE_COLUMN_WIDTHS = {
     borrowerDetails: 180,
     lentDate: 150,
     dueDate: 150,
-    principal: 130,
-    interest: 130,
+    termDays: 130,
+    principal: 155,
+    interestRate: 85,
+    interest: 244,
     total: 130,
-    remaining: 250,
-    postpone: 120,
-    actions: 248,
+    remaining: 198,
+    postpone: 106,
+    actions: 200,
   },
 
   // Investment table column widths
@@ -72,7 +74,9 @@ export type DebtColumnWidths = {
   borrowerDetails: number;
   lentDate: number;
   dueDate: number;
+  termDays: number;
   principal: number;
+  interestRate: number;
   interest: number;
   total: number;
   remaining: number;

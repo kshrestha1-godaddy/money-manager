@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Download, RefreshCw } from 'lucide-react';
 import { useSession } from "next-auth/react";
 import { FilterMultiselect } from '../../components/shared/FilterMultiselect';
+import { getColumnWidthsStorageKey } from '../../hooks/usePersistentColumnWidths';
 import { DebtTable } from './components/DebtTable';
 import { AddDebtModal } from './components/AddDebtModal';
 import { EditDebtModal } from './components/EditDebtModal';
@@ -105,6 +106,11 @@ export default function DebtsPageClient() {
   const uniqueStatuses = Array.from(
     new Set(debts.map((debt) => getEffectiveDebtStatus(debt)))
   ).sort();
+
+  const sessionUser = session?.user;
+  const widthsUserId = sessionUser && 'id' in sessionUser && typeof sessionUser.id === 'string'
+    ? sessionUser.id
+    : sessionUser?.email ?? undefined;
 
   const groupingStorageKey = useMemo(() => {
     const userId = session?.user?.id ?? "anonymous";
@@ -377,6 +383,7 @@ export default function DebtsPageClient() {
             if (section.debts.length === 0) return null;
             const isOnlyStatusGrouping =
               groupBySelection.length === 1 && groupBySelection[0] === "status";
+            const widthsKey = getColumnWidthsStorageKey('debts', section.key, widthsUserId);
             const isFullyPaid = isOnlyStatusGrouping && section.key === 'status:FULLY_PAID';
             const isExpanded = isFullyPaid ? expandedSections[section.key] : true;
             return (
@@ -420,6 +427,8 @@ export default function DebtsPageClient() {
                 </div>
                 {isExpanded && (
                   <DebtTable
+                    key={widthsKey}
+                    columnWidthsStorageKey={widthsKey}
                     debts={section.debts}
                     groupByBorrower={isFullyPaid}
                     baseCurrency={userCurrency}

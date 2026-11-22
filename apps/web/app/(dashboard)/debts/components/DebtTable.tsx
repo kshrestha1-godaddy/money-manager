@@ -1,7 +1,7 @@
 "use client";
 import { calculateDebtRecovery } from "../../../utils/debtRecovery";
 
-import { addDays, addMonths } from "date-fns";
+import { addDays, addMonths, differenceInCalendarDays, formatDuration, intervalToDuration, startOfDay } from "date-fns";
 import { Fragment, useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { DebtInterface } from "../../../types/debts";
 import { formatDate } from "../../../utils/date";
@@ -12,13 +12,17 @@ import {
     calculateRemainingWithInterest,
 } from "../../../utils/interestCalculation";
 import { getDefaultColumnWidths, getMinColumnWidth, type DebtColumnWidths } from "../../../config/tableConfig";
+import { usePersistentColumnWidths } from "../../../hooks/usePersistentColumnWidths";
 import { getDebtDisplayStatus } from "../../../utils/debtClassification";
 
-type SortField = 'borrowerName' | 'amount' | 'interest' | 'total' | 'dueDate' | 'lentDate' | 'remaining';
+type SortField = 'borrowerName' | 'amount' | 'interestRate' | 'interest' | 'total' | 'dueDate' | 'lentDate' | 'remaining';
 type SortDirection = 'asc' | 'desc';
+
+const defaultColumnWidths = getDefaultColumnWidths('debts');
 
 interface DebtTableProps {
     debts: DebtInterface[];
+    columnWidthsStorageKey?: string;
     groupByBorrower?: boolean;
     /** Amounts are stored in this currency (typically user profile currency). */
     baseCurrency: string;
@@ -39,6 +43,7 @@ interface DebtTableProps {
 
 export function DebtTable({ 
     debts,
+    columnWidthsStorageKey,
     groupByBorrower = false,
     baseCurrency,
     displayCurrency,
@@ -59,12 +64,14 @@ export function DebtTable({
     const [expandedBorrowers, setExpandedBorrowers] = useState<Set<string>>(new Set());
     
     // Column resizing state - optimized for better space utilization
-    const [columnWidths, setColumnWidths] = useState<DebtColumnWidths>(
-        getDefaultColumnWidths('debts')
+    const { columnWidths, setColumnWidths, saveColumnWidths } = usePersistentColumnWidths(
+        columnWidthsStorageKey, defaultColumnWidths, getMinColumnWidth()
     );
+    const tableWidth = Object.values(columnWidths).reduce((total, width) => total + width, 0)
+        - (showBulkActions ? 0 : columnWidths.checkbox);
     
     const tableRef = useRef<HTMLTableElement>(null);
-    const [resizing, setResizing] = useState<string | null>(null);
+    const [resizing, setResizing] = useState<keyof DebtColumnWidths | null>(null);
     const [startX, setStartX] = useState(0);
     const [startWidth, setStartWidth] = useState(0);
 
@@ -77,11 +84,11 @@ export function DebtTable({
     };
 
     // Resizing handlers
-    const handleMouseDown = useCallback((e: React.MouseEvent, column: string) => {
+    const handleMouseDown = useCallback((e: React.MouseEvent, column: keyof DebtColumnWidths) => {
         e.preventDefault();
         setResizing(column);
         setStartX(e.pageX);
-        setStartWidth(columnWidths[column as keyof typeof columnWidths]);
+        setStartWidth(columnWidths[column]);
     }, [columnWidths]);
 
     const handleMouseMove = useCallback((e: MouseEvent) => {
@@ -94,11 +101,21 @@ export function DebtTable({
             ...prev,
             [resizing]: newWidth
         }));
-    }, [resizing, startX, startWidth]);
+    }, [resizing, setColumnWidths, startX, startWidth]);
 
-    const handleMouseUp = useCallback(() => {
+    const handleMouseUp = useCallback((e: MouseEvent) => {
+        if (!resizing) return;
         setResizing(null);
-    }, []);
+        const diff = e.pageX - startX;
+        if (diff === 0 && columnWidths[resizing] === startWidth) return;
+
+        const widths = {
+            ...columnWidths,
+            [resizing]: diff === 0 ? startWidth : Math.max(getMinColumnWidth(), startWidth + diff)
+        };
+        setColumnWidths(widths);
+        saveColumnWidths(widths);
+    }, [columnWidths, resizing, saveColumnWidths, setColumnWidths, startWidth, startX]);
 
     useEffect(() => {
         if (resizing) {
@@ -128,6 +145,10 @@ export function DebtTable({
                 case 'amount':
                     aValue = convertForDisplaySync(a.amount, baseCurrency, displayCurrency);
                     bValue = convertForDisplaySync(b.amount, baseCurrency, displayCurrency);
+                    break;
+                case 'interestRate':
+                    aValue = a.interestRate;
+                    bValue = b.interestRate;
                     break;
                 case 'interest':
                     aValue = convertForDisplaySync(
@@ -315,7 +336,7 @@ export function DebtTable({
         displayCurrency
     );
 
-    const summaryFooterColSpan = 9 + (showBulkActions ? 1 : 0);
+    const summaryFooterColSpan = 11 + (showBulkActions ? 1 : 0);
 
     const handleSort = (field: SortField) => {
         if (field === sortField) {
@@ -363,7 +384,7 @@ export function DebtTable({
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="overflow-x-auto">
-                <table ref={tableRef} className="min-w-full divide-y divide-gray-200 table-fixed">
+                <table ref={tableRef} className="min-w-full divide-y divide-gray-200 table-fixed" style={{ width: tableWidth }}>
                         <thead className="bg-gray-50">
                             <tr>
                                 {showBulkActions && (
@@ -401,6 +422,20 @@ export function DebtTable({
                                     />
                                 </th>
                                 <th 
+                                    className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                    style={{ width: `${columnWidths.principal}px` }}
+                                    onClick={() => handleSort('amount')}
+                                >
+                                    <div className="flex items-center justify-center gap-2">
+                                        <span>Principal ({displayCurrency.toUpperCase()})</span>
+                                        {getSortIcon('amount')}
+                                    </div>
+                                    <div
+                                        className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                        onMouseDown={(e) => handleMouseDown(e, 'principal')}
+                                    />
+                                </th>
+                                <th
                                     className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                     style={{ width: `${columnWidths.lentDate}px` }}
                                     onClick={() => handleSort('lentDate')}
@@ -428,18 +463,29 @@ export function DebtTable({
                                         onMouseDown={(e) => handleMouseDown(e, 'dueDate')}
                                     />
                                 </th>
+                                <th
+                                    scope="col"
+                                    className="relative border-r border-gray-200 px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500"
+                                    style={{ width: `${columnWidths.termDays}px` }}
+                                >
+                                    Term Days
+                                    <div
+                                        className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-blue-500/50"
+                                        onMouseDown={(e) => handleMouseDown(e, 'termDays')}
+                                    />
+                                </th>
                                 <th 
                                     className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
-                                    style={{ width: `${columnWidths.principal}px` }}
-                                    onClick={() => handleSort('amount')}
+                                    style={{ width: `${columnWidths.interestRate}px` }}
+                                    onClick={() => handleSort('interestRate')}
                                 >
                                     <div className="flex items-center justify-center gap-2">
-                                        <span>Principal ({displayCurrency.toUpperCase()})</span>
-                                        {getSortIcon('amount')}
+                                        <span>Interest Rate</span>
+                                        {getSortIcon('interestRate')}
                                     </div>
                                     <div 
                                         className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
-                                        onMouseDown={(e) => handleMouseDown(e, 'principal')}
+                                        onMouseDown={(e) => handleMouseDown(e, 'interestRate')}
                                     />
                                 </th>
                                 <th 
@@ -485,13 +531,13 @@ export function DebtTable({
                                     />
                                 </th>
                                 <th 
-                                    className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                    className="pl-2 pr-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
                                     style={{ width: `${columnWidths.actions}px` }}
                                 >
                                     Actions
                                 </th>
                                 <th
-                                    className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                    className="pl-2 pr-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                                     style={{ width: `${columnWidths.postpone}px` }}
                                 >
                                     Postpone
@@ -553,6 +599,14 @@ export function DebtTable({
                                     </div>
                                 </td>
                                 <td
+                                    className="px-4 py-4 align-top text-center"
+                                    style={{ width: `${columnWidths.principal}px` }}
+                                >
+                                    <span className="text-sm font-semibold text-gray-900 tabular-nums">
+                                        {formatCurrency(displayPrincipal, displayCurrency)}
+                                    </span>
+                                </td>
+                                <td
                                     className="px-4 py-4 text-left text-sm text-gray-800"
                                     style={{ width: `${columnWidths.lentDate}px` }}
                                 >
@@ -564,14 +618,8 @@ export function DebtTable({
                                 >
                                     <span className="tabular-nums">{tableFooterSummary.dueRangeText ?? "—"}</span>
                                 </td>
-                                <td
-                                    className="px-4 py-4 align-top text-center"
-                                    style={{ width: `${columnWidths.principal}px` }}
-                                >
-                                    <span className="text-sm font-semibold text-gray-900 tabular-nums">
-                                        {formatCurrency(displayPrincipal, displayCurrency)}
-                                    </span>
-                                </td>
+                                <td style={{ width: `${columnWidths.termDays}px` }} />
+                                <td style={{ width: `${columnWidths.interestRate}px` }} />
                                 <td
                                     className="px-4 py-4 text-left text-sm text-gray-900"
                                     style={{ width: `${columnWidths.interest}px` }}
@@ -685,6 +733,17 @@ function DebtRow({
     }
 
     const effectiveStatus = getDebtDisplayStatus(debt);
+    const lentDate = startOfDay(debt.lentDate);
+    const dueDate = debt.dueDate ? startOfDay(debt.dueDate) : null;
+    const termDays = dueDate ? Math.max(0, differenceInCalendarDays(dueDate, lentDate)) : null;
+    const hasTermDays = termDays !== null && Number.isFinite(termDays);
+    const termDuration = hasTermDays && dueDate
+        ? formatDuration(
+            termDays > 0 ? intervalToDuration({ start: lentDate, end: dueDate }) : { days: 0 },
+            { format: ['years', 'months', 'days'], zero: termDays === 0 }
+        )
+        : null;
+
 
     // Calculate interest and remaining amounts
     const interestCalc = calculateInterest(debt.amount, debt.interestRate, debt.lentDate, debt.dueDate);
@@ -782,6 +841,13 @@ function DebtRow({
                     )}
                 </div>
             </td>
+            <td className="px-4 py-4 align-middle text-center" style={{ width: `${columnWidths.principal}px` }}>
+                <div className="flex flex-col items-center text-center">
+                    <div className="text-sm font-medium text-gray-900 break-words">
+                        {displayMoney(debt.amount)}
+                    </div>
+                </div>
+            </td>
             <td className="px-4 py-4 align-middle text-left" style={{ width: `${columnWidths.lentDate}px` }}>
                 <div className="text-sm text-gray-900 break-words">
                     {formatDate(debt.lentDate)}
@@ -791,18 +857,15 @@ function DebtRow({
                 <div className={`text-sm break-words ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
                     {debt.dueDate ? formatDate(debt.dueDate) : 'No due date'}
                 </div>
-                {debt.dueDate && (
-                    <div className="text-xs text-gray-500 mt-1 break-words">
-                        {interestCalc.daysTotal} days term
-                    </div>
+            </td>
+            <td className="px-4 py-4 align-middle text-center text-sm text-gray-900 tabular-nums" style={{ width: `${columnWidths.termDays}px` }}>
+                {hasTermDays ? termDays : '—'}
+                {termDuration && (
+                    <div className="mt-1 text-xs text-gray-500">{termDuration}</div>
                 )}
             </td>
-            <td className="px-4 py-4 align-middle text-center" style={{ width: `${columnWidths.principal}px` }}>
-                <div className="flex flex-col items-center text-center">
-                    <div className="text-sm font-medium text-gray-900 break-words">
-                        {displayMoney(debt.amount)}
-                    </div>
-                </div>
+            <td className="px-4 py-4 align-middle text-center text-sm tabular-nums" style={{ width: `${columnWidths.interestRate}px` }}>
+                {debt.interestRate}%
             </td>
             <td className="px-4 py-4 align-middle text-left" style={{ width: `${columnWidths.interest}px` }}>
                 <div className="w-full min-w-0 flex flex-col text-left">
@@ -823,7 +886,7 @@ function DebtRow({
             <td className="px-3 py-4 whitespace-nowrap text-sm font-semibold text-center tabular-nums align-middle text-blue-700" style={{ width: `${columnWidths.total}px` }}>
                 {displayMoney(interestCalc.totalAmountWithInterest)}
             </td>
-            <td className="px-3 py-4 text-sm font-medium text-left tabular-nums align-middle" style={{ width: `${columnWidths.remaining}px` }}>
+            <td className="pl-3 pr-1 py-4 text-sm font-medium text-left tabular-nums align-middle" style={{ width: `${columnWidths.remaining}px` }}>
                 <div className="flex w-full flex-col justify-center gap-1">
                     <div className="flex w-full items-center justify-between gap-2">
                         <span className={remainingCalc.remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}>
@@ -841,8 +904,8 @@ function DebtRow({
                     </div>
                 </div>
             </td>
-            <td className="px-3 py-4 whitespace-nowrap text-center text-sm font-medium align-middle" style={{ width: `${columnWidths.actions}px` }}>
-                <div className="flex justify-center flex-nowrap gap-1">
+            <td className="px-2 py-4 whitespace-nowrap text-right text-sm font-medium align-middle" style={{ width: `${columnWidths.actions}px` }}>
+                <div className="flex flex-wrap justify-end gap-1">
                     {onViewDetails && (
                         <button 
                             type="button"
@@ -883,7 +946,7 @@ function DebtRow({
             </td>
             <td className="px-1 py-4 text-center text-sm font-medium align-middle" style={{ width: `${columnWidths.postpone}px` }}>
                     {onPostpone && debt.dueDate && remainingCalc.remainingAmount > 0 && (
-                        <div className="flex justify-center gap-1" aria-label="Postpone due date" aria-busy={postponing}>
+                        <div className="flex flex-wrap justify-start gap-1" aria-label="Postpone due date" aria-busy={postponing}>
                             {(['1W', '1M', '2M'] as const).map(period => (
                                 <button
                                     key={period}
