@@ -94,6 +94,8 @@ type WithheldDetails = Record<string, { id: number; name: string; targetName: st
 
 interface AccountTableProps {
     accounts: AccountInterface[];
+    selectedCurrency: string;
+    setSelectedCurrency: (currency: string) => void;
     onEdit?: (account: AccountInterface) => void;
     onDelete?: (account: AccountInterface) => void;
     onViewDetails?: (account: AccountInterface) => void;
@@ -114,6 +116,8 @@ type SortDirection = 'asc' | 'desc';
 
 export function AccountTable({
     accounts,
+    selectedCurrency,
+    setSelectedCurrency,
     onEdit,
     onDelete,
     onViewDetails,
@@ -130,14 +134,9 @@ export function AccountTable({
 }: AccountTableProps) {
     const withheldAmounts = useMemo(() => sumAccountWithheld(withheldDetails), [withheldDetails]);
     const { currency: userCurrency } = useCurrency();
-    const [selectedCurrency, setSelectedCurrency] = useState(userCurrency);
     const [grouping, setGrouping] = useState<AccountGrouping>("nickname");
     const [sortField, setSortField] = useState<SortField>('bankName');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-
-    useEffect(() => {
-        setSelectedCurrency(userCurrency);
-    }, [userCurrency]);
 
     const [visibleAccountNumber, setVisibleAccountNumber] = useState<number | null>(null);
     const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

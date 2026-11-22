@@ -64,8 +64,8 @@ interface UseOptimizedDebtsReturn {
     // UI states
     searchTerm: string;
     setSearchTerm: (term: string) => void;
-    selectedStatus: string;
-    setSelectedStatus: (status: string) => void;
+    selectedStatuses: string[];
+    setSelectedStatuses: (statuses: string[]) => void;
     startDate: string;
     setStartDate: (date: string) => void;
     endDate: string;
@@ -126,7 +126,7 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
     // UI State
     const [modal, setModal] = useState<ModalState>({ type: null });
     const [searchTerm, setSearchTerm] = useState("");
-    const [selectedStatus, setSelectedStatus] = useState("");
+    const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     
@@ -160,8 +160,8 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
 
     // Filter logic (memoized for performance)
     const hasActiveFilters = useMemo(() => {
-        return !!(searchTerm || selectedStatus || startDate || endDate);
-    }, [searchTerm, selectedStatus, startDate, endDate]);
+        return !!(searchTerm || selectedStatuses.length > 0 || startDate || endDate);
+    }, [searchTerm, selectedStatuses, startDate, endDate]);
 
     const filteredDebts = useMemo(() => {
         let filtered = [...allDebts];
@@ -177,20 +177,14 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
             );
         }
 
-        if (selectedStatus) {
-            if (
-                selectedStatus === "ACTIVE" ||
-                selectedStatus === "PARTIALLY_PAID" ||
-                selectedStatus === "FULLY_PAID"
-            ) {
-                filtered = filtered.filter(
-                    (debt) => getDebtSectionKey(debt) === selectedStatus
-                );
-            } else {
-                filtered = filtered.filter(
-                    (debt) => getEffectiveDebtStatus(debt) === selectedStatus
-                );
-            }
+        if (selectedStatuses.length > 0) {
+            filtered = filtered.filter(debt =>
+                selectedStatuses.some(status =>
+                    status === "ACTIVE" || status === "PARTIALLY_PAID" || status === "FULLY_PAID"
+                        ? getDebtSectionKey(debt) === status
+                        : getEffectiveDebtStatus(debt) === status
+                )
+            );
         }
 
         // Date filtering
@@ -212,7 +206,7 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
         }
 
         return filtered;
-    }, [allDebts, searchTerm, selectedStatus, startDate, endDate]);
+    }, [allDebts, searchTerm, selectedStatuses, startDate, endDate]);
 
     // Calculate financial summary
 
@@ -539,7 +533,7 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
 
     const clearFilters = useCallback(() => {
         setSearchTerm("");
-        setSelectedStatus("");
+        setSelectedStatuses([]);
         setStartDate("");
         setEndDate("");
         setSelectedDebts(new Set());
@@ -575,8 +569,8 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
         // UI states
         searchTerm,
         setSearchTerm,
-        selectedStatus,
-        setSelectedStatus,
+        selectedStatuses,
+        setSelectedStatuses,
         startDate,
         setStartDate,
         endDate,

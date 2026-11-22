@@ -110,8 +110,8 @@ export default function IncomesPageClient() {
     setSearchTerm,
     selectedCategories,
     setSelectedCategories,
-    selectedBank,
-    setSelectedBank,
+    selectedBanks,
+    setSelectedBanks,
     startDate,
     setStartDate,
     endDate,
@@ -339,8 +339,8 @@ export default function IncomesPageClient() {
         onSearchChange={setSearchTerm}
         selectedCategories={selectedCategories}
         onCategoriesChange={setSelectedCategories}
-        selectedBank={selectedBank}
-        onBankChange={setSelectedBank}
+        selectedBanks={selectedBanks}
+        onBanksChange={setSelectedBanks}
         startDate={startDate}
         onStartDateChange={setStartDate}
         endDate={endDate}

@@ -4,10 +4,12 @@ import { useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, ReferenceLine, Cell, Legend } from "recharts";
 import { AccountInterface } from "../../../types/accounts";
 import { formatCurrency } from "../../../utils/currency";
+import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 
 interface BankBalanceChartProps {
     accounts: AccountInterface[];
-    currency?: string;
+    sourceCurrency: string;
+    currency: string;
     withheldAmounts?: Record<string, number>; // Withheld amounts from investments by bank name
 }
 
@@ -23,7 +25,7 @@ interface ChartDataPoint {
     freePercentage: number;
 }
 
-export function BankBalanceChart({ accounts, currency = "USD", withheldAmounts = {} }: BankBalanceChartProps) {
+export function BankBalanceChart({ accounts, sourceCurrency, currency, withheldAmounts = {} }: BankBalanceChartProps) {
     const chartData = useMemo(() => {
         // Group accounts by bank and calculate total balance per bank
         const bankMap = new Map<string, { balance: number; accountCount: number }>();
@@ -49,8 +51,8 @@ export function BankBalanceChart({ accounts, currency = "USD", withheldAmounts =
         // Convert to array format for chart and calculate total balance
         const initialPoints = Array.from(bankMap.entries())
             .map(([bank, data]) => {
-                const withheld = withheldAmounts[bank] || 0;
-                const totalBalance = data.balance;
+                const withheld = convertForDisplaySync(withheldAmounts[bank] ?? 0, sourceCurrency, currency);
+                const totalBalance = convertForDisplaySync(data.balance, sourceCurrency, currency);
                 const actualFree = totalBalance - withheld;
                 
                 return {
@@ -81,7 +83,7 @@ export function BankBalanceChart({ accounts, currency = "USD", withheldAmounts =
         });
 
         return chartDataPoints;
-    }, [accounts, withheldAmounts]);
+    }, [accounts, withheldAmounts, sourceCurrency, currency]);
 
     const formatTooltip = (value: number, name: string, props: any) => {
         if (name === 'free') {

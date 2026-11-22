@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { useState, useId, useMemo, useRef, useCallback, useEffect } from "react";
 import { PasswordInterface } from "../../../types/passwords";
 import { formatDate } from "../../../utils/date";
 import { decryptPasswordValue, decryptTransactionPin } from "../actions/passwords";
@@ -354,6 +354,40 @@ function ViewPasswordModal({ isOpen, onClose, password }: ViewPasswordModalProps
                         </button>
                     </div>
                 </div>
+            </div>
+        </div>
+    );
+}
+
+export function PasswordSearch({ query, onQueryChange }: {
+    query: string;
+    onQueryChange: (query: string) => void;
+}) {
+    const searchId = useId();
+
+    return (
+        <div role="search" aria-label="Saved passwords" className="rounded-lg bg-white p-4 shadow">
+            <label htmlFor={searchId} className="mb-1 block text-sm font-medium text-gray-700">
+                Search Passwords
+            </label>
+            <div className="flex items-center gap-2">
+                <input
+                    id={searchId}
+                    type="search"
+                    autoComplete="off"
+                    placeholder="Search by username, website, or notes"
+                    value={query}
+                    onChange={event => onQueryChange(event.target.value)}
+                    className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-brand-500"
+                />
+                <button
+                    type="button"
+                    onClick={() => onQueryChange("")}
+                    disabled={!query}
+                    className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                    Clear search
+                </button>
             </div>
         </div>
     );

@@ -50,7 +50,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   // Filter states
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedBank, setSelectedBank] = useState<string>("");
+  const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
@@ -221,12 +221,12 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     return !!(
       searchTerm.trim() ||
       selectedCategories.length > 0 ||
-      selectedBank ||
+      selectedBanks.length > 0 ||
       startDate ||
       endDate ||
       showBookmarkedOnly
     );
-  }, [searchTerm, selectedCategories, selectedBank, startDate, endDate, showBookmarkedOnly]);
+  }, [searchTerm, selectedCategories, selectedBanks, startDate, endDate, showBookmarkedOnly]);
   
   const getTransactionDay = useMemo(
     () => createTransactionDayFormatter(options.userTimezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -234,7 +234,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   );
   const itemsWithoutDateFilter = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    if (!q && !selectedCategories.length && !selectedBank && !showBookmarkedOnly) return items;
+    if (!q && !selectedCategories.length && !selectedBanks.length && !showBookmarkedOnly) return items;
 
     return items.filter(item => {
       // Search term filtering (includes location strings from expense/income rows)
@@ -252,14 +252,14 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
         selectedCategories.includes(item.category.name);
       
       // Bank filtering
-      const matchesBank = !selectedBank || (item.account && item.account.bankName === selectedBank);
+      const matchesBank = selectedBanks.length === 0 || (item.account && selectedBanks.includes(item.account.bankName));
       
       // Bookmark filtering
       const matchesBookmark = !showBookmarkedOnly || (item as any).isBookmarked;
 
       return matchesSearch && matchesCategory && matchesBank && matchesBookmark;
     });
-  }, [items, searchTerm, selectedCategories, selectedBank, showBookmarkedOnly]);
+  }, [items, searchTerm, selectedCategories, selectedBanks, showBookmarkedOnly]);
 
   const filteredItems = useMemo(() => {
     if (!startDate && !endDate) return itemsWithoutDateFilter;
@@ -385,7 +385,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   const clearFilters = useCallback(() => {
     setSearchTerm("");
     setSelectedCategories([]);
-    setSelectedBank("");
+    setSelectedBanks([]);
     setStartDate("");
     setEndDate("");
     setShowBookmarkedOnly(false);
@@ -424,8 +424,8 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     selectedItems,
     selectedCategories,
     setSelectedCategories,
-    selectedBank,
-    setSelectedBank,
+    selectedBanks,
+    setSelectedBanks,
     searchTerm,
     setSearchTerm,
     startDate,

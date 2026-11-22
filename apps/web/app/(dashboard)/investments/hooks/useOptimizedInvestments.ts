@@ -138,11 +138,11 @@ export function useOptimizedInvestments() {
     // Filter states
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-    const [selectedBank, setSelectedBank] = useState('');
+    const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
-    /** "" = any target; "none" = not linked to a target; otherwise target id as string */
-    const [selectedTargetFilter, setSelectedTargetFilter] = useState('');
+    // Target selections contain string IDs or "none" for unlinked investments.
+    const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
     const [groupBy, setGroupBy] = useState<InvestmentGrouping>('performance');
     const [groupingLoaded, setGroupingLoaded] = useState(false);
 
@@ -190,10 +190,12 @@ export function useOptimizedInvestments() {
             const matchesType =
                 selectedTypes.length === 0 || selectedTypes.includes(investment.type);
             
-            const matchesBank = selectedBank === "" || 
-                (investment.account?.bankName?.toLowerCase() === selectedBank.toLowerCase()) ||
-                (selectedBank === "no-bank" && !investment.account?.bankName);
-            
+            const bankName = investment.account?.bankName;
+            const matchesBank = selectedBanks.length === 0 || selectedBanks.some(bank =>
+                bankName?.toLowerCase() === bank.toLowerCase() ||
+                (bank === "no-bank" && !bankName)
+            );
+
             // Date filtering based on purchase date
             let matchesDateRange = true;
             if (startDate) {
@@ -209,18 +211,13 @@ export function useOptimizedInvestments() {
                 matchesDateRange = matchesDateRange && investmentDate <= end;
             }
 
-            const tid = investment.investmentTargetId;
-            const matchesTarget =
-                selectedTargetFilter === '' ||
-                (selectedTargetFilter === 'none' &&
-                    (tid === null || tid === undefined)) ||
-                (selectedTargetFilter !== '' &&
-                    selectedTargetFilter !== 'none' &&
-                    String(tid) === selectedTargetFilter);
-            
+            const targetId = investment.investmentTargetId;
+            const matchesTarget = selectedTargets.length === 0 ||
+                selectedTargets.includes(targetId == null ? "none" : String(targetId));
+
             return matchesSearch && matchesType && matchesBank && matchesDateRange && matchesTarget;
         });
-    }, [investments, searchTerm, selectedTypes, selectedBank, startDate, endDate, selectedTargetFilter]);
+    }, [investments, searchTerm, selectedTypes, selectedBanks, startDate, endDate, selectedTargets]);
 
     // Calculate summary statistics
     const {
@@ -307,12 +304,12 @@ export function useOptimizedInvestments() {
         return (
             searchTerm !== '' ||
             selectedTypes.length > 0 ||
-            selectedBank !== '' ||
+            selectedBanks.length > 0 ||
             startDate !== '' ||
             endDate !== '' ||
-            selectedTargetFilter !== ''
+            selectedTargets.length > 0
         );
-    }, [searchTerm, selectedTypes, selectedBank, startDate, endDate, selectedTargetFilter]);
+    }, [searchTerm, selectedTypes, selectedBanks, startDate, endDate, selectedTargets]);
 
     const sections = useMemo(
         () => groupInvestments(filteredInvestments, groupBy),
@@ -569,10 +566,10 @@ export function useOptimizedInvestments() {
     const clearFilters = useCallback(() => {
         setSearchTerm('');
         setSelectedTypes([]);
-        setSelectedBank('');
+        setSelectedBanks([]);
         setStartDate('');
         setEndDate('');
-        setSelectedTargetFilter('');
+        setSelectedTargets([]);
     }, []);
 
     const clearError = useCallback(() => {
@@ -619,14 +616,14 @@ export function useOptimizedInvestments() {
         setSearchTerm,
         selectedTypes,
         setSelectedTypes,
-        selectedBank,
-        setSelectedBank,
+        selectedBanks,
+        setSelectedBanks,
         startDate,
         setStartDate,
         endDate,
         setEndDate,
-        selectedTargetFilter,
-        setSelectedTargetFilter,
+        selectedTargets,
+        setSelectedTargets,
 
         // Selection states
         selectedInvestments,

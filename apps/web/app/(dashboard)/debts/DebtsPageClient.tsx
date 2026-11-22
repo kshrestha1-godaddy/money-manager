@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Download, RefreshCw } from 'lucide-react';
 import { useSession } from "next-auth/react";
+import { FilterMultiselect } from '../../components/shared/FilterMultiselect';
 import { DebtTable } from './components/DebtTable';
 import { AddDebtModal } from './components/AddDebtModal';
 import { EditDebtModal } from './components/EditDebtModal';
@@ -74,8 +75,8 @@ export default function DebtsPageClient() {
     setIsBulkDeleteModalOpen,
     searchTerm,
     setSearchTerm,
-    selectedStatus,
-    setSelectedStatus,
+    selectedStatuses,
+    setSelectedStatuses,
     startDate,
     setStartDate,
     endDate,
@@ -273,15 +274,13 @@ export default function DebtsPageClient() {
             <label className={labelText}>Search Lendings</label>
             <input type="text" placeholder="Search by borrower name, purpose, contact..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={standardInput} />
           </div>
-          <div>
-            <label className={labelText}>Filter by Status</label>
-            <select value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)} className={standardInput}>
-              <option value="">All Statuses</option>
-              {uniqueStatuses.map(status => (
-                <option key={status} value={status}>{status.replace('_', ' ')}</option>
-              ))}
-            </select>
-          </div>
+          <FilterMultiselect
+            label="Filter by Status"
+            itemNamePlural="statuses"
+            options={uniqueStatuses.map(status => ({ value: status, label: status.replaceAll('_', ' ') }))}
+            selected={selectedStatuses}
+            onChange={setSelectedStatuses}
+          />
           <div>
             <label className={labelText}>Start Date</label>
             <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={standardInput} />

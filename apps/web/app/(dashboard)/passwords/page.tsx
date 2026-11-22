@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { PasswordInterface } from "../../types/passwords";
 import { getPasswords, createPassword, updatePassword, deletePassword } from "./actions/passwords";
-import { PasswordTable } from "./components/PasswordTable";
+import { PasswordSearch, PasswordTable } from "./components/PasswordTable";
 import { AddPasswordModal } from "./components/AddPasswordModal";
 import { DeleteConfirmationModal } from "../../components/DeleteConfirmationModal";
 import { exportPasswordsToCSV } from "../../utils/csvExportPasswords";
@@ -43,11 +43,17 @@ export default function PasswordsPage() {
         }
     };
 
-    // Group passwords by category
+    const [searchQuery, setSearchQuery] = useState("");
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    // Group matching passwords by category
     const groupedPasswords = React.useMemo(() => {
         const groups: { [key: string]: PasswordInterface[] } = {};
         
         passwords.forEach(password => {
+            if (normalizedQuery && ![password.username, password.websiteName, password.notes]
+                .some(value => value?.toLowerCase().includes(normalizedQuery))) return;
+
             const category = password.category || 'Uncategorized';
             if (!groups[category]) {
                 groups[category] = [];
@@ -66,7 +72,7 @@ export default function PasswordsPage() {
             category,
             passwords: groups[category]
         }));
-    }, [passwords]);
+    }, [passwords, normalizedQuery]);
 
     const handleAddPassword = async (data: any) => {
         try {
@@ -204,6 +210,8 @@ export default function PasswordsPage() {
                 </div>
             </div>
 
+            <PasswordSearch query={searchQuery} onQueryChange={setSearchQuery} />
+
             {/* Passwords Table View */}
             {passwords.length === 0 ? (
                 <div className="text-center py-12">
@@ -234,6 +242,10 @@ export default function PasswordsPage() {
                         </button>
                     </div>
                 </div>
+            ) : groupedPasswords.length === 0 ? (
+                <p role="status" className="rounded-lg bg-white p-8 text-center text-gray-600 shadow">
+                    No passwords match your search.
+                </p>
             ) : (
                 <div className="space-y-6">
                     {groupedPasswords.map(({ category, passwords: categoryPasswords }) => {

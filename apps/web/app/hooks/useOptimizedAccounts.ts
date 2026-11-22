@@ -52,10 +52,10 @@ interface UseOptimizedAccountsReturn {
     setSelectedAccounts: (accounts: Set<number>) => void;
     searchTerm: string;
     setSearchTerm: (term: string) => void;
-    selectedBank: string;
-    setSelectedBank: (bank: string) => void;
-    selectedAccountType: string;
-    setSelectedAccountType: (type: string) => void;
+    selectedBanks: string[];
+    setSelectedBanks: (banks: string[]) => void;
+    selectedAccountTypes: string[];
+    setSelectedAccountTypes: (types: string[]) => void;
     startDate: string;
     setStartDate: (date: string) => void;
     endDate: string;
@@ -125,8 +125,8 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
     // Filter states
     const [selectedAccounts, setSelectedAccounts] = useState<Set<number>>(new Set());
     const [searchTerm, setSearchTerm] = useState("");
-    const [selectedBank, setSelectedBank] = useState("");
-    const [selectedAccountType, setSelectedAccountType] = useState("");
+    const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
+    const [selectedAccountTypes, setSelectedAccountTypes] = useState<string[]>([]);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
 
@@ -162,8 +162,8 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
 
     // Filter logic (memoized for performance)
     const hasActiveFilters = useMemo(() => {
-        return !!(searchTerm.trim() || selectedBank || selectedAccountType || startDate || endDate);
-    }, [searchTerm, selectedBank, selectedAccountType, startDate, endDate]);
+        return !!(searchTerm.trim() || selectedBanks.length > 0 || selectedAccountTypes.length > 0 || startDate || endDate);
+    }, [searchTerm, selectedBanks, selectedAccountTypes, startDate, endDate]);
 
     const filteredAccounts = useMemo(() => {
         let filtered = [...allAccounts];
@@ -178,12 +178,12 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
             );
         }
 
-        if (selectedBank) {
-            filtered = filtered.filter(account => account.bankName === selectedBank);
+        if (selectedBanks.length > 0) {
+            filtered = filtered.filter(account => selectedBanks.includes(account.bankName));
         }
 
-        if (selectedAccountType) {
-            filtered = filtered.filter(account => account.accountType === selectedAccountType);
+        if (selectedAccountTypes.length > 0) {
+            filtered = filtered.filter(account => selectedAccountTypes.includes(account.accountType));
         }
 
         if (startDate || endDate) {
@@ -194,7 +194,7 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         }
 
         return filtered;
-    }, [allAccounts, searchTerm, selectedBank, selectedAccountType, startDate, endDate]);
+    }, [allAccounts, searchTerm, selectedBanks, selectedAccountTypes, startDate, endDate]);
 
     const visibleSelection = useMemo(() => new Set(filteredAccounts
         .filter(({ id }) => selectedAccounts.has(id))
@@ -457,8 +457,8 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
 
     const clearFilters = useCallback(() => {
         setSearchTerm("");
-        setSelectedBank("");
-        setSelectedAccountType("");
+        setSelectedBanks([]);
+        setSelectedAccountTypes([]);
         setStartDate("");
         setEndDate("");
         setSelectedAccounts(new Set());
@@ -503,10 +503,10 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         setSelectedAccounts,
         searchTerm,
         setSearchTerm,
-        selectedBank,
-        setSelectedBank,
-        selectedAccountType,
-        setSelectedAccountType,
+        selectedBanks,
+        setSelectedBanks,
+        selectedAccountTypes,
+        setSelectedAccountTypes,
         startDate,
         setStartDate,
         endDate,

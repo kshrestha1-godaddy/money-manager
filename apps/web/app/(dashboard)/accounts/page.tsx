@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from '@tanstack/react-query';
+import { FilterMultiselect } from "../../components/shared/FilterMultiselect";
 import { AccountTable } from "./components/AccountTable";
 import { BulkAdjustBalancesModal } from "./components/BulkAdjustBalancesModal";
 import { AddAccountModal } from "./components/AddAccountModal";
@@ -56,6 +57,11 @@ const standardInput = INPUT_COLORS.standard;
 
 export default function Accounts() {
     const { currency: userCurrency } = useCurrency();
+    const [selectedCurrency, setSelectedCurrency] = useState(userCurrency);
+
+    useEffect(() => {
+        setSelectedCurrency(userCurrency);
+    }, [userCurrency]);
 
     // Use the optimized accounts hook
     const {
@@ -93,10 +99,10 @@ export default function Accounts() {
         setSelectedAccounts,
         searchTerm,
         setSearchTerm,
-        selectedBank,
-        setSelectedBank,
-        selectedAccountType,
-        setSelectedAccountType,
+        selectedBanks,
+        setSelectedBanks,
+        selectedAccountTypes,
+        setSelectedAccountTypes,
         startDate,
         setStartDate,
         endDate,
@@ -292,7 +298,8 @@ export default function Accounts() {
                 <div className={UI_STYLES.chart.container}>
                     <BankBalanceChart
                         accounts={chartAccounts}
-                        currency={userCurrency}
+                        sourceCurrency={userCurrency}
+                        currency={selectedCurrency}
                         withheldAmounts={Object.fromEntries(chartWithheldAmounts)}
                     />
                 </div>
@@ -314,42 +321,20 @@ export default function Accounts() {
                                 className={standardInput}
                             />
                         </div>
-                        <div>
-                            <label htmlFor="account-bank-filter" className={labelText}>
-                                Filter by Bank
-                            </label>
-                            <select
-                                id="account-bank-filter"
-                                value={selectedBank}
-                                onChange={(e) => setSelectedBank(e.target.value)}
-                                className={standardInput}
-                            >
-                                <option value="">All Banks</option>
-                                {uniqueBankNames.map((bank) => (
-                                    <option key={bank} value={bank}>
-                                        {bank}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label htmlFor="account-type-filter" className={labelText}>
-                                Filter by Type
-                            </label>
-                            <select
-                                id="account-type-filter"
-                                value={selectedAccountType}
-                                onChange={(e) => setSelectedAccountType(e.target.value)}
-                                className={standardInput}
-                            >
-                                <option value="">All Types</option>
-                                {uniqueAccountTypes.map((type) => (
-                                    <option key={type} value={type}>
-                                        {type}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                        <FilterMultiselect
+                            label="Filter by Bank"
+                            itemNamePlural="banks"
+                            options={uniqueBankNames.map(bank => ({ label: bank }))}
+                            selected={selectedBanks}
+                            onChange={setSelectedBanks}
+                        />
+                        <FilterMultiselect
+                            label="Filter by Type"
+                            itemNamePlural="types"
+                            options={uniqueAccountTypes.map(type => ({ label: type }))}
+                            selected={selectedAccountTypes}
+                            onChange={setSelectedAccountTypes}
+                        />
                         <div>
                             <label htmlFor="account-start-date" className={labelText}>
                                 Start Date
@@ -416,6 +401,8 @@ export default function Accounts() {
                 </div>
             ) : (
                 <AccountTable
+                    selectedCurrency={selectedCurrency}
+                    setSelectedCurrency={setSelectedCurrency}
                     accounts={accounts}
                     selectedAccounts={selectedAccounts}
                     onAccountSelect={handleAccountSelect}
