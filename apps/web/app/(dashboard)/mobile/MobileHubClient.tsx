@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { addDays, startOfDay, startOfMonth, subMonths } from "date-fns";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ScheduledPaymentItem } from "../../types/scheduled-payment";
 import { getScheduledPayments } from "../scheduled-payments/actions/scheduled-payments";
 import {
@@ -42,6 +43,7 @@ import {
   MobileScheduledPaymentsList,
   groupScheduledPaymentsByYearAndMonth,
 } from "./components/mobile-scheduled-payments-list";
+import { MobileScheduledPaymentsCalendar } from "./components/mobile-scheduled-payments-calendar";
 import { MobileScheduledPaymentDetailSheet } from "./components/mobile-scheduled-payment-detail-sheet";
 import { MobileAccountDetailSheet } from "./components/mobile-account-detail-sheet";
 import { MobileAddIncomeSheet } from "./components/mobile-add-income-sheet";
@@ -64,8 +66,20 @@ import { calculateRemainingWithInterest } from "../../utils/interestCalculation"
 import { getCategoriesWithFrequency } from "../../utils/categoryFrequency";
 import { getCategories } from "../../actions/categories";
 import { LOADING_COLORS } from "../../config/colorConfig";
+import typography from "./mobile-typography.module.css";
 import { CurrencyConverterModal } from "../../components/CurrencyConverterModal";
 import { formatLockCountdown, useAppLock } from "../../providers/AppLockProvider";
+
+const transactionDatePresets = [
+  { label: "1M", months: 1 },
+  { label: "3M", months: 3 },
+  { label: "6M", months: 6 },
+  { label: "1Y", months: 12 },
+  { label: "MTD", months: null },
+  { label: "All", months: null },
+] as const;
+
+type TransactionDatePreset = (typeof transactionDatePresets)[number];
 
 type MobileTab =
   | "incomes"
@@ -198,13 +212,6 @@ function accountMatchesQuery(a: AccountInterface, raw: string): boolean {
   return parts.some((p) => p.includes(q));
 }
 
-function accountsFromResponse(
-  res: Awaited<ReturnType<typeof getUserAccounts>>
-): AccountInterface[] {
-  if (Array.isArray(res)) return res;
-  return [];
-}
-
 function groupAccountsByBank(items: AccountInterface[]): {
   bank: string;
   items: AccountInterface[];
@@ -306,8 +313,17 @@ export default function MobileHubClient() {
   const [isCurrencyConverterOpen, setIsCurrencyConverterOpen] = useState(false);
   const [tab, setTab] = useState<MobileTab>("incomes");
   const [search, setSearch] = useState("");
+  const [datePreset, setDatePreset] = useState<TransactionDatePreset>(transactionDatePresets[2]);
+  const today = startOfDay(new Date());
+  const rangeStart = (datePreset.months === null
+    ? startOfMonth(today)
+    : subMonths(today, datePreset.months)).getTime();
+  const rangeEnd = addDays(today, 1).getTime();
+  const allDates = datePreset.label === "All";
+  const isSearching = search.trim().length > 0;
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [failedLoads, setFailedLoads] = useState<string[]>([]);
+  const loadVersions = useRef(new Map<string, number>());
 
   useEffect(() => {
     setSelectedCurrency(userCurrency);
@@ -348,67 +364,67 @@ export default function MobileHubClient() {
   const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
   const [noteToView, setNoteToView] = useState<Note | null>(null);
 
-  const loadData = useCallback(async () => {
-    setLoadError(null);
-    setLoading(true);
-    try {
-      const [
-        inc,
-        exp,
-        sp,
-        pwd,
-        le,
-        invRes,
-        debtRes,
-        accRes,
-        withheldByBank,
-        incomeCats,
-        expenseCats,
-        notesData,
-        archivedNotesData,
-      ] = await Promise.all([
-        getIncomes(),
-        getExpenses(),
-        getScheduledPayments(),
-        getPasswords(),
-        getLifeEvents(),
-        getUserInvestments(),
-        getUserDebts(),
-        getUserAccounts(),
-        getWithheldAmountsByBank(),
-        getCategories("INCOME"),
-        getCategories("EXPENSE"),
-        getNotes(),
-        getArchivedNotes(),
-      ]);
-      setIncomes(inc);
-      setExpenses(exp);
-      setScheduledPayments(sp);
-      setPasswords(pwd);
-      setLifeEvents(le);
-      setInvestments(invRes.error ? [] : invRes.data ?? []);
-      setDebts(debtRes.error ? [] : debtRes.data ?? []);
-      setNotes(Array.isArray(notesData) ? notesData : []);
-      setArchivedNotes(Array.isArray(archivedNotesData) ? archivedNotesData : []);
-      setAccounts(accountsFromResponse(accRes));
-      setIncomeCategories(incomeCats);
-      setExpenseCategories(expenseCats);
-      setWithheldAmountsByBank(withheldByBank ?? {});
-    } catch (e) {
-      console.error(e);
-      setLoadError("Could not load your data. Try again in a moment.");
-    } finally {
-      setLoading(false);
+  const loadData = useCallback(async (only?: readonly string[]) => {
+    async function load<T>(label: string, read: () => Promise<T>, apply: (result: T) => void) {
+      if (only && !only.includes(label)) return;
+
+      const versions = loadVersions.current;
+      const version = (versions.get(label) ?? 0) + 1;
+      versions.set(label, version);
+
+      try {
+        const result = await read();
+        if (versions.get(label) !== version) return;
+        apply(result);
+        setFailedLoads((failed) => failed.filter((item) => item !== label));
+      } catch (error) {
+        if (versions.get(label) !== version) return;
+        console.error(`Could not load ${label}:`, error);
+        setFailedLoads((failed) => failed.includes(label) ? failed : [...failed, label]);
+      }
     }
+
+    await Promise.all([
+      load("income", getIncomes, setIncomes),
+      load("expenses", getExpenses, setExpenses),
+      load("scheduled payments", getScheduledPayments, setScheduledPayments),
+      load("passwords", getPasswords, setPasswords),
+      load("life events", getLifeEvents, setLifeEvents),
+      load("investments", getUserInvestments, (result) => {
+        if (result.error) throw new Error(result.error);
+        setInvestments(result.data ?? []);
+      }),
+      load("debts", getUserDebts, (result) => {
+        if (result.error) throw new Error(result.error);
+        setDebts(result.data ?? []);
+      }),
+      load("accounts", getUserAccounts, (result) => {
+        if (!Array.isArray(result)) throw new Error("Could not load accounts");
+        setAccounts(result);
+      }),
+      load("withheld balances", getWithheldAmountsByBank, (result) => {
+        setWithheldAmountsByBank(result ?? {});
+      }),
+      load("income categories", () => getCategories("INCOME"), setIncomeCategories),
+      load("expense categories", () => getCategories("EXPENSE"), setExpenseCategories),
+      load("notes", getNotes, setNotes),
+      load("archived notes", getArchivedNotes, setArchivedNotes),
+    ]);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
 
+  const matchesTransactionFilters = useCallback((item: Income | Expense) => {
+    const date = new Date(item.date).getTime();
+    return (allDates || (date >= rangeStart && date < rangeEnd)) && transactionMatchesQuery(item, search);
+  }, [allDates, rangeStart, rangeEnd, search]);
+
   const filteredIncomes = useMemo(
-    () => incomes.filter((i) => transactionMatchesQuery(i, search)),
-    [incomes, search]
+    () => incomes.filter(matchesTransactionFilters),
+    [incomes, matchesTransactionFilters]
   );
 
   const incomeCategoriesWithFrequency = useMemo(
@@ -422,8 +438,8 @@ export default function MobileHubClient() {
   );
 
   const filteredExpenses = useMemo(
-    () => expenses.filter((e) => transactionMatchesQuery(e, search)),
-    [expenses, search]
+    () => expenses.filter(matchesTransactionFilters),
+    [expenses, matchesTransactionFilters]
   );
 
   const filteredScheduledPayments = useMemo(
@@ -544,6 +560,10 @@ export default function MobileHubClient() {
     return formatCurrency(converted, selectedCurrency);
   }
 
+  function formatBaseAmount(amount: number): string {
+    return formatDisplayAmount(amount, userCurrency);
+  }
+
   function formatAccountBalanceForDisplay(balance: number | undefined): string {
     if (balance === undefined) return "—";
     const converted = convertForDisplaySync(balance, userCurrency, selectedCurrency);
@@ -609,18 +629,21 @@ export default function MobileHubClient() {
           <label htmlFor="mobile-hub-display-currency" className="sr-only">
             Display currency for amounts
           </label>
-          <select
-            id="mobile-hub-display-currency"
-            value={selectedCurrency}
-            onChange={(e) => setSelectedCurrency(e.target.value)}
-            className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-          >
-            {SUPPORTED_CURRENCIES.map((currencyOption) => (
-              <option key={currencyOption} value={currencyOption}>
-                {currencyOption}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              id="mobile-hub-display-currency"
+              value={selectedCurrency}
+              onChange={(e) => setSelectedCurrency(e.target.value)}
+              className={`${typography.currencySelect} h-9 appearance-none rounded-md border border-gray-300 bg-white pl-2.5 pr-7 font-semibold text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+            >
+              {SUPPORTED_CURRENCIES.map((currencyOption) => (
+                <option key={currencyOption} value={currencyOption}>
+                  {currencyOption}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-600" aria-hidden />
+          </div>
           <button
             type="button"
             onClick={() => setIsCurrencyConverterOpen(true)}
@@ -633,15 +656,15 @@ export default function MobileHubClient() {
         </div>
       </div>
 
-      {loadError && (
+      {failedLoads.length > 0 && (
         <div
           className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
           role="alert"
         >
-          {loadError}
+          Could not load {failedLoads.join(", ")}.
           <button
             type="button"
-            onClick={() => void loadData()}
+            onClick={() => void loadData(failedLoads)}
             className="mt-2 block w-full rounded-lg bg-amber-100 px-3 py-2.5 font-medium text-amber-950 min-h-[44px]"
           >
             Retry
@@ -675,11 +698,31 @@ export default function MobileHubClient() {
                         ? "Search title, category, account, status…"
                         : "Search title, category, notes…"
           }
-          className="w-full min-h-[48px] rounded-xl border border-gray-200 bg-white pl-11 pr-4 text-base text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+          className={`${typography.searchInput} w-full min-h-[48px] rounded-xl border border-gray-200 bg-white pl-11 pr-4 text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20`}
           autoComplete="off"
           enterKeyHint="search"
         />
       </div>
+
+      {(tab === "incomes" || tab === "expenses") && (
+        <div role="group" aria-label="Transaction date range" className="grid grid-cols-6 gap-1.5">
+          {transactionDatePresets.map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              aria-pressed={datePreset.label === preset.label}
+              onClick={() => setDatePreset(preset)}
+              className={`min-h-[44px] rounded-lg border px-1 text-[11px] font-semibold ${
+                datePreset.label === preset.label
+                  ? "border-brand-600 bg-brand-600 text-white"
+                  : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <hr className="w-full border-0 border-t border-gray-200" role="separator" aria-hidden="true" />
 
@@ -727,14 +770,14 @@ export default function MobileHubClient() {
                 <button
                   type="button"
                   onClick={() => setIsAddIncomeOpen(true)}
-                  className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 active:bg-brand-800"
+                  className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-brand-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-brand-700 active:bg-brand-800"
                 >
                   <Plus className="h-4 w-4 shrink-0" aria-hidden />
                   Add income
                 </button>
               </div>
               <p className="text-center text-gray-500 py-10 text-sm">
-                {search.trim() ? "No incomes match your search." : "No incomes yet."}
+                {search.trim() ? "No incomes match your filters." : allDates ? "No incomes yet." : "No incomes in this date range."}
               </p>
             </>
           ) : (
@@ -745,6 +788,8 @@ export default function MobileHubClient() {
                 displayCurrency={selectedCurrency}
               />
               <MobileGroupedTransactionList
+                key={isSearching ? "search" : "browse"}
+                expandMatches={isSearching}
                 grouped={incomesByYearMonth}
                 variant="income"
                 formatAmount={(item) => formatDisplayAmount(item.amount, item.currency)}
@@ -753,7 +798,7 @@ export default function MobileHubClient() {
                   <button
                     type="button"
                     onClick={() => setIsAddIncomeOpen(true)}
-                    className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 active:bg-brand-800"
+                    className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-brand-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-brand-700 active:bg-brand-800"
                   >
                     <Plus className="h-4 w-4 shrink-0" aria-hidden />
                     Add income
@@ -783,14 +828,14 @@ export default function MobileHubClient() {
                 <button
                   type="button"
                   onClick={() => setIsAddExpenseOpen(true)}
-                  className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 active:bg-red-800"
+                  className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-red-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-red-700 active:bg-red-800"
                 >
                   <Plus className="h-4 w-4 shrink-0" aria-hidden />
                   Add expense
                 </button>
               </div>
               <p className="text-center text-gray-500 py-10 text-sm">
-                {search.trim() ? "No expenses match your search." : "No expenses yet."}
+                {search.trim() ? "No expenses match your filters." : allDates ? "No expenses yet." : "No expenses in this date range."}
               </p>
             </>
           ) : (
@@ -801,6 +846,8 @@ export default function MobileHubClient() {
                 displayCurrency={selectedCurrency}
               />
               <MobileGroupedTransactionList
+                key={isSearching ? "search" : "browse"}
+                expandMatches={isSearching}
                 grouped={expensesByYearMonth}
                 variant="expense"
                 formatAmount={(item) => formatDisplayAmount(item.amount, item.currency)}
@@ -809,7 +856,7 @@ export default function MobileHubClient() {
                   <button
                     type="button"
                     onClick={() => setIsAddExpenseOpen(true)}
-                    className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 active:bg-red-800"
+                    className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-red-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-red-700 active:bg-red-800"
                   >
                     <Plus className="h-4 w-4 shrink-0" aria-hidden />
                     Add expense
@@ -943,36 +990,21 @@ export default function MobileHubClient() {
 
       {tab === "scheduled-payments" && (
         <section aria-label="Scheduled payments" className="space-y-3">
+          <MobileScheduledPaymentsCalendar
+            onSchedule={() => setIsSchedulePaymentOpen(true)}
+            items={filteredScheduledPayments}
+            formatAmount={(item) => formatDisplayAmount(item.amount, item.currency)}
+            statusLabel={(p) => scheduledPaymentStatusLabel(p, new Date())}
+            onItemClick={setScheduledPaymentToView}
+          />
           {filteredScheduledPayments.length === 0 ? (
-            <>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setIsSchedulePaymentOpen(true)}
-                  className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 active:bg-brand-800"
-                >
-                  <Plus className="h-4 w-4 shrink-0" aria-hidden />
-                  Schedule payment
-                </button>
-              </div>
-              <p className="text-center text-gray-500 py-10 text-sm">
-                {search.trim()
-                  ? "No scheduled payments match your search."
-                  : "No scheduled payments yet."}
-              </p>
-            </>
+            <p className="text-center text-gray-500 py-10 text-sm">
+              {search.trim()
+                ? "No scheduled payments match your search."
+                : "No scheduled payments yet."}
+            </p>
           ) : (
             <div className="space-y-3">
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setIsSchedulePaymentOpen(true)}
-                  className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 active:bg-brand-800"
-                >
-                  <Plus className="h-4 w-4 shrink-0" aria-hidden />
-                  Schedule payment
-                </button>
-              </div>
               <MobileScheduledPaymentsList
                 grouped={scheduledPaymentsByYearMonth}
                 formatAmount={(item) => formatDisplayAmount(item.amount, item.currency)}
@@ -1114,14 +1146,14 @@ export default function MobileHubClient() {
                                 {inv.name}
                               </p>
                               <p className="col-span-2 text-right text-base font-semibold text-slate-800 tabular-nums">
-                                {formatCurrency(totalValue, selectedCurrency)}
+                                {formatBaseAmount(totalValue)}
                               </p>
                               {subtitle ? (
                                 <p className="col-span-2 text-xs text-gray-500 line-clamp-1">{subtitle}</p>
                               ) : null}
                               <p className="min-w-0 text-[11px] text-gray-600">{qtyLabel} units</p>
                               <p className="text-right text-[11px] tabular-nums text-gray-700">
-                                @ {formatCurrency(inv.currentPrice, selectedCurrency)}
+                                @ {formatBaseAmount(inv.currentPrice)}
                               </p>
                               {maturityDate ? (
                                 <>
@@ -1143,7 +1175,7 @@ export default function MobileHubClient() {
                               <p
                                 className={`text-right text-[11px] font-medium tabular-nums ${gainColor}`}
                               >
-                                {formatCurrency(gain, selectedCurrency)} ({gainPct}%)
+                                {formatBaseAmount(gain)} ({gainPct}%)
                               </p>
                               {targetCompletionPct !== null && linkedTarget ? (
                                 <div className="col-span-2 mt-1.5 border-t border-gray-100 pt-2">
@@ -1172,8 +1204,8 @@ export default function MobileHubClient() {
                                     />
                                   </div>
                                   <p className="mt-1 text-[10px] tabular-nums text-gray-600">
-                                    {formatCurrency(linkedTarget.fulfilledAmount, selectedCurrency)} /{" "}
-                                    {formatCurrency(linkedTarget.targetAmount, selectedCurrency)}
+                                    {formatBaseAmount(linkedTarget.fulfilledAmount)} /{" "}
+                                    {formatBaseAmount(linkedTarget.targetAmount)}
                                   </p>
                                 </div>
                               ) : null}
@@ -1227,10 +1259,10 @@ export default function MobileHubClient() {
               </div>
               {debtsByStatus.map((group, groupIndex) => {
                 const isFullyPaidGroup = group.status === "FULLY_PAID";
-                const showList = !isFullyPaidGroup || debtsFullyPaidExpanded;
+                const showList = !isFullyPaidGroup || isSearching || debtsFullyPaidExpanded;
                 return (
                 <div key={group.status}>
-                  {isFullyPaidGroup ? (
+                  {isFullyPaidGroup && !isSearching ? (
                     <button
                       type="button"
                       className={`mb-2 flex w-full items-center justify-between gap-2 rounded-lg py-1 text-left active:bg-gray-50 ${
@@ -1301,7 +1333,7 @@ export default function MobileHubClient() {
                                 {debt.borrowerName}
                               </p>
                               <p className="col-span-2 text-right text-base font-semibold text-amber-800 tabular-nums">
-                                {formatCurrency(debt.amount, selectedCurrency)}
+                                {formatBaseAmount(debt.amount)}
                               </p>
                               {debt.purpose ? (
                                 <p className="col-span-2 text-xs text-gray-500 line-clamp-2">{debt.purpose}</p>
@@ -1333,7 +1365,7 @@ export default function MobileHubClient() {
                                 </p>
                               ) : (
                                 <p className="text-right text-[11px] font-medium tabular-nums text-amber-900">
-                                  Remaining {formatCurrency(remainingAmount, selectedCurrency)}
+                                  Remaining {formatBaseAmount(remainingAmount)}
                                 </p>
                               )}
                             </div>
@@ -1457,7 +1489,7 @@ export default function MobileHubClient() {
         isOpen={isAddIncomeOpen}
         onClose={() => setIsAddIncomeOpen(false)}
         onSuccess={() => {
-          void loadData();
+          void loadData(["income", "accounts"]);
         }}
         categories={incomeCategoriesWithFrequency}
         accounts={accounts}
@@ -1469,7 +1501,7 @@ export default function MobileHubClient() {
         incomeToEdit={incomeToEdit}
         onClose={() => setIncomeToEdit(null)}
         onSuccess={() => {
-          void loadData();
+          void loadData(["income", "accounts"]);
         }}
         categories={incomeCategoriesWithFrequency}
         accounts={accounts}
@@ -1479,7 +1511,7 @@ export default function MobileHubClient() {
         isOpen={isAddExpenseOpen}
         onClose={() => setIsAddExpenseOpen(false)}
         onSuccess={() => {
-          void loadData();
+          void loadData(["expenses", "accounts"]);
         }}
         categories={expenseCategoriesWithFrequency}
         accounts={accounts}
@@ -1491,7 +1523,7 @@ export default function MobileHubClient() {
         expenseToEdit={expenseToEdit}
         onClose={() => setExpenseToEdit(null)}
         onSuccess={() => {
-          void loadData();
+          void loadData(["expenses", "accounts"]);
         }}
         categories={expenseCategoriesWithFrequency}
         accounts={accounts}
@@ -1501,7 +1533,7 @@ export default function MobileHubClient() {
         isOpen={isSchedulePaymentOpen}
         onClose={() => setIsSchedulePaymentOpen(false)}
         onSuccess={() => {
-          void loadData();
+          void loadData(["scheduled payments"]);
         }}
         categories={expenseCategoriesWithFrequency}
         accounts={accounts}
@@ -1511,7 +1543,7 @@ export default function MobileHubClient() {
         isOpen={isAddInvestmentOpen}
         onClose={() => setIsAddInvestmentOpen(false)}
         onSuccess={() => {
-          void loadData();
+          void loadData(["investments", "income", "expenses", "accounts", "withheld balances"]);
         }}
         hasExistingStocksInvestment={investments.some((i) => i.type === "STOCKS")}
       />
@@ -1520,7 +1552,7 @@ export default function MobileHubClient() {
         isOpen={isAddDebtOpen}
         onClose={() => setIsAddDebtOpen(false)}
         onSuccess={() => {
-          void loadData();
+          void loadData(["debts", "income", "expenses", "accounts"]);
         }}
       />
 
@@ -1528,7 +1560,7 @@ export default function MobileHubClient() {
         isOpen={isAddNoteOpen}
         onClose={() => setIsAddNoteOpen(false)}
         onSuccess={() => {
-          void loadData();
+          void loadData(["notes", "archived notes"]);
         }}
       />
 
@@ -1536,16 +1568,18 @@ export default function MobileHubClient() {
         note={noteToView}
         isOpen={noteToView !== null}
         onClose={() => setNoteToView(null)}
-        onUpdated={() => {
-          void loadData();
+        onUpdated={(updated) => {
+          setNoteToView((current) => current?.id === updated.id ? updated : current);
+          void loadData(["notes", "archived notes"]);
         }}
         onDeleted={() => {
-          void loadData();
+          void loadData(["notes", "archived notes"]);
         }}
       />
 
       <MobileTransactionViewSheet
         transaction={incomeToView}
+        displayCurrency={selectedCurrency}
         transactionType="INCOME"
         isOpen={incomeToView !== null}
         onClose={() => setIncomeToView(null)}
@@ -1558,6 +1592,7 @@ export default function MobileHubClient() {
 
       <MobileTransactionViewSheet
         transaction={expenseToView}
+        displayCurrency={selectedCurrency}
         transactionType="EXPENSE"
         isOpen={expenseToView !== null}
         onClose={() => setExpenseToView(null)}
@@ -1578,14 +1613,16 @@ export default function MobileHubClient() {
         investment={investmentToView}
         isOpen={investmentToView !== null}
         onClose={() => setInvestmentToView(null)}
+        formatAmount={formatBaseAmount}
         displayCurrency={selectedCurrency}
+        convertAmount={(amount) => convertForDisplaySync(amount, userCurrency, selectedCurrency)}
       />
 
       <MobileDebtDetailSheet
         debt={debtToView}
         isOpen={debtToView !== null}
         onClose={() => setDebtToView(null)}
-        displayCurrency={selectedCurrency}
+        formatAmount={formatBaseAmount}
       />
 
       <MobileScheduledPaymentDetailSheet
@@ -1606,6 +1643,7 @@ export default function MobileHubClient() {
       />
 
       <CurrencyConverterModal
+        className={typography.compact}
         isOpen={isCurrencyConverterOpen}
         onClose={() => setIsCurrencyConverterOpen(false)}
       />

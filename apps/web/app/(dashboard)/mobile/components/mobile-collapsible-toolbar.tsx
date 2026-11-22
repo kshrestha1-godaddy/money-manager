@@ -43,14 +43,14 @@ export function MobileCollapsibleToolbar({ rootRef, leading }: MobileCollapsible
           <button
             type="button"
             onClick={expandAll}
-            className="rounded-md bg-gray-50 px-3 py-1.5 text-sm font-medium text-slate-700 min-h-[40px] hover:bg-gray-100 active:bg-gray-200/80"
+            className="rounded-md bg-gray-50 px-3 py-1.5 text-[11px] font-medium text-slate-700 min-h-[40px] hover:bg-gray-100 active:bg-gray-200/80"
           >
             Expand all
           </button>
           <button
             type="button"
             onClick={collapseAll}
-            className="rounded-md bg-gray-50 px-3 py-1.5 text-sm font-medium text-slate-700 min-h-[40px] hover:bg-gray-100 active:bg-gray-200/80"
+            className="rounded-md bg-gray-50 px-3 py-1.5 text-[11px] font-medium text-slate-700 min-h-[40px] hover:bg-gray-100 active:bg-gray-200/80"
           >
             Collapse all
           </button>

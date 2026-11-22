@@ -9,6 +9,7 @@ import { useCurrency } from '../providers/CurrencyProvider';
 interface CurrencyConverterModalProps {
   isOpen: boolean;
   onClose: () => void;
+  className?: string;
 }
 
 type Currency = UsdBaseCurrencyCode;
@@ -27,7 +28,7 @@ const CURRENCY_NAMES = {
   NPR: 'Nepalese Rupee',
 };
 
-export function CurrencyConverterModal({ isOpen, onClose }: CurrencyConverterModalProps) {
+export function CurrencyConverterModal({ isOpen, onClose, className = "" }: CurrencyConverterModalProps) {
   const { currencyRateAnchors } = useCurrency();
   const EXCHANGE_RATES = useMemo(
     () => buildUsdBaseExchangeRates(currencyRateAnchors),
@@ -102,7 +103,7 @@ export function CurrencyConverterModal({ isOpen, onClose }: CurrencyConverterMod
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 ${className}`}
       onClick={onClose}
     >
       <div

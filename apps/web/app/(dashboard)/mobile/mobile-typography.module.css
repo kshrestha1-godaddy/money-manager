@@ -1,0 +1,40 @@
+.compact {
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.compact :global(.text-xs):not(input, select, textarea) {
+  font-size: 0.625rem;
+}
+
+.compact :global(.text-sm):not(input, select, textarea) {
+  font-size: 0.6875rem;
+}
+
+.compact :global(.text-base):not(input, select, textarea) {
+  font-size: 0.75rem;
+}
+
+.compact :global(.text-lg):not(input, select, textarea) {
+  font-size: 0.875rem;
+}
+
+.compact :global(.text-xl) {
+  font-size: 1rem;
+}
+
+.compact :global(.text-2xl) {
+  font-size: 1.125rem;
+}
+
+.compact :is(input, select, textarea) {
+  font-size: max(1rem, 1em);
+}
+
+.compact .currencySelect {
+  font-size: 0.6875rem;
+}
+
+.compact .searchInput {
+  font-size: 0.75rem;
+}

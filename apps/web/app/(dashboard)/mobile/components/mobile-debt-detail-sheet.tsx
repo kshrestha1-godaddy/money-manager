@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo } from "react";
 import type { DebtInterface } from "../../../types/debts";
-import { formatCurrency } from "../../../utils/currency";
 import { formatDateYearMonthDay } from "../../../utils/date";
 import { calculateRemainingWithInterest } from "../../../utils/interestCalculation";
 
@@ -10,7 +9,7 @@ export interface MobileDebtDetailSheetProps {
   debt: DebtInterface | null;
   isOpen: boolean;
   onClose: () => void;
-  displayCurrency: string;
+  formatAmount: (amount: number) => string;
 }
 
 function statusClass(status: DebtInterface["status"]): string {
@@ -34,7 +33,7 @@ export function MobileDebtDetailSheet({
   debt,
   isOpen,
   onClose,
-  displayCurrency,
+  formatAmount,
 }: MobileDebtDetailSheetProps) {
   useEffect(() => {
     if (!isOpen) return;
@@ -120,25 +119,25 @@ export function MobileDebtDetailSheet({
           <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
             <p className="text-[10px] font-medium uppercase text-blue-700">Principal</p>
             <p className="mt-1 text-sm font-bold tabular-nums text-blue-900">
-              {formatCurrency(debt.amount, displayCurrency)}
+              {formatAmount(debt.amount)}
             </p>
           </div>
           <div className="rounded-xl border border-green-100 bg-green-50 p-3">
             <p className="text-[10px] font-medium uppercase text-green-700">Repaid</p>
             <p className="mt-1 text-sm font-bold tabular-nums text-green-900">
-              {formatCurrency(totalRepayments, displayCurrency)}
+              {formatAmount(totalRepayments)}
             </p>
           </div>
           <div className="rounded-xl border border-orange-100 bg-orange-50 p-3">
             <p className="text-[10px] font-medium uppercase text-orange-700">Interest</p>
             <p className="mt-1 text-sm font-bold tabular-nums text-orange-900">
-              {formatCurrency(remainingWithInterest.interestAmount, displayCurrency)}
+              {formatAmount(remainingWithInterest.interestAmount)}
             </p>
           </div>
           <div className="rounded-xl border border-red-100 bg-red-50 p-3">
             <p className="text-[10px] font-medium uppercase text-red-700">Remaining</p>
             <p className="mt-1 text-sm font-bold tabular-nums text-red-900">
-              {formatCurrency(remainingAmount, displayCurrency)}
+              {formatAmount(remainingAmount)}
             </p>
           </div>
         </div>
@@ -185,7 +184,7 @@ export function MobileDebtDetailSheet({
                         </p>
                       </div>
                       <p className="shrink-0 text-sm font-semibold tabular-nums text-green-700">
-                        {formatCurrency(repayment.amount, displayCurrency)}
+                        {formatAmount(repayment.amount)}
                       </p>
                     </div>
                   </li>

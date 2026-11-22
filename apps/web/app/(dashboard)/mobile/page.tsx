@@ -1,3 +1,4 @@
+import typography from "./mobile-typography.module.css";
 import { Suspense } from "react";
 import MobileHubClient from "./MobileHubClient";
 import { LOADING_COLORS } from "../../config/colorConfig";
@@ -8,15 +9,17 @@ const loadingText = LOADING_COLORS.text;
 
 export default function MobileHubPage() {
   return (
-    <Suspense
-      fallback={
-        <div className={loadingContainer}>
-          <div className={loadingSpinner} />
-          <p className={loadingText}>Loading mobile hub…</p>
-        </div>
-      }
-    >
-      <MobileHubClient />
-    </Suspense>
+    <div className={typography.compact}>
+      <Suspense
+        fallback={
+          <div className={loadingContainer}>
+            <div className={loadingSpinner} />
+            <p className={loadingText}>Loading mobile hub…</p>
+          </div>
+        }
+      >
+        <MobileHubClient />
+      </Suspense>
+    </div>
   );
 }

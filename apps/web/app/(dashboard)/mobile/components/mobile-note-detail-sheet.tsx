@@ -33,6 +33,7 @@ export function MobileNoteDetailSheet({
 }: MobileNoteDetailSheetProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -44,15 +45,21 @@ export function MobileNoteDetailSheet({
 
   useEffect(() => {
     if (!isOpen) setIsEditing(false);
+    setActionError(null);
   }, [isOpen, note?.id]);
 
   if (!isOpen || !note) return null;
+  const noteId = note.id;
 
   async function handlePin() {
     setBusy(true);
+    setActionError(null);
     try {
-      const result = await toggleNotePin(note.id);
-      if (result.success && result.note) onUpdated(result.note as Note);
+      const result = await toggleNotePin(noteId);
+      if (!result.success || !result.note) throw new Error(result.error);
+      onUpdated(result.note as Note);
+    } catch {
+      setActionError("Could not update the pin.");
     } finally {
       setBusy(false);
     }
@@ -60,12 +67,17 @@ export function MobileNoteDetailSheet({
 
   async function handleArchive() {
     setBusy(true);
+    setActionError(null);
     try {
-      const result = await toggleNoteArchive(note.id);
+      const result = await toggleNoteArchive(noteId);
       if (result.success && result.note) {
         onUpdated(result.note as Note);
         onClose();
+      } else {
+        throw new Error(result.error);
       }
+    } catch {
+      setActionError("Could not change the archive status.");
     } finally {
       setBusy(false);
     }
@@ -74,12 +86,17 @@ export function MobileNoteDetailSheet({
   async function handleDelete() {
     if (!confirm("Delete this note? This cannot be undone.")) return;
     setBusy(true);
+    setActionError(null);
     try {
-      const result = await deleteNote(note.id);
+      const result = await deleteNote(noteId);
       if (result.success) {
-        onDeleted(note.id);
+        onDeleted(noteId);
         onClose();
+      } else {
+        throw new Error(result.error);
       }
+    } catch {
+      setActionError("Could not delete the note.");
     } finally {
       setBusy(false);
     }
@@ -155,6 +172,11 @@ export function MobileNoteDetailSheet({
       </header>
 
       <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4">
+        {actionError && (
+          <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+            {actionError}
+          </p>
+        )}
         {note.content ? (
           <section className="mt-0">
             <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Content</h2>

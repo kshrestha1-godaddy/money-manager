@@ -290,8 +290,8 @@ export function MobileCategoryPieChart({
               data={chartData}
               cx="50%"
               cy="50%"
-              innerRadius="36%"
-              outerRadius="56%"
+              innerRadius="49%"
+              outerRadius="76%"
               paddingAngle={2}
               cornerRadius={6}
               dataKey="value"

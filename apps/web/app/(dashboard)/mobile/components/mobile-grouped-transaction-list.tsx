@@ -65,6 +65,7 @@ export interface MobileGroupedTransactionListProps<T extends Income | Expense> {
   formatAmount: (item: T) => string;
   onItemClick: (item: T) => void;
   /** Shown on the left of Expand all / Collapse all (e.g. Add income on mobile). */
+  expandMatches: boolean;
   toolbarLeading?: ReactNode;
 }
 
@@ -74,6 +75,7 @@ export function MobileGroupedTransactionList<T extends Income | Expense>({
   formatAmount,
   onItemClick,
   toolbarLeading,
+  expandMatches,
 }: MobileGroupedTransactionListProps<T>) {
   const detailsRootRef = useRef<HTMLDivElement>(null);
 
@@ -85,6 +87,10 @@ export function MobileGroupedTransactionList<T extends Income | Expense>({
     const cm = now.getMonth();
     root.querySelectorAll("details[data-year]").forEach((el) => {
       const d = el as HTMLDetailsElement;
+      if (expandMatches) {
+        d.open = true;
+        return;
+      }
       const y = Number(d.getAttribute("data-year"));
       if (Number.isNaN(y)) return;
       const mStr = d.getAttribute("data-month");
@@ -95,7 +101,7 @@ export function MobileGroupedTransactionList<T extends Income | Expense>({
         if (y === cy && m === cm) d.open = true;
       }
     });
-  }, [grouped]);
+  }, [grouped, expandMatches]);
 
   if (grouped.length === 0) return null;
 
@@ -114,14 +120,14 @@ export function MobileGroupedTransactionList<T extends Income | Expense>({
             data-year={year}
             className="group rounded-lg border border-gray-200 bg-white shadow-sm"
           >
-            <summary className="cursor-pointer list-none px-3 py-2.5 font-semibold text-slate-900 marker:content-none [&::-webkit-details-marker]:hidden">
+            <summary className="cursor-pointer list-none px-3 py-2.5 text-[12px] leading-6 font-semibold text-slate-900 marker:content-none [&::-webkit-details-marker]:hidden">
               <span className="inline-flex items-center gap-2">
                 <ChevronRight
                   className="h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 group-open:rotate-90"
                   aria-hidden
                 />
                 {year}
-                <span className="text-sm font-normal text-gray-500">
+                <span className="text-[11px] font-normal text-gray-500">
                   ({yearCount} {label})
                 </span>
               </span>
@@ -134,7 +140,7 @@ export function MobileGroupedTransactionList<T extends Income | Expense>({
                   data-month={monthIndex}
                   className="group/month mt-2 rounded-md border border-gray-100 bg-gray-50/80"
                 >
-                  <summary className="cursor-pointer px-2.5 py-2 text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
+                  <summary className="cursor-pointer px-2.5 py-2 text-[11px] leading-5 font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
                     <span className="inline-flex items-center gap-2">
                       <ChevronRight
                         className="h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform duration-200 group-open/month:rotate-90"
@@ -152,19 +158,23 @@ export function MobileGroupedTransactionList<T extends Income | Expense>({
                           onClick={() => onItemClick(item)}
                           className="w-full text-left rounded-xl border border-gray-200 bg-white p-4 shadow-sm min-h-[72px] active:bg-gray-50 transition-colors"
                         >
-                          <div className="flex justify-between gap-3 items-center">
+                          <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
-                              <p className="font-medium text-gray-900 truncate">{item.title}</p>
-                              <p className="text-xs text-gray-500 mt-0.5">
+                              <p className="truncate text-[12px] leading-5 font-medium text-gray-900">{item.title}</p>
+                              {item.category?.name && (
+                                <p className="mt-0.5 break-words text-[10px] leading-4 text-gray-500">
+                                  {item.category.name}
+                                </p>
+                              )}
+                            </div>
+                            <div className="max-w-[50%] shrink-0 text-right">
+                              <p className={`text-[12px] leading-5 font-semibold tabular-nums ${amountClass}`}>
+                                {formatAmount(item)}
+                              </p>
+                              <p className="mt-0.5 text-[10px] leading-4 text-gray-500">
                                 {formatDate(item.date)}
-                                {item.category?.name ? ` · ${item.category.name}` : ""}
                               </p>
                             </div>
-                            <span
-                              className={`shrink-0 text-base font-semibold tabular-nums ${amountClass}`}
-                            >
-                              {formatAmount(item)}
-                            </span>
                           </div>
                         </button>
                       </li>

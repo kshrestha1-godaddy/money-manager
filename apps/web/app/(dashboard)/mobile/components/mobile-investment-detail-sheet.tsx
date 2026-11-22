@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import type { InvestmentInterface } from "../../../types/investments";
-import { formatCurrency } from "../../../utils/currency";
 import { formatDateYearMonthDay } from "../../../utils/date";
 import { InvestmentSavingsTargetChart } from "../../investments/components/InvestmentSavingsTargetChart";
 
@@ -10,7 +9,9 @@ export interface MobileInvestmentDetailSheetProps {
   investment: InvestmentInterface | null;
   isOpen: boolean;
   onClose: () => void;
+  formatAmount: (amount: number) => string;
   displayCurrency: string;
+  convertAmount: (amount: number) => number;
 }
 
 function formatType(type: string): string {
@@ -51,7 +52,9 @@ export function MobileInvestmentDetailSheet({
   investment,
   isOpen,
   onClose,
+  formatAmount,
   displayCurrency,
+  convertAmount,
 }: MobileInvestmentDetailSheetProps) {
   useEffect(() => {
     if (!isOpen) return;
@@ -125,8 +128,8 @@ export function MobileInvestmentDetailSheet({
               </p>
             </div>
             <InvestmentSavingsTargetChart
-              targetAmount={investment.investmentTarget.targetAmount}
-              fulfilledAmount={investment.investmentTarget.fulfilledAmount}
+              targetAmount={convertAmount(investment.investmentTarget.targetAmount)}
+              fulfilledAmount={convertAmount(investment.investmentTarget.fulfilledAmount)}
               currency={displayCurrency}
             />
           </div>
@@ -138,17 +141,17 @@ export function MobileInvestmentDetailSheet({
             <div className="flex justify-between gap-2">
               <span className="text-gray-600">Current value</span>
               <span className="font-semibold text-gray-900 tabular-nums">
-                {formatCurrency(totalValue, displayCurrency)}
+                {formatAmount(totalValue)}
               </span>
             </div>
             <div className="flex justify-between gap-2">
               <span className="text-gray-600">Total cost</span>
-              <span className="tabular-nums text-gray-900">{formatCurrency(totalCost, displayCurrency)}</span>
+              <span className="tabular-nums text-gray-900">{formatAmount(totalCost)}</span>
             </div>
             <div className="flex justify-between gap-2">
               <span className="text-gray-600">Gain / loss</span>
               <span className={`font-semibold tabular-nums ${gainColor}`}>
-                {formatCurrency(gain, displayCurrency)} ({gainPercentage}%)
+                {formatAmount(gain)} ({gainPercentage}%)
               </span>
             </div>
             <div className="flex justify-between gap-2">

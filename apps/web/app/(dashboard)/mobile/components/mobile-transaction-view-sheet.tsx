@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Income, Expense, TransactionImage, TransactionImageType } from "../../../types/financial";
 import { formatCurrency } from "../../../utils/currency";
 import { formatDate } from "../../../utils/date";
-import { useCurrency } from "../../../providers/CurrencyProvider";
 import { CurrencyAmount } from "../../../components/shared/CurrencyAmount";
 import { getTransactionImages } from "../../../actions/transaction-images";
 import { Map, MapMarker, MarkerContent } from "@/components/ui/map";
@@ -15,6 +14,7 @@ export interface MobileTransactionViewSheetProps {
   transaction: Transaction | null;
   transactionType: Extract<TransactionImageType, "INCOME" | "EXPENSE">;
   isOpen: boolean;
+  displayCurrency: string;
   onClose: () => void;
   /** When set, shows an Edit control (e.g. open the mobile edit sheet for this transaction). */
   onEdit?: () => void;
@@ -27,11 +27,11 @@ function parseDate(d: Date | string): Date {
 export function MobileTransactionViewSheet({
   transaction,
   transactionType,
+  displayCurrency,
   isOpen,
   onClose,
   onEdit,
 }: MobileTransactionViewSheetProps) {
-  const { currency: userCurrency } = useCurrency();
   const [images, setImages] = useState<TransactionImage[]>([]);
   const [isLoadingImages, setIsLoadingImages] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
@@ -133,7 +133,7 @@ export function MobileTransactionViewSheet({
   useEffect(() => {
     if (selectedImageIndex === null) return;
 
-    function handleKeyPress(event: KeyboardEvent) {
+    const handleKeyPress = (event: KeyboardEvent) => {
       if (event.key === "Escape") setSelectedImageIndex(null);
       if (event.key === "ArrowLeft" && selectedImageIndex > 0) {
         setSelectedImageIndex(selectedImageIndex - 1);
@@ -141,7 +141,7 @@ export function MobileTransactionViewSheet({
       if (event.key === "ArrowRight" && selectedImageIndex < displayImages.length - 1) {
         setSelectedImageIndex(selectedImageIndex + 1);
       }
-    }
+    };
 
     document.addEventListener("keydown", handleKeyPress);
     return () => document.removeEventListener("keydown", handleKeyPress);
@@ -179,13 +179,13 @@ export function MobileTransactionViewSheet({
           <h1 id="mobile-tx-title" className="text-base font-semibold leading-tight text-gray-900">
             {transaction.title}
           </h1>
-          <p className="truncate text-xs text-gray-500">{transaction.category.name}</p>
+          <p className="truncate text-[10px] text-gray-500">{transaction.category.name}</p>
         </div>
         {onEdit ? (
           <button
             type="button"
             onClick={onEdit}
-            className={`shrink-0 rounded-lg px-3 py-2 text-sm font-semibold min-h-[44px] ${
+            className={`shrink-0 rounded-lg px-3 py-2 text-[11px] font-semibold min-h-[44px] ${
               transactionType === "EXPENSE"
                 ? "text-red-700 hover:bg-red-50 active:bg-red-100"
                 : "text-emerald-700 hover:bg-emerald-50 active:bg-emerald-100"
@@ -196,7 +196,7 @@ export function MobileTransactionViewSheet({
         ) : null}
         {transaction.isRecurring && (
           <span
-            className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${
+            className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-medium ${
               transactionType === "EXPENSE"
                 ? "bg-blue-100 text-blue-800"
                 : "bg-emerald-100 text-emerald-800"
@@ -210,25 +210,25 @@ export function MobileTransactionViewSheet({
       <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <section className={`mt-4 rounded-2xl ${theme.bgClass} px-4 py-5`}>
           <p className={`text-xs font-semibold uppercase tracking-wide ${theme.textClass}`}>{theme.label}</p>
-          <p className={`mt-1 break-words text-3xl font-bold tabular-nums leading-tight ${theme.textClassDark}`}>
+          <p className={`mt-1 break-words text-[20px] font-bold tabular-nums leading-tight ${theme.textClassDark}`}>
             <CurrencyAmount
               amount={transaction.amount}
               storedCurrency={transaction.currency}
-              userCurrency={userCurrency}
+              userCurrency={displayCurrency}
               showOriginal={false}
             />
           </p>
-          {transaction.currency !== userCurrency && (
-            <p className={`mt-2 text-sm ${theme.textClass}`}>
+          {transaction.currency !== displayCurrency && (
+            <p className={`mt-2 text-[11px] ${theme.textClass}`}>
               Original: {formatCurrency(transaction.amount, transaction.currency)}
             </p>
           )}
-          <p className={`mt-3 text-sm ${theme.textClassMedium}`}>Stored in {transaction.currency}</p>
-          <p className={`mt-1 text-sm ${theme.textClassMedium}`}>{formatDate(txDate)}</p>
+          <p className={`mt-3 text-[11px] ${theme.textClassMedium}`}>Stored in {transaction.currency}</p>
+          <p className={`mt-1 text-[11px] ${theme.textClassMedium}`}>{formatDate(txDate)}</p>
         </section>
 
         <section className="mt-6 space-y-0 rounded-2xl border border-gray-100 bg-white px-4 shadow-sm">
-          <h2 className="border-b border-gray-100 py-3 text-sm font-semibold text-gray-900">
+          <h2 className="border-b border-gray-100 py-3 text-[11px] font-semibold text-gray-900">
             {transactionType === "EXPENSE" ? "Expense details" : "Income details"}
           </h2>
           <DetailRow label="Title">{transaction.title}</DetailRow>
@@ -248,7 +248,7 @@ export function MobileTransactionViewSheet({
         </section>
 
         <section className="mt-4 space-y-0 rounded-2xl border border-gray-100 bg-white px-4 shadow-sm">
-          <h2 className="border-b border-gray-100 py-3 text-sm font-semibold text-gray-900">
+          <h2 className="border-b border-gray-100 py-3 text-[11px] font-semibold text-gray-900">
             Additional information
           </h2>
           <DetailRow label="Account">
@@ -258,7 +258,7 @@ export function MobileTransactionViewSheet({
                   {transaction.account.bankName} — {transaction.account.accountType}
                 </span>
                 {transaction.account.holderName ? (
-                  <span className="mt-1 block text-sm text-gray-600">{transaction.account.holderName}</span>
+                  <span className="mt-1 block text-[11px] text-gray-600">{transaction.account.holderName}</span>
                 ) : null}
               </span>
             ) : (
@@ -277,7 +277,7 @@ export function MobileTransactionViewSheet({
                 {transaction.tags.map((tag, index) => (
                   <span
                     key={index}
-                    className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-800"
+                    className="rounded-full bg-gray-100 px-3 py-1 text-[11px] text-gray-800"
                   >
                     {tag}
                   </span>
@@ -291,7 +291,7 @@ export function MobileTransactionViewSheet({
                 {transaction.location.map((loc, index) => (
                   <span
                     key={index}
-                    className="rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-800"
+                    className="rounded-full bg-blue-50 px-3 py-1 text-[11px] text-blue-800"
                   >
                     {loc}
                   </span>
@@ -303,7 +303,7 @@ export function MobileTransactionViewSheet({
 
         {coordinates ? (
           <section className="mt-4 min-w-0 w-full max-w-full">
-            <h2 className="mb-2 text-sm font-semibold text-gray-900">Map location</h2>
+            <h2 className="mb-2 text-[11px] font-semibold text-gray-900">Map location</h2>
             <div className="relative isolate w-full max-w-full min-w-0 overflow-hidden rounded-2xl border border-gray-200 bg-gray-100">
               <div className="relative h-[200px] w-full min-w-0 max-w-full sm:h-[240px] [&_.maplibregl-canvas]:max-w-full [&_.maplibregl-canvas]:!w-full">
                 <Map center={[coordinates.longitude, coordinates.latitude]} zoom={15}>
@@ -315,7 +315,7 @@ export function MobileTransactionViewSheet({
                 </Map>
               </div>
             </div>
-            <p className="mt-2 break-all text-xs text-gray-500">
+            <p className="mt-2 break-all text-[10px] text-gray-500">
               {coordinates.latitude.toFixed(6)}, {coordinates.longitude.toFixed(6)}
             </p>
           </section>
@@ -323,15 +323,15 @@ export function MobileTransactionViewSheet({
 
         {transaction.notes ? (
           <section className="mt-4">
-            <h2 className="mb-2 text-sm font-semibold text-gray-900">Notes</h2>
+            <h2 className="mb-2 text-[11px] font-semibold text-gray-900">Notes</h2>
             <div className="rounded-2xl bg-gray-50 px-4 py-3">
-              <p className="whitespace-pre-wrap text-sm text-gray-800">{transaction.notes}</p>
+              <p className="whitespace-pre-wrap text-[11px] text-gray-800">{transaction.notes}</p>
             </div>
           </section>
         ) : null}
 
         <section className="mt-4 pb-4">
-          <h2 className="mb-2 text-sm font-semibold text-gray-900">{theme.imageLabel}</h2>
+          <h2 className="mb-2 text-[11px] font-semibold text-gray-900">{theme.imageLabel}</h2>
           {isLoadingImages ? (
             <div className="flex items-center gap-2 py-6">
               <div
@@ -357,19 +357,19 @@ export function MobileTransactionViewSheet({
                     />
                   </div>
                   {image.description ? (
-                    <p className="truncate p-1.5 text-center text-xs text-gray-600">{image.description}</p>
+                    <p className="truncate p-1.5 text-center text-[10px] text-gray-600">{image.description}</p>
                   ) : null}
                 </button>
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border-2 border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-600">
+            <div className="rounded-2xl border-2 border-dashed border-gray-200 px-4 py-8 text-center text-[11px] text-gray-600">
               No {theme.imageLabel.toLowerCase()} for this {theme.entityName}.
             </div>
           )}
         </section>
 
-        <p className="py-4 text-center text-xs text-gray-400">
+        <p className="py-4 text-center text-[10px] text-gray-400">
           Recorded on {formatDate(txDate)}
         </p>
       </div>
@@ -414,7 +414,7 @@ export function MobileTransactionViewSheet({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
-              <div className="absolute left-4 top-4 rounded-full bg-black/50 px-3 py-1 text-sm text-white">
+              <div className="absolute left-4 top-4 rounded-full bg-black/50 px-3 py-1 text-[11px] text-white">
                 {selectedImageIndex + 1} / {displayImages.length}
               </div>
             </>
@@ -428,7 +428,7 @@ export function MobileTransactionViewSheet({
             />
           </div>
           {displayImages[selectedImageIndex].description ? (
-            <div className="absolute bottom-6 left-1/2 max-w-md -translate-x-1/2 rounded-lg bg-black/60 px-4 py-2 text-center text-sm text-white">
+            <div className="absolute bottom-6 left-1/2 max-w-md -translate-x-1/2 rounded-lg bg-black/60 px-4 py-2 text-center text-[11px] text-white">
               {displayImages[selectedImageIndex].description}
             </div>
           ) : null}
@@ -442,7 +442,7 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
   return (
     <div className="border-b border-gray-100 py-3 last:border-b-0">
       <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</p>
-      <div className="mt-1 text-base text-gray-900">{children}</div>
+      <div className="mt-1 text-[12px] text-gray-900">{children}</div>
     </div>
   );
 }
