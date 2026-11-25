@@ -58,6 +58,7 @@ model User {
   lifeEvents LifeEvent[]
   appLockSetting UserAppLockSetting?
   forecastSetting UserForecastSetting?
+  chartForecasts  UserChartForecast[]
   bloodPressureReadings BloodPressureReading[]
   cronBatchRuns CronBatchRun[]
   createdAt DateTime @default(now())
@@ -1246,6 +1247,21 @@ model UserForecastSetting {
   modelParams      Json     @default("{}")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+/// Per-user, per-chart forecast overlay. `chartId` is a stable app key
+/// (`savings-rate`, `income-trend`, `expense-trend`); `isEnabled` is the bulb.
+model UserChartForecast {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chartId   String
+  isEnabled Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, chartId])
+  @@index([userId])
 }
 
 /// Habits Tracker — blood pressure log (mmHg). `measuredAt` is when the reading was taken (date + time).
