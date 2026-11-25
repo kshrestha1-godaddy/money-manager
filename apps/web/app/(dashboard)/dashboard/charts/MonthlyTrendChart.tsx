@@ -356,7 +356,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
     }, [chartData]);
 
     // Enhanced CSV data with detailed statistics
-    const csvData = useMemo(() => [
+    const csvData = [
         ['Month', 'Income', 'Expenses', 'Savings', 'Income Transactions', 'Expense Transactions', 'Total Transactions', 'Savings Rate (%)', 'Avg Income', 'Avg Expense'],
         ...chartData.map(item => [
             item.formattedMonth,
@@ -370,16 +370,15 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
             item.incomeAverage.toFixed(2),
             item.expenseAverage.toFixed(2)
         ])
-    ], [chartData]);
+    ];
 
     // Calculate total transactions for display
     const totalTransactions = chartData.reduce((sum, item) => sum + item.incomeCount + item.expenseCount, 0);
-    
-    // Memoize chart title and tooltip text
-    const { chartTitle, tooltipText } = useMemo(() => ({
-        chartTitle: totalTransactions > 0 ? `Monthly Income, Expenses & Savings Trend ${timePeriodText} • ${totalTransactions} transaction${totalTransactions !== 1 ? 's' : ''}` : `Monthly Income, Expenses & Savings Trend ${timePeriodText}`,
-        tooltipText: "Visualize monthly financial flows with stacked expenses and savings bars showing how your income is allocated. The expenses bar starts at zero, and savings (or losses) stack on top, creating a clear view of your financial breakdown."
-    }), [timePeriodText, totalTransactions]);
+
+    const chartTitle = totalTransactions > 0
+        ? `Monthly Income, Expenses & Savings Trend ${timePeriodText} • ${totalTransactions} transaction${totalTransactions !== 1 ? 's' : ''}`
+        : `Monthly Income, Expenses & Savings Trend ${timePeriodText}`;
+    const tooltipText = "Visualize monthly financial flows with stacked expenses and savings bars showing how your income is allocated. The expenses bar starts at zero, and savings (or losses) stack on top, creating a clear view of your financial breakdown.";
 
     // Optimized download functions with better error handling
     // Removed unused custom download functions; ChartControls handles downloads
@@ -471,19 +470,17 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
         );
     }, [currency]);
 
-    const formatYAxisTick = useCallback((value: number) => {
+    const formatYAxisTick = (value: number) => {
         if (Math.abs(value) >= 1000000) {
             return `${(value / 1000000).toFixed(1)}M`;
         } else if (Math.abs(value) >= 1000) {
             return `${(value / 1000).toFixed(1)}K`;
         }
         return formatCurrency(value, currency).replace(/\$/, '');
-    }, [currency]);
+    };
 
     // Calculate optimal interval for x-axis ticks based on data length
-    const optimalInterval = useMemo(() => {
-        return chartData.length <= 6 ? 0 : 1;
-    }, [chartData.length]);
+    const optimalInterval = chartData.length <= 6 ? 0 : 1;
 
     // Custom tick component for horizontal X-axis labels
     const CustomXAxisTick = useCallback((props: any) => {
@@ -506,8 +503,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
 
     // Custom label functions for percentage display on bars
 
-    // Main chart component - memoized for better performance
-    const Chart = useMemo(() => (
+    const renderChartContent = () => (
         <div 
             ref={chartRef} 
             className="h-[34rem] sm:h-[44rem] w-full"
@@ -707,7 +703,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                 </ComposedChart>
             </ResponsiveContainer>
         </div>
-    ), [chartData, calculations, timePeriodText, optimalInterval, CustomXAxisTick, formatYAxisTick, CustomTooltip]);
+    );
 
 
     if (chartData.length === 0) {
@@ -748,7 +744,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                         </p>
                     </div>
                 )}
-                {Chart}
+                {renderChartContent()}
                 
             </div>
             <ChartLegend />

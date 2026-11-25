@@ -436,7 +436,7 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
         });
     }, [chartData, patternPrefix]);
 
-    const ChartContent = () => (
+    const renderChartContent = () => (
         <div className="px-1 py-4 sm:px-2 sm:py-5">
             <div className="mb-3 sm:mb-4">
                 <p className="text-xs text-gray-600 sm:text-sm">Total Income</p>
@@ -591,7 +591,7 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
                     title={chartTitle}
                     tooltipText={tooltipText}
                 />
-                <ChartContent />
+                {!isExpanded && renderChartContent()}
             </div>
 
             {isExpanded && (
@@ -610,7 +610,7 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
                                 Close
                             </button>
                         </div>
-                        <ChartContent />
+                        {renderChartContent()}
                     </div>
                 </div>
             )}

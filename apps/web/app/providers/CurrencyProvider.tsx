@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useCallback, useContext, useState, useEffect, useMemo, ReactNode } from "react";
 import { useSession } from "next-auth/react";
 import { getUserCurrency, updateUserCurrency } from "../actions/currency";
 import { getCurrencyRateConfig } from "../actions/currency-rates";
@@ -42,15 +42,15 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
   });
   const [isRatesLoading, setIsRatesLoading] = useState(true);
 
-  function applyRateAnchors(anchors: CurrencyRateAnchors) {
+  const applyRateAnchors = useCallback((anchors: CurrencyRateAnchors) => {
     setCurrencyRateAnchors(anchors);
     setClientCurrencyConversionMatrix(anchors.inrToNpr, anchors.nprPerUsd);
-  }
+  }, []);
 
-  const refreshCurrencyRates = async () => {
+  const refreshCurrencyRates = useCallback(async () => {
     const rates = await getCurrencyRateConfig();
     applyRateAnchors(rates);
-  };
+  }, [applyRateAnchors]);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -76,7 +76,7 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
     }
   }, [status]);
 
-  const updateCurrency = async (newCurrency: string) => {
+  const updateCurrency = useCallback(async (newCurrency: string) => {
     try {
       await updateUserCurrency(newCurrency);
       setCurrency(newCurrency);
@@ -84,19 +84,31 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
       console.error("Error updating currency:", error);
       throw error;
     }
-  };
+  }, []);
+
+  // Memoized so a NextAuth session refetch does not cascade a new context
+  // value into every consumer and remount the dashboard charts.
+  const contextValue = useMemo<CurrencyContextType>(
+    () => ({
+      currency,
+      updateCurrency,
+      isLoading,
+      currencyRateAnchors,
+      isRatesLoading,
+      refreshCurrencyRates,
+    }),
+    [
+      currency,
+      updateCurrency,
+      isLoading,
+      currencyRateAnchors,
+      isRatesLoading,
+      refreshCurrencyRates,
+    ],
+  );
 
   return (
-    <CurrencyContext.Provider
-      value={{
-        currency,
-        updateCurrency,
-        isLoading,
-        currencyRateAnchors,
-        isRatesLoading,
-        refreshCurrencyRates,
-      }}
-    >
+    <CurrencyContext.Provider value={contextValue}>
       {children}
     </CurrencyContext.Provider>
   );

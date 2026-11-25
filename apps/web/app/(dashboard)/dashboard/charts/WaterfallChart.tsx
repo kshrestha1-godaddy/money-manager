@@ -176,7 +176,7 @@ export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency: curre
         ['Savings Rate', `${savingsRate.toFixed(1)}%`, 'Percentage', '', '', '', 'Percentage of income that was saved or lost']
     ];
 
-    const ChartContent = () => (
+    const renderChartContent = () => (
         <div>
             {/* Summary Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4">
@@ -364,7 +364,7 @@ export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency: curre
                     title={totalTransactions > 0 ? `Financial Waterfall ${timePeriodText} • ${totalTransactions} transaction${totalTransactions !== 1 ? 's' : ''}` : `Financial Waterfall ${timePeriodText}`}
                     tooltipText="Visualizes the flow from income to expenses, showing your net savings with detailed statistics including transaction counts, averages, and percentages. Hover over bars for detailed breakdowns."
                 />
-                <ChartContent />
+                {!isExpanded && renderChartContent()}
             </div>
 
             {/* Full screen modal */}
@@ -385,7 +385,7 @@ export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency: curre
                                 Close
                             </button>
                         </div>
-                        <ChartContent />
+                        {renderChartContent()}
                     </div>
                 </div>
             )}

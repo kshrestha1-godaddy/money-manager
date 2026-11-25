@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef } from "react";
+import React, { useCallback, useMemo, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Label } from "recharts";
 import { Info } from "lucide-react";
 import { useChartExpansion } from "../../../utils/chartUtils";
@@ -138,7 +138,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
     };
 
     // Enhanced custom tooltip component
-    const CustomTooltip = ({ active, payload }: any) => {
+    const CustomTooltip = useCallback(({ active, payload }: any) => {
         if (!active || !payload || !payload.length) return null;
 
         const data = payload[0]?.payload as MonthlyData;
@@ -270,7 +270,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                 </div>
             </div>
         );
-    };
+    }, [currency, plottedRuns]);
 
     // Format data label
     const formatDataLabel = (value: number) => {
@@ -301,7 +301,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
         ])
     ];
 
-    const ChartContent = () => (
+    const renderChartContent = () => (
         <div>
             {/* Summary Stats */}
             <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-4">
@@ -317,7 +317,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                         </div>
                     </div>
                     <p className="text-lg sm:text-xl font-bold text-blue-600">
-                        {data.length === 0 ? '0.0' : (data.reduce((sum, item) => sum + (item.savingsRate ?? 0), 0) / data.length).toFixed(1)}%
+                        {averageSavingsRate.toFixed(1)}%
                     </p>
                 </div>
                 <div className="text-center">
@@ -481,7 +481,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                         />
                     }
                 />
-                <ChartContent />
+                {!isExpanded && renderChartContent()}
             </div>
 
             {/* Full screen modal */}
@@ -502,7 +502,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                                 Close
                             </button>
                         </div>
-                        <ChartContent />
+                        {renderChartContent()}
                     </div>
                 </div>
             )}

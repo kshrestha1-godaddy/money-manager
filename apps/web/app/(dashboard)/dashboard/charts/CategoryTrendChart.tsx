@@ -628,7 +628,7 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(
             title={chartTitle}
             tooltipText={tooltipText}
           />
-          {ChartContent()}
+          {!isExpanded && ChartContent()}
         </div>
 
         {/* Full screen modal */}

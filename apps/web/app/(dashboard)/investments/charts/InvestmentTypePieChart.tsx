@@ -178,7 +178,7 @@ export const InvestmentTypePieChart = React.memo<InvestmentTypePieChartProps>(({
         });
     }
 
-    const ChartContent = () => (
+    const renderChartContent = () => (
         <div>
             <div className="flex justify-start items-center mb-2 sm:mb-3">
                 <div className="text-left">
@@ -317,7 +317,7 @@ export const InvestmentTypePieChart = React.memo<InvestmentTypePieChartProps>(({
                     title={chartTitle}
                     tooltipText={tooltipText}
                 />
-                <ChartContent />
+                {!isExpanded && renderChartContent()}
             </div>
 
             {/* Full screen modal */}
@@ -336,7 +336,7 @@ export const InvestmentTypePieChart = React.memo<InvestmentTypePieChartProps>(({
                                 Close
                             </button>
                         </div>
-                        <ChartContent />
+                        {renderChartContent()}
                     </div>
                 </div>
             )}

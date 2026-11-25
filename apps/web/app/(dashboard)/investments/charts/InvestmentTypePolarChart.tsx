@@ -562,7 +562,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
 
     const totalPositions = data.reduce((s, d) => s + d.count, 0);
 
-    const ChartContent = () => (
+    const renderChartContent = () => (
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <div className="flex justify-start items-center mb-3 flex-shrink-0">
           <div className="text-left">
@@ -642,7 +642,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
             customDownloadPNG={downloadPNG}
             customDownloadSVG={downloadSVG}
           />
-          <ChartContent />
+          {!isExpanded && renderChartContent()}
         </div>
 
         {isExpanded && (
@@ -662,7 +662,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
                   Close
                 </button>
               </div>
-              <ChartContent />
+              {renderChartContent()}
             </div>
           </div>
         )}

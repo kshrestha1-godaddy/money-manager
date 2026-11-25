@@ -442,7 +442,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
         });
     }, [chartData, patternPrefix]);
 
-    const ChartContent = () => (
+    const renderChartContent = () => (
         <div className="px-1 py-4 sm:px-2 sm:py-5">
             <div className="mb-3 sm:mb-4">
                 <p className="text-xs text-gray-600 sm:text-sm">{totalLabel}</p>
@@ -600,7 +600,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                     title={chartTitle}
                     tooltipText={tooltipText}
                 />
-                <ChartContent />
+                {!isExpanded && renderChartContent()}
             </div>
 
             {isExpanded && (
@@ -619,7 +619,7 @@ export const CategoryPieChart = React.memo<CategoryPieChartProps>(({ type, curre
                                 Close
                             </button>
                         </div>
-                        <ChartContent />
+                        {renderChartContent()}
                     </div>
                 </div>
             )}

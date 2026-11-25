@@ -883,7 +883,7 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
         );
     };
 
-    const ChartContent = () => (
+    const renderChartContent = () => (
         <div className="p-4">
             {/* Year Navigation */}
             <YearNavigation />
@@ -1156,7 +1156,7 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                     customDownloadSVG={downloadCalendarChartAsSVG}
                 />
                 
-                <ChartContent />
+                {!isExpanded && renderChartContent()}
             </div>
 
             {/* Full screen modal */}
@@ -1177,7 +1177,7 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                         </div>
                         
                         <div ref={chartRef}>
-                            <ChartContent />
+                            {renderChartContent()}
                         </div>
                     </div>
                 </div>
