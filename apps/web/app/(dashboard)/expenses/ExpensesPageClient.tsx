@@ -63,6 +63,7 @@ export default function ExpensesPageClient() {
   const selectedMonth = monthOverride?.month ?? currentMonth;
   const selectedYear = monthOverride?.year ?? currentYear;
   const [isMonthFilterActive, setIsMonthFilterActive] = useState<boolean>(true);
+  const [expenseTab, setExpenseTab] = useState<number | null>(null);
 
   // Month navigation handler
   const handleMonthChange = (month: number, year: number) => {
@@ -107,6 +108,7 @@ export default function ExpensesPageClient() {
     handleDeleteItem,
     handleAddCategory,
     handleDeleteCategory,
+    categoryTabMutation,
     openEditModal,
     openViewModal,
     openDeleteModal,
@@ -190,9 +192,17 @@ export default function ExpensesPageClient() {
     const month = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}`;
     return expenses.filter((transaction) => getTransactionDay(transaction.date).startsWith(month));
   }, [expenses, hasActiveFilters, isMonthFilterActive, selectedMonth, selectedYear, getTransactionDay]);
+  const tabCategories = categories.filter((category) => category.showAsTransactionTab);
+  const activeExpenseTab = tabCategories.some(({ id }) => id === expenseTab) ? expenseTab : null;
+  const tableExpenses = useMemo(
+    () => activeExpenseTab === null
+      ? filteredExpenses
+      : filteredExpenses.filter(({ categoryId }) => categoryId === activeExpenseTab),
+    [activeExpenseTab, filteredExpenses]
+  );
   const visibleSelection = useMemo(
-    () => getVisibleSelection(filteredExpenses, selectedItems),
-    [filteredExpenses, selectedItems]
+    () => getVisibleSelection(tableExpenses, selectedItems),
+    [tableExpenses, selectedItems]
   );
 
   useEffect(() => {
@@ -399,9 +409,30 @@ export default function ExpensesPageClient() {
         </div>
       )}
 
+      <div role="group" aria-label="Expense table category" className="flex flex-wrap gap-2 border-b">
+        {[
+          { value: null, label: "All" },
+          ...tabCategories.map(({ id, name }) => ({ value: id, label: name })),
+        ].map(({ value, label }) => (
+          <button
+            key={value ?? "all"}
+            type="button"
+            aria-pressed={activeExpenseTab === value}
+            onClick={() => setExpenseTab(value)}
+            className={`border-b-2 px-4 py-2 text-sm font-medium ${
+              activeExpenseTab === value
+                ? "border-blue-600 text-blue-700"
+                : "border-transparent text-gray-600 hover:text-blue-700"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <Suspense fallback={<div>Loading expenses...</div>}>
         <ExpenseList
-          expenses={filteredExpenses}
+          expenses={tableExpenses}
           currency={userCurrency}
           onEdit={openEditModal}
           onView={openViewModal}
@@ -410,7 +441,7 @@ export default function ExpensesPageClient() {
           onRefresh={invalidateQueries}
           selectedExpenses={visibleSelection}
           onExpenseSelect={handleItemSelect}
-          onSelectAll={(selected) => handleSelectAll(selected, filteredExpenses)}
+          onSelectAll={(selected) => handleSelectAll(selected, tableExpenses)}
           showBulkActions={true}
           onBulkDelete={isBulkDeleting ? undefined : handleBulkDelete}
           onClearSelection={() => handleSelectAll(false)}
@@ -421,7 +452,20 @@ export default function ExpensesPageClient() {
       <EditExpenseModal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setItemToEdit(null); }} onEdit={handleEditItem} categories={categoriesWithFrequency} accounts={accounts} expense={itemToEdit} />
       <ViewExpenseModal isOpen={isViewModalOpen} onClose={() => { setIsViewModalOpen(false); setItemToView(null); }} onEdit={openEditModal} expense={itemToView} />
       <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setItemToDelete(null); }} onConfirm={handleDeleteItem} />
-      <AddCategoryModal isOpen={isAddCategoryModalOpen} onClose={() => setIsAddCategoryModalOpen(false)} onAdd={handleAddCategory} onDelete={handleDeleteCategory} type="EXPENSE" categories={categories} />
+      <AddCategoryModal
+        isOpen={isAddCategoryModalOpen}
+        onClose={() => setIsAddCategoryModalOpen(false)}
+        onAdd={handleAddCategory}
+        onDelete={handleDeleteCategory}
+        onCategoryTabChange={(id, enabled) => categoryTabMutation.mutate({ id, enabled }, {
+          onSuccess: () => {
+            if (!enabled) setExpenseTab((current) => current === id ? null : current);
+          },
+        })}
+        isSavingCategoryTab={categoryTabMutation.isPending}
+        type="EXPENSE"
+        categories={categories}
+      />
       <UnifiedBulkImportModal
         isOpen={isBulkImportModalOpen}
         onClose={() => setIsBulkImportModalOpen(false)}

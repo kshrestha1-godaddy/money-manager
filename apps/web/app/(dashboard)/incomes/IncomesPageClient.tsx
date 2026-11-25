@@ -54,6 +54,7 @@ export default function IncomesPageClient() {
   const selectedMonth = monthOverride?.month ?? currentMonth;
   const selectedYear = monthOverride?.year ?? currentYear;
   const [isMonthFilterActive, setIsMonthFilterActive] = useState<boolean>(true);
+  const [incomeTab, setIncomeTab] = useState<number | null>(null);
 
   // Month navigation handler
   const handleMonthChange = (month: number, year: number) => {
@@ -98,6 +99,7 @@ export default function IncomesPageClient() {
     handleDeleteItem,
     handleAddCategory,
     handleDeleteCategory,
+    categoryTabMutation,
     openEditModal,
     openViewModal,
     openDeleteModal,
@@ -166,9 +168,17 @@ export default function IncomesPageClient() {
     const month = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}`;
     return incomes.filter((transaction) => getTransactionDay(transaction.date).startsWith(month));
   }, [incomes, hasActiveFilters, isMonthFilterActive, selectedMonth, selectedYear, getTransactionDay]);
+  const tabCategories = categories.filter((category) => category.showAsTransactionTab);
+  const activeIncomeTab = tabCategories.some(({ id }) => id === incomeTab) ? incomeTab : null;
+  const tableIncomes = useMemo(
+    () => activeIncomeTab === null
+      ? filteredIncomes
+      : filteredIncomes.filter(({ categoryId }) => categoryId === activeIncomeTab),
+    [activeIncomeTab, filteredIncomes]
+  );
   const visibleSelection = useMemo(
-    () => getVisibleSelection(filteredIncomes, selectedItems),
-    [filteredIncomes, selectedItems]
+    () => getVisibleSelection(tableIncomes, selectedItems),
+    [tableIncomes, selectedItems]
   );
 
   useEffect(() => {
@@ -373,9 +383,30 @@ export default function IncomesPageClient() {
         </div>
       )}
 
+      <div role="group" aria-label="Income table category" className="flex flex-wrap gap-2 border-b">
+        {[
+          { value: null, label: "All" },
+          ...tabCategories.map(({ id, name }) => ({ value: id, label: name })),
+        ].map(({ value, label }) => (
+          <button
+            key={value ?? "all"}
+            type="button"
+            aria-pressed={activeIncomeTab === value}
+            onClick={() => setIncomeTab(value)}
+            className={`border-b-2 px-4 py-2 text-sm font-medium ${
+              activeIncomeTab === value
+                ? "border-blue-600 text-blue-700"
+                : "border-transparent text-gray-600 hover:text-blue-700"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <Suspense fallback={<div>Loading incomes...</div>}>
         <IncomeList
-          incomes={filteredIncomes}
+          incomes={tableIncomes}
           currency={userCurrency}
           onEdit={openEditModal}
           onView={openViewModal}
@@ -384,7 +415,7 @@ export default function IncomesPageClient() {
           onRefresh={invalidateQueries}
           selectedIncomes={visibleSelection}
           onIncomeSelect={handleItemSelect}
-          onSelectAll={(selected) => handleSelectAll(selected, filteredIncomes)}
+          onSelectAll={(selected) => handleSelectAll(selected, tableIncomes)}
           showBulkActions={true}
           onBulkDelete={isBulkDeleting ? undefined : handleBulkDelete}
           onClearSelection={() => handleSelectAll(false)}
@@ -395,7 +426,20 @@ export default function IncomesPageClient() {
       <EditIncomeModal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setItemToEdit(null); }} onEdit={handleEditItem} categories={categoriesWithFrequency} accounts={accounts} income={itemToEdit} />
       <ViewIncomeModal isOpen={isViewModalOpen} onClose={() => { setIsViewModalOpen(false); setItemToView(null); }} onEdit={openEditModal} income={itemToView} />
       <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setItemToDelete(null); }} onConfirm={handleDeleteItem} />
-      <AddCategoryModal isOpen={isAddCategoryModalOpen} onClose={() => setIsAddCategoryModalOpen(false)} onAdd={handleAddCategory} onDelete={handleDeleteCategory} type="INCOME" categories={categories} />
+      <AddCategoryModal
+        isOpen={isAddCategoryModalOpen}
+        onClose={() => setIsAddCategoryModalOpen(false)}
+        onAdd={handleAddCategory}
+        onDelete={handleDeleteCategory}
+        onCategoryTabChange={(id, enabled) => categoryTabMutation.mutate({ id, enabled }, {
+          onSuccess: () => {
+            if (!enabled) setIncomeTab((current) => current === id ? null : current);
+          },
+        })}
+        isSavingCategoryTab={categoryTabMutation.isPending}
+        type="INCOME"
+        categories={categories}
+      />
       <UnifiedBulkImportModal
         isOpen={isBulkImportModalOpen}
         onClose={() => setIsBulkImportModalOpen(false)}

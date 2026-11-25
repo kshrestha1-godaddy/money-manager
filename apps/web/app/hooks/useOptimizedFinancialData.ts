@@ -3,7 +3,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Category, FinancialItem, FinancialDataActions } from "../types/financial";
 import { AccountInterface } from "../types/accounts";
-import { getCategories, createCategory, deleteCategory } from "../actions/categories";
+import { getCategories, createCategory, deleteCategory, setCategoryTab } from "../actions/categories";
 import { getUserAccounts } from "../(dashboard)/accounts/actions/accounts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
 import { exportCategoriesByType } from "../utils/csvExportCategories";
@@ -213,6 +213,22 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     onError: (error) => {
       // Don't show alert here - let the modal handle it
       console.error("Error deleting category:", error);
+    },
+  });
+
+  const categoryTabMutation = useMutation({
+    mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) =>
+      setCategoryTab(id, categoryType, enabled),
+    onSuccess: (_, { id, enabled }) => {
+      queryClient.setQueryData<Category[]>(QUERY_KEYS.categories, (current) =>
+        current?.map((category) => category.id === id
+          ? { ...category, showAsTransactionTab: enabled }
+          : category)
+      );
+    },
+    onError: (error) => {
+      console.error("Error updating category tab:", error);
+      alert("Failed to update the category tab. Please try again.");
     },
   });
 
@@ -466,6 +482,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     bulkDeleteMutation,
     createCategoryMutation,
     deleteCategoryMutation,
+    categoryTabMutation,
     
     // User thresholds
     userThresholds,

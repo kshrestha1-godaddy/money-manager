@@ -32,6 +32,7 @@ export interface Category {
   color: string;
   icon?: string;
   includedInBudget?: boolean;
+  showAsTransactionTab?: boolean;
   userId: number;
   createdAt: Date;
   updatedAt: Date;

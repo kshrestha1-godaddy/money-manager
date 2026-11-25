@@ -33,6 +33,16 @@ export async function getCategories(type?: "EXPENSE" | "INCOME") {
     }
 }
 
+export async function setCategoryTab(id: number, type: Category["type"], showAsTransactionTab: boolean) {
+    const session = await getAuthenticatedSession();
+    const userId = getUserIdFromSession(session.user.id);
+
+    await prisma.category.update({
+        where: { id, userId, type },
+        data: { showAsTransactionTab },
+    });
+}
+
 export async function createCategory(data: {
     name: string;
     type: "EXPENSE" | "INCOME";
