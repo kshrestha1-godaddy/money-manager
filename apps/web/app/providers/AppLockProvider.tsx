@@ -13,6 +13,7 @@ interface AppLockContextValue {
     remainingMs: number;
     unlock: (password: string) => Promise<boolean>;
     lockNow: () => void;
+    refreshLockTimer: () => void;
     isUsingDefaultPassword: boolean;
     shouldPromptPasswordChange: boolean;
     dismissDefaultPasswordPrompt: () => void;
@@ -60,6 +61,23 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
         setRemainingMs(0);
     }, []);
 
+    const resetLockTimer = useCallback(() => {
+        setStoredExpiry(Date.now() + APP_LOCK_DURATION_MS);
+        setRemainingMs(APP_LOCK_DURATION_MS);
+    }, []);
+
+    const refreshLockTimer = useCallback(() => {
+        if (sessionStatus !== "authenticated" || !isUnlocked) return;
+
+        const expiryMs = getStoredExpiry();
+        if (!expiryMs || getRemainingMs(expiryMs) <= 0) {
+            lockNow();
+            return;
+        }
+
+        resetLockTimer();
+    }, [sessionStatus, isUnlocked, lockNow, resetLockTimer]);
+
     const unlock = useCallback(async (password: string): Promise<boolean> => {
         if (sessionStatus !== "authenticated") return false;
 
@@ -75,12 +93,10 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
 
         if (!isPasswordValid) return false;
 
-        const newExpiry = Date.now() + APP_LOCK_DURATION_MS;
-        setStoredExpiry(newExpiry);
+        resetLockTimer();
         setIsUnlocked(true);
-        setRemainingMs(APP_LOCK_DURATION_MS);
         return true;
-    }, [sessionStatus]);
+    }, [sessionStatus, resetLockTimer]);
 
     useEffect(() => {
         if (sessionStatus !== "unauthenticated") return;
@@ -206,6 +222,7 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
         remainingMs,
         unlock,
         lockNow,
+        refreshLockTimer,
         isUsingDefaultPassword,
         shouldPromptPasswordChange,
         dismissDefaultPasswordPrompt,
@@ -216,6 +233,7 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
         remainingMs,
         unlock,
         lockNow,
+        refreshLockTimer,
         isUsingDefaultPassword,
         shouldPromptPasswordChange,
         dismissDefaultPasswordPrompt,

@@ -48,7 +48,8 @@ import {
   postponeFromOriginalScheduledDate,
   scheduledPaymentStatusLabel,
 } from "./scheduled-payment-helpers";
-import { BULK_SELECT_COLUMN_WIDTH_PX, TABLE_HEAD_Y } from "./scheduled-payments-table-constants";
+import { useResizableColumnWidths } from "../../hooks/usePersistentColumnWidths";
+import { ACTIONS_COLUMN_WIDTH_PX, BULK_SELECT_COLUMN_WIDTH_PX, DEFAULT_SCHEDULED_COLUMN_WIDTHS, TABLE_HEAD_Y } from "./scheduled-payments-table-constants";
 
 const pageContainer = CONTAINER_COLORS.page;
 const loadingContainer = LOADING_COLORS.container;
@@ -189,6 +190,12 @@ function buildScheduledPaymentsCsv(
 }
 
 export default function ScheduledPaymentsPageClient() {
+  const { columnWidths, handleMouseDown: onResizeColumn } = useResizableColumnWidths(
+    "scheduled-payments", "payments", DEFAULT_SCHEDULED_COLUMN_WIDTHS, 50
+  );
+  const tableWidth = Object.values(columnWidths).reduce((total, width) => total + width,
+    BULK_SELECT_COLUMN_WIDTH_PX + ACTIONS_COLUMN_WIDTH_PX
+  );
   const { currency: userCurrency } = useCurrency();
   const { timezone: userTimezone } = useTimezone();
   const queryClient = useQueryClient();
@@ -688,10 +695,10 @@ export default function ScheduledPaymentsPageClient() {
           <div className="space-y-6 px-4 pb-6 pt-6 sm:px-6 sm:pb-8 sm:pt-8">
             {items.length === 0 ? (
               <div className="overflow-x-auto overscroll-x-contain">
-                <table className="w-full min-w-[1200px] table-fixed text-sm leading-relaxed">
+                <table className="w-full min-w-[1440px] table-fixed text-sm leading-relaxed">
                   <tbody>
                     <tr>
-                      <td colSpan={11} className="px-5 py-10 text-center text-gray-500 sm:px-8">
+                      <td colSpan={12} className="px-5 py-10 text-center text-gray-500 sm:px-8">
                         No scheduled payments yet. Use{" "}
                         <span className="font-medium text-gray-700">Schedule payment</span> above to
                         add one.
@@ -702,10 +709,10 @@ export default function ScheduledPaymentsPageClient() {
               </div>
             ) : filteredItems.length === 0 ? (
               <div className="overflow-x-auto overscroll-x-contain">
-                <table className="w-full min-w-[1200px] table-fixed text-sm leading-relaxed">
+                <table className="w-full min-w-[1440px] table-fixed text-sm leading-relaxed">
                   <tbody>
                     <tr>
-                      <td colSpan={11} className="px-5 py-10 text-center text-gray-500 sm:px-8">
+                      <td colSpan={12} className="px-5 py-10 text-center text-gray-500 sm:px-8">
                         No scheduled payments match your filters.{" "}
                         <button
                           type="button"
@@ -721,10 +728,10 @@ export default function ScheduledPaymentsPageClient() {
               </div>
             ) : activeFilteredItems.length === 0 ? (
               <div className="overflow-x-auto overscroll-x-contain">
-                <table className="w-full min-w-[1200px] table-fixed text-sm leading-relaxed">
+                <table className="w-full min-w-[1440px] table-fixed text-sm leading-relaxed">
                   <tbody>
                     <tr>
-                      <td colSpan={11} className="px-5 py-10 text-center text-gray-500 sm:px-8">
+                      <td colSpan={12} className="px-5 py-10 text-center text-gray-500 sm:px-8">
                         No active scheduled payments in this view. Open{" "}
                         <button
                           type="button"
@@ -743,6 +750,9 @@ export default function ScheduledPaymentsPageClient() {
               <>
                 {groupedTableSections.map((section, sectionIndex) => (
                   <ScheduledPaymentsRecurrenceSectionTable
+                    columnWidths={columnWidths}
+                    tableWidth={tableWidth}
+                    onResizeColumn={onResizeColumn}
                     key={section.label}
                     section={section}
                     allItems={items}
@@ -802,6 +812,8 @@ export default function ScheduledPaymentsPageClient() {
                   />
                 ))}
                 <ScheduledPaymentsGrandTotalTable
+                  columnWidths={columnWidths}
+                  tableWidth={tableWidth}
                   paymentCount={tableSummary.count}
                   totalAmount={tableSummary.total}
                   tableDisplayCurrency={tableDisplayCurrency}
@@ -840,6 +852,9 @@ export default function ScheduledPaymentsPageClient() {
                 >
                   {groupedCompletedSections.map((section) => (
                     <ScheduledPaymentsRecurrenceSectionTable
+                      columnWidths={columnWidths}
+                      tableWidth={tableWidth}
+                      onResizeColumn={onResizeColumn}
                       key={section.label}
                       section={section}
                       allItems={items}
@@ -866,6 +881,8 @@ export default function ScheduledPaymentsPageClient() {
                     />
                   ))}
                   <ScheduledPaymentsGrandTotalTable
+                    columnWidths={columnWidths}
+                    tableWidth={tableWidth}
                     paymentCount={completedTableSummary.count}
                     totalAmount={completedTableSummary.total}
                     tableDisplayCurrency={tableDisplayCurrency}

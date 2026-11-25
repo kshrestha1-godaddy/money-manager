@@ -1,25 +1,14 @@
-import { BULK_SELECT_COLUMN_WIDTH_PX, SCHEDULED_TABLE_COL_PCT } from "../scheduled-payments-table-constants";
+import { ACTIONS_COLUMN_WIDTH_PX, BULK_SELECT_COLUMN_WIDTH_PX } from "../scheduled-payments-table-constants";
+import type { ScheduledColumnWidths } from "../scheduled-payments-table-types";
 
-export function ScheduledPaymentsTableColgroup() {
+export function ScheduledPaymentsTableColgroup({ columnWidths }: { columnWidths: ScheduledColumnWidths }) {
   return (
     <colgroup>
-      <col
-        style={{
-          width: BULK_SELECT_COLUMN_WIDTH_PX,
-          minWidth: BULK_SELECT_COLUMN_WIDTH_PX,
-          maxWidth: BULK_SELECT_COLUMN_WIDTH_PX,
-        }}
-      />
-      <col style={{ width: SCHEDULED_TABLE_COL_PCT.title }} />
-      <col style={{ width: SCHEDULED_TABLE_COL_PCT.when }} />
-      <col style={{ width: SCHEDULED_TABLE_COL_PCT.amount }} />
-      <col style={{ width: SCHEDULED_TABLE_COL_PCT.category }} />
-      <col style={{ width: SCHEDULED_TABLE_COL_PCT.account }} />
-      <col style={{ width: SCHEDULED_TABLE_COL_PCT.notes }} />
-      <col style={{ width: SCHEDULED_TABLE_COL_PCT.recurrence }} />
-      <col style={{ width: SCHEDULED_TABLE_COL_PCT.status }} />
-      <col style={{ width: SCHEDULED_TABLE_COL_PCT.postpone }} />
-      <col style={{ width: SCHEDULED_TABLE_COL_PCT.actions }} />
+      <col style={{ width: BULK_SELECT_COLUMN_WIDTH_PX }} />
+      {Object.entries(columnWidths).map(([column, width]) => (
+        <col key={column} style={{ width }} />
+      ))}
+      <col style={{ width: ACTIONS_COLUMN_WIDTH_PX }} />
     </colgroup>
   );
 }

@@ -6,6 +6,7 @@ import {
   Bar,
   CartesianGrid,
   Cell,
+  LabelList,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -385,7 +386,7 @@ export default function NetWorthPage() {
                   ),
                   color: colors[index],
                 }))}
-                margin={{ top: 12, right: 8, bottom: 8, left: 0 }}
+                margin={{ top: 32, right: 8, bottom: 8, left: 0 }}
                 barCategoryGap="8%"
               >
                 <CartesianGrid vertical={false} stroke="#f1f5f9" />
@@ -453,6 +454,43 @@ export default function NetWorthPage() {
                   {chartData.map((item, index) => (
                     <Cell key={item.name} fill={colors[index]} />
                   ))}
+                  <LabelList
+                    content={({ index, viewBox }) => {
+                      const item = index === undefined ? undefined : chartData[index];
+                      if (!item || !viewBox || !("width" in viewBox)) return null;
+
+                      const { x, y, width, height } = viewBox;
+                      if (x == null || y == null || !width || height == null) return null;
+
+                      const inside = Math.abs(height) >= 36;
+                      const centerX = x + width / 2;
+                      const centerY = inside ? y + height / 2 : Math.min(y, y + height) - 18;
+                      const amount = money(item.value);
+                      const availableWidth = Math.max(1, width - 8);
+
+                      return (
+                        <text
+                          x={centerX}
+                          y={centerY}
+                          textAnchor="middle"
+                          fill={inside ? "#fff" : "#334155"}
+                          fontSize={12}
+                          fontWeight={600}
+                          pointerEvents="none"
+                        >
+                          <tspan x={centerX} dy={-3}>{item.percentage}%</tspan>
+                          <tspan
+                            x={centerX}
+                            dy={15}
+                            textLength={amount.length * 8 > availableWidth ? availableWidth : undefined}
+                            lengthAdjust="spacingAndGlyphs"
+                          >
+                            {amount}
+                          </tspan>
+                        </text>
+                      );
+                    }}
+                  />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -527,7 +565,7 @@ export default function NetWorthPage() {
             </button>
           </div>
         </div>
-        {sections.map((section, index) => {
+        {sections.map((section) => {
           const key = section.key as SectionKey;
           const entityType =
             key === "accounts"
@@ -562,16 +600,13 @@ export default function NetWorthPage() {
                 }
                 className="flex w-full items-center gap-3 p-5 text-left transition hover:bg-slate-50 sm:p-6"
               >
-                <span
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50"
-                  style={{ color: colors[index] }}
-                >
+                <span aria-hidden className="shrink-0 text-slate-500">
                   {key === "accounts" ? (
-                    <Landmark size={20} />
+                    <Landmark size={16} />
                   ) : key === "investments" ? (
-                    <TrendingUp size={20} />
+                    <TrendingUp size={16} />
                   ) : (
-                    <ArrowUpRight size={20} />
+                    <ArrowUpRight size={16} />
                   )}
                 </span>
                 <div className="min-w-0 flex-1">

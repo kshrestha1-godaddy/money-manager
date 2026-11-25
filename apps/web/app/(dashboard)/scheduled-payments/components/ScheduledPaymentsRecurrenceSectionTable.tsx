@@ -20,7 +20,12 @@ import {
   TABLE_CELL_X,
   TABLE_CELL_Y,
 } from "../scheduled-payments-table-constants";
-import type { ScheduledPaymentsSortKey, ScheduledPaymentsTableSortState } from "../scheduled-payments-table-types";
+import type {
+  ResizeScheduledColumn,
+  ScheduledColumnWidths,
+  ScheduledPaymentsSortKey,
+  ScheduledPaymentsTableSortState,
+} from "../scheduled-payments-table-types";
 import { AcceptedRecurringHistoryToggle } from "./AcceptedRecurringHistoryDropdown";
 import { ScheduledPaymentsTableColgroup } from "./scheduled-payments-table-colgroup";
 import { ScheduledPaymentsTableHeadRow } from "./scheduled-payments-table-head";
@@ -31,6 +36,9 @@ export interface ScheduledPaymentsGroupedSection {
 }
 
 interface ScheduledPaymentsRecurrenceSectionTableProps {
+  columnWidths: ScheduledColumnWidths;
+  tableWidth: number;
+  onResizeColumn: ResizeScheduledColumn;
   section: ScheduledPaymentsGroupedSection;
   /** Full unfiltered list used to resolve accepted history for recurring rows. */
   allItems: ScheduledPaymentItem[];
@@ -73,6 +81,9 @@ export function ScheduledPaymentsRecurrenceSectionTable({
   sort,
   onSort,
   bulkSelectHeaderCell,
+  columnWidths,
+  tableWidth,
+  onResizeColumn,
 }: ScheduledPaymentsRecurrenceSectionTableProps) {
   const [expandedHistoryIds, setExpandedHistoryIds] = useState<Set<number>>(
     () => new Set()
@@ -89,7 +100,7 @@ export function ScheduledPaymentsRecurrenceSectionTable({
 
   return (
     <div className="mb-6 overflow-x-auto overscroll-x-contain last:mb-3 rounded-lg border border-gray-200/90 bg-white shadow-sm">
-      <table className="w-full min-w-[1200px] table-fixed text-sm leading-relaxed">
+      <table className="min-w-full table-fixed text-sm leading-relaxed" style={{ width: tableWidth }}>
         <caption className="caption-top w-full border-b border-gray-200 bg-slate-50/95 px-5 py-4 text-left sm:px-6 sm:py-5">
           <span className="text-xs font-semibold uppercase tracking-wide text-gray-700">{section.label}</span>
           <span className="text-xs font-normal text-gray-500">
@@ -97,12 +108,13 @@ export function ScheduledPaymentsRecurrenceSectionTable({
             · {section.items.length} {section.items.length === 1 ? "payment" : "payments"}
           </span>
         </caption>
-        <ScheduledPaymentsTableColgroup />
+        <ScheduledPaymentsTableColgroup columnWidths={columnWidths} />
         <thead className="bg-gray-50 text-left text-gray-600">
           <ScheduledPaymentsTableHeadRow
             tableDisplayCurrency={tableDisplayCurrency}
             sort={sort}
             onSort={onSort}
+            onResizeColumn={onResizeColumn}
             bulkSelectHeaderCell={bulkSelectHeaderCell}
           />
         </thead>
@@ -168,9 +180,14 @@ export function ScheduledPaymentsRecurrenceSectionTable({
                     </div>
                   </td>
                   <td
-                    className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle whitespace-nowrap text-gray-700 ${rowTint}`}
+                    className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle text-gray-700 ${rowTint}`}
                   >
                     {formatScheduledPaymentWhenDate(item.scheduledAt, userTimezone)}
+                  </td>
+                  <td className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle text-gray-700 ${rowTint}`}>
+                    {item.resolution === "ACCEPTED" && item.resolvedAt
+                      ? formatScheduledPaymentWhenDate(item.resolvedAt, userTimezone)
+                      : "—"}
                   </td>
                   <td
                     className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle whitespace-nowrap tabular-nums text-gray-900 ${rowTint}`}
@@ -282,7 +299,7 @@ export function ScheduledPaymentsRecurrenceSectionTable({
               aria-hidden
             />
             <td
-              colSpan={2}
+              colSpan={3}
               className={`${TABLE_CELL_X} ${TABLE_CELL_Y} text-left text-sm font-medium text-gray-800`}
             >
               <span className="text-gray-600">Subtotal</span>
@@ -360,9 +377,14 @@ function AcceptedHistoryTableRow({
         </span>
       </td>
       <td
-        className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle whitespace-nowrap text-gray-700 ${rowTint}`}
+        className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle text-gray-700 ${rowTint}`}
       >
         {formatScheduledPaymentWhenDate(item.scheduledAt, userTimezone)}
+      </td>
+      <td className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle text-gray-700 ${rowTint}`}>
+        {item.resolution === "ACCEPTED" && item.resolvedAt
+          ? formatScheduledPaymentWhenDate(item.resolvedAt, userTimezone)
+          : "—"}
       </td>
       <td
         className={`${TABLE_CELL_X} ${TABLE_CELL_Y} align-middle whitespace-nowrap tabular-nums text-emerald-900 ${rowTint}`}

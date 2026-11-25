@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Activity, ChartCandlestick, Repeat, Clock, PiggyBank, Sparkles } from "lucide-react";
+import { ChartCandlestick, Repeat, PiggyBank, Sparkles } from "lucide-react";
 import { SidebarItem } from "../components/sidebar/SidebarItem";
 import { TutorialOverlay } from "../components/TutorialOverlay";
 import { TutorialButton } from "../components/TutorialButton";
@@ -109,20 +109,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             title="Life Events"
                         />
                         <SidebarItem
-                            href="/habits-tracker"
-                            icon={<HabitsTrackerIcon />}
-                            title="Habits Tracker"
-                        />
-                        <SidebarItem
                             href="/transactions"
                             icon={<TransactionsIcon />}
                             title="Transactions"
-                        />
-                        <SidebarItem
-                            href="/cron-jobs"
-                            icon={<Clock className="h-5 w-5" />}
-                            title="Cron Jobs"
-                            showSeparator={true}
                         />
 
                         {/* Additional items - Moved to profile dropdown */}
@@ -257,11 +246,6 @@ function HistoryIcon() {
 function LifeEventsIcon() {
     return <Sparkles className="size-6 shrink-0" strokeWidth={1.5} aria-hidden />;
 }
-
-function HabitsTrackerIcon() {
-    return <Activity className="size-6 shrink-0" strokeWidth={1.5} aria-hidden />;
-}
-
 
 function TargetsIcon() {    
 return (

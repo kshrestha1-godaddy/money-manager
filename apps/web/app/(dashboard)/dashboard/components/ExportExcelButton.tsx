@@ -11,7 +11,7 @@ export function ExportExcelButton() {
       <button
         type="button"
         onClick={() => setIsModalOpen(true)}
-        className="inline-flex items-center px-4 py-2 border border-brand-600 text-sm font-medium rounded-md shadow-sm text-brand-700 bg-white hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500"
+        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"

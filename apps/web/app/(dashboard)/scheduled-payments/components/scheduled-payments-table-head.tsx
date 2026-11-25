@@ -5,20 +5,23 @@ import {
   TABLE_CELL_X,
   TABLE_HEAD_Y,
 } from "../scheduled-payments-table-constants";
-import type { ScheduledPaymentsSortKey, ScheduledPaymentsTableSortState } from "../scheduled-payments-table-types";
+import type { ResizeScheduledColumn, ScheduledPaymentsSortKey, ScheduledPaymentsTableSortState } from "../scheduled-payments-table-types";
 
 interface SortableThProps {
   label: string;
   columnKey: ScheduledPaymentsSortKey;
+  onResizeColumn: ResizeScheduledColumn;
   sort: ScheduledPaymentsTableSortState;
   onSort: (key: ScheduledPaymentsSortKey) => void;
   className?: string;
 }
 
-function SortableTh({ label, columnKey, sort, onSort, className = "" }: SortableThProps) {
+const resizeHandleClass = "absolute inset-y-0 right-0 z-10 w-1 cursor-col-resize hover:bg-blue-500/50";
+
+function SortableTh({ label, columnKey, sort, onSort, onResizeColumn, className = "" }: SortableThProps) {
   const active = sort.key === columnKey;
   return (
-    <th className={`${TABLE_CELL_X} ${TABLE_HEAD_Y} align-middle text-sm font-medium text-gray-700 ${className}`}>
+    <th className={`relative ${TABLE_CELL_X} ${TABLE_HEAD_Y} align-middle text-sm font-medium text-gray-700 ${className}`}>
       <button
         type="button"
         onClick={() => onSort(columnKey)}
@@ -36,6 +39,7 @@ function SortableTh({ label, columnKey, sort, onSort, className = "" }: Sortable
           <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-35" aria-hidden />
         )}
       </button>
+      <div aria-hidden className={resizeHandleClass} onMouseDown={(event) => onResizeColumn(event, columnKey)} />
     </th>
   );
 }
@@ -45,6 +49,7 @@ interface ScheduledPaymentsTableHeadRowProps {
   sort: ScheduledPaymentsTableSortState;
   onSort: (key: ScheduledPaymentsSortKey) => void;
   bulkSelectHeaderCell: ReactNode;
+  onResizeColumn: ResizeScheduledColumn;
 }
 
 export function ScheduledPaymentsTableHeadRow({
@@ -52,34 +57,42 @@ export function ScheduledPaymentsTableHeadRow({
   sort,
   onSort,
   bulkSelectHeaderCell,
+  onResizeColumn,
 }: ScheduledPaymentsTableHeadRowProps) {
   return (
     <tr className="bg-gray-50 text-left text-gray-600">
       {bulkSelectHeaderCell}
-      <SortableTh label="Title" columnKey="title" sort={sort} onSort={onSort} />
+      <SortableTh label="Title" columnKey="title" sort={sort} onSort={onSort} onResizeColumn={onResizeColumn} />
       <SortableTh
-        label="When"
+        label="Scheduled at"
         columnKey="when"
         sort={sort}
         onSort={onSort}
+        onResizeColumn={onResizeColumn}
         className="whitespace-nowrap"
       />
+      <th scope="col" className={`relative ${TABLE_CELL_X} ${TABLE_HEAD_Y} align-middle text-sm font-medium text-gray-700`}>
+        Accepted at
+        <div aria-hidden className={resizeHandleClass} onMouseDown={(event) => onResizeColumn(event, "acceptedAt")} />
+      </th>
       <SortableTh
         label={`Amount (${tableDisplayCurrency.toUpperCase()})`}
         columnKey="amount"
         sort={sort}
         onSort={onSort}
+        onResizeColumn={onResizeColumn}
         className="tabular-nums"
       />
-      <SortableTh label="Category" columnKey="category" sort={sort} onSort={onSort} />
-      <SortableTh label="Account" columnKey="account" sort={sort} onSort={onSort} />
-      <SortableTh label="Notes" columnKey="notes" sort={sort} onSort={onSort} />
-      <SortableTh label="Recurrence" columnKey="recurrence" sort={sort} onSort={onSort} />
-      <SortableTh label="Status" columnKey="status" sort={sort} onSort={onSort} />
+      <SortableTh label="Category" columnKey="category" sort={sort} onSort={onSort} onResizeColumn={onResizeColumn} />
+      <SortableTh label="Account" columnKey="account" sort={sort} onSort={onSort} onResizeColumn={onResizeColumn} />
+      <SortableTh label="Notes" columnKey="notes" sort={sort} onSort={onSort} onResizeColumn={onResizeColumn} />
+      <SortableTh label="Recurrence" columnKey="recurrence" sort={sort} onSort={onSort} onResizeColumn={onResizeColumn} />
+      <SortableTh label="Status" columnKey="status" sort={sort} onSort={onSort} onResizeColumn={onResizeColumn} />
       <th
-        className={`${TABLE_CELL_X} ${TABLE_HEAD_Y} text-center text-xs font-semibold uppercase tracking-wider text-gray-500`}
+        className={`relative ${TABLE_CELL_X} ${TABLE_HEAD_Y} text-center text-xs font-semibold uppercase tracking-wider text-gray-500`}
       >
         Postpone
+        <div aria-hidden className={resizeHandleClass} onMouseDown={(event) => onResizeColumn(event, "postpone")} />
       </th>
       <th
         className={`sticky right-0 z-20 min-w-[11rem] border-l border-gray-200 bg-gray-50 ${TABLE_CELL_X} ${TABLE_HEAD_Y} text-center text-xs font-semibold uppercase tracking-wider text-gray-500 shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.08)] sm:min-w-[12rem]`}

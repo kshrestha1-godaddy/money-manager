@@ -5,10 +5,10 @@ import { useState, useEffect } from "react";
 import { CURRENCIES, getCurrencySymbol, formatCurrency } from "../utils/currency";
 import { useCurrency } from "../providers/CurrencyProvider";
 import { useTotalBalance } from "../hooks/useTotalBalance";
-import { useModals } from "../providers/ModalsProvider";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
+import { Clock } from "lucide-react";
 import { NotificationBell } from "./notification/NotificationBell";
 import { CheckinButton } from "./CheckinButton";
 import { formatLockCountdown, useAppLock } from "../providers/AppLockProvider";
@@ -18,8 +18,7 @@ export default function NavBar() {
   const pathname = usePathname();
   const { currency: selectedCurrency, updateCurrency } = useCurrency();
   const { totalBalance, loading: balanceLoading } = useTotalBalance();
-  const { openExpenseModal, openIncomeModal } = useModals();
-  const { isUnlocked, remainingMs, lockNow } = useAppLock();
+  const { isUnlocked, remainingMs, lockNow, refreshLockTimer } = useAppLock();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const currentDate = new Date();
@@ -122,13 +121,20 @@ export default function NavBar() {
           </div>
         )}
 
-        {/* Right side: Calendar, Quick Actions, Currency, Logout and Profile Icon */}
+        {/* Right side: Calendar, Check-in, Currency, Logout and Profile Icon */}
         <div className="flex items-center space-x-4 flex-shrink-0 pr-4">
           {isUnlocked && (
             <div className="hidden lg:flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5">
               <span className="text-xs font-semibold text-blue-700">
                 Auto lock in {formatLockCountdown(remainingMs)}
               </span>
+              <button
+                type="button"
+                onClick={refreshLockTimer}
+                className="text-xs font-medium text-blue-700 hover:text-blue-900 underline underline-offset-2"
+              >
+                Refresh now
+              </button>
               <button
                 onClick={lockNow}
                 className="text-xs font-medium text-blue-700 hover:text-blue-900 underline underline-offset-2"
@@ -138,33 +144,11 @@ export default function NavBar() {
             </div>
           )}
 
-          {/* Quick Action Buttons - Only shown for authenticated users */}
           {status === "authenticated" && (
-            <div className="flex items-center space-x-2 mr-2">
+            <div className="mr-2">
               <CheckinButton />
-              <button 
-                onClick={openExpenseModal}
-                className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-md text-xs font-medium border border-red-100 shadow-sm flex items-center gap-1.5 transition-colors"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                <span>Expense</span>
-              </button>
-              <button 
-                onClick={openIncomeModal}
-                className="px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-600 rounded-md text-xs font-medium border border-green-100 shadow-sm flex items-center gap-1.5 transition-colors"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                <span>Income</span>
-              </button>
-
             </div>
           )}
-          
-
 
           {/* Auth buttons */}
           {status === "authenticated" ? (
@@ -368,6 +352,14 @@ export default function NavBar() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
                           </svg>
                           Bookmarks
+                        </Link>
+                        <Link
+                          href="/cron-jobs"
+                          onClick={() => setIsProfileDropdownOpen(false)}
+                          className="flex items-center w-full px-6 py-3 mx-2 mt-1 text-sm text-gray-700 hover:bg-gray-50/80 rounded-lg transition-colors"
+                        >
+                          <Clock className="w-4 h-4 mr-4 shrink-0" aria-hidden />
+                          Cron Jobs
                         </Link>
                       </div>
                       

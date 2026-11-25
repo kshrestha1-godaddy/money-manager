@@ -6,9 +6,12 @@ import {
   TABLE_CELL_X,
   TABLE_CELL_Y,
 } from "../scheduled-payments-table-constants";
+import type { ScheduledColumnWidths } from "../scheduled-payments-table-types";
 import { ScheduledPaymentsTableColgroup } from "./scheduled-payments-table-colgroup";
 
 interface ScheduledPaymentsGrandTotalTableProps {
+  columnWidths: ScheduledColumnWidths;
+  tableWidth: number;
   paymentCount: number;
   totalAmount: number;
   tableDisplayCurrency: string;
@@ -18,11 +21,13 @@ export function ScheduledPaymentsGrandTotalTable({
   paymentCount,
   totalAmount,
   tableDisplayCurrency,
+  columnWidths,
+  tableWidth,
 }: ScheduledPaymentsGrandTotalTableProps) {
   return (
     <div className="overflow-x-auto overscroll-x-contain">
-      <table className="w-full min-w-[1200px] table-fixed text-sm leading-relaxed">
-        <ScheduledPaymentsTableColgroup />
+      <table className="min-w-full table-fixed text-sm leading-relaxed" style={{ width: tableWidth }}>
+        <ScheduledPaymentsTableColgroup columnWidths={columnWidths} />
         <tbody>
           <tr className="border-t-[3px] border-gray-300/90 bg-gray-100/95 shadow-[0_-6px_16px_-10px_rgba(15,23,42,0.12)]">
             <td
@@ -36,7 +41,7 @@ export function ScheduledPaymentsGrandTotalTable({
               aria-hidden
             />
             <td
-              colSpan={2}
+              colSpan={3}
               className={`${TABLE_CELL_X} ${TABLE_CELL_Y} text-left text-sm font-semibold text-gray-900`}
             >
               <span className="text-gray-800">Grand total</span>
