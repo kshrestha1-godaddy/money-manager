@@ -57,6 +57,7 @@ model User {
   annuityCalculatorPresets AnnuityCalculatorPreset[]
   lifeEvents LifeEvent[]
   appLockSetting UserAppLockSetting?
+  forecastSetting UserForecastSetting?
   bloodPressureReadings BloodPressureReading[]
   cronBatchRuns CronBatchRun[]
   createdAt DateTime @default(now())
@@ -1229,6 +1230,22 @@ model UserAppLockSetting {
   usesDefaultPassword Boolean  @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+}
+
+/// Per-user forecasting catalogue selection. Charts read this row and overlay
+/// the chosen models; the settings page is the only editor.
+model UserForecastSetting {
+  id               Int      @id @default(autoincrement())
+  userId           Int      @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Catalogue ids such as `auto`, `arima-111`. Defaults to auto-selected.
+  selectedModelIds String[] @default(["auto"])
+  /// Periods to project beyond the last observation.
+  horizon          Int      @default(12)
+  /// Order parameters keyed by model id: `{ p, d, q, P, D, Q, m }`.
+  modelParams      Json     @default("{}")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 /// Habits Tracker — blood pressure log (mmHg). `measuredAt` is when the reading was taken (date + time).
