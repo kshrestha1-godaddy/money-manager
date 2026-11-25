@@ -62,6 +62,9 @@ interface ChartConfig {
   chartAreaHeight: number;
 }
 
+/** Vertical gap inserted between the EXPENSES and INCOMES groups. */
+const SECTION_SEPARATOR_SPACE = 36;
+
 /** When one category dominates (e.g. 1700% vs 200%), cap the axis so other bars stay readable. */
 function computeAxisMax(utilizations: number[]): number {
   if (utilizations.length === 0) return 120;
@@ -154,8 +157,8 @@ function useChartData(
 
 function useChartConfig(chartData: ChartDataPoint[], containerWidth: number): ChartConfig {
   return useMemo(() => {
-    const barHeight = 24;
-    const barSpacing = 42;
+    const barHeight = 34;
+    const barSpacing = 62;
     const leftMargin = Math.max(180, containerWidth * 0.15);
     const rightMargin = Math.max(60, containerWidth * 0.06);
     const topMargin = 10;
@@ -163,7 +166,7 @@ function useChartConfig(chartData: ChartDataPoint[], containerWidth: number): Ch
     
     const expenseCount = chartData.filter(item => item.categoryType === 'EXPENSE').length;
     const incomeCount = chartData.filter(item => item.categoryType === 'INCOME').length;
-    const separatorSpace = (expenseCount > 0 && incomeCount > 0) ? 25 : 0;
+    const separatorSpace = (expenseCount > 0 && incomeCount > 0) ? SECTION_SEPARATOR_SPACE : 0;
     
     const chartAreaHeight = chartData.length * barSpacing + separatorSpace;
     const chartWidth = containerWidth;
@@ -271,7 +274,7 @@ const ChartBar = memo(({
     axisMax 
   } = config;
   
-  const separatorSpace = hasSeperator ? 25 : 0;
+  const separatorSpace = hasSeperator ? SECTION_SEPARATOR_SPACE : 0;
   const isIncome = item.categoryType === 'INCOME';
   const incomeOffset = isIncome && hasSeperator ? separatorSpace : 0;
   
@@ -625,11 +628,6 @@ export const CategoryPerformanceGauge = memo(({
   const config = useChartConfig(chartData, containerWidth);
   const navigate = useNavigation(selectedMonth, selectedYear);
 
-  const hasCappedScale = useMemo(
-    () => chartData.some((d) => d.utilization > config.axisMax + 0.01),
-    [chartData, config.axisMax],
-  );
-
   // Memoized calculations
   const { expenseCount, incomeCount, hasSeperator } = useMemo(() => {
     const expenses = chartData.filter(item => item.categoryType === 'EXPENSE').length;
@@ -688,13 +686,6 @@ export const CategoryPerformanceGauge = memo(({
       
       <ChartLegend />
 
-      {hasCappedScale && (
-        <p className="text-xs text-gray-500 mb-4 max-w-3xl leading-relaxed">
-          The horizontal scale stops at {Math.round(config.axisMax)}% of budget so most categories stay readable. Values
-          beyond that still show their full percentage next to each bar (marked with *).
-        </p>
-      )}
-
       {/* Chart Container */}
       <div className="relative w-full">
         {/* Loading Overlay */}
@@ -721,9 +712,9 @@ export const CategoryPerformanceGauge = memo(({
             <g>
               <line
                 x1={0}
-                y1={config.topMargin + (expenseCount * config.barSpacing) + 12.5}
+                y1={config.topMargin + (expenseCount * config.barSpacing) + SECTION_SEPARATOR_SPACE / 2}
                 x2={config.leftMargin + config.chartAreaWidth}
-                y2={config.topMargin + (expenseCount * config.barSpacing) + 12.5}
+                y2={config.topMargin + (expenseCount * config.barSpacing) + SECTION_SEPARATOR_SPACE / 2}
                 stroke="#d1d5db"
                 strokeWidth="2"
                 strokeDasharray="6,4"
@@ -741,12 +732,12 @@ export const CategoryPerformanceGauge = memo(({
               </text>
               <text
                 x={25}
-                y={config.topMargin + (expenseCount * config.barSpacing) + 25 + (incomeCount * config.barSpacing) / 2}
+                y={config.topMargin + (expenseCount * config.barSpacing) + SECTION_SEPARATOR_SPACE + (incomeCount * config.barSpacing) / 2}
                 textAnchor="middle"
                 fontSize="12"
                 fill="#6b7280"
                 fontWeight="600"
-                transform={`rotate(-90, 25, ${config.topMargin + (expenseCount * config.barSpacing) + 25 + (incomeCount * config.barSpacing) / 2})`}
+                transform={`rotate(-90, 25, ${config.topMargin + (expenseCount * config.barSpacing) + SECTION_SEPARATOR_SPACE + (incomeCount * config.barSpacing) / 2})`}
               >
                 INCOMES
               </text>
