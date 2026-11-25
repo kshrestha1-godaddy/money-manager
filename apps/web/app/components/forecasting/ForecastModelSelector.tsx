@@ -5,9 +5,9 @@ import { Check } from "lucide-react";
 
 import {
     FORECAST_MODELS,
+    HORIZON_OPTIONS,
     MAX_SELECTED_MODELS,
     formatSpec,
-    horizonBounds,
     orderBounds,
     specFromParams,
 } from "./forecastModels";
@@ -40,8 +40,6 @@ export function ForecastModelSelector({
     horizon,
     onHorizonChange,
 }: ForecastModelSelectorProps): React.ReactElement {
-    const horizonRange = horizonBounds();
-
     const toggle = (id: string): void => {
         if (selectedIds.includes(id)) {
             onSelectedIdsChange(selectedIds.filter((entry) => entry !== id));
@@ -58,15 +56,31 @@ export function ForecastModelSelector({
                     {selectedIds.length} of {MAX_SELECTED_MODELS} models selected. Click a card to
                     include it on every forecasting chart.
                 </p>
-                <div className="w-full sm:max-w-sm">
-                    <OrderSlider
-                        label="Horizon"
-                        value={horizon}
-                        min={horizonRange.min}
-                        max={horizonRange.max}
-                        onChange={onHorizonChange}
-                        suffix=" months"
-                    />
+                <div>
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+                        Horizon
+                    </p>
+                    <div
+                        className="flex flex-wrap rounded-lg bg-gray-100 p-1"
+                        role="group"
+                        aria-label="Forecast horizon"
+                    >
+                        {HORIZON_OPTIONS.map((option) => (
+                            <button
+                                key={option.days}
+                                type="button"
+                                aria-pressed={horizon === option.days}
+                                onClick={() => onHorizonChange(option.days)}
+                                className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
+                                    horizon === option.days
+                                        ? "bg-white text-gray-900 shadow-sm"
+                                        : "text-gray-500 hover:text-gray-900"
+                                }`}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 

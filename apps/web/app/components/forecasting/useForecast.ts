@@ -23,12 +23,12 @@ export const forecastSettingsQuery = queryOptions({
     retry: 1,
 });
 
-const STEPS_PER_MONTH: Record<Frequency, number> = {
-    daily: 30.44,
-    weekly: 52 / 12,
-    monthly: 1,
-    quarterly: 1 / 3,
-    yearly: 1 / 12,
+const DAYS_PER_STEP: Record<Frequency, number> = {
+    daily: 1,
+    weekly: 7,
+    monthly: 30.44,
+    quarterly: 91.31,
+    yearly: 365.25,
 };
 
 function settingsFingerprint(settings: ForecastSettingsState): string {
@@ -49,11 +49,11 @@ function seriesFingerprint(points: readonly TimeSeriesPoint[]): string {
 }
 
 function horizonInSteps(
-    horizonMonths: number,
+    horizonDays: number,
     frequency: Frequency,
     historyLength: number,
 ): number {
-    const steps = Math.round(horizonMonths * STEPS_PER_MONTH[frequency]);
+    const steps = Math.round(horizonDays / DAYS_PER_STEP[frequency]);
     return Math.max(1, Math.min(steps, Math.max(historyLength, 14)));
 }
 

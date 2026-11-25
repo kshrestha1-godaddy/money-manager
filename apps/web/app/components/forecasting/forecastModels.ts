@@ -76,7 +76,15 @@ const ORDER_BOUNDS: Record<AdjustableOrder, { min: number; max: number }> = {
     m: { min: 2, max: 12 },
 };
 
-const HORIZON_BOUNDS = { min: 3, max: 24 };
+/** How far charts project, stored as whole days. */
+export const HORIZON_OPTIONS = [
+    { label: "1W", days: 7 },
+    { label: "15D", days: 15 },
+    { label: "1M", days: 30 },
+    { label: "3M", days: 90 },
+    { label: "6M", days: 180 },
+    { label: "1Y", days: 365 },
+] as const;
 
 function orders(
     p: number,
@@ -359,7 +367,7 @@ export function defaultParamsByModel(): Record<string, ForecastOrderParams> {
 }
 
 export const DEFAULT_SELECTED_MODEL_IDS = ["auto"] as const;
-export const DEFAULT_HORIZON = 12;
+export const DEFAULT_HORIZON = 365;
 export const MAX_SELECTED_MODELS = 4;
 
 /** Persisted forecasting preferences shared by every chart. */
@@ -389,8 +397,16 @@ export function orderBounds(order: AdjustableOrder): { min: number; max: number 
     return ORDER_BOUNDS[order];
 }
 
-export function horizonBounds(): { min: number; max: number } {
-    return HORIZON_BOUNDS;
+export function clampHorizon(value: number): number {
+    if (!Number.isFinite(value)) return DEFAULT_HORIZON;
+    const rounded = Math.round(value);
+    if (HORIZON_OPTIONS.some((option) => option.days === rounded)) return rounded;
+    const asDays = rounded >= 3 && rounded <= 24 ? rounded * 30 : rounded;
+    let nearest = DEFAULT_HORIZON;
+    for (const option of HORIZON_OPTIONS) {
+        if (Math.abs(option.days - asDays) < Math.abs(nearest - asDays)) nearest = option.days;
+    }
+    return nearest;
 }
 
 export function specFromParams(params: ForecastOrderParams): SarimaSpec {

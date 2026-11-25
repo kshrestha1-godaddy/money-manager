@@ -6,9 +6,9 @@ import prisma from "@repo/db/client";
 import {
     FORECAST_MODELS,
     MAX_SELECTED_MODELS,
+    clampHorizon,
     defaultForecastSettings,
     defaultParamsByModel,
-    horizonBounds,
     isForecastOrderParams,
 } from "../components/forecasting/forecastModels";
 import type {
@@ -94,12 +94,6 @@ function sanitiseSelectedIds(ids: readonly string[]): string[] {
     const unique = [...new Set(ids.filter((id) => KNOWN_MODEL_IDS.has(id)))];
     if (unique.length === 0) return [...defaultForecastSettings().selectedIds];
     return unique.slice(0, MAX_SELECTED_MODELS);
-}
-
-function clampHorizon(value: number): number {
-    const bounds = horizonBounds();
-    if (!Number.isFinite(value)) return defaultForecastSettings().horizon;
-    return Math.min(bounds.max, Math.max(bounds.min, Math.round(value)));
 }
 
 function mergeParams(raw: unknown): Record<string, ForecastOrderParams> {
