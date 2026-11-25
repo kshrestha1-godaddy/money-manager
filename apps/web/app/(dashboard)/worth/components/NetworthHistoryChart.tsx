@@ -3,8 +3,9 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import {
   Area,
-  AreaChart,
   CartesianGrid,
+  ComposedChart,
+  Line,
   ReferenceLine,
   ReferenceDot,
   ResponsiveContainer,
@@ -17,6 +18,14 @@ import { useCurrency } from "../../../providers/CurrencyProvider";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
 import { formatDate } from "../../../utils/date";
+import {
+  ForecastToggleButton,
+  forecastSeriesKey,
+  overlayColumns,
+  overlayForecasts,
+  useChartForecast,
+} from "../../../components/forecasting";
+import type { Frequency } from "../../../utils/forecasting";
 import {
   getNetworthHistory,
   NetworthHistoryRecord,
@@ -110,6 +119,58 @@ export function NetworthHistoryChart({
       }),
     [records, currency, currencyRateAnchors],
   );
+
+  const forecastFrequency = useMemo<Frequency>(() => {
+    if (data.length < 2) return "daily";
+    const gap = data[1]!.timestamp - data[0]!.timestamp;
+    if (gap > 20 * 86_400_000) return "monthly";
+    if (gap > 3 * 86_400_000) return "weekly";
+    return "daily";
+  }, [data]);
+
+  const seriesPoints = useMemo(
+    () =>
+      data.map((point) => ({
+        date: new Date(point.timestamp),
+        value: point.netWorth,
+      })),
+    [data],
+  );
+
+  const { isForecastVisible, toggleForecast, plottedRuns } = useChartForecast({
+    chartId: "networth-history",
+    points: seriesPoints,
+    frequency: forecastFrequency,
+    gapFill: "interpolate",
+  });
+
+  const plotData = useMemo(() => {
+    if (plottedRuns.length === 0) return data;
+    const overlay = overlayForecasts(
+      data.map((row) => ({
+        month: String(row.timestamp),
+        formattedMonth: formatDate(new Date(row.snapshotDate)),
+        value: row.netWorth,
+      })),
+      plottedRuns,
+      "day",
+    );
+    const byTimestamp = new Map(data.map((row) => [row.timestamp, row]));
+    return overlay.map((row) => {
+      const timestamp = overlayTimestamp(row.month, row.isForecast);
+      const observed = byTimestamp.get(timestamp);
+      const columns = overlayColumns(row, plottedRuns);
+      if (observed && !row.isForecast) return { ...observed, ...columns };
+      return {
+        timestamp,
+        snapshotDate: new Date(timestamp).toISOString(),
+        netWorth: null as number | null,
+        isForecast: true,
+        ...columns,
+      };
+    });
+  }, [data, plottedRuns]);
+
   const first = data[0];
   const latest = data[data.length - 1];
   const change = latest && first ? latest.netWorth - first.netWorth : 0;
@@ -123,12 +184,19 @@ export function NetworthHistoryChart({
     `${getCurrencySymbol(currency)}${new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(value)}`;
   const money = (value: number) => formatCurrency(value, currency);
   const domain = useMemo(() => {
-    const values = data.map((record) => record.netWorth);
+    const values: number[] = [];
+    for (const row of plotData) {
+      if (typeof row.netWorth === "number") values.push(row.netWorth);
+      for (const [key, value] of Object.entries(row)) {
+        if (key.startsWith("fc_") && typeof value === "number") values.push(value);
+      }
+    }
+    if (values.length === 0) return [0, 1];
     const min = Math.min(...values);
     const max = Math.max(...values);
     const padding = Math.max((max - min) * 0.15, Math.abs(max) * 0.02, 1);
     return [min - padding, max + padding];
-  }, [data]);
+  }, [plotData]);
 
   return (
     <section
@@ -162,6 +230,7 @@ export function NetworthHistoryChart({
               </button>
             ))}
           </div>
+          <ForecastToggleButton isOn={isForecastVisible} onToggle={toggleForecast} />
           {onRecordNetworth && (
             <button
               className={button}
@@ -229,8 +298,8 @@ export function NetworthHistoryChart({
             aria-label={`Net worth from ${formatDate(new Date(first!.snapshotDate))} to ${formatDate(new Date(latest.snapshotDate))}. Latest ${money(latest.netWorth)}.`}
           >
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={data}
+              <ComposedChart
+                data={plotData}
                 margin={{ top: 56, right: 24, bottom: 12, left: 8 }}
               >
                 <defs>
@@ -284,22 +353,56 @@ export function NetworthHistoryChart({
                 <Tooltip
                   content={({ active, payload }) => {
                     const point = payload?.[0]?.payload as
-                      | (typeof data)[number]
+                      | (typeof plotData)[number]
                       | undefined;
                     if (!active || !point) return null;
+                    if ("isForecast" in point && point.isForecast) {
+                      const forecastEntries = plottedRuns
+                        .map((run) => ({
+                          run,
+                          value: point[forecastSeriesKey(run.modelId)],
+                        }))
+                        .filter((entry) => typeof entry.value === "number");
+                      return (
+                        <div className="min-w-56 rounded-xl border border-slate-200 bg-white p-4 text-xs shadow-lg">
+                          <p className="mb-2 text-slate-500">
+                            {formatDate(new Date(point.timestamp))} · Forecast
+                          </p>
+                          {forecastEntries.map(({ run, value }) => (
+                            <div
+                              key={run.modelId}
+                              className="flex justify-between gap-6 py-1"
+                            >
+                              <span className="flex items-center gap-2 text-slate-500">
+                                <span
+                                  aria-hidden="true"
+                                  className="inline-block h-0.5 w-4 rounded-full"
+                                  style={{ backgroundColor: run.colour }}
+                                />
+                                {run.label}
+                              </span>
+                              <span className="font-semibold text-slate-900">
+                                {money(Number(value))}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
+                    const history = point as (typeof data)[number];
                     return (
                       <div className="min-w-56 rounded-xl border border-slate-200 bg-white p-4 text-xs shadow-lg">
                         <p className="mb-3 text-slate-500">
-                          {formatDate(new Date(point.snapshotDate))} ·{" "}
-                          {point.recordType === "MANUAL"
+                          {formatDate(new Date(history.snapshotDate))} ·{" "}
+                          {history.recordType === "MANUAL"
                             ? "Manual"
                             : "Automatic"}
                         </p>
                         {[
-                          ["Net worth", point.netWorth],
-                          ["Bank balance", point.totalAccountBalance],
-                          ["Investments", point.totalInvestmentValue],
-                          ["Money lent", point.totalMoneyLent],
+                          ["Net worth", history.netWorth],
+                          ["Bank balance", history.totalAccountBalance],
+                          ["Investments", history.totalInvestmentValue],
+                          ["Money lent", history.totalMoneyLent],
                         ].map(([label, value]) => (
                           <div
                             key={label}
@@ -321,6 +424,7 @@ export function NetworthHistoryChart({
                   stroke={trendColor}
                   strokeWidth={2.5}
                   fill={`url(#${gradientId})`}
+                  connectNulls={false}
                   dot={{
                     r: 3,
                     fill: trendColor,
@@ -330,6 +434,21 @@ export function NetworthHistoryChart({
                   activeDot={{ r: 5, stroke: "#fff", strokeWidth: 3 }}
                   isAnimationActive={false}
                 />
+                {plottedRuns.map((run, index) => (
+                  <Line
+                    key={run.modelId}
+                    type="linear"
+                    dataKey={forecastSeriesKey(run.modelId)}
+                    stroke={run.colour}
+                    strokeWidth={1.5}
+                    strokeDasharray={index % 2 === 0 ? "5 3" : "2 4"}
+                    dot={{ r: 3, fill: run.colour }}
+                    connectNulls
+                    animationDuration={1500}
+                    animationEasing="ease-in-out"
+                    legendType="none"
+                  />
+                ))}
                 <ReferenceDot
                   x={latest.timestamp}
                   y={latest.netWorth}
@@ -369,7 +488,7 @@ export function NetworthHistoryChart({
                     },
                   }}
                 />
-              </AreaChart>
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
           <div className="grid grid-cols-2 gap-4 border-t border-slate-100 px-5 py-4 sm:grid-cols-4 sm:px-6">
@@ -397,4 +516,10 @@ export function NetworthHistoryChart({
       )}
     </section>
   );
+}
+
+function overlayTimestamp(key: string, isForecast: boolean): number {
+  if (!isForecast) return Number(key);
+  const [year, month, day] = key.split("-").map(Number);
+  return new Date(year ?? 1970, (month ?? 1) - 1, day ?? 1).getTime();
 }

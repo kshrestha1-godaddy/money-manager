@@ -17,6 +17,7 @@ export interface ChartControlsProps {
     title?: string;
     subtitle?: string;
     tooltipText?: string;
+    extraControls?: React.ReactNode;
     // Deprecated: custom download hooks; centralized download is used for consistency
     customDownloadPNG?: () => void;
     customDownloadSVG?: () => void;
@@ -38,6 +39,7 @@ export const ChartControls: React.FC<ChartControlsProps> = ({
     title,
     subtitle,
     tooltipText,
+    extraControls,
     customDownloadPNG,
     customDownloadSVG
 }) => {
@@ -68,6 +70,7 @@ export const ChartControls: React.FC<ChartControlsProps> = ({
                 {subtitle && !tooltipText && <p className="text-xs sm:text-sm text-gray-500 mt-0.5">{subtitle}</p>}
             </div>
             <div className="flex items-center gap-1 sm:gap-2 justify-end">
+                {extraControls}
                 {showDownloadButtons && (
                     <>
                         {/* Download Chart as PNG Button */}

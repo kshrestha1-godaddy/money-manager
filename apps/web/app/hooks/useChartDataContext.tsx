@@ -43,6 +43,8 @@ interface ProcessedChartData {
   
   // Pre-aggregated monthly data
   monthlyData: MonthlyAggregatedData[];
+  /** Every month in the unfiltered sample — used to fit forecasts. */
+  allMonthlyData: MonthlyAggregatedData[];
   
   // Pre-aggregated category data
   categoryData: CategoryAggregatedData;
@@ -93,6 +95,61 @@ const formatMonthDisplay = (date: Date): string => {
   return date.toLocaleDateString('en', { month: 'short', year: 'numeric' });
 };
 
+function aggregateMonthly(
+  incomes: Income[],
+  expenses: Expense[],
+  userCurrency: string,
+): MonthlyAggregatedData[] {
+  const monthlyMap = new Map<string, MonthlyAggregatedData>();
+
+  for (const income of incomes) {
+    const date = normalizeDate(income.date);
+    const monthKey = createMonthKey(date);
+    if (!monthlyMap.has(monthKey)) {
+      monthlyMap.set(monthKey, {
+        monthKey,
+        formattedMonth: formatMonthDisplay(date),
+        date: new Date(date.getFullYear(), date.getMonth(), 1),
+        income: 0,
+        expenses: 0,
+        savings: 0,
+        incomeCount: 0,
+        expenseCount: 0,
+      });
+    }
+    const monthData = monthlyMap.get(monthKey)!;
+    monthData.income += convertForDisplaySync(income.amount, income.currency, userCurrency);
+    monthData.incomeCount += 1;
+  }
+
+  for (const expense of expenses) {
+    const date = normalizeDate(expense.date);
+    const monthKey = createMonthKey(date);
+    if (!monthlyMap.has(monthKey)) {
+      monthlyMap.set(monthKey, {
+        monthKey,
+        formattedMonth: formatMonthDisplay(date),
+        date: new Date(date.getFullYear(), date.getMonth(), 1),
+        income: 0,
+        expenses: 0,
+        savings: 0,
+        incomeCount: 0,
+        expenseCount: 0,
+      });
+    }
+    const monthData = monthlyMap.get(monthKey)!;
+    monthData.expenses += convertForDisplaySync(expense.amount, expense.currency, userCurrency);
+    monthData.expenseCount += 1;
+  }
+
+  return Array.from(monthlyMap.values())
+    .map((month) => ({
+      ...month,
+      savings: month.income - month.expenses,
+    }))
+    .sort((a, b) => a.monthKey.localeCompare(b.monthKey));
+}
+
 // Date inputs represent a calendar day in the user's local time zone.
 function parseDateInput(value: string) {
   return new Date(`${value}T00:00:00`);
@@ -129,7 +186,8 @@ const processChartData = (
   startDate?: string,
   endDate?: string,
   isAllTime?: boolean,
-  userCurrency: string = 'USD'
+  userCurrency: string = 'USD',
+  allMonthlyData: MonthlyAggregatedData[],
 ): ProcessedChartData => {
   // Calculate date range
   let timeRange: TimeRangeData;
@@ -192,64 +250,10 @@ const processChartData = (
   const filteredIncomes = filterItems(incomes);
   const filteredExpenses = filterItems(expenses);
 
-  // Aggregate monthly data efficiently using Maps
-  const monthlyMap = new Map<string, MonthlyAggregatedData>();
-
-  // Process incomes
-  for (const income of filteredIncomes) {
-    const date = normalizeDate(income.date);
-    const monthKey = createMonthKey(date);
-    
-    if (!monthlyMap.has(monthKey)) {
-      monthlyMap.set(monthKey, {
-        monthKey,
-        formattedMonth: formatMonthDisplay(date),
-        date: new Date(date.getFullYear(), date.getMonth(), 1),
-        income: 0,
-        expenses: 0,
-        savings: 0,
-        incomeCount: 0,
-        expenseCount: 0
-      });
-    }
-    
-    const monthData = monthlyMap.get(monthKey)!;
-    const convertedAmount = convertForDisplaySync(income.amount, income.currency, userCurrency);
-    monthData.income += convertedAmount;
-    monthData.incomeCount += 1;
-  }
-
-  // Process expenses
-  for (const expense of filteredExpenses) {
-    const date = normalizeDate(expense.date);
-    const monthKey = createMonthKey(date);
-    
-    if (!monthlyMap.has(monthKey)) {
-      monthlyMap.set(monthKey, {
-        monthKey,
-        formattedMonth: formatMonthDisplay(date),
-        date: new Date(date.getFullYear(), date.getMonth(), 1),
-        income: 0,
-        expenses: 0,
-        savings: 0,
-        incomeCount: 0,
-        expenseCount: 0
-      });
-    }
-    
-    const monthData = monthlyMap.get(monthKey)!;
-    const convertedAmount = convertForDisplaySync(expense.amount, expense.currency, userCurrency);
-    monthData.expenses += convertedAmount;
-    monthData.expenseCount += 1;
-  }
-
-  // Calculate savings and sort
-  const monthlyData = Array.from(monthlyMap.values())
-    .map(month => ({
-      ...month,
-      savings: month.income - month.expenses
-    }))
-    .sort((a, b) => a.monthKey.localeCompare(b.monthKey));
+  const monthlyData =
+    !start && !end
+      ? allMonthlyData
+      : aggregateMonthly(filteredIncomes, filteredExpenses, userCurrency);
 
   // Aggregate category data efficiently
   const categoryData: CategoryAggregatedData = {};
@@ -335,6 +339,7 @@ const processChartData = (
     rawExpenses: expenses,
     timeRange,
     monthlyData,
+    allMonthlyData,
     categoryData,
     totals,
     averages,
@@ -361,9 +366,23 @@ export function ChartDataProvider({
   isAllTime = false,
   userCurrency
 }: ChartDataProviderProps) {
+  const allMonthlyData = useMemo(
+    () => aggregateMonthly(incomes, expenses, userCurrency),
+    [incomes, expenses, userCurrency],
+  );
+
   const processedData = useMemo(
-    () => processChartData(incomes, expenses, startDate, endDate, isAllTime, userCurrency),
-    [incomes, expenses, startDate, endDate, isAllTime, userCurrency]
+    () =>
+      processChartData(
+        incomes,
+        expenses,
+        startDate,
+        endDate,
+        isAllTime,
+        userCurrency,
+        allMonthlyData,
+      ),
+    [incomes, expenses, startDate, endDate, isAllTime, userCurrency, allMonthlyData],
   );
 
   const contextValue: ChartDataContextType = useMemo(() => ({

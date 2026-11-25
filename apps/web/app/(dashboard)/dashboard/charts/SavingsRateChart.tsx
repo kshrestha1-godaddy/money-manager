@@ -1,10 +1,19 @@
+"use client";
+
 import React, { useMemo, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Label } from "recharts";
 import { Info } from "lucide-react";
-import { Income, Expense } from "../../../types/financial";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { ChartControls } from "../../../components/ChartControls";
+import {
+    ForecastToggleButton,
+    forecastSeriesKey,
+    overlayColumns,
+    overlayForecasts,
+    pointsThroughLastMonth,
+    useChartForecast,
+} from "../../../components/forecasting";
 
 interface SavingsRateChartProps {
     currency: string;
@@ -13,7 +22,7 @@ interface SavingsRateChartProps {
 
 interface MonthlyData {
     month: string;
-    savingsRate: number;
+    savingsRate: number | null;
     totalIncome: number;
     totalExpenses: number;
     savings: number;
@@ -22,12 +31,14 @@ interface MonthlyData {
     averageIncome: number;
     averageExpense: number;
     formattedMonth: string;
+    isForecast?: boolean;
+    [seriesKey: string]: string | number | boolean | null | undefined;
 }
 
 export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, heightClass }) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
-    const { monthlyData, formatTimePeriod } = useChartData();
+    const { monthlyData, allMonthlyData, formatTimePeriod } = useChartData();
 
     const timePeriodText = formatTimePeriod();
 
@@ -56,16 +67,66 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
             };
         });
 
-        return monthlyData_.map(data => ({
-            ...data,
-            savingsRate: Number(data.savingsRate.toFixed(2))
+        return monthlyData_.map(row => ({
+            ...row,
+            savingsRate: Number(row.savingsRate.toFixed(2)),
+            isForecast: false,
         }));
     }, [monthlyData]);
+
+    const seriesPoints = useMemo(
+        () =>
+            pointsThroughLastMonth(
+                allMonthlyData,
+                data[data.length - 1]?.month,
+                (month) =>
+                    month.income > 0
+                        ? Number(Math.max(0, (month.savings / month.income) * 100).toFixed(2))
+                        : 0,
+                monthlyData,
+            ),
+        [allMonthlyData, monthlyData, data],
+    );
+
+    const { isForecastVisible, toggleForecast, plottedRuns } = useChartForecast({
+        chartId: "savings-rate",
+        points: seriesPoints,
+    });
+
+    const chartData = useMemo(() => {
+        if (plottedRuns.length === 0) return data;
+        const overlay = overlayForecasts(
+            data.map((row) => ({
+                month: row.month,
+                formattedMonth: row.formattedMonth,
+                value: row.savingsRate ?? 0,
+            })),
+            plottedRuns,
+        );
+        const byMonth = new Map(data.map((row) => [row.month, row]));
+        return overlay.map((row) => {
+            const observed = byMonth.get(row.month);
+            return {
+                month: row.month,
+                formattedMonth: observed?.formattedMonth ?? row.formattedMonth,
+                savingsRate: row.history,
+                totalIncome: observed?.totalIncome ?? 0,
+                totalExpenses: observed?.totalExpenses ?? 0,
+                savings: observed?.savings ?? 0,
+                incomeCount: observed?.incomeCount ?? 0,
+                expenseCount: observed?.expenseCount ?? 0,
+                averageIncome: observed?.averageIncome ?? 0,
+                averageExpense: observed?.averageExpense ?? 0,
+                isForecast: row.isForecast,
+                ...overlayColumns(row, plottedRuns),
+            };
+        });
+    }, [data, plottedRuns]);
 
     // Calculate average savings rate
     const averageSavingsRate = useMemo(() => {
         if (data.length === 0) return 0;
-        const sum = data.reduce((sum, item) => sum + item.savingsRate, 0);
+        const sum = data.reduce((sum, item) => sum + (item.savingsRate ?? 0), 0);
         const average = sum / data.length;
         return isNaN(average) || !isFinite(average) ? 0 : average;
     }, [data]);
@@ -77,11 +138,41 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
     };
 
     // Enhanced custom tooltip component
-    const CustomTooltip = ({ active, payload, label }: any) => {
+    const CustomTooltip = ({ active, payload }: any) => {
         if (!active || !payload || !payload.length) return null;
 
         const data = payload[0]?.payload as MonthlyData;
         if (!data) return null;
+
+        if (data.isForecast) {
+            const forecastEntries = plottedRuns
+                .map((run) => ({
+                    run,
+                    value: data[forecastSeriesKey(run.modelId)],
+                }))
+                .filter((entry) => typeof entry.value === "number");
+            return (
+                <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-4 min-w-64">
+                    <div className="font-bold text-gray-900 mb-2 text-sm">{data.formattedMonth}</div>
+                    <p className="mb-2 text-xs uppercase tracking-wide text-gray-500">Forecast</p>
+                    {forecastEntries.map(({ run, value }) => (
+                        <div key={run.modelId} className="flex items-center justify-between gap-4 py-0.5 text-sm">
+                            <span className="flex items-center gap-2 text-gray-700">
+                                <span
+                                    aria-hidden="true"
+                                    className="inline-block h-0.5 w-4 rounded-full"
+                                    style={{ backgroundColor: run.colour }}
+                                />
+                                {run.label}
+                            </span>
+                            <span className="tabular-nums font-medium text-gray-900">
+                                {Number(value).toFixed(1)}%
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
 
         const totalTransactions = data.incomeCount + data.expenseCount;
 
@@ -93,7 +184,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                 <div className="flex items-center justify-between mb-3">
                     <span className="font-medium text-blue-600">Savings Rate:</span>
                     <span className="font-bold text-lg text-green-600">
-                        {data.savingsRate.toFixed(1)}%
+                        {(data.savingsRate ?? 0).toFixed(1)}%
                     </span>
                 </div>
 
@@ -183,6 +274,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
 
     // Format data label
     const formatDataLabel = (value: number) => {
+        if (typeof value !== "number" || Number.isNaN(value)) return "";
         if (value <= -100) {
             return "<-100%";
         }
@@ -197,7 +289,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
         ['Month', 'Savings Rate (%)', 'Total Income', 'Total Expenses', 'Net Savings', 'Income Transactions', 'Expense Transactions', 'Total Transactions', 'Avg Income', 'Avg Expense'],
         ...data.map(item => [
             item.formattedMonth,
-            item.savingsRate.toFixed(1),
+            (item.savingsRate ?? 0).toFixed(1),
             item.totalIncome.toString(),
             item.totalExpenses.toString(),
             item.savings.toString(),
@@ -225,7 +317,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                         </div>
                     </div>
                     <p className="text-lg sm:text-xl font-bold text-blue-600">
-                        {data.length === 0 ? '0.0' : (data.reduce((sum, item) => sum + item.savingsRate, 0) / data.length).toFixed(1)}%
+                        {data.length === 0 ? '0.0' : (data.reduce((sum, item) => sum + (item.savingsRate ?? 0), 0) / data.length).toFixed(1)}%
                     </p>
                 </div>
                 <div className="text-center">
@@ -240,7 +332,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                         </div>
                     </div>
                     <p className="text-lg sm:text-xl font-bold text-green-600">
-                        {data.length === 0 ? '0.0' : Math.max(...data.map(item => item.savingsRate)).toFixed(1)}%
+                        {data.length === 0 ? '0.0' : Math.max(...data.map(item => item.savingsRate ?? 0)).toFixed(1)}%
                     </p>
                 </div>
                 <div className="text-center">
@@ -255,7 +347,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                         </div>
                     </div>
                     <p className="text-lg sm:text-xl font-bold text-red-600">
-                        {data.length === 0 ? '0.0' : Math.min(...data.map(item => item.savingsRate)).toFixed(1)}%
+                        {data.length === 0 ? '0.0' : Math.min(...data.map(item => item.savingsRate ?? 0)).toFixed(1)}%
                     </p>
                 </div>
             </div>
@@ -266,7 +358,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
             >
                 <ResponsiveContainer width="100%" height="100%">
                     <LineChart
-                        data={data}
+                        data={chartData}
                         margin={{
                             top: 40,
                             right: 20,
@@ -279,7 +371,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                             dataKey="month" 
                             tickFormatter={formatMonth}
                             tick={{ fontSize: 12 }}
-                            interval={data.length > 10 ? 2 : 0}
+                            interval={chartData.length > 10 ? 2 : 0}
                             dy={10}
                         />
                         <YAxis
@@ -334,6 +426,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                             dot={{ fill: "#3b82f6", r: 4 }}
                             activeDot={{ r: 4 }}
                             name="Savings Rate"
+                            connectNulls={false}
                             label={{
                                 position: 'top',
                                 formatter: formatDataLabel,
@@ -343,6 +436,21 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                                 dx: 1
                                 }}
                         />
+                        {plottedRuns.map((run, index) => (
+                            <Line
+                                key={run.modelId}
+                                type="monotone"
+                                dataKey={forecastSeriesKey(run.modelId)}
+                                stroke={run.colour}
+                                strokeWidth={1.5}
+                                strokeDasharray={index % 2 === 0 ? "5 3" : "2 4"}
+                                dot={{ r: 3, fill: run.colour }}
+                                connectNulls
+                                animationDuration={1500}
+                                animationEasing="ease-in-out"
+                                legendType="none"
+                            />
+                        ))}
                     </LineChart>
                 </ResponsiveContainer>
             </div>
@@ -366,6 +474,12 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                     csvFileName="savings-rate-data"
                     title={totalTransactions > 0 ? `Monthly Savings Rate Trend ${timePeriodText} • ${totalTransactions} transaction${totalTransactions !== 1 ? 's' : ''}` : `Monthly Savings Rate Trend ${timePeriodText}`}
                     tooltipText="Tracks your monthly savings as a percentage of income over time with detailed statistics including transaction counts, averages, and financial breakdowns. Hover over data points for detailed information."
+                    extraControls={
+                        <ForecastToggleButton
+                            isOn={isForecastVisible}
+                            onToggle={toggleForecast}
+                        />
+                    }
                 />
                 <ChartContent />
             </div>

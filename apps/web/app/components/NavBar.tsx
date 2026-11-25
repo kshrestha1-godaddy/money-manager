@@ -8,7 +8,7 @@ import { useTotalBalance } from "../hooks/useTotalBalance";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
-import { Clock } from "lucide-react";
+import { Clock, TrendingUp } from "lucide-react";
 import { NotificationBell } from "./notification/NotificationBell";
 import { CheckinButton } from "./CheckinButton";
 import { formatLockCountdown, useAppLock } from "../providers/AppLockProvider";
@@ -322,6 +322,14 @@ export default function NavBar() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           </svg>
                           Settings
+                        </Link>
+                        <Link
+                          href="/settings/forecast"
+                          onClick={() => setIsProfileDropdownOpen(false)}
+                          className="flex items-center w-full px-6 py-3 mx-2 mt-1 text-sm text-gray-700 hover:bg-gray-50/80 rounded-lg transition-colors"
+                        >
+                          <TrendingUp className="w-4 h-4 mr-4 shrink-0" aria-hidden />
+                          Forecast Settings
                         </Link>
                         <Link
                           href="/passwords"

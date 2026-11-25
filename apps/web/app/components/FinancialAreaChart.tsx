@@ -1,13 +1,21 @@
 "use client";
 
 import { useMemo, useState, useRef } from "react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Income, Expense } from "../types/financial";
 import { formatCurrency } from "../utils/currency";
 import { useChartExpansion } from "../utils/chartUtils";
 import { ChartControls } from "./ChartControls";
 import { createTransactionDayFormatter, getTrailingMonthRange } from "../utils/transaction-calendar";
 import { convertForDisplaySync } from "../utils/currencyDisplay";
+import {
+    ForecastToggleButton,
+    forecastSeriesKey,
+    overlayColumns,
+    overlayForecasts,
+    useChartForecast,
+} from "./forecasting";
+import type { Frequency, TimeSeriesPoint } from "../utils/forecasting";
 
 type FinancialTransaction = Income | Expense;
 
@@ -30,7 +38,7 @@ interface FinancialAreaChartProps {
 
 interface ChartDataPoint {
     date: string;
-    amount: number;
+    amount: number | null;
     formattedDate: string;
     transactionCount: number;
     averageAmount: number;
@@ -38,6 +46,13 @@ interface ChartDataPoint {
     maxAmount: number;
     transactions: Array<{title: string; amount: number; category?: string}>;
     isHighValue: boolean;
+    isForecast?: boolean;
+    [seriesKey: string]: string | number | boolean | null | undefined | Array<{title: string; amount: number; category?: string}>;
+}
+
+function parseLocalDay(isoDate: string): Date {
+    const [year, month, day] = isoDate.split("-").map(Number);
+    return new Date(year ?? 1970, (month ?? 1) - 1, day ?? 1);
 }
 
 export function FinancialAreaChart({
@@ -84,10 +99,9 @@ export function FinancialAreaChart({
     const isDefaultRange = !hasPageFilters && !effectiveStartDate && !effectiveEndDate;
 
     const chartData = useMemo(() => {
-        const defaultStart = new Date(today);
-        defaultStart.setUTCDate(defaultStart.getUTCDate() - 29);
-        const firstDay = isDefaultRange ? defaultStart.toISOString().slice(0, 10) : effectiveStartDate;
-        const lastDay = isDefaultRange ? today : effectiveEndDate;
+        const defaultRange = getTrailingMonthRange(today, 6);
+        const firstDay = isDefaultRange ? defaultRange.start : effectiveStartDate;
+        const lastDay = isDefaultRange ? defaultRange.end : effectiveEndDate;
 
         // Group data by date with enhanced statistics
         const dateMap = new Map<string, {
@@ -199,25 +213,71 @@ export function FinancialAreaChart({
         return chartDataPoints;
     }, [data, currency, activeThresholds, type, today, effectiveStartDate, effectiveEndDate, isDefaultRange, getTransactionDay]);
 
+    const forecastFrequency = useMemo<Frequency>(() => {
+        if (chartData.length < 2) return "daily";
+        const first = parseLocalDay(chartData[0].date).getTime();
+        const second = parseLocalDay(chartData[1].date).getTime();
+        return second - first > 3 * 86_400_000 ? "weekly" : "daily";
+    }, [chartData]);
 
-    const formatTooltip = (value: number) => {
-        return [formatCurrency(value, currency), chartConfig.label];
-    };
+    const seriesPoints = useMemo<TimeSeriesPoint[]>(
+        () =>
+            chartData.map((point) => ({
+                date: parseLocalDay(point.date),
+                value: point.amount ?? 0,
+            })),
+        [chartData],
+    );
 
-    const formatLabel = (label: string) => {
-        // Find the corresponding data point to get the actual date
-        const dataPoint = chartData.find(d => d.formattedDate === label);
-        if (dataPoint) {
-            const date = new Date(dataPoint.date);
-            const weekday = date.toLocaleDateString('en', { weekday: 'short', timeZone: 'UTC' });
-            const month = date.toLocaleDateString('en', { month: 'short', timeZone: 'UTC' });
-            const day = date.getUTCDate();
-            const year = date.getUTCFullYear();
-            return `${weekday}, ${month} ${day}, ${year}`;
+    const { isForecastVisible, toggleForecast, plottedRuns } = useChartForecast({
+        chartId: `${type}-trend`,
+        points: seriesPoints,
+        frequency: forecastFrequency,
+    });
+
+    const plotData = useMemo((): ChartDataPoint[] => {
+        if (plottedRuns.length === 0) return chartData;
+        const overlay = overlayForecasts(
+            chartData.map((row) => ({
+                month: row.date,
+                formattedMonth: row.formattedDate,
+                value: row.amount ?? 0,
+            })),
+            plottedRuns,
+            "day",
+        );
+        const byDate = new Map(chartData.map((row) => [row.date, row]));
+        return overlay.map((row) => {
+            const columns = overlayColumns(row, plottedRuns);
+            const observed = byDate.get(row.month);
+            if (observed && !row.isForecast) return { ...observed, ...columns };
+            return {
+                date: row.month,
+                formattedDate: row.formattedMonth,
+                amount: null,
+                transactionCount: 0,
+                averageAmount: 0,
+                minAmount: 0,
+                maxAmount: 0,
+                transactions: [],
+                isHighValue: false,
+                isForecast: true,
+                ...columns,
+            };
+        });
+    }, [chartData, plottedRuns]);
+
+    const yMax = useMemo(() => {
+        let max = 0;
+        for (const row of plotData) {
+            if (typeof row.amount === "number") max = Math.max(max, row.amount);
+            for (const [key, value] of Object.entries(row)) {
+                if (key.startsWith("fc_") && typeof value === "number") max = Math.max(max, value);
+            }
         }
-        // Fallback if we can't find the data point
-        return label;
-    };
+        return max;
+    }, [plotData]);
+
 
     const formatYAxisTick = (value: number) => {
         if (value >= 1000000) {
@@ -349,7 +409,13 @@ export function FinancialAreaChart({
                 fileName={`${type}-chart`}
                 csvData={csvData}
                 csvFileName={`${type}-data`}
-                title={isDefaultRange ? `${chartConfig.title} (Last 30 Days)` : chartConfig.title}
+                title={isDefaultRange ? `${chartConfig.title} (Last 6 Months)` : chartConfig.title}
+                extraControls={
+                    <ForecastToggleButton
+                        isOn={isForecastVisible}
+                        onToggle={toggleForecast}
+                    />
+                }
             />
             <div className="mb-3 sm:mb-4">
                 <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-gray-50 rounded-lg border">
@@ -357,7 +423,7 @@ export function FinancialAreaChart({
                     <div className="flex flex-wrap items-center gap-1 sm:gap-2">
                         <button
                             onClick={() => handleQuickFilter(1)}
-                            className={getButtonStyle(1, true)} // true indicates this is the default
+                            className={getButtonStyle(1)}
                         >
                             1M
                         </button>
@@ -369,7 +435,7 @@ export function FinancialAreaChart({
                         </button>
                         <button
                             onClick={() => handleQuickFilter(6)}
-                            className={getButtonStyle(6)}
+                            className={getButtonStyle(6, true)}
                         >
                             6M
                         </button>
@@ -423,8 +489,8 @@ export function FinancialAreaChart({
             </div>
             <div ref={chartRef} className={`relative w-full ${isExpanded ? 'h-[70vh]' : 'h-64 sm:h-80'}`}>
                 <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart
-                        data={chartData}
+                    <ComposedChart
+                        data={plotData}
                         margin={{
                             top: 10,
                             right: isExpanded ? 30 : 10,
@@ -434,7 +500,10 @@ export function FinancialAreaChart({
                     >
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                         <XAxis
-                            dataKey="formattedDate"
+                            dataKey="date"
+                            tickFormatter={(value: string) =>
+                                plotData.find((row) => row.date === value)?.formattedDate ?? value
+                            }
                             tick={{ fontSize: isExpanded ? 12 : 10 }}
                             stroke="#666"
                             interval={isExpanded ? 'preserveStartEnd' : 'preserveStart'}
@@ -447,21 +516,57 @@ export function FinancialAreaChart({
                             stroke="#666"
                             tickFormatter={formatYAxisTick}
                             width={isExpanded ? 60 : 45}
+                            domain={[0, yMax > 0 ? yMax * 1.1 : 1]}
                         />
                         <Tooltip
-                            formatter={formatTooltip}
-                            labelFormatter={formatLabel}
                             content={({ active, payload, label }) => {
                                 if (active && payload && payload.length > 0) {
-                                    const dataPoint = chartData.find(d => d.formattedDate === label);
-                                    if (dataPoint) {
+                                    const hovered = payload[0]?.payload as ChartDataPoint | undefined;
+                                    if (hovered?.isForecast) {
+                                        const forecastEntries = plottedRuns
+                                            .map((run) => ({
+                                                run,
+                                                value: hovered[forecastSeriesKey(run.modelId)],
+                                            }))
+                                            .filter((entry) => typeof entry.value === "number");
+                                        return (
+                                            <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-4 min-w-64">
+                                                <div className="font-bold text-gray-900 mb-2 text-sm">
+                                                    {hovered.formattedDate}
+                                                </div>
+                                                <p className="mb-2 text-xs uppercase tracking-wide text-gray-500">
+                                                    {type === "income" ? "Income forecast" : "Expense forecast"}
+                                                </p>
+                                                {forecastEntries.map(({ run, value }) => (
+                                                    <div
+                                                        key={run.modelId}
+                                                        className="flex items-center justify-between gap-4 py-0.5 text-sm"
+                                                    >
+                                                        <span className="flex items-center gap-2 text-gray-700">
+                                                            <span
+                                                                aria-hidden="true"
+                                                                className="inline-block h-0.5 w-4 rounded-full"
+                                                                style={{ backgroundColor: run.colour }}
+                                                            />
+                                                            {run.label}
+                                                        </span>
+                                                        <span className="tabular-nums font-medium text-gray-900">
+                                                            {formatCurrency(Number(value), currency)}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        );
+                                    }
+                                    const dataPoint = plotData.find(d => d.formattedDate === label);
+                                    if (dataPoint && !dataPoint.isForecast) {
                                         const date = new Date(dataPoint.date);
                                         const weekday = date.toLocaleDateString('en', { weekday: 'short', timeZone: 'UTC' });
                                         const month = date.toLocaleDateString('en', { month: 'short', timeZone: 'UTC' });
                                         const day = date.getUTCDate();
                                         const year = date.getUTCFullYear();
                                         const formattedDate = `${weekday}, ${month} ${day}, ${year}`;
-                                        const isWeekly = chartData.length <= 30 ? false : true;
+                                        const isWeekly = forecastFrequency === "weekly";
 
                                         return (
                                             <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-4 min-w-80 max-w-md">
@@ -475,7 +580,7 @@ export function FinancialAreaChart({
                                                         Total {type === 'income' ? 'Income' : 'Expenses'}:
                                                     </span>
                                                     <span className={`font-bold text-lg ${type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                                                        {formatCurrency(dataPoint.amount, currency)}
+                                                        {formatCurrency(dataPoint.amount ?? 0, currency)}
                                                     </span>
                                                 </div>
 
@@ -556,8 +661,24 @@ export function FinancialAreaChart({
                             fillOpacity={0.2}
                             strokeWidth={2}
                             dot={renderCustomDot}
+                            connectNulls={false}
                         />
-                    </AreaChart>
+                        {plottedRuns.map((run, index) => (
+                            <Line
+                                key={run.modelId}
+                                type="monotone"
+                                dataKey={forecastSeriesKey(run.modelId)}
+                                stroke={run.colour}
+                                strokeWidth={1.5}
+                                strokeDasharray={index % 2 === 0 ? "5 3" : "2 4"}
+                                dot={{ r: 3, fill: run.colour }}
+                                connectNulls
+                                animationDuration={1500}
+                                animationEasing="ease-in-out"
+                                legendType="none"
+                            />
+                        ))}
+                    </ComposedChart>
                 </ResponsiveContainer>
                 {chartData.length === 0 && (
                     <p role="status" className="pointer-events-none absolute inset-0 grid place-items-center text-sm text-gray-500">
