@@ -32,12 +32,22 @@ import {
 } from "../actions/networth-history";
 
 const periods = [
+  { value: "mtd", label: "MTD" },
   { value: "30", label: "1M" },
   { value: "60", label: "2M" },
   { value: "90", label: "3M" },
   { value: "180", label: "6M" },
   { value: "365", label: "1Y" },
 ] as const;
+
+function periodRange(period: string): { start: Date; end: Date } {
+  const end = new Date();
+  const start = new Date(end);
+  if (period === "mtd") start.setDate(1);
+  else start.setDate(start.getDate() - Number(period));
+  start.setHours(0, 0, 0, 0);
+  return { start, end };
+}
 const button =
   "inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-teal-500 disabled:opacity-50";
 
@@ -59,7 +69,8 @@ export function NetworthHistoryChart({
   const { currency: userCurrency, currencyRateAnchors } = useCurrency();
   const currency = displayCurrency ?? userCurrency;
   const gradientId = useId().replace(/:/g, "");
-  const [period, setPeriod] = useState("30");
+  const [period, setPeriod] = useState("mtd");
+  const [range, setRange] = useState(() => periodRange("mtd"));
   const [records, setRecords] = useState<NetworthHistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,10 +82,8 @@ export function NetworthHistoryChart({
       setLoading(true);
       setError(null);
       try {
-        const end = new Date();
-        const start = new Date();
-        start.setDate(start.getDate() - Number(period));
-        start.setHours(0, 0, 0, 0);
+        const { start, end } = periodRange(period);
+        setRange({ start, end });
         const result = await getNetworthHistory(start, end, 10000);
         if (!active) return;
         if (!result.success)
@@ -144,10 +153,15 @@ export function NetworthHistoryChart({
     gapFill: "interpolate",
   });
 
+  const dailySeries = useMemo(
+    () => fillDailySnapshots(data, range.start, range.end),
+    [data, range.start, range.end],
+  );
+
   const plotData = useMemo(() => {
-    if (plottedRuns.length === 0) return data;
+    if (plottedRuns.length === 0) return dailySeries;
     const overlay = overlayForecasts(
-      data.map((row) => ({
+      dailySeries.map((row) => ({
         month: String(row.timestamp),
         formattedMonth: formatDate(new Date(row.snapshotDate)),
         value: row.netWorth,
@@ -155,7 +169,7 @@ export function NetworthHistoryChart({
       plottedRuns,
       "day",
     );
-    const byTimestamp = new Map(data.map((row) => [row.timestamp, row]));
+    const byTimestamp = new Map(dailySeries.map((row) => [row.timestamp, row]));
     return overlay.map((row) => {
       const timestamp = overlayTimestamp(row.month, row.isForecast);
       const observed = byTimestamp.get(timestamp);
@@ -169,7 +183,7 @@ export function NetworthHistoryChart({
         ...columns,
       };
     });
-  }, [data, plottedRuns]);
+  }, [dailySeries, plottedRuns]);
 
   const first = data[0];
   const latest = data[data.length - 1];
@@ -179,7 +193,7 @@ export function NetworthHistoryChart({
       ? (change / Math.abs(first.netWorth)) * 100
       : null;
   const comparable = data.length > 1;
-  const trendColor = change < 0 ? "#e11d48" : "#0d9488";
+  const trendColor = change < 0 ? "#ef4444" : "#10b981";
   const compact = (value: number) =>
     `${getCurrencySymbol(currency)}${new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(value)}`;
   const money = (value: number) => formatCurrency(value, currency);
@@ -285,7 +299,7 @@ export function NetworthHistoryChart({
               {money(latest.netWorth)}
             </p>
             <p
-              className={`text-xs font-medium ${change < 0 ? "text-rose-600" : "text-teal-700"}`}
+              className={`text-xs font-medium ${change < 0 ? "text-red-600" : "text-green-600"}`}
             >
               {comparable
                 ? `${change > 0 ? "+" : ""}${money(change)}${percent !== null ? ` (${percent > 0 ? "+" : ""}${percent.toFixed(1)}%)` : ""} over this period`
@@ -316,11 +330,11 @@ export function NetworthHistoryChart({
                     />
                   </linearGradient>
                 </defs>
-                <CartesianGrid vertical={false} stroke="#f1f5f9" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis
                   dataKey="timestamp"
                   type="number"
-                  domain={["dataMin", "dataMax"]}
+                  domain={[range.start.getTime(), range.end.getTime()]}
                   scale="time"
                   tickFormatter={(value) =>
                     new Date(value).toLocaleDateString("en", {
@@ -328,9 +342,9 @@ export function NetworthHistoryChart({
                       day: "numeric",
                     })
                   }
-                  axisLine={false}
+                  axisLine={{ stroke: "#6b7280", strokeWidth: 1 }}
                   tickLine={false}
-                  tick={{ fontSize: 11, fill: "#94a3b8" }}
+                  tick={{ fontSize: 11, fill: "#6b7280" }}
                   minTickGap={45}
                   dy={10}
                 />
@@ -338,9 +352,9 @@ export function NetworthHistoryChart({
                   domain={domain}
                   tickFormatter={compact}
                   width={76}
-                  axisLine={false}
+                  axisLine={{ stroke: "#6b7280", strokeWidth: 1 }}
                   tickLine={false}
-                  tick={{ fontSize: 11, fill: "#94a3b8" }}
+                  tick={{ fontSize: 11, fill: "#6b7280" }}
                   tickCount={5}
                 />
                 {comparable && (
@@ -390,30 +404,62 @@ export function NetworthHistoryChart({
                       );
                     }
                     const history = point as (typeof data)[number];
+                    const parts = [
+                      {
+                        label: "Banks",
+                        value: history.totalAccountBalance,
+                        color: "#10b981",
+                      },
+                      {
+                        label: "Investments",
+                        value: history.totalInvestmentValue,
+                        color: "#3b82f6",
+                      },
+                      {
+                        label: "Money lent",
+                        value: history.totalMoneyLent,
+                        color: "#ef4444",
+                      },
+                    ];
+                    const netWorth = history.netWorth;
                     return (
-                      <div className="min-w-56 rounded-xl border border-slate-200 bg-white p-4 text-xs shadow-lg">
+                      <div className="min-w-64 rounded-xl border border-slate-200 bg-white p-4 text-xs shadow-lg">
                         <p className="mb-3 text-slate-500">
                           {formatDate(new Date(history.snapshotDate))} ·{" "}
                           {history.recordType === "MANUAL"
                             ? "Manual"
                             : "Automatic"}
                         </p>
-                        {[
-                          ["Net worth", history.netWorth],
-                          ["Bank balance", history.totalAccountBalance],
-                          ["Investments", history.totalInvestmentValue],
-                          ["Money lent", history.totalMoneyLent],
-                        ].map(([label, value]) => (
-                          <div
-                            key={label}
-                            className="flex justify-between gap-6 py-1"
-                          >
-                            <span className="text-slate-500">{label}</span>
-                            <span className="font-semibold text-slate-900">
-                              {money(Number(value))}
-                            </span>
-                          </div>
-                        ))}
+                        {parts.map((part) => {
+                          const share =
+                            netWorth > 0 ? (part.value / netWorth) * 100 : 0;
+                          return (
+                            <div
+                              key={part.label}
+                              className="flex items-center justify-between gap-6 py-1"
+                            >
+                              <span className="flex items-center gap-2 text-slate-500">
+                                <span
+                                  className="h-2 w-2 rounded-sm"
+                                  style={{ backgroundColor: part.color }}
+                                />
+                                {part.label}
+                              </span>
+                              <span className="font-semibold text-slate-900">
+                                {money(part.value)}
+                                <span className="ml-2 font-normal text-slate-500">
+                                  {share.toFixed(1)}%
+                                </span>
+                              </span>
+                            </div>
+                          );
+                        })}
+                        <div className="mt-2 flex justify-between border-t border-slate-100 pt-2">
+                          <span className="text-slate-500">Net worth</span>
+                          <span className="font-semibold text-slate-900">
+                            {money(netWorth)}
+                          </span>
+                        </div>
                       </div>
                     );
                   }}
@@ -516,6 +562,52 @@ export function NetworthHistoryChart({
       )}
     </section>
   );
+}
+
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function fillDailySnapshots<T extends { timestamp: number; snapshotDate: Date | string }>(
+  snapshots: readonly T[],
+  from: Date,
+  to: Date,
+): T[] {
+  if (snapshots.length === 0) return [];
+  const ordered = [...snapshots].sort((left, right) => left.timestamp - right.timestamp);
+  const first = ordered[0];
+  if (first === undefined) return [];
+
+  const byDay = new Map<number, T[]>();
+  for (const snapshot of ordered) {
+    const day = startOfDay(new Date(snapshot.timestamp)).getTime();
+    const group = byDay.get(day) ?? [];
+    group.push(snapshot);
+    byDay.set(day, group);
+  }
+
+  const rows: T[] = [];
+  let previous = first;
+  const firstDay = startOfDay(new Date(first.timestamp));
+  const cursor = new Date(Math.max(startOfDay(from).getTime(), firstDay.getTime()));
+  const lastDay = startOfDay(to);
+
+  while (cursor.getTime() <= lastDay.getTime()) {
+    const recordings = byDay.get(cursor.getTime());
+    if (recordings && recordings.length > 0) {
+      previous = recordings[recordings.length - 1] ?? previous;
+      rows.push(...recordings);
+    } else {
+      rows.push({
+        ...previous,
+        timestamp: cursor.getTime(),
+        snapshotDate: new Date(cursor.getTime()).toISOString(),
+      });
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return rows;
 }
 
 function overlayTimestamp(key: string, isForecast: boolean): number {

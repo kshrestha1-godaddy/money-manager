@@ -198,7 +198,7 @@ export default function NetWorthPage() {
       `net_worth_${displayCurrency}_${new Date().toISOString().slice(0, 10)}`,
     );
   };
-  const colors = ["#0d9488", "#6366f1", "#ef4444"];
+  const colors = ["#10b981", "#3b82f6", "#ef4444"];
   async function refresh() {
     setIsRefreshing(true);
     setChartRefreshTrigger((value) => value + 1);
@@ -282,12 +282,12 @@ export default function NetWorthPage() {
           className={`${panel} grid grid-cols-1 gap-6 divide-y divide-slate-100 p-5 sm:grid-cols-2 sm:gap-0 sm:divide-x sm:divide-y-0 sm:p-7`}
         >
           <div className="min-w-0 sm:pr-5">
-            <span className="mb-4 flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+            <span className="mb-4 flex h-9 w-9 items-center justify-center rounded-xl bg-green-50 text-green-600">
               <ArrowUpRight size={19} />
             </span>
             <p className="text-xs text-slate-500">This month’s net cash flow</p>
             <p
-              className={`mt-2 break-words text-xl font-semibold ${stats.thisMonthNetIncome < 0 ? "text-rose-600" : "text-teal-700"}`}
+              className={`mt-2 break-words text-xl font-semibold ${stats.thisMonthNetIncome < 0 ? "text-red-600" : "text-green-600"}`}
             >
               {money(stats.thisMonthNetIncome)}
             </p>
@@ -308,7 +308,7 @@ export default function NetWorthPage() {
               <div className="flex flex-wrap justify-between gap-2">
                 <dt className="text-slate-500">Income saved</dt>
                 <dd
-                  className={`font-medium tabular-nums ${stats.thisMonthNetIncome < 0 ? "text-rose-600" : "text-teal-700"}`}
+                  className={`font-medium tabular-nums ${stats.thisMonthNetIncome < 0 ? "text-red-600" : "text-green-600"}`}
                 >
                   {stats.thisMonthIncome > 0
                     ? `${((stats.thisMonthNetIncome / stats.thisMonthIncome) * 100).toFixed(1)}%`
@@ -318,12 +318,12 @@ export default function NetWorthPage() {
             </dl>
           </div>
           <div className="min-w-0 pt-6 sm:pl-5 sm:pt-0">
-            <span className="mb-4 flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+            <span className="mb-4 flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
               <TrendingUp size={19} />
             </span>
             <p className="text-xs text-slate-500">Investment return</p>
             <p
-              className={`mt-2 break-words text-xl font-semibold ${stats.totalInvestmentGain < 0 ? "text-rose-600" : "text-teal-700"}`}
+              className={`mt-2 break-words text-xl font-semibold ${stats.totalInvestmentGain < 0 ? "text-red-600" : "text-blue-600"}`}
             >
               {money(stats.totalInvestmentGain)}
             </p>
@@ -348,7 +348,7 @@ export default function NetWorthPage() {
               </div>
               <div className="flex flex-wrap justify-between gap-2">
                 <dt className="text-slate-500">Share of assets</dt>
-                <dd className="font-medium tabular-nums text-indigo-600">
+                <dd className="font-medium tabular-nums text-blue-600">
                   {stats.investmentAllocation.toFixed(1)}%
                 </dd>
               </div>
@@ -389,21 +389,21 @@ export default function NetWorthPage() {
                 margin={{ top: 32, right: 8, bottom: 8, left: 0 }}
                 barCategoryGap="8%"
               >
-                <CartesianGrid vertical={false} stroke="#f1f5f9" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis
                   dataKey="name"
-                  axisLine={false}
+                  axisLine={{ stroke: "#6b7280", strokeWidth: 1 }}
                   tickLine={false}
-                  tick={{ fontSize: 12, fill: "#64748b" }}
+                  tick={{ fontSize: 12, fill: "#6b7280" }}
                   interval={0}
                   tickFormatter={(name: string) => name === "Bank Balance" ? "Banks" : name === "Money Lent" ? "Lent" : name}
                   dy={8}
                 />
                 <YAxis
-                  axisLine={false}
+                  axisLine={{ stroke: "#6b7280", strokeWidth: 1 }}
                   tickLine={false}
                   width={64}
-                  tick={{ fontSize: 11, fill: "#94a3b8" }}
+                  tick={{ fontSize: 11, fill: "#6b7280" }}
                   tickFormatter={(value) =>
                     new Intl.NumberFormat("en", {
                       style: "currency",
@@ -413,32 +413,19 @@ export default function NetWorthPage() {
                     }).format(Number(value))
                   }
                 />
-                <ReferenceLine y={0} stroke="#cbd5e1" />
-                {chartData.map((item, index) => (
-                  <ReferenceLine
-                    key={`reference-${item.name}`}
-                    y={convertForDisplaySync(
-                      item.value,
-                      currency,
-                      displayCurrency,
-                    )}
-                    stroke={colors[index]}
-                    strokeDasharray="5 4"
-                    strokeOpacity={0.5}
-                  />
-                ))}
+                <ReferenceLine y={0} stroke="#d1d5db" />
                 <Tooltip
-                  cursor={{ fill: "#f8fafc" }}
+                  cursor={{ fill: "#f9fafb" }}
                   content={({ active, payload }) => {
                     const item = payload?.[0]?.payload;
                     if (!active || !item) return null;
                     return (
-                      <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm shadow-lg">
-                        <p className="text-slate-500">{item.name}</p>
-                        <p className="mt-1 font-semibold text-slate-900">
+                      <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm shadow-lg">
+                        <p className="text-gray-500">{item.name}</p>
+                        <p className="mt-1 font-semibold text-gray-900">
                           {formatCurrency(item.value, displayCurrency)}
                         </p>
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="mt-1 text-xs text-gray-500">
                           {item.percentage}% of included assets
                         </p>
                       </div>
@@ -447,7 +434,7 @@ export default function NetWorthPage() {
                 />
                 <Bar
                   dataKey="value"
-                  radius={[6, 6, 0, 0]}
+                  radius={[4, 4, 0, 0]}
                   maxBarSize={480}
                   isAnimationActive={false}
                 >
@@ -462,9 +449,9 @@ export default function NetWorthPage() {
                       const { x, y, width, height } = viewBox;
                       if (x == null || y == null || !width || height == null) return null;
 
-                      const inside = Math.abs(height) >= 36;
+                      const inside = Math.abs(height) >= 56;
                       const centerX = x + width / 2;
-                      const centerY = inside ? y + height / 2 : Math.min(y, y + height) - 18;
+                      const centerY = inside ? y + height / 2 : Math.min(y, y + height) - 32;
                       const amount = money(item.value);
                       const availableWidth = Math.max(1, width - 8);
 
@@ -473,15 +460,15 @@ export default function NetWorthPage() {
                           x={centerX}
                           y={centerY}
                           textAnchor="middle"
-                          fill={inside ? "#fff" : "#334155"}
+                          fill={inside ? "#fff" : "#374151"}
                           fontSize={12}
                           fontWeight={600}
                           pointerEvents="none"
                         >
-                          <tspan x={centerX} dy={-3}>{item.percentage}%</tspan>
+                          <tspan x={centerX} dy={-12}>{item.percentage}%</tspan>
                           <tspan
                             x={centerX}
-                            dy={15}
+                            dy={28}
                             textLength={amount.length * 8 > availableWidth ? availableWidth : undefined}
                             lengthAdjust="spacingAndGlyphs"
                           >
@@ -495,39 +482,6 @@ export default function NetWorthPage() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          {chartData.map((item, index) => (
-            <button
-              key={item.name}
-              onClick={() => {
-                const key = sections[index]?.key as SectionKey;
-                setExpandedSections((previous) => ({
-                  ...previous,
-                  [key]: true,
-                }));
-                document
-                  .getElementById(`worth-${key}`)
-                  ?.scrollIntoView({ behavior: "smooth", block: "start" });
-              }}
-              className="rounded-xl bg-slate-50 p-4 text-left transition hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-teal-500"
-            >
-              <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
-                <span className="flex items-center gap-2">
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ backgroundColor: colors[index] }}
-                  />
-                  {item.name}
-                </span>
-                <span>{item.percentage}%</span>
-              </div>
-              <p className="mt-2 break-words text-xl font-semibold tracking-tight">
-                {money(item.value)}
-              </p>
-              <p className="mt-2 text-xs text-slate-400">View details ↗</p>
-            </button>
-          ))}
         </div>
       </section>
 
