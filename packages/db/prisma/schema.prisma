@@ -115,7 +115,7 @@ model Category {
   color String @default("#6366f1")
   icon String?
   includedInBudget Boolean @default(true)
-  showAsExpenseTab Boolean @default(false)
+  showAsTransactionTab Boolean @default(false)
   user User @relation(fields: [userId], references: [id])
   userId Int
   expenses Expense[]
