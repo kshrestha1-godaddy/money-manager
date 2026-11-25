@@ -170,19 +170,26 @@ export function NetworthHistoryChart({
       "day",
     );
     const byTimestamp = new Map(dailySeries.map((row) => [row.timestamp, row]));
-    return overlay.map((row) => {
-      const timestamp = overlayTimestamp(row.month, row.isForecast);
-      const observed = byTimestamp.get(timestamp);
-      const columns = overlayColumns(row, plottedRuns);
-      if (observed && !row.isForecast) return { ...observed, ...columns };
-      return {
-        timestamp,
-        snapshotDate: new Date(timestamp).toISOString(),
-        netWorth: null as number | null,
-        isForecast: true,
-        ...columns,
-      };
-    });
+    const lastHistoryTs = dailySeries[dailySeries.length - 1]?.timestamp ?? 0;
+    return overlay
+      .map((row) => {
+        const timestamp = overlayTimestamp(row.month, row.isForecast);
+        const observed = byTimestamp.get(timestamp);
+        const columns = overlayColumns(row, plottedRuns);
+        if (observed && !row.isForecast) return { ...observed, ...columns };
+        return {
+          timestamp,
+          snapshotDate: new Date(timestamp).toISOString(),
+          netWorth: null as number | null,
+          isForecast: true,
+          ...columns,
+        };
+      })
+      .filter(
+        (row) =>
+          !("isForecast" in row && row.isForecast) || row.timestamp > lastHistoryTs,
+      )
+      .sort((left, right) => left.timestamp - right.timestamp);
   }, [dailySeries, plottedRuns]);
 
   const first = data[0];
