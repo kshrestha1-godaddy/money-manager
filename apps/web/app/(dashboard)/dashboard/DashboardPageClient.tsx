@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
+import { useCurrency } from "../../providers/CurrencyProvider";
 import { ChartDataProvider } from "../../hooks/useChartDataContext";
 import { ChartAnimationProvider } from "../../hooks/useChartAnimationContext";
 import { financialItemsQuery } from "../../hooks/financial-items-query";
@@ -21,6 +22,7 @@ const loadingText = LOADING_COLORS.text;
 
 export default function DashboardPageClient() {
   const { displayCurrency } = useDisplayCurrency();
+  const { isRatesLoading } = useCurrency();
   const pageContainer = CONTAINER_COLORS.page;
 
   const incomesQuery = useQuery(financialItemsQuery("INCOME", getIncomes));
@@ -55,7 +57,7 @@ export default function DashboardPageClient() {
     setAllTime,
   } = useDashboardFilters();
 
-  if (incomesQuery.isPending || expensesQuery.isPending) {
+  if (incomesQuery.isPending || expensesQuery.isPending || isRatesLoading) {
     return (
       <div className={loadingContainer} role="status">
         <div className={loadingSpinner} aria-hidden="true" />

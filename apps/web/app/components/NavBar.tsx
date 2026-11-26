@@ -10,17 +10,30 @@ import { Clock, TrendingUp } from "lucide-react";
 import { NotificationBell } from "./notification/NotificationBell";
 import { CheckinButton } from "./CheckinButton";
 import { useDisplayCurrency } from "../hooks/useDisplayCurrency";
+import { useCurrency } from "../providers/CurrencyProvider";
 import { PageRefreshButton } from "./PageRefreshButton";
 import { formatLockCountdown, useAppLock } from "../providers/AppLockProvider";
+
+function formatRate(value: number): string {
+  if (!Number.isFinite(value)) return "—";
+  return value.toLocaleString(undefined, {
+    maximumFractionDigits: value >= 10 ? 2 : 4,
+    minimumFractionDigits: 0,
+  });
+}
 
 export default function NavBar() {
   const { data: session, status } = useSession();
   const pathname = usePathname();
   const { displayCurrency: selectedCurrency, setDisplayCurrency } = useDisplayCurrency();
+  const { currencyRateAnchors, isRatesLoading } = useCurrency();
   const { isUnlocked, remainingMs, lockNow, refreshLockTimer } = useAppLock();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const currentDate = new Date();
+  const inrToNpr = currencyRateAnchors.inrToNpr;
+  const nprPerUsd = currencyRateAnchors.nprPerUsd;
+  const inrPerUsd = nprPerUsd / inrToNpr;
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -98,30 +111,42 @@ export default function NavBar() {
           <div className="flex-1"></div>
         )}
 
-        {/* Center: User Name and Date */}
+        {/* Center: User Name, Date, and FX rates */}
         {status === "authenticated" && (
-          <div className="flex items-center justify-center flex-1 flex-col">
+          <div className="flex items-center justify-center flex-1 flex-col min-w-0 px-4">
             <span className="text-lg font-semibold text-gray-900">
               {session?.user?.name}
             </span>
             <div className="text-sm text-gray-600">
               <span className="font-medium">{formatDate(currentDate)}</span>
             </div>
-            {/* <div className="flex items-center">
-              {balanceLoading ? (
-                <span className="text-sm text-gray-500">Loading balance...</span>
+            <div
+              className="mt-1 flex max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-[11px] tabular-nums text-gray-500"
+              title="Personal exchange rates used for display conversion"
+              aria-label="Currency conversion rates"
+            >
+              {isRatesLoading ? (
+                <span>Loading rates…</span>
               ) : (
-                <span className="text-sm font-medium text-green-600">
-                  Balance: {formatAmount(totalBalance, accountCurrency)}
-                </span>
+                <>
+                  <span>1 USD = {formatRate(nprPerUsd)} NPR</span>
+                  <span className="text-gray-300" aria-hidden>
+                    ·
+                  </span>
+                  <span>1 USD = {formatRate(inrPerUsd)} INR</span>
+                  <span className="text-gray-300" aria-hidden>
+                    ·
+                  </span>
+                  <span>1 INR = {formatRate(inrToNpr)} NPR</span>
+                </>
               )}
-            </div> */}
+            </div>
           </div>
         )}
 
         {/* Right side: Calendar, Check-in, Currency, Logout and Profile Icon */}
         <div className="flex items-center space-x-4 flex-shrink-0 pr-4">
-          <PageRefreshButton />
+          {pathname !== "/worth" && pathname !== "/scheduled-payments" && <PageRefreshButton />}
           {isUnlocked && (
             <div className="hidden lg:flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5">
               <span className="text-xs font-semibold text-blue-700">

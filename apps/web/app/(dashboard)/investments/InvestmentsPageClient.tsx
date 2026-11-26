@@ -4,7 +4,6 @@ import { FilterMultiselect } from "../../components/shared/FilterMultiselect";
 import { cn } from "@/lib/utils";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useQueryClient } from '@tanstack/react-query';
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { InvestmentTable } from "./components/InvestmentTable";
 import { AddInvestmentModal } from "./components/AddInvestmentModal";
@@ -414,8 +413,6 @@ export default function InvestmentsPageClient() {
             <p className={pageSubtitle}>Track your investment portfolio and performance</p>
           </div>
           <div className={UI_STYLES.header.buttonGroup}>
-                        <Link href="/stocks" className={secondaryBlueButton}>Stocks dashboard</Link>
-            <Link href="/sip" className={secondaryBlueButton}>SIP dashboard</Link>
             <button onClick={() => openModal('add')} className={primaryButton}>Add Investment</button>
             <button style={{ display: "none" }} onClick={() => openModal('import')} className={secondaryBlueButton}>Import CSV</button>
             <button style={{ display: "none" }} onClick={handleCombinedExportToCSV} className={secondaryGreenButton} disabled={filteredInvestments.length === 0 && (!targetProgress || targetProgress.length === 0)}>Export CSV</button>

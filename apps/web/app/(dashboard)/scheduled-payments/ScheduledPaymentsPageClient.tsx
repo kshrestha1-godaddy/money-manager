@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { triggerBalanceRefresh } from "../../hooks/useTotalBalance";
-import { ChevronDown, ChevronRight, Download, RefreshCw, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, Trash2 } from "lucide-react";
 import { PasswordGatedButton } from "@repo/applock";
 import {
   getScheduledPayments,
@@ -524,19 +524,6 @@ export default function ScheduledPaymentsPageClient() {
           <h1 className="sr-only">Scheduled payments</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-                    <button
-            type="button"
-            onClick={() => void refreshPayments()}
-            disabled={isRefreshing}
-            className={`${secondaryOutlineButton} inline-flex items-center gap-2 disabled:opacity-50`}
-            aria-busy={isRefreshing}
-          >
-            <RefreshCw
-              className={`h-4 w-4 shrink-0 ${isRefreshing ? "animate-spin" : ""}`}
-              aria-hidden
-            />
-            Refresh
-          </button>
           <button
             type="button"
             onClick={() => {

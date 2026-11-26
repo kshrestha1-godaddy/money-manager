@@ -8,7 +8,7 @@ import { InvestmentInterface } from "../../../types/investments";
 import { DebtInterface } from "../../../types/debts";
 import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { formatCurrency as formatMoney } from "../../../utils/currency";
-import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import { convertTransactionForDisplaySync } from "../../../utils/currencyDisplay";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { useOptimizedInvestments } from "../../investments/hooks/useOptimizedInvestments";
 import { useOptimizedDebts } from "../../../hooks/useOptimizedDebts";
@@ -101,16 +101,14 @@ export function SimplePDFReportGenerator() {
         return 'All Time';
     };
 
-    // Calculate financial summaries (with currency conversion)
+    // Calculate financial summaries (prefer ledger currency snapshots)
     const calculateFinancialSummary = (): FinancialSummary => {
         const totalIncome = incomes.reduce((sum, income) => {
-            const convertedAmount = convertForDisplaySync(income.amount, income.currency, currency);
-            return sum + convertedAmount;
+            return sum + convertTransactionForDisplaySync(income, currency);
         }, 0);
 
         const totalExpenses = expenses.reduce((sum, expense) => {
-            const convertedAmount = convertForDisplaySync(expense.amount, expense.currency, currency);
-            return sum + convertedAmount;
+            return sum + convertTransactionForDisplaySync(expense, currency);
         }, 0);
 
         const netIncome = totalIncome - totalExpenses;
@@ -118,14 +116,14 @@ export function SimplePDFReportGenerator() {
 
         const expenseCategories = expenses.reduce((acc, expense) => {
             const categoryName = expense.category.name;
-            const convertedAmount = convertForDisplaySync(expense.amount, expense.currency, currency);
+            const convertedAmount = convertTransactionForDisplaySync(expense, currency);
             acc[categoryName] = (acc[categoryName] || 0) + convertedAmount;
             return acc;
         }, {} as Record<string, number>);
 
         const incomeCategories = incomes.reduce((acc, income) => {
             const categoryName = income.category.name;
-            const convertedAmount = convertForDisplaySync(income.amount, income.currency, currency);
+            const convertedAmount = convertTransactionForDisplaySync(income, currency);
             acc[categoryName] = (acc[categoryName] || 0) + convertedAmount;
             return acc;
         }, {} as Record<string, number>);

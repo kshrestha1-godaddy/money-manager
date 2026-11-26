@@ -95,13 +95,64 @@ export async function convertMultipleForDisplay<T extends { amount: number; curr
 }
 
 /**
- * Sync version of currency conversion using static rates
- * Supports USD, INR, and NPR conversions
+ * Sync version of currency conversion using static rates.
+ * Supports USD, INR, and NPR. Returns the original amount if conversion fails
+ * (bad/missing codes) so chart aggregations do not crash.
  */
 export function convertForDisplaySync(
     amount: number,
     storedCurrency: string,
     userCurrency: string
 ): number {
-    return convertCurrencySync(amount, storedCurrency, userCurrency);
+    try {
+        return convertCurrencySync(amount, storedCurrency, userCurrency);
+    } catch (error) {
+        console.warn(
+            `Failed to convert ${amount} from ${storedCurrency} to ${userCurrency}:`,
+            error
+        );
+        return amount;
+    }
+}
+
+export interface DisplayConvertibleAmount {
+    amount: number;
+    currency: string;
+    accountAmount?: number | null;
+    accountCurrency?: string | null;
+}
+
+/**
+ * Prefer the ledger snapshot (accountAmount in accountCurrency) so historical
+ * bookings stay fixed when user rates change. Only the account→display leg
+ * uses live rates. Falls back to native amount/currency when no snapshot.
+ */
+export function convertTransactionForDisplaySync(
+    transaction: DisplayConvertibleAmount,
+    displayCurrency: string
+): number {
+    if (
+        transaction.accountAmount != null &&
+        transaction.accountCurrency
+    ) {
+        return convertForDisplaySync(
+            transaction.accountAmount,
+            transaction.accountCurrency,
+            displayCurrency
+        );
+    }
+
+    return convertForDisplaySync(
+        transaction.amount,
+        transaction.currency,
+        displayCurrency
+    );
+}
+
+/** True when the row should count toward transaction totals (excludes zero-amount transfers). */
+export function hasNonZeroTransactionAmount(
+    transaction: DisplayConvertibleAmount
+): boolean {
+    if (transaction.accountAmount != null) return transaction.accountAmount !== 0;
+    return transaction.amount !== 0;
 }

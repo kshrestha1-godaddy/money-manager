@@ -4,6 +4,7 @@ import React, { useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, LabelList, TooltipProps } from "recharts";
 import { Info } from "lucide-react";
 import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
+import { hasNonZeroTransactionAmount } from "../../../utils/currencyDisplay";
 import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import { useChartData } from "../../../hooks/useChartDataContext";
@@ -39,10 +40,10 @@ export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency: curre
 
     const timePeriodText = formatTimePeriod();
 
-    // Calculate detailed statistics
-    const incomeCount = filteredIncomes.length;
-    const expenseCount = filteredExpenses.length;
-    const totalTransactions = incomeCount + expenseCount;
+    // Calculate detailed statistics (exclude zero-amount transfers)
+    const incomeCount = filteredIncomes.filter(hasNonZeroTransactionAmount).length;
+    const expenseCount = filteredExpenses.filter(hasNonZeroTransactionAmount).length;
+    const totalTransactions = totals.count;
     const averageIncome = incomeCount > 0 ? totalIncome / incomeCount : 0;
     const averageExpense = expenseCount > 0 ? totalExpenses / expenseCount : 0;
     const totalFlow = totalIncome + totalExpenses;

@@ -432,7 +432,7 @@ export function TransactionPDFReportGenerator({
     };
 
     return (
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4" style={{ display: "none" }}>
             <button
                 onClick={generateReport}
                 disabled={isGenerating || transactions.length === 0}

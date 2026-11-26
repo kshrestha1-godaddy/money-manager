@@ -4,7 +4,10 @@ import React, { useRef, useEffect, useMemo } from "react";
 import { formatCurrency } from "../../../utils/currency";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { ChartControls } from "../../../components/ChartControls";
-import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import {
+    convertTransactionForDisplaySync,
+    hasNonZeroTransactionAmount,
+} from "../../../utils/currencyDisplay";
 
 import { useChartAnimationState } from "../../../hooks/useChartAnimationContext";
 
@@ -63,8 +66,10 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency:
         
         // Group data by category with detailed statistics (with currency conversion)
         filteredIncomes.forEach(item => {
+            if (!hasNonZeroTransactionAmount(item)) return;
+
             const categoryName = item.category?.name || 'Unknown Category';
-            const convertedAmount = convertForDisplaySync(item.amount, item.currency, currency);
+            const convertedAmount = convertTransactionForDisplaySync(item, currency);
             const transactionDate = new Date(item.date);
             
             const existingStats = categoryStatsMap.get(categoryName);

@@ -4,7 +4,10 @@ import React, { useRef, useEffect, useMemo } from "react";
 import { formatCurrency } from "../../../utils/currency";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { ChartControls } from "../../../components/ChartControls";
-import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import {
+    convertTransactionForDisplaySync,
+    hasNonZeroTransactionAmount,
+} from "../../../utils/currencyDisplay";
 import { useChartAnimationState } from "../../../hooks/useChartAnimationContext";
 import { loadGoogleCharts } from "../../../utils/googleCharts";
 import { useDisplayCurrency, useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
@@ -22,7 +25,7 @@ interface SankeyFlowData {
     count: number;
     average: number;
     percentage: number;
-    type: 'income' | 'expense' | 'savings' | 'flow';
+    type: 'income' | 'expense' | 'savings' | 'deficit' | 'flow';
     subCategories?: Array<{
         name: string;
         amount: number;
@@ -55,7 +58,7 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
     
     // Simple minimal color palette
     const getMinimalColor = useMemo(() => {
-        return (type: 'income' | 'expense' | 'savings' | 'central') => {
+        return (type: 'income' | 'expense' | 'savings' | 'deficit' | 'central') => {
             switch (type) {
                 case 'income':
                     return '#10b981'; // emerald-500 - consistent green for all income
@@ -63,6 +66,8 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
                     return '#6b7280'; // gray-500 - consistent gray for all expenses
                 case 'savings':
                     return '#8b5cf6'; // violet-500 - consistent purple for savings
+                case 'deficit':
+                    return '#f97316'; // orange-500 - overspend / deficit inflow
                 case 'central':
                     return '#e2e8f0'; // slate-200 - light gray for central node
                 default:
@@ -79,7 +84,7 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
         // Process income categories
         filteredIncomes.forEach(income => {
             const categoryName = income.category?.name || 'Unknown Income';
-            const convertedAmount = convertForDisplaySync(income.amount, income.currency, currency || 'USD');
+            const convertedAmount = convertTransactionForDisplaySync(income, currency || 'USD');
             
             if (!incomeCategories.has(categoryName)) {
                 incomeCategories.set(categoryName, {
@@ -93,13 +98,13 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
             
             const stats = incomeCategories.get(categoryName)!;
             stats.totalAmount += convertedAmount;
-            stats.count += 1;
+            if (hasNonZeroTransactionAmount(income)) stats.count += 1;
         });
 
         // Process expense categories
         filteredExpenses.forEach(expense => {
             const categoryName = expense.category?.name || 'Unknown Expense';
-            const convertedAmount = convertForDisplaySync(expense.amount, expense.currency, currency || 'USD');
+            const convertedAmount = convertTransactionForDisplaySync(expense, currency || 'USD');
             
             if (!expenseCategories.has(categoryName)) {
                 expenseCategories.set(categoryName, {
@@ -113,7 +118,7 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
             
             const stats = expenseCategories.get(categoryName)!;
             stats.totalAmount += convertedAmount;
-            stats.count += 1;
+            if (hasNonZeroTransactionAmount(expense)) stats.count += 1;
         });
 
         // Calculate averages and percentages
@@ -236,7 +241,7 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
             });
         }
 
-        // Central node to "Net Savings" (if positive)
+        // Balance the Sankey: surplus leaves Available Funds; deficit feeds it.
         if (totals.savings > 0) {
             const savingsPercentage = totals.income > 0 ? (totals.savings / totals.income) * 100 : 0;
             flows.push({
@@ -247,6 +252,18 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
                 average: totals.savings,
                 percentage: savingsPercentage,
                 type: 'savings'
+            });
+        } else if (totals.savings < 0) {
+            const deficit = Math.abs(totals.savings);
+            const deficitPercentage = totals.expenses > 0 ? (deficit / totals.expenses) * 100 : 0;
+            flows.unshift({
+                from: `Deficit / Overspend | ${formatCurrency(deficit, currency || 'USD')} [${deficitPercentage.toFixed(1)}%]`,
+                to: "Available Funds",
+                size: deficit,
+                count: 1,
+                average: deficit,
+                percentage: deficitPercentage,
+                type: 'deficit'
             });
         }
 
@@ -367,6 +384,8 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
                         nodeColorMap.set(item.to, getMinimalColor('expense'));
                     } else if (item.type === 'savings') {
                         nodeColorMap.set(item.to, getMinimalColor('savings'));
+                    } else if (item.type === 'deficit') {
+                        nodeColorMap.set(item.from, getMinimalColor('deficit'));
                     }
                 });
                 
@@ -391,6 +410,7 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
                             case 'income': return getMinimalColor('income');
                             case 'expense': return getMinimalColor('expense');
                             case 'savings': return getMinimalColor('savings');
+                            case 'deficit': return getMinimalColor('deficit');
                             case 'flow': return getMinimalColor('central');
                             default: return '#374151';
                         }
@@ -400,6 +420,7 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
                         switch (type) {
                             case 'income': return 'Income Source';
                             case 'expense': return 'Expense Category';
+                            case 'deficit': return 'Deficit / Overspend';
                             case 'savings': return 'Net Savings';
                             case 'flow': return 'Cash Flow';
                             default: return 'Transaction';

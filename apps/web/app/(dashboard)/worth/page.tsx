@@ -233,10 +233,6 @@ export default function NetWorthPage() {
           <h1 className="sr-only">Net worth</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-                    <button onClick={refresh} className={button} disabled={isRefreshing}>
-            <RefreshCw size={15} aria-hidden="true" className={isRefreshing ? "animate-spin" : undefined} />
-            {isRefreshing ? "Refreshing…" : "Refresh"}
-          </button>
           <button style={{ display: "none" }} onClick={handleExportCSV} className={button}>
             <Download size={15} />
             Export CSV

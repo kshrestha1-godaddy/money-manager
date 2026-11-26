@@ -39,7 +39,17 @@ export interface Category {
   updatedAt: Date;
 }
 
-export interface Expense {
+/** Ledger snapshot fields frozen at write/backfill time. */
+export interface TransactionCurrencySnapshot {
+  /** Exact amount applied to the linked account ledger (account currency). */
+  accountAmount?: number | null;
+  /** Ledger currency when accountAmount was calculated. */
+  accountCurrency?: string | null;
+  /** accountAmount / native amount at booking time. */
+  appliedExchangeRate?: number | null;
+}
+
+export interface Expense extends TransactionCurrencySnapshot {
   id: number;
   title: string;
   description?: string;
@@ -64,7 +74,7 @@ export interface Expense {
   updatedAt: Date;
 }
 
-export interface Income {
+export interface Income extends TransactionCurrencySnapshot {
   id: number;
   title: string;
   description?: string;

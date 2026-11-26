@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { formatCurrency } from "../../../utils/currency";
+import { convertTransactionForDisplaySync } from "../../../utils/currencyDisplay";
 import {
   useDisplayCurrency,
   useResolvedDisplayCurrency,
@@ -163,7 +164,7 @@ const CHART_COLORS = {
 export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(
   ({ type, currency: currencyProp, title, heightClass }) => {
     const currency = useResolvedDisplayCurrency(currencyProp);
-    const { accountCurrency, toDisplayAmount } = useDisplayCurrency();
+    const { currencyRateVersion } = useDisplayCurrency();
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const {
@@ -247,10 +248,7 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(
             });
 
             const amounts = monthTransactions.map((transaction) =>
-              toDisplayAmount(
-                transaction.amount,
-                transaction.currency || accountCurrency
-              )
+              convertTransactionForDisplaySync(transaction, currency)
             );
             const averageAmount =
               transactionCount > 0 ? monthValue / transactionCount : 0;
@@ -293,8 +291,8 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(
         filteredIncomes,
         filteredExpenses,
         totals,
-        accountCurrency,
-        toDisplayAmount,
+        currency,
+        currencyRateVersion,
       ],
     );
 

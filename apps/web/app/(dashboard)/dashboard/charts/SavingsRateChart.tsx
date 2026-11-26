@@ -52,8 +52,8 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency: c
             const expenseCount = month.expenseCount || 0;
             const averageIncome = incomeCount > 0 ? month.income / incomeCount : 0;
             const averageExpense = expenseCount > 0 ? month.expenses / expenseCount : 0;
-            const savingsRate = month.income > 0 
-                ? Math.max(0, (month.savings / month.income) * 100)
+            const savingsRate = month.income > 0
+                ? (month.savings / month.income) * 100
                 : 0;
 
             return {
@@ -84,7 +84,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency: c
                 data[data.length - 1]?.month,
                 (month) =>
                     month.income > 0
-                        ? Number(Math.max(0, (month.savings / month.income) * 100).toFixed(2))
+                        ? Number(((month.savings / month.income) * 100).toFixed(2))
                         : 0,
                 monthlyData,
             ),
@@ -126,11 +126,12 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency: c
         });
     }, [data, plottedRuns]);
 
-    // Calculate average savings rate
+    // Income-weighted average savings rate (matches period rate: total savings / total income)
     const averageSavingsRate = useMemo(() => {
-        if (data.length === 0) return 0;
-        const sum = data.reduce((sum, item) => sum + (item.savingsRate ?? 0), 0);
-        const average = sum / data.length;
+        const totalIncome = data.reduce((sum, item) => sum + item.totalIncome, 0);
+        const totalSavings = data.reduce((sum, item) => sum + item.savings, 0);
+        if (totalIncome <= 0) return 0;
+        const average = (totalSavings / totalIncome) * 100;
         return isNaN(average) || !isFinite(average) ? 0 : average;
     }, [data]);
 

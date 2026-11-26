@@ -7,7 +7,7 @@ import { useChartData } from "../../../hooks/useChartDataContext";
 import { DEFAULT_LOCATION } from "../../../utils/locationDefaults";
 import type { ExpressionSpecification } from "maplibre-gl";
 import { formatCurrency } from "../../../utils/currency";
-import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import { convertTransactionForDisplaySync } from "../../../utils/currencyDisplay";
 import { useDisplayCurrency, useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface LocationChartProps {
@@ -80,15 +80,13 @@ function hasValidCoordinates(location: { longitude: unknown; latitude: unknown }
 export function LocationChart({ currency: currencyProp, heightClass = "h-[850px]" }: LocationChartProps) {
   const currency = useResolvedDisplayCurrency(currencyProp);
   const { currencyRateVersion } = useDisplayCurrency();
-  const [dateRange, setDateRange] = useState({ start: "", end: "" });
-  const [datePreset, setDatePreset] = useState("All");
   const [mapTheme, setMapTheme] = useState<"light" | "dark">("light");
   const [transactionType, setTransactionType] = useState<"all" | "income" | "expense">("all");
   const [selectedLocation, setSelectedLocation] = useState<{
     coordinates: [number, number];
     locationKey: string;
   } | null>(null);
-  const { filteredIncomes, filteredExpenses } = useChartData();
+  const { filteredIncomes, filteredExpenses, formatTimePeriod } = useChartData();
   const pointColorExpression = useMemo<ExpressionSpecification>(
     () => [
       "match",
@@ -104,37 +102,8 @@ export function LocationChart({ currency: currencyProp, heightClass = "h-[850px]
     []
   );
 
-  const dateFiltered = useMemo(() => {
-    const matchesDate = (value: Date | string) => {
-      const date = new Date(value);
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-      return (!dateRange.start || key >= dateRange.start) && (!dateRange.end || key <= dateRange.end);
-    };
-    return {
-      incomes: filteredIncomes.filter(item => matchesDate(item.date)),
-      expenses: filteredExpenses.filter(item => matchesDate(item.date)),
-    };
-  }, [filteredIncomes, filteredExpenses, dateRange]);
-
-  const applyDatePreset = (preset: string) => {
-    setDatePreset(preset);
-    if (preset === "All") { setDateRange({ start: "", end: "" }); return; }
-    const today = new Date();
-    const start = new Date(today);
-    if (preset === "YTD") start.setMonth(0, 1);
-    else {
-      const months = preset === "1Y" ? 12 : Number.parseInt(preset, 10);
-      start.setDate(1);
-      start.setMonth(start.getMonth() - months);
-      const lastDay = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
-      start.setDate(Math.min(today.getDate(), lastDay));
-    }
-    const day = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    setDateRange({ start: day(start), end: day(today) });
-  };
-
   const locatedTransactions = useMemo<TransactionLocationPoint[]>(() => {
-    const incomeLocations = dateFiltered.incomes
+    const incomeLocations = filteredIncomes
       .filter((income) => hasValidCoordinates(income.transactionLocation))
       .map((income) => {
         const date = new Date(income.date);
@@ -142,7 +111,7 @@ export function LocationChart({ currency: currencyProp, heightClass = "h-[850px]
           id: income.id,
           name: income.title || "Income",
           category: income.category?.name || "Income",
-          displayAmount: convertForDisplaySync(income.amount, income.currency, currency),
+          displayAmount: convertTransactionForDisplaySync(income, currency),
           longitude: Number(income.transactionLocation?.longitude),
           latitude: Number(income.transactionLocation?.latitude),
           type: "income" as const,
@@ -151,7 +120,7 @@ export function LocationChart({ currency: currencyProp, heightClass = "h-[850px]
         };
       });
 
-    const expenseLocations = dateFiltered.expenses
+    const expenseLocations = filteredExpenses
       .filter((expense) => hasValidCoordinates(expense.transactionLocation))
       .map((expense) => {
         const date = new Date(expense.date);
@@ -159,7 +128,7 @@ export function LocationChart({ currency: currencyProp, heightClass = "h-[850px]
           id: expense.id,
           name: expense.title || "Expense",
           category: expense.category?.name || "Expense",
-          displayAmount: convertForDisplaySync(expense.amount, expense.currency, currency),
+          displayAmount: convertTransactionForDisplaySync(expense, currency),
           longitude: Number(expense.transactionLocation?.longitude),
           latitude: Number(expense.transactionLocation?.latitude),
           type: "expense" as const,
@@ -171,14 +140,14 @@ export function LocationChart({ currency: currencyProp, heightClass = "h-[850px]
     return [...incomeLocations, ...expenseLocations].filter(
       (transaction) => Number.isFinite(transaction.latitude) && Number.isFinite(transaction.longitude)
     );
-  }, [dateFiltered, currency, currencyRateVersion]);
+  }, [filteredIncomes, filteredExpenses, currency, currencyRateVersion]);
 
   const transactions = useMemo(
     () => locatedTransactions.filter(item => transactionType === "all" || item.type === transactionType),
     [locatedTransactions, transactionType]
   );
-  const totalTransactions = (transactionType !== "expense" ? dateFiltered.incomes.length : 0)
-    + (transactionType !== "income" ? dateFiltered.expenses.length : 0);
+  const totalTransactions = (transactionType !== "expense" ? filteredIncomes.length : 0)
+    + (transactionType !== "income" ? filteredExpenses.length : 0);
   const mappedIncome = transactions.reduce((sum, item) => sum + (item.type === "income" ? item.displayAmount : 0), 0);
   const mappedExpense = transactions.reduce((sum, item) => sum + (item.type === "expense" ? item.displayAmount : 0), 0);
   const missingLocations = totalTransactions - transactions.length;
@@ -257,25 +226,9 @@ export function LocationChart({ currency: currencyProp, heightClass = "h-[850px]
           ))}
         </div>
       </div>
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
-        <div className="flex flex-wrap gap-1" role="group" aria-label="Location date range">
-          {["All", "1M", "3M", "6M", "1Y", "YTD"].map(preset => (
-            <button key={preset} type="button" onClick={() => applyDatePreset(preset)} aria-pressed={datePreset === preset}
-              className={`rounded-md border px-2.5 py-1.5 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${datePreset === preset ? "border-blue-200 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
-              {preset}
-            </button>
-          ))}
-        </div>
-        <label htmlFor="location-start-date" className="ml-1 text-gray-500">From</label>
-        <input id="location-start-date" type="date" value={dateRange.start} max={dateRange.end || undefined}
-          onChange={event => { setDatePreset("Custom"); setDateRange(previous => ({ ...previous, start: event.target.value })); }}
-          className="min-w-0 rounded-md border border-gray-200 bg-white px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        <label htmlFor="location-end-date" className="text-gray-500">To</label>
-        <input id="location-end-date" type="date" value={dateRange.end} min={dateRange.start || undefined}
-          onChange={event => { setDatePreset("Custom"); setDateRange(previous => ({ ...previous, end: event.target.value })); }}
-          className="min-w-0 rounded-md border border-gray-200 bg-white px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        <span className="text-gray-400">{datePreset === "Custom" ? "Custom dates · " : ""}Within dashboard filters</span>
-      </div>
+      <p className="mb-4 text-xs text-gray-500">
+        Showing locations for the dashboard date range {formatTimePeriod() || "(all selected dates)"}.
+      </p>
       <dl className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { label: "Mapped transactions", value: `${transactions.length} / ${totalTransactions}`, color: "text-gray-900" },

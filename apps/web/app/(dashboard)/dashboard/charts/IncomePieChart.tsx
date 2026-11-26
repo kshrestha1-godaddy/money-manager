@@ -3,7 +3,10 @@
 import React, { useRef, useMemo, useCallback } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { formatCurrency } from "../../../utils/currency";
-import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import {
+    convertTransactionForDisplaySync,
+    hasNonZeroTransactionAmount,
+} from "../../../utils/currencyDisplay";
 import { useDisplayCurrency, useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { ChartControls } from "../../../components/ChartControls";
@@ -25,6 +28,8 @@ interface CategoryData {
     minAmount: number;
     maxAmount: number;
     dateRange: string;
+    earliestDate: Date;
+    latestDate: Date;
 }
 
 interface CategoryStats {
@@ -54,9 +59,11 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency: curre
         const categoryStatsMap = new Map<string, CategoryStats>();
 
         transactions.forEach((transaction) => {
+            if (!hasNonZeroTransactionAmount(transaction)) return;
+
             const categoryName = transaction.category?.name || "Unknown Category";
             const transactionDate = new Date(transaction.date);
-            const amount = convertForDisplaySync(transaction.amount, transaction.currency, currency);
+            const amount = convertTransactionForDisplaySync(transaction, currency);
 
             const existingStats = categoryStatsMap.get(categoryName);
 
@@ -107,6 +114,8 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency: curre
                     minAmount: stats.minAmount,
                     maxAmount: stats.maxAmount,
                     dateRange,
+                    earliestDate: stats.earliestDate,
+                    latestDate: stats.latestDate,
                 };
             })
             .sort((a, b) => b.value - a.value);
@@ -130,22 +139,12 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency: curre
             const othersAverage = othersCount > 0 ? othersValue / othersCount : 0;
             const othersMin = Math.min(...smallCats.map((item) => item.minAmount));
             const othersMax = Math.max(...smallCats.map((item) => item.maxAmount));
-
-            const allDates = smallCats.flatMap((item) => {
-                if (item.dateRange.includes(" - ")) {
-                    const parts = item.dateRange.split(" - ");
-                    const start = parts[0] ? new Date(`${parts[0]} 1, 2000`) : new Date();
-                    const end = parts[1] ? new Date(`${parts[1]} 1, 2000`) : new Date();
-                    return [start, end];
-                }
-                const date = new Date(`${item.dateRange} 1, 2000`);
-                return [date, date];
-            });
-            const validDates = allDates.filter((d) => d instanceof Date && !isNaN(d.getTime()));
-            const othersEarliest =
-                validDates.length > 0 ? new Date(Math.min(...validDates.map((d) => d.getTime()))) : new Date();
-            const othersLatest =
-                validDates.length > 0 ? new Date(Math.max(...validDates.map((d) => d.getTime()))) : new Date();
+            const othersEarliest = new Date(
+                Math.min(...smallCats.map((item) => item.earliestDate.getTime())),
+            );
+            const othersLatest = new Date(
+                Math.max(...smallCats.map((item) => item.latestDate.getTime())),
+            );
             const othersDateRange = formatDateRange(othersEarliest, othersLatest);
 
             aggregated.push({
@@ -158,6 +157,8 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency: curre
                 minAmount: othersMin,
                 maxAmount: othersMax,
                 dateRange: othersDateRange,
+                earliestDate: othersEarliest,
+                latestDate: othersLatest,
             });
         }
 

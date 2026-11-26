@@ -137,7 +137,7 @@ export function DateFilterButtons({
                     onClick={() => handleQuickFilter(1)}
                     className={getButtonStyle(1)}
                 >
-                    Last Month
+                    This Month
                 </button>
                 <button
                     onClick={() => handleQuickFilter(3)}

@@ -17,7 +17,10 @@ import {
 } from "recharts";
 import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
 import { useChartData } from "../../../hooks/useChartDataContext";
-import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import {
+  convertTransactionForDisplaySync,
+  hasNonZeroTransactionAmount,
+} from "../../../utils/currencyDisplay";
 import { ChartControls } from "../../../components/ChartControls";
 import { useDisplayCurrency, useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
@@ -136,6 +139,7 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
 
   const periodLabel = formatTimePeriod();
 
+  // Cumulative income − expense before the selected range (running P&L, not account cash).
   const openingBalance = useMemo(() => {
     const start = timeRange.startDate;
     if (!start) return 0;
@@ -146,30 +150,34 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
     for (const income of rawIncomes) {
       const d = new Date(income.date);
       if (d < boundary) {
-        sum += convertForDisplaySync(income.amount, income.currency, currency);
+        sum += convertTransactionForDisplaySync(income, currency);
       }
     }
     for (const expense of rawExpenses) {
       const d = new Date(expense.date);
       if (d < boundary) {
-        sum -= convertForDisplaySync(expense.amount, expense.currency, currency);
+        sum -= convertTransactionForDisplaySync(expense, currency);
       }
     }
     return sum;
   }, [rawIncomes, rawExpenses, currency, currencyRateVersion, timeRange.startDate]);
 
   const chartData = useMemo(() => {
-    const incomeTransactions: CashflowTransaction[] = filteredIncomes.map((income) => ({
-      monthKey: `${new Date(income.date).getFullYear()}-${String(new Date(income.date).getMonth() + 1).padStart(2, "0")}`,
-      date: new Date(income.date),
-      amount: convertForDisplaySync(income.amount, income.currency, currency),
-    }));
+    const incomeTransactions: CashflowTransaction[] = filteredIncomes
+      .filter(hasNonZeroTransactionAmount)
+      .map((income) => ({
+        monthKey: `${new Date(income.date).getFullYear()}-${String(new Date(income.date).getMonth() + 1).padStart(2, "0")}`,
+        date: new Date(income.date),
+        amount: convertTransactionForDisplaySync(income, currency),
+      }));
 
-    const expenseTransactions: CashflowTransaction[] = filteredExpenses.map((expense) => ({
-      monthKey: `${new Date(expense.date).getFullYear()}-${String(new Date(expense.date).getMonth() + 1).padStart(2, "0")}`,
-      date: new Date(expense.date),
-      amount: -convertForDisplaySync(expense.amount, expense.currency, currency),
-    }));
+    const expenseTransactions: CashflowTransaction[] = filteredExpenses
+      .filter(hasNonZeroTransactionAmount)
+      .map((expense) => ({
+        monthKey: `${new Date(expense.date).getFullYear()}-${String(new Date(expense.date).getMonth() + 1).padStart(2, "0")}`,
+        date: new Date(expense.date),
+        amount: -convertTransactionForDisplaySync(expense, currency),
+      }));
 
     const allTransactions = [...incomeTransactions, ...expenseTransactions].sort(
       (a, b) => a.date.getTime() - b.date.getTime(),
@@ -359,12 +367,12 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
         csvData={csvData}
         csvFileName="cashflow-candlestick-data"
         title={`Monthly Cashflow Candlestick ${periodLabel}`}
-        tooltipText="Each candle shows monthly cashflow behavior: open is prior month net position and close is end-of-month position, using only income and expense transactions."
+        tooltipText="Running income−expense P&L (not account cash). Open is prior cumulative net; close is end-of-month cumulative net. Transfers with amount 0 are excluded."
         showExpandButton={false}
       />
 
       <div className="mb-4 text-sm text-gray-600">
-        <span className="font-medium text-gray-800">How to read:</span> green body = month closed higher than it opened, red body = month closed lower.
+        <span className="font-medium text-gray-800">How to read:</span> candles track cumulative income minus expenses (running P&L), not bank balances. Green body = month closed higher than it opened; red = closed lower.
       </div>
       <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-gray-600">
         <div className="inline-flex items-center gap-1.5">

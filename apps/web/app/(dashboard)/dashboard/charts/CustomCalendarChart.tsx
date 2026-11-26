@@ -7,7 +7,10 @@ import { useChartData } from "../../../hooks/useChartDataContext";
 import { ChartControls } from "../../../components/ChartControls";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import { useChartAnimationState } from "../../../hooks/useChartAnimationContext";
-import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import {
+    convertTransactionForDisplaySync,
+    hasNonZeroTransactionAmount,
+} from "../../../utils/currencyDisplay";
 import { useDisplayCurrency, useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface CustomCalendarChartProps {
@@ -50,7 +53,7 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
     const router = useRouter();
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
-    const { rawIncomes, rawExpenses } = useChartData();
+    const { filteredIncomes, filteredExpenses } = useChartData();
     
     // Animation control to prevent restart on re-renders
     const chartId = `calendar-${type}`;
@@ -69,8 +72,8 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
     const [isTooltipHovered, setIsTooltipHovered] = useState(false);
     const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     
-    // Use raw unfiltered data so calendar chart is independent of global filters
-    const allData = type === 'income' ? rawIncomes : rawExpenses;
+    // Respect dashboard date filters so calendar totals match other charts
+    const allData = type === 'income' ? filteredIncomes : filteredExpenses;
     
     // Extract unique categories for the dropdown
     const availableCategories = useMemo(() => {
@@ -152,10 +155,11 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
             }
             
             const current = dateMap.get(dateKey)!;
-            current.count += 1;
-            // Convert transaction amount to display currency
-            const convertedAmount = convertForDisplaySync(transaction.amount, transaction.currency, currency || "USD");
-            current.amount += convertedAmount;
+            if (hasNonZeroTransactionAmount(transaction)) current.count += 1;
+            current.amount += convertTransactionForDisplaySync(
+                transaction,
+                currency || "USD",
+            );
         });
 
         return dateMap;
@@ -168,7 +172,7 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
         data.reduce((sum, item) => sum + item.amount + item.id, 0)
     ]);
 
-    // Get available years from all data for year navigation
+    // Get available years from filtered data for year navigation
     const availableYears = useMemo(() => {
         const years = new Set<number>();
         data.forEach(transaction => {
@@ -180,6 +184,14 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
         // Add checksum to detect actual data changes, not just reference changes
         data.reduce((sum, item) => sum + item.id, 0)
     ]);
+
+    // Keep selected year inside the filtered set when dashboard filters change
+    React.useEffect(() => {
+        if (availableYears.length === 0) return;
+        if (!availableYears.includes(selectedYear)) {
+            setSelectedYear(availableYears[availableYears.length - 1]!);
+        }
+    }, [availableYears, selectedYear]);
 
     // Generate calendar data in row-column format (rows = days of month 1-31, columns = months)
     const calendarData = useMemo(() => {
