@@ -24,7 +24,7 @@ import { useGoldSpotRate } from './useGoldSpotRate';
 import { useSilverSpotRate } from './useSilverSpotRate';
 
 interface Modal {
-    type: 'add' | 'edit' | 'delete' | 'view' | 'import' | null;
+    type: 'add' | 'edit' | 'view' | 'import' | null;
     investment?: InvestmentInterface | null;
 }
 
@@ -550,10 +550,14 @@ export function useOptimizedInvestments() {
         }
     }, [filteredInvestments]);
 
+    const handleBulkDeleteIds = useCallback(async (investmentIds: number[], appLockPassword: string) => {
+        if (investmentIds.length === 0) return;
+        return bulkDeleteMutation.mutateAsync({ investmentIds, appLockPassword });
+    }, [bulkDeleteMutation]);
+
     const handleBulkDelete = useCallback(async (appLockPassword: string) => {
-        if (selectedInvestments.size === 0) return;
-        bulkDeleteMutation.mutate({ investmentIds: Array.from(selectedInvestments), appLockPassword });
-    }, [selectedInvestments, bulkDeleteMutation]);
+        return handleBulkDeleteIds(Array.from(selectedInvestments), appLockPassword);
+    }, [selectedInvestments, handleBulkDeleteIds]);
 
     // Export handler
     const handleExportToCSV = useCallback(() => {
@@ -640,6 +644,7 @@ export function useOptimizedInvestments() {
         handleEditInvestment,
         handleDeleteInvestment,
         handleBulkDelete,
+        handleBulkDeleteIds,
         handleExportToCSV,
         clearFilters,
         clearError,

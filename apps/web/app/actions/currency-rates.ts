@@ -10,6 +10,15 @@ export interface CurrencyRateConfigData {
   nprPerUsd: number;
 }
 
+export async function canManageCurrencyRates(): Promise<boolean> {
+  const session = await getAuthenticatedSession();
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  return Boolean(
+    adminEmail &&
+    session.user.email?.trim().toLowerCase() === adminEmail
+  );
+}
+
 export async function getCurrencyRateConfig(): Promise<CurrencyRateConfigData> {
   await getAuthenticatedSession();
   const row = await prisma.currencyRateConfig.findUnique({ where: { id: 1 } });
@@ -25,7 +34,12 @@ export async function getCurrencyRateConfig(): Promise<CurrencyRateConfigData> {
 export async function updateCurrencyRateConfig(
   data: CurrencyRateConfigData
 ): Promise<void> {
-  await getAuthenticatedSession();
+  const session = await getAuthenticatedSession();
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const userEmail = session.user.email?.trim().toLowerCase();
+  if (!adminEmail || userEmail !== adminEmail) {
+    throw new Error("Only the configured administrator can update global exchange rates.");
+  }
 
   if (
     !Number.isFinite(data.inrToNpr) ||

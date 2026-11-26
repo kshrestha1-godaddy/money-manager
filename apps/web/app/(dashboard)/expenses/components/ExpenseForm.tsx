@@ -6,7 +6,7 @@ import { AccountInterface } from "../../../types/accounts";
 import { CategoryWithFrequencyData } from "../../../utils/categoryFrequency";
 import { EnhancedTagsInput } from "../../../components/shared/EnhancedTagsInput";
 import { TransactionLocationSelector } from "../../../components/shared/TransactionLocationSelector";
-import { DUAL_CURRENCIES, formatDualCurrency, convertDualCurrency, SUPPORTED_CURRENCIES } from "../../../utils/currency";
+import { DUAL_CURRENCIES, formatDualCurrency, convertDualCurrency, getCurrencySymbol, SUPPORTED_CURRENCIES } from "../../../utils/currency";
 import { 
     BaseFormData, 
     TransactionLocation,
@@ -116,7 +116,7 @@ export function ExpenseForm({
             }
             
             if (electricityData.ratePerUnit) {
-                parts.push(`Rate per Unit: ₹${electricityData.ratePerUnit}`);
+                parts.push(`Rate per Unit: ${getCurrencySymbol(formData.amountCurrency)}${electricityData.ratePerUnit}`);
             }
             
             if (electricityData.connectionType) {
@@ -143,18 +143,18 @@ export function ExpenseForm({
             }
             
             if (goldData.ratePerGram) {
-                parts.push(`Rate per Gram: ₹${goldData.ratePerGram}`);
+                parts.push(`Rate per Gram: ${getCurrencySymbol(formData.amountCurrency)}${goldData.ratePerGram}`);
             }
             
             if (goldData.weight && goldData.ratePerGram) {
                 const goldValue = parseFloat(goldData.weight) * parseFloat(goldData.ratePerGram);
                 if (!isNaN(goldValue)) {
-                    parts.push(`Gold Value: ₹${goldValue.toFixed(2)}`);
+                    parts.push(`Gold Value: ${getCurrencySymbol(formData.amountCurrency)}${goldValue.toFixed(2)}`);
                 }
             }
             
             if (goldData.makingCharges) {
-                parts.push(`Making Charges: ₹${goldData.makingCharges}`);
+                parts.push(`Making Charges: ${getCurrencySymbol(formData.amountCurrency)}${goldData.makingCharges}`);
             }
             
             if (goldData.itemType) {
@@ -317,6 +317,7 @@ export function ExpenseForm({
                     data={electricityData}
                     onChange={setElectricityData}
                     onNotesChange={handleNotesChange}
+                    currency={formData.amountCurrency}
                     disabled={disabled}
                 />
             )}
@@ -326,6 +327,7 @@ export function ExpenseForm({
                     data={goldData}
                     onChange={setGoldData}
                     onNotesChange={handleNotesChange}
+                    currency={formData.amountCurrency}
                     disabled={disabled}
                 />
             )}

@@ -36,13 +36,11 @@ function formatCompactAxisValue(value: number, currencyCode: string): string {
 export interface InvestmentSavingsTargetChartProps {
   targetAmount: number;
   fulfilledAmount: number;
-  currency: string;
 }
 
 export function InvestmentSavingsTargetChart({
   targetAmount,
   fulfilledAmount,
-  currency: currencyProp,
 }: InvestmentSavingsTargetChartProps) {
   const { convertAmount, displayCurrency } = useDisplayCurrency();
   const currency = displayCurrency;

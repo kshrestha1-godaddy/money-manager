@@ -40,9 +40,9 @@ export function SchedulePaymentModal({
   accounts,
   editingItem = null,
 }: SchedulePaymentModalProps) {
-  const { displayCurrency } = useDisplayCurrency();
+  const { accountCurrency } = useDisplayCurrency();
   const { timezone, isLoading: isTimezoneLoading } = useTimezone();
-  const defaultCurrency = getUserSupportedCurrency(displayCurrency);
+  const defaultCurrency = getUserSupportedCurrency(accountCurrency);
   const expenseCategories = categories.filter((c) => c.type === "EXPENSE");
 
   const [title, setTitle] = useState("");
@@ -80,9 +80,9 @@ export function SchedulePaymentModal({
       setNotes("");
       setIsRecurring(false);
       setRecurringFrequency("MONTHLY");
-      setAmountCurrency(getUserSupportedCurrency(displayCurrency));
+      setAmountCurrency(getUserSupportedCurrency(accountCurrency));
     }
-  }, [isOpen, editingItem, displayCurrency]);
+  }, [isOpen, editingItem, accountCurrency]);
 
   useEffect(() => {
     if (!isOpen || isTimezoneLoading) return;

@@ -1596,8 +1596,6 @@ export default function MobileHubClient() {
         isOpen={investmentToView !== null}
         onClose={() => setInvestmentToView(null)}
         formatAmount={formatBaseAmount}
-        displayCurrency={selectedCurrency}
-        convertAmount={(amount) => convertForDisplaySync(amount, userCurrency, selectedCurrency)}
       />
 
       <MobileDebtDetailSheet

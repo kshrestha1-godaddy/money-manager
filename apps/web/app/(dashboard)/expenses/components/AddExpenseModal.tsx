@@ -7,7 +7,7 @@ import { AccountInterface } from "../../../types/accounts";
 import { CategoryWithFrequencyData } from "../../../utils/categoryFrequency";
 import { ExpenseForm } from "./ExpenseForm";
 import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
-import { getUserDualCurrency } from "../../../utils/currency";
+import { getUserSupportedCurrency } from "../../../utils/currency";
 import {
     getTopFrequentExpenseSuggestions,
     applySuggestionToFormData,
@@ -48,7 +48,7 @@ export function AddExpenseModal({
     expenses = [],
 }: AddExpenseModalProps) {
     const { displayCurrency, accountCurrency, formatAmount } = useDisplayCurrency();
-    const defaultCurrency = getUserDualCurrency(displayCurrency);
+    const defaultCurrency = getUserSupportedCurrency(accountCurrency);
     const [formData, setFormData] = useState<BaseFormData>(initializeFormData(true, defaultCurrency));
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
@@ -69,7 +69,7 @@ export function AddExpenseModal({
 
     useEffect(() => {
         if (isOpen) {
-            const currentDefaultCurrency = getUserDualCurrency(displayCurrency);
+            const currentDefaultCurrency = getUserSupportedCurrency(accountCurrency);
             setFormData(prev => ({
                 ...prev,
                 amountCurrency: currentDefaultCurrency
@@ -77,7 +77,7 @@ export function AddExpenseModal({
         } else {
             setIsSuggestionsOpen(false);
         }
-    }, [displayCurrency, isOpen]);
+    }, [accountCurrency, isOpen]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -95,7 +95,7 @@ export function AddExpenseModal({
             const expense = transformFormData(formData, categories, accounts, accountCurrency);
             await onAdd({ ...expense, location: [] });
             
-            const resetDefaultCurrency = getUserDualCurrency(displayCurrency);
+            const resetDefaultCurrency = getUserSupportedCurrency(accountCurrency);
             setFormData(initializeFormData(true, resetDefaultCurrency));
             onClose();
         } catch (error) {

@@ -8,10 +8,9 @@ import { getUserAccounts } from "../(dashboard)/accounts/actions/accounts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
 import { exportCategoriesByType } from "../utils/csvExportCategories";
 import { NotificationData } from "../components/DisappearingNotification";
-import { formatCurrency } from "../utils/currency";
-import { convertForDisplaySync } from "../utils/currencyDisplay";
 import { createTransactionDayFormatter } from "../utils/transaction-calendar";
 import { getUserThresholds } from "../actions/notifications";
+import { useDisplayCurrency } from "./useDisplayCurrency";
 
 
 const EMPTY_ITEMS: [] = [];
@@ -30,6 +29,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   options: UseOptimizedFinancialDataOptions = {}
 ) {
   const queryClient = useQueryClient();
+  const { accountCurrency, formatDisplayAmount } = useDisplayCurrency();
   
   // Query keys for caching - memoize to prevent unnecessary re-renders
   const QUERY_KEYS = useMemo(() => ({
@@ -102,8 +102,10 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
       // Show success notification if callback provided
       if (options.onNotification) {
         const isExpense = categoryType === "EXPENSE";
-        const currency = options.userCurrency || "USD";
-        const formattedAmount = formatCurrency(newItem.amount, currency);
+        const formattedAmount = formatDisplayAmount(
+          newItem.amount,
+          newItem.currency || accountCurrency
+        );
         
         options.onNotification({
           title: `${isExpense ? 'Expense' : 'Income'} Added Successfully!`,

@@ -1,7 +1,9 @@
 "use client";
 
+import { useMemo } from "react";
 import type { Expense, Income } from "../../types/financial";
 import { useBubbleChart } from '../../hooks/useBubbleChart';
+import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { BubbleChartControls } from './BubbleChartControls';
 import { BubbleChart } from './BubbleChart';
 import { BubbleChartZoomControls } from './BubbleChartZoomControls';
@@ -26,7 +28,17 @@ export function TransactionCategoryAnalysis({
   timezone,
   type,
 }: TransactionCategoryAnalysisProps) {
-  const config = chartConfig[type];
+  const { accountCurrency, toDisplayAmount } = useDisplayCurrency();
+  const config = useMemo(
+    () => ({
+      ...chartConfig[type],
+      highValueThreshold: toDisplayAmount(
+        chartConfig[type].highValueThreshold,
+        accountCurrency
+      ),
+    }),
+    [accountCurrency, toDisplayAmount, type]
+  );
   const chartData = useBubbleChart({ transactions, timeframeTransactions, currency, timezone, config });
 
   const {

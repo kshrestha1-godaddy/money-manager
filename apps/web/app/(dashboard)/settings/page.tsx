@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppLockPasswordCard } from "./components/AppLockPasswordCard";
+import { CurrencyPreferencesCard } from "./components/CurrencyPreferencesCard";
 
 export default function SettingsPage() {
   return (
@@ -10,6 +11,8 @@ export default function SettingsPage() {
           Manage notifications, emergency contacts, and other preferences.
         </p>
       </div>
+
+      <CurrencyPreferencesCard />
 
       <ul className="space-y-2">
         <li>

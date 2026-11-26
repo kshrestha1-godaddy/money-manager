@@ -14,6 +14,7 @@ import {
   requiresCurrentPriceField,
 } from "../utils/investmentTypeUi";
 import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
+import { formatCurrency } from "../../../utils/currency";
 import { getLocalDateString, buttonClasses } from "../../../utils/formUtils";
 
 interface Account {
@@ -70,7 +71,11 @@ export function InvestmentAddForm({
   onAfterSuccess,
   footerVariant = "modal",
 }: InvestmentAddFormProps) {
-  const { formatAmount } = useDisplayCurrency();
+  const {
+    displayCurrency,
+    formatAmount,
+    toAccountAmount,
+  } = useDisplayCurrency();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -172,10 +177,10 @@ export function InvestmentAddForm({
         type: resolvedType,
         symbol: formData.symbol.trim() || undefined,
         quantity: isQuantityBased ? parseFloat(formData.quantity || "0") : 1,
-        purchasePrice: parseFloat(formData.purchasePrice || "0"),
+        purchasePrice: toAccountAmount(parseFloat(formData.purchasePrice || "0")),
         currentPrice: needsCurrentPrice
-          ? parseFloat(formData.currentPrice || "0")
-          : parseFloat(formData.purchasePrice || "0"),
+          ? toAccountAmount(parseFloat(formData.currentPrice || "0"))
+          : toAccountAmount(parseFloat(formData.purchasePrice || "0")),
         purchaseDate: new Date(formData.purchaseDate + "T00:00:00"),
         accountId: formData.accountId ? parseInt(formData.accountId, 10) : null,
         notes: formData.notes.trim() || undefined,
@@ -332,7 +337,7 @@ export function InvestmentAddForm({
           <>
             <div>
               <label htmlFor="inv-add-purchasePrice-fd" className="block text-sm font-medium text-gray-700 mb-1">
-                Principal Amount *
+                Principal Amount * ({displayCurrency})
               </label>
               <input
                 type="number"
@@ -388,7 +393,7 @@ export function InvestmentAddForm({
           <>
             <div>
               <label htmlFor="inv-add-purchasePrice-pv" className="block text-sm font-medium text-gray-700 mb-1">
-                Investment Amount *
+                Investment Amount * ({displayCurrency})
               </label>
               <input
                 type="number"
@@ -462,8 +467,8 @@ export function InvestmentAddForm({
               <div>
                 <label htmlFor="inv-add-purchasePrice-q" className="block text-sm font-medium text-gray-700 mb-1">
                   {resolvedType === "GOLD" || resolvedType === "SILVER"
-                    ? "Purchase price per unit *"
-                    : "Purchase Price *"}
+                    ? `Purchase price per unit * (${displayCurrency})`
+                    : `Purchase Price * (${displayCurrency})`}
                 </label>
                 <input
                   type="number"
@@ -489,7 +494,7 @@ export function InvestmentAddForm({
             {needsCurrentPrice ? (
               <div>
                 <label htmlFor="inv-add-currentPrice" className="block text-sm font-medium text-gray-700 mb-1">
-                  Current Price *
+                  Current Price * ({displayCurrency})
                 </label>
                 <input
                   type="number"
@@ -534,7 +539,7 @@ export function InvestmentAddForm({
                   if (selectedAccount && totalAmount > 0) {
                     return (
                       <span className="text-sm text-gray-500">
-                        (Investment: {formatAmount(totalAmount)})
+                        (Investment: {formatCurrency(totalAmount, displayCurrency)})
                       </span>
                     );
                   }

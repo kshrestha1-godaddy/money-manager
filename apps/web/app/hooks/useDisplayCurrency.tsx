@@ -1,91 +1,70 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import { useCurrency } from "../providers/CurrencyProvider";
-import { SUPPORTED_CURRENCIES } from "../utils/currencyConversion";
 import { formatCurrency } from "../utils/currency";
 import { convertForDisplaySync } from "../utils/currencyDisplay";
-
-const STORAGE_KEY = "dashboard-display-currency";
 
 export interface DisplayCurrency {
   currency: string;
   accountCurrency: string;
   displayCurrency: string;
-  setDisplayCurrency: (currency: string) => void;
+  setDisplayCurrency: (currency: string) => Promise<void>;
+  toDisplayAmount: (amount: number, sourceCurrency: string) => number;
+  formatDisplayAmount: (amount: number, sourceCurrency: string) => string;
+  /** @deprecated Prefer toDisplayAmount with an explicit source currency. */
   convertAmount: (amount: number, fromCurrency?: string) => number;
   toAccountAmount: (amount: number) => number;
+  /** @deprecated Prefer formatDisplayAmount with an explicit source currency. */
   formatAmount: (amount: number, fromCurrency?: string) => string;
 }
 
-const DisplayCurrencyContext = createContext<DisplayCurrency | null>(null);
-
-function isSupportedCurrency(code: string): boolean {
-  return (SUPPORTED_CURRENCIES as readonly string[]).includes(code);
+/** Compatibility wrapper. Currency state now lives entirely in CurrencyProvider. */
+export function DisplayCurrencyProvider({ children }: { children: ReactNode }) {
+  return children;
 }
 
-export function DisplayCurrencyProvider({ children }: { children: ReactNode }) {
-  const { currency: accountCurrency } = useCurrency();
-  const [displayCurrency, setDisplayCurrencyState] = useState(accountCurrency);
+export function useDisplayCurrency(): DisplayCurrency {
+  const {
+    accountCurrency,
+    displayCurrency,
+    updateDisplayCurrency,
+  } = useCurrency();
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored && isSupportedCurrency(stored)) {
-        setDisplayCurrencyState(stored);
-        return;
-      }
-    } catch {
-      // localStorage unavailable
-    }
-    setDisplayCurrencyState(accountCurrency);
-  }, [accountCurrency]);
-
-  const setDisplayCurrency = useCallback(
-    (currency: string) => {
-      const next = isSupportedCurrency(currency) ? currency : accountCurrency;
-      setDisplayCurrencyState(next);
-      try {
-        localStorage.setItem(STORAGE_KEY, next);
-      } catch {
-        // localStorage unavailable
-      }
-    },
-    [accountCurrency]
+  const toDisplayAmount = useCallback(
+    (amount: number, sourceCurrency: string) =>
+      convertForDisplaySync(amount, sourceCurrency, displayCurrency),
+    [displayCurrency]
   );
-
+  const formatDisplayAmount = useCallback(
+    (amount: number, sourceCurrency: string) =>
+      formatCurrency(toDisplayAmount(amount, sourceCurrency), displayCurrency),
+    [displayCurrency, toDisplayAmount]
+  );
   const convertAmount = useCallback(
-    (amount: number, fromCurrency = accountCurrency) =>
-      convertForDisplaySync(amount, fromCurrency, displayCurrency),
-    [accountCurrency, displayCurrency]
+    (amount: number, fromCurrency: string = accountCurrency) =>
+      toDisplayAmount(amount, fromCurrency),
+    [accountCurrency, toDisplayAmount]
   );
-
   const toAccountAmount = useCallback(
     (amount: number) =>
       convertForDisplaySync(amount, displayCurrency, accountCurrency),
     [accountCurrency, displayCurrency]
   );
-
   const formatAmount = useCallback(
-    (amount: number, fromCurrency = accountCurrency) =>
-      formatCurrency(convertAmount(amount, fromCurrency), displayCurrency),
-    [accountCurrency, convertAmount, displayCurrency]
+    (amount: number, fromCurrency: string = accountCurrency) =>
+      formatDisplayAmount(amount, fromCurrency),
+    [accountCurrency, formatDisplayAmount]
   );
 
-  const value = useMemo(
+  return useMemo(
     () => ({
       currency: displayCurrency,
       accountCurrency,
       displayCurrency,
-      setDisplayCurrency,
+      setDisplayCurrency: updateDisplayCurrency,
+      toDisplayAmount,
+      formatDisplayAmount,
       convertAmount,
       toAccountAmount,
       formatAmount,
@@ -95,37 +74,12 @@ export function DisplayCurrencyProvider({ children }: { children: ReactNode }) {
       convertAmount,
       displayCurrency,
       formatAmount,
-      setDisplayCurrency,
+      formatDisplayAmount,
       toAccountAmount,
+      toDisplayAmount,
+      updateDisplayCurrency,
     ]
   );
-
-  return (
-    <DisplayCurrencyContext.Provider value={value}>
-      {children}
-    </DisplayCurrencyContext.Provider>
-  );
-}
-
-/** Convert and format using the avatar Display currency; amounts default from account currency. */
-export function useDisplayCurrency(): DisplayCurrency {
-  const ctx = useContext(DisplayCurrencyContext);
-  const { currency: accountCurrency } = useCurrency();
-  if (ctx) return ctx;
-  return {
-    currency: accountCurrency,
-    accountCurrency,
-    displayCurrency: accountCurrency,
-    setDisplayCurrency: () => {},
-    convertAmount: (amount, fromCurrency = accountCurrency) =>
-      convertForDisplaySync(amount, fromCurrency, accountCurrency),
-    toAccountAmount: (amount) => amount,
-    formatAmount: (amount, fromCurrency = accountCurrency) =>
-      formatCurrency(
-        convertForDisplaySync(amount, fromCurrency, accountCurrency),
-        accountCurrency
-      ),
-  };
 }
 
 export function useResolvedDisplayCurrency(_currencyProp?: string): string {

@@ -32,7 +32,9 @@ export function setClientCurrencyConversionMatrix(
 
 /** INR→NPR multiplier from the active client matrix (browser only; forms / dual currency UI). */
 export function getEffectiveInrToNprRate(): number {
-  return clientConversionMatrix.inr.npr;
+  const rate = clientConversionMatrix.inr?.npr;
+  if (rate === undefined) throw new Error("INR to NPR conversion rate is unavailable.");
+  return rate;
 }
 
 function matrixForSyncConversion(
@@ -76,12 +78,10 @@ export function convertCurrencySync(
   const source = normalizeCurrencyCode(sourceCurrency);
   const destination = normalizeCurrencyCode(destinationCurrency);
 
-  if (!source || !destination) {
-    console.warn(
-      `Sync conversion skipped: invalid currency (source=${String(sourceCurrency)}, dest=${String(destinationCurrency)})`
+  if (!source || !destination)
+    throw new Error(
+      `Source and destination currencies are required (source=${String(sourceCurrency)}, destination=${String(destinationCurrency)})`
     );
-    return amount;
-  }
 
   if (source === destination) return amount;
 
@@ -90,10 +90,9 @@ export function convertCurrencySync(
   const rate = rates?.[destination];
 
   if (rate === undefined) {
-    console.warn(
-      `Sync conversion not available for ${source.toUpperCase()} to ${destination.toUpperCase()}, supported currencies: ${SUPPORTED_CURRENCIES.join(", ")}`
+    throw new Error(
+      `Conversion not available for ${source.toUpperCase()} to ${destination.toUpperCase()}. Supported currencies: ${SUPPORTED_CURRENCIES.join(", ")}`
     );
-    return amount;
   }
 
   return amount * rate;

@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ArrowLeftRight, RefreshCw } from 'lucide-react';
-import { buildUsdBaseExchangeRates, type UsdBaseCurrencyCode } from '../utils/currencyRates';
+import { CURRENCIES, getCurrencySymbol, type CurrencyCode } from '../utils/currency';
+import { buildUsdBaseExchangeRates } from '../utils/currencyRates';
 import { useCurrency } from '../providers/CurrencyProvider';
 
 interface CurrencyConverterModalProps {
@@ -11,22 +12,6 @@ interface CurrencyConverterModalProps {
   onClose: () => void;
   className?: string;
 }
-
-type Currency = UsdBaseCurrencyCode;
-
-const CURRENCIES: Currency[] = ['USD', 'INR', 'NPR'];
-
-const CURRENCY_SYMBOLS = {
-  USD: '$',
-  INR: '₹',
-  NPR: 'रू',
-};
-
-const CURRENCY_NAMES = {
-  USD: 'US Dollar',
-  INR: 'Indian Rupee',
-  NPR: 'Nepalese Rupee',
-};
 
 export function CurrencyConverterModal({ isOpen, onClose, className = "" }: CurrencyConverterModalProps) {
   const { currencyRateAnchors } = useCurrency();
@@ -36,8 +21,8 @@ export function CurrencyConverterModal({ isOpen, onClose, className = "" }: Curr
   );
 
   const [amount, setAmount] = useState<string>('100');
-  const [fromCurrency, setFromCurrency] = useState<Currency>('INR');
-  const [toCurrency, setToCurrency] = useState<Currency>('NPR');
+  const [fromCurrency, setFromCurrency] = useState<CurrencyCode>('INR');
+  const [toCurrency, setToCurrency] = useState<CurrencyCode>('NPR');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -138,19 +123,19 @@ export function CurrencyConverterModal({ isOpen, onClose, className = "" }: Curr
             <div className="flex gap-3">
               <select
                 value={fromCurrency}
-                onChange={(e) => setFromCurrency(e.target.value as Currency)}
+                onChange={(e) => setFromCurrency(e.target.value as CurrencyCode)}
                 className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900 font-medium bg-white"
               >
-                {CURRENCIES.map((curr) => (
-                  <option key={curr} value={curr}>
-                    {CURRENCY_SYMBOLS[curr]} {curr} - {CURRENCY_NAMES[curr]}
+                {CURRENCIES.map((currency) => (
+                  <option key={currency.code} value={currency.code}>
+                    {currency.symbol} {currency.code} - {currency.name}
                   </option>
                 ))}
               </select>
             </div>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg font-medium">
-                {CURRENCY_SYMBOLS[fromCurrency]}
+                {getCurrencySymbol(fromCurrency)}
               </span>
               <input
                 type="text"
@@ -180,19 +165,19 @@ export function CurrencyConverterModal({ isOpen, onClose, className = "" }: Curr
             <div className="flex gap-3">
               <select
                 value={toCurrency}
-                onChange={(e) => setToCurrency(e.target.value as Currency)}
+                onChange={(e) => setToCurrency(e.target.value as CurrencyCode)}
                 className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900 font-medium bg-white"
               >
-                {CURRENCIES.map((curr) => (
-                  <option key={curr} value={curr}>
-                    {CURRENCY_SYMBOLS[curr]} {curr} - {CURRENCY_NAMES[curr]}
+                {CURRENCIES.map((currency) => (
+                  <option key={currency.code} value={currency.code}>
+                    {currency.symbol} {currency.code} - {currency.name}
                   </option>
                 ))}
               </select>
             </div>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg font-medium">
-                {CURRENCY_SYMBOLS[toCurrency]}
+                {getCurrencySymbol(toCurrency)}
               </span>
               <div className="w-full pl-10 pr-4 py-4 border-2 border-green-200 bg-green-50 rounded-lg text-2xl font-bold text-green-700">
                 {formatAmount(convertedAmount)}

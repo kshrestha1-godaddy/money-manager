@@ -6,6 +6,10 @@ import { Expense } from "../../../types/financial";
 import prisma from "@repo/db/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
+import {
+    assertCurrencyCode,
+    normalizeSupportedCurrency,
+} from "../../../utils/currency";
 
 // Helper function to serialize transaction location data
 function serializeTransactionLocation(location: any) {
@@ -258,6 +262,37 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
                 updateData.transactionLocation = { disconnect: true };
             }
 
+            const userCurrency = normalizeSupportedCurrency(user?.currency);
+            const oldAmount = parseFloat(existingExpense.amount.toString());
+            const oldCurrency = assertCurrencyCode(existingExpense.currency);
+            const newAmount = data.amount !== undefined ? data.amount : oldAmount;
+            const newCurrency = assertCurrencyCode(
+                data.currency !== undefined ? data.currency : oldCurrency
+            );
+            const oldAccountId = existingExpense.accountId;
+            const newAccountId =
+                data.accountId !== undefined ? data.accountId : oldAccountId;
+            const oldAmountConverted = existingExpense.accountAmount
+                ? parseFloat(existingExpense.accountAmount.toString())
+                : await convertForDisplayWithDbRates(
+                    oldAmount,
+                    oldCurrency,
+                    userCurrency
+                );
+            const newAmountConverted = newAccountId
+                ? await convertForDisplayWithDbRates(
+                    newAmount,
+                    newCurrency,
+                    userCurrency
+                )
+                : 0;
+            updateData.accountAmount = newAccountId ? newAmountConverted : null;
+            updateData.accountCurrency = newAccountId ? userCurrency : null;
+            updateData.appliedExchangeRate =
+                newAccountId && newAmount !== 0
+                    ? newAmountConverted / newAmount
+                    : null;
+
             // Update the expense
             const expense = await tx.expense.update({
                 where: { id },
@@ -309,19 +344,6 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
                     }
                 }
             }
-
-            // Handle account balance changes (convert currencies)
-            const userCurrency = user?.currency || 'USD';
-            const oldAmount = parseFloat(existingExpense.amount.toString());
-            const oldCurrency = existingExpense.currency;
-            const newAmount = data.amount !== undefined ? data.amount : oldAmount;
-            const newCurrency = data.currency !== undefined ? data.currency : oldCurrency;
-            const oldAccountId = existingExpense.accountId;
-            const newAccountId = data.accountId !== undefined ? data.accountId : oldAccountId;
-
-            // Convert amounts to user's currency for account balance updates
-            const oldAmountConverted = await convertForDisplayWithDbRates(oldAmount, oldCurrency, userCurrency);
-            const newAmountConverted = await convertForDisplayWithDbRates(newAmount, newCurrency, userCurrency);
 
             // Same linked account: adjust balance when amount or currency changes (edit modal may send both).
             const expenseValueChangedForBalance =
@@ -543,9 +565,15 @@ export async function deleteExpense(id: number, appLockPassword: string) {
 
             // Restore the account balance if there was an account associated (convert to user's currency)
             if (existingExpense.accountId) {
-                const userCurrency = user?.currency || 'USD';
+                const userCurrency = normalizeSupportedCurrency(user?.currency);
                 const expenseAmount = parseFloat(existingExpense.amount.toString());
-                const convertedAmount = await convertForDisplayWithDbRates(expenseAmount, existingExpense.currency, userCurrency);
+                const convertedAmount = existingExpense.accountAmount
+                    ? parseFloat(existingExpense.accountAmount.toString())
+                    : await convertForDisplayWithDbRates(
+                        expenseAmount,
+                        existingExpense.currency,
+                        userCurrency
+                    );
                 
                 await tx.account.update({
                     where: { id: existingExpense.accountId },
@@ -721,7 +749,9 @@ async function validateAndTransformRow(
     }
 
     // Parse and validate using utilities
-    const amount = parseAmount(rowData.amount || '');
+    const amount = parseAmount(
+        rowData["amount(original)"] || rowData.amount || ''
+    );
     const parsedDate = parseDate(rowData.date || '');
     const tags = parseTags(rowData.tags || '');
 
@@ -779,7 +809,11 @@ async function validateAndTransformRow(
         title: rowData.title,
         description: rowData.description || '',
         amount,
-        currency: rowData.currency || userCurrency || 'USD', // Default to user's currency if not specified in CSV
+        currency: assertCurrencyCode(
+            rowData.originalcurrency ||
+            rowData.currency ||
+            normalizeSupportedCurrency(userCurrency)
+        ),
         date: parsedDate,
         categoryName: category.name,
         categoryId: category.id,
@@ -1081,7 +1115,13 @@ export async function bulkDeleteExpenses(expenseIds: number[], appLockPassword: 
             for (const expense of existingExpenses) {
                 if (expense.accountId) {
                     const expenseAmount = parseFloat(expense.amount.toString());
-                    const convertedAmount = await convertForDisplayWithDbRates(expenseAmount, expense.currency, userCurrency);
+                    const convertedAmount = expense.accountAmount
+                        ? parseFloat(expense.accountAmount.toString())
+                        : await convertForDisplayWithDbRates(
+                            expenseAmount,
+                            expense.currency,
+                            userCurrency
+                        );
                     const currentTotal = accountUpdates.get(expense.accountId) || 0;
                     accountUpdates.set(expense.accountId, currentTotal + convertedAmount);
                 }

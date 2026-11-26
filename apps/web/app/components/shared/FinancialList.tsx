@@ -5,7 +5,10 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { Bookmark, Download, RefreshCw } from "lucide-react";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { formatCurrency } from "../../utils/currency";
-import { useResolvedDisplayCurrency } from "../../hooks/useDisplayCurrency";
+import {
+    useDisplayCurrency,
+    useResolvedDisplayCurrency,
+} from "../../hooks/useDisplayCurrency";
 import { splitLocationFieldForExport } from "../../utils/csvExportUtils";
 import { useTimezone } from "../../providers/TimezoneProvider";
 import { createTransactionDayFormatter } from "../../utils/transaction-calendar";
@@ -43,7 +46,7 @@ interface FinancialTransaction {
 interface FinancialListProps {
     transactions: FinancialTransaction[];
     transactionType: TransactionType;
-    currency?: string;
+    currency: string;
     onEdit?: (transaction: FinancialTransaction) => void;
     onView?: (transaction: FinancialTransaction) => void;
     onDelete?: (transaction: FinancialTransaction) => void;
@@ -670,7 +673,7 @@ function FinancialRow({
     transaction: FinancialTransaction;
     dateLabel: string;
     transactionType: TransactionType;
-    currency?: string;
+    currency: string;
     onEdit?: (transaction: FinancialTransaction) => void;
     onView?: (transaction: FinancialTransaction) => void;
     onDelete?: (transaction: FinancialTransaction) => void;
@@ -693,6 +696,7 @@ function FinancialRow({
     };
     rowIndex: number;
 }) {
+    const { accountCurrency } = useDisplayCurrency();
     const handleEdit = () => {
         if (onEdit) {
             onEdit(transaction);
@@ -829,7 +833,14 @@ function FinancialRow({
                 )}
             </td>
             <td className={`px-3 py-4 text-sm font-medium text-center tabular-nums align-middle ${amountColorClass}`} style={{ width: `${columnWidths.amount}px` }}>
-                {formatCurrency(convertForDisplaySync(transaction.amount, transaction.currency, currency), currency)}
+                {formatCurrency(
+                    convertForDisplaySync(
+                        transaction.amount,
+                        transaction.currency || accountCurrency,
+                        currency
+                    ),
+                    currency
+                )}
             </td>
             <td className="px-3 py-4 text-center text-sm font-medium align-middle" style={{ width: `${columnWidths.actions}px` }}>
                 <div className="flex justify-center flex-nowrap gap-1">

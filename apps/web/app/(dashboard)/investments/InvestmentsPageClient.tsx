@@ -9,11 +9,9 @@ import { useRouter } from "next/navigation";
 import { InvestmentTable } from "./components/InvestmentTable";
 import { AddInvestmentModal } from "./components/AddInvestmentModal";
 import { EditInvestmentModal } from "./components/EditInvestmentModal";
-import { DeleteInvestmentModal } from "./components/DeleteInvestmentModal";
 import { ViewInvestmentModal } from "./components/ViewInvestmentModal";
 import { UnifiedBulkImportModal } from "../../components/shared/UnifiedBulkImportModal";
 import { investmentImportConfig } from "../../config/bulkImportConfig";
-import { BulkDeleteInvestmentModal } from "./components/BulkDeleteInvestmentModal";
 import { InvestmentTargetModal } from "./components/InvestmentTargetModal";
 import { BulkDeleteTargetsModal } from "./components/BulkDeleteTargetsModal";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
@@ -72,13 +70,15 @@ const redNegativeIcon = ICON_COLORS.redNegative;
 
 export default function InvestmentsPageClient() {
   const { currency: userCurrency } = useCurrency();
-  const { displayCurrency } = useDisplayCurrency();
+  const {
+    displayCurrency,
+    toDisplayAmount,
+    toAccountAmount,
+  } = useDisplayCurrency();
 
   const router = useRouter();
   const queryClient = useQueryClient();
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
-  const [bulkDeleteInvestments, setBulkDeleteInvestments] = useState<InvestmentInterface[]>([]);
   const [isBulkDeleteTargetsModalOpen, setIsBulkDeleteTargetsModalOpen] = useState(false);
   const [notification, setNotification] = useState<NotificationData | null>(null);
   const [metalRateModal, setMetalRateModal] = useState<null | "gold" | "silver">(null);
@@ -141,7 +141,7 @@ export default function InvestmentsPageClient() {
     handleAddInvestment,
     handleEditInvestment,
     handleDeleteInvestment,
-    handleBulkDelete,
+    handleBulkDeleteIds,
     handleExportToCSV,
     clearFilters,
     clearError,
@@ -320,7 +320,7 @@ export default function InvestmentsPageClient() {
       .map(inv => inv.id);
     if (investmentIds.length === 0) return;
 
-    await handleBulkDeleteInvestments(investmentIds, appLockPassword);
+    await handleBulkDeleteIds(investmentIds, appLockPassword);
     setSelectedInvestments(prev => {
       const newSet = new Set(prev);
       investmentIds.forEach(id => newSet.delete(id));
@@ -716,9 +716,18 @@ export default function InvestmentsPageClient() {
           onClose={() => setMetalRateModal(null)}
           currency={displayCurrency}
           spotPerUnitDisplay={
-            metalRateModal === "silver" ? silverSpotPerUnitDisplay : goldSpotPerUnitDisplay
+            toDisplayAmount(
+              metalRateModal === "silver"
+                ? silverSpotPerUnitDisplay
+                : goldSpotPerUnitDisplay,
+              userCurrency
+            )
           }
-          onApply={metalRateModal === "silver" ? handleSilverSpotSaved : handleGoldSpotSaved}
+          onApply={(displayRate) => {
+            const accountRate = toAccountAmount(displayRate);
+            if (metalRateModal === "silver") handleSilverSpotSaved(accountRate);
+            else handleGoldSpotSaved(accountRate);
+          }}
           metal={metalRateModal === "silver" ? "silver" : "gold"}
           defaultInrPerUnit={
             metalRateModal === "silver"

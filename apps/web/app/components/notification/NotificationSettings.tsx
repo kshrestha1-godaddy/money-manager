@@ -50,7 +50,7 @@ export function NotificationSettings() {
     const [rateNprPerUsd, setRateNprPerUsd] = useState<number>(140);
     const [rateMessage, setRateMessage] = useState<string | null>(null);
     const [isSavingRates, setIsSavingRates] = useState(false);
-    const { currency, refreshCurrencyRates } = useCurrency();
+    const { accountCurrency, refreshCurrencyRates } = useCurrency();
 
     // Load settings on mount
     useEffect(() => {
@@ -182,7 +182,7 @@ export function NotificationSettings() {
         if (!settings) return;
 
         try {
-            setIsSaving(true);
+            setSaving(true);
             await updateNotificationSettings(settings);
             setSaveMessage("Settings saved successfully!");
             
@@ -198,7 +198,7 @@ export function NotificationSettings() {
             setSaveMessage("Failed to save settings. Please try again.");
             setTimeout(() => setSaveMessage(null), 3000);
         } finally {
-            setIsSaving(false);
+            setSaving(false);
         }
     };
 
@@ -562,7 +562,9 @@ export function NotificationSettings() {
                                                     </div>
                                                 ) : (
                                                     <div className="flex items-center space-x-2">
-                                                        <span className="text-sm text-gray-500">{currency}</span>
+                                                        {setting.key !== "dueDateDaysBefore" ? (
+                                                            <span className="text-sm text-gray-500">{accountCurrency}</span>
+                                                        ) : null}
                                                         <input
                                                             type="number"
                                                             disabled={isDependent}
@@ -622,7 +624,7 @@ export function NotificationSettings() {
                                     </div>
                                     
                                     <div className="flex items-center space-x-2">
-                                        <span className="text-sm text-gray-500 flex-shrink-0">{currency}</span>
+                                        <span className="text-sm text-gray-500 flex-shrink-0">{accountCurrency}</span>
                                         <input
                                             type="number"
                                             value={getAccountThreshold(account.accountId)}
@@ -648,7 +650,7 @@ export function NotificationSettings() {
                                         How it works
                                     </h4>
                                     <div className="mt-1 text-sm text-blue-700">
-                                        Each account can have its own low balance threshold. If an account doesn't have a specific threshold set, it will use the default threshold ({currency}{settings.lowBalanceThreshold}).
+                                        Each account can have its own low balance threshold. If an account doesn't have a specific threshold set, it will use the default threshold ({accountCurrency} {settings.lowBalanceThreshold}).
                                     </div>
                                 </div>
                             </div>

@@ -10,8 +10,6 @@ export interface MobileInvestmentDetailSheetProps {
   isOpen: boolean;
   onClose: () => void;
   formatAmount: (amount: number) => string;
-  displayCurrency: string;
-  convertAmount: (amount: number) => number;
 }
 
 function formatType(type: string): string {
@@ -53,8 +51,6 @@ export function MobileInvestmentDetailSheet({
   isOpen,
   onClose,
   formatAmount,
-  displayCurrency,
-  convertAmount,
 }: MobileInvestmentDetailSheetProps) {
   useEffect(() => {
     if (!isOpen) return;
@@ -128,9 +124,8 @@ export function MobileInvestmentDetailSheet({
               </p>
             </div>
             <InvestmentSavingsTargetChart
-              targetAmount={convertAmount(investment.investmentTarget.targetAmount)}
-              fulfilledAmount={convertAmount(investment.investmentTarget.fulfilledAmount)}
-              currency={displayCurrency}
+              targetAmount={investment.investmentTarget.targetAmount}
+              fulfilledAmount={investment.investmentTarget.fulfilledAmount}
             />
           </div>
         ) : null}

@@ -40,8 +40,8 @@ export function MobileAddIncomeSheet({
   mode = "add",
   incomeToEdit = null,
 }: MobileAddIncomeSheetProps) {
-  const { displayCurrency, accountCurrency } = useDisplayCurrency();
-  const defaultCurrency = getUserSupportedCurrency(displayCurrency);
+  const { accountCurrency } = useDisplayCurrency();
+  const defaultCurrency = getUserSupportedCurrency(accountCurrency);
   const [formData, setFormData] = useState<BaseFormData>(initializeFormData(true, defaultCurrency));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -63,20 +63,20 @@ export function MobileAddIncomeSheet({
 
   useEffect(() => {
     if (!isOpen || isEdit) return;
-    const currentDefaultCurrency = getUserSupportedCurrency(displayCurrency);
+    const currentDefaultCurrency = getUserSupportedCurrency(accountCurrency);
     setFormData(initializeFormData(true, currentDefaultCurrency));
-  }, [isOpen, isEdit, displayCurrency]);
+  }, [isOpen, isEdit, accountCurrency]);
 
   useEffect(() => {
     if (!isOpen || isEdit) return;
     setFormData((prev) => ({
       ...prev,
-      amountCurrency: getUserSupportedCurrency(displayCurrency),
+      amountCurrency: getUserSupportedCurrency(accountCurrency),
     }));
-  }, [displayCurrency, isOpen, isEdit]);
+  }, [accountCurrency, isOpen, isEdit]);
 
   function handleClose() {
-    const currentDefaultCurrency = getUserSupportedCurrency(displayCurrency);
+    const currentDefaultCurrency = getUserSupportedCurrency(accountCurrency);
     if (isEdit && incomeToEdit) {
       setFormData(extractFormData(incomeToEdit));
     } else {

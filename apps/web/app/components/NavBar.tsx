@@ -39,9 +39,13 @@ export default function NavBar() {
   }, [isProfileDropdownOpen]);
 
   // Handle currency change
-  function handleCurrencyChange(currencyCode: string) {
-    setDisplayCurrency(currencyCode);
-    setIsDropdownOpen(false);
+  async function handleCurrencyChange(currencyCode: string) {
+    try {
+      await setDisplayCurrency(currencyCode);
+      setIsDropdownOpen(false);
+    } catch (error) {
+      console.error("Failed to update display currency:", error);
+    }
   }
 
   // Wait until session is loaded to render anything session-dependent
@@ -223,7 +227,7 @@ export default function NavBar() {
                             <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                             </svg>
-                            Currency
+                            Display currency
                           </span>
                         </div>
                         <div className="relative">

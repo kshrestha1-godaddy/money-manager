@@ -8,7 +8,10 @@ import { useChartExpansion } from "../utils/chartUtils";
 import { ChartControls } from "./ChartControls";
 import { createTransactionDayFormatter, getTrailingMonthRange } from "../utils/transaction-calendar";
 import { convertForDisplaySync } from "../utils/currencyDisplay";
-import { useResolvedDisplayCurrency } from "../hooks/useDisplayCurrency";
+import {
+    useDisplayCurrency,
+    useResolvedDisplayCurrency,
+} from "../hooks/useDisplayCurrency";
 import {
     ForecastToggleButton,
     forecastSeriesKey,
@@ -125,6 +128,7 @@ export function FinancialAreaChart({
     thresholdsLoading = false
 }: FinancialAreaChartProps) {
     const currency = useResolvedDisplayCurrency(currencyProp);
+    const { accountCurrency, toDisplayAmount } = useDisplayCurrency();
     const [startDate, setStartDate] = useState<string>("");
     const [endDate, setEndDate] = useState<string>("");
     const { isExpanded, toggleExpanded } = useChartExpansion();
@@ -132,9 +136,9 @@ export function FinancialAreaChart({
 
     // Use provided thresholds or fallback to defaults (50K income, 10K expense)
     const activeThresholds = useMemo(() => ({
-        income: userThresholds?.income ?? 50000,
-        expense: userThresholds?.expense ?? 10000
-    }), [userThresholds]);
+        income: toDisplayAmount(userThresholds?.income ?? 50000, accountCurrency),
+        expense: toDisplayAmount(userThresholds?.expense ?? 10000, accountCurrency)
+    }), [accountCurrency, toDisplayAmount, userThresholds]);
 
     // Get chart configuration based on type
     const chartConfig = {
@@ -241,7 +245,7 @@ export function FinancialAreaChart({
                 }
                 
                 const current = weekMap.get(weekKey)!;
-                current.amount += item.amount;
+                current.amount += item.amount ?? 0;
                 current.count += item.transactionCount;
                 current.transactions.push(...item.transactions);
                 current.amounts.push(...item.transactions.map(t => t.amount));
@@ -282,8 +286,8 @@ export function FinancialAreaChart({
                 data,
                 getTransactionDay,
                 currency,
-                chartWindow.firstDay,
-                chartWindow.lastDay,
+                chartWindow.firstDay ?? "",
+                chartWindow.lastDay ?? "",
             ),
         [data, getTransactionDay, currency, chartWindow],
     );
@@ -452,7 +456,7 @@ export function FinancialAreaChart({
             return [
                 item.date,
                 item.formattedDate,
-                item.amount.toString(),
+                (item.amount ?? 0).toString(),
                 item.transactionCount.toString(),
                 item.averageAmount.toFixed(2),
                 item.minAmount.toFixed(2),
@@ -628,7 +632,7 @@ export function FinancialAreaChart({
                                         const day = date.getUTCDate();
                                         const year = date.getUTCFullYear();
                                         const formattedDate = `${weekday}, ${month} ${day}, ${year}`;
-                                        const isWeekly = forecastFrequency === "weekly";
+                                        const isWeekly = true;
 
                                         return (
                                             <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-4 min-w-80 max-w-md">

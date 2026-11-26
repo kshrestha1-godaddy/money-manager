@@ -2,17 +2,30 @@
 
 import React, { createContext, useCallback, useContext, useState, useEffect, useMemo, ReactNode } from "react";
 import { useSession } from "next-auth/react";
-import { getUserCurrency, updateUserCurrency } from "../actions/currency";
+import {
+  getCurrencyPreferences,
+  updateDisplayCurrency as persistDisplayCurrency,
+  updateUserCurrency,
+} from "../actions/currency";
 import { getCurrencyRateConfig } from "../actions/currency-rates";
 import { setClientCurrencyConversionMatrix } from "../utils/currencyConversion";
 import {
   DEFAULT_CURRENCY_ANCHORS,
   type CurrencyRateAnchors,
 } from "../utils/currencyRates";
+import {
+  normalizeSupportedCurrency,
+  type CurrencyCode,
+} from "../utils/currency";
 
 interface CurrencyContextType {
-  currency: string;
+  /** Compatibility alias for accountCurrency. */
+  currency: CurrencyCode;
+  accountCurrency: CurrencyCode;
+  displayCurrency: CurrencyCode;
   updateCurrency: (newCurrency: string) => Promise<void>;
+  updateDisplayCurrency: (newCurrency: string) => Promise<void>;
+  isAccountCurrencyLocked: boolean;
   isLoading: boolean;
   currencyRateAnchors: CurrencyRateAnchors;
   isRatesLoading: boolean;
@@ -35,7 +48,9 @@ interface CurrencyProviderProps {
 
 export function CurrencyProvider({ children }: CurrencyProviderProps) {
   const { status } = useSession();
-  const [currency, setCurrency] = useState("USD");
+  const [accountCurrency, setAccountCurrency] = useState<CurrencyCode>("USD");
+  const [displayCurrency, setDisplayCurrency] = useState<CurrencyCode>("USD");
+  const [isAccountCurrencyLocked, setIsAccountCurrencyLocked] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [currencyRateAnchors, setCurrencyRateAnchors] = useState<CurrencyRateAnchors>({
     ...DEFAULT_CURRENCY_ANCHORS,
@@ -56,9 +71,11 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
     if (status === "authenticated") {
       setIsLoading(true);
       setIsRatesLoading(true);
-      Promise.all([getUserCurrency(), getCurrencyRateConfig()])
-        .then(([userCurrency, rates]) => {
-          setCurrency(userCurrency);
+      Promise.all([getCurrencyPreferences(), getCurrencyRateConfig()])
+        .then(([preferences, rates]) => {
+          setAccountCurrency(preferences.accountCurrency);
+          setDisplayCurrency(preferences.displayCurrency);
+          setIsAccountCurrencyLocked(preferences.isAccountCurrencyLocked);
           applyRateAnchors(rates);
         })
         .catch((error) => {
@@ -79,27 +96,46 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
   const updateCurrency = useCallback(async (newCurrency: string) => {
     try {
       await updateUserCurrency(newCurrency);
-      setCurrency(newCurrency);
+      setAccountCurrency(normalizeSupportedCurrency(newCurrency));
     } catch (error) {
       console.error("Error updating currency:", error);
       throw error;
     }
   }, []);
 
+  const updateDisplayCurrency = useCallback(async (newCurrency: string) => {
+    const normalized = normalizeSupportedCurrency(newCurrency);
+    const previous = displayCurrency;
+    setDisplayCurrency(normalized);
+    try {
+      await persistDisplayCurrency(normalized);
+    } catch (error) {
+      setDisplayCurrency(previous);
+      throw error;
+    }
+  }, [displayCurrency]);
+
   // Memoized so a NextAuth session refetch does not cascade a new context
   // value into every consumer and remount the dashboard charts.
   const contextValue = useMemo<CurrencyContextType>(
     () => ({
-      currency,
+      currency: accountCurrency,
+      accountCurrency,
+      displayCurrency,
       updateCurrency,
+      updateDisplayCurrency,
+      isAccountCurrencyLocked,
       isLoading,
       currencyRateAnchors,
       isRatesLoading,
       refreshCurrencyRates,
     }),
     [
-      currency,
+      accountCurrency,
+      displayCurrency,
       updateCurrency,
+      updateDisplayCurrency,
+      isAccountCurrencyLocked,
       isLoading,
       currencyRateAnchors,
       isRatesLoading,

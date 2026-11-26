@@ -5,6 +5,7 @@ import { InvestmentInterface, InvestmentTarget } from "../../../types/investment
 import { getUserAccounts } from "../../accounts/actions/accounts";
 import { getInvestmentTargets } from "../actions/investment-targets";
 import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
+import { formatCurrency } from "../../../utils/currency";
 import {
     normalizeInvestmentType,
     isDepositStyleType,
@@ -49,7 +50,12 @@ const INVESTMENT_TYPE_OPTIONS: { value: InvestmentInterface["type"]; label: stri
 ];
 
 export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: EditInvestmentModalProps) {
-    const { formatAmount } = useDisplayCurrency();
+    const {
+        displayCurrency,
+        formatAmount,
+        convertAmount,
+        toAccountAmount,
+    } = useDisplayCurrency();
     const isExpensePreview = !!investment && investment.id < 0;
     
     const [formData, setFormData] = useState({
@@ -104,16 +110,16 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
             type: normalizedType,
             symbol: investment.symbol || "",
             quantity: investment.quantity.toString(),
-            purchasePrice: investment.purchasePrice.toString(),
-            currentPrice: investment.currentPrice.toString(),
+            purchasePrice: convertAmount(investment.purchasePrice).toString(),
+            currentPrice: convertAmount(investment.currentPrice).toString(),
             purchaseDate: investment.purchaseDate
-                ? new Date(investment.purchaseDate).toISOString().split("T")[0]
+                ? (new Date(investment.purchaseDate).toISOString().split("T")[0] ?? "")
                 : "",
             accountId: investment.accountId?.toString() || "",
             notes: investment.notes ?? "",
             interestRate: investment.interestRate?.toString() || "",
             maturityDate: investment.maturityDate
-                ? new Date(investment.maturityDate).toISOString().split("T")[0]
+                ? (new Date(investment.maturityDate).toISOString().split("T")[0] ?? "")
                 : "",
             deductFromAccount: investment.deductFromAccount ?? true,
             investmentTargetId:
@@ -121,7 +127,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                     ? String(investment.investmentTargetId)
                     : "",
         });
-    }, [investmentSyncKey, isOpen]);
+    }, [convertAmount, investmentSyncKey, isOpen]);
 
     const loadAccounts = async () => {
         try {
@@ -178,7 +184,9 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                 return;
             }
 
-            const purchasePriceNum = parseFloat(formData.purchasePrice || "0");
+            const purchasePriceNum = toAccountAmount(
+                parseFloat(formData.purchasePrice || "0")
+            );
             const investmentData: Record<string, unknown> = {
                 name: formData.name.trim(),
                 type: resolvedType,
@@ -186,7 +194,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                 quantity: isQuantityBased ? parseFloat(formData.quantity || "0") : 1,
                 purchasePrice: purchasePriceNum,
                 currentPrice: needsCurrentPrice
-                    ? parseFloat(formData.currentPrice || "0")
+                    ? toAccountAmount(parseFloat(formData.currentPrice || "0"))
                     : purchasePriceNum,
                 purchaseDate: new Date(`${formData.purchaseDate}T00:00:00`),
                 accountId: formData.accountId ? parseInt(formData.accountId, 10) : null,
@@ -331,7 +339,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                         <>
                             <div>
                                 <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 mb-1">
-                                    Principal Amount *
+                                    Principal Amount * ({displayCurrency})
                                 </label>
                                 <input
                                     type="number"
@@ -385,7 +393,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                         <>
                             <div>
                                 <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 mb-1">
-                                    Investment Amount *
+                                    Investment Amount * ({displayCurrency})
                                 </label>
                                 <input
                                     type="number"
@@ -456,8 +464,8 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                                 <div>
                                     <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 mb-1">
                                         {resolvedType === "GOLD" || resolvedType === "SILVER"
-                                            ? "Purchase price per unit *"
-                                            : "Purchase Price *"}
+                                            ? `Purchase price per unit * (${displayCurrency})`
+                                            : `Purchase Price * (${displayCurrency})`}
                                     </label>
                                     <input
                                         type="number"
@@ -483,7 +491,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                             {needsCurrentPriceFieldUi ? (
                                 <div>
                                     <label htmlFor="currentPrice" className="block text-sm font-medium text-gray-700 mb-1">
-                                        Current Price *
+                                        Current Price * ({displayCurrency})
                                     </label>
                                     <input
                                         type="number"
@@ -530,7 +538,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                                     return (
                                         <span className="text-sm text-gray-500 font-normal">
                                             {" "}
-                                            (Investment: {formatAmount(totalAmount)})
+                                            (Investment: {formatCurrency(totalAmount, displayCurrency)})
                                         </span>
                                     );
                                 }

@@ -2,6 +2,7 @@
 
 import React from "react";
 import { inputClasses, labelClasses } from "../../../utils/formUtils";
+import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
 
 export interface GoldData {
     weight: string;
@@ -17,10 +18,11 @@ interface GoldFieldsProps {
     data: GoldData;
     onChange: (data: GoldData) => void;
     onNotesChange: (notes: string) => void;
+    currency: string;
     disabled?: boolean;
 }
 
-export function GoldFields({ data, onChange, onNotesChange, disabled = false }: GoldFieldsProps) {
+export function GoldFields({ data, onChange, onNotesChange, currency, disabled = false }: GoldFieldsProps) {
     const handleInputChange = (field: keyof GoldData, value: string) => {
         const updatedData = {
             ...data,
@@ -72,7 +74,7 @@ export function GoldFields({ data, onChange, onNotesChange, disabled = false }: 
 
             <div className="grid grid-cols-2 gap-3">
                 <div>
-                    <label className={labelClasses}>Rate per Gram (₹)</label>
+                    <label className={labelClasses}>Rate per Gram ({getCurrencySymbol(currency).trim()})</label>
                     <input
                         type="number"
                         value={data.ratePerGram}
@@ -85,7 +87,7 @@ export function GoldFields({ data, onChange, onNotesChange, disabled = false }: 
                 </div>
                 
                 <div>
-                    <label className={labelClasses}>Making Charges (₹)</label>
+                    <label className={labelClasses}>Making Charges ({getCurrencySymbol(currency).trim()})</label>
                     <input
                         type="number"
                         value={data.makingCharges}
@@ -149,13 +151,14 @@ export function GoldFields({ data, onChange, onNotesChange, disabled = false }: 
                 <div className="text-sm text-yellow-700 bg-yellow-100 rounded p-2">
                     <div className="grid grid-cols-2 gap-2">
                         <div>
-                            <strong>Gold Value:</strong> ₹{(parseFloat(data.weight) * parseFloat(data.ratePerGram)).toFixed(2)}
+                            <strong>Gold Value:</strong> {formatCurrency(parseFloat(data.weight) * parseFloat(data.ratePerGram), currency)}
                         </div>
                         {data.makingCharges && (
                             <div>
-                                <strong>Total Cost:</strong> ₹{(
-                                    parseFloat(data.weight) * parseFloat(data.ratePerGram) + parseFloat(data.makingCharges)
-                                ).toFixed(2)}
+                                <strong>Total Cost:</strong> {formatCurrency(
+                                    parseFloat(data.weight) * parseFloat(data.ratePerGram) + parseFloat(data.makingCharges),
+                                    currency
+                                )}
                             </div>
                         )}
                     </div>

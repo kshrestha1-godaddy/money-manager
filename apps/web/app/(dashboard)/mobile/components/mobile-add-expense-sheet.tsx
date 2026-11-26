@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ExpenseForm } from "../../expenses/components/ExpenseForm";
 import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
-import { getUserDualCurrency } from "../../../utils/currency";
+import { getUserSupportedCurrency } from "../../../utils/currency";
 import type { CategoryWithFrequencyData } from "../../../utils/categoryFrequency";
 import type { AccountInterface } from "../../../types/accounts";
 import type { Expense } from "../../../types/financial";
@@ -40,8 +40,8 @@ export function MobileAddExpenseSheet({
   mode = "add",
   expenseToEdit = null,
 }: MobileAddExpenseSheetProps) {
-  const { displayCurrency, accountCurrency } = useDisplayCurrency();
-  const defaultCurrency = getUserDualCurrency(displayCurrency);
+  const { accountCurrency } = useDisplayCurrency();
+  const defaultCurrency = getUserSupportedCurrency(accountCurrency);
   const [formData, setFormData] = useState<BaseFormData>(initializeFormData(true, defaultCurrency));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -63,20 +63,20 @@ export function MobileAddExpenseSheet({
 
   useEffect(() => {
     if (!isOpen || isEdit) return;
-    const currentDefaultCurrency = getUserDualCurrency(displayCurrency);
+    const currentDefaultCurrency = getUserSupportedCurrency(accountCurrency);
     setFormData(initializeFormData(true, currentDefaultCurrency));
-  }, [isOpen, isEdit, displayCurrency]);
+  }, [isOpen, isEdit, accountCurrency]);
 
   useEffect(() => {
     if (!isOpen || isEdit) return;
     setFormData((prev) => ({
       ...prev,
-      amountCurrency: getUserDualCurrency(displayCurrency),
+      amountCurrency: getUserSupportedCurrency(accountCurrency),
     }));
-  }, [displayCurrency, isOpen, isEdit]);
+  }, [accountCurrency, isOpen, isEdit]);
 
   function handleClose() {
-    const currentDefaultCurrency = getUserDualCurrency(displayCurrency);
+    const currentDefaultCurrency = getUserSupportedCurrency(accountCurrency);
     if (isEdit && expenseToEdit) {
       setFormData(extractFormData(expenseToEdit));
     } else {

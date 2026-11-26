@@ -42,8 +42,8 @@ export function FinancialModal({
     transaction, 
     mode 
 }: FinancialModalProps) {
-    const { displayCurrency, accountCurrency } = useDisplayCurrency();
-    const defaultCurrency = getUserSupportedCurrency(displayCurrency);
+    const { accountCurrency } = useDisplayCurrency();
+    const defaultCurrency = getUserSupportedCurrency(accountCurrency);
     const [formData, setFormData] = useState<BaseFormData>(initializeFormData(true, defaultCurrency));
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
@@ -54,20 +54,20 @@ export function FinancialModal({
         if (mode === 'edit' && transaction) {
             setFormData(extractFormData(transaction));
         } else if (mode === 'add') {
-            const currentDefaultCurrency = getUserSupportedCurrency(displayCurrency);
+            const currentDefaultCurrency = getUserSupportedCurrency(accountCurrency);
             setFormData(initializeFormData(true, currentDefaultCurrency));
         }
-    }, [transaction, mode, isOpen, displayCurrency]);
+    }, [transaction, mode, isOpen, accountCurrency]);
 
     useEffect(() => {
         if (isOpen && mode === 'add') {
-            const currentDefaultCurrency = getUserSupportedCurrency(displayCurrency);
+            const currentDefaultCurrency = getUserSupportedCurrency(accountCurrency);
             setFormData(prev => ({
                 ...prev,
                 amountCurrency: currentDefaultCurrency
             }));
         }
-    }, [displayCurrency, isOpen, mode]);
+    }, [accountCurrency, isOpen, mode]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -105,7 +105,7 @@ export function FinancialModal({
         if (mode === 'edit' && transaction) {
             setFormData(extractFormData(transaction));
         } else {
-            const currentDefaultCurrency = getUserSupportedCurrency(displayCurrency);
+            const currentDefaultCurrency = getUserSupportedCurrency(accountCurrency);
             setFormData(initializeFormData(true, currentDefaultCurrency));
         }
         onClose();

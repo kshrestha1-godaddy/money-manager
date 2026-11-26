@@ -3,21 +3,49 @@ import { getEffectiveInrToNprRate } from "./currencyConversion";
 
 export { INR_TO_NPR_RATE, NPR_TO_INR_RATE };
 
+export const SUPPORTED_CURRENCIES = ["USD", "INR", "NPR"] as const;
+export type CurrencyCode = (typeof SUPPORTED_CURRENCIES)[number];
+export type SupportedCurrency = CurrencyCode;
+
 export interface Currency {
-  code: string;
+  code: CurrencyCode;
   name: string;
   symbol: string;
 }
 
-export const CURRENCIES: Currency[] = [
+export const CURRENCIES: readonly Currency[] = [
   { code: "USD", name: "US Dollar", symbol: "$ " },
   { code: "INR", name: "Indian Rupee", symbol: "₹ " },
-  {code : "NPR", name: "Nepalese Rupee", symbol: "₨ "}
+  { code: "NPR", name: "Nepalese Rupee", symbol: "₨ " },
 ];
 
+export function isCurrencyCode(value: unknown): value is CurrencyCode {
+  return (
+    typeof value === "string" &&
+    SUPPORTED_CURRENCIES.includes(value.trim().toUpperCase() as CurrencyCode)
+  );
+}
+
+export function normalizeSupportedCurrency(
+  value: unknown,
+  fallback: CurrencyCode = "USD"
+): CurrencyCode {
+  if (!isCurrencyCode(value)) return fallback;
+  return value.trim().toUpperCase() as CurrencyCode;
+}
+
+export function assertCurrencyCode(value: unknown): CurrencyCode {
+  if (!isCurrencyCode(value)) {
+    throw new Error(`Unsupported currency: ${String(value)}`);
+  }
+  return value.trim().toUpperCase() as CurrencyCode;
+}
+
 export function getCurrencySymbol(currencyCode: string): string {
-  const currency = CURRENCIES.find(c => c.code === currencyCode);
-  return currency?.symbol || "$";
+  const normalized = assertCurrencyCode(currencyCode);
+  const currency = CURRENCIES.find(c => c.code === normalized);
+  if (!currency) throw new Error(`Unsupported currency: ${currencyCode}`);
+  return currency.symbol;
 }
 
 export function formatCurrency(amount: number, currencyCode: string): string {
@@ -44,10 +72,6 @@ export function formatCurrency(amount: number, currencyCode: string): string {
     return `${symbol}\u00A0${amount.toFixed(2)}`;
   }
 } 
-
-// Supported currencies for income/expense forms
-export const SUPPORTED_CURRENCIES = ['INR', 'NPR', 'USD'] as const;
-export type SupportedCurrency = typeof SUPPORTED_CURRENCIES[number];
 
 // INR/NPR Conversion Utilities (legacy support)
 export const DUAL_CURRENCIES = ['INR', 'NPR'] as const;
@@ -151,7 +175,5 @@ export function getUserDualCurrency(userCurrency: string): DualCurrency {
  * Convert user currency to SupportedCurrency type safely
  */
 export function getUserSupportedCurrency(userCurrency: string): SupportedCurrency {
-    return SUPPORTED_CURRENCIES.includes(userCurrency as SupportedCurrency) 
-        ? userCurrency as SupportedCurrency 
-        : 'INR';
+    return normalizeSupportedCurrency(userCurrency);
 } 

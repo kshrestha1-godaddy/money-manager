@@ -3,6 +3,7 @@ import { ActivityAction, ActivityCategory, ActivityEntityType } from "@prisma/cl
 import type { Expense } from "../types/financial";
 import { convertForDisplayWithDbRates } from "./currencyDisplayServer";
 import { logAccountBalanceFromTransaction } from "./accountActivityLog";
+import { assertCurrencyCode } from "./currency";
 
 function serializeTransactionLocation(location: any) {
     if (!location) return null;
@@ -20,12 +21,30 @@ export async function createExpenseInTransaction(
     userId: number,
     user: { currency: string } | null
 ) {
+    const accountCurrency = assertCurrencyCode(user?.currency || "USD");
+    const transactionCurrency = assertCurrencyCode(
+        data.currency || accountCurrency
+    );
+    const accountAmount = data.accountId
+        ? await convertForDisplayWithDbRates(
+            data.amount,
+            transactionCurrency,
+            accountCurrency
+        )
+        : null;
+
     // Create the expense
     const createData: any = {
         title: data.title,
         description: data.description,
         amount: data.amount,
-        currency: data.currency || user?.currency || 'USD',
+        currency: transactionCurrency,
+        accountAmount,
+        accountCurrency: accountAmount === null ? null : accountCurrency,
+        appliedExchangeRate:
+            accountAmount === null || data.amount === 0
+                ? null
+                : accountAmount / data.amount,
         date: data.date,
         category: {
             connect: { id: data.categoryId }
@@ -102,16 +121,12 @@ export async function createExpenseInTransaction(
     }
 
     // Update the account balance (decrease by expense amount, convert to user's currency)
-    if (data.accountId) {
-        const userCurrency = user?.currency || 'USD';
-        const transactionCurrency = data.currency || userCurrency;
-        const convertedAmount = await convertForDisplayWithDbRates(data.amount, transactionCurrency, userCurrency);
-        
+    if (data.accountId && accountAmount !== null) {
         await tx.account.update({
             where: { id: data.accountId },
             data: {
                 balance: {
-                    decrement: convertedAmount
+                    decrement: accountAmount
                 }
             }
         });
@@ -126,8 +141,8 @@ export async function createExpenseInTransaction(
                 accountId: data.accountId,
                 accountBankName: expense.account.bankName,
                 holderName: expense.account.holderName,
-                balanceDeltaUserCurrency: -convertedAmount,
-                userCurrency,
+                balanceDeltaUserCurrency: -accountAmount,
+                userCurrency: accountCurrency,
                 transactionTitle: data.title,
                 transactionAmountOriginal: data.amount,
                 transactionCurrency,

@@ -11,7 +11,10 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { formatCurrency } from "../../../utils/currency";
-import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
+import {
+  useDisplayCurrency,
+  useResolvedDisplayCurrency,
+} from "../../../hooks/useDisplayCurrency";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { ChartControls } from "../../../components/ChartControls";
 import { useChartExpansion } from "../../../utils/chartUtils";
@@ -160,6 +163,7 @@ const CHART_COLORS = {
 export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(
   ({ type, currency: currencyProp, title, heightClass }) => {
     const currency = useResolvedDisplayCurrency(currencyProp);
+    const { accountCurrency, toDisplayAmount } = useDisplayCurrency();
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const {
@@ -242,7 +246,12 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(
               return categoryMatch && dateMatch;
             });
 
-            const amounts = monthTransactions.map((t) => t.amount);
+            const amounts = monthTransactions.map((transaction) =>
+              toDisplayAmount(
+                transaction.amount,
+                transaction.currency || accountCurrency
+              )
+            );
             const averageAmount =
               transactionCount > 0 ? monthValue / transactionCount : 0;
             const minAmount = amounts.length > 0 ? Math.min(...amounts) : 0;
@@ -284,6 +293,8 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(
         filteredIncomes,
         filteredExpenses,
         totals,
+        accountCurrency,
+        toDisplayAmount,
       ],
     );
 

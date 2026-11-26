@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import type { CategoryWithFrequencyData } from "../../../utils/categoryFrequency";
 import type { AccountInterface } from "../../../types/accounts";
 import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
-import { getUserDualCurrency } from "../../../utils/currency";
+import { getUserSupportedCurrency } from "../../../utils/currency";
 import {
   inputClasses,
   selectClasses,
@@ -46,8 +46,8 @@ export function MobileSchedulePaymentSheet({
   categories,
   accounts,
 }: MobileSchedulePaymentSheetProps) {
-  const { displayCurrency } = useDisplayCurrency();
-  const defaultCurrency = getUserDualCurrency(displayCurrency);
+  const { accountCurrency } = useDisplayCurrency();
+  const defaultCurrency = getUserSupportedCurrency(accountCurrency);
   const expenseCategories = categories.filter((c) => c.type === "EXPENSE");
 
   const [title, setTitle] = useState("");
@@ -79,8 +79,8 @@ export function MobileSchedulePaymentSheet({
     setScheduledAtLocal(defaultLocalDatetime());
     setIsRecurring(false);
     setRecurringFrequency("MONTHLY");
-    setAmountCurrency(getUserDualCurrency(displayCurrency));
-  }, [isOpen, displayCurrency]);
+    setAmountCurrency(getUserSupportedCurrency(accountCurrency));
+  }, [isOpen, accountCurrency]);
 
   function handleClose() {
     setTitle("");

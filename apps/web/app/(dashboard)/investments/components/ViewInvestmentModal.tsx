@@ -20,7 +20,7 @@ interface ViewInvestmentModalProps {
 }
 
 export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: ViewInvestmentModalProps) {
-    const { formatAmount, displayCurrency: userCurrency } = useDisplayCurrency();
+    const { formatAmount } = useDisplayCurrency();
 
     if (!isOpen || !investment) return null;
 
@@ -112,7 +112,6 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
                             <InvestmentSavingsTargetChart
                                 targetAmount={investment.investmentTarget.targetAmount}
                                 fulfilledAmount={investment.investmentTarget.fulfilledAmount}
-                                currency={userCurrency}
                             />
                         </div>
                     )}

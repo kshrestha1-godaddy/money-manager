@@ -19,7 +19,7 @@ import {
     getEffectiveDebtStatus,
 } from "../utils/interestCalculation";
 import { NotificationData } from "../components/DisappearingNotification";
-import { formatCurrency } from "../utils/currency";
+import { useDisplayCurrency } from "./useDisplayCurrency";
 
 
 type ModalType = 'add' | 'edit' | 'view' | 'repayment' | 'import' | null;
@@ -111,6 +111,7 @@ const DEBT_SECTIONS = [
 
 export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOptimizedDebtsReturn {
     const queryClient = useQueryClient();
+    const { formatDisplayAmount, accountCurrency } = useDisplayCurrency();
     const [error, setError] = useState<string | null>(null);
 
     // Query keys for caching
@@ -272,8 +273,10 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
             
             // Show success notification if callback provided
             if (options.onNotification) {
-                const currency = options.userCurrency || "USD";
-                const formattedAmount = formatCurrency(newDebt.amount, currency);
+                const formattedAmount = formatDisplayAmount(
+                    newDebt.amount,
+                    accountCurrency
+                );
                 const interestRate = newDebt.interestRate || 0;
                 
                 options.onNotification({
@@ -363,8 +366,10 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
             
             // Show success notification if callback provided
             if (options.onNotification) {
-                const currency = options.userCurrency || "USD";
-                const formattedAmount = formatCurrency(amount, currency);
+                const formattedAmount = formatDisplayAmount(
+                    amount,
+                    accountCurrency
+                );
                 
                 options.onNotification({
                     title: 'Repayment Added Successfully!',

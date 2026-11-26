@@ -9,7 +9,7 @@ import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 // Utility function to format date for input field (yyyy-mm-dd)
 const formatDateForInput = (date: Date | undefined | null): string => {
     if (!date) return "";
-    return new Date(date).toISOString().split('T')[0];
+    return new Date(date).toISOString().split('T')[0] ?? "";
 };
 
 // Utility function to parse date from input field

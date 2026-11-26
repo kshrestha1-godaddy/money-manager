@@ -117,7 +117,7 @@ export function transformFormData(
     formData: BaseFormData,
     categories: Category[],
     accounts: AccountInterface[],
-    userAccountCurrency: string = 'INR',
+    _userAccountCurrency: string,
     userId: number = 0
 ) {
     const selectedCategory = categories.find(c => c.id === parseInt(formData.categoryId));
@@ -142,11 +142,9 @@ export function transformFormData(
         throw new Error('Invalid category selected');
     }
 
-    // Convert amount to user's account currency
+    // Transactions retain their explicitly selected native amount and currency.
+    // Account mutations perform the native -> ledger conversion separately.
     const inputAmount = parseFloat(formData.amount);
-    // For now, store the amount in its original currency
-    // Currency conversion will be handled during display
-    const convertedAmount = inputAmount;
 
     // Helper function to create date without timezone conversion
     const createLocalDate = (dateString: string): Date => {
@@ -163,10 +161,8 @@ export function transformFormData(
     return {
         title: formData.title,
         description: formData.description || undefined,
-        amount: convertedAmount,
+        amount: inputAmount,
         currency: formData.amountCurrency,
-        originalAmount: inputAmount,
-        originalCurrency: formData.amountCurrency,
         date: createLocalDate(formData.date),
         category: selectedCategory,
         categoryId: selectedCategory.id,

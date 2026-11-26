@@ -113,25 +113,27 @@ export function AddRepaymentModal({
         setIsLoading(true);
 
         try {
-            const amount = toAccountAmount(parseFloat(formData.amount));
+            const displayAmount = parseFloat(formData.amount);
             
             // Validation
-            if (isNaN(amount) || amount <= 0) {
+            if (isNaN(displayAmount) || displayAmount <= 0) {
                 throw new Error("Please enter a valid amount");
             }
 
-            if (!isFinite(amount)) {
+            if (!isFinite(displayAmount)) {
                 throw new Error("Please enter a valid number");
             }
 
-            // Check for reasonable decimal places (max 2)
-            const amountStr = amount.toString();
+            // Validate the user-entered display value before FX introduces decimals.
+            const amountStr = formData.amount.trim();
             if (amountStr.includes('.')) {
                 const decimalPart = amountStr.split('.')[1];
                 if (decimalPart && decimalPart.length > 2) {
                     throw new Error("Amount cannot have more than 2 decimal places");
                 }
             }
+
+            const amount = toAccountAmount(displayAmount);
 
             // Check for maximum amount (prevent extremely large numbers)
             if (amount > 999999999.99) {

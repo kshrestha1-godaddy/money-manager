@@ -2,6 +2,7 @@
 
 import React from "react";
 import { inputClasses, labelClasses } from "../../../utils/formUtils";
+import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
 
 export interface ElectricityData {
     previousUnits: string;
@@ -15,10 +16,11 @@ interface ElectricityFieldsProps {
     data: ElectricityData;
     onChange: (data: ElectricityData) => void;
     onNotesChange: (notes: string) => void;
+    currency: string;
     disabled?: boolean;
 }
 
-export function ElectricityFields({ data, onChange, onNotesChange, disabled = false }: ElectricityFieldsProps) {
+export function ElectricityFields({ data, onChange, onNotesChange, currency, disabled = false }: ElectricityFieldsProps) {
     const handleInputChange = (field: keyof ElectricityData, value: string) => {
         const updatedData = {
             ...data,
@@ -65,7 +67,7 @@ export function ElectricityFields({ data, onChange, onNotesChange, disabled = fa
 
             <div className="grid grid-cols-2 gap-3">
                 <div>
-                    <label className={labelClasses}>Rate per Unit (₹)</label>
+                    <label className={labelClasses}>Rate per Unit ({getCurrencySymbol(currency).trim()})</label>
                     <input
                         type="number"
                         value={data.ratePerUnit}
@@ -112,7 +114,10 @@ export function ElectricityFields({ data, onChange, onNotesChange, disabled = fa
                     } units
                     {data.ratePerUnit && (
                         <span className="ml-2">
-                            (≈ ₹{((parseFloat(data.currentUnits) - parseFloat(data.previousUnits)) * parseFloat(data.ratePerUnit)).toFixed(2)})
+                            (≈ {formatCurrency(
+                                (parseFloat(data.currentUnits) - parseFloat(data.previousUnits)) * parseFloat(data.ratePerUnit),
+                                currency
+                            )})
                         </span>
                     )}
                 </div>
