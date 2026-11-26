@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Table2, X } from "lucide-react";
 import { Transaction } from "../types/financial";
-import { useCurrency } from "../providers/CurrencyProvider";
+import { useDisplayCurrency } from "./PageDisplayCurrencySelect";
 import {
   buildBalanceSheetRows,
   createSyncConvertAmount,
@@ -12,6 +12,7 @@ import {
 
 interface BalanceSheetCsvExportProps {
   transactions: Transaction[];
+  displayCurrency?: string;
 }
 
 function escapeCsvField(value: string | number | undefined | null): string {
@@ -55,8 +56,12 @@ function filterByDateRange(
   });
 }
 
-export function BalanceSheetCsvExport({ transactions }: BalanceSheetCsvExportProps) {
-  const { currency: displayCurrency } = useCurrency();
+export function BalanceSheetCsvExport({
+  transactions,
+  displayCurrency: displayCurrencyOverride,
+}: BalanceSheetCsvExportProps) {
+  const { displayCurrency: contextDisplayCurrency } = useDisplayCurrency();
+  const displayCurrency = displayCurrencyOverride || contextDisplayCurrency;
   const [isOpen, setIsOpen] = useState(false);
   const [rangeStart, setRangeStart] = useState("");
   const [rangeEnd, setRangeEnd] = useState("");

@@ -6,7 +6,8 @@ import { FileText, Loader2 } from "lucide-react";
 import { Income, Expense } from "../../../types/financial";
 import { InvestmentInterface } from "../../../types/investments";
 import { DebtInterface } from "../../../types/debts";
-import { useCurrency } from "../../../providers/CurrencyProvider";
+import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { formatCurrency as formatMoney } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { useOptimizedInvestments } from "../../investments/hooks/useOptimizedInvestments";
@@ -60,7 +61,7 @@ interface NetWorthData {
 
 export function SimplePDFReportGenerator() {
     const { data: session } = useSession();
-    const { currency } = useCurrency();
+    const { displayCurrency: currency, convertAmount } = useDisplayCurrency();
     const { filteredIncomes, filteredExpenses, timeRange: { startDate, endDate } } = useChartData();
     const [isGenerating, setIsGenerating] = useState(false);
 
@@ -73,13 +74,11 @@ export function SimplePDFReportGenerator() {
     const debtData = useOptimizedDebts();
     const worthData = useOptimizedWorth();
 
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: currency,
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(amount);
+    const formatCurrency = (amount: number, fromCurrency?: string) => {
+        return formatMoney(
+            fromCurrency ? convertAmount(amount, fromCurrency) : convertAmount(amount),
+            currency
+        );
     };
 
     const formatPercentage = (value: number) => {
@@ -930,18 +929,18 @@ export function SimplePDFReportGenerator() {
                                 </div>
                                 <div class="metric-card">
                                     <div class="metric-label">Total Income</div>
-                                    <div class="metric-value positive">${formatCurrency(financialSummary.totalIncome)}</div>
+                                    <div class="metric-value positive">${formatMoney(financialSummary.totalIncome, currency)}</div>
                                     <div class="metric-change neutral">${incomes.length} transactions</div>
                                 </div>
                                 <div class="metric-card">
                                     <div class="metric-label">Total Expenses</div>
-                                    <div class="metric-value negative">${formatCurrency(financialSummary.totalExpenses)}</div>
+                                    <div class="metric-value negative">${formatMoney(financialSummary.totalExpenses, currency)}</div>
                                     <div class="metric-change neutral">${expenses.length} transactions</div>
                                 </div>
                                 <div class="metric-card">
                                     <div class="metric-label">Net Savings</div>
                                     <div class="metric-value ${financialSummary.netIncome >= 0 ? 'positive' : 'negative'}">
-                                        ${formatCurrency(financialSummary.netIncome)}
+                                        ${formatMoney(financialSummary.netIncome, currency)}
                                     </div>
                                     <div class="metric-change ${financialSummary.savingsRate >= 0 ? 'positive' : 'negative'}">
                                         ${formatPercentage(financialSummary.savingsRate)} savings rate
@@ -1076,7 +1075,7 @@ export function SimplePDFReportGenerator() {
                                         ${sortedExpenseCategories.slice(0, 6).map(([category, amount]) => `
                                             <div class="category-item">
                                                 <div class="category-name">${category}</div>
-                                                <div class="category-amount negative">${formatCurrency(amount)}</div>
+                                                <div class="category-amount negative">${formatMoney(amount, currency)}</div>
                                                 <div class="category-percentage">
                                                     ${financialSummary.totalExpenses > 0 ? ((amount / financialSummary.totalExpenses) * 100).toFixed(1) : '0.0'}% of expenses
                                                 </div>
@@ -1091,7 +1090,7 @@ export function SimplePDFReportGenerator() {
                                         ${sortedIncomeCategories.slice(0, 6).map(([category, amount]) => `
                                             <div class="category-item">
                                                 <div class="category-name">${category}</div>
-                                                <div class="category-amount positive">${formatCurrency(amount)}</div>
+                                                <div class="category-amount positive">${formatMoney(amount, currency)}</div>
                                                 <div class="category-percentage">
                                                     ${financialSummary.totalIncome > 0 ? ((amount / financialSummary.totalIncome) * 100).toFixed(1) : '0.0'}% of income
                                                 </div>

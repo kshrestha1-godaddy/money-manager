@@ -9,10 +9,10 @@ interface UseDebtsReturn {
   loading: boolean;
   error: string | null;
   addDebt: (debt: Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>) => Promise<void>;
-  editDebt: (id: number, debt: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>) => Promise<void>;
-  removeDebt: (debt: DebtInterface) => Promise<void>;
-  addRepaymentToDebt: (debtId: number, repaymentData: { amount: number; notes?: string; accountId?: number }) => Promise<void>;
-  deleteRepaymentFromDebt: (repaymentId: number, debtId: number) => Promise<void>;
+  editDebt: (id: number, debt: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>, appLockPassword: string) => Promise<void>;
+  removeDebt: (debt: DebtInterface, appLockPassword: string) => Promise<void>;
+  addRepaymentToDebt: (debtId: number, repaymentData: { amount: number; notes?: string; accountId?: number }, appLockPassword: string) => Promise<void>;
+  deleteRepaymentFromDebt: (repaymentId: number, debtId: number, appLockPassword: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -66,8 +66,8 @@ export function useDebts(): UseDebtsReturn {
   });
 
   const updateDebtMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>> }) => 
-      updateDebt(id, data),
+    mutationFn: ({ id, data, appLockPassword }: { id: number; data: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>; appLockPassword: string }) =>
+      updateDebt(id, data, appLockPassword),
     onSuccess: (updatedDebt: DebtInterface) => {
       // Optimistically update the cache
       queryClient.setQueryData(QUERY_KEYS.debts, (oldData: any) => {
@@ -91,8 +91,9 @@ export function useDebts(): UseDebtsReturn {
   });
 
   const deleteDebtMutation = useMutation({
-    mutationFn: deleteDebt,
-    onSuccess: (_: any, deletedId: number) => {
+    mutationFn: ({ id, appLockPassword }: { id: number; appLockPassword: string }) =>
+      deleteDebt(id, appLockPassword),
+    onSuccess: (_: any, { id: deletedId }) => {
       // Optimistically update the cache
       queryClient.setQueryData(QUERY_KEYS.debts, (oldData: any) => {
         if (!oldData || 'error' in oldData) {
@@ -113,8 +114,8 @@ export function useDebts(): UseDebtsReturn {
   });
 
   const addRepaymentMutation = useMutation({
-    mutationFn: ({ debtId, amount, notes, accountId }: { debtId: number; amount: number; notes?: string; accountId?: number }) => 
-      addRepayment(debtId, amount, notes, accountId),
+    mutationFn: ({ debtId, amount, appLockPassword, notes, accountId }: { debtId: number; amount: number; appLockPassword: string; notes?: string; accountId?: number }) =>
+      addRepayment(debtId, amount, appLockPassword, notes, accountId),
     onSuccess: (repayment, variables) => {
       // After adding repayment, we need to refresh the debt data to get the updated debt with new repayment
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.debts });
@@ -129,8 +130,8 @@ export function useDebts(): UseDebtsReturn {
   });
 
   const deleteRepaymentMutation = useMutation({
-    mutationFn: ({ repaymentId, debtId }: { repaymentId: number; debtId: number }) => 
-      deleteRepayment(repaymentId, debtId),
+    mutationFn: ({ repaymentId, debtId, appLockPassword }: { repaymentId: number; debtId: number; appLockPassword: string }) =>
+      deleteRepayment(repaymentId, debtId, appLockPassword),
     onSuccess: (result, variables) => {
       // After deleting repayment, refresh the debt data to get the updated debt without the repayment
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.debts });
@@ -154,29 +155,30 @@ export function useDebts(): UseDebtsReturn {
     });
   }, [createDebtMutation]);
 
-  const handleEditDebt = useCallback(async (id: number, updatedDebt: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>) => {
+  const handleEditDebt = useCallback(async (id: number, updatedDebt: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>, appLockPassword: string) => {
     return new Promise<void>((resolve, reject) => {
-      updateDebtMutation.mutate({ id, data: updatedDebt }, {
+      updateDebtMutation.mutate({ id, data: updatedDebt, appLockPassword }, {
         onSuccess: () => resolve(),
         onError: (error) => reject(error)
       });
     });
   }, [updateDebtMutation]);
 
-  const handleRemoveDebt = useCallback(async (debtToDelete: DebtInterface) => {
+  const handleRemoveDebt = useCallback(async (debtToDelete: DebtInterface, appLockPassword: string) => {
     return new Promise<void>((resolve, reject) => {
-      deleteDebtMutation.mutate(debtToDelete.id, {
+      deleteDebtMutation.mutate({ id: debtToDelete.id, appLockPassword }, {
         onSuccess: () => resolve(),
         onError: (error) => reject(error)
       });
     });
   }, [deleteDebtMutation]);
 
-  const handleAddRepayment = useCallback(async (debtId: number, repaymentData: { amount: number; notes?: string; accountId?: number }) => {
+  const handleAddRepayment = useCallback(async (debtId: number, repaymentData: { amount: number; notes?: string; accountId?: number }, appLockPassword: string) => {
     return new Promise<void>((resolve, reject) => {
       addRepaymentMutation.mutate({ 
         debtId, 
         amount: repaymentData.amount, 
+        appLockPassword,
         notes: repaymentData.notes, 
         accountId: repaymentData.accountId 
       }, {
@@ -186,9 +188,9 @@ export function useDebts(): UseDebtsReturn {
     });
   }, [addRepaymentMutation]);
 
-  const handleDeleteRepayment = useCallback(async (repaymentId: number, debtId: number) => {
+  const handleDeleteRepayment = useCallback(async (repaymentId: number, debtId: number, appLockPassword: string) => {
     return new Promise<void>((resolve, reject) => {
-      deleteRepaymentMutation.mutate({ repaymentId, debtId }, {
+      deleteRepaymentMutation.mutate({ repaymentId, debtId, appLockPassword }, {
         onSuccess: () => resolve(),
         onError: (error) => reject(error)
       });

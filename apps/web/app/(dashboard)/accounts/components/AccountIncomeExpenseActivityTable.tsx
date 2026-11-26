@@ -10,6 +10,7 @@ import {
     type IncomeExpenseAccountActivityRow,
 } from "../actions/accounts";
 import { formatCurrency } from "../../../utils/currency";
+import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { INPUT_COLORS, TEXT_COLORS, UI_STYLES } from "../../../config/colorConfig";
 import { CompactPagination } from "../../../components/shared/CompactPagination";
 
@@ -346,7 +347,11 @@ function buildBalanceActivityCsv(rows: IncomeExpenseAccountActivityRow[]): strin
 
 const ITEMS_PER_PAGE = 25;
 
-export function AccountIncomeExpenseActivityTable() {
+export function AccountIncomeExpenseActivityTable({
+    displayCurrency,
+}: {
+    displayCurrency: string;
+}) {
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
     const [selectedAccountIds, setSelectedAccountIds] = useState<number[]>([]);
@@ -748,23 +753,49 @@ export function AccountIncomeExpenseActivityTable() {
                                             {transactionTitle}
                                         </td>
                                         <td className="whitespace-nowrap px-4 py-3 text-right text-gray-700">
-                                            {txAmt !== null ? formatCurrency(txAmt, txCur) : "—"}
+                                            {txAmt !== null
+                                                ? formatCurrency(
+                                                      convertForDisplaySync(txAmt, txCur, displayCurrency),
+                                                      displayCurrency
+                                                  )
+                                                : "—"}
                                         </td>
                                         <td className="whitespace-nowrap px-4 py-3 text-right text-gray-700">
                                             {balanceBefore !== null
-                                                ? formatCurrency(balanceBefore, userCurrency)
+                                                ? formatCurrency(
+                                                      convertForDisplaySync(
+                                                          balanceBefore,
+                                                          userCurrency,
+                                                          displayCurrency
+                                                      ),
+                                                      displayCurrency
+                                                  )
                                                 : "—"}
                                         </td>
                                         <td
                                             className={`whitespace-nowrap px-4 py-3 text-right font-medium ${deltaColor}`}
                                         >
                                             {balanceDelta !== null
-                                                ? formatCurrency(balanceDelta, userCurrency)
+                                                ? formatCurrency(
+                                                      convertForDisplaySync(
+                                                          balanceDelta,
+                                                          userCurrency,
+                                                          displayCurrency
+                                                      ),
+                                                      displayCurrency
+                                                  )
                                                 : "—"}
                                         </td>
                                         <td className="whitespace-nowrap px-4 py-3 text-right text-gray-700">
                                             {balanceAfter !== null
-                                                ? formatCurrency(balanceAfter, userCurrency)
+                                                ? formatCurrency(
+                                                      convertForDisplaySync(
+                                                          balanceAfter,
+                                                          userCurrency,
+                                                          displayCurrency
+                                                      ),
+                                                      displayCurrency
+                                                  )
                                                 : "—"}
                                         </td>
                                     </tr>

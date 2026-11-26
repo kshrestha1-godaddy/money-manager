@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useQuery } from '@tanstack/react-query';
 import { FilterMultiselect } from "../../components/shared/FilterMultiselect";
 import { AccountTable } from "./components/AccountTable";
@@ -13,7 +13,9 @@ import { ImportAccountModal } from "./components/ImportAccountModal";
 import { TransferModal } from "./components/TransferModal";
 import { getAccountBalanceTotals, sumAccountWithheld } from "./utils/accountWithheld";
 import { formatCurrency } from "../../utils/currency";
+import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { useCurrency } from "../../providers/CurrencyProvider";
+import { PageDisplayCurrencySelect, useDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
 import { BankBalanceChart } from "./components/BankBalanceChart";
 import { AccountIncomeExpenseActivityTable } from "./components/AccountIncomeExpenseActivityTable";
 import { useOptimizedAccounts } from "../../hooks/useOptimizedAccounts";
@@ -56,11 +58,7 @@ const standardInput = INPUT_COLORS.standard;
 
 export default function Accounts() {
     const { currency: userCurrency } = useCurrency();
-    const [selectedCurrency, setSelectedCurrency] = useState(userCurrency);
-
-    useEffect(() => {
-        setSelectedCurrency(userCurrency);
-    }, [userCurrency]);
+    const { displayCurrency: selectedCurrency } = useDisplayCurrency();
 
     // Use the optimized accounts hook
     const {
@@ -219,6 +217,10 @@ export default function Accounts() {
                     <h1 className="sr-only">Accounts</h1>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                    <PageDisplayCurrencySelect
+                        id="accounts-display-currency"
+                        value={selectedCurrency}
+                    />
                     <button
                         id="add-account-btn"
                         onClick={() => setIsAddModalOpen(true)}
@@ -269,7 +271,7 @@ export default function Accounts() {
                         <h3 className={cardTitle}>Total Balance</h3>
                     </div>
                     <p className={`${cardValue} ${getSummaryCardClasses('totalBalance', 'accounts').text}`}>
-                        {formatCurrency(totals.balance, userCurrency)}
+                        {formatCurrency(convertForDisplaySync(totals.balance, userCurrency, selectedCurrency), selectedCurrency)}
                     </p>
                     <p className={cardSubtitle}>accounts total</p>
                 </div>
@@ -279,7 +281,7 @@ export default function Accounts() {
                         <h3 className={cardTitle}>Free Balance</h3>
                     </div>
                     <p className={`${cardValue} ${totals.free >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {formatCurrency(totals.free, userCurrency)}
+                        {formatCurrency(convertForDisplaySync(totals.free, userCurrency, selectedCurrency), selectedCurrency)}
                     </p>
                     <p className={cardSubtitle}>available to use</p>
                 </div>
@@ -289,7 +291,7 @@ export default function Accounts() {
                         <h3 className={cardTitle}>Withheld Balance</h3>
                     </div>
                     <p className={`${cardValue} text-gray-600`}>
-                        {formatCurrency(totals.withheld, userCurrency)}
+                        {formatCurrency(convertForDisplaySync(totals.withheld, userCurrency, selectedCurrency), selectedCurrency)}
                     </p>
                     <p className={cardSubtitle}>in investments</p>
                 </div>
@@ -414,7 +416,6 @@ export default function Accounts() {
             ) : (
                 <AccountTable
                     selectedCurrency={selectedCurrency}
-                    setSelectedCurrency={setSelectedCurrency}
                     accounts={accounts}
                     selectedAccounts={selectedAccounts}
                     onAccountSelect={handleAccountSelect}
@@ -459,7 +460,9 @@ export default function Accounts() {
                 />
             )}
 
-            {allAccounts.length > 0 && <AccountIncomeExpenseActivityTable />}
+            {allAccounts.length > 0 && (
+                <AccountIncomeExpenseActivityTable displayCurrency={selectedCurrency} />
+            )}
 
             {/* Modals */}
             <AddAccountModal

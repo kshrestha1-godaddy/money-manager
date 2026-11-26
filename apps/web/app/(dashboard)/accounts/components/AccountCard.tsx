@@ -2,8 +2,7 @@
 
 import React, { useState } from "react";
 import { AccountInterface } from "../../../types/accounts";
-import { formatCurrency } from "../../../utils/currency";
-import { useCurrency } from "../../../providers/CurrencyProvider";
+import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 
 export function AccountCard({ 
     account, 
@@ -24,7 +23,7 @@ export function AccountCard({
     onSelect?: (accountId: number, selected: boolean) => void;
     showCheckbox?: boolean;
 }) {
-    const { currency: userCurrency } = useCurrency();
+    const { formatAmount } = useDisplayCurrency();
 
     const handleSelect = () => {
         if (onSelect) {
@@ -60,7 +59,7 @@ export function AccountCard({
                 </div>
                 {account.balance !== undefined && (
                     <div className="text-right">
-                        <p className="text-2xl font-bold text-green-600">{formatCurrency(account.balance, userCurrency)}</p>
+                        <p className="text-2xl font-bold text-green-600">{formatAmount(account.balance)}</p>
                         <p className="text-sm text-gray-500">Balance</p>
                     </div>
                 )}

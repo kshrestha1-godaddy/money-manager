@@ -4,6 +4,7 @@ import React, { useRef, useMemo, useCallback } from "react";
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, Cell, LabelList } from "recharts";
 import { Info } from "lucide-react";
 import { formatCurrency } from "../../../utils/currency";
+import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 import { Income, Expense } from "../../../types/financial";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { ChartControls } from "../../../components/ChartControls";
@@ -245,8 +246,9 @@ const CHART_MARGINS = {
 // Note: Date utilities now centralized in useChartDataContext
 
 export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({ 
-    currency = "USD"
+    currency: currencyProp
 }) => {
+    const currency = useResolvedDisplayCurrency(currencyProp);
     const chartRef = useRef<HTMLDivElement>(null);
     const { monthlyData, formatTimePeriod } = useChartData();
     
@@ -476,7 +478,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
         } else if (Math.abs(value) >= 1000) {
             return `${(value / 1000).toFixed(1)}K`;
         }
-        return formatCurrency(value, currency).replace(/\$/, '');
+        return formatCurrency(value, currency);
     };
 
     // Calculate optimal interval for x-axis ticks based on data length

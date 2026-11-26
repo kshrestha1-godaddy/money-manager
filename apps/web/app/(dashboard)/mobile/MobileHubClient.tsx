@@ -60,6 +60,7 @@ import { computeAccountFreeBalance } from "./utils/account-free-balance";
 import { PasswordTable } from "../passwords/components/PasswordTable";
 import type { Note } from "@prisma/client";
 import { useCurrency } from "../../providers/CurrencyProvider";
+import { useDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
 import { formatCurrency } from "../../utils/currency";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { SUPPORTED_CURRENCIES } from "../../utils/currencyConversion";
@@ -309,8 +310,8 @@ function groupDebtsByStatus(items: DebtInterface[]): {
 
 export default function MobileHubClient() {
   const { currency: userCurrency } = useCurrency();
+  const { displayCurrency: selectedCurrency, setDisplayCurrency: setSelectedCurrency } = useDisplayCurrency();
   const { isUnlocked, remainingMs } = useAppLock();
-  const [selectedCurrency, setSelectedCurrency] = useState(userCurrency);
   const [isCurrencyConverterOpen, setIsCurrencyConverterOpen] = useState(false);
   const [tab, setTab] = useState<MobileTab>("incomes");
   const [search, setSearch] = useState("");
@@ -326,9 +327,6 @@ export default function MobileHubClient() {
   const [failedLoads, setFailedLoads] = useState<string[]>([]);
   const loadVersions = useRef(new Map<string, number>());
 
-  useEffect(() => {
-    setSelectedCurrency(userCurrency);
-  }, [userCurrency]);
 
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);

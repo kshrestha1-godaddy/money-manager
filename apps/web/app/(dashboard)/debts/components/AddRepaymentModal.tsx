@@ -4,8 +4,7 @@ import { useState, useEffect } from "react";
 import { DebtInterface } from "../../../types/debts";
 import { AccountInterface } from "../../../types/accounts";
 import { formatCurrency } from "../../../utils/currency";
-import { useCurrency } from "../../../providers/CurrencyProvider";
-import { addRepayment } from "../actions/debts";
+import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 import { getUserAccounts } from "../../accounts/actions/accounts";
 import { calculateRemainingWithInterest } from "../../../utils/interestCalculation";
 
@@ -28,7 +27,7 @@ export function AddRepaymentModal({
     onAdd, 
     onSuccess 
 }: AddRepaymentModalProps) {
-    const { currency: userCurrency } = useCurrency();
+    const { accountCurrency: userCurrency, formatAmount } = useDisplayCurrency();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -231,25 +230,25 @@ export function AddRepaymentModal({
                     <div className="bg-gray-50 p-4 rounded-lg mb-6">
                         <div className="flex justify-between items-center mb-2">
                             <span className="text-sm text-gray-600">Original Amount:</span>
-                            <span className="font-medium text-gray-900">{formatCurrency(debt.amount, userCurrency)}</span>
+                            <span className="font-medium text-gray-900">{formatAmount(debt.amount)}</span>
                         </div>
                         {remainingWithInterest.interestAmount > 0 && (
                             <div className="flex justify-between items-center mb-2">
                                 <span className="text-sm text-gray-600">Interest ({debt.interestRate}%):</span>
-                                <span className="font-medium text-orange-600">{formatCurrency(remainingWithInterest.interestAmount, userCurrency)}</span>
+                                <span className="font-medium text-orange-600">{formatAmount(remainingWithInterest.interestAmount)}</span>
                             </div>
                         )}
                         <div className="flex justify-between items-center mb-2">
                             <span className="text-sm text-gray-600">Total Amount{remainingWithInterest.interestAmount > 0 ? ' (with Interest)' : ''}:</span>
-                            <span className="font-medium text-gray-900">{formatCurrency(remainingWithInterest.totalWithInterest, userCurrency)}</span>
+                            <span className="font-medium text-gray-900">{formatAmount(remainingWithInterest.totalWithInterest)}</span>
                         </div>
                         <div className="flex justify-between items-center mb-2">
                             <span className="text-sm text-gray-600">Total Repaid:</span>
-                            <span className="font-medium text-green-600">{formatCurrency(totalRepayments, userCurrency)}</span>
+                            <span className="font-medium text-green-600">{formatAmount(totalRepayments)}</span>
                         </div>
                         <div className="flex justify-between items-center">
                             <span className="text-sm text-gray-600">Remaining:</span>
-                            <span className="font-semibold text-red-600">{formatCurrency(remainingAmount, userCurrency)}</span>
+                            <span className="font-semibold text-red-600">{formatAmount(remainingAmount)}</span>
                         </div>
                     </div>
 

@@ -6,6 +6,7 @@ import { formatCurrency } from "../../../utils/currency";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import type { DebtInterface } from "../../../types/debts";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 import { calculateDebtRecovery } from "../../../utils/debtRecovery";
 
 interface DebtStatusWaterfallChartProps {
@@ -23,12 +24,14 @@ const localDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth(
 
 export function DebtStatusWaterfallChart({
   debts,
-  currency,
-  baseCurrency = currency,
+  currency: currencyProp,
+  baseCurrency,
   hasPageFilters = false,
   pageStartDate,
   pageEndDate,
 }: DebtStatusWaterfallChartProps) {
+  const currency = useResolvedDisplayCurrency(currencyProp);
+  const fromCurrency = baseCurrency || currency;
   const [activeSegment, setActiveSegment] = useState<number | null>(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -46,7 +49,7 @@ export function DebtStatusWaterfallChart({
   }, [debts, startDate, endDate, hasPageFilters, pageStartDate, pageEndDate]);
 
   const recovery = useMemo(() => calculateDebtRecovery(filteredDebts), [filteredDebts]);
-  const convert = (value: number) => convertForDisplaySync(value, baseCurrency, currency);
+  const convert = (value: number) => convertForDisplaySync(value, fromCurrency, currency);
   const money = (value: number) => formatCurrency(convert(value), currency);
   const recoveryPercent = recovery.totalWithInterest > 0
     ? (recovery.totalRepaid / recovery.totalWithInterest) * 100 : 0;

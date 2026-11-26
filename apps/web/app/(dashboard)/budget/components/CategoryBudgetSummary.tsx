@@ -5,14 +5,15 @@ import { ArrowUpRight, CalendarDays, ChevronDown, Target } from 'lucide-react';
 import { getBudgetRangeSummary, type BudgetRangeCategory } from '../../../actions/budget-targets';
 import { useCurrency } from '../../../providers/CurrencyProvider';
 import { formatCurrency } from '../../../utils/currency';
+import { convertForDisplaySync } from '../../../utils/currencyDisplay';
 
 type Preset = '1' | '3' | '6' | '12' | 'all' | 'custom' | `year-${number}`;
 const dateInput = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-export function CategoryBudgetSummary({ month, year, period, refreshKey }: {
-  month: number; year: number; period: 'MONTHLY' | 'QUARTERLY' | 'YEARLY'; refreshKey: unknown;
+export function CategoryBudgetSummary({ month, year, period, refreshKey, displayCurrency }: {
+  month: number; year: number; period: 'MONTHLY' | 'QUARTERLY' | 'YEARLY'; refreshKey: unknown; displayCurrency: string;
 }) {
-  const { currency } = useCurrency();
+  const { currency: userCurrency } = useCurrency();
   const [preset, setPreset] = useState<Preset>('6');
   const [type, setType] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
   const [customStart, setCustomStart] = useState(dateInput(new Date(year, month, 1)));
@@ -51,7 +52,7 @@ export function CategoryBudgetSummary({ month, year, period, refreshKey }: {
       if (!cancelled) setError('Unable to load the budget summary. Please try again.');
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [range, period, refreshKey, retry, currency]);
+  }, [range, period, refreshKey, retry]);
 
   const rows = data.filter(row => row.categoryType === type).sort((a, b) => {
     const score = (row: BudgetRangeCategory) => row.target > 0 ? row.actual / row.target : row.actual > 0 ? Infinity : -1;
@@ -76,7 +77,8 @@ export function CategoryBudgetSummary({ month, year, period, refreshKey }: {
   const years = Array.from({ length: 6 }, (_, index) => new Date().getFullYear() - index);
   const presetButton = (value: Preset, label: string) => <button key={value} type="button" aria-pressed={preset === value} onClick={() => setPreset(value)} className={`whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 ${preset === value ? 'border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100'}`}>{label}</button>;
   const dateLabel = (value: string) => new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  const money = (value: number) => formatCurrency(value, currency);
+  const money = (value: number) =>
+    formatCurrency(convertForDisplaySync(value, userCurrency, displayCurrency), displayCurrency);
 
   return (
     <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm" aria-labelledby="budget-pulse-title">

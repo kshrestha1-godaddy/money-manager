@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { Activity, Plus, RefreshCw } from "lucide-react";
 import { useCurrency } from "../../../providers/CurrencyProvider";
+import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
 import { formatDate } from "../../../utils/date";
@@ -66,8 +67,8 @@ export function NetworthHistoryChart({
   isRecording = false,
   refreshTrigger = 0,
 }: NetworthHistoryChartProps) {
-  const { currency: userCurrency, currencyRateAnchors } = useCurrency();
-  const currency = displayCurrency ?? userCurrency;
+  const { currencyRateAnchors } = useCurrency();
+  const currency = useResolvedDisplayCurrency(displayCurrency);
   const gradientId = useId().replace(/:/g, "");
   const [period, setPeriod] = useState("mtd");
   const [range, setRange] = useState(() => periodRange("mtd"));

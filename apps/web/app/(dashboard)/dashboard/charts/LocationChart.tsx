@@ -8,6 +8,7 @@ import { DEFAULT_LOCATION } from "../../../utils/locationDefaults";
 import type { ExpressionSpecification } from "maplibre-gl";
 import { formatCurrency } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 
 interface LocationChartProps {
   currency: string;
@@ -76,7 +77,8 @@ function hasValidCoordinates(location: { longitude: unknown; latitude: unknown }
   return Number.isFinite(lng) && Number.isFinite(lat) && Math.abs(lng) <= 180 && Math.abs(lat) <= 90;
 }
 
-export function LocationChart({ currency, heightClass = "h-[850px]" }: LocationChartProps) {
+export function LocationChart({ currency: currencyProp, heightClass = "h-[850px]" }: LocationChartProps) {
+  const currency = useResolvedDisplayCurrency(currencyProp);
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
   const [datePreset, setDatePreset] = useState("All");
   const [mapTheme, setMapTheme] = useState<"light" | "dark">("light");

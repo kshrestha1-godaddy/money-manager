@@ -16,6 +16,7 @@ import {
 import type { TooltipProps } from "recharts";
 import { ChartControls } from "../../../components/ChartControls";
 import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
+import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import type { DebtInterface } from "../../../types/debts";
 import {
@@ -82,7 +83,9 @@ function getDaysLabel(days: number, isOverdue: boolean): string {
   return `${days} days`;
 }
 
-export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
+export function DebtDueDatesChart({ debts, currency: currencyProp }: DebtDueDatesChartProps) {
+  const { displayCurrency, convertAmount } = useDisplayCurrency();
+  const currency = displayCurrency;
   const { isExpanded, toggleExpanded } = useChartExpansion();
   const chartRef = useRef<HTMLDivElement>(null);
 
@@ -124,10 +127,10 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
       return {
         id: debt.id,
         borrowerName: debt.borrowerName,
-        amount: debt.amount,
-        totalWithInterest: result.totalWithInterest,
-        remainingAmount: result.remainingAmount,
-        paidAmount: totalRepaid,
+        amount: convertAmount(debt.amount),
+        totalWithInterest: convertAmount(result.totalWithInterest),
+        remainingAmount: convertAmount(result.remainingAmount),
+        paidAmount: convertAmount(totalRepaid),
         dueDate,
         daysUntilDue,
         status: effectiveStatus,
@@ -143,7 +146,7 @@ export function DebtDueDatesChart({ debts, currency }: DebtDueDatesChartProps) {
     const totalActiveAmount = data.reduce((sum, item) => sum + item.remainingAmount, 0);
 
     return { data, totalActiveAmount };
-  }, [debts]);
+  }, [debts, convertAmount]);
 
   // Get currency symbol for the user's selected currency
   const currencySymbol = getCurrencySymbol(currency);

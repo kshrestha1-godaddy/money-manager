@@ -3,6 +3,8 @@
 import React, { useCallback, useMemo, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Label } from "recharts";
 import { Info } from "lucide-react";
+import { formatCurrency } from "../../../utils/currency";
+import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { ChartControls } from "../../../components/ChartControls";
@@ -35,7 +37,8 @@ interface MonthlyData {
     [seriesKey: string]: string | number | boolean | null | undefined;
 }
 
-export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, heightClass }) => {
+export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency: currencyProp, heightClass }) => {
+    const currency = useResolvedDisplayCurrency(currencyProp);
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { monthlyData, allMonthlyData, formatTimePeriod } = useChartData();
@@ -193,23 +196,13 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                     <div className="flex justify-between">
                         <span className="text-gray-600">Total Income:</span>
                         <span className="font-medium text-green-600">
-                            {new Intl.NumberFormat('en-US', {
-                                style: 'currency',
-                                currency: currency === 'INR' ? 'INR' : 'USD',
-                                minimumFractionDigits: 0,
-                                maximumFractionDigits: 0
-                            }).format(data.totalIncome)}
+                            {formatCurrency(data.totalIncome, currency)}
                         </span>
                     </div>
                     <div className="flex justify-between">
                         <span className="text-gray-600">Total Expenses:</span>
                         <span className="font-medium text-red-600">
-                            {new Intl.NumberFormat('en-US', {
-                                style: 'currency',
-                                currency: currency === 'INR' ? 'INR' : 'USD',
-                                minimumFractionDigits: 0,
-                                maximumFractionDigits: 0
-                            }).format(data.totalExpenses)}
+                            {formatCurrency(data.totalExpenses, currency)}
                         </span>
                     </div>
                     <div className="flex justify-between">
@@ -217,12 +210,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                         <span className={`font-medium ${
                             data.savings >= 0 ? 'text-blue-600' : 'text-orange-600'
                         }`}>
-                            {new Intl.NumberFormat('en-US', {
-                                style: 'currency',
-                                currency: currency === 'INR' ? 'INR' : 'USD',
-                                minimumFractionDigits: 0,
-                                maximumFractionDigits: 0
-                            }).format(data.savings)}
+                            {formatCurrency(data.savings, currency)}
                         </span>
                     </div>
                 </div>
@@ -245,12 +233,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                         <div className="flex justify-between">
                             <span className="text-gray-600">Avg Income:</span>
                             <span className="font-medium">
-                                {new Intl.NumberFormat('en-US', {
-                                    style: 'currency',
-                                    currency: currency === 'INR' ? 'INR' : 'USD',
-                                    minimumFractionDigits: 0,
-                                    maximumFractionDigits: 0
-                                }).format(data.averageIncome)}
+                                {formatCurrency(data.averageIncome, currency)}
                             </span>
                         </div>
                     )}
@@ -258,12 +241,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency, h
                         <div className="flex justify-between">
                             <span className="text-gray-600">Avg Expense:</span>
                             <span className="font-medium">
-                                {new Intl.NumberFormat('en-US', {
-                                    style: 'currency',
-                                    currency: currency === 'INR' ? 'INR' : 'USD',
-                                    minimumFractionDigits: 0,
-                                    maximumFractionDigits: 0
-                                }).format(data.averageExpense)}
+                                {formatCurrency(data.averageExpense, currency)}
                             </span>
                         </div>
                     )}

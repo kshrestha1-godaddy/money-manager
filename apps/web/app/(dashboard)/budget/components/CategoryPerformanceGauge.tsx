@@ -3,6 +3,8 @@
 import React, { memo, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatCurrency } from '../../../utils/currency';
+import { convertForDisplaySync } from '../../../utils/currencyDisplay';
+import { useCurrency } from '../../../providers/CurrencyProvider';
 
 // Core data interfaces
 interface BudgetComparisonData {
@@ -108,7 +110,9 @@ function generateAxisTicks(axisMax: number): number[] {
 function useChartData(
   budgetData: BudgetComparisonData[], 
   categoryType: 'EXPENSE' | 'INCOME' | 'ALL',
-  allCategories?: Array<{ name: string; type: string; includedInBudget: boolean }>
+  allCategories: Array<{ name: string; type: string; includedInBudget: boolean }> | undefined,
+  userCurrency: string,
+  displayCurrency: string
 ): ChartDataPoint[] {
   return useMemo(() => {
     let filteredData = budgetData.filter(item => item.budgetTarget.monthlySpend > 0);
@@ -130,14 +134,24 @@ function useChartData(
         (item.actualSpending.monthlyAverage / item.budgetTarget.monthlySpend) * 1000
       ) / 10;
       
+      const actual = convertForDisplaySync(
+        item.actualSpending.monthlyAverage,
+        userCurrency,
+        displayCurrency
+      );
+      const budget = convertForDisplaySync(
+        item.budgetTarget.monthlySpend,
+        userCurrency,
+        displayCurrency
+      );
       return {
         categoryName: item.categoryName,
         utilization,
-        actual: item.actualSpending.monthlyAverage,
-        budget: item.budgetTarget.monthlySpend,
+        actual,
+        budget,
         status: item.variance.status,
         categoryType: item.categoryType,
-        difference: item.actualSpending.monthlyAverage - item.budgetTarget.monthlySpend,
+        difference: actual - budget,
         isOverBudget: utilization > 100,
       };
     });
@@ -152,7 +166,7 @@ function useChartData(
       .sort((a, b) => b.utilization - a.utilization);
     
     return [...expenses, ...incomes];
-  }, [budgetData, categoryType, allCategories]);
+  }, [budgetData, categoryType, allCategories, userCurrency, displayCurrency]);
 }
 
 function useChartConfig(chartData: ChartDataPoint[], containerWidth: number): ChartConfig {
@@ -619,12 +633,13 @@ export const CategoryPerformanceGauge = memo(({
   isLoading = false,
   allCategories
 }: CategoryPerformanceGaugeProps) => {
+  const { currency: userCurrency } = useCurrency();
   const [hoveredItem, setHoveredItem] = useState<ChartDataPoint | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   
   // Use custom hooks
   const { containerWidth, containerRef } = useContainerWidth();
-  const chartData = useChartData(budgetData, categoryType, allCategories);
+  const chartData = useChartData(budgetData, categoryType, allCategories, userCurrency, currency);
   const config = useChartConfig(chartData, containerWidth);
   const navigate = useNavigation(selectedMonth, selectedYear);
 

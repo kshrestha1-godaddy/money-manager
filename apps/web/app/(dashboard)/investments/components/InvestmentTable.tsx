@@ -3,7 +3,7 @@
 import { useResizableColumnWidths } from "../../../hooks/usePersistentColumnWidths";
 import Link from "next/link";
 
-import { useState, useId, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { Download, RefreshCw } from "lucide-react";
 import { InvestmentInterface } from "../../../types/investments";
 import {
@@ -17,7 +17,6 @@ import { formatCurrency } from "../../../utils/currency";
 import { formatDateYearMonthDay } from "../../../utils/date";
 import { useCurrency } from "../../../providers/CurrencyProvider";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
-import { SUPPORTED_CURRENCIES } from "../../../utils/currencyConversion";
 import { exportInvestmentsToCSVWithDisplayCurrency } from "../../../utils/csvExportInvestments";
 import { getDefaultColumnWidths, getMinColumnWidth, type InvestmentColumnWidths } from "../../../config/tableConfig";
 import { getActionButtonClasses } from "../../../config/colorConfig";
@@ -43,7 +42,6 @@ const defaultColumnWidths = getDefaultColumnWidths("investments");
 interface InvestmentTableProps {
     tableId: string;
     selectedCurrency: string;
-    setSelectedCurrency: (currency: string) => void;
     investments: InvestmentInterface[];
     onEdit: (investment: InvestmentInterface) => void;
     onDelete: (investment: InvestmentInterface) => void;
@@ -74,7 +72,6 @@ type SortOrder = 'asc' | 'desc';
 export function InvestmentTable({ 
     tableId,
     selectedCurrency,
-    setSelectedCurrency,
     investments, 
     onEdit, 
     onDelete, 
@@ -89,7 +86,6 @@ export function InvestmentTable({
     const [sortField, setSortField] = useState<SortField>('targetCompletion');
     const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
     const { currency: userCurrency } = useCurrency();
-    const currencySelectId = useId();
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     const toDisplay = useCallback(
@@ -289,23 +285,6 @@ export function InvestmentTable({
                         Refresh
                     </button>
                 )}
-                <div className="flex items-center space-x-2">
-                    <label htmlFor={currencySelectId} className="sr-only">
-                        Display currency
-                    </label>
-                    <select
-                        id={currencySelectId}
-                        value={selectedCurrency}
-                        onChange={(e) => setSelectedCurrency(e.target.value)}
-                        className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    >
-                        {SUPPORTED_CURRENCIES.map((code) => (
-                            <option key={code} value={code}>
-                                {code}
-                            </option>
-                        ))}
-                    </select>
-                </div>
                 <button
                     style={{ display: "none" }}
                     type="button"

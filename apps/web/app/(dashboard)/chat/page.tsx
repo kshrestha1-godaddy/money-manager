@@ -8,9 +8,11 @@ import { Message } from "./components/Message";
 import { SettingsModal } from "./components/SettingsModal";
 import { useChat } from "./hooks/useChat";
 import { getFinancialDataForChat, FinancialDataRequest } from "./actions/financial-data";
+import { useDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
 import { FinancialContext } from "./types/chat";
 
 export default function ChatPage() {
+  const { formatAmount } = useDisplayCurrency();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -231,7 +233,7 @@ export default function ChatPage() {
                           )}
                           {financialContext.summary?.netAmount !== undefined && (
                             <span className="font-medium text-gray-800">
-                              Net: {financialContext.summary.netAmount >= 0 ? '+' : ''}{financialContext.summary.netAmount} {financialContext.summary.currency}
+                              Net: {financialContext.summary.netAmount >= 0 ? '+' : ''}{formatAmount(financialContext.summary.netAmount, financialContext.summary.currency)}
                             </span>
                           )}
                         </div>

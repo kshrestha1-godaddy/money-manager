@@ -17,6 +17,7 @@ import { BulkDeleteInvestmentModal } from "./components/BulkDeleteInvestmentModa
 import { InvestmentTargetModal } from "./components/InvestmentTargetModal";
 import { BulkDeleteTargetsModal } from "./components/BulkDeleteTargetsModal";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
+import { PageDisplayCurrencySelect, useDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { useOptimizedInvestments } from "./hooks/useOptimizedInvestments";
@@ -70,11 +71,7 @@ const redNegativeIcon = ICON_COLORS.redNegative;
 
 export default function InvestmentsPageClient() {
   const { currency: userCurrency } = useCurrency();
-  const [displayCurrency, setDisplayCurrency] = useState(userCurrency);
-
-  useEffect(() => {
-    setDisplayCurrency(userCurrency);
-  }, [userCurrency]);
+  const { displayCurrency } = useDisplayCurrency();
 
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -292,7 +289,7 @@ export default function InvestmentsPageClient() {
     currentAmount: convertForDisplaySync(target.currentAmount, userCurrency, displayCurrency),
   })), [targetProgressForCharts, userCurrency, displayCurrency]);
 
-  const polarChartProps = useMemo(() => ({ investments: stableFilteredInvestments, currency: userCurrency, title: "Portfolio Distribution by Investment Type" }), [stableFilteredInvestments, userCurrency]);
+  const polarChartProps = useMemo(() => ({ investments: stableFilteredInvestments, currency: displayCurrency, title: "Portfolio Distribution by Investment Type" }), [stableFilteredInvestments, displayCurrency]);
   // Bulk delete targets handlers
   const handleBulkDeleteTargetsClick = useCallback(() => {
     setIsBulkDeleteTargetsModalOpen(true);
@@ -304,14 +301,14 @@ export default function InvestmentsPageClient() {
   }, [handleUpdateTarget, queryClient]);
 
   const targetChartProps = useMemo(() => ({ 
-    targets: targetProgressForCharts, 
-    currency: userCurrency, 
+    targets: timelineTargets, 
+    currency: displayCurrency, 
     title: "Investment Target Progress", 
     onEditTarget: openEditTargetModal,
     onExtendTarget: handleExtendTarget,
     onAddTarget: openAddTargetModal,
     onBulkDelete: handleBulkDeleteTargetsClick
-  }), [targetProgressForCharts, userCurrency, openEditTargetModal, openAddTargetModal, handleBulkDeleteTargetsClick, handleExtendTarget]);
+  }), [timelineTargets, displayCurrency, openEditTargetModal, openAddTargetModal, handleBulkDeleteTargetsClick, handleExtendTarget]);
 
   const handleSectionBulkDelete = (sectionInvestments: InvestmentInterface[]) => {
     const selectedIds = sectionInvestments.filter(inv => selectedInvestments.has(inv.id));
@@ -431,6 +428,10 @@ export default function InvestmentsPageClient() {
             <p className={pageSubtitle}>Track your investment portfolio and performance</p>
           </div>
           <div className={UI_STYLES.header.buttonGroup}>
+            <PageDisplayCurrencySelect
+              id="investments-display-currency"
+              value={displayCurrency}
+            />
             <Link href="/stocks" className={secondaryBlueButton}>Stocks dashboard</Link>
             <Link href="/sip" className={secondaryBlueButton}>SIP dashboard</Link>
             <button onClick={() => openModal('add')} className={primaryButton}>Add Investment</button>
@@ -468,7 +469,7 @@ export default function InvestmentsPageClient() {
             <DollarSign className={`absolute top-4 left-4 h-4 w-4 ${purpleIcon}`} />
             <div className="flex flex-col items-center justify-center h-full text-center pt-6">
               <h3 className={`${cardTitle} mb-2`}>Total Invested</h3>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalInvested, userCurrency)}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrency(convertForDisplaySync(totalInvested, userCurrency, displayCurrency), displayCurrency)}</p>
               <p className={cardSubtitle}>purchase cost</p>
             </div>
           </div>
@@ -476,7 +477,7 @@ export default function InvestmentsPageClient() {
             <DollarSign className={`absolute top-4 left-4 h-4 w-4 ${blueIcon}`} />
             <div className="flex flex-col items-center justify-center h-full text-center pt-6">
               <h3 className={`${cardTitle} mb-2`}>Current Value</h3>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalCurrentValue, userCurrency)}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrency(convertForDisplaySync(totalCurrentValue, userCurrency, displayCurrency), displayCurrency)}</p>
               <p className={cardSubtitle}>market value</p>
             </div>
           </div>
@@ -488,7 +489,7 @@ export default function InvestmentsPageClient() {
             )}
             <div className="flex flex-col items-center justify-center h-full text-center pt-6">
               <h3 className={`${cardTitle} mb-2`}>Total Gain/Loss</h3>
-              <p className={`text-2xl font-bold ${totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(totalGainLoss, userCurrency)}</p>
+              <p className={`text-2xl font-bold ${totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(convertForDisplaySync(totalGainLoss, userCurrency, displayCurrency), displayCurrency)}</p>
               <p className={cardSubtitle}>{`${totalGainLossPercentage >= 0 ? '+' : ''}${totalGainLossPercentage.toFixed(2)}% return`}</p>
             </div>
           </div>
@@ -590,7 +591,7 @@ export default function InvestmentsPageClient() {
             className="inline-flex max-w-full flex-col items-end gap-0.5 rounded-md border border-amber-200/80 bg-amber-50/90 px-3 py-2 text-right shadow-sm transition hover:bg-amber-100/80"
           >
             <span className="text-sm font-semibold tabular-nums text-amber-950">
-              {formatCurrency(goldSpotPerUnitDisplay, userCurrency)}
+              {formatCurrency(convertForDisplaySync(goldSpotPerUnitDisplay, userCurrency, displayCurrency), displayCurrency)}
               <span className="font-medium text-amber-900/80"> /gm</span>
             </span>
             <span className="text-xs font-normal text-amber-800/90">
@@ -609,7 +610,7 @@ export default function InvestmentsPageClient() {
             className="inline-flex max-w-full flex-col items-end gap-0.5 rounded-md border border-slate-300/90 bg-slate-50/95 px-3 py-2 text-right shadow-sm transition hover:bg-slate-100/90"
           >
             <span className="text-sm font-semibold tabular-nums text-slate-900">
-              {formatCurrency(silverSpotPerUnitDisplay, userCurrency)}
+              {formatCurrency(convertForDisplaySync(silverSpotPerUnitDisplay, userCurrency, displayCurrency), displayCurrency)}
               <span className="font-medium text-slate-700"> /gm</span>
             </span>
             <span className="text-xs font-normal text-slate-600">
@@ -645,9 +646,9 @@ export default function InvestmentsPageClient() {
                     <div>
                       <h3 className={`text-lg font-semibold ${TEXT_COLORS.title} ${TEXT_COLORS.chartTitle.replace('mb-4', '')}`}>{section.title}</h3>
                       <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
-                        <span>Invested: {formatCurrency(section.totalInvested, userCurrency)}</span>
-                        <span>Current: {formatCurrency(section.currentValue, userCurrency)}</span>
-                        <span className={`font-medium ${getGainLossClasses(section.gainLoss)}`}>{section.gainLoss >= 0 ? '+' : ''}{formatCurrency(section.gainLoss, userCurrency)} ({section.gainLossPercentage.toFixed(2)}%)</span>
+                        <span>Invested: {formatCurrency(convertForDisplaySync(section.totalInvested, userCurrency, displayCurrency), displayCurrency)}</span>
+                        <span>Current: {formatCurrency(convertForDisplaySync(section.currentValue, userCurrency, displayCurrency), displayCurrency)}</span>
+                        <span className={`font-medium ${getGainLossClasses(section.gainLoss)}`}>{section.gainLoss >= 0 ? '+' : ''}{formatCurrency(convertForDisplaySync(section.gainLoss, userCurrency, displayCurrency), displayCurrency)} ({section.gainLossPercentage.toFixed(2)}%)</span>
                       </div>
                     </div>
                     <div className="flex items-center space-x-3">
@@ -665,7 +666,6 @@ export default function InvestmentsPageClient() {
                 </div>
                 <InvestmentTable
                   selectedCurrency={displayCurrency}
-                  setSelectedCurrency={setDisplayCurrency}
                   tableId={`${groupBy}:${section.key}`}
                   investments={section.investments}
                   selectedInvestments={selectedInvestments}
@@ -755,10 +755,10 @@ export default function InvestmentsPageClient() {
       
       // Show success notification
       const totalValue = data.quantity * data.purchasePrice;
-      const formattedAmount = new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: userCurrency || 'USD'
-      }).format(totalValue);
+      const formattedAmount = formatCurrency(
+        convertForDisplaySync(totalValue, userCurrency, displayCurrency),
+        displayCurrency
+      );
       
       setNotification({
         title: 'Investment Added Successfully!',

@@ -7,6 +7,7 @@ import { ChartControls } from "../../../components/ChartControls";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { useChartAnimationState } from "../../../hooks/useChartAnimationContext";
 import { loadGoogleCharts } from "../../../utils/googleCharts";
+import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 
 interface CashFlowSankeyChartProps {
     currency?: string;
@@ -39,10 +40,11 @@ interface CategoryFlowStats {
 }
 
 export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({ 
-    currency = "USD", 
+    currency: currencyProp, 
     title, 
     heightClass 
 }) => {
+    const currency = useResolvedDisplayCurrency(currencyProp);
     const chartRef = useRef<HTMLDivElement>(null);
     const { filteredIncomes, filteredExpenses, totals, formatTimePeriod } = useChartData();
     

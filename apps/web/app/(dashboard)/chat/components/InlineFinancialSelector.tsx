@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { getDateRangePresets } from "../utils/financial-formatting";
 import { FinancialDataRequest } from "../actions/financial-data";
-import { getUserCurrency } from "../../../actions/currency";
 import { TrendingUp, TrendingDown, PiggyBank, BarChart3, Wallet, ArrowLeftRight, Target, Building2, Calculator } from "lucide-react";
 
 interface InlineFinancialSelectorProps {
@@ -125,7 +124,6 @@ export function InlineFinancialSelector({
 }: InlineFinancialSelectorProps) {
   const [selectedTypes, setSelectedTypes] = useState<Set<DataType>>(new Set());
   const [selectedPreset, setSelectedPreset] = useState<string>("thisMonth");
-  const [userCurrency, setUserCurrency] = useState<string>("USD");
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const presetData = getDateRangePresets();
@@ -133,13 +131,6 @@ export function InlineFinancialSelector({
     key,
     ...value
   }));
-
-  // Fetch user's currency when component becomes visible
-  useEffect(() => {
-    if (isVisible) {
-      getUserCurrency().then(setUserCurrency).catch(() => setUserCurrency("USD"));
-    }
-  }, [isVisible]);
 
   // Reset state when component becomes visible
   useEffect(() => {

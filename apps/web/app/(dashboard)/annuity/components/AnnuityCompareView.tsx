@@ -14,7 +14,6 @@ import {
 } from "recharts";
 import { formatCurrency } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
-import { SUPPORTED_CURRENCIES } from "../../../utils/currencyConversion";
 import { INPUT_COLORS } from "../../../config/colorConfig";
 import {
   buildChartScrollWidth,
@@ -41,7 +40,6 @@ const standardInput = INPUT_COLORS.standard;
 interface AnnuityCompareViewProps {
   baseCurrency: string;
   selectedCurrency: string;
-  onSelectedCurrencyChange: (code: string) => void;
 }
 
 function formatAmountForDisplay(
@@ -525,7 +523,6 @@ function ScenarioTableBlock({
 export function AnnuityCompareView({
   baseCurrency,
   selectedCurrency,
-  onSelectedCurrencyChange,
 }: AnnuityCompareViewProps) {
   const [inputsA, setInputsA] = useState<CalculatorInputs>(() => ({
     ...DEFAULT_ANNUITY_INPUTS,
@@ -722,21 +719,6 @@ export function AnnuityCompareView({
             />
           </div>
         </section>
-      </div>
-
-      <div className="flex justify-end">
-        <select
-          value={selectedCurrency}
-          onChange={(e) => onSelectedCurrencyChange(e.target.value)}
-          className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-          aria-label="Currency"
-        >
-          {SUPPORTED_CURRENCIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
       </div>
 
       <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">

@@ -12,6 +12,7 @@ import { CashflowCandlestickChart } from "../charts/CashflowCandlestickChart";
 import { LocationChart } from "../charts/LocationChart";
 import Link from "next/link";
 import { useChartData } from "../../../hooks/useChartDataContext";
+import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 
 interface DashboardChartsProps {
   currency: string;
@@ -25,7 +26,7 @@ interface DashboardChartsProps {
 }
 
 export function DashboardCharts({
-  currency,
+  currency: currencyProp,
   startDate,
   endDate,
   isAllTime,
@@ -34,6 +35,7 @@ export function DashboardCharts({
   onClearFilters,
   onSetAllTime,
 }: DashboardChartsProps) {
+  const currency = useResolvedDisplayCurrency(currencyProp);
   const { rawIncomes, rawExpenses, filteredIncomes, filteredExpenses } = useChartData();
   const hasTransactions = rawIncomes.length > 0 || rawExpenses.length > 0;
   const hasTransactionsInRange = filteredIncomes.length > 0 || filteredExpenses.length > 0;

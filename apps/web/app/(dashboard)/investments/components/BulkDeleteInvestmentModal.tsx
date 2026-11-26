@@ -1,8 +1,7 @@
 "use client";
 
 import { InvestmentInterface } from "../../../types/investments";
-import { formatCurrency } from "../../../utils/currency";
-import { useCurrency } from "../../../providers/CurrencyProvider";
+import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 
 interface BulkDeleteInvestmentModalProps {
     isOpen: boolean;
@@ -12,7 +11,7 @@ interface BulkDeleteInvestmentModalProps {
 }
 
 export function BulkDeleteInvestmentModal({ isOpen, onClose, onConfirm, investments }: BulkDeleteInvestmentModalProps) {
-    const { currency: userCurrency } = useCurrency();
+    const { formatAmount } = useDisplayCurrency();
 
     if (!isOpen || investments.length === 0) return null;
 
@@ -69,16 +68,16 @@ export function BulkDeleteInvestmentModal({ isOpen, onClose, onConfirm, investme
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-sm text-gray-600">Total Invested:</span>
-                                <span className="text-sm font-medium text-gray-900">{formatCurrency(totals.totalInvested, userCurrency)}</span>
+                                <span className="text-sm font-medium text-gray-900">{formatAmount(totals.totalInvested)}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-sm text-gray-600">Current Value:</span>
-                                <span className="text-sm font-medium text-gray-900">{formatCurrency(totals.totalCurrentValue, userCurrency)}</span>
+                                <span className="text-sm font-medium text-gray-900">{formatAmount(totals.totalCurrentValue)}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-sm text-gray-600">Total Gain/Loss:</span>
                                 <span className={`text-sm font-medium ${totals.totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {totals.totalGainLoss >= 0 ? '+' : ''}{formatCurrency(totals.totalGainLoss, userCurrency)}
+                                    {totals.totalGainLoss >= 0 ? '+' : ''}{formatAmount(totals.totalGainLoss)}
                                 </span>
                             </div>
                         </div>
@@ -117,9 +116,9 @@ export function BulkDeleteInvestmentModal({ isOpen, onClose, onConfirm, investme
                                                 )}
                                             </div>
                                             <div className="text-right">
-                                                <div className="text-sm font-medium text-gray-900">{formatCurrency(totalValue, userCurrency)}</div>
+                                                <div className="text-sm font-medium text-gray-900">{formatAmount(totalValue)}</div>
                                                 <div className={`text-xs ${gain >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                    {gain >= 0 ? '+' : ''}{formatCurrency(gain, userCurrency)}
+                                                    {gain >= 0 ? '+' : ''}{formatAmount(gain)}
                                                 </div>
                                             </div>
                                         </div>

@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { useQuery } from '@tanstack/react-query';
 import { DebtInterface } from "../../../types/debts";
-import { formatCurrency } from "../../../utils/currency";
-import { useCurrency } from "../../../providers/CurrencyProvider";
+import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 import { getUserDebts } from "../actions/debts";
 import { calculateRemainingWithInterest, calculateInterest } from "../../../utils/interestCalculation";
 
@@ -18,7 +17,7 @@ interface ViewDebtModalProps {
 }
 
 export function ViewDebtModal({ debtId, isOpen, onClose, onEdit, onAddRepayment, onDeleteRepayment }: ViewDebtModalProps) {
-    const { currency: userCurrency } = useCurrency();
+    const { formatAmount } = useDisplayCurrency();
     const [deletingRepayments, setDeletingRepayments] = useState<Set<number>>(new Set());
 
     // Fetch debt data from React Query cache
@@ -133,21 +132,21 @@ export function ViewDebtModal({ debtId, isOpen, onClose, onEdit, onAddRepayment,
                     <div className="grid grid-cols-4 gap-6 mb-8">
                         <div className="bg-blue-50 p-4 rounded-lg">
                             <h3 className="text-sm font-medium text-blue-700 mb-1">Original Amount</h3>
-                            <p className="text-2xl font-bold text-blue-900">{formatCurrency(debt.amount, userCurrency)}</p>
+                            <p className="text-2xl font-bold text-blue-900">{formatAmount(debt.amount)}</p>
                         </div>
                         <div className="bg-orange-50 p-4 rounded-lg">
                             <h3 className="text-sm font-medium text-orange-700 mb-1">
                                 Interest ({debt.interestRate}%)
                                 {debt.status === 'FULLY_PAID' && <span className="text-xs text-orange-600 ml-1">(Final)</span>}
                             </h3>
-                            <p className="text-2xl font-bold text-orange-900">{formatCurrency(remainingWithInterest.interestAmount, userCurrency)}</p>
+                            <p className="text-2xl font-bold text-orange-900">{formatAmount(remainingWithInterest.interestAmount)}</p>
                             <p className="text-xs text-orange-600">
                                 {debt.dueDate ? `${termDays} days term` : `${termDays} days elapsed`}
                             </p>
                         </div>
                         <div className="bg-green-50 p-4 rounded-lg">
                             <h3 className="text-sm font-medium text-green-700 mb-1">Repaid Amount</h3>
-                            <p className="text-2xl font-bold text-green-900">{formatCurrency(totalRepayments, userCurrency)}</p>
+                            <p className="text-2xl font-bold text-green-900">{formatAmount(totalRepayments)}</p>
                             <p className="text-sm text-green-600">{repaymentPercentage.toFixed(1)}% repaid</p>
                         </div>
                         <div className={`p-4 rounded-lg ${remainingAmount > 0 ? 'bg-red-50' : 'bg-gray-50'}`}>
@@ -155,7 +154,7 @@ export function ViewDebtModal({ debtId, isOpen, onClose, onEdit, onAddRepayment,
                                 Remaining Amount
                             </h3>
                             <p className={`text-sm font-medium ${remainingAmount > 0 ? 'text-red-900' : 'text-gray-900'}`}>
-                                {formatCurrency(remainingAmount, userCurrency)}
+                                {formatAmount(remainingAmount)}
                             </p>
                             {debt.status === 'FULLY_PAID' && (
                                 <p className="text-xs text-green-600 font-medium">✓ Fully Paid</p>
@@ -172,7 +171,7 @@ export function ViewDebtModal({ debtId, isOpen, onClose, onEdit, onAddRepayment,
                                     <div>
                                         <h4 className="text-sm font-medium text-orange-800 mb-2">Calculation Details</h4>
                                         <div className="space-y-1 text-sm text-orange-700">
-                                            <div>Principal: {formatCurrency(debt.amount, userCurrency)}</div>
+                                            <div>Principal: {formatAmount(debt.amount)}</div>
                                             <div>Interest Rate: {debt.interestRate}% per year</div>
                                             <div>Term: {termDays} days {debt.dueDate ? '(loan term)' : '(elapsed)'}</div>
                                             <div>Time in Years: {(termDays / 365).toFixed(4)}</div>
@@ -182,8 +181,8 @@ export function ViewDebtModal({ debtId, isOpen, onClose, onEdit, onAddRepayment,
                                         <h4 className="text-sm font-medium text-orange-800 mb-2">Formula</h4>
                                         <div className="space-y-1 text-sm text-orange-700">
                                             <div>Interest = Principal × Rate × Time</div>
-                                            <div>= {formatCurrency(debt.amount, userCurrency)} × {debt.interestRate}% × {(termDays / 365).toFixed(4)}</div>
-                                            <div className="font-medium">= {formatCurrency(remainingWithInterest.interestAmount, userCurrency)}</div>
+                                            <div>= {formatAmount(debt.amount)} × {debt.interestRate}% × {(termDays / 365).toFixed(4)}</div>
+                                            <div className="font-medium">= {formatAmount(remainingWithInterest.interestAmount)}</div>
                                             {debt.status === 'FULLY_PAID' && (
                                                 <div className="text-green-600 font-medium mt-2">
                                                     ✓ Interest calculation stopped (Fully Paid)
@@ -209,8 +208,8 @@ export function ViewDebtModal({ debtId, isOpen, onClose, onEdit, onAddRepayment,
                             ></div>
                         </div>
                         <div className="flex justify-between items-center mt-2 text-gray-600">
-                            <span>{formatCurrency(totalRepayments, userCurrency)} repaid</span>
-                            <span>{formatCurrency(remainingAmount, userCurrency)} remaining</span>
+                            <span>{formatAmount(totalRepayments)} repaid</span>
+                            <span>{formatAmount(remainingAmount)} remaining</span>
                         </div>
                     </div>
 
@@ -323,7 +322,7 @@ export function ViewDebtModal({ debtId, isOpen, onClose, onEdit, onAddRepayment,
                                                         </td>
                                                         <td className="px-3 py-4 whitespace-nowrap text-center align-top tabular-nums" style={{ width: '180px' }}>
                                                             <span className="text-sm font-medium text-green-600 break-words inline-block">
-                                                                {formatCurrency(repayment.amount, userCurrency)}
+                                                                {formatAmount(repayment.amount)}
                                                             </span>
                                                         </td>
                                                         <td className="px-6 py-4 text-sm text-gray-500 text-left align-top" style={{ minWidth: '250px' }}>

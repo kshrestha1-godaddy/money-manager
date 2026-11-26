@@ -8,6 +8,7 @@ import { useChartExpansion } from "../utils/chartUtils";
 import { ChartControls } from "./ChartControls";
 import { createTransactionDayFormatter, getTrailingMonthRange } from "../utils/transaction-calendar";
 import { convertForDisplaySync } from "../utils/currencyDisplay";
+import { useResolvedDisplayCurrency } from "./PageDisplayCurrencySelect";
 import {
     ForecastToggleButton,
     forecastSeriesKey,
@@ -113,7 +114,7 @@ function buildWeeklyAveragePoints(
 
 export function FinancialAreaChart({
     data,
-    currency = "USD",
+    currency: currencyProp,
     timezone,
     type,
     title,
@@ -123,6 +124,7 @@ export function FinancialAreaChart({
     userThresholds,
     thresholdsLoading = false
 }: FinancialAreaChartProps) {
+    const currency = useResolvedDisplayCurrency(currencyProp);
     const [startDate, setStartDate] = useState<string>("");
     const [endDate, setEndDate] = useState<string>("");
     const { isExpanded, toggleExpanded } = useChartExpansion();

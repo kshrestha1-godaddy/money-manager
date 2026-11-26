@@ -1,8 +1,7 @@
 import { AccountInterface } from "../../../types/accounts";
 import { formatDate } from "../../../utils/date";
 import { formatAccountOpeningDate } from "../utils/accountOpeningDate";
-import { formatCurrency } from "../../../utils/currency";
-import { useCurrency } from "../../../providers/CurrencyProvider";
+import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 
 interface ViewAccountModalProps {
     isOpen: boolean;
@@ -35,7 +34,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export function ViewAccountModal({ isOpen, onClose, account }: ViewAccountModalProps) {
-    const { currency: userCurrency } = useCurrency();
+    const { formatAmount } = useDisplayCurrency();
     
     if (!isOpen || !account) return null;
 
@@ -71,7 +70,7 @@ export function ViewAccountModal({ isOpen, onClose, account }: ViewAccountModalP
                                 <div className="text-right">
                                     <p className="text-xs text-gray-500 mb-1">Current Balance</p>
                                     <p className="text-2xl font-semibold text-gray-900">
-                                        {formatCurrency(account.balance, userCurrency)}
+                                        {formatAmount(account.balance)}
                                     </p>
                                 </div>
                             )}

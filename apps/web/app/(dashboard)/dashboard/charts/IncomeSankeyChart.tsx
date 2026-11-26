@@ -11,6 +11,7 @@ import { useChartAnimationState } from "../../../hooks/useChartAnimationContext"
 // Declare Google Charts types
 // Google Charts loader helper
 import { loadGoogleCharts } from "../../../utils/googleCharts";
+import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 
 interface IncomeSankeyChartProps {
     currency?: string;
@@ -46,7 +47,8 @@ const COLORS = [
     '#6366f1', '#dc2626', '#7c3aed', '#0891b2', '#65a30d'
 ];
 
-export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency = "USD", title, heightClass }) => {
+export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency: currencyProp, title, heightClass }) => {
+    const currency = useResolvedDisplayCurrency(currencyProp);
     const chartRef = useRef<HTMLDivElement>(null);
     const { filteredIncomes, formatTimePeriod } = useChartData();
     

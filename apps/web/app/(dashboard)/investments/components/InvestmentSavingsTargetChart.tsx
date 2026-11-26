@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
+import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 
 function formatCompactAxisValue(value: number, currencyCode: string): string {
   const sym = getCurrencySymbol(currencyCode).trimEnd();
@@ -41,10 +42,12 @@ export interface InvestmentSavingsTargetChartProps {
 export function InvestmentSavingsTargetChart({
   targetAmount,
   fulfilledAmount,
-  currency,
+  currency: currencyProp,
 }: InvestmentSavingsTargetChartProps) {
-  const target = Math.max(0, targetAmount);
-  const fulfilled = Math.max(0, fulfilledAmount);
+  const { convertAmount, displayCurrency } = useDisplayCurrency();
+  const currency = displayCurrency;
+  const target = Math.max(0, convertAmount(targetAmount));
+  const fulfilled = Math.max(0, convertAmount(fulfilledAmount));
   const chartData = [
     { name: "Target", value: target, fill: "#d1d5db" },
     { name: "Fulfilled", value: fulfilled, fill: "#7c3aed" },

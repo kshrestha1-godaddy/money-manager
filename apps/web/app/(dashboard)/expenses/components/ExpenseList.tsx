@@ -21,7 +21,7 @@ interface ExpenseListProps {
 
 export function ExpenseList({ 
     expenses, 
-    currency = "USD", 
+    currency, 
     onEdit, 
     onView,
     onDelete,

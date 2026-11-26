@@ -8,8 +8,8 @@ import {
   type StockPeriod,
 } from "./purchaseFilters";
 import { useState } from "react";
-import { CURRENCIES } from "../../utils/currency";
 import { convertCurrencySync } from "../../utils/currencyConversion";
+import { PageDisplayCurrencySelect, usePageDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
 import { buildStaticConversionRates } from "../../utils/currencyRates";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { useOptimizedInvestments } from "../investments/hooks/useOptimizedInvestments";
@@ -27,7 +27,7 @@ export default function ExpensePortfolioPage({
     currencyRateAnchors,
     isRatesLoading,
   } = useCurrency();
-  const [selectedCurrency, setSelectedCurrency] = useState("");
+  const { displayCurrency, setDisplayCurrency } = usePageDisplayCurrency(accountCurrency);
   const [search, setSearch] = useState("");
   const [period, setPeriod] = useState<StockPeriod>("ALL");
   const [startDate, setStartDate] = useState("");
@@ -35,7 +35,7 @@ export default function ExpensePortfolioPage({
   const range = stockDateRange(period, startDate, endDate);
   const invalidRange = !!(range.start && range.end && range.start > range.end);
   const hasFilters = !!search.trim() || period !== "ALL";
-  const currency = selectedCurrency || accountCurrency;
+  const currency = displayCurrency;
   const matrix = buildStaticConversionRates(
     currencyRateAnchors.inrToNpr,
     currencyRateAnchors.nprPerUsd,
@@ -82,21 +82,11 @@ export default function ExpensePortfolioPage({
         >
           {label}
         </h1>
-        <label className="flex items-center gap-2 text-sm font-medium text-gray-600">
-          Display currency
-          <select
-            value={currency}
-            disabled={isRatesLoading}
-            onChange={(event) => setSelectedCurrency(event.target.value)}
-            className="rounded-md border border-gray-200 bg-white px-3 py-2 text-gray-900 focus:ring-2 focus:ring-indigo-500"
-          >
-            {CURRENCIES.map((option) => (
-              <option key={option.code} value={option.code}>
-                {option.code} · {option.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <PageDisplayCurrencySelect
+          id={`${portfolioType.toLowerCase()}-display-currency`}
+          value={currency}
+          onChange={setDisplayCurrency}
+        />
       </div>
       <p className={TEXT_COLORS.subtitle}>
         Track purchases, update your portfolio value, and see how your {label}{" "}

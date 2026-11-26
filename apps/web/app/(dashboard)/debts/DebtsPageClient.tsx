@@ -8,14 +8,14 @@ import { getColumnWidthsStorageKey } from '../../hooks/usePersistentColumnWidths
 import { DebtTable } from './components/DebtTable';
 import { AddDebtModal } from './components/AddDebtModal';
 import { EditDebtModal } from './components/EditDebtModal';
-import { DeleteDebtModal } from './components/DeleteDebtModal';
-import { BulkDeleteDebtModal } from './components/BulkDeleteDebtModal';
+import { useGatedAction } from '@repo/applock';
+import { DebtInterface } from '../../types/debts';
 import { ViewDebtModal } from './components/ViewDebtModal';
 import { AddRepaymentModal } from './components/AddRepaymentModal';
 import { BulkImportModal } from './components/BulkImportModal';
 import { formatCurrency } from '../../utils/currency';
 import { convertForDisplaySync } from '../../utils/currencyDisplay';
-import { SUPPORTED_CURRENCIES } from '../../utils/currencyConversion';
+import { PageDisplayCurrencySelect, useDisplayCurrency } from '../../components/PageDisplayCurrencySelect';
 import { exportDebtsToCSVWithDisplayCurrency } from '../../utils/csvExportDebts';
 import DebtStatusWaterfallChart from './charts/DebtStatusWaterfallChart';
 import DebtDueDatesChart from './charts/DebtDueDatesChart';
@@ -52,14 +52,10 @@ const standardInput = INPUT_COLORS.standard;
 export default function DebtsPageClient() {
   const { data: session } = useSession();
   const { currency: userCurrency } = useCurrency();
-  const [tableDisplayCurrency, setTableDisplayCurrency] = useState(userCurrency);
+  const { displayCurrency: tableDisplayCurrency } = useDisplayCurrency();
   const [groupBySelection, setGroupBySelection] = useState<LendingGroupByOption[]>(["status"]);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ "status:FULLY_PAID": false });
   const [notification, setNotification] = useState<NotificationData | null>(null);
-
-  useEffect(() => {
-    setTableDisplayCurrency(userCurrency);
-  }, [userCurrency]);
 
   const {
     debts,
@@ -71,8 +67,6 @@ export default function DebtsPageClient() {
     modal,
     openModal,
     closeModal,
-    isBulkDeleteModalOpen,
-    setIsBulkDeleteModalOpen,
     searchTerm,
     setSearchTerm,
     selectedStatuses,
@@ -83,7 +77,6 @@ export default function DebtsPageClient() {
     setEndDate,
     selectedDebts,
     setSelectedDebts,
-    bulkDeleteDebts,
     handleAddDebt,
     handleEditDebt,
     handleDeleteDebt,
@@ -92,7 +85,6 @@ export default function DebtsPageClient() {
     handleDebtSelect,
     handleSelectAll,
     handleBulkDelete,
-    handleBulkDeleteConfirm,
     refetchDebts,
     isDebtsRefetching,
     clearFilters,
@@ -184,6 +176,58 @@ export default function DebtsPageClient() {
     }
   };
 
+
+  // Edit, repay and delete each require the lock screen password, which the
+  // server action re-verifies before it mutates anything.
+  const editDebt = useGatedAction(
+    (appLockPassword: string, id: number, data: Parameters<typeof handleEditDebt>[1]) =>
+      handleEditDebt(id, data, appLockPassword),
+    {
+      title: 'Save debt changes',
+      description: 'Enter your lock screen password to save these changes.',
+      confirmLabel: 'Save changes',
+    },
+  );
+
+  const deleteDebt = useGatedAction(
+    (appLockPassword: string, debt: DebtInterface) => handleDeleteDebt(debt, appLockPassword),
+    {
+      title: 'Delete lending',
+      description: 'This cannot be undone. Enter your lock screen password to delete this lending.',
+      confirmLabel: 'Delete lending',
+    },
+  );
+
+  const addRepayment = useGatedAction(
+    (appLockPassword: string, debtId: number, data: Parameters<typeof handleAddRepayment>[1]) =>
+      handleAddRepayment(debtId, data, appLockPassword),
+    {
+      title: 'Record repayment',
+      description: 'Enter your lock screen password to record this repayment.',
+      confirmLabel: 'Record repayment',
+    },
+  );
+
+  const deleteRepayment = useGatedAction(
+    (appLockPassword: string, repaymentId: number, debtId: number) =>
+      handleDeleteRepayment(repaymentId, debtId, appLockPassword),
+    {
+      title: 'Delete repayment',
+      description: 'This cannot be undone. Enter your lock screen password to delete this repayment.',
+      confirmLabel: 'Delete repayment',
+    },
+  );
+
+  const bulkDeleteDebts = useGatedAction(
+    (appLockPassword: string, sectionDebts: DebtInterface[]) =>
+      handleBulkDelete(sectionDebts, appLockPassword),
+    {
+      title: 'Delete selected lendings',
+      description: 'This cannot be undone. Enter your lock screen password to delete the selected lendings.',
+      confirmLabel: 'Delete lendings',
+    },
+  );
+
   if (error) {
     return (
       <div className="p-8 text-center">
@@ -216,6 +260,10 @@ export default function DebtsPageClient() {
           <p className={pageSubtitle}>Track money you've lent to others and manage repayments</p>
         </div>
         <div className={UI_STYLES.header.buttonGroup}>
+          <PageDisplayCurrencySelect
+            id="debts-display-currency"
+            value={tableDisplayCurrency}
+          />
           <button onClick={() => openModal('add')} className={primaryButton}>Add Debt</button>
           <button style={{ display: "none" }} onClick={() => openModal('import')} className={secondaryBlueButton}>Import CSV</button>
         </div>
@@ -234,7 +282,7 @@ export default function DebtsPageClient() {
           <div className={`absolute top-4 left-4 ${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('principalLent', 'debts').indicator}`}></div>
           <div className="flex flex-col items-center justify-center h-full text-center pt-6">
             <h3 className={`${cardTitle} mb-2`}>Principal Lent</h3>
-            <p className="text-2xl font-bold text-gray-900">{formatCurrency(financialSummary.totalPrincipal, userCurrency)}</p>
+            <p className="text-2xl font-bold text-gray-900">{formatCurrency(convertForDisplaySync(financialSummary.totalPrincipal, userCurrency, tableDisplayCurrency), tableDisplayCurrency)}</p>
             <p className={cardSubtitle}>original amount</p>
           </div>
         </div>
@@ -242,7 +290,7 @@ export default function DebtsPageClient() {
           <div className={`absolute top-4 left-4 ${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('interestEarned', 'debts').indicator}`}></div>
           <div className="flex flex-col items-center justify-center h-full text-center pt-6">
             <h3 className={`${cardTitle} mb-2`}>Interest Earned</h3>
-            <p className="text-2xl font-bold text-gray-900">{formatCurrency(financialSummary.totalInterestAccrued, userCurrency)}</p>
+            <p className="text-2xl font-bold text-gray-900">{formatCurrency(convertForDisplaySync(financialSummary.totalInterestAccrued, userCurrency, tableDisplayCurrency), tableDisplayCurrency)}</p>
             <p className={cardSubtitle}>total interest</p>
           </div>
         </div>
@@ -250,7 +298,7 @@ export default function DebtsPageClient() {
           <div className={`absolute top-4 left-4 ${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('totalRepaid', 'debts').indicator}`}></div>
           <div className="flex flex-col items-center justify-center h-full text-center pt-6">
             <h3 className={`${cardTitle} mb-2`}>Total Repaid</h3>
-            <p className="text-2xl font-bold text-green-600">{formatCurrency(financialSummary.totalRepaid, userCurrency)}</p>
+            <p className="text-2xl font-bold text-green-600">{formatCurrency(convertForDisplaySync(financialSummary.totalRepaid, userCurrency, tableDisplayCurrency), tableDisplayCurrency)}</p>
             <p className={cardSubtitle}>collected</p>
           </div>
         </div>
@@ -258,7 +306,7 @@ export default function DebtsPageClient() {
           <div className={`absolute top-4 left-4 ${UI_STYLES.summaryCard.indicator} ${getSummaryCardClasses('outstanding', 'debts').indicator}`}></div>
           <div className="flex flex-col items-center justify-center h-full text-center pt-6">
             <h3 className={`${cardTitle} mb-2`}>Outstanding</h3>
-            <p className="text-2xl font-bold text-red-600">{formatCurrency(financialSummary.totalOutstanding, userCurrency)}</p>
+            <p className="text-2xl font-bold text-red-600">{formatCurrency(convertForDisplaySync(financialSummary.totalOutstanding, userCurrency, tableDisplayCurrency), tableDisplayCurrency)}</p>
             <p className={cardSubtitle}>{`${((financialSummary.totalOutstanding / (financialSummary.totalPrincipal + financialSummary.totalInterestAccrued || 1)) * 100).toFixed(1)}% remaining`}</p>
           </div>
         </div>
@@ -269,7 +317,7 @@ export default function DebtsPageClient() {
           <DebtStatusWaterfallChart debts={filteredDebts} baseCurrency={userCurrency} currency={tableDisplayCurrency} hasPageFilters={hasActiveFilters} pageStartDate={startDate} pageEndDate={endDate} />
         </div>
         <div className="min-w-0">
-          <DebtDueDatesChart debts={filteredDebts} currency={userCurrency} />
+          <DebtDueDatesChart debts={filteredDebts} currency={tableDisplayCurrency} />
         </div>
       </div>
 
@@ -315,18 +363,6 @@ export default function DebtsPageClient() {
             />
             Refresh
           </button>
-          <select
-            id="debts-table-display-currency"
-            value={tableDisplayCurrency}
-            onChange={(e) => setTableDisplayCurrency(e.target.value)}
-            className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-          >
-            {SUPPORTED_CURRENCIES.map((currencyOption) => (
-              <option key={currencyOption} value={currencyOption}>
-                {currencyOption}
-              </option>
-            ))}
-          </select>
           <button
             style={{ display: "none" }}
             type="button"
@@ -417,7 +453,7 @@ export default function DebtsPageClient() {
                         return sectionSelectedIds.length > 0 && (
                           <div className="flex items-center space-x-2">
                             <button onClick={e => { e.stopPropagation(); const newSelected = new Set(selectedDebts); section.debts.forEach(debt => newSelected.delete(debt.id)); setSelectedDebts(newSelected); }} className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors">Clear ({sectionSelectedIds.length})</button>
-                            <button onClick={e => { e.stopPropagation(); handleBulkDelete(section.debts); }} className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors">Delete ({sectionSelectedIds.length})</button>
+                            <button onClick={e => { e.stopPropagation(); void bulkDeleteDebts(section.debts); }} className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors">Delete ({sectionSelectedIds.length})</button>
                           </div>
                         );
                       })()}
@@ -437,12 +473,12 @@ export default function DebtsPageClient() {
                     onDebtSelect={handleDebtSelect}
                     onSelectAll={(selected) => handleSelectAll(selected, section.debts)}
                     onEdit={(debt) => openModal('edit', debt)}
-                    onDelete={(debt) => openModal('delete', debt)}
+                    onDelete={(debt) => void deleteDebt(debt)}
                     onViewDetails={(debt) => openModal('view', debt)}
                     onAddRepayment={(debt) => openModal('repayment', debt)}
-                    onPostpone={(id, dueDate) => handleEditDebt(id, { dueDate })}
+                    onPostpone={(id, dueDate) => editDebt(id, { dueDate }).then(() => undefined)}
                     showBulkActions={true}
-                    onBulkDelete={() => handleBulkDelete(section.debts)}
+                    onBulkDelete={() => void bulkDeleteDebts(section.debts)}
                     onClearSelection={() => clearFilters()}
                   />
                 )}
@@ -453,12 +489,10 @@ export default function DebtsPageClient() {
       )}
 
       <AddDebtModal isOpen={modal.type === 'add'} onClose={closeModal} onAdd={data => handleModalAction('add', data)} />
-      <EditDebtModal isOpen={modal.type === 'edit'} onClose={closeModal} onEdit={(id, data) => handleModalAction('edit', data)} debt={modal.debt || null} />
-      <DeleteDebtModal isOpen={modal.type === 'delete'} onClose={closeModal} onConfirm={() => handleModalAction('delete')} debt={modal.debt || null} />
-      <ViewDebtModal debtId={modal.debt?.id || null} isOpen={modal.type === 'view'} onClose={closeModal} onEdit={debt => openModal('edit', debt)} onAddRepayment={debt => openModal('repayment', debt)} onDeleteRepayment={handleDeleteRepayment} />
-      <AddRepaymentModal debt={modal.debt || null} isOpen={modal.type === 'repayment'} onClose={closeModal} onAdd={data => handleModalAction('addRepayment', data)} />
+      <EditDebtModal isOpen={modal.type === 'edit'} onClose={closeModal} onEdit={(id, data) => void editDebt(id, data)} debt={modal.debt || null} />
+      <ViewDebtModal debtId={modal.debt?.id || null} isOpen={modal.type === 'view'} onClose={closeModal} onEdit={debt => openModal('edit', debt)} onAddRepayment={debt => openModal('repayment', debt)} onDeleteRepayment={(repaymentId, debtId) => deleteRepayment(repaymentId, debtId).then(() => undefined)} />
+      <AddRepaymentModal debt={modal.debt || null} isOpen={modal.type === 'repayment'} onClose={closeModal} onAdd={data => { const debtId = modal.debt?.id; if (!debtId) return undefined; closeModal(); return addRepayment(debtId, data); }} />
       <BulkImportModal isOpen={modal.type === 'import'} onClose={closeModal} onSuccess={() => { closeModal(); }} />
-      <BulkDeleteDebtModal isOpen={isBulkDeleteModalOpen} onClose={() => setIsBulkDeleteModalOpen(false)} onConfirm={handleBulkDeleteConfirm} debts={bulkDeleteDebts} />
       
       {/* Disappearing Notification */}
       <DisappearingNotification 
@@ -469,16 +503,7 @@ export default function DebtsPageClient() {
   );
 
   function handleModalAction(action: string, data?: any) {
-    switch (action) {
-      case 'add':
-        return handleAddDebt(data);
-      case 'edit':
-        return modal.debt ? handleEditDebt(modal.debt.id, data) : undefined;
-      case 'delete':
-        return modal.debt ? handleDeleteDebt(modal.debt) : undefined;
-      case 'addRepayment':
-        return modal.debt ? handleAddRepayment(modal.debt.id, data) : undefined;
-    }
+    if (action === 'add') return handleAddDebt(data);
   }
 }
 

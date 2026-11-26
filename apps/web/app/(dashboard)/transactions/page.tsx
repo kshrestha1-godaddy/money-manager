@@ -8,6 +8,7 @@ import { formatDate } from "../../utils/date";
 import { formatCurrency } from "../../utils/currency";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { useCurrency } from "../../providers/CurrencyProvider";
+import { PageDisplayCurrencySelect, usePageDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
 import { getAllTransactions } from "./actions/transactions";
 import { createTransactionBookmark, deleteTransactionBookmarkByTransaction } from "./actions/transaction-bookmarks";
 import { TransactionPDFReportGenerator } from "../../components/TransactionPDFReportGenerator";
@@ -87,6 +88,7 @@ export default function TransactionsPage() {
     const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const { currency: userCurrency } = useCurrency();
+    const { displayCurrency, setDisplayCurrency } = usePageDisplayCurrency(userCurrency);
 
     useEffect(() => {
         const loadTransactions = async () => {
@@ -160,35 +162,35 @@ export default function TransactionsPage() {
 
     // Calculate totals (for all filtered transactions, not just current page)
     const totalAmount = filteredTransactions.reduce((sum, t) => {
-        const convertedAmount = convertForDisplaySync(t.amount, t.currency, userCurrency);
+        const convertedAmount = convertForDisplaySync(t.amount, t.currency, displayCurrency);
         return t.type === "INCOME" ? sum + convertedAmount : sum - convertedAmount;
     }, 0);
     
     const totalIncome = filteredTransactions
         .filter(t => t.type === 'INCOME')
         .reduce((sum, t) => {
-            const convertedAmount = convertForDisplaySync(t.amount, t.currency, userCurrency);
+            const convertedAmount = convertForDisplaySync(t.amount, t.currency, displayCurrency);
             return sum + convertedAmount;
         }, 0);
     
     const totalExpenses = filteredTransactions
         .filter((t) => t.type === "EXPENSE")
         .reduce((sum, t) => {
-            const convertedAmount = convertForDisplaySync(t.amount, t.currency, userCurrency);
+            const convertedAmount = convertForDisplaySync(t.amount, t.currency, displayCurrency);
             return sum + convertedAmount;
         }, 0);
 
     const totalLending = filteredTransactions
         .filter((t) => t.type === "DEBT")
         .reduce((sum, t) => {
-            const convertedAmount = convertForDisplaySync(t.amount, t.currency, userCurrency);
+            const convertedAmount = convertForDisplaySync(t.amount, t.currency, displayCurrency);
             return sum + convertedAmount;
         }, 0);
 
     const totalInvested = filteredTransactions
         .filter((t) => t.type === "INVESTMENT")
         .reduce((sum, t) => {
-            const convertedAmount = convertForDisplaySync(t.amount, t.currency, userCurrency);
+            const convertedAmount = convertForDisplaySync(t.amount, t.currency, displayCurrency);
             return sum + convertedAmount;
         }, 0);
 
@@ -245,6 +247,11 @@ export default function TransactionsPage() {
             <div className="flex justify-between items-center">
                 <h1 className="sr-only">All Transactions</h1>
                 <div className="flex items-center gap-2 flex-wrap">
+                    <PageDisplayCurrencySelect
+                        id="transactions-display-currency"
+                        value={displayCurrency}
+                        onChange={setDisplayCurrency}
+                    />
                     <TransactionPDFReportGenerator
                         transactions={filteredTransactions}
                         totalIncome={totalIncome}
@@ -256,8 +263,9 @@ export default function TransactionsPage() {
                         selectedCategory={selectedCategory}
                         startDate={startDate}
                         endDate={endDate}
+                        displayCurrency={displayCurrency}
                     />
-                    <BalanceSheetCsvExport transactions={transactions} />
+                    <BalanceSheetCsvExport transactions={transactions} displayCurrency={displayCurrency} />
                 </div>
             </div>
             <div className="text-sm text-gray-500">
@@ -273,31 +281,31 @@ export default function TransactionsPage() {
                     <div className="text-center sm:text-left">
                         <p className="text-sm font-medium text-gray-600">Net Amount</p>
                         <p className="text-lg sm:text-2xl font-bold text-blue-600">
-                            {totalAmount >= 0 ? '+' : ''}{formatCurrency(totalAmount, userCurrency)}
+                            {totalAmount >= 0 ? '+' : ''}{formatCurrency(totalAmount, displayCurrency)}
                         </p>
                     </div>
                     <div className="text-center sm:text-left">
                         <p className="text-sm font-medium text-gray-600">Total Income</p>
                         <p className="text-lg sm:text-2xl font-bold text-green-600">
-                            +{formatCurrency(totalIncome, userCurrency)}
+                            +{formatCurrency(totalIncome, displayCurrency)}
                         </p>
                     </div>
                     <div className="text-center sm:text-left">
                         <p className="text-sm font-medium text-gray-600">Total Expenses</p>
                         <p className="text-lg sm:text-2xl font-bold text-red-600">
-                            -{formatCurrency(totalExpenses, userCurrency)}
+                            -{formatCurrency(totalExpenses, displayCurrency)}
                         </p>
                     </div>
                     <div className="text-center sm:text-left">
                         <p className="text-sm font-medium text-gray-600">Lending (principal)</p>
                         <p className="text-lg sm:text-2xl font-bold text-amber-700">
-                            -{formatCurrency(totalLending, userCurrency)}
+                            -{formatCurrency(totalLending, displayCurrency)}
                         </p>
                     </div>
                     <div className="text-center sm:text-left">
                         <p className="text-sm font-medium text-gray-600">Investments (cost)</p>
                         <p className="text-lg sm:text-2xl font-bold text-indigo-600">
-                            -{formatCurrency(totalInvested, userCurrency)}
+                            -{formatCurrency(totalInvested, displayCurrency)}
                         </p>
                     </div>
                     <div className="text-center sm:text-left">
@@ -554,9 +562,9 @@ export default function TransactionsPage() {
                                                     convertForDisplaySync(
                                                         transaction.amount,
                                                         transaction.currency,
-                                                        userCurrency
+                                                        displayCurrency
                                                     ),
-                                                    userCurrency
+                                                    displayCurrency
                                                 )}
                                             </td>
                                         </tr>

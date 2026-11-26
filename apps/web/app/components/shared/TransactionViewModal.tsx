@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Income, Expense, TransactionImage, TransactionImageType } from "../../types/financial";
 import { formatCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
-import { useCurrency } from "../../providers/CurrencyProvider";
+import { useDisplayCurrency } from "../PageDisplayCurrencySelect";
 import { CurrencyAmount } from "./CurrencyAmount";
 import { getTransactionImages } from "../../actions/transaction-images";
 import { Map, MapMarker, MarkerContent } from "@/components/ui/map";
@@ -26,7 +26,7 @@ export function TransactionViewModal({
     onClose, 
     onEdit 
 }: TransactionViewModalProps) {
-    const { currency: userCurrency } = useCurrency();
+    const { displayCurrency: userCurrency } = useDisplayCurrency();
     const [images, setImages] = useState<TransactionImage[]>([]);
     const [isLoadingImages, setIsLoadingImages] = useState(false);
     const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);

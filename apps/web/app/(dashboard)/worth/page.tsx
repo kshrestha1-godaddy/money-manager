@@ -16,7 +16,7 @@ import {
 import { LOADING_COLORS } from "../../config/colorConfig";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
-import { SUPPORTED_CURRENCIES } from "../../utils/currencyConversion";
+import { PageDisplayCurrencySelect, useDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
 import { downloadCSV } from "../../utils/csvUtils";
 import { formatCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
@@ -51,8 +51,7 @@ const button =
 
 export default function NetWorthPage() {
   const { currency } = useCurrency();
-  const [currencyOverride, setCurrencyOverride] = useState<string | null>(null);
-  const displayCurrency = currencyOverride ?? currency;
+  const { displayCurrency } = useDisplayCurrency();
   const [expandedSections, setExpandedSections] = useState<
     Record<SectionKey, boolean>
   >({ accounts: false, investments: false, debts: false });
@@ -234,24 +233,10 @@ export default function NetWorthPage() {
           <h1 className="sr-only">Net worth</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label
-            htmlFor="worth-display-currency"
-            className="text-xs text-slate-500"
-          >
-            Display in
-          </label>
-          <select
+          <PageDisplayCurrencySelect
             id="worth-display-currency"
             value={displayCurrency}
-            onChange={(event) => setCurrencyOverride(event.target.value)}
-            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 focus-visible:ring-2 focus-visible:ring-teal-500"
-          >
-            {SUPPORTED_CURRENCIES.map((code) => (
-              <option key={code} value={code}>
-                {code}
-              </option>
-            ))}
-          </select>
+          />
           <button onClick={refresh} className={button} disabled={isRefreshing}>
             <RefreshCw size={15} aria-hidden="true" className={isRefreshing ? "animate-spin" : undefined} />
             {isRefreshing ? "Refreshing…" : "Refresh"}

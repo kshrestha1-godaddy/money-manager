@@ -26,7 +26,9 @@ import { TimezoneSelector } from "../../components/shared/TimezoneSelector";
 
 import { CalendarBookmarkEvent, CalendarDebtEvent } from "../../types/transaction-bookmarks";
 import { formatCurrency } from "../../utils/currency";
+import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { useCurrency } from "../../providers/CurrencyProvider";
+import { PageDisplayCurrencySelect, usePageDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
 import { LOADING_COLORS } from "../../config/colorConfig";
 
 interface CalendarEvent {
@@ -66,6 +68,9 @@ export default function CalendarPage() {
     noteEvents: CalendarNoteEvent[];
   }>());
   const { currency: userCurrency } = useCurrency();
+  const { displayCurrency, setDisplayCurrency } = usePageDisplayCurrency(userCurrency);
+  const money = (amount: number) =>
+    formatCurrency(convertForDisplaySync(amount, userCurrency, displayCurrency), displayCurrency);
 
   // Overall loading state - show loading during initial load or timezone changes
   const loading = timezoneLoading || calendarDataLoading || (!isInitialized && !timezoneLoading);
@@ -368,6 +373,11 @@ export default function CalendarPage() {
             )}
           </div>
         <div className="flex items-center gap-2 justify-end flex-wrap">
+          <PageDisplayCurrencySelect
+            id="calendar-display-currency"
+            value={displayCurrency}
+            onChange={setDisplayCurrency}
+          />
           {/* Timezone selector */}
           <TimezoneSelector compact={true} showAutoDetect={false} className="min-w-[140px]" />
           
@@ -500,8 +510,8 @@ export default function CalendarPage() {
                     }
                     
                     const tooltip = ev.type === "DEBT_DUE" 
-                      ? `${ev.borrowerName} - ${ev.amount ? formatCurrency(ev.amount, userCurrency) : ''} (${ev.status}${ev.isOverdue ? ' - OVERDUE' : ''})`
-                      : `${ev.category || 'Event'} - ${ev.amount ? formatCurrency(ev.amount, userCurrency) : ''}`;
+                      ? `${ev.borrowerName} - ${ev.amount ? money(ev.amount) : ''} (${ev.status}${ev.isOverdue ? ' - OVERDUE' : ''})`
+                      : `${ev.category || 'Event'} - ${ev.amount ? money(ev.amount) : ''}`;
                     
                     return (
                       <div 
@@ -515,7 +525,7 @@ export default function CalendarPage() {
                         </div>
                         {ev.amount && (
                           <div className="truncate text-xs opacity-75">
-                            {formatCurrency(ev.amount, userCurrency)}
+                            {money(ev.amount)}
                           </div>
                         )}
 

@@ -19,6 +19,7 @@ import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { ChartControls } from "../../../components/ChartControls";
+import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 
 interface CashflowCandlestickChartProps {
   currency: string;
@@ -120,7 +121,8 @@ function buildCandlestickData(transactions: CashflowTransaction[], openingBalanc
   return chartData;
 }
 
-export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps>(({ currency }) => {
+export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps>(({ currency: currencyProp }) => {
+  const currency = useResolvedDisplayCurrency(currencyProp);
   const chartRef = useRef<HTMLDivElement>(null);
   const {
     filteredIncomes,

@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { formatCurrency } from "../../../utils/currency";
+import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { ChartControls } from "../../../components/ChartControls";
 import { useChartExpansion } from "../../../utils/chartUtils";
@@ -157,7 +158,8 @@ const CHART_COLORS = {
 };
 
 export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(
-  ({ type, currency = "USD", title, heightClass }) => {
+  ({ type, currency: currencyProp, title, heightClass }) => {
+    const currency = useResolvedDisplayCurrency(currencyProp);
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const {
@@ -405,7 +407,7 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(
         } else if (value >= 1000) {
           return `${(value / 1000).toFixed(1)}K`;
         }
-        return formatCurrency(value, currency || "USD").replace(/\$/, "");
+        return formatCurrency(value, currency);
       },
       [currency],
     );

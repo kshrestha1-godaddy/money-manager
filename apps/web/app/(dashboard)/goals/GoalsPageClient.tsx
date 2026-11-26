@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useQueryClient } from '@tanstack/react-query';
 import { useCurrency } from "../../providers/CurrencyProvider";
+import { PageDisplayCurrencySelect, usePageDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
 import { Plus, Search, Filter, SortAsc, Target } from "lucide-react";
 import { AddGoalModal } from "./components/AddGoalModal";
 import { EditGoalModal } from "./components/EditGoalModal";
@@ -36,6 +37,7 @@ export interface GoalFiltersState {
 
 export default function GoalsPageClient() {
   const { currency: userCurrency } = useCurrency();
+  const { displayCurrency, setDisplayCurrency } = usePageDisplayCurrency(userCurrency);
   const queryClient = useQueryClient();
   
   // State management
@@ -229,6 +231,12 @@ export default function GoalsPageClient() {
         <div className="px-6 py-4">
           <div className="flex items-center justify-between mb-4">
             <h1 className="sr-only">Goals</h1>
+            <div className="flex items-center gap-3">
+            <PageDisplayCurrencySelect
+              id="goals-display-currency"
+              value={displayCurrency}
+              onChange={setDisplayCurrency}
+            />
             <button
               onClick={() => setIsAddModalOpen(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
@@ -236,6 +244,7 @@ export default function GoalsPageClient() {
               <Plus className="h-4 w-4 mr-2 inline" />
               Add Goal
             </button>
+            </div>
           </div>
           
           {/* Filter Controls Bar - Like Netflix Interface */}

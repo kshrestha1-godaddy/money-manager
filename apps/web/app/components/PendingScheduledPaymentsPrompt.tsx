@@ -17,7 +17,7 @@ import {
 import { AcceptedRecurringHistoryDropdown } from "../(dashboard)/scheduled-payments/components/AcceptedRecurringHistoryDropdown";
 import { ScheduledPaymentItem } from "../types/scheduled-payment";
 import { formatCurrency } from "../utils/currency";
-import { useCurrency } from "../providers/CurrencyProvider";
+import { useDisplayCurrency } from "./PageDisplayCurrencySelect";
 import { useTimezone } from "../providers/TimezoneProvider";
 import { convertForDisplaySync } from "../utils/currencyDisplay";
 import Link from "next/link";
@@ -44,7 +44,7 @@ function addDismissedId(id: number) {
 }
 
 export function PendingScheduledPaymentsPrompt() {
-  const { currency: userCurrency } = useCurrency();
+  const { displayCurrency: userCurrency, formatAmount } = useDisplayCurrency();
   const { timezone: userTimezone } = useTimezone();
   const [queue, setQueue] = useState<ScheduledPaymentItem[]>([]);
   const [loading, setLoading] = useState(true);

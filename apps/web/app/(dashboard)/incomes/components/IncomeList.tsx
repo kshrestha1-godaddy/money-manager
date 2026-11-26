@@ -21,7 +21,7 @@ interface IncomeListProps {
 
 export function IncomeList({ 
     incomes, 
-    currency = "USD", 
+    currency, 
     onEdit, 
     onView,
     onDelete,

@@ -3,6 +3,7 @@
 import React from "react";
 import { SessionProvider } from "next-auth/react";
 import { CurrencyProvider } from "./providers/CurrencyProvider";
+import { DisplayCurrencyProvider } from "./components/PageDisplayCurrencySelect";
 import { TimezoneProvider } from "./providers/TimezoneProvider";
 import { QueryProvider } from "./providers/QueryProvider";
 import { ModalsProvider } from "./providers/ModalsProvider";
@@ -24,6 +25,7 @@ export const Providers = ({ children }: { children: React.ReactNode }) => {
                     <NotificationProvider>
                         <QueryProvider>
                             <CurrencyProvider>
+                                <DisplayCurrencyProvider>
                                 <TimezoneProvider>
                                     <ModalsProvider>
                                         <TutorialProvider>
@@ -32,6 +34,7 @@ export const Providers = ({ children }: { children: React.ReactNode }) => {
                                         </TutorialProvider>
                                     </ModalsProvider>
                                 </TimezoneProvider>
+                                </DisplayCurrencyProvider>
                             </CurrencyProvider>
                         </QueryProvider>
                     </NotificationProvider>

@@ -23,10 +23,9 @@ import {
 } from "../utils/expenseBreakdown";
 import { formatCurrency } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
-import { useCurrency } from "../../../providers/CurrencyProvider";
-
 interface ExpenseFrequencyChartsProps {
   expenses: Expense[];
+  currency: string;
 }
 
 function renderCategoryLabel({
@@ -185,8 +184,7 @@ function AccountYAxisTick(props: {
   );
 }
 
-export function ExpenseFrequencyCharts({ expenses }: ExpenseFrequencyChartsProps) {
-  const { currency: userCurrency } = useCurrency();
+export function ExpenseFrequencyCharts({ expenses, currency: userCurrency }: ExpenseFrequencyChartsProps) {
   const totalCount = expenses.length;
 
   const { accountRows, categoryRows, displayedCategories, totalAmount } = useMemo(

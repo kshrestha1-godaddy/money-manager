@@ -14,6 +14,7 @@ import { parseDebtsCSV, ParsedDebtData, parseRepaymentsCSV, ParsedRepaymentData 
 import { ImportResult } from "../../../types/bulkImport";
 import { calculateRemainingWithInterest, determineDebtStatus } from "../../../utils/interestCalculation";
 import { logAccountBalanceFromTransaction } from "../../../utils/accountActivityLog";
+import { requireAppLockPassword } from "../../../lib/security/require-app-lock-password";
 import {
     ActivityAction,
     ActivityCategory,
@@ -264,10 +265,9 @@ export async function createDebt(debt: Omit<DebtInterface, 'id' | 'userId' | 'cr
     }
 }
 
-export async function updateDebt(id: number, debt: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>) {
+export async function updateDebt(id: number, debt: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>, appLockPassword: string) {
     try {
-        const session = await getAuthenticatedSession();
-        const userId = getUserIdFromSession(session.user.id);
+        const userId = await requireAppLockPassword(appLockPassword);
 
         // Validate numbers if provided
         if (debt.amount !== undefined) {
@@ -478,10 +478,9 @@ export async function updateDebt(id: number, debt: Partial<Omit<DebtInterface, '
     }
 }
 
-export async function deleteDebt(id: number) {
+export async function deleteDebt(id: number, appLockPassword: string) {
     try {
-        const session = await getAuthenticatedSession();
-        const userId = getUserIdFromSession(session.user.id);
+        const userId = await requireAppLockPassword(appLockPassword);
 
         const userRow = await prisma.user.findUnique({
             where: { id: userId },
@@ -558,10 +557,9 @@ export async function deleteDebt(id: number) {
     }
 }
 
-export async function addRepayment(debtId: number, amount: number, notes?: string, accountId?: number) {
+export async function addRepayment(debtId: number, amount: number, appLockPassword: string, notes?: string, accountId?: number) {
     try {
-        const session = await getAuthenticatedSession();
-        const userId = getUserIdFromSession(session.user.id);
+        const userId = await requireAppLockPassword(appLockPassword);
         
         // Validate repayment amount
         validateNumber(amount, 'repayment amount');
@@ -719,10 +717,9 @@ export async function addRepayment(debtId: number, amount: number, notes?: strin
     }
 }
 
-export async function deleteRepayment(repaymentId: number, debtId: number) {
+export async function deleteRepayment(repaymentId: number, debtId: number, appLockPassword: string) {
     try {
-        const session = await getAuthenticatedSession();
-        const userId = getUserIdFromSession(session.user.id);
+        const userId = await requireAppLockPassword(appLockPassword);
 
         const userRow = await prisma.user.findUnique({
             where: { id: userId },
@@ -1125,10 +1122,9 @@ export async function getUserDebtRepayments() {
 /**
  * Bulk delete debts
  */
-export async function bulkDeleteDebts(debtIds: number[]) {
+export async function bulkDeleteDebts(debtIds: number[], appLockPassword: string) {
     try {
-        const session = await getAuthenticatedSession();
-        const userId = getUserIdFromSession(session.user.id);
+        const userId = await requireAppLockPassword(appLockPassword);
 
         // Verify all debts belong to the user and get debt details for account balance restoration
         const existingDebts = await prisma.debt.findMany({

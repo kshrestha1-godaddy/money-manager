@@ -4,7 +4,7 @@ import React, { useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, LabelList, TooltipProps } from "recharts";
 import { Info } from "lucide-react";
 import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
-import { useCurrency } from "../../../providers/CurrencyProvider";
+import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { ChartControls } from "../../../components/ChartControls";
@@ -27,8 +27,7 @@ interface WaterfallData {
 }
 
 export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency: currencyProp, heightClass }) => {
-    const { currency: userCurrency } = useCurrency();
-    const currency = currencyProp ?? userCurrency;
+    const currency = useResolvedDisplayCurrency(currencyProp);
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { totals, formatTimePeriod, filteredIncomes, filteredExpenses } = useChartData();

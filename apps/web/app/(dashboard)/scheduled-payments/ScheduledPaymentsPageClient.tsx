@@ -13,10 +13,9 @@ import {
   postponeScheduledPayment,
 } from "./actions/scheduled-payments";
 import { ScheduledPaymentItem } from "../../types/scheduled-payment";
-import { useCurrency } from "../../providers/CurrencyProvider";
 import { useTimezone } from "../../providers/TimezoneProvider";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
-import { SUPPORTED_CURRENCIES } from "../../utils/currencyConversion";
+import { PageDisplayCurrencySelect, useDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
 import {
   BUTTON_COLORS,
   CONTAINER_COLORS,
@@ -195,7 +194,6 @@ export default function ScheduledPaymentsPageClient() {
   const tableWidth = Object.values(columnWidths).reduce((total, width) => total + width,
     BULK_SELECT_COLUMN_WIDTH_PX + ACTIONS_COLUMN_WIDTH_PX
   );
-  const { currency: userCurrency } = useCurrency();
   const { timezone: userTimezone } = useTimezone();
   const queryClient = useQueryClient();
   const paymentsQuery = useQuery({
@@ -237,11 +235,7 @@ export default function ScheduledPaymentsPageClient() {
   const [bulkDeleteIds, setBulkDeleteIds] = useState<number[]>([]);
   const [cancelTarget, setCancelTarget] = useState<{ id: number; title: string } | null>(null);
   const [isCompletedPaymentsOpen, setIsCompletedPaymentsOpen] = useState(false);
-  const [tableDisplayCurrency, setTableDisplayCurrency] = useState(userCurrency);
-
-  useEffect(() => {
-    setTableDisplayCurrency(userCurrency);
-  }, [userCurrency]);
+  const { displayCurrency: tableDisplayCurrency } = useDisplayCurrency();
 
   useEffect(() => {
     const clockTime = Date.now();
@@ -544,6 +538,10 @@ export default function ScheduledPaymentsPageClient() {
           <h1 className="sr-only">Scheduled payments</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <PageDisplayCurrencySelect
+            id="scheduled-payments-display-currency"
+            value={tableDisplayCurrency}
+          />
           <button
             type="button"
             onClick={() => void refreshPayments()}
@@ -589,14 +587,14 @@ export default function ScheduledPaymentsPageClient() {
         <div className="flex h-full min-h-0 min-w-0 flex-col lg:col-span-1">
           <ScheduledPaymentsChart
             items={filteredItems}
-            userCurrency={userCurrency}
+            userCurrency={tableDisplayCurrency}
             now={now}
           />
         </div>
         <div className="flex min-w-0 flex-col lg:col-span-2">
           <UpcomingScheduleCalendar
             items={filteredItems}
-            userCurrency={userCurrency}
+            userCurrency={tableDisplayCurrency}
             userTimezone={userTimezone}
             now={now}
           />
@@ -662,23 +660,6 @@ export default function ScheduledPaymentsPageClient() {
                 ) : null}
               </div>
               <div className="flex flex-wrap items-center justify-end gap-3">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="scheduled-payments-display-currency" className="sr-only">
-                    Display currency for table and export
-                  </label>
-                  <select
-                    id="scheduled-payments-display-currency"
-                    value={tableDisplayCurrency}
-                    onChange={(e) => setTableDisplayCurrency(e.target.value)}
-                    className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    {SUPPORTED_CURRENCIES.map((code) => (
-                      <option key={code} value={code}>
-                        {code}
-                      </option>
-                    ))}
-                  </select>
-                </div>
                 <button
                   style={{ display: "none" }}
                   type="button"

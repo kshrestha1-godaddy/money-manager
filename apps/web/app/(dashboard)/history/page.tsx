@@ -10,6 +10,7 @@ import { getCategories } from "../../actions/categories";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency } from "../../utils/currency";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
+import { PageDisplayCurrencySelect, usePageDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
 import { formatDate } from "../../utils/date";
 import { 
     getSummaryCardClasses,
@@ -758,7 +759,9 @@ function ComparisonChart({
 
 export default function History() {
     const { data: session } = useSession();
-    const { currency } = useCurrency();
+    const { currency: userCurrency } = useCurrency();
+    const { displayCurrency, setDisplayCurrency } = usePageDisplayCurrency(userCurrency);
+    const currency = displayCurrency;
     
     const [selectedPeriod, setSelectedPeriod] = useState<string>("3months_vs_last_year");
     const [loading, setLoading] = useState(true);
@@ -1001,7 +1004,7 @@ export default function History() {
                 expensesByCategory: period1ExpensesByCategoryWithInflation
             }
         };
-    }, [allIncomes, allExpenses, selectedPeriod, customPeriod1Start, customPeriod1End, customPeriod2Start, customPeriod2End, loading, incomeIncrementRate, expenseInflationRate]);
+    }, [allIncomes, allExpenses, selectedPeriod, customPeriod1Start, customPeriod1End, customPeriod2Start, customPeriod2End, loading, incomeIncrementRate, expenseInflationRate, currency]);
 
     // Sorted categories for income table
     const sortedIncomeCategories = useMemo(() => {
@@ -1303,6 +1306,11 @@ export default function History() {
                     <h1 className="sr-only">History & Comparison</h1>
                     <p className={pageSubtitle}>Compare your financial performance across different time periods</p>
                 </div>
+                <PageDisplayCurrencySelect
+                    id="history-display-currency"
+                    value={displayCurrency}
+                    onChange={setDisplayCurrency}
+                />
             </div>
 
             {/* Time Period Selection */}

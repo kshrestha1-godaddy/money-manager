@@ -3,6 +3,8 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatCurrency } from '../../../utils/currency';
+import { convertForDisplaySync } from '../../../utils/currencyDisplay';
+import { useCurrency } from '../../../providers/CurrencyProvider';
 
 interface TimeSeriesDataPoint {
   period: string; // e.g., "2024-01", "2024-02"
@@ -55,6 +57,7 @@ export function CategorySpendTrendChart({
   onTimeRangeChange,
   isLoading = false
 }: CategorySpendTrendChartProps) {
+  const { currency: userCurrency } = useCurrency();
   const router = useRouter();
   const [hoveredPoint, setHoveredPoint] = useState<HoveredPoint | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
@@ -193,8 +196,15 @@ export function CategorySpendTrendChart({
       filteredData = filteredData.slice(0, maxCategories);
     }
     
-    return filteredData;
-  }, [trendData, categoryType, selectedCategories, activeSection, showSeparateSections, maxCategories]);
+    return filteredData.map((item) => ({
+      ...item,
+      dataPoints: item.dataPoints.map((point) => ({
+        ...point,
+        targetAmount: convertForDisplaySync(point.targetAmount, userCurrency, currency),
+        actualAmount: convertForDisplaySync(point.actualAmount, userCurrency, currency),
+      })),
+    }));
+  }, [trendData, categoryType, selectedCategories, activeSection, showSeparateSections, maxCategories, userCurrency, currency]);
 
   // Calculate chart dimensions and scales
   const { 

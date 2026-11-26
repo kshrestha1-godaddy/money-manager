@@ -16,7 +16,7 @@ import {
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency } from "../../utils/currency";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
-import { SUPPORTED_CURRENCIES } from "../../utils/currencyConversion";
+import { PageDisplayCurrencySelect, useDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
 import {
   CONTAINER_COLORS,
   INPUT_COLORS,
@@ -62,9 +62,9 @@ type PageMode = "single" | "compare" | "premium-irr" | "fd-income-corpus";
 
 export default function AnnuityPageClient() {
   const { currency: userCurrency } = useCurrency();
+  const { displayCurrency: selectedCurrency } = useDisplayCurrency();
   const [pageMode, setPageMode] = useState<PageMode>("single");
   const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_ANNUITY_INPUTS);
-  const [selectedCurrency, setSelectedCurrency] = useState(userCurrency || "USD");
   const [trackedPresetId, setTrackedPresetId] = useState<number | null>(null);
   const [trackedInputsSnapshot, setTrackedInputsSnapshot] = useState<CalculatorInputs | null>(null);
   const [trackedCompletedMonths, setTrackedCompletedMonths] = useState<number[]>([]);
@@ -75,10 +75,6 @@ export default function AnnuityPageClient() {
   useEffect(() => {
     trackedCompletedMonthsRef.current = trackedCompletedMonths;
   }, [trackedCompletedMonths]);
-
-  useEffect(() => {
-    setSelectedCurrency(userCurrency || "USD");
-  }, [userCurrency]);
 
   const inputsMatchTrackedPreset = useMemo(() => {
     if (trackedPresetId == null || !trackedInputsSnapshot) return false;
@@ -261,13 +257,16 @@ export default function AnnuityPageClient() {
             FD target income
           </button>
         </div>
+        <PageDisplayCurrencySelect
+          id="annuity-display-currency"
+          value={selectedCurrency}
+        />
       </div>
 
       {pageMode === "compare" ? (
         <AnnuityCompareView
           baseCurrency={baseCurrency}
           selectedCurrency={selectedCurrency}
-          onSelectedCurrencyChange={setSelectedCurrency}
         />
       ) : null}
 
@@ -466,18 +465,6 @@ export default function AnnuityPageClient() {
               </p>
             </div>
             <div className="flex flex-shrink-0 flex-wrap items-center gap-3">
-              <select
-                value={selectedCurrency}
-                onChange={(event) => setSelectedCurrency(event.target.value)}
-                className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                aria-label="Display currency"
-              >
-                {SUPPORTED_CURRENCIES.map((currencyOption) => (
-                  <option key={currencyOption} value={currencyOption}>
-                    {currencyOption}
-                  </option>
-                ))}
-              </select>
               <button
                 style={{ display: "none" }}
                 type="button"

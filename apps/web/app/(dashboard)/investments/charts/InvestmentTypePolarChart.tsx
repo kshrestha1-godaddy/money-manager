@@ -13,6 +13,9 @@ import ChartDataLabels from "chartjs-plugin-datalabels";
 import { formatCurrency } from "../../../utils/currency";
 import { InvestmentInterface } from "../../../types/investments";
 import { presentValueForPosition } from "../utils/stocksExpenseBasis";
+import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import { useCurrency } from "../../../providers/CurrencyProvider";
+import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 import { ChartControls } from "../../../components/ChartControls";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import { useChartAnimationState } from "../../../hooks/useChartAnimationContext";
@@ -93,8 +96,10 @@ const TYPE_DESCRIPTIONS: Record<string, string> = {
   OTHER: "Miscellaneous investments not categorized elsewhere. Various alternative investment vehicles and strategies.",
 };
 
-const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", title = "Portfolio Distribution by Investment Type" }: InvestmentTypePolarChartProps) => {
+const InvestmentTypePolarChartComponent = ({ investments, currency: currencyProp, title = "Portfolio Distribution by Investment Type" }: InvestmentTypePolarChartProps) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
+    const { currency: userCurrency } = useCurrency();
+    const currency = useResolvedDisplayCurrency(currencyProp);
     const chartRef = useRef<HTMLDivElement>(null);
 
     const { animationDuration, isAnimationActive } = useChartAnimationState(
@@ -112,7 +117,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
 
       investments.forEach((inv) => {
         const key = inv.type || "OTHER";
-        const pv = presentValueForPosition(inv);
+        const pv = convertForDisplaySync(presentValueForPosition(inv), userCurrency, currency);
         const prev = typeToAgg.get(key) || { invested: 0, count: 0, amounts: [], investments: [] };
         
         typeToAgg.set(key, { 
@@ -189,7 +194,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
       }
 
       return { data: chartData, legendData, totalPresentValue: total };
-    }, [investments]);
+    }, [investments, currency, userCurrency]);
 
     // Download functions for Chart.js (Canvas-based)
     const downloadPNG = useCallback(async (): Promise<void> => {
@@ -278,7 +283,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
         const allTypes = new Map<string, { invested: number; count: number; amounts: number[] }>();
         investments.forEach((inv) => {
           const key = inv.type || "OTHER";
-          const pv = presentValueForPosition(inv);
+          const pv = convertForDisplaySync(presentValueForPosition(inv), userCurrency, currency);
           const prev = allTypes.get(key) || { invested: 0, count: 0, amounts: [] };
           allTypes.set(key, { 
             invested: prev.invested + pv, 
@@ -319,7 +324,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency = "USD", titl
       }
 
       return csvDataArray;
-    }, [data, totalPresentValue, investments]);
+    }, [data, totalPresentValue, investments, currency, userCurrency]);
 
     if (!data.length) {
       return (

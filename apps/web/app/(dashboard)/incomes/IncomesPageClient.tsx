@@ -24,6 +24,7 @@ import { useTimezone } from '../../providers/TimezoneProvider';
 import { DisappearingNotification, NotificationData } from '../../components/DisappearingNotification';
 import { BUTTON_COLORS, TEXT_COLORS, CONTAINER_COLORS, LOADING_COLORS } from '../../config/colorConfig';
 import { convertForDisplaySync } from '../../utils/currencyDisplay';
+import { PageDisplayCurrencySelect, usePageDisplayCurrency } from '../../components/PageDisplayCurrencySelect';
 import { getCategoriesWithFrequency, CategoryWithFrequencyData } from '../../utils/categoryFrequency';
 
 const pageContainer = CONTAINER_COLORS.page;
@@ -40,6 +41,7 @@ const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
 
 export default function IncomesPageClient() {
   const { currency: userCurrency } = useCurrency();
+  const { displayCurrency, setDisplayCurrency } = usePageDisplayCurrency(userCurrency);
   const { timezone: userTimezone } = useTimezone();
   const searchParams = useSearchParams();
   const [notification, setNotification] = useState<NotificationData | null>(null);
@@ -204,11 +206,11 @@ export default function IncomesPageClient() {
     () => getTransactionPeriodTotals(
       allIncomes,
       getTransactionDay,
-      (item) => convertForDisplaySync(item.amount, item.currency, userCurrency),
+      (item) => convertForDisplaySync(item.amount, item.currency, displayCurrency),
       currentYear,
       currentMonth
     ),
-    [allIncomes, getTransactionDay, userCurrency, currentYear, currentMonth]
+    [allIncomes, getTransactionDay, displayCurrency, currentYear, currentMonth]
   );
   const currentQuarter = Math.floor(currentMonth / 3);
   const lastMonth = (currentMonth + 11) % 12;
@@ -223,7 +225,7 @@ export default function IncomesPageClient() {
   const chartProps = useMemo(
     () => ({
       data: incomes,
-      currency: userCurrency,
+      currency: displayCurrency,
       timezone: userTimezone,
       type: 'income' as const,
       hasPageFilters: hasActiveFilters,
@@ -236,7 +238,7 @@ export default function IncomesPageClient() {
       } : undefined,
       thresholdsLoading
     }),
-    [incomes, userCurrency, userTimezone, hasActiveFilters, startDate, endDate, userThresholds, thresholdsLoading]
+    [incomes, displayCurrency, userTimezone, hasActiveFilters, startDate, endDate, userThresholds, thresholdsLoading]
   );
 
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -245,36 +247,36 @@ export default function IncomesPageClient() {
   const currentQuarterName = quarterNames[currentQuarter];
 
   const visibleTotal = useMemo(
-    () => filteredIncomes.reduce((total, item) => total + convertForDisplaySync(item.amount, item.currency, userCurrency), 0),
-    [filteredIncomes, userCurrency]
+    () => filteredIncomes.reduce((total, item) => total + convertForDisplaySync(item.amount, item.currency, displayCurrency), 0),
+    [filteredIncomes, displayCurrency]
   );
 
   const summaryCards = [
     {
       title: 'Incomes in View',
-      value: formatCurrency(visibleTotal, userCurrency),
+      value: formatCurrency(visibleTotal, displayCurrency),
       subtitle: `${filteredIncomes.length} transaction${filteredIncomes.length !== 1 ? 's' : ''}`,
       dotColor: 'bg-green-500'
     },
     {
       title: `This Month (${currentMonthName})`,
-      value: formatCurrency(periods.currentMonth.amount, userCurrency),
+      value: formatCurrency(periods.currentMonth.amount, displayCurrency),
       subtitle: `${periods.currentMonth.count} transaction${periods.currentMonth.count !== 1 ? 's' : ''}${monthlyChange === null ? '' : ` • ${(monthlyChange ?? 0) >= 0 ? '+' : ''}${monthlyChange.toFixed(1)}%`}`,
       subtitleColor: (monthlyChange ?? 0) >= 0 ? 'text-green-600' : 'text-red-600',
       dotColor: (monthlyChange ?? 0) >= 0 ? 'bg-green-500' : 'bg-red-500',
-      tooltipText: `Last month (${monthNames[lastMonth]}): ${formatCurrency(periods.previousMonth.amount, userCurrency)} (${periods.previousMonth.count} transaction${periods.previousMonth.count !== 1 ? 's' : ''})`
+      tooltipText: `Last month (${monthNames[lastMonth]}): ${formatCurrency(periods.previousMonth.amount, displayCurrency)} (${periods.previousMonth.count} transaction${periods.previousMonth.count !== 1 ? 's' : ''})`
     },
     {
       title: `${currentQuarterName} (${currentQuarterName === 'Q1' ? 'Jan-Mar' : currentQuarterName === 'Q2' ? 'Apr-Jun' : currentQuarterName === 'Q3' ? 'Jul-Sep' : 'Oct-Dec'})`,
-      value: formatCurrency(periods.currentQuarter.amount, userCurrency),
+      value: formatCurrency(periods.currentQuarter.amount, displayCurrency),
       subtitle: `${periods.currentQuarter.count} transaction${periods.currentQuarter.count !== 1 ? 's' : ''}${quarterlyChange === null ? '' : ` • ${(quarterlyChange ?? 0) >= 0 ? '+' : ''}${quarterlyChange.toFixed(1)}%`}`,
       subtitleColor: (quarterlyChange ?? 0) >= 0 ? 'text-green-600' : 'text-red-600',
       dotColor: (quarterlyChange ?? 0) >= 0 ? 'bg-green-500' : 'bg-red-500',
-      tooltipText: `Last quarter (${quarterNames[currentQuarter === 0 ? 3 : currentQuarter - 1]}): ${formatCurrency(periods.previousQuarter.amount, userCurrency)} (${periods.previousQuarter.count} transaction${periods.previousQuarter.count !== 1 ? 's' : ''})`
+      tooltipText: `Last quarter (${quarterNames[currentQuarter === 0 ? 3 : currentQuarter - 1]}): ${formatCurrency(periods.previousQuarter.amount, displayCurrency)} (${periods.previousQuarter.count} transaction${periods.previousQuarter.count !== 1 ? 's' : ''})`
     },
     {
       title: 'Average per Transaction',
-      value: formatCurrency(averagePerIncome, userCurrency),
+      value: formatCurrency(averagePerIncome, displayCurrency),
       subtitle: `across ${allIncomes.length} transaction${allIncomes.length !== 1 ? 's' : ''}`,
       dotColor: 'bg-purple-500',
     },
@@ -329,6 +331,11 @@ export default function IncomesPageClient() {
           <h1 className="sr-only">Incomes</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <PageDisplayCurrencySelect
+            id="incomes-display-currency"
+            value={displayCurrency}
+            onChange={setDisplayCurrency}
+          />
           <button onClick={() => setIsAddModalOpen(true)} className={primaryButton}>Add Income</button>
           <button onClick={() => setIsAddCategoryModalOpen(true)} className={primaryButton}>Manage Categories</button>
           <button style={{ display: "none" }} onClick={() => setIsBulkImportModalOpen(true)} className={secondaryBlueButton}>Import CSV</button>
@@ -356,7 +363,7 @@ export default function IncomesPageClient() {
         type="income"
         transactions={filteredIncomes}
         timeframeTransactions={itemsWithoutDateFilter}
-        currency={userCurrency}
+        currency={displayCurrency}
         timezone={userTimezone}
       />
 
@@ -423,7 +430,7 @@ export default function IncomesPageClient() {
       <Suspense fallback={<div>Loading incomes...</div>}>
         <IncomeList
           incomes={tableIncomes}
-          currency={userCurrency}
+          currency={displayCurrency}
           onEdit={openEditModal}
           onView={openViewModal}
           onDelete={(item) => void deleteItem(item.id)}

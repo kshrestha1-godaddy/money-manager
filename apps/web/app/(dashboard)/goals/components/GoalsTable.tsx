@@ -1,7 +1,6 @@
 import React from 'react';
 import { Eye, Edit2, Trash2, Calendar, Target, TrendingUp, Clock } from 'lucide-react';
-import { formatCurrency } from '../../../utils/currency';
-import { useCurrency } from '../../../providers/CurrencyProvider';
+import { useDisplayCurrency } from '../../../components/PageDisplayCurrencySelect';
 import { BUTTON_COLORS, TEXT_COLORS, CONTAINER_COLORS } from '../../../config/colorConfig';
 
 interface Goal {
@@ -139,7 +138,7 @@ function getPriorityBadge(priority: number) {
 }
 
 export function GoalsTable({ goals, onEditGoal, onViewGoal, onDeleteGoal }: GoalsTableProps) {
-  const { currency: userCurrency } = useCurrency();
+  const { formatAmount } = useDisplayCurrency();
 
   return (
     <div className={tableContainer}>
@@ -229,10 +228,10 @@ export function GoalsTable({ goals, onEditGoal, onViewGoal, onDeleteGoal }: Goal
                   {goal.targetAmount ? (
                     <div className="text-sm">
                       <div className="font-medium text-gray-900 dark:text-white">
-                        {formatCurrency(goal.currentAmount, goal.currency || userCurrency)}
+                        {formatAmount(goal.currentAmount, goal.currency)}
                       </div>
                       <div className="text-gray-500 dark:text-gray-400">
-                        of {formatCurrency(goal.targetAmount, goal.currency || userCurrency)}
+                        of {formatAmount(goal.targetAmount, goal.currency)}
                       </div>
                     </div>
                   ) : (

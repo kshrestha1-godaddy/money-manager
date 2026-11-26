@@ -10,9 +10,10 @@ function pdfOutflowAmountClass(type: UnifiedTransactionType): string {
     if (type === "DEBT") return "debt";
     return "investment";
 }
-import { useCurrency } from "../providers/CurrencyProvider";
 import { formatDate } from "../utils/date";
 import { formatCurrency } from "../utils/currency";
+import { convertForDisplaySync } from "../utils/currencyDisplay";
+import { useDisplayCurrency } from "./PageDisplayCurrencySelect";
 
 interface TransactionPDFReportGeneratorProps {
     transactions: Transaction[];
@@ -25,6 +26,7 @@ interface TransactionPDFReportGeneratorProps {
     selectedCategory?: string;
     startDate?: string;
     endDate?: string;
+    displayCurrency?: string;
 }
 
 export function TransactionPDFReportGenerator({ 
@@ -37,10 +39,12 @@ export function TransactionPDFReportGenerator({
     selectedType = "ALL",
     selectedCategory = "",
     startDate = "",
-    endDate = ""
+    endDate = "",
+    displayCurrency,
 }: TransactionPDFReportGeneratorProps) {
     const { data: session } = useSession();
-    const { currency } = useCurrency();
+    const { displayCurrency: contextDisplayCurrency } = useDisplayCurrency();
+    const currency = displayCurrency || contextDisplayCurrency;
     const [isGenerating, setIsGenerating] = useState(false);
 
     const formatDateForReport = (date: string | Date) => {
@@ -389,7 +393,7 @@ export function TransactionPDFReportGenerator({
                                     <td>${transaction.category}</td>
                                     <td>${transaction.account}</td>
                                     <td style="text-align: right; font-weight: 600;" class="${transaction.type === 'INCOME' ? 'income' : pdfOutflowAmountClass(transaction.type)}">
-                                        ${transaction.type === 'INCOME' ? '+' : '-'}${formatCurrency(transaction.amount, currency)}
+                                        ${transaction.type === 'INCOME' ? '+' : '-'}${formatCurrency(convertForDisplaySync(transaction.amount, transaction.currency, currency), currency)}
                                     </td>
                                 </tr>
                             `).join('')}

@@ -4,6 +4,8 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency } from "../../utils/currency";
+import { convertForDisplaySync } from "../../utils/currencyDisplay";
+import { PageDisplayCurrencySelect, usePageDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
 import { TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle, Plus, Edit, Trash2, Check, X, ChevronUp, ChevronDown, EyeOff, Eye, Settings, Download, Upload, Trash } from "lucide-react";
 import { LOADING_COLORS, UI_STYLES, getSummaryCardClasses, BUTTON_COLORS } from "../../config/colorConfig";
 import { useBudgetTracking, useAllCategories } from "../../hooks/useBudgetTracking";
@@ -60,7 +62,10 @@ interface BudgetComparisonData {
 
 export default function BudgetPage() {
   const session = useSession();
-  const { currency } = useCurrency();
+  const { currency: userCurrency } = useCurrency();
+  const { displayCurrency, setDisplayCurrency } = usePageDisplayCurrency(userCurrency);
+  const money = (amount: number) =>
+    formatCurrency(convertForDisplaySync(amount, userCurrency, displayCurrency), displayCurrency);
   const [selectedPeriod, setSelectedPeriod] = useState<'MONTHLY' | 'QUARTERLY' | 'YEARLY'>('MONTHLY');
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');
@@ -719,6 +724,11 @@ export default function BudgetPage() {
           </p>
         </div>
         <div className={UI_STYLES.header.buttonGroup}>
+          <PageDisplayCurrencySelect
+            id="budget-display-currency"
+            value={displayCurrency}
+            onChange={setDisplayCurrency}
+          />
           <select
             value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(e.target.value as 'MONTHLY' | 'QUARTERLY' | 'YEARLY')}
@@ -771,7 +781,7 @@ export default function BudgetPage() {
           <div className="flex flex-col items-center justify-center h-full text-center pt-6">
             <h3 className={`${cardTitle} mb-2`}>Income Budget</h3>
             <p className="text-2xl font-bold text-green-600 mb-1">
-              {formatCurrency(summaryStats.incomeBudget, currency)}
+              {money(summaryStats.incomeBudget)}
             </p>
             <p className={`${cardSubtitle}`}>
               {summaryStats.incomeCategories} categories, {summaryStats.incomeTransactions} transactions
@@ -785,7 +795,7 @@ export default function BudgetPage() {
           <div className="flex flex-col items-center justify-center h-full text-center pt-6">
             <h3 className={`${cardTitle} mb-2`}>Expense Budget</h3>
             <p className="text-2xl font-bold text-red-600 mb-1">
-              {formatCurrency(summaryStats.expenseBudget, currency)}
+              {money(summaryStats.expenseBudget)}
             </p>
             <p className={`${cardSubtitle}`}>
               {summaryStats.expenseCategories} categories, {summaryStats.expenseTransactions} transactions
@@ -799,13 +809,13 @@ export default function BudgetPage() {
           <div className="flex flex-col items-center justify-center h-full text-center pt-6">
             <h3 className={`${cardTitle} mb-2`}>Actual Spending</h3>
             <p className="text-2xl font-bold text-gray-900 mb-1">
-              {formatCurrency(summaryStats.totalActual, currency)}
+              {money(summaryStats.totalActual)}
             </p>
             <div className={`${cardSubtitle} space-y-1`}>
               <div className="flex justify-between text-xs">
-                <span className="text-green-600">{formatCurrency(summaryStats.incomeActual, currency)}</span>
+                <span className="text-green-600">{money(summaryStats.incomeActual)}</span>
                 <span>|</span>
-                <span className="text-red-600">{formatCurrency(summaryStats.expenseActual, currency)}</span>
+                <span className="text-red-600">{money(summaryStats.expenseActual)}</span>
               </div>
               <p>{summaryStats.totalTransactions} transactions in {getSelectedMonthName()}</p>
             </div>
@@ -838,13 +848,13 @@ export default function BudgetPage() {
           <div className="flex flex-col items-center justify-center h-full text-center pt-6">
             <h3 className={`${cardTitle} mb-2`}>Variance</h3>
             <p className="text-2xl font-bold text-gray-900 mb-1">
-              {formatCurrency(summaryStats.totalVariance, currency)}
+              {money(summaryStats.totalVariance)}
             </p>
             <div className={`${cardSubtitle} space-y-1`}>
               <div className="flex justify-between text-xs">
-                <span className="text-green-600">{formatCurrency(summaryStats.incomeVariance, currency)}</span>
+                <span className="text-green-600">{money(summaryStats.incomeVariance)}</span>
                 <span>|</span>
-                <span className="text-red-600">{formatCurrency(summaryStats.expenseVariance, currency)}</span>
+                <span className="text-red-600">{money(summaryStats.expenseVariance)}</span>
               </div>
               <p>{summaryStats.totalTransactions} transactions in {getSelectedMonthName()}</p>
             </div>
@@ -886,7 +896,7 @@ export default function BudgetPage() {
         {(gaugeBudgetData.length > 0 || gaugeLoading) && (
           <CategoryPerformanceGauge 
             budgetData={gaugeBudgetData}
-            currency={currency}
+            currency={displayCurrency}
             categoryType="ALL"
             selectedMonth={selectedMonth}
             selectedYear={selectedYear}
@@ -899,7 +909,7 @@ export default function BudgetPage() {
         {(trendData.length > 0 || trendLoading) ? (
           <CategorySpendTrendChart
             trendData={trendData}
-            currency={currency}
+            currency={displayCurrency}
             categoryType="ALL"
             periodType="monthly"
             maxCategories={12}
@@ -1118,7 +1128,7 @@ export default function BudgetPage() {
                       <div className="break-words">{item.categoryName}</div>
                     </td>
                     <td className="px-6 py-4 text-sm text-center text-gray-900">
-                      {formatCurrency(item.actualSpending.monthlyAverage, currency)}
+                      {money(item.actualSpending.monthlyAverage)}
                       <div className="text-xs text-gray-500">
                         {item.actualSpending.transactionCount} transactions
                       </div>
@@ -1152,7 +1162,7 @@ export default function BudgetPage() {
                         </div>
                       ) : (
                         <div className="text-blue-600 font-semibold">
-                          {formatCurrency(item.budgetTarget.monthlySpend, currency)}
+                          {money(item.budgetTarget.monthlySpend)}
                         </div>
                       )}
                     </td>
@@ -1160,7 +1170,7 @@ export default function BudgetPage() {
                       item.variance.amount > 0 ? 'text-green-600' : 
                       item.variance.amount < 0 ? 'text-red-600' : 'text-gray-600'
                     }`}>
-                      {item.variance.amount >= 0 ? '+' : ''}{formatCurrency(item.variance.amount, currency)}
+                      {item.variance.amount >= 0 ? '+' : ''}{money(item.variance.amount)}
                       <div className="text-xs">
                         ({item.variance.percentage >= 0 ? '+' : ''}{item.variance.percentage.toFixed(1)}%)
                       </div>
@@ -1209,12 +1219,12 @@ export default function BudgetPage() {
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-600">Actual Income</div>
-                  <div className="text-lg font-bold text-gray-900">{formatCurrency(incomeTotals.totalActual, currency)}</div>
+                  <div className="text-lg font-bold text-gray-900">{money(incomeTotals.totalActual)}</div>
                   <div className="text-xs text-gray-500">{incomeTotals.totalTransactions} transactions</div>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-600">Budget Target</div>
-                  <div className="text-lg font-bold text-blue-600">{formatCurrency(incomeTotals.totalBudget, currency)}</div>
+                  <div className="text-lg font-bold text-blue-600">{money(incomeTotals.totalBudget)}</div>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-600">Total Variance</div>
@@ -1222,7 +1232,7 @@ export default function BudgetPage() {
                     incomeTotals.totalVariance > 0 ? 'text-green-600' : 
                     incomeTotals.totalVariance < 0 ? 'text-red-600' : 'text-gray-600'
                   }`}>
-                    {incomeTotals.totalVariance >= 0 ? '+' : ''}{formatCurrency(incomeTotals.totalVariance, currency)}
+                    {incomeTotals.totalVariance >= 0 ? '+' : ''}{money(incomeTotals.totalVariance)}
                   </div>
                   <div className={`text-xs ${
                     incomeTotals.totalVariance > 0 ? 'text-green-600' : 
@@ -1331,7 +1341,7 @@ export default function BudgetPage() {
                       <div className="break-words">{item.categoryName}</div>
                     </td>
                     <td className="px-6 py-4 text-sm text-center text-gray-900">
-                      {formatCurrency(item.actualSpending.monthlyAverage, currency)}
+                      {money(item.actualSpending.monthlyAverage)}
                       <div className="text-xs text-gray-500">
                         {item.actualSpending.transactionCount} transactions
                       </div>
@@ -1365,7 +1375,7 @@ export default function BudgetPage() {
                         </div>
                       ) : (
                         <div className="text-blue-600 font-semibold">
-                          {formatCurrency(item.budgetTarget.monthlySpend, currency)}
+                          {money(item.budgetTarget.monthlySpend)}
                         </div>
                       )}
                     </td>
@@ -1373,7 +1383,7 @@ export default function BudgetPage() {
                       item.variance.amount > 0 ? 'text-red-600' : 
                       item.variance.amount < 0 ? 'text-green-600' : 'text-gray-600'
                     }`}>
-                      {item.variance.amount >= 0 ? '+' : ''}{formatCurrency(item.variance.amount, currency)}
+                      {item.variance.amount >= 0 ? '+' : ''}{money(item.variance.amount)}
                       <div className="text-xs">
                         ({item.variance.percentage >= 0 ? '+' : ''}{item.variance.percentage.toFixed(1)}%)
                       </div>
@@ -1422,12 +1432,12 @@ export default function BudgetPage() {
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-600">Actual Expenses</div>
-                  <div className="text-lg font-bold text-gray-900">{formatCurrency(expenseTotals.totalActual, currency)}</div>
+                  <div className="text-lg font-bold text-gray-900">{money(expenseTotals.totalActual)}</div>
                   <div className="text-xs text-gray-500">{expenseTotals.totalTransactions} transactions</div>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-600">Budget Target</div>
-                  <div className="text-lg font-bold text-blue-600">{formatCurrency(expenseTotals.totalBudget, currency)}</div>
+                  <div className="text-lg font-bold text-blue-600">{money(expenseTotals.totalBudget)}</div>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-600">Total Variance</div>
@@ -1435,7 +1445,7 @@ export default function BudgetPage() {
                     expenseTotals.totalVariance > 0 ? 'text-red-600' : 
                     expenseTotals.totalVariance < 0 ? 'text-green-600' : 'text-gray-600'
                   }`}>
-                    {expenseTotals.totalVariance >= 0 ? '+' : ''}{formatCurrency(expenseTotals.totalVariance, currency)}
+                    {expenseTotals.totalVariance >= 0 ? '+' : ''}{money(expenseTotals.totalVariance)}
                   </div>
                   <div className={`text-xs ${
                     expenseTotals.totalVariance > 0 ? 'text-red-600' : 
@@ -1469,6 +1479,7 @@ export default function BudgetPage() {
         year={selectedYear}
         period={selectedPeriod}
         refreshKey={budgetComparison}
+        displayCurrency={displayCurrency}
       />
 
       {/* Bulk Import Modal */}

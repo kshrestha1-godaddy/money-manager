@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { useCurrency } from '../../../providers/CurrencyProvider';
 
 interface Goal {
   id: number;
@@ -20,7 +19,6 @@ interface GanttTimelineViewProps {
 }
 
 export function GanttTimelineView({ goals, onGoalClick }: GanttTimelineViewProps) {
-  const { currency: userCurrency } = useCurrency();
   const timelineData = useMemo(() => {
     if (!goals.length) return { months: [], years: [], goalBars: [] };
 

@@ -3,6 +3,7 @@
 import React, { useState, useRef, useMemo } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { formatCurrency } from "../../../utils/currency";
+import { useDisplayCurrency, useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 import { InvestmentInterface } from "../../../types/investments";
 import { ChartControls } from "../../../components/ChartControls";
 import { useChartExpansion } from "../../../utils/chartUtils";
@@ -51,7 +52,9 @@ const TYPE_LABELS = {
     OTHER: 'Other'
 };
 
-export const InvestmentTypePieChart = React.memo<InvestmentTypePieChartProps>(({ investments, currency = "USD", title }) => {
+export const InvestmentTypePieChart = React.memo<InvestmentTypePieChartProps>(({ investments, currency: currencyProp, title }) => {
+    const currency = useResolvedDisplayCurrency(currencyProp);
+    const { convertAmount } = useDisplayCurrency();
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     
@@ -72,7 +75,7 @@ export const InvestmentTypePieChart = React.memo<InvestmentTypePieChartProps>(({
             // Ensure we handle null/undefined values safely
             const quantity = Number(investment.quantity) || 0;
             const purchasePrice = Number(investment.purchasePrice) || 0;
-            const investedAmount = quantity * purchasePrice;
+            const investedAmount = convertAmount(quantity * purchasePrice);
             
             typeMap.set(type, {
                 totalValue: currentData.totalValue + investedAmount,
@@ -97,7 +100,8 @@ export const InvestmentTypePieChart = React.memo<InvestmentTypePieChartProps>(({
     }, [
         investments.length,
         // Add checksum to detect actual data changes, not just reference changes
-        investments.reduce((sum, inv) => sum + inv.id + inv.quantity + inv.purchasePrice, 0)
+        investments.reduce((sum, inv) => sum + inv.id + inv.quantity + inv.purchasePrice, 0),
+        convertAmount,
     ]);
 
     // Filter types >= 2% and group smaller ones as "Others"

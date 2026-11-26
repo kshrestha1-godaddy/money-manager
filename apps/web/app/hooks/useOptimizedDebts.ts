@@ -8,7 +8,8 @@ import {
     updateDebt, 
     deleteDebt, 
     addRepayment, 
-    deleteRepayment 
+    deleteRepayment,
+    bulkDeleteDebts as bulkDeleteDebtsAction
 } from "../(dashboard)/debts/actions/debts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
 import { exportDebtsToCSV } from "../utils/csvExportDebts";
@@ -21,7 +22,7 @@ import { NotificationData } from "../components/DisappearingNotification";
 import { formatCurrency } from "../utils/currency";
 
 
-type ModalType = 'add' | 'edit' | 'delete' | 'view' | 'repayment' | 'import' | null;
+type ModalType = 'add' | 'edit' | 'view' | 'repayment' | 'import' | null;
 
 interface ModalState {
     type: ModalType;
@@ -58,8 +59,6 @@ interface UseOptimizedDebtsReturn {
     modal: ModalState;
     openModal: (type: ModalType, debt?: DebtInterface) => void;
     closeModal: () => void;
-    isBulkDeleteModalOpen: boolean;
-    setIsBulkDeleteModalOpen: (open: boolean) => void;
 
     // UI states
     searchTerm: string;
@@ -74,19 +73,16 @@ interface UseOptimizedDebtsReturn {
     // Selection states
     selectedDebts: Set<number>;
     setSelectedDebts: (debts: Set<number>) => void;
-    bulkDeleteDebts: DebtInterface[];
-    setBulkDeleteDebts: (debts: DebtInterface[]) => void;
 
     // Handlers
     handleAddDebt: (debt: Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>) => Promise<void>;
-    handleEditDebt: (id: number, debt: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>) => Promise<void>;
-    handleDeleteDebt: (debt: DebtInterface) => Promise<void>;
-    handleAddRepayment: (debtId: number, repaymentData: { amount: number; notes?: string; accountId?: number }) => Promise<void>;
-    handleDeleteRepayment: (repaymentId: number, debtId: number) => Promise<void>;
+    handleEditDebt: (id: number, debt: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>, appLockPassword: string) => Promise<void>;
+    handleDeleteDebt: (debt: DebtInterface, appLockPassword: string) => Promise<void>;
+    handleAddRepayment: (debtId: number, repaymentData: { amount: number; notes?: string; accountId?: number }, appLockPassword: string) => Promise<void>;
+    handleDeleteRepayment: (repaymentId: number, debtId: number, appLockPassword: string) => Promise<void>;
     handleDebtSelect: (debtId: number, selected: boolean) => void;
     handleSelectAll: (selected: boolean, sectionDebts: DebtInterface[]) => void;
-    handleBulkDelete: (sectionDebts: DebtInterface[]) => void;
-    handleBulkDeleteConfirm: () => Promise<void>;
+    handleBulkDelete: (sectionDebts: DebtInterface[], appLockPassword: string) => Promise<void>;
     handleExportToCSV: () => void;
     clearFilters: () => void;
     clearError: () => void;
@@ -132,8 +128,6 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
     
     // Selection State
     const [selectedDebts, setSelectedDebts] = useState<Set<number>>(new Set());
-    const [bulkDeleteDebts, setBulkDeleteDebts] = useState<DebtInterface[]>([]);
-    const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
 
     // Cached data query
     const {
@@ -307,8 +301,8 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
     });
 
     const updateDebtMutation = useMutation({
-        mutationFn: ({ id, data }: { id: number; data: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>> }) => 
-            updateDebt(id, data),
+        mutationFn: ({ id, data, appLockPassword }: { id: number; data: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>; appLockPassword: string }) =>
+            updateDebt(id, data, appLockPassword),
         onSuccess: (updatedDebt: DebtInterface) => {
             // Optimistically update the cache
             queryClient.setQueryData(QUERY_KEYS.debts, (oldData: any) => {
@@ -333,8 +327,9 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
     });
 
     const deleteDebtMutation = useMutation({
-        mutationFn: deleteDebt,
-        onSuccess: (_: any, deletedId: number) => {
+        mutationFn: ({ id, appLockPassword }: { id: number; appLockPassword: string }) =>
+            deleteDebt(id, appLockPassword),
+        onSuccess: (_: any, { id: deletedId }) => {
             // Optimistically update the cache
             queryClient.setQueryData(QUERY_KEYS.debts, (oldData: any) => {
                 if (!oldData || 'error' in oldData) {
@@ -356,8 +351,8 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
     });
 
     const addRepaymentMutation = useMutation({
-        mutationFn: ({ debtId, amount, notes, accountId }: { debtId: number; amount: number; notes?: string; accountId?: number }) => 
-            addRepayment(debtId, amount, notes, accountId),
+        mutationFn: ({ debtId, amount, appLockPassword, notes, accountId }: { debtId: number; amount: number; appLockPassword: string; notes?: string; accountId?: number }) =>
+            addRepayment(debtId, amount, appLockPassword, notes, accountId),
         onSuccess: (_, { amount }) => {
             // After adding repayment, we need to refresh the debt data to get the updated debt with new repayment
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.debts });
@@ -396,8 +391,8 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
     });
 
     const deleteRepaymentMutation = useMutation({
-        mutationFn: ({ repaymentId, debtId }: { repaymentId: number; debtId: number }) => 
-            deleteRepayment(repaymentId, debtId),
+        mutationFn: ({ repaymentId, debtId, appLockPassword }: { repaymentId: number; debtId: number; appLockPassword: string }) =>
+            deleteRepayment(repaymentId, debtId, appLockPassword),
         onSuccess: () => {
             // After deleting repayment, refresh the debt data to get the updated debt without the repayment
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.debts });
@@ -430,41 +425,61 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
         });
     }, [createDebtMutation]);
 
-    const handleEditDebt = useCallback(async (id: number, updatedDebt: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>) => {
+    const handleEditDebt = useCallback(async (id: number, updatedDebt: Partial<Omit<DebtInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'repayments'>>, appLockPassword: string) => {
         return new Promise<void>((resolve, reject) => {
-            updateDebtMutation.mutate({ id, data: updatedDebt }, {
+            updateDebtMutation.mutate({ id, data: updatedDebt, appLockPassword }, {
                 onSuccess: () => resolve(),
                 onError: (error) => reject(error)
             });
         });
     }, [updateDebtMutation]);
 
-    const handleDeleteDebt = useCallback(async (debt: DebtInterface) => {
+    const handleDeleteDebt = useCallback(async (debt: DebtInterface, appLockPassword: string) => {
         return new Promise<void>((resolve, reject) => {
-            deleteDebtMutation.mutate(debt.id, {
+            deleteDebtMutation.mutate({ id: debt.id, appLockPassword }, {
                 onSuccess: () => resolve(),
                 onError: (error) => reject(error)
             });
         });
     }, [deleteDebtMutation]);
 
-    const handleAddRepayment = useCallback(async (debtId: number, repaymentData: { amount: number; notes?: string; accountId?: number }) => {
+    const handleAddRepayment = useCallback(async (debtId: number, repaymentData: { amount: number; notes?: string; accountId?: number }, appLockPassword: string) => {
         return new Promise<void>((resolve, reject) => {
-            addRepaymentMutation.mutate({ debtId, ...repaymentData }, {
+            addRepaymentMutation.mutate({ debtId, ...repaymentData, appLockPassword }, {
                 onSuccess: () => resolve(),
                 onError: (error) => reject(error)
             });
         });
     }, [addRepaymentMutation]);
 
-    const handleDeleteRepayment = useCallback(async (repaymentId: number, debtId: number) => {
+    const handleDeleteRepayment = useCallback(async (repaymentId: number, debtId: number, appLockPassword: string) => {
         return new Promise<void>((resolve, reject) => {
-            deleteRepaymentMutation.mutate({ repaymentId, debtId }, {
+            deleteRepaymentMutation.mutate({ repaymentId, debtId, appLockPassword }, {
                 onSuccess: () => resolve(),
                 onError: (error) => reject(error)
             });
         });
     }, [deleteRepaymentMutation]);
+
+    const bulkDeleteMutation = useMutation({
+        mutationFn: ({ debtIds, appLockPassword }: { debtIds: number[]; appLockPassword: string }) =>
+            bulkDeleteDebtsAction(debtIds, appLockPassword),
+        onSuccess: (_: unknown, { debtIds }) => {
+            queryClient.setQueryData(QUERY_KEYS.debts, (oldData: any) => {
+                if (!oldData || 'error' in oldData) return { data: [] };
+                const currentDebts = oldData.data || [];
+                return { ...oldData, data: currentDebts.filter((debt: DebtInterface) => !debtIds.includes(debt.id)) };
+            });
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
+            triggerBalanceRefresh();
+            setSelectedDebts(new Set());
+            setError(null);
+        },
+        onError: (error: Error) => {
+            console.error("Error in bulk delete:", error);
+            setError(`Failed to delete debts: ${error.message}`);
+        },
+    });
 
     // Selection handlers
     const handleDebtSelect = useCallback((debtId: number, selected: boolean) => {
@@ -494,33 +509,14 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
     }, []);
 
     // Bulk operations
-    const handleBulkDelete = useCallback((sectionDebts: DebtInterface[]) => {
-        const selectedInSection = sectionDebts.filter(debt => selectedDebts.has(debt.id));
-        
-        if (selectedInSection.length === 0) {
-            alert("No debts selected for deletion");
-            return;
-        }
+    const handleBulkDelete = useCallback(async (sectionDebts: DebtInterface[], appLockPassword: string) => {
+        const selectedIds = sectionDebts
+            .filter(debt => selectedDebts.has(debt.id))
+            .map(debt => debt.id);
+        if (selectedIds.length === 0) return;
 
-        setBulkDeleteDebts(selectedInSection);
-        setIsBulkDeleteModalOpen(true);
-    }, [selectedDebts]);
-
-    const handleBulkDeleteConfirm = useCallback(async () => {
-        if (bulkDeleteDebts.length === 0) return;
-        
-        // Close modal immediately
-        setIsBulkDeleteModalOpen(false);
-        setBulkDeleteDebts([]);
-        
-        try {
-            await Promise.all(bulkDeleteDebts.map(debt => handleDeleteDebt(debt)));
-            setSelectedDebts(new Set());
-        } catch (error) {
-            console.error("Error in bulk delete:", error);
-            setError("Failed to delete some debts. Please try again.");
-        }
-    }, [bulkDeleteDebts, handleDeleteDebt]);
+        await bulkDeleteMutation.mutateAsync({ debtIds: selectedIds, appLockPassword });
+    }, [selectedDebts, bulkDeleteMutation]);
 
     // Utility handlers
     const handleExportToCSV = useCallback(() => {
@@ -563,8 +559,6 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
         modal,
         openModal,
         closeModal,
-        isBulkDeleteModalOpen,
-        setIsBulkDeleteModalOpen,
 
         // UI states
         searchTerm,
@@ -579,8 +573,6 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
         // Selection states
         selectedDebts,
         setSelectedDebts,
-        bulkDeleteDebts,
-        setBulkDeleteDebts,
 
         // Handlers
         handleAddDebt,
@@ -591,7 +583,6 @@ export function useOptimizedDebts(options: UseOptimizedDebtsOptions = {}): UseOp
         handleDebtSelect,
         handleSelectAll,
         handleBulkDelete,
-        handleBulkDeleteConfirm,
         handleExportToCSV,
         clearFilters,
         clearError,

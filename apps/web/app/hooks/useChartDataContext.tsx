@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useMemo, ReactNode } from 'react';
 import { Income, Expense } from '../types/financial';
 import { convertForDisplaySync } from '../utils/currencyDisplay';
+import { useDisplayCurrency } from '../components/PageDisplayCurrencySelect';
 
 interface MonthlyAggregatedData {
   monthKey: string;
@@ -354,7 +355,6 @@ interface ChartDataProviderProps {
   startDate?: string;
   endDate?: string;
   isAllTime?: boolean;
-  userCurrency: string;
 }
 
 export function ChartDataProvider({ 
@@ -364,11 +364,12 @@ export function ChartDataProvider({
   startDate, 
   endDate,
   isAllTime = false,
-  userCurrency
 }: ChartDataProviderProps) {
+  const { displayCurrency } = useDisplayCurrency();
+  const targetCurrency = displayCurrency;
   const allMonthlyData = useMemo(
-    () => aggregateMonthly(incomes, expenses, userCurrency),
-    [incomes, expenses, userCurrency],
+    () => aggregateMonthly(incomes, expenses, targetCurrency),
+    [incomes, expenses, targetCurrency],
   );
 
   const processedData = useMemo(
@@ -379,10 +380,10 @@ export function ChartDataProvider({
         startDate,
         endDate,
         isAllTime,
-        userCurrency,
+        targetCurrency,
         allMonthlyData,
       ),
-    [incomes, expenses, startDate, endDate, isAllTime, userCurrency, allMonthlyData],
+    [incomes, expenses, startDate, endDate, isAllTime, targetCurrency, allMonthlyData],
   );
 
   const contextValue: ChartDataContextType = useMemo(() => ({
@@ -430,7 +431,7 @@ export function ChartDataProvider({
         }
         
         const monthData = monthlyMap.get(monthKey)!;
-        const convertedAmount = convertForDisplaySync(item.amount, item.currency, userCurrency);
+        const convertedAmount = convertForDisplaySync(item.amount, item.currency, targetCurrency);
         if (type === 'income') {
           monthData.income += convertedAmount;
           monthData.incomeCount += 1;
@@ -447,7 +448,7 @@ export function ChartDataProvider({
         }))
         .sort((a, b) => a.monthKey.localeCompare(b.monthKey));
     }
-  }), [processedData, userCurrency]);
+  }), [processedData, targetCurrency]);
 
   return (
     <ChartDataContext.Provider value={contextValue}>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useCurrency } from "../../providers/CurrencyProvider";
+import { usePageDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
 import { ChartDataProvider } from "../../hooks/useChartDataContext";
 import { ChartAnimationProvider } from "../../hooks/useChartAnimationContext";
 import { financialItemsQuery } from "../../hooks/financial-items-query";
@@ -21,6 +22,7 @@ const loadingText = LOADING_COLORS.text;
 
 export default function DashboardPageClient() {
   const { currency } = useCurrency();
+  const { displayCurrency, setDisplayCurrency } = usePageDisplayCurrency(currency);
   const pageContainer = CONTAINER_COLORS.page;
 
   const incomesQuery = useQuery(financialItemsQuery("INCOME", getIncomes));
@@ -99,12 +101,14 @@ export default function DashboardPageClient() {
         startDate={startDate}
         endDate={endDate}
         isAllTime={isAllTime}
-        userCurrency={currency}
       >
         <div className={pageContainer}>
-          <DashboardHeader />
+          <DashboardHeader
+            displayCurrency={displayCurrency}
+            onDisplayCurrencyChange={setDisplayCurrency}
+          />
           <DashboardCharts
-            currency={currency}
+            currency={displayCurrency}
             startDate={startDate}
             endDate={endDate}
             isAllTime={isAllTime}

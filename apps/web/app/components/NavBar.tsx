@@ -2,7 +2,7 @@
 
 import { signIn, signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
-import { CURRENCIES, getCurrencySymbol, formatCurrency } from "../utils/currency";
+import { CURRENCIES, getCurrencySymbol } from "../utils/currency";
 import { useCurrency } from "../providers/CurrencyProvider";
 import { useTotalBalance } from "../hooks/useTotalBalance";
 import Link from "next/link";
@@ -11,6 +11,7 @@ import Image from "next/image";
 import { Clock, TrendingUp } from "lucide-react";
 import { NotificationBell } from "./notification/NotificationBell";
 import { CheckinButton } from "./CheckinButton";
+import { useDisplayCurrency } from "./PageDisplayCurrencySelect";
 import { PageRefreshButton } from "./PageRefreshButton";
 import { formatLockCountdown, useAppLock } from "../providers/AppLockProvider";
 
@@ -18,6 +19,7 @@ export default function NavBar() {
   const { data: session, status } = useSession();
   const pathname = usePathname();
   const { currency: selectedCurrency, updateCurrency } = useCurrency();
+  const { formatAmount, setDisplayCurrency } = useDisplayCurrency();
   const { totalBalance, loading: balanceLoading } = useTotalBalance();
   const { isUnlocked, remainingMs, lockNow, refreshLockTimer } = useAppLock();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -44,6 +46,7 @@ export default function NavBar() {
   const handleCurrencyChange = async (currencyCode: string) => {
     try {
       await updateCurrency(currencyCode);
+      setDisplayCurrency(currencyCode);
       setIsDropdownOpen(false);
     } catch (error) {
       console.error("Error updating currency:", error);
@@ -115,7 +118,7 @@ export default function NavBar() {
                 <span className="text-sm text-gray-500">Loading balance...</span>
               ) : (
                 <span className="text-sm font-medium text-green-600">
-                  Balance: {formatCurrency(totalBalance, selectedCurrency)}
+                  Balance: {formatAmount(totalBalance, selectedCurrency)}
                 </span>
               )}
             </div> */}

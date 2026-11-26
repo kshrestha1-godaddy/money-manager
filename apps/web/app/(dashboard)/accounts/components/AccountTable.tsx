@@ -7,7 +7,6 @@ import { AccountInterface } from "../../../types/accounts";
 import { accountOpeningDay, formatAccountOpeningDate } from "../utils/accountOpeningDate";
 import { formatCurrency } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
-import { SUPPORTED_CURRENCIES } from "../../../utils/currencyConversion";
 import { useCurrency } from "../../../providers/CurrencyProvider";
 import { getDefaultColumnWidths, getMinColumnWidth, type AccountColumnWidths } from "../../../config/tableConfig";
 import { getActionButtonClasses } from "../../../config/colorConfig";
@@ -95,7 +94,6 @@ type WithheldDetails = Record<string, { id: number; name: string; targetName: st
 interface AccountTableProps {
     accounts: AccountInterface[];
     selectedCurrency: string;
-    setSelectedCurrency: (currency: string) => void;
     onEdit?: (account: AccountInterface) => void;
     onDelete?: (account: AccountInterface) => void;
     onViewDetails?: (account: AccountInterface) => void;
@@ -117,7 +115,6 @@ type SortDirection = 'asc' | 'desc';
 export function AccountTable({
     accounts,
     selectedCurrency,
-    setSelectedCurrency,
     onEdit,
     onDelete,
     onViewDetails,
@@ -406,22 +403,6 @@ export function AccountTable({
                                 <option value="accountType">Account type</option>
                                 <option value="withheld">Withheld or not</option>
                                 <option value="none">No grouping</option>
-                            </select>
-                                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" aria-hidden="true" />
-                            </div>
-                            <div className="relative">
-                            <select
-                                id="accounts-display-currency"
-                                aria-label="Table display currency"
-                                value={selectedCurrency}
-                                onChange={(event) => setSelectedCurrency(event.target.value)}
-                                className="h-9 appearance-none rounded-md border border-gray-300 bg-white pl-3 pr-9 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                            >
-                                {SUPPORTED_CURRENCIES.map((currencyOption) => (
-                                    <option key={currencyOption} value={currencyOption}>
-                                        {currencyOption}
-                                    </option>
-                                ))}
                             </select>
                                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" aria-hidden="true" />
                             </div>

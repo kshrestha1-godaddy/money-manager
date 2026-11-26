@@ -22,16 +22,14 @@ function recentTxRowStyle(type: UnifiedTransactionType): {
     return { circle: "bg-indigo-500", icon: "◇", amount: "text-indigo-600", prefix: "-" };
 }
 import { formatDate } from "../../../utils/date";
-import { formatCurrency } from "../../../utils/currency";
-import { convertForDisplaySync } from "../../../utils/currencyDisplay";
-import { useCurrency } from "../../../providers/CurrencyProvider";
+import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 import { getRecentTransactions } from "../../transactions/actions/transactions";
 
 export function RecentTransactions() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [isMobile, setIsMobile] = useState(false);
-    const { currency: userCurrency } = useCurrency();
+    const { formatAmount } = useDisplayCurrency();
     const router = useRouter();
 
     // Check if we're on mobile
@@ -124,7 +122,7 @@ export function RecentTransactions() {
                                 </div>
                                 <div className={`text-sm font-medium ml-2 ${rs.amount}`}>
                                     {rs.prefix}
-                                    {formatCurrency(convertForDisplaySync(transaction.amount, transaction.currency, userCurrency), userCurrency)}
+                                    {formatAmount(transaction.amount, transaction.currency)}
                                 </div>
                             </div>
                         </div>
@@ -184,7 +182,7 @@ export function RecentTransactions() {
                                     </td>
                                     <td className={`px-4 py-3 whitespace-nowrap text-sm font-medium text-right ${rs.amount}`}>
                                         {rs.prefix}
-                                        {formatCurrency(convertForDisplaySync(transaction.amount, transaction.currency, userCurrency), userCurrency)}
+                                        {formatAmount(transaction.amount, transaction.currency)}
                                     </td>
                                 </tr>
                             );

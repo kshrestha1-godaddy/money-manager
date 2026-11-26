@@ -4,6 +4,7 @@ import React, { useRef, useMemo, useCallback } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { formatCurrency } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { ChartControls } from "../../../components/ChartControls";
 import { useChartExpansion } from "../../../utils/chartUtils";
@@ -40,7 +41,8 @@ interface CategoryStats {
 const FALLBACK_CATEGORY_COLOR = "#9ca3af";
 const OTHERS_COLOR = "#94a3b8";
 
-export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD", title, heightClass }) => {
+export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency: currencyProp, title, heightClass }) => {
+    const currency = useResolvedDisplayCurrency(currencyProp);
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { formatTimePeriod, filteredIncomes } = useChartData();

@@ -6,6 +6,7 @@ import { Target } from "lucide-react";
 import { TargetProgressItem } from "../components/TargetProgressItem";
 import { ProgressLegend } from "../components/ProgressLegend";
 import { formatCurrency } from "../../../utils/currency";
+import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 
 interface InvestmentTargetProgressChartProps {
     targets: InvestmentTargetProgress[];
@@ -27,13 +28,14 @@ const DEFAULT_SORT: TargetSortConfig = { field: 'date', direction: 'asc' };
 
 export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgressChartProps>(({ 
     targets, 
-    currency = "USD", 
+    currency: currencyProp, 
     title = "Investment Target Progress",
     onEditTarget,
     onExtendTarget,
     onAddTarget,
     onBulkDelete
 }) => {
+    const currency = useResolvedDisplayCurrency(currencyProp);
     const [sortConfig, setSortConfig] = React.useState<TargetSortConfig>(DEFAULT_SORT);
     const [sortLoaded, setSortLoaded] = React.useState(false);
 

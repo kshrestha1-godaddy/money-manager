@@ -2,9 +2,8 @@
 
 import { X } from "lucide-react";
 import { InvestmentInterface } from "../../../types/investments";
-import { formatCurrency } from "../../../utils/currency";
 import { formatDateYearMonthDay } from "../../../utils/date";
-import { useCurrency } from "../../../providers/CurrencyProvider";
+import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 import { cn } from "@/lib/utils";
 import {
     getInvestmentTypeBadgeClassName,
@@ -21,7 +20,7 @@ interface ViewInvestmentModalProps {
 }
 
 export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: ViewInvestmentModalProps) {
-    const { currency: userCurrency } = useCurrency();
+    const { formatAmount, displayCurrency: userCurrency } = useDisplayCurrency();
 
     if (!isOpen || !investment) return null;
 
@@ -138,7 +137,7 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
                                          investment.type === 'GOLD' || investment.type === 'SILVER' ? 'Purchase price (/gm)' : 'Purchase price'}
                                     </span>
                                     <span className="text-sm font-medium tabular-nums text-gray-900">
-                                        {formatCurrency(investment.purchasePrice, userCurrency)}
+                                        {formatAmount(investment.purchasePrice)}
                                     </span>
                                 </div>
                                 <div className="flex justify-between gap-3 py-2.5">
@@ -148,7 +147,7 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
                                             : "Current price"}
                                     </span>
                                     <span className="text-sm font-medium tabular-nums text-gray-900">
-                                        {formatCurrency(investment.currentPrice, userCurrency)}
+                                        {formatAmount(investment.currentPrice)}
                                     </span>
                                 </div>
                                 {investment.type === "GOLD" || investment.type === "SILVER" ? (
@@ -190,20 +189,20 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
                                 <div className="flex justify-between gap-3 py-2.5 first:pt-0">
                                     <span className="text-xs text-gray-500">Total cost</span>
                                     <span className="text-sm font-medium tabular-nums text-gray-900">
-                                        {formatCurrency(totalCost, userCurrency)}
+                                        {formatAmount(totalCost)}
                                     </span>
                                 </div>
                                 <div className="flex justify-between gap-3 py-2.5">
                                     <span className="text-xs text-gray-500">Current value</span>
                                     <span className="text-sm font-semibold tabular-nums text-gray-900">
-                                        {formatCurrency(totalValue, userCurrency)}
+                                        {formatAmount(totalValue)}
                                     </span>
                                 </div>
                                 <div className="flex justify-between gap-3 py-2.5 last:pb-0">
                                     <span className="text-xs text-gray-500">Gain / loss</span>
                                     <div className="text-right">
                                         <div className={`text-sm font-semibold tabular-nums ${getGainColor(gain)}`}>
-                                            {formatCurrency(gain, userCurrency)}
+                                            {formatAmount(gain)}
                                         </div>
                                         <div className={`mt-0.5 text-xs tabular-nums ${getGainColor(gain)}`}>
                                             {gainPercentage}%
@@ -221,7 +220,7 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
                                 Overall performance
                             </h3>
                             <div className={`text-xl font-bold tabular-nums ${getGainColor(gain)}`}>
-                                {formatCurrency(gain, userCurrency)}
+                                {formatAmount(gain)}
                             </div>
                             <div className={`mt-1 text-sm ${getGainColor(gain)}`}>
                                 {gainPercentage}% {gain >= 0 ? "gain" : "loss"}

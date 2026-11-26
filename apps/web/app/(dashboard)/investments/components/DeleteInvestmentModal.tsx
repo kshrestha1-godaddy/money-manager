@@ -1,6 +1,7 @@
 "use client";
 
 import { InvestmentInterface } from "../../../types/investments";
+import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 
 interface DeleteInvestmentModalProps {
     investment: InvestmentInterface | null;
@@ -10,6 +11,7 @@ interface DeleteInvestmentModalProps {
 }
 
 export function DeleteInvestmentModal({ investment, isOpen, onClose, onConfirm }: DeleteInvestmentModalProps) {
+    const { formatAmount } = useDisplayCurrency();
     if (!isOpen || !investment) return null;
 
     return (
@@ -53,10 +55,7 @@ export function DeleteInvestmentModal({ investment, isOpen, onClose, onConfirm }
                             <div className="flex justify-between">
                                 <span className="font-medium text-gray-600">Current Value:</span>
                                 <span className="text-gray-900">
-                                    ${(investment.quantity * investment.currentPrice).toLocaleString('en-US', {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2
-                                    })}
+                                    {formatAmount(investment.quantity * investment.currentPrice)}
                                 </span>
                             </div>
                         </div>

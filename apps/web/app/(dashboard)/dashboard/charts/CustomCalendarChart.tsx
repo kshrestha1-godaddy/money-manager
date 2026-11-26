@@ -8,6 +8,7 @@ import { ChartControls } from "../../../components/ChartControls";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import { useChartAnimationState } from "../../../hooks/useChartAnimationContext";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
 
 interface CustomCalendarChartProps {
     type: "income" | "expense";
@@ -41,9 +42,10 @@ interface MonthData {
 
 export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({ 
     type, 
-    currency = "USD", 
+    currency: currencyProp, 
     title
 }) => {
+    const currency = useResolvedDisplayCurrency(currencyProp);
     const router = useRouter();
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
