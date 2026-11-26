@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Target, Calendar, DollarSign } from 'lucide-react';
 import { BudgetTarget } from '../../../types/financial';
 import { BudgetTargetFormData } from '../../../hooks/useBudgetTracking';
-import { useCurrency } from '../../../providers/CurrencyProvider';
+import { useDisplayCurrency } from '../../../hooks/useDisplayCurrency';
 import { formatCurrency } from '../../../utils/currency';
 
 interface BudgetTargetModalProps {
@@ -22,7 +22,7 @@ export function BudgetTargetModal({
   target, 
   isLoading = false 
 }: BudgetTargetModalProps) {
-  const { currency } = useCurrency();
+  const { displayCurrency, convertAmount, toAccountAmount } = useDisplayCurrency();
   const [formData, setFormData] = useState<BudgetTargetFormData>({
     name: '',
     targetAmount: 0,
@@ -39,7 +39,7 @@ export function BudgetTargetModal({
       if (target) {
         setFormData({
           name: target.name,
-          targetAmount: target.targetAmount,
+          targetAmount: convertAmount(target.targetAmount),
           period: target.period,
           startDate: target.startDate,
           endDate: target.endDate,
@@ -55,7 +55,7 @@ export function BudgetTargetModal({
       }
       setErrors({});
     }
-  }, [isOpen, target]);
+  }, [isOpen, target, convertAmount]);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -80,7 +80,7 @@ export function BudgetTargetModal({
     e.preventDefault();
     
     if (validateForm()) {
-      onSubmit(formData);
+      onSubmit({ ...formData, targetAmount: toAccountAmount(formData.targetAmount) });
     }
   };
 
@@ -156,7 +156,7 @@ export function BudgetTargetModal({
           {/* Target Amount */}
           <div>
             <label htmlFor="targetAmount" className="block text-sm font-medium text-gray-700 mb-2">
-              Target Amount
+              Target Amount ({displayCurrency})
             </label>
             <div className="relative">
               <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -250,11 +250,11 @@ export function BudgetTargetModal({
               <div className="text-sm text-blue-700">
                 <p>
                   <span className="font-medium">{formData.period.toLowerCase()} target:</span>{' '}
-                  {formatCurrency(formData.targetAmount, currency)}
+                  {formatCurrency(formData.targetAmount, displayCurrency)}
                 </p>
                 <p>
                   <span className="font-medium">Implied annual spend:</span>{' '}
-                  {formatCurrency(calculateImpliedAnnual(), currency)}
+                  {formatCurrency(calculateImpliedAnnual(), displayCurrency)}
                 </p>
               </div>
             </div>

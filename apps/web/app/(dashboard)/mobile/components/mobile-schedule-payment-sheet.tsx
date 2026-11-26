@@ -10,7 +10,7 @@
 import { useEffect, useState } from "react";
 import type { CategoryWithFrequencyData } from "../../../utils/categoryFrequency";
 import type { AccountInterface } from "../../../types/accounts";
-import { useCurrency } from "../../../providers/CurrencyProvider";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { getUserDualCurrency } from "../../../utils/currency";
 import {
   inputClasses,
@@ -46,8 +46,8 @@ export function MobileSchedulePaymentSheet({
   categories,
   accounts,
 }: MobileSchedulePaymentSheetProps) {
-  const { currency: userCurrency } = useCurrency();
-  const defaultCurrency = getUserDualCurrency(userCurrency);
+  const { displayCurrency } = useDisplayCurrency();
+  const defaultCurrency = getUserDualCurrency(displayCurrency);
   const expenseCategories = categories.filter((c) => c.type === "EXPENSE");
 
   const [title, setTitle] = useState("");
@@ -79,8 +79,8 @@ export function MobileSchedulePaymentSheet({
     setScheduledAtLocal(defaultLocalDatetime());
     setIsRecurring(false);
     setRecurringFrequency("MONTHLY");
-    setAmountCurrency(getUserDualCurrency(userCurrency));
-  }, [isOpen, userCurrency]);
+    setAmountCurrency(getUserDualCurrency(displayCurrency));
+  }, [isOpen, displayCurrency]);
 
   function handleClose() {
     setTitle("");

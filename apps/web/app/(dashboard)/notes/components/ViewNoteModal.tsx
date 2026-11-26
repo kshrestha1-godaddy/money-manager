@@ -1,7 +1,6 @@
 "use client";
 
 import { Note } from "@prisma/client";
-import { formatCurrency } from "../../../utils/currency";
 
 interface ViewNoteModalProps {
   note: Note | null;

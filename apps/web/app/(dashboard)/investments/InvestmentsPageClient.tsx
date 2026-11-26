@@ -21,6 +21,7 @@ import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { useOptimizedInvestments } from "./hooks/useOptimizedInvestments";
+import { useGatedAction } from "@repo/applock";
 import { InvestmentInterface } from "../../types/investments";
 import { useOptimizedInvestmentTargets } from "./hooks/useOptimizedInvestmentTargets";  
 import { Plus, Upload, TrendingUp, TrendingDown, DollarSign, Target } from "lucide-react";
@@ -310,29 +311,21 @@ export default function InvestmentsPageClient() {
     onBulkDelete: handleBulkDeleteTargetsClick
   }), [timelineTargets, displayCurrency, openEditTargetModal, openAddTargetModal, handleBulkDeleteTargetsClick, handleExtendTarget]);
 
-  const handleSectionBulkDelete = (sectionInvestments: InvestmentInterface[]) => {
-    const selectedIds = sectionInvestments.filter(inv => selectedInvestments.has(inv.id));
-    if (selectedIds.length === 0) return;
-    setBulkDeleteInvestments(selectedIds);
-    setIsBulkDeleteModalOpen(true);
-  };
+  const deleteSectionInvestments = async (
+    appLockPassword: string,
+    sectionInvestments: InvestmentInterface[],
+  ) => {
+    const investmentIds = sectionInvestments
+      .filter(inv => selectedInvestments.has(inv.id))
+      .map(inv => inv.id);
+    if (investmentIds.length === 0) return;
 
-  const handleBulkDeleteConfirm = async () => {
-    if (bulkDeleteInvestments.length === 0) return;
-    try {
-      const investmentIds = bulkDeleteInvestments.map(inv => inv.id);
-      await Promise.all(investmentIds.map(id => handleDeleteInvestment({ id } as InvestmentInterface)));
-      setSelectedInvestments(prev => {
-        const newSet = new Set(prev);
-        investmentIds.forEach(id => newSet.delete(id));
-        return newSet;
-      });
-    } catch (error) {
-      console.error("Error in bulk delete:", error);
-    } finally {
-      setIsBulkDeleteModalOpen(false);
-      setBulkDeleteInvestments([]);
-    }
+    await handleBulkDeleteInvestments(investmentIds, appLockPassword);
+    setSelectedInvestments(prev => {
+      const newSet = new Set(prev);
+      investmentIds.forEach(id => newSet.delete(id));
+      return newSet;
+    });
   };
 
   // Combined export handler for both investments and targets
@@ -376,9 +369,9 @@ export default function InvestmentsPageClient() {
     });
   }, [queryClient, closeModal]);
 
-  const handleBulkDeleteTargetsConfirm = useCallback(async () => {
+  const bulkDeleteAllTargetsConfirm = useCallback(async () => {
     try {
-      const result = await handleBulkDeleteAllTargets();
+      const result = await bulkDeleteAllTargets();
       setIsBulkDeleteTargetsModalOpen(false);
       setNotification({
         type: 'success',
@@ -394,6 +387,47 @@ export default function InvestmentsPageClient() {
       });
     }
   }, [handleBulkDeleteAllTargets]);
+
+
+  // Investment deletions require the lock screen password, which the server
+  // action re-verifies before deleting.
+  const deleteInvestment = useGatedAction(
+    (appLockPassword: string, investment: InvestmentInterface) =>
+      handleDeleteInvestment(investment, appLockPassword),
+    {
+      title: 'Delete investment',
+      description: 'This cannot be undone. Enter your lock screen password to delete this investment.',
+      confirmLabel: 'Delete investment',
+    },
+  );
+
+  const bulkDeleteSelectedInvestments = useGatedAction(
+    (appLockPassword: string, sectionInvestments: InvestmentInterface[]) =>
+      deleteSectionInvestments(appLockPassword, sectionInvestments),
+    {
+      title: 'Delete selected investments',
+      description: 'This cannot be undone. Enter your lock screen password to delete the selected investments.',
+      confirmLabel: 'Delete investments',
+    },
+  );
+
+  const deleteTarget = useGatedAction(
+    (appLockPassword: string, id: number) => handleDeleteTarget(id, appLockPassword),
+    {
+      title: 'Delete target',
+      description: 'This cannot be undone. Enter your lock screen password to delete this investment target.',
+      confirmLabel: 'Delete target',
+    },
+  );
+
+  const bulkDeleteAllTargets = useGatedAction(
+    (appLockPassword: string) => handleBulkDeleteAllTargets(appLockPassword),
+    {
+      title: 'Delete all targets',
+      description: 'This cannot be undone. Enter your lock screen password to delete every investment target.',
+      confirmLabel: 'Delete all targets',
+    },
+  );
 
   if (error) {
     return (
@@ -653,7 +687,7 @@ export default function InvestmentsPageClient() {
                         return sectionSelectedIds.length > 0 && (
                           <div className="flex items-center space-x-2">
                             <button onClick={() => { const newSelected = new Set(selectedInvestments); section.investments.forEach(inv => newSelected.delete(inv.id)); setSelectedInvestments(newSelected); }} className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors">Clear ({sectionSelectedIds.length})</button>
-                            <button onClick={() => handleSectionBulkDelete(section.investments)} disabled={isBulkDeleting} className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors disabled:opacity-50">{isBulkDeleting ? 'Deleting...' : `Delete (${sectionSelectedIds.length})`}</button>
+                            <button onClick={() => void bulkDeleteSelectedInvestments(section.investments)} disabled={isBulkDeleting} className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors disabled:opacity-50">{isBulkDeleting ? 'Deleting...' : `Delete (${sectionSelectedIds.length})`}</button>
                           </div>
                         );
                       })()}
@@ -667,7 +701,7 @@ export default function InvestmentsPageClient() {
                   selectedInvestments={selectedInvestments}
                   onInvestmentSelect={handleInvestmentSelect}
                   onEdit={(investment: InvestmentInterface) => openModal('edit', investment)}
-                  onDelete={(investment: InvestmentInterface) => investment.id < 0 ? router.push(investment.type === 'SIP' ? '/sip' : '/stocks') : openModal('delete', investment)}
+                  onDelete={(investment: InvestmentInterface) => investment.id < 0 ? router.push(investment.type === 'SIP' ? '/sip' : '/stocks') : void deleteInvestment(investment)}
                   onViewDetails={(investment: InvestmentInterface) => openModal('view', investment)}
                   showBulkActions={true}
                   onRefresh={handleInvestmentsRefresh}
@@ -680,7 +714,7 @@ export default function InvestmentsPageClient() {
         <MetalSpotRateModal
           isOpen={metalRateModal !== null}
           onClose={() => setMetalRateModal(null)}
-          currency={userCurrency}
+          currency={displayCurrency}
           spotPerUnitDisplay={
             metalRateModal === "silver" ? silverSpotPerUnitDisplay : goldSpotPerUnitDisplay
           }
@@ -706,7 +740,6 @@ export default function InvestmentsPageClient() {
           onClose={closeModal}
           onEdit={(id, data) => handleModalAction('edit', data)}
         />
-        <DeleteInvestmentModal investment={modal.investment || null} isOpen={modal.type === 'delete'} onClose={closeModal} onConfirm={() => handleModalAction('delete')} />
         <ViewInvestmentModal investment={modal.investment || null} isOpen={modal.type === 'view'} onClose={closeModal} onEdit={(investment) => openModal('edit', investment)} />
         <UnifiedBulkImportModal 
           isOpen={modal.type === 'import'} 
@@ -714,12 +747,11 @@ export default function InvestmentsPageClient() {
           onSuccess={handleImportSuccess}
           config={investmentImportConfig}
         />
-        <BulkDeleteInvestmentModal isOpen={isBulkDeleteModalOpen} onClose={() => setIsBulkDeleteModalOpen(false)} onConfirm={handleBulkDeleteConfirm} investments={bulkDeleteInvestments} />
-        <InvestmentTargetModal isOpen={targetModal.type !== null} onClose={closeModalTarget} onCreate={async (items) => { await handleCreateTargetsBatch(items); }} onUpdate={async (id, data) => { await handleUpdateTarget(id, data); }} onDelete={async (id) => { await handleDeleteTarget(id); }} existingTarget={targetModal.target} mode={targetModal.type || 'create'} currency={userCurrency} />
+        <InvestmentTargetModal isOpen={targetModal.type !== null} onClose={closeModalTarget} onCreate={async (items) => { await handleCreateTargetsBatch(items); }} onUpdate={async (id, data) => { await handleUpdateTarget(id, data); }} onDelete={async (id) => { await deleteTarget(id); }} existingTarget={targetModal.target} mode={targetModal.type || 'create'} />
         <BulkDeleteTargetsModal 
           isOpen={isBulkDeleteTargetsModalOpen} 
           onClose={() => setIsBulkDeleteTargetsModalOpen(false)} 
-          onConfirm={handleBulkDeleteTargetsConfirm}
+          onConfirm={() => void bulkDeleteAllTargetsConfirm()}
           targetCount={actualTargets.length}
           isDeleting={isBulkDeletingTargets}
         />
@@ -739,8 +771,6 @@ export default function InvestmentsPageClient() {
         return handleAddInvestmentWithNotification(data);
       case 'edit':
         return modal.investment ? handleEditInvestment(modal.investment.id, data) : undefined;
-      case 'delete':
-        return modal.investment ? handleDeleteInvestment(modal.investment) : undefined;
     }
   }
   

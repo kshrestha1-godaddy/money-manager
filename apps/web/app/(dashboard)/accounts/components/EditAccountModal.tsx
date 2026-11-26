@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { AccountInterface } from "../../../types/accounts";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface EditAccountModalProps {
     isOpen: boolean;
@@ -11,6 +12,7 @@ interface EditAccountModalProps {
 }
 
 export function EditAccountModal({ isOpen, onClose, onEdit, account }: EditAccountModalProps) {
+    const { displayCurrency, convertAmount, toAccountAmount } = useDisplayCurrency();
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -58,7 +60,7 @@ export function EditAccountModal({ isOpen, onClose, onEdit, account }: EditAccou
                 bankEmail: account.bankEmail,
                 accountOpeningDate: account.accountOpeningDate ? new Date(account.accountOpeningDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
                 securityQuestion: account.securityQuestion.length > 0 ? account.securityQuestion : [""],
-                balance: account.balance || 0,
+                balance: convertAmount(account.balance || 0),
                 // Mobile App Details
                 appUsername: account.appUsername || "",
                 appPassword: account.appPassword || "",
@@ -68,7 +70,7 @@ export function EditAccountModal({ isOpen, onClose, onEdit, account }: EditAccou
                 nickname: account.nickname || "",
             });
         }
-    }, [account]);
+    }, [account, convertAmount]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -79,6 +81,7 @@ export function EditAccountModal({ isOpen, onClose, onEdit, account }: EditAccou
         // Filter out empty strings from arrays
         const processedData = {
             ...formData,
+            balance: toAccountAmount(formData.balance),
             mobileNumbers: formData.mobileNumbers.filter(num => num.trim() !== ""),
             branchContacts: formData.branchContacts.filter(contact => contact.trim() !== ""),
             securityQuestion: formData.securityQuestion.filter(q => q.trim() !== ""),
@@ -247,7 +250,7 @@ export function EditAccountModal({ isOpen, onClose, onEdit, account }: EditAccou
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Balance
+                                Balance ({displayCurrency})
                             </label>
                             <input
                                 type="number"

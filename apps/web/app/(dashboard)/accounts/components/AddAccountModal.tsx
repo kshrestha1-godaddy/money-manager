@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AccountInterface } from "../../../types/accounts";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface AddAccountModalProps {
     isOpen: boolean;
@@ -62,6 +63,7 @@ const InputField = ({
 };
 
 export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps) {
+    const { displayCurrency, toAccountAmount } = useDisplayCurrency();
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -144,6 +146,7 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
         // Filter out empty strings from arrays
         const processedData = {
             ...formData,
+            balance: toAccountAmount(formData.balance),
             mobileNumbers: formData.mobileNumbers.filter(num => num.trim() !== ""),
             branchContacts: formData.branchContacts.filter(contact => contact.trim() !== ""),
             securityQuestion: formData.securityQuestion.filter(q => q.trim() !== ""),
@@ -329,7 +332,7 @@ export function AddAccountModal({ isOpen, onClose, onAdd }: AddAccountModalProps
                             />
 
                             <InputField
-                                label="Initial Balance"
+                                label={`Initial Balance (${displayCurrency})`}
                                 type="number"
                                 value={formData.balance}
                                 onChange={(e) => setFormData(prev => ({ ...prev, balance: parseFloat(e.target.value) || 0 }))}

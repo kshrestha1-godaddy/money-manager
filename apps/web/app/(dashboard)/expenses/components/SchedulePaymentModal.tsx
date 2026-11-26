@@ -5,7 +5,7 @@ import { CategoryWithFrequencyData } from "../../../utils/categoryFrequency";
 import { AccountInterface } from "../../../types/accounts";
 import { useTimezone } from "../../../providers/TimezoneProvider";
 import { toDatetimeLocalValue, parseDatetimeLocalInTimezone } from "../../../utils/scheduledPaymentTime";
-import { useCurrency } from "../../../providers/CurrencyProvider";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { getUserSupportedCurrency } from "../../../utils/currency";
 import {
   inputClasses,
@@ -40,9 +40,9 @@ export function SchedulePaymentModal({
   accounts,
   editingItem = null,
 }: SchedulePaymentModalProps) {
-  const { currency: userCurrency } = useCurrency();
+  const { displayCurrency } = useDisplayCurrency();
   const { timezone, isLoading: isTimezoneLoading } = useTimezone();
-  const defaultCurrency = getUserSupportedCurrency(userCurrency);
+  const defaultCurrency = getUserSupportedCurrency(displayCurrency);
   const expenseCategories = categories.filter((c) => c.type === "EXPENSE");
 
   const [title, setTitle] = useState("");
@@ -80,9 +80,9 @@ export function SchedulePaymentModal({
       setNotes("");
       setIsRecurring(false);
       setRecurringFrequency("MONTHLY");
-      setAmountCurrency(getUserSupportedCurrency(userCurrency));
+      setAmountCurrency(getUserSupportedCurrency(displayCurrency));
     }
-  }, [isOpen, editingItem, userCurrency]);
+  }, [isOpen, editingItem, displayCurrency]);
 
   useEffect(() => {
     if (!isOpen || isTimezoneLoading) return;

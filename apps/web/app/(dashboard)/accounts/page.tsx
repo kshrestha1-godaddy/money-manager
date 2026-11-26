@@ -515,7 +515,6 @@ export default function Accounts() {
                     onClose={() => setIsBulkBalancesModalOpen(false)}
                     accounts={allAccounts}
                     withheldAmounts={withheldByAccount}
-                    currency={userCurrency}
                     onApply={handleBulkBalanceUpdate}
                     isSaving={isBulkBalanceSaving}
                 />

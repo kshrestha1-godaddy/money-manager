@@ -5,7 +5,7 @@ import { Category } from "../../types/financial";
 import { AccountInterface } from "../../types/accounts";
 import { CategoryWithFrequencyData } from "../../utils/categoryFrequency";
 import { FinancialForm } from "./FinancialForm";
-import { useCurrency } from "../../providers/CurrencyProvider";
+import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { getUserSupportedCurrency } from "../../utils/currency";
 import { 
     BaseFormData, 
@@ -42,8 +42,8 @@ export function FinancialModal({
     transaction, 
     mode 
 }: FinancialModalProps) {
-    const { currency: userCurrency } = useCurrency();
-    const defaultCurrency = getUserSupportedCurrency(userCurrency);
+    const { displayCurrency, accountCurrency } = useDisplayCurrency();
+    const defaultCurrency = getUserSupportedCurrency(displayCurrency);
     const [formData, setFormData] = useState<BaseFormData>(initializeFormData(true, defaultCurrency));
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
@@ -54,21 +54,20 @@ export function FinancialModal({
         if (mode === 'edit' && transaction) {
             setFormData(extractFormData(transaction));
         } else if (mode === 'add') {
-            const currentDefaultCurrency = getUserSupportedCurrency(userCurrency);
+            const currentDefaultCurrency = getUserSupportedCurrency(displayCurrency);
             setFormData(initializeFormData(true, currentDefaultCurrency));
         }
-    }, [transaction, mode, isOpen, userCurrency]);
+    }, [transaction, mode, isOpen, displayCurrency]);
 
-    // Additional effect to update currency when user changes it in navbar
     useEffect(() => {
         if (isOpen && mode === 'add') {
-            const currentDefaultCurrency = getUserSupportedCurrency(userCurrency);
+            const currentDefaultCurrency = getUserSupportedCurrency(displayCurrency);
             setFormData(prev => ({
                 ...prev,
                 amountCurrency: currentDefaultCurrency
             }));
         }
-    }, [userCurrency, isOpen, mode]);
+    }, [displayCurrency, isOpen, mode]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -84,7 +83,7 @@ export function FinancialModal({
         setIsSubmitting(true);
         setSaveError(null);
         try {
-            const transformedData = transformFormData(formData, categories, accounts, userCurrency);
+            const transformedData = transformFormData(formData, categories, accounts, accountCurrency);
             
             if (mode === 'edit' && transaction) {
                 await onSubmit({ id: transaction.id, data: transformedData });
@@ -106,7 +105,7 @@ export function FinancialModal({
         if (mode === 'edit' && transaction) {
             setFormData(extractFormData(transaction));
         } else {
-            const currentDefaultCurrency = getUserSupportedCurrency(userCurrency);
+            const currentDefaultCurrency = getUserSupportedCurrency(displayCurrency);
             setFormData(initializeFormData(true, currentDefaultCurrency));
         }
         onClose();

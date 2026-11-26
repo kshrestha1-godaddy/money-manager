@@ -6,8 +6,8 @@ import { Expense } from "../../../types/financial";
 import { AccountInterface } from "../../../types/accounts";
 import { CategoryWithFrequencyData } from "../../../utils/categoryFrequency";
 import { ExpenseForm } from "./ExpenseForm";
-import { useCurrency } from "../../../providers/CurrencyProvider";
-import { formatCurrency, getUserDualCurrency } from "../../../utils/currency";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
+import { getUserDualCurrency } from "../../../utils/currency";
 import {
     getTopFrequentExpenseSuggestions,
     applySuggestionToFormData,
@@ -47,8 +47,8 @@ export function AddExpenseModal({
     accounts,
     expenses = [],
 }: AddExpenseModalProps) {
-    const { currency: userCurrency } = useCurrency();
-    const defaultCurrency = getUserDualCurrency(userCurrency);
+    const { displayCurrency, accountCurrency, formatAmount } = useDisplayCurrency();
+    const defaultCurrency = getUserDualCurrency(displayCurrency);
     const [formData, setFormData] = useState<BaseFormData>(initializeFormData(true, defaultCurrency));
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
@@ -69,7 +69,7 @@ export function AddExpenseModal({
 
     useEffect(() => {
         if (isOpen) {
-            const currentDefaultCurrency = getUserDualCurrency(userCurrency);
+            const currentDefaultCurrency = getUserDualCurrency(displayCurrency);
             setFormData(prev => ({
                 ...prev,
                 amountCurrency: currentDefaultCurrency
@@ -77,7 +77,7 @@ export function AddExpenseModal({
         } else {
             setIsSuggestionsOpen(false);
         }
-    }, [userCurrency, isOpen]);
+    }, [displayCurrency, isOpen]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -92,10 +92,10 @@ export function AddExpenseModal({
         setIsSubmitting(true);
         setSaveError(null);
         try {
-            const expense = transformFormData(formData, categories, accounts, userCurrency);
+            const expense = transformFormData(formData, categories, accounts, accountCurrency);
             await onAdd({ ...expense, location: [] });
             
-            const resetDefaultCurrency = getUserDualCurrency(userCurrency);
+            const resetDefaultCurrency = getUserDualCurrency(displayCurrency);
             setFormData(initializeFormData(true, resetDefaultCurrency));
             onClose();
         } catch (error) {
@@ -177,7 +177,7 @@ export function AddExpenseModal({
                                             <p className="mt-1 text-xs text-gray-600">
                                                 {suggestion.category.name}
                                                 {" · "}
-                                                {formatCurrency(suggestion.medianAmount, suggestion.currency)} median
+                                                {formatAmount(suggestion.medianAmount, suggestion.currency)} median
                                                 {" · "}
                                                 last: {formatSuggestionDate(suggestion.lastUsed)}
                                             </p>

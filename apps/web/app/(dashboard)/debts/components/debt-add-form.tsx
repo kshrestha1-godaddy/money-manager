@@ -5,7 +5,7 @@ import { DebtInterface } from "../../../types/debts";
 import { AccountInterface } from "../../../types/accounts";
 import { getUserAccounts } from "../../accounts/actions/accounts";
 import { formatCurrency } from "../../../utils/currency";
-import { useCurrency } from "../../../providers/CurrencyProvider";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { sanitizeFormData, DebtFormData, ValidationError } from "../../../utils/debtValidation";
 import { getLocalDateString, buttonClasses } from "../../../utils/formUtils";
 
@@ -29,7 +29,7 @@ export function DebtAddForm({
   onAfterSuccess,
   footerVariant = "modal",
 }: DebtAddFormProps) {
-  const { currency: userCurrency } = useCurrency();
+  const { displayCurrency, formatAmount, toAccountAmount } = useDisplayCurrency();
 
   const [formData, setFormData] = useState({
     borrowerName: "",
@@ -107,7 +107,7 @@ export function DebtAddForm({
       return Boolean(
         selectedAccount &&
           selectedAccount.balance !== undefined &&
-          formData.amount > selectedAccount.balance
+          toAccountAmount(formData.amount) > selectedAccount.balance
       );
     })();
 
@@ -131,11 +131,11 @@ export function DebtAddForm({
     if (formData.accountId) {
       const selectedAccount = accounts.find((acc) => acc.id === parseInt(formData.accountId, 10));
       if (selectedAccount && selectedAccount.balance !== undefined) {
-        if (formData.amount > selectedAccount.balance) {
+        if (toAccountAmount(formData.amount) > selectedAccount.balance) {
           setValidationErrors([
             {
               field: "amount",
-              message: `Cannot add debt of ${formatCurrency(formData.amount, userCurrency)}. Account balance is only ${formatCurrency(selectedAccount.balance, userCurrency)}.`,
+              message: `Cannot add debt of ${formatCurrency(formData.amount, displayCurrency)}. Account balance is only ${formatAmount(selectedAccount.balance)}.`,
             },
           ]);
           setIsSubmitting(false);
@@ -156,7 +156,7 @@ export function DebtAddForm({
         borrowerName: sanitizedData.borrowerName,
         borrowerContact: sanitizedData.borrowerContact || undefined,
         borrowerEmail: sanitizedData.borrowerEmail || undefined,
-        amount: sanitizedData.amount,
+        amount: toAccountAmount(sanitizedData.amount),
         interestRate: sanitizedData.interestRate,
         lentDate: new Date(sanitizedData.lentDate),
         dueDate,
@@ -208,7 +208,7 @@ export function DebtAddForm({
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Amount *</label>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Amount * ({displayCurrency})</label>
           <input
             type="number"
             step="0.01"
@@ -228,11 +228,11 @@ export function DebtAddForm({
             if (
               selectedAccount &&
               selectedAccount.balance !== undefined &&
-              formData.amount > selectedAccount.balance
+              toAccountAmount(formData.amount) > selectedAccount.balance
             ) {
               return (
                 <p className="mt-1 text-sm text-red-600">
-                  Insufficient balance. Available: {formatCurrency(selectedAccount.balance, userCurrency)}
+                  Insufficient balance. Available: {formatAmount(selectedAccount.balance)}
                 </p>
               );
             }
@@ -256,7 +256,7 @@ export function DebtAddForm({
               <option key={account.id} value={account.id}>
                 {account.bankName} - {account.accountNumber} (
                 {account.balance !== undefined
-                  ? `Balance: ${formatCurrency(account.balance, userCurrency)}`
+                  ? `Balance: ${formatAmount(account.balance)}`
                   : "No balance info"}
                 )
               </option>

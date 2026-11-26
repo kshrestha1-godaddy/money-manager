@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { InvestmentTarget, InvestmentTargetFormData } from "../../../types/investments";
 import { X, Target, Calendar, Plus, Trash2 } from "lucide-react";
 import { getCurrencySymbol } from "../../../utils/currency";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 // Utility function to format date for input field (yyyy-mm-dd)
 const formatDateForInput = (date: Date | undefined | null): string => {
@@ -91,7 +92,6 @@ interface InvestmentTargetModalProps {
     onDelete?: (id: number) => Promise<void>;
     existingTarget?: InvestmentTarget | null;
     mode: 'create' | 'edit';
-    currency?: string;
 }
 
 export function InvestmentTargetModal({
@@ -102,8 +102,9 @@ export function InvestmentTargetModal({
     onDelete,
     existingTarget,
     mode,
-    currency = "USD"
 }: InvestmentTargetModalProps) {
+    const { displayCurrency, convertAmount, toAccountAmount } = useDisplayCurrency();
+    const currency = displayCurrency;
     const [formData, setFormData] = useState<InvestmentTargetFormData>({
         investmentType: 'STOCKS',
         targetAmount: 0,
@@ -120,7 +121,7 @@ export function InvestmentTargetModal({
             if (mode === 'edit' && existingTarget) {
                 setFormData({
                     investmentType: existingTarget.investmentType,
-                    targetAmount: parseFloat(existingTarget.targetAmount.toString()),
+                    targetAmount: convertAmount(parseFloat(existingTarget.targetAmount.toString())),
                     targetCompletionDate: existingTarget.targetCompletionDate || undefined,
                     nickname: existingTarget.nickname || '',
                 });
@@ -137,7 +138,7 @@ export function InvestmentTargetModal({
             }
             setError("");
         }
-    }, [isOpen, existingTarget, mode]);
+    }, [isOpen, existingTarget, mode, convertAmount]);
 
     const addCreateRow = useCallback(() => {
         setCreateRows((prev) => {
@@ -184,7 +185,7 @@ export function InvestmentTargetModal({
                 .filter((r) => r.targetAmount > 0)
                 .map((r) => ({
                     investmentType: r.investmentType,
-                    targetAmount: r.targetAmount,
+                    targetAmount: toAccountAmount(r.targetAmount),
                     nickname: r.nickname.trim() || undefined,
                     targetCompletionDate: r.targetCompletionDate,
                 }));
@@ -212,7 +213,10 @@ export function InvestmentTargetModal({
         setIsLoading(true);
         try {
             if (mode === 'edit' && existingTarget && onUpdate) {
-                await onUpdate(existingTarget.id, formData);
+                await onUpdate(existingTarget.id, {
+                    ...formData,
+                    targetAmount: toAccountAmount(formData.targetAmount),
+                });
             }
             onClose();
         } catch (err) {

@@ -14,8 +14,7 @@ import { Expense, Income, Category } from "../types/financial";
 import { AccountInterface } from "../types/accounts";
 import { triggerBalanceRefresh } from "../hooks/useTotalBalance";
 import { DisappearingNotification, NotificationData } from "./DisappearingNotification";
-import { formatCurrency } from "../utils/currency";
-import { useCurrency } from "../providers/CurrencyProvider";
+import { useDisplayCurrency } from "../hooks/useDisplayCurrency";
 import { getCategoriesWithFrequency } from "../utils/categoryFrequency";
 
 export function GlobalModals() {
@@ -29,7 +28,7 @@ export function GlobalModals() {
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
-  const { currency } = useCurrency();
+  const { formatAmount } = useDisplayCurrency();
   const [expenseCategories, setExpenseCategories] = useState<Category[]>([]);
   const [incomeCategories, setIncomeCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<AccountInterface[]>([]);
@@ -87,7 +86,7 @@ export function GlobalModals() {
       // Show success notification
       setNotification({
         title: "Expense Added Successfully!",
-        message: `${expense.title} - ${formatCurrency(expense.amount, currency)} has been recorded`,
+        message: `${expense.title} - ${formatAmount(expense.amount, expense.currency)} has been recorded`,
         type: "warning",
         duration: 3000,
         icon: (
@@ -130,7 +129,7 @@ export function GlobalModals() {
       // Show success notification
       setNotification({
         title: "Income Added Successfully!",
-        message: `${income.title} - ${formatCurrency(income.amount, currency)} has been recorded`,
+        message: `${income.title} - ${formatAmount(income.amount, income.currency)} has been recorded`,
         type: "success",
         duration: 3000,
         icon: (

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ExpenseForm } from "../../expenses/components/ExpenseForm";
-import { useCurrency } from "../../../providers/CurrencyProvider";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { getUserDualCurrency } from "../../../utils/currency";
 import type { CategoryWithFrequencyData } from "../../../utils/categoryFrequency";
 import type { AccountInterface } from "../../../types/accounts";
@@ -40,8 +40,8 @@ export function MobileAddExpenseSheet({
   mode = "add",
   expenseToEdit = null,
 }: MobileAddExpenseSheetProps) {
-  const { currency: userCurrency } = useCurrency();
-  const defaultCurrency = getUserDualCurrency(userCurrency);
+  const { displayCurrency, accountCurrency } = useDisplayCurrency();
+  const defaultCurrency = getUserDualCurrency(displayCurrency);
   const [formData, setFormData] = useState<BaseFormData>(initializeFormData(true, defaultCurrency));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -63,20 +63,20 @@ export function MobileAddExpenseSheet({
 
   useEffect(() => {
     if (!isOpen || isEdit) return;
-    const currentDefaultCurrency = getUserDualCurrency(userCurrency);
+    const currentDefaultCurrency = getUserDualCurrency(displayCurrency);
     setFormData(initializeFormData(true, currentDefaultCurrency));
-  }, [isOpen, isEdit, userCurrency]);
+  }, [isOpen, isEdit, displayCurrency]);
 
   useEffect(() => {
     if (!isOpen || isEdit) return;
     setFormData((prev) => ({
       ...prev,
-      amountCurrency: getUserDualCurrency(userCurrency),
+      amountCurrency: getUserDualCurrency(displayCurrency),
     }));
-  }, [userCurrency, isOpen, isEdit]);
+  }, [displayCurrency, isOpen, isEdit]);
 
   function handleClose() {
-    const currentDefaultCurrency = getUserDualCurrency(userCurrency);
+    const currentDefaultCurrency = getUserDualCurrency(displayCurrency);
     if (isEdit && expenseToEdit) {
       setFormData(extractFormData(expenseToEdit));
     } else {
@@ -98,7 +98,7 @@ export function MobileAddExpenseSheet({
 
     setIsSubmitting(true);
     try {
-      const expense = transformFormData(formData, categories, accounts, userCurrency);
+      const expense = transformFormData(formData, categories, accounts, accountCurrency);
       if (isEdit && expenseToEdit) {
         await updateExpense(
           expenseToEdit.id,

@@ -13,8 +13,7 @@ import {
   normalizeInvestmentType,
   requiresCurrentPriceField,
 } from "../utils/investmentTypeUi";
-import { formatCurrency } from "../../../utils/currency";
-import { useCurrency } from "../../../providers/CurrencyProvider";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { getLocalDateString, buttonClasses } from "../../../utils/formUtils";
 
 interface Account {
@@ -71,7 +70,7 @@ export function InvestmentAddForm({
   onAfterSuccess,
   footerVariant = "modal",
 }: InvestmentAddFormProps) {
-  const { currency: userCurrency } = useCurrency();
+  const { formatAmount } = useDisplayCurrency();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -535,7 +534,7 @@ export function InvestmentAddForm({
                   if (selectedAccount && totalAmount > 0) {
                     return (
                       <span className="text-sm text-gray-500">
-                        (Investment: {formatCurrency(totalAmount, userCurrency)})
+                        (Investment: {formatAmount(totalAmount)})
                       </span>
                     );
                   }
@@ -553,7 +552,7 @@ export function InvestmentAddForm({
             <option value="">No account selected</option>
             {accounts.map((account) => (
               <option key={account.id} value={account.id}>
-                {account.bankName} - {account.accountNumber} ({formatCurrency(account.balance || 0, userCurrency)})
+                {account.bankName} - {account.accountNumber} ({formatAmount(account.balance || 0)})
               </option>
             ))}
           </select>

@@ -829,7 +829,7 @@ function FinancialRow({
                 )}
             </td>
             <td className={`px-3 py-4 text-sm font-medium text-center tabular-nums align-middle ${amountColorClass}`} style={{ width: `${columnWidths.amount}px` }}>
-                {formatCurrency(convertForDisplaySync(transaction.amount, transaction.currency, selectedCurrency), selectedCurrency)}
+                {formatCurrency(convertForDisplaySync(transaction.amount, transaction.currency, currency), currency)}
             </td>
             <td className="px-3 py-4 text-center text-sm font-medium align-middle" style={{ width: `${columnWidths.actions}px` }}>
                 <div className="flex justify-center flex-nowrap gap-1">

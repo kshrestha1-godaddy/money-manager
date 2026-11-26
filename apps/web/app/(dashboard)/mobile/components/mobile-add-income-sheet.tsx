@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FinancialForm } from "../../../components/shared/FinancialForm";
-import { useCurrency } from "../../../providers/CurrencyProvider";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { getUserSupportedCurrency } from "../../../utils/currency";
 import type { CategoryWithFrequencyData } from "../../../utils/categoryFrequency";
 import type { AccountInterface } from "../../../types/accounts";
@@ -40,8 +40,8 @@ export function MobileAddIncomeSheet({
   mode = "add",
   incomeToEdit = null,
 }: MobileAddIncomeSheetProps) {
-  const { currency: userCurrency } = useCurrency();
-  const defaultCurrency = getUserSupportedCurrency(userCurrency);
+  const { displayCurrency, accountCurrency } = useDisplayCurrency();
+  const defaultCurrency = getUserSupportedCurrency(displayCurrency);
   const [formData, setFormData] = useState<BaseFormData>(initializeFormData(true, defaultCurrency));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -63,20 +63,20 @@ export function MobileAddIncomeSheet({
 
   useEffect(() => {
     if (!isOpen || isEdit) return;
-    const currentDefaultCurrency = getUserSupportedCurrency(userCurrency);
+    const currentDefaultCurrency = getUserSupportedCurrency(displayCurrency);
     setFormData(initializeFormData(true, currentDefaultCurrency));
-  }, [isOpen, isEdit, userCurrency]);
+  }, [isOpen, isEdit, displayCurrency]);
 
   useEffect(() => {
     if (!isOpen || isEdit) return;
     setFormData((prev) => ({
       ...prev,
-      amountCurrency: getUserSupportedCurrency(userCurrency),
+      amountCurrency: getUserSupportedCurrency(displayCurrency),
     }));
-  }, [userCurrency, isOpen, isEdit]);
+  }, [displayCurrency, isOpen, isEdit]);
 
   function handleClose() {
-    const currentDefaultCurrency = getUserSupportedCurrency(userCurrency);
+    const currentDefaultCurrency = getUserSupportedCurrency(displayCurrency);
     if (isEdit && incomeToEdit) {
       setFormData(extractFormData(incomeToEdit));
     } else {
@@ -98,7 +98,7 @@ export function MobileAddIncomeSheet({
 
     setIsSubmitting(true);
     try {
-      const transformedData = transformFormData(formData, categories, accounts, userCurrency);
+      const transformedData = transformFormData(formData, categories, accounts, accountCurrency);
       if (isEdit && incomeToEdit) {
         await updateIncome(
           incomeToEdit.id,

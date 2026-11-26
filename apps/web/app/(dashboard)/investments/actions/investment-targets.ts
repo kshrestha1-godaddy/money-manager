@@ -9,6 +9,7 @@ import { getUserIdFromSession } from "../../../utils/auth";
 import { parseInvestmentTargetsCSV, ParsedInvestmentTargetData } from "../../../utils/csvImportInvestmentTargets";
 import { presentValueForPosition } from "../utils/stocksExpenseBasis";
 
+import { requireAppLockPassword } from "../../../lib/security/require-app-lock-password";
 export async function getInvestmentTargets(): Promise<{ data?: InvestmentTarget[], error?: string }> {
     try {
         const session = await getServerSession(authOptions);
@@ -189,14 +190,9 @@ export async function updateInvestmentTarget(id: number, data: Partial<Investmen
     }
 }
 
-export async function deleteInvestmentTarget(id: number): Promise<void> {
+export async function deleteInvestmentTarget(id: number, appLockPassword: string): Promise<void> {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session) {
-            throw new Error("Unauthorized");
-        }
-
-        const userId = getUserIdFromSession(session.user.id);
+        const userId = await requireAppLockPassword(appLockPassword);
 
         // Verify the target belongs to the user
         const existingTarget = await prisma.investmentTarget.findFirst({
@@ -441,14 +437,9 @@ export async function importCorrectedInvestmentTargetRow(rowData: string[], head
 /**
  * Bulk delete all investment targets for the current user
  */
-export async function bulkDeleteAllInvestmentTargets(): Promise<{ deletedCount: number }> {
+export async function bulkDeleteAllInvestmentTargets(appLockPassword: string): Promise<{ deletedCount: number }> {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session) {
-            throw new Error("Unauthorized");
-        }
-
-        const userId = getUserIdFromSession(session.user.id);
+        const userId = await requireAppLockPassword(appLockPassword);
 
         // Delete all targets for this user
         const deleteResult = await prisma.investmentTarget.deleteMany({

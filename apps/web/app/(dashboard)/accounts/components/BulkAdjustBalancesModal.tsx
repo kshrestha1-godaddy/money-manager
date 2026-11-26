@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { AccountInterface } from "../../../types/accounts";
 import { formatCurrency } from "../../../utils/currency";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import {
     modalContentClasses,
     modalOverlayClasses,
@@ -13,7 +14,6 @@ interface BulkAdjustBalancesModalProps {
     onClose: () => void;
     accounts: AccountInterface[];
     withheldAmounts: Record<string, number>;
-    currency: string;
     onApply: (updates: { id: number; balance: number }[]) => Promise<void>;
     isSaving: boolean;
 }
@@ -23,10 +23,10 @@ export function BulkAdjustBalancesModal({
     onClose,
     accounts,
     withheldAmounts,
-    currency,
     onApply,
     isSaving,
 }: BulkAdjustBalancesModalProps) {
+    const { displayCurrency, formatAmount, convertAmount, toAccountAmount } = useDisplayCurrency();
     const [draftBalances, setDraftBalances] = useState<Record<number, string>>({});
     const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -48,10 +48,12 @@ export function BulkAdjustBalancesModal({
 
     const updates = accounts.flatMap((account) => {
         const raw = draftBalances[account.id];
-        const balance = raw?.trim() ? Number(raw) : NaN;
-        return Number.isFinite(balance) && balance !== (account.balance ?? 0)
-            ? [{ id: account.id, balance }]
-            : [];
+        if (raw === undefined) return [];
+        const displayBalance = raw.trim() ? Number(raw) : NaN;
+        if (!Number.isFinite(displayBalance)) return [];
+        const balance = Math.round(toAccountAmount(displayBalance) * 100) / 100;
+        const current = Math.round((account.balance ?? 0) * 100) / 100;
+        return balance !== current ? [{ id: account.id, balance }] : [];
     });
     const hasInvalidBalance = accounts.some(({ id }) => {
         const draft = draftBalances[id];
@@ -100,7 +102,7 @@ export function BulkAdjustBalancesModal({
                                 <th className="px-3 py-3 text-right whitespace-nowrap">Withheld</th>
                                 <th className="px-3 py-3 text-right whitespace-nowrap">Current</th>
                                 <th className="px-3 py-3 w-8 text-center"></th>
-                                <th className="px-3 py-3 text-right whitespace-nowrap min-w-[8rem]">New balance</th>
+                                <th className="px-3 py-3 text-right whitespace-nowrap min-w-[8rem]">New balance ({displayCurrency})</th>
                                 <th className="px-3 py-3 text-right whitespace-nowrap">Change</th>
                                 <th className="px-3 py-3 text-right whitespace-nowrap">Free (new)</th>
                                 <th className="px-3 py-3 w-24"></th>
@@ -109,13 +111,15 @@ export function BulkAdjustBalancesModal({
                         <tbody className="divide-y divide-gray-100 bg-white">
                             {sortedAccounts.map((account) => {
                                 const current = account.balance ?? 0;
-                                const draft = draftBalances[account.id] ?? String(current);
+                                const currentDisplay = Math.round(convertAmount(current) * 100) / 100;
+                                const draft = draftBalances[account.id] ?? String(currentDisplay);
                                 const next = draft.trim() ? Number(draft) : NaN;
                                 const valid = Number.isFinite(next);
-                                const delta = next - current;
+                                const delta = next - currentDisplay;
 
                                 const withheld = withheldAmounts[account.id] ?? 0;
-                                const freeAfter = next - withheld;
+                                const withheldDisplay = convertAmount(withheld);
+                                const freeAfter = next - withheldDisplay;
 
                                 return (
                                     <tr key={account.id} className="hover:bg-gray-50/80">
@@ -126,10 +130,10 @@ export function BulkAdjustBalancesModal({
                                             </div>
                                         </td>
                                         <td className="px-3 py-2 text-right tabular-nums text-gray-700">
-                                            {formatCurrency(withheld, currency)}
+                                            {formatAmount(withheld)}
                                         </td>
                                         <td className="px-3 py-2 text-right tabular-nums text-gray-800">
-                                            {formatCurrency(current, currency)}
+                                            {formatAmount(current)}
                                         </td>
                                         <td className="px-1 py-2 text-center text-gray-400">→</td>
                                         <td className="px-3 py-2 text-right">
@@ -156,10 +160,10 @@ export function BulkAdjustBalancesModal({
                                                       : "text-gray-500"
                                             }`}
                                         >
-                                            {!valid || delta === 0 ? "—" : `${delta > 0 ? "+" : ""}${formatCurrency(delta, currency)}`}
+                                            {!valid || delta === 0 ? "—" : `${delta > 0 ? "+" : ""}${formatCurrency(delta, displayCurrency)}`}
                                         </td>
                                         <td className="px-3 py-2 text-right tabular-nums text-gray-800">
-                                            {valid ? formatCurrency(freeAfter, currency) : "—"}
+                                            {valid ? formatCurrency(freeAfter, displayCurrency) : "—"}
                                         </td>
                                         <td className="px-3 py-2">
                                             <button

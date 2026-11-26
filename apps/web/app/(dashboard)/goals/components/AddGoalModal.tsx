@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { X, Target, Calendar, DollarSign, Flag, Tag, Palette, AlertCircle } from 'lucide-react';
-import { useCurrency } from '../../../providers/CurrencyProvider';
+import { useDisplayCurrency } from '../../../hooks/useDisplayCurrency';
 import { BUTTON_COLORS, INPUT_COLORS, TEXT_COLORS, CONTAINER_COLORS } from '../../../config/colorConfig';
 
 interface AddGoalModalProps {
@@ -49,7 +49,7 @@ const colorOptions = [
 ];
 
 export function AddGoalModal({ isOpen, onClose, onSubmit, isLoading = false }: AddGoalModalProps) {
-  const { currency: userCurrency } = useCurrency();
+  const { displayCurrency, accountCurrency, toAccountAmount } = useDisplayCurrency();
   
   const [formData, setFormData] = useState({
     title: '',
@@ -119,8 +119,8 @@ export function AddGoalModal({ isOpen, onClose, onSubmit, isLoading = false }: A
     try {
       const goalData = {
         ...formData,
-        currency: userCurrency, // Always use user's currency
-        targetAmount: formData.targetAmount ? parseFloat(formData.targetAmount) : undefined,
+        currency: accountCurrency,
+        targetAmount: formData.targetAmount ? toAccountAmount(parseFloat(formData.targetAmount)) : undefined,
         startDate: new Date(formData.startDate),
         targetCompletionDate: formData.targetCompletionDate ? new Date(formData.targetCompletionDate) : undefined,
         tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(Boolean) : [],
@@ -130,7 +130,7 @@ export function AddGoalModal({ isOpen, onClose, onSubmit, isLoading = false }: A
     } catch (error) {
       console.error('Error submitting goal:', error);
     }
-  }, [formData, validateForm, onSubmit]);
+  }, [formData, validateForm, onSubmit, accountCurrency, toAccountAmount]);
 
   const handleReset = useCallback(() => {
     setFormData({
@@ -234,7 +234,7 @@ export function AddGoalModal({ isOpen, onClose, onSubmit, isLoading = false }: A
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Target Amount ({userCurrency})
+                        Target Amount ({displayCurrency})
                       </label>
                       <div className="relative">
                         <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />

@@ -111,8 +111,8 @@ export function useOptimizedInvestmentTargets() {
 
     // Delete target mutation
     const deleteMutation = useMutation({
-        mutationFn: async (id: number) => {
-            const result = await deleteInvestmentTarget(id);
+        mutationFn: async ({ id, appLockPassword }: { id: number; appLockPassword: string }) => {
+            const result = await deleteInvestmentTarget(id, appLockPassword);
             // deleteInvestmentTarget returns void, no error checking needed
             return result;
         },
@@ -129,7 +129,7 @@ export function useOptimizedInvestmentTargets() {
 
     // Bulk delete all targets mutation
     const bulkDeleteMutation = useMutation({
-        mutationFn: bulkDeleteAllInvestmentTargets,
+        mutationFn: (appLockPassword: string) => bulkDeleteAllInvestmentTargets(appLockPassword),
         onSuccess: (result) => {
             // Invalidate both targets and progress data
             queryClient.invalidateQueries({ queryKey: ['investment-targets'] });
@@ -155,12 +155,12 @@ export function useOptimizedInvestmentTargets() {
         return updateMutation.mutateAsync({ id, data });
     }, [updateMutation]);
 
-    const handleDeleteTarget = useCallback(async (id: number) => {
-        return deleteMutation.mutateAsync(id);
+    const handleDeleteTarget = useCallback(async (id: number, appLockPassword: string) => {
+        return deleteMutation.mutateAsync({ id, appLockPassword });
     }, [deleteMutation]);
 
-    const handleBulkDeleteAllTargets = useCallback(async () => {
-        return bulkDeleteMutation.mutateAsync();
+    const handleBulkDeleteAllTargets = useCallback(async (appLockPassword: string) => {
+        return bulkDeleteMutation.mutateAsync(appLockPassword);
     }, [bulkDeleteMutation]);
 
     // ==================== COMPUTED DATA ====================

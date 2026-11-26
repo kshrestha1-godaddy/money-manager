@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AccountInterface } from "../../../types/accounts";
-import { useCurrency } from "../../../providers/CurrencyProvider";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface TransferModalProps {
     isOpen: boolean;
@@ -19,7 +19,7 @@ export interface TransferData {
 }
 
 export function TransferModal({ isOpen, onClose, onTransfer, accounts }: TransferModalProps) {
-    const { currency: userCurrency } = useCurrency();
+    const { displayCurrency, formatAmount, convertAmount, toAccountAmount } = useDisplayCurrency();
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     const [formData, setFormData] = useState<TransferData>({
@@ -49,8 +49,9 @@ export function TransferModal({ isOpen, onClose, onTransfer, accounts }: Transfe
         
         // Check if source account has sufficient balance
         const sourceAccount = accounts.find(acc => acc.id === formData.fromAccountId);
-        if (sourceAccount && sourceAccount.balance !== undefined && formData.amount > sourceAccount.balance) {
-            newErrors.amount = `Insufficient balance. Available: ${sourceAccount.balance} ${userCurrency}`;
+        const amountInAccount = toAccountAmount(formData.amount);
+        if (sourceAccount && sourceAccount.balance !== undefined && amountInAccount > sourceAccount.balance) {
+            newErrors.amount = `Insufficient balance. Available: ${formatAmount(sourceAccount.balance)}`;
         }
 
         setErrors(newErrors);
@@ -66,7 +67,7 @@ export function TransferModal({ isOpen, onClose, onTransfer, accounts }: Transfe
 
         setIsSubmitting(true);
         try {
-            await onTransfer(formData);
+            await onTransfer({ ...formData, amount: toAccountAmount(formData.amount) });
             resetForm();
             onClose();
         } catch (error) {
@@ -168,7 +169,7 @@ export function TransferModal({ isOpen, onClose, onTransfer, accounts }: Transfe
                                 <option key={account.id} value={account.id}>
                                     {account.bankName} - {account.accountNumber.slice(-4)} 
                                     {account.nickname && ` (${account.nickname})`} 
-                                    - Balance: {account.balance} {userCurrency}
+                                    - Balance: {formatAmount(account.balance ?? 0)}
                                 </option>
                             ))}
                         </select>
@@ -193,7 +194,7 @@ export function TransferModal({ isOpen, onClose, onTransfer, accounts }: Transfe
                                 <option key={account.id} value={account.id}>
                                     {account.bankName} - {account.accountNumber.slice(-4)} 
                                     {account.nickname && ` (${account.nickname})`}
-                                    {account.balance !== undefined && ` - Balance: ${account.balance} ${userCurrency}`}
+                                    {account.balance !== undefined && ` - Balance: ${formatAmount(account.balance)}`}
                                 </option>
                             ))}
                         </select>
@@ -203,11 +204,11 @@ export function TransferModal({ isOpen, onClose, onTransfer, accounts }: Transfe
                     {/* Transfer Amount */}
                     <div className="mb-6">
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Transfer Amount ({userCurrency}) <span className="text-red-500">*</span>
+                            Transfer Amount ({displayCurrency}) <span className="text-red-500">*</span>
                         </label>
                         {sourceAccount && sourceAccount.balance !== undefined && (
                             <div className="text-sm text-gray-600 mb-2">
-                                Available balance: {sourceAccount.balance} {userCurrency}
+                                Available balance: {formatAmount(sourceAccount.balance)}
                             </div>
                         )}
                         <div className="relative">
@@ -228,7 +229,7 @@ export function TransferModal({ isOpen, onClose, onTransfer, accounts }: Transfe
                                 placeholder="Enter amount to transfer"
                             />
                             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                <span className="text-gray-500 sm:text-sm">{userCurrency}</span>
+                                <span className="text-gray-500 sm:text-sm">{displayCurrency}</span>
                             </div>
                         </div>
                         {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
@@ -239,8 +240,7 @@ export function TransferModal({ isOpen, onClose, onTransfer, accounts }: Transfe
                                 <div className="text-sm text-gray-600 mb-2">Quick select:</div>
                                 <div className="flex flex-wrap gap-2">
                                     {[25, 50, 75, 100].map((percent) => {
-                                        const amount = (sourceAccount.balance! * percent) / 100;
-                                        // Cap to 2 decimal places
+                                        const amount = convertAmount((sourceAccount.balance! * percent) / 100);
                                         const cappedAmount = Math.round(amount * 100) / 100;
                                         if (cappedAmount > 0) {
                                             return (

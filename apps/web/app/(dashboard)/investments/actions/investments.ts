@@ -15,6 +15,7 @@ import {
 import { parseInvestmentsCSV, ParsedInvestmentData } from "../../../utils/csvImportInvestments";
 import { ImportResult } from "../../../types/bulkImport";
 import { bulkImportInvestmentTargets } from "./investment-targets";
+import { requireAppLockPassword } from "../../../lib/security/require-app-lock-password";
 import {
     presentValueForPosition,
     resolvePurchasePriceForInvestmentDisplay,
@@ -722,14 +723,9 @@ export async function updateInvestment(
     }
 }
 
-export async function deleteInvestment(id: number) {
+export async function deleteInvestment(id: number, appLockPassword: string) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session) {
-            throw new Error("Unauthorized");
-        }
-
-        const userId = getUserIdFromSession(session.user.id);
+        const userId = await requireAppLockPassword(appLockPassword);
 
         const userRow = await prisma.user.findUnique({
             where: { id: userId },
@@ -1035,14 +1031,9 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
 /**
  * Bulk delete investments
  */
-export async function bulkDeleteInvestments(investmentIds: number[]) {
+export async function bulkDeleteInvestments(investmentIds: number[], appLockPassword: string) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session) {
-            throw new Error("Unauthorized");
-        }
-
-        const userId = getUserIdFromSession(session.user.id);
+        const userId = await requireAppLockPassword(appLockPassword);
 
         // Verify all investments belong to the user
         const existingInvestments = await prisma.investment.findMany({

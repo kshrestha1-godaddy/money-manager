@@ -22,6 +22,7 @@ export interface DisplayCurrency {
   displayCurrency: string;
   setDisplayCurrency: (currency: string) => void;
   convertAmount: (amount: number, fromCurrency?: string) => number;
+  toAccountAmount: (amount: number) => number;
   formatAmount: (amount: number, fromCurrency?: string) => string;
 }
 
@@ -67,6 +68,12 @@ export function DisplayCurrencyProvider({ children }: { children: ReactNode }) {
     [accountCurrency, displayCurrency]
   );
 
+  const toAccountAmount = useCallback(
+    (amount: number) =>
+      convertForDisplaySync(amount, displayCurrency, accountCurrency),
+    [accountCurrency, displayCurrency]
+  );
+
   const formatAmount = useCallback(
     (amount: number, fromCurrency = accountCurrency) =>
       formatCurrency(convertAmount(amount, fromCurrency), displayCurrency),
@@ -80,6 +87,7 @@ export function DisplayCurrencyProvider({ children }: { children: ReactNode }) {
       displayCurrency,
       setDisplayCurrency,
       convertAmount,
+      toAccountAmount,
       formatAmount,
     }),
     [
@@ -88,6 +96,7 @@ export function DisplayCurrencyProvider({ children }: { children: ReactNode }) {
       displayCurrency,
       formatAmount,
       setDisplayCurrency,
+      toAccountAmount,
     ]
   );
 
@@ -110,6 +119,7 @@ export function useDisplayCurrency(): DisplayCurrency {
     setDisplayCurrency: () => {},
     convertAmount: (amount, fromCurrency = accountCurrency) =>
       convertForDisplaySync(amount, fromCurrency, accountCurrency),
+    toAccountAmount: (amount) => amount,
     formatAmount: (amount, fromCurrency = accountCurrency) =>
       formatCurrency(
         convertForDisplaySync(amount, fromCurrency, accountCurrency),

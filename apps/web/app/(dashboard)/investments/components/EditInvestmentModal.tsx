@@ -4,8 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { InvestmentInterface, InvestmentTarget } from "../../../types/investments";
 import { getUserAccounts } from "../../accounts/actions/accounts";
 import { getInvestmentTargets } from "../actions/investment-targets";
-import { formatCurrency } from "../../../utils/currency";
-import { useCurrency } from "../../../providers/CurrencyProvider";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import {
     normalizeInvestmentType,
     isDepositStyleType,
@@ -50,7 +49,7 @@ const INVESTMENT_TYPE_OPTIONS: { value: InvestmentInterface["type"]; label: stri
 ];
 
 export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: EditInvestmentModalProps) {
-    const { currency: userCurrency } = useCurrency();
+    const { formatAmount } = useDisplayCurrency();
     const isExpensePreview = !!investment && investment.id < 0;
     
     const [formData, setFormData] = useState({
@@ -531,7 +530,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                                     return (
                                         <span className="text-sm text-gray-500 font-normal">
                                             {" "}
-                                            (Investment: {formatCurrency(totalAmount, userCurrency)})
+                                            (Investment: {formatAmount(totalAmount)})
                                         </span>
                                     );
                                 }
@@ -548,7 +547,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                             {accounts.map(account => (
                                 <option key={account.id} value={account.id}>
                                     {account.bankName} - {account.accountNumber} (
-                                    {formatCurrency(account.balance || 0, userCurrency)})
+                                    {formatAmount(account.balance || 0)})
                                 </option>
                             ))}
                         </select>

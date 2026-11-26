@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { DebtInterface } from "../../../types/debts";
 import { AccountInterface } from "../../../types/accounts";
-import { formatCurrency } from "../../../utils/currency";
 import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { getUserAccounts } from "../../accounts/actions/accounts";
 import { calculateRemainingWithInterest } from "../../../utils/interestCalculation";
@@ -27,7 +26,7 @@ export function AddRepaymentModal({
     onAdd, 
     onSuccess 
 }: AddRepaymentModalProps) {
-    const { accountCurrency: userCurrency, formatAmount } = useDisplayCurrency();
+    const { displayCurrency, formatAmount, convertAmount, toAccountAmount } = useDisplayCurrency();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -114,7 +113,7 @@ export function AddRepaymentModal({
         setIsLoading(true);
 
         try {
-            const amount = parseFloat(formData.amount);
+            const amount = toAccountAmount(parseFloat(formData.amount));
             
             // Validation
             if (isNaN(amount) || amount <= 0) {
@@ -144,7 +143,7 @@ export function AddRepaymentModal({
             const roundedRemaining = Math.round(remainingAmount * 100) / 100;
             
             if (roundedAmount > roundedRemaining) {
-                throw new Error(`Repayment amount cannot exceed remaining debt of ${formatCurrency(roundedRemaining, userCurrency)}`);
+                throw new Error(`Repayment amount cannot exceed remaining debt of ${formatAmount(roundedRemaining)}`);
             }
 
             if (!formData.repaymentDate) {
@@ -199,7 +198,7 @@ export function AddRepaymentModal({
 
     const setFullAmount = () => {
         // Round to 2 decimal places to avoid floating-point precision issues
-        const roundedAmount = Math.round(remainingAmount * 100) / 100;
+        const roundedAmount = Math.round(convertAmount(remainingAmount) * 100) / 100;
         setFormData(prev => ({ ...prev, amount: roundedAmount.toFixed(2) }));
     };
 
@@ -270,12 +269,12 @@ export function AddRepaymentModal({
                                     required
                                 />
                                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                                    <span className="text-sm text-gray-500">{userCurrency}</span>
+                                    <span className="text-sm text-gray-500">{displayCurrency}</span>
                                 </div>
                             </div>
                             <div className="flex justify-between mt-1">
                                 <p className="text-xs text-gray-500">
-                                    Maximum: {formatCurrency(remainingAmount, userCurrency)}
+                                    Maximum: {formatAmount(remainingAmount)}
                                 </p>
                                 <button
                                     type="button"
@@ -320,7 +319,7 @@ export function AddRepaymentModal({
                                     const isOriginalAccount = debt.accountId === account.id;
                                     return (
                                         <option key={account.id} value={account.id}>
-                                            {account.bankName} - {account.accountNumber} ({account.balance !== undefined ? `Balance: ${formatCurrency(account.balance, userCurrency)}` : 'No balance info'}){isOriginalAccount ? ' - Original Account' : ''}
+                                            {account.bankName} - {account.accountNumber} ({account.balance !== undefined ? `Balance: ${formatAmount(account.balance)}` : 'No balance info'}){isOriginalAccount ? ' - Original Account' : ''}
                                         </option>
                                     );
                                 })}

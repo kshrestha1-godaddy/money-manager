@@ -6,7 +6,7 @@ import { DebtInterface } from "../../../types/debts";
 import { AccountInterface } from "../../../types/accounts";
 import { getUserAccounts } from "../../accounts/actions/accounts";
 import { formatCurrency } from "../../../utils/currency";
-import { useCurrency } from "../../../providers/CurrencyProvider";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface EditDebtModalProps {
     isOpen: boolean;
@@ -16,7 +16,7 @@ interface EditDebtModalProps {
 }
 
 export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalProps) {
-    const { currency: userCurrency } = useCurrency();
+    const { displayCurrency, formatAmount, convertAmount, toAccountAmount } = useDisplayCurrency();
     
     const [formData, setFormData] = useState({
         borrowerName: "",
@@ -65,7 +65,7 @@ export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalPr
                 borrowerName: debt.borrowerName,
                 borrowerContact: (debt.borrowerContact ?? "") as string,
                 borrowerEmail: (debt.borrowerEmail ?? "") as string,
-                amount: debt.amount,
+                amount: convertAmount(debt.amount),
                 interestRate: debt.interestRate,
                 dueDate: debt.dueDate ? new Date(debt.dueDate).toISOString().split('T')[0] || "" : "",
                 lentDate: new Date(debt.lentDate).toISOString().split('T')[0] || "",
@@ -75,7 +75,7 @@ export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalPr
                 accountId: debt.accountId?.toString() ?? "",
             });
         }
-    }, [debt]);
+    }, [debt, convertAmount]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -86,15 +86,15 @@ export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalPr
             const selectedAccount = accounts.find(acc => acc.id === parseInt(formData.accountId));
             if (selectedAccount && selectedAccount.balance !== undefined) {
                 // If changing to a different account, check if the new account has sufficient balance
-                if (parseInt(formData.accountId) !== debt.accountId && formData.amount > selectedAccount.balance) {
-                    alert(`Cannot move debt of ${formatCurrency(formData.amount, userCurrency)} to this account. Account balance is only ${formatCurrency(selectedAccount.balance, userCurrency)}.`);
+                const amountInAccount = toAccountAmount(formData.amount);
+                if (parseInt(formData.accountId) !== debt.accountId && amountInAccount > selectedAccount.balance) {
+                    alert(`Cannot move debt of ${formatCurrency(formData.amount, displayCurrency)} to this account. Account balance is only ${formatAmount(selectedAccount.balance)}.`);
                     return;
                 }
-                // If increasing the amount on the same account, check if there's sufficient balance for the increase
-                if (parseInt(formData.accountId) === debt.accountId && formData.amount > debt.amount) {
-                    const amountIncrease = formData.amount - debt.amount;
+                if (parseInt(formData.accountId) === debt.accountId && amountInAccount > debt.amount) {
+                    const amountIncrease = amountInAccount - debt.amount;
                     if (amountIncrease > selectedAccount.balance) {
-                        alert(`Cannot increase debt by ${formatCurrency(amountIncrease, userCurrency)}. Account balance is only ${formatCurrency(selectedAccount.balance, userCurrency)}.`);
+                        alert(`Cannot increase debt by ${formatAmount(amountIncrease)}. Account balance is only ${formatAmount(selectedAccount.balance)}.`);
                         return;
                     }
                 }
@@ -105,7 +105,7 @@ export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalPr
             borrowerName: formData.borrowerName,
             borrowerContact: formData.borrowerContact || undefined,
             borrowerEmail: formData.borrowerEmail || undefined,
-            amount: formData.amount,
+            amount: toAccountAmount(formData.amount),
             interestRate: formData.interestRate,
             lentDate: new Date(formData.lentDate),
             dueDate: (formData.dueDate && formData.dueDate.trim() !== "") ? new Date(formData.dueDate as string) : undefined,
@@ -155,7 +155,7 @@ export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalPr
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Amount *
+                                Amount * ({displayCurrency})
                             </label>
                             <input
                                 type="number"
@@ -181,7 +181,7 @@ export function EditDebtModal({ isOpen, onClose, onEdit, debt }: EditDebtModalPr
                                 <option value="">Select account (optional)</option>
                                 {accounts.map((account) => (
                                     <option key={account.id} value={account.id}>
-                                        {account.bankName} - {account.accountNumber} ({account.balance !== undefined ? `Balance: ${formatCurrency(account.balance, userCurrency)}` : 'No balance info'})
+                                        {account.bankName} - {account.accountNumber} ({account.balance !== undefined ? `Balance: ${formatAmount(account.balance)}` : 'No balance info'})
                                     </option>
                                 ))}
                             </select>

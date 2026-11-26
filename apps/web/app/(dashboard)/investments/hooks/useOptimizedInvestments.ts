@@ -431,8 +431,9 @@ export function useOptimizedInvestments() {
 
     // Delete Investment
     const deleteMutation = useMutation({
-        mutationFn: deleteInvestment,
-        onMutate: async (investmentId) => {
+        mutationFn: ({ id, appLockPassword }: { id: number; appLockPassword: string }) =>
+            deleteInvestment(id, appLockPassword),
+        onMutate: async ({ id: investmentId }) => {
             await queryClient.cancelQueries({ queryKey: ['investments'] });
             
             const previousInvestments = queryClient.getQueryData<InvestmentInterface[]>(['investments']);
@@ -471,8 +472,9 @@ export function useOptimizedInvestments() {
 
     // Bulk Delete
     const bulkDeleteMutation = useMutation({
-        mutationFn: bulkDeleteInvestments,
-        onMutate: async (investmentIds) => {
+        mutationFn: ({ investmentIds, appLockPassword }: { investmentIds: number[]; appLockPassword: string }) =>
+            bulkDeleteInvestments(investmentIds, appLockPassword),
+        onMutate: async ({ investmentIds }) => {
             await queryClient.cancelQueries({ queryKey: ['investments'] });
             
             const previousInvestments = queryClient.getQueryData<InvestmentInterface[]>(['investments']);
@@ -522,8 +524,8 @@ export function useOptimizedInvestments() {
         return updateMutation.mutateAsync({ id, data });
     }, [updateMutation]);
 
-    const handleDeleteInvestment = useCallback(async (investment: InvestmentInterface) => {
-        deleteMutation.mutate(investment.id);
+    const handleDeleteInvestment = useCallback(async (investment: InvestmentInterface, appLockPassword: string) => {
+        deleteMutation.mutate({ id: investment.id, appLockPassword });
     }, [deleteMutation]);
 
     // Selection handlers
@@ -548,9 +550,9 @@ export function useOptimizedInvestments() {
         }
     }, [filteredInvestments]);
 
-    const handleBulkDelete = useCallback(async () => {
+    const handleBulkDelete = useCallback(async (appLockPassword: string) => {
         if (selectedInvestments.size === 0) return;
-        bulkDeleteMutation.mutate(Array.from(selectedInvestments));
+        bulkDeleteMutation.mutate({ investmentIds: Array.from(selectedInvestments), appLockPassword });
     }, [selectedInvestments, bulkDeleteMutation]);
 
     // Export handler
