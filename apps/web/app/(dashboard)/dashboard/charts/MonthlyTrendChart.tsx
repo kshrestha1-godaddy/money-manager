@@ -49,90 +49,42 @@ interface CalculationsResult {
     yAxisMin: number;
     referenceLines: number[];
     fixedYAxisTicks: number[];
-    /** True when chart uses zoomed-in scale for 0-250K range. */
-    usesZoomedScale: boolean;
 }
 
-const FIXED_Y_AXIS_BASELINE_MAX = 250_000;
-const FIXED_Y_AXIS_STEP = 50_000;
-function computeZoomedYAxisDomain(rawMax: number, rawMin: number): {
+function getNiceStep(range: number, targetTickCount = 7): number {
+    const roughStep = range / Math.max(1, targetTickCount - 1);
+    const magnitude = 10 ** Math.floor(Math.log10(roughStep || 1));
+    const normalizedStep = roughStep / magnitude;
+    const niceMultiplier =
+        normalizedStep <= 1 ? 1 :
+        normalizedStep <= 2 ? 2 :
+        normalizedStep <= 5 ? 5 : 10;
+    return niceMultiplier * magnitude;
+}
+
+function computeAdaptiveYAxis(rawMax: number, rawMin: number): {
     yAxisMax: number;
     yAxisMin: number;
-    zoomedIn: boolean;
+    ticks: number[];
 } {
-    const hasValuesAbove250K = rawMax > FIXED_Y_AXIS_BASELINE_MAX;
-    const hasValuesBelowNeg250K = rawMin < -FIXED_Y_AXIS_BASELINE_MAX;
-    
-    if (!hasValuesAbove250K && !hasValuesBelowNeg250K) {
-        // All values within ±250K range, use zoomed-in fixed scale
-        return {
-            yAxisMax: FIXED_Y_AXIS_BASELINE_MAX,
-            yAxisMin: rawMin < 0 ? Math.floor(rawMin * 1.1) : 0,
-            zoomedIn: true,
-        };
+    if (rawMax === 0 && rawMin === 0) {
+        return { yAxisMin: 0, yAxisMax: 100, ticks: [0, 20, 40, 60, 80, 100] };
     }
-    
-    // Has values beyond ±250K, use standard dynamic scaling
-    return {
-        yAxisMax: Math.ceil(rawMax * 1.15),
-        yAxisMin: rawMin < 0 ? Math.floor(rawMin * 1.25) : 0,
-        zoomedIn: false,
-    };
-}
 
-function buildZoomedYAxisTicks(
-    yAxisMin: number,
-    yAxisMax: number,
-    zoomedIn: boolean,
-    rawMax: number
-): number[] {
-    if (zoomedIn) {
-        // Fine-grained ticks for zoomed-in view (0-250K range)
-        const ticks: number[] = [];
-        const start = Math.max(0, Math.ceil(yAxisMin / FIXED_Y_AXIS_STEP) * FIXED_Y_AXIS_STEP);
-        
-        for (let value = start; value <= Math.min(yAxisMax, FIXED_Y_AXIS_BASELINE_MAX); value += FIXED_Y_AXIS_STEP) {
-            ticks.push(value);
-        }
-        
-        // Add negative ticks if needed
-        if (yAxisMin < 0) {
-            const negStart = Math.floor(yAxisMin / FIXED_Y_AXIS_STEP) * FIXED_Y_AXIS_STEP;
-            for (let value = negStart; value < 0; value += FIXED_Y_AXIS_STEP) {
-                ticks.unshift(value);
-            }
-        }
-        
-        return ticks;
-    }
-    
-    // Dynamic ticks for non-zoomed view
+    const dataRange = Math.max(rawMax - rawMin, Math.abs(rawMax), 1);
+    const padding = dataRange * 0.08;
+    const paddedMin = rawMin < 0 ? rawMin - padding : 0;
+    const paddedMax = rawMax + padding;
+    const step = getNiceStep(paddedMax - paddedMin);
+    const yAxisMin = Math.floor(paddedMin / step) * step;
+    const yAxisMax = Math.ceil(paddedMax / step) * step;
     const ticks: number[] = [];
-    
-    // Always include 0-250K range with 50K steps
-    for (let value = 0; value <= Math.min(yAxisMax, FIXED_Y_AXIS_BASELINE_MAX); value += FIXED_Y_AXIS_STEP) {
-        ticks.push(value);
+
+    for (let value = yAxisMin; value <= yAxisMax + step / 2; value += step) {
+        ticks.push(Number(value.toPrecision(12)));
     }
-    
-    // Add ticks above 250K with larger steps
-    if (yAxisMax > FIXED_Y_AXIS_BASELINE_MAX) {
-        const range = yAxisMax - FIXED_Y_AXIS_BASELINE_MAX;
-        const step = range <= 500_000 ? 100_000 : range <= 1_000_000 ? 200_000 : 500_000;
-        
-        for (let value = FIXED_Y_AXIS_BASELINE_MAX + step; value <= yAxisMax; value += step) {
-            ticks.push(value);
-        }
-    }
-    
-    // Add negative ticks if needed
-    if (yAxisMin < 0) {
-        const negStart = Math.floor(yAxisMin / FIXED_Y_AXIS_STEP) * FIXED_Y_AXIS_STEP;
-        for (let value = negStart; value < 0; value += FIXED_Y_AXIS_STEP) {
-            ticks.unshift(value);
-        }
-    }
-    
-    return ticks.sort((a, b) => a - b);
+
+    return { yAxisMin, yAxisMax, ticks };
 }
 
 /**
@@ -307,8 +259,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
                 yAxisMax: 100,
                 yAxisMin: 0,
                 referenceLines: [25, 50, 75],
-                fixedYAxisTicks: [0, 50, 100, 150, 200, 250],
-                usesZoomedScale: false,
+                fixedYAxisTicks: [0, 20, 40, 60, 80, 100],
             };
         }
 
@@ -330,13 +281,14 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
         const averageExpenses = totalExpenses / monthCount;
         const averageSavings = totalSavings / monthCount;
 
-        const { yAxisMax, yAxisMin, zoomedIn } = computeZoomedYAxisDomain(maxValue, minValue);
-
-        const fixedYAxisTicks = buildZoomedYAxisTicks(yAxisMin, yAxisMax, zoomedIn, maxValue);
-
-        const referenceLines = zoomedIn
-            ? fixedYAxisTicks.filter((value) => value > 0 && value < FIXED_Y_AXIS_BASELINE_MAX)
-            : fixedYAxisTicks.filter((value, index) => index % 2 === 1 || value === 0);
+        const {
+            yAxisMax,
+            yAxisMin,
+            ticks: fixedYAxisTicks,
+        } = computeAdaptiveYAxis(maxValue, minValue);
+        const referenceLines = fixedYAxisTicks.filter(
+            (value) => value !== 0 && value !== yAxisMin && value !== yAxisMax
+        );
 
         return {
             totalIncome,
@@ -352,7 +304,6 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
             yAxisMin,
             referenceLines,
             fixedYAxisTicks,
-            usesZoomedScale: zoomedIn,
         };
     }, [chartData]);
 
@@ -734,16 +685,6 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
             />
             <div>
                 <SummaryStats calculations={calculations} currency={currency} />
-                {calculations.usesZoomedScale && (
-                    <div className="mb-3 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-950">
-                        <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" aria-hidden />
-                        <p>
-                            <span className="font-medium">Zoomed Y-axis:</span> the chart is optimized to show detail in the{" "}
-                            {formatCurrency(0, currency)} – {formatCurrency(FIXED_Y_AXIS_BASELINE_MAX, currency)} range
-                            with {formatCurrency(FIXED_Y_AXIS_STEP, currency)} increments for better visibility of typical monthly amounts.
-                        </p>
-                    </div>
-                )}
                 {renderChartContent()}
                 
             </div>
