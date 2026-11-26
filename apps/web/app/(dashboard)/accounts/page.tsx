@@ -19,7 +19,6 @@ import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { BankBalanceChart } from "./components/BankBalanceChart";
 import { AccountIncomeExpenseActivityTable } from "./components/AccountIncomeExpenseActivityTable";
 import { useOptimizedAccounts } from "../../hooks/useOptimizedAccounts";
-import { useGatedAction } from "@repo/applock";
 import { getWithheldInvestmentDetailsByAccount } from "./actions/accounts";
 import {
     getSummaryCardClasses,
@@ -160,22 +159,6 @@ export default function Accounts() {
             try { localStorage.setItem('user-has-accounts', 'true'); } catch {}
         }
     }, [allAccounts.length]);
-
-    // Deletions require the lock screen password. The gate supplies the
-    // verified password, which the server action re-checks before deleting.
-    const deleteAccount = useGatedAction(
-        (appLockPassword: string, accountId: number) => handleDeleteAccount(appLockPassword, accountId),
-        {
-            title: "Delete account",
-            description: "This cannot be undone. Enter your lock screen password to delete this account.",
-            confirmLabel: "Delete account",
-        },
-    );
-
-    const bulkDeleteAccounts = useGatedAction(
-        (appLockPassword: string) => handleBulkDelete(appLockPassword),
-        { title: "Confirm bulk deletion", description: "Enter your lock screen password to delete the selected accounts.", confirmLabel: "Delete accounts" },
-    );
 
     // Display error if there's one
     if (error || withheldDetailsError) {
@@ -417,11 +400,11 @@ export default function Accounts() {
                     onAccountSelect={handleAccountSelect}
                     onSelectAll={(checked: boolean) => handleSelectAll(checked)}
                     showBulkActions={true}
-                    onBulkDelete={bulkDeleteAccounts}
+                    onBulkDelete={(appLockPassword) => void handleBulkDelete(appLockPassword)}
                     isDeleting={isDeleting}
                     onClearSelection={() => setSelectedAccounts(new Set())}
                     onEdit={openEditModal}
-                    onDelete={(account) => void deleteAccount(account.id)}
+                    onDelete={(appLockPassword, account) => void handleDeleteAccount(appLockPassword, account.id)}
                     onViewDetails={openViewModal}
                     onShare={openShareModal}
                     withheldDetails={withheldDetails}

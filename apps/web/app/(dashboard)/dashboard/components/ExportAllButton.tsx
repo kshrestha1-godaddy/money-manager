@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import { exportAccountsToCSV } from '../../../utils/csvExport';
-import { exportDebtsToCSV, exportDebtRepaymentsToCSV } from '../../../utils/csvExportDebts';
-import { exportExpensesToCSV } from '../../../utils/csvExportExpenses';
-import { exportIncomesToCSV } from '../../../utils/csvExportIncomes';
-import { exportInvestmentsToCSV } from '../../../utils/csvExportInvestments';
+import { exportDebtsToCSVWithDisplayCurrency, exportDebtRepaymentsToCSV } from '../../../utils/csvExportDebts';
+import { convertExpensesToCSVWithDisplayCurrency } from '../../../utils/csvExportExpenses';
+import { convertIncomesToCSVWithDisplayCurrency } from '../../../utils/csvExportIncomes';
+import { exportInvestmentsToCSVWithDisplayCurrency } from '../../../utils/csvExportInvestments';
 import { exportInvestmentTargetsToCSV } from '../../../utils/csvExportInvestmentTargets';
 import { exportPasswordsToCSV } from '../../../utils/csvExportPasswords';
 import { exportCategoriesToCsv } from '../../../utils/csvExportCategories';
@@ -23,6 +23,7 @@ import { SUPPLEMENTAL_EXPORT_PIECES } from '../../../actions/supplemental-export
 import { fetchSupplementalExportPiece } from '../../../actions/supplemental-export-pieces';
 import { downloadCSVFile } from '../../../utils/csv/csvExportCore';
 import { sanitizeExportDateStrForFilename } from '../../../utils/exportFilename';
+import { useDisplayCurrency } from '../../../hooks/useDisplayCurrency';
 
 function delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -31,6 +32,11 @@ function delay(ms: number): Promise<void> {
 export function ExportAllButton() {
     const [isExporting, setIsExporting] = useState(false);
     const { netWorthStats } = useOptimizedWorth();
+    const {
+        accountCurrency,
+        displayCurrency,
+        toDisplayAmount,
+    } = useDisplayCurrency();
 
     const handleExportAll = async () => {
         try {
@@ -77,31 +83,68 @@ export function ExportAllButton() {
 
             // Export each type of data (stagger downloads so the browser does not block them)
             if (accounts.length > 0) {
-                exportAccountsToCSV(accounts, `accounts_${dateStr}.csv`);
+                exportAccountsToCSV(
+                    accounts.map((account) => ({
+                        ...account,
+                        balance: account.balance === undefined
+                            ? undefined
+                            : toDisplayAmount(account.balance, accountCurrency),
+                    })),
+                    `accounts_${displayCurrency}_${dateStr}.csv`
+                );
                 await delay(160);
             }
             if (debts.length > 0) {
-                exportDebtsToCSV(debts, `debts_${dateStr}.csv`);
+                exportDebtsToCSVWithDisplayCurrency(
+                    debts,
+                    displayCurrency,
+                    accountCurrency,
+                    `debts_${displayCurrency}_${dateStr}.csv`
+                );
                 await delay(160);
             }
             if (debtRepayments.length > 0) {
-                exportDebtRepaymentsToCSV(debtRepayments, `debt_repayments_${dateStr}.csv`);
+                exportDebtRepaymentsToCSV(
+                    debtRepayments.map((repayment) => ({
+                        ...repayment,
+                        amount: toDisplayAmount(repayment.amount, accountCurrency),
+                    })),
+                    `debt_repayments_${displayCurrency}_${dateStr}.csv`
+                );
                 await delay(160);
             }
             if (expenses.length > 0) {
-                exportExpensesToCSV(expenses, `expenses_${dateStr}.csv`);
+                downloadCSVFile(
+                    convertExpensesToCSVWithDisplayCurrency(expenses, displayCurrency),
+                    `expenses_${displayCurrency}_${dateStr}.csv`
+                );
                 await delay(160);
             }
             if (incomes.length > 0) {
-                exportIncomesToCSV(incomes, `incomes_${dateStr}.csv`);
+                downloadCSVFile(
+                    convertIncomesToCSVWithDisplayCurrency(incomes, displayCurrency),
+                    `incomes_${displayCurrency}_${dateStr}.csv`
+                );
                 await delay(160);
             }
             if (investments.length > 0) {
-                exportInvestmentsToCSV(investments, `investments_${dateStr}.csv`);
+                exportInvestmentsToCSVWithDisplayCurrency(
+                    investments,
+                    accountCurrency,
+                    displayCurrency,
+                    `investments_${displayCurrency}_${dateStr}.csv`
+                );
                 await delay(160);
             }
             if (investmentTargets.length > 0) {
-                exportInvestmentTargetsToCSV(investmentTargets, `investment_targets_${dateStr}.csv`);
+                exportInvestmentTargetsToCSV(
+                    investmentTargets.map((target) => ({
+                        ...target,
+                        targetAmount: toDisplayAmount(target.targetAmount, accountCurrency),
+                        currentAmount: toDisplayAmount(target.currentAmount, accountCurrency),
+                    })),
+                    `investment_targets_${displayCurrency}_${dateStr}.csv`
+                );
                 await delay(160);
             }
             if (passwords.length > 0) {
@@ -125,9 +168,21 @@ export function ExportAllButton() {
             if (netWorthStats) {
                 const netWorthData = {
                     ...netWorthStats,
+                    netWorth: toDisplayAmount(netWorthStats.netWorth, accountCurrency),
+                    totalAssets: toDisplayAmount(netWorthStats.totalAssets, accountCurrency),
+                    totalAccountBalance: toDisplayAmount(netWorthStats.totalAccountBalance, accountCurrency),
+                    totalInvestmentValue: toDisplayAmount(netWorthStats.totalInvestmentValue, accountCurrency),
+                    totalMoneyLent: toDisplayAmount(netWorthStats.totalMoneyLent, accountCurrency),
+                    totalDebtPrincipal: toDisplayAmount(netWorthStats.totalDebtPrincipal, accountCurrency),
+                    totalInterestAccrued: toDisplayAmount(netWorthStats.totalInterestAccrued, accountCurrency),
+                    totalRepaid: toDisplayAmount(netWorthStats.totalRepaid, accountCurrency),
+                    thisMonthIncome: toDisplayAmount(netWorthStats.thisMonthIncome, accountCurrency),
+                    thisMonthExpenses: toDisplayAmount(netWorthStats.thisMonthExpenses, accountCurrency),
+                    thisMonthNetIncome: toDisplayAmount(netWorthStats.thisMonthNetIncome, accountCurrency),
+                    totalInvestmentGain: toDisplayAmount(netWorthStats.totalInvestmentGain, accountCurrency),
                     exportDate: new Date()
                 };
-                exportNetWorthToCSV(netWorthData, `networth_${dateStr}.csv`);
+                exportNetWorthToCSV(netWorthData, `networth_${displayCurrency}_${dateStr}.csv`);
             }
         } catch (error) {
             console.error('Error exporting data:', error);

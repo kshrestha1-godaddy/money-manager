@@ -87,6 +87,8 @@ export async function getExpenses() {
         return expenses.map(expense => ({
             ...expense,
             amount: parseFloat(expense.amount.toString()),
+            accountAmount: expense.accountAmount === null ? null : Number(expense.accountAmount),
+            appliedExchangeRate: expense.appliedExchangeRate === null ? null : Number(expense.appliedExchangeRate),
             currency: expense.currency,
             date: new Date(expense.date),
             createdAt: new Date(expense.createdAt),
@@ -174,6 +176,8 @@ export async function createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'up
         return {
             ...result,
             amount: parseFloat(result.amount.toString()),
+            accountAmount: result.accountAmount === null ? null : Number(result.accountAmount),
+            appliedExchangeRate: result.appliedExchangeRate === null ? null : Number(result.appliedExchangeRate),
             currency: result.currency,
             date: new Date(result.date),
             createdAt: new Date(result.createdAt),
@@ -272,26 +276,32 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
             const oldAccountId = existingExpense.accountId;
             const newAccountId =
                 data.accountId !== undefined ? data.accountId : oldAccountId;
-            const oldAmountConverted = existingExpense.accountAmount
+            const oldAmountConverted = existingExpense.accountAmount !== null
                 ? parseFloat(existingExpense.accountAmount.toString())
                 : await convertForDisplayWithDbRates(
                     oldAmount,
                     oldCurrency,
                     userCurrency
                 );
-            const newAmountConverted = newAccountId
+            const hasImpactBoundaryChanged =
+                data.amount !== undefined ||
+                data.currency !== undefined ||
+                data.accountId !== undefined;
+            const newAmountConverted = hasImpactBoundaryChanged && newAccountId
                 ? await convertForDisplayWithDbRates(
                     newAmount,
                     newCurrency,
                     userCurrency
                 )
-                : 0;
-            updateData.accountAmount = newAccountId ? newAmountConverted : null;
-            updateData.accountCurrency = newAccountId ? userCurrency : null;
-            updateData.appliedExchangeRate =
-                newAccountId && newAmount !== 0
-                    ? newAmountConverted / newAmount
-                    : null;
+                : oldAmountConverted;
+            if (hasImpactBoundaryChanged) {
+                updateData.accountAmount = newAccountId ? newAmountConverted : null;
+                updateData.accountCurrency = newAccountId ? userCurrency : null;
+                updateData.appliedExchangeRate =
+                    newAccountId && newAmount !== 0
+                        ? newAmountConverted / newAmount
+                        : null;
+            }
 
             // Update the expense
             const expense = await tx.expense.update({
@@ -506,6 +516,8 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
         return {
             ...result,
             amount: parseFloat(result.amount.toString()),
+            accountAmount: result.accountAmount === null ? null : Number(result.accountAmount),
+            appliedExchangeRate: result.appliedExchangeRate === null ? null : Number(result.appliedExchangeRate),
             currency: result.currency,
             date: new Date(result.date),
             createdAt: new Date(result.createdAt),
@@ -567,7 +579,7 @@ export async function deleteExpense(id: number, appLockPassword: string) {
             if (existingExpense.accountId) {
                 const userCurrency = normalizeSupportedCurrency(user?.currency);
                 const expenseAmount = parseFloat(existingExpense.amount.toString());
-                const convertedAmount = existingExpense.accountAmount
+                const convertedAmount = existingExpense.accountAmount !== null
                     ? parseFloat(existingExpense.accountAmount.toString())
                     : await convertForDisplayWithDbRates(
                         expenseAmount,
@@ -648,6 +660,8 @@ export async function getExpensesByCategory(categoryId: number) {
         return expenses.map(expense => ({
             ...expense,
             amount: parseFloat(expense.amount.toString()),
+            accountAmount: expense.accountAmount === null ? null : Number(expense.accountAmount),
+            appliedExchangeRate: expense.appliedExchangeRate === null ? null : Number(expense.appliedExchangeRate),
             currency: expense.currency,
             date: new Date(expense.date),
             createdAt: new Date(expense.createdAt),
@@ -702,6 +716,8 @@ export async function getExpensesByDateRange(startDate: Date, endDate: Date) {
         return expenses.map(expense => ({
             ...expense,
             amount: parseFloat(expense.amount.toString()),
+            accountAmount: expense.accountAmount === null ? null : Number(expense.accountAmount),
+            appliedExchangeRate: expense.appliedExchangeRate === null ? null : Number(expense.appliedExchangeRate),
             currency: expense.currency,
             date: new Date(expense.date),
             createdAt: new Date(expense.createdAt),
@@ -960,6 +976,9 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
                             createData.account = {
                                 connect: { id: validatedRow.data.accountId }
                             };
+                            createData.accountAmount = 0;
+                            createData.accountCurrency = normalizeSupportedCurrency(user?.currency);
+                            createData.appliedExchangeRate = 0;
                         }
 
                         if (validatedRow.data.recurringFrequency) {
@@ -1115,7 +1134,7 @@ export async function bulkDeleteExpenses(expenseIds: number[], appLockPassword: 
             for (const expense of existingExpenses) {
                 if (expense.accountId) {
                     const expenseAmount = parseFloat(expense.amount.toString());
-                    const convertedAmount = expense.accountAmount
+                    const convertedAmount = expense.accountAmount !== null
                         ? parseFloat(expense.accountAmount.toString())
                         : await convertForDisplayWithDbRates(
                             expenseAmount,
@@ -1254,6 +1273,9 @@ export async function importCorrectedRow(
                 createData.account = {
                     connect: { id: expenseData.accountId }
                 };
+                createData.accountAmount = 0;
+                createData.accountCurrency = normalizeSupportedCurrency(user?.currency);
+                createData.appliedExchangeRate = 0;
             }
 
             if (expenseData.recurringFrequency) {

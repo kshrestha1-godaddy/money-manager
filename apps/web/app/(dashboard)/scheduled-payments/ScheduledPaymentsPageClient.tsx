@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { triggerBalanceRefresh } from "../../hooks/useTotalBalance";
 import { ChevronDown, ChevronRight, Download, RefreshCw, Trash2 } from "lucide-react";
+import { PasswordGatedButton } from "@repo/applock";
 import {
   getScheduledPayments,
   deleteScheduledPayment,
-  deleteScheduledPaymentsWithPassword,
+  deleteScheduledPayments,
   acceptScheduledPayment,
   rejectScheduledPayment,
   postponeScheduledPayment,
@@ -32,8 +33,6 @@ import { DisappearingNotification, NotificationData } from "../../components/Dis
 import { ScheduledPaymentsChart } from "./components/ScheduledPaymentsChart";
 import { UpcomingScheduleCalendar } from "./components/UpcomingScheduleCalendar";
 import { ScheduledPaymentsFilters } from "./components/ScheduledPaymentsFilters";
-import { DeleteSelectedScheduledPaymentsModal } from "./components/DeleteSelectedScheduledPaymentsModal";
-import { CancelScheduledPaymentModal } from "./components/CancelScheduledPaymentModal";
 import { ScheduledPaymentViewModal } from "./components/ScheduledPaymentViewModal";
 import { ScheduledPaymentsGrandTotalTable } from "./components/ScheduledPaymentsGrandTotalTable";
 import { ScheduledPaymentsRecurrenceSectionTable } from "./components/ScheduledPaymentsRecurrenceSectionTable";
@@ -231,9 +230,6 @@ export default function ScheduledPaymentsPageClient() {
     dir: "asc",
   });
   const [selectedPaymentIds, setSelectedPaymentIds] = useState<Set<number>>(() => new Set());
-  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
-  const [bulkDeleteIds, setBulkDeleteIds] = useState<number[]>([]);
-  const [cancelTarget, setCancelTarget] = useState<{ id: number; title: string } | null>(null);
   const [isCompletedPaymentsOpen, setIsCompletedPaymentsOpen] = useState(false);
   const { displayCurrency: tableDisplayCurrency } = useDisplayCurrency();
 
@@ -409,29 +405,22 @@ export default function ScheduledPaymentsPageClient() {
     setSelectedPaymentIds(new Set());
   }, []);
 
-  function openBulkDeleteModal() {
+  async function handleBulkDelete(appLockPassword: string) {
     const ids = deletableVisibleIds.filter((id) => selectedPaymentIds.has(id));
     if (ids.length === 0) return;
-    setBulkDeleteIds(ids);
-    setBulkDeleteModalOpen(true);
+    const result = await deleteScheduledPayments(ids, appLockPassword);
+    if ("error" in result) {
+      setNotification({ title: "Error", message: result.error, type: "error" });
+      return;
+    }
+    setSelectedPaymentIds(new Set());
+    setNotification({
+      title: "Deleted",
+      message: `${result.deleted} scheduled payment${result.deleted === 1 ? "" : "s"} deleted.`,
+      type: "success",
+    });
+    await refreshPayments();
   }
-
-  const handleBulkDeleteConfirm = useCallback(
-    async (screenLockPassword: string) => {
-      const result = await deleteScheduledPaymentsWithPassword(bulkDeleteIds, screenLockPassword);
-      if ("error" in result) {
-        throw new Error(result.error);
-      }
-      setSelectedPaymentIds(new Set());
-      setNotification({
-        title: "Deleted",
-        message: `${result.deleted} scheduled payment${result.deleted === 1 ? "" : "s"} deleted.`,
-        type: "success",
-      });
-      await refreshPayments();
-    },
-    [bulkDeleteIds, refreshPayments]
-  );
 
   function clearFilters() {
     setSearchQuery("");
@@ -441,24 +430,6 @@ export default function ScheduledPaymentsPageClient() {
     setSelectedCurrencies([]);
     setSelectedRecurring([]);
   }
-
-  const handleConfirmCancelPayment = useCallback(async () => {
-    if (!cancelTarget) return;
-    const id = cancelTarget.id;
-    await deleteScheduledPayment(id);
-    setSelectedPaymentIds((prev) => {
-      if (!prev.has(id)) return prev;
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
-    await refreshPayments();
-    setNotification({
-      title: "Cancelled",
-      message: "Scheduled payment removed.",
-      type: "success",
-    });
-  }, [cancelTarget, refreshPayments]);
 
   async function runPaymentAction(
     id: number,
@@ -492,6 +463,18 @@ export default function ScheduledPaymentsPageClient() {
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
       void queryClient.invalidateQueries({ queryKey: ["account-balance-activity"] });
     }, { title: "Accepted", message: "Payment recorded as an expense.", type: "success" });
+  }
+
+  function handleCancelPayment(appLockPassword: string, id: number) {
+    return runPaymentAction(id, async () => {
+      await deleteScheduledPayment(id, appLockPassword);
+      setSelectedPaymentIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }, { title: "Cancelled", message: "Scheduled payment removed.", type: "success" });
   }
 
   function handleReject(id: number) {
@@ -642,14 +625,20 @@ export default function ScheduledPaymentsPageClient() {
                         >
                           Clear selection
                         </button>
-                        <button
-                          type="button"
-                          onClick={openBulkDeleteModal}
+                        <PasswordGatedButton
+                          onConfirm={handleBulkDelete}
+                          prompt={{
+                            title: "Delete selected scheduled payments",
+                            description:
+                              "This cannot be undone. Enter your lock screen password to delete the selected scheduled payments.",
+                            confirmLabel: "Delete scheduled payments",
+                            force: true,
+                          }}
                           className={`${dangerButton} inline-flex items-center gap-1.5 text-sm`}
                         >
                           <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
                           Delete selected ({selectedPaymentIds.size})
-                        </button>
+                        </PasswordGatedButton>
                       </>
                     ) : null}
                   </>
@@ -746,7 +735,7 @@ export default function ScheduledPaymentsPageClient() {
                       setEditingItem(item);
                       setIsScheduleModalOpen(true);
                     }}
-                    onCancel={(item) => setCancelTarget({ id: item.id, title: item.title })}
+                    onCancel={(appLockPassword, item) => handleCancelPayment(appLockPassword, item.id)}
                     onAccept={(id) => void handleAccept(id)}
                     onReject={(id) => void handleReject(id)}
                     onPostponeDays={handlePostponeDays}
@@ -848,7 +837,7 @@ export default function ScheduledPaymentsPageClient() {
                         setEditingItem(item);
                         setIsScheduleModalOpen(true);
                       }}
-                      onCancel={(item) => setCancelTarget({ id: item.id, title: item.title })}
+                      onCancel={(appLockPassword, item) => handleCancelPayment(appLockPassword, item.id)}
                       onAccept={(id) => void handleAccept(id)}
                       onReject={(id) => void handleReject(id)}
                       onPostponeDays={handlePostponeDays}
@@ -871,12 +860,6 @@ export default function ScheduledPaymentsPageClient() {
         </div>
       </div>
 
-      <CancelScheduledPaymentModal
-        isOpen={cancelTarget !== null}
-        onClose={() => setCancelTarget(null)}
-        paymentTitle={cancelTarget?.title ?? ""}
-        onConfirm={handleConfirmCancelPayment}
-      />
       <ScheduledPaymentViewModal
         item={viewingItem}
         isOpen={viewingItem !== null}
@@ -923,12 +906,6 @@ export default function ScheduledPaymentsPageClient() {
         }}
         categories={formQuery.data?.categories ?? []}
         accounts={formQuery.data?.accounts ?? []}
-      />
-      <DeleteSelectedScheduledPaymentsModal
-        isOpen={bulkDeleteModalOpen}
-        onClose={() => setBulkDeleteModalOpen(false)}
-        selectedCount={bulkDeleteIds.length}
-        onConfirm={handleBulkDeleteConfirm}
       />
       <DisappearingNotification notification={notification} onHide={() => setNotification(null)} />
     </div>

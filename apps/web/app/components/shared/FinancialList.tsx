@@ -13,6 +13,7 @@ import { splitLocationFieldForExport } from "../../utils/csvExportUtils";
 import { useTimezone } from "../../providers/TimezoneProvider";
 import { createTransactionDayFormatter } from "../../utils/transaction-calendar";
 import { TransactionType } from "../../utils/formUtils";
+import { PasswordGatedButton } from "@repo/applock";
 import { Pagination } from "./Pagination";
 import { CompactPagination } from "./CompactPagination";
 
@@ -49,13 +50,13 @@ interface FinancialListProps {
     currency: string;
     onEdit?: (transaction: FinancialTransaction) => void;
     onView?: (transaction: FinancialTransaction) => void;
-    onDelete?: (transaction: FinancialTransaction) => void;
+    onDelete?: (appLockPassword: string, transaction: FinancialTransaction) => void;
     onBookmark?: (transaction: FinancialTransaction) => void;
     selectedTransactions?: Set<number>;
     onTransactionSelect?: (transactionId: number, selected: boolean) => void;
     onSelectAll?: (selected: boolean) => void;
     showBulkActions?: boolean;
-    onBulkDelete?: (ids: number[]) => void;
+    onBulkDelete?: (appLockPassword: string, ids: number[]) => void;
     onClearSelection?: () => void;
     onRefresh?: () => void | Promise<void>;
 }
@@ -194,6 +195,7 @@ export function FinancialList({
 }: FinancialListProps) {
     const { timezone } = useTimezone();
     const currency = useResolvedDisplayCurrency(currencyProp);
+    const { currencyRateVersion } = useDisplayCurrency();
     const getTransactionDay = useMemo(() => createTransactionDayFormatter(timezone), [timezone]);
     const dateFormatter = useMemo(() => new Intl.DateTimeFormat("en-US", {
         timeZone: timezone, day: "numeric", month: "long", year: "numeric",
@@ -260,7 +262,7 @@ export function FinancialList({
             dateRangeText,
             uniqueCategoryCount
         };
-    }, [transactions, selectedCurrency, timezone]);
+    }, [transactions, selectedCurrency, timezone, currencyRateVersion]);
 
     const sortedTransactions = useMemo(() => {
         return [...transactions].sort((a, b) => {
@@ -356,13 +358,9 @@ export function FinancialList({
         }
     };
 
-    const handleBulkDelete = () => {
-        if (onBulkDelete && selectedTransactions.size > 0) {
-            onBulkDelete(Array.from(selectedTransactions));
-        }
-    };
-
     const transactionLabel = transactionType === 'EXPENSE' ? 'Expenses' : 'Incomes';
+    const deleteNoun = transactionType === 'EXPENSE' ? 'expense' : 'income';
+    const deleteNounPlural = transactionType === 'EXPENSE' ? 'expenses' : 'incomes';
     const emptyIcon = transactionType === 'EXPENSE' ? '💸' : '💰';
     const emptyMessage = transactionType === 'EXPENSE' ? 'No expenses found' : 'No incomes found';
     const emptySubtext = transactionType === 'EXPENSE' ? 'Start tracking your expenses to see them here.' : 'Start tracking your income sources to see them here.';
@@ -396,13 +394,23 @@ export function FinancialList({
                                 <span className="text-sm font-medium text-gray-900">
                                     {selectedTransactions.size} selected
                                 </span>
-                                <button
-                                    onClick={handleBulkDelete}
-                                    disabled={!onBulkDelete}
-                                    className="px-3 py-1.5 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors"
-                                >
-                                    Delete Selected
-                                </button>
+                                {onBulkDelete && (
+                                    <PasswordGatedButton
+                                        disabled={!onBulkDelete}
+                                        className="px-3 py-1.5 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+                                        prompt={{
+                                            title: `Delete selected ${deleteNounPlural}`,
+                                            description: `This cannot be undone. Enter your lock screen password to delete the selected ${deleteNounPlural}.`,
+                                            confirmLabel: `Delete ${deleteNounPlural}`,
+                                            force: true,
+                                        }}
+                                        onConfirm={(appLockPassword) =>
+                                            onBulkDelete(appLockPassword, Array.from(selectedTransactions))
+                                        }
+                                    >
+                                        Delete Selected
+                                    </PasswordGatedButton>
+                                )}
                                 <button
                                     onClick={onClearSelection}
                                     className="px-3 py-1.5 bg-gray-600 text-white rounded-md text-sm font-medium hover:bg-gray-700 transition-colors"
@@ -596,6 +604,7 @@ export function FinancialList({
                                 amountColorClass={amountColorClass}
                                 columnWidths={columnWidths}
                                 rowIndex={index}
+                                deleteNoun={deleteNoun}
                             />
                         ))}
                     </tbody>
@@ -668,7 +677,8 @@ function FinancialRow({
     showCheckbox = false,
     amountColorClass,
     columnWidths,
-    rowIndex
+    rowIndex,
+    deleteNoun = "item",
 }: { 
     transaction: FinancialTransaction;
     dateLabel: string;
@@ -676,10 +686,11 @@ function FinancialRow({
     currency: string;
     onEdit?: (transaction: FinancialTransaction) => void;
     onView?: (transaction: FinancialTransaction) => void;
-    onDelete?: (transaction: FinancialTransaction) => void;
+    onDelete?: (appLockPassword: string, transaction: FinancialTransaction) => void;
     onBookmark?: (transaction: FinancialTransaction) => void;
     isSelected?: boolean;
     onSelect?: (transactionId: number, selected: boolean) => void;
+    deleteNoun?: string;
     showCheckbox?: boolean;
     amountColorClass: string;
     columnWidths: {
@@ -706,12 +717,6 @@ function FinancialRow({
     const handleView = () => {
         if (onView) {
             onView(transaction);
-        }
-    };
-
-    const handleDelete = () => {
-        if (onDelete) {
-            onDelete(transaction);
         }
     };
 
@@ -860,13 +865,19 @@ function FinancialRow({
                     >
                         Edit
                     </button>
-                    <button 
-                        type="button"
-                        onClick={handleDelete}
-                        className="inline-flex shrink-0 items-center px-2 py-1 rounded-md text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-800 transition-colors"
-                    >
-                        Delete
-                    </button>
+                    {onDelete && (
+                        <PasswordGatedButton
+                            className="inline-flex shrink-0 items-center px-2 py-1 rounded-md text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-800 transition-colors"
+                            prompt={{
+                                title: `Delete ${deleteNoun}`,
+                                description: `This cannot be undone. Enter your lock screen password to delete this ${deleteNoun}.`,
+                                confirmLabel: `Delete ${deleteNoun}`,
+                            }}
+                            onConfirm={(appLockPassword) => onDelete(appLockPassword, transaction)}
+                        >
+                            Delete
+                        </PasswordGatedButton>
+                    )}
                 </div>
             </td>
         </tr>

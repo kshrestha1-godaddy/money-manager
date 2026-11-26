@@ -4,6 +4,7 @@ import prisma from "@repo/db/client";
 import { BudgetTarget } from "../types/financial";
 import { BudgetComparisonData, BudgetTargetFormData } from "../hooks/useBudgetTracking";
 import { getAuthenticatedSession, getUserIdFromSession } from "../utils/auth";
+import { requireAppLockPassword } from "../lib/security/require-app-lock-password";
 import { getCurrencyRateConfigQuery } from "../data/currency-rate-config";
 import { convertCurrencySync } from "../utils/currencyConversion";
 import { ImportResult } from "../types/bulkImport";
@@ -342,10 +343,9 @@ export async function updateBudgetTarget(id: number, data: Partial<BudgetTargetF
     }
 }
 
-export async function deleteBudgetTarget(id: number): Promise<void> {
+export async function deleteBudgetTarget(id: number, appLockPassword: string): Promise<void> {
     try {
-        const session = await getAuthenticatedSession();
-        const userId = getUserIdFromSession(session.user.id);
+        const userId = await requireAppLockPassword(appLockPassword);
 
         // Verify ownership
         const existingTarget = await prisma.budgetTarget.findFirst({
@@ -616,6 +616,35 @@ export async function updateOrCreateBudgetTarget(
     } catch (error) {
         console.error("Error updating/creating budget target:", error);
         return { error: "Failed to update budget target" };
+    }
+}
+
+/**
+ * Removes the budget target of a category by resetting its amount to zero.
+ * Requires the lock screen password.
+ */
+export async function removeBudgetTargetAmount(
+    categoryName: string,
+    period: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY',
+    appLockPassword: string
+): Promise<{ success?: boolean, error?: string }> {
+    try {
+        const userId = await requireAppLockPassword(appLockPassword);
+
+        await prisma.budgetTarget.updateMany({
+            where: {
+                userId: userId,
+                name: categoryName,
+                period: period,
+                isActive: true,
+            },
+            data: { targetAmount: 0 },
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error("Error removing budget target:", error);
+        return { error: "Failed to remove budget target" };
     }
 }
 
@@ -1052,10 +1081,9 @@ export async function importCorrectedBudgetTargetRow(rowData: string[], headers:
     }
 }
 
-export async function bulkDeleteAllBudgetTargets(): Promise<{ success?: boolean, deletedCount?: number, error?: string }> {
+export async function bulkDeleteAllBudgetTargets(appLockPassword: string): Promise<{ success?: boolean, deletedCount?: number, error?: string }> {
     try {
-        const session = await getAuthenticatedSession();
-        const userId = getUserIdFromSession(session.user.id);
+        const userId = await requireAppLockPassword(appLockPassword);
 
         // Get count of budget targets before deletion for confirmation
         const count = await prisma.budgetTarget.count({

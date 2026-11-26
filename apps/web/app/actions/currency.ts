@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@repo/db/client";
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { 
     getUserIdFromSession, 
@@ -18,18 +19,38 @@ export interface CurrencyPreferences {
   isAccountCurrencyLocked: boolean;
 }
 
-async function hasMonetaryData(userId: number): Promise<boolean> {
+interface MonetaryDataClient {
+  account: Prisma.TransactionClient["account"];
+  expense: Prisma.TransactionClient["expense"];
+  income: Prisma.TransactionClient["income"];
+  scheduledPayment: Prisma.TransactionClient["scheduledPayment"];
+  investment: Prisma.TransactionClient["investment"];
+  investmentTarget: Prisma.TransactionClient["investmentTarget"];
+  budgetTarget: Prisma.TransactionClient["budgetTarget"];
+  debt: Prisma.TransactionClient["debt"];
+  loan: Prisma.TransactionClient["loan"];
+  goal: Prisma.TransactionClient["goal"];
+  annuityCalculatorPreset: Prisma.TransactionClient["annuityCalculatorPreset"];
+  networthHistory: Prisma.TransactionClient["networthHistory"];
+}
+
+async function hasMonetaryData(
+  userId: number,
+  db: MonetaryDataClient = prisma
+): Promise<boolean> {
   const counts = await Promise.all([
-    prisma.account.count({ where: { userId } }),
-    prisma.expense.count({ where: { userId } }),
-    prisma.income.count({ where: { userId } }),
-    prisma.scheduledPayment.count({ where: { userId } }),
-    prisma.investment.count({ where: { userId } }),
-    prisma.investmentTarget.count({ where: { userId } }),
-    prisma.budgetTarget.count({ where: { userId } }),
-    prisma.debt.count({ where: { userId } }),
-    prisma.goal.count({ where: { userId } }),
-    prisma.annuityCalculatorPreset.count({ where: { userId } }),
+    db.account.count({ where: { userId } }),
+    db.expense.count({ where: { userId } }),
+    db.income.count({ where: { userId } }),
+    db.scheduledPayment.count({ where: { userId } }),
+    db.investment.count({ where: { userId } }),
+    db.investmentTarget.count({ where: { userId } }),
+    db.budgetTarget.count({ where: { userId } }),
+    db.debt.count({ where: { userId } }),
+    db.loan.count({ where: { userId } }),
+    db.goal.count({ where: { userId } }),
+    db.annuityCalculatorPreset.count({ where: { userId } }),
+    db.networthHistory.count({ where: { userId } }),
   ]);
   return counts.some((count) => count > 0);
 }
@@ -69,24 +90,33 @@ export async function updateUserCurrency(currency: string) {
     const session = await getAuthenticatedSession();
     const userId = getUserIdFromSession(session.user.id);
     const accountCurrency = assertCurrencyCode(currency);
-    const current = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { currency: true },
-    });
+    await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT "id"
+        FROM "User"
+        WHERE "id" = ${userId}
+        FOR UPDATE
+      `;
 
-    if (
-      current &&
-      normalizeSupportedCurrency(current.currency) !== accountCurrency &&
-      (await hasMonetaryData(userId))
-    ) {
-      throw new Error(
-        "Ledger currency cannot be changed after monetary data has been created."
-      );
-    }
-    
-    await prisma.user.update({
-      where: { id: userId },
-      data: { currency: accountCurrency }
+      const current = await tx.user.findUnique({
+        where: { id: userId },
+        select: { currency: true },
+      });
+
+      if (
+        current &&
+        normalizeSupportedCurrency(current.currency) !== accountCurrency &&
+        (await hasMonetaryData(userId, tx))
+      ) {
+        throw new Error(
+          "Ledger currency cannot be changed after monetary data has been created."
+        );
+      }
+
+      await tx.user.update({
+        where: { id: userId },
+        data: { currency: accountCurrency }
+      });
     });
     
     revalidatePath("/");

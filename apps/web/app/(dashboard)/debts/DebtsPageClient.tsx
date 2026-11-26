@@ -8,7 +8,7 @@ import { getColumnWidthsStorageKey } from '../../hooks/usePersistentColumnWidths
 import { DebtTable } from './components/DebtTable';
 import { AddDebtModal } from './components/AddDebtModal';
 import { EditDebtModal } from './components/EditDebtModal';
-import { useGatedAction } from '@repo/applock';
+import { PasswordGatedButton, useGatedAction } from '@repo/applock';
 import { DebtInterface } from '../../types/debts';
 import { ViewDebtModal } from './components/ViewDebtModal';
 import { AddRepaymentModal } from './components/AddRepaymentModal';
@@ -176,8 +176,9 @@ export default function DebtsPageClient() {
     }
   };
 
-  // Edit, repay and delete each require the lock screen password, which the
-  // server action re-verifies before it mutates anything.
+  // Edit and repay require the lock screen password, which the server action
+  // re-verifies before it mutates anything. Deletes are gated by the
+  // PasswordGatedButton inside the table, list and modal that trigger them.
   const editDebt = useGatedAction(
     (appLockPassword: string, id: number, data: Parameters<typeof handleEditDebt>[1]) =>
       handleEditDebt(id, data, appLockPassword),
@@ -188,15 +189,6 @@ export default function DebtsPageClient() {
     },
   );
 
-  const deleteDebt = useGatedAction(
-    (appLockPassword: string, debt: DebtInterface) => handleDeleteDebt(debt, appLockPassword),
-    {
-      title: 'Delete lending',
-      description: 'This cannot be undone. Enter your lock screen password to delete this lending.',
-      confirmLabel: 'Delete lending',
-    },
-  );
-
   const addRepayment = useGatedAction(
     (appLockPassword: string, debtId: number, data: Parameters<typeof handleAddRepayment>[1]) =>
       handleAddRepayment(debtId, data, appLockPassword),
@@ -204,28 +196,6 @@ export default function DebtsPageClient() {
       title: 'Record repayment',
       description: 'Enter your lock screen password to record this repayment.',
       confirmLabel: 'Record repayment',
-    },
-  );
-
-  const deleteRepayment = useGatedAction(
-    (appLockPassword: string, repaymentId: number, debtId: number, onVerified?: () => void) => {
-      onVerified?.();
-      return handleDeleteRepayment(repaymentId, debtId, appLockPassword);
-    },
-    {
-      title: 'Delete repayment',
-      description: 'This cannot be undone. Enter your lock screen password to delete this repayment.',
-      confirmLabel: 'Delete repayment',
-    },
-  );
-
-  const bulkDeleteDebts = useGatedAction(
-    (appLockPassword: string, sectionDebts: DebtInterface[]) =>
-      handleBulkDelete(sectionDebts, appLockPassword),
-    {
-      title: 'Delete selected lendings',
-      description: 'This cannot be undone. Enter your lock screen password to delete the selected lendings.',
-      confirmLabel: 'Delete lendings',
     },
   );
 
@@ -450,7 +420,19 @@ export default function DebtsPageClient() {
                         return sectionSelectedIds.length > 0 && (
                           <div className="flex items-center space-x-2">
                             <button onClick={e => { e.stopPropagation(); const newSelected = new Set(selectedDebts); section.debts.forEach(debt => newSelected.delete(debt.id)); setSelectedDebts(newSelected); }} className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors">Clear ({sectionSelectedIds.length})</button>
-                            <button onClick={e => { e.stopPropagation(); void bulkDeleteDebts(section.debts); }} className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors">Delete ({sectionSelectedIds.length})</button>
+                            <span onClick={e => e.stopPropagation()}>
+                              <PasswordGatedButton
+                                onConfirm={(appLockPassword) => handleBulkDelete(section.debts, appLockPassword)}
+                                prompt={{
+                                  title: 'Delete selected lendings',
+                                  description: 'This cannot be undone. Enter your lock screen password to delete the selected lendings.',
+                                  confirmLabel: 'Delete lendings',
+                                }}
+                                className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                              >
+                                Delete ({sectionSelectedIds.length})
+                              </PasswordGatedButton>
+                            </span>
                           </div>
                         );
                       })()}
@@ -470,12 +452,12 @@ export default function DebtsPageClient() {
                     onDebtSelect={handleDebtSelect}
                     onSelectAll={(selected) => handleSelectAll(selected, section.debts)}
                     onEdit={(debt) => openModal('edit', debt)}
-                    onDelete={(debt) => void deleteDebt(debt)}
+                    onDelete={(appLockPassword, debt) => void handleDeleteDebt(debt, appLockPassword)}
                     onViewDetails={(debt) => openModal('view', debt)}
                     onAddRepayment={(debt) => openModal('repayment', debt)}
                     onPostpone={(id, dueDate) => editDebt(id, { dueDate }).then(() => undefined)}
                     showBulkActions={true}
-                    onBulkDelete={() => void bulkDeleteDebts(section.debts)}
+                    onBulkDelete={(appLockPassword) => void handleBulkDelete(section.debts, appLockPassword)}
                     onClearSelection={() => clearFilters()}
                   />
                 )}
@@ -487,7 +469,7 @@ export default function DebtsPageClient() {
 
       <AddDebtModal isOpen={modal.type === 'add'} onClose={closeModal} onAdd={data => handleModalAction('add', data)} />
       <EditDebtModal isOpen={modal.type === 'edit'} onClose={closeModal} onEdit={(id, data) => void editDebt(id, data)} debt={modal.debt || null} />
-      <ViewDebtModal debtId={modal.debt?.id || null} isOpen={modal.type === 'view'} onClose={closeModal} onEdit={debt => openModal('edit', debt)} onAddRepayment={debt => openModal('repayment', debt)} onDeleteRepayment={(repaymentId, debtId, onVerified) => deleteRepayment(repaymentId, debtId, onVerified).then(() => undefined)} />
+      <ViewDebtModal debtId={modal.debt?.id || null} isOpen={modal.type === 'view'} onClose={closeModal} onEdit={debt => openModal('edit', debt)} onAddRepayment={debt => openModal('repayment', debt)} onDeleteRepayment={(appLockPassword, repaymentId, debtId) => handleDeleteRepayment(repaymentId, debtId, appLockPassword).then(() => undefined)} />
       <AddRepaymentModal debt={modal.debt || null} isOpen={modal.type === 'repayment'} onClose={closeModal} onAdd={data => { const debtId = modal.debt?.id; if (!debtId) return undefined; closeModal(); return addRepayment(debtId, data); }} />
       <BulkImportModal isOpen={modal.type === 'import'} onClose={closeModal} onSuccess={() => { closeModal(); }} />
       

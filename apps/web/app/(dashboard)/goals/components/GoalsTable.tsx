@@ -1,4 +1,5 @@
 import React from 'react';
+import { PasswordGatedButton } from '@repo/applock';
 import { Eye, Edit2, Trash2, Calendar, Target, TrendingUp, Clock } from 'lucide-react';
 import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { BUTTON_COLORS, TEXT_COLORS, CONTAINER_COLORS } from '../../../config/colorConfig';
@@ -26,7 +27,7 @@ interface GoalsTableProps {
   goals: Goal[];
   onEditGoal: (id: number) => void;
   onViewGoal: (id: number) => void;
-  onDeleteGoal: (id: number) => void;
+  onDeleteGoal: (id: number, appLockPassword: string) => void | Promise<void>;
 }
 
 const tableContainer = CONTAINER_COLORS.table;
@@ -292,13 +293,18 @@ export function GoalsTable({ goals, onEditGoal, onViewGoal, onDeleteGoal }: Goal
                     >
                       <Edit2 className="h-4 w-4" />
                     </button>
-                    <button
-                      onClick={() => onDeleteGoal(goal.id)}
+                    <PasswordGatedButton
+                      onConfirm={(appLockPassword) => onDeleteGoal(goal.id, appLockPassword)}
+                      prompt={{
+                        title: 'Delete goal',
+                        description: 'This cannot be undone. Enter your lock screen password to delete this goal.',
+                        confirmLabel: 'Delete goal',
+                      }}
                       className={iconButtonDanger}
                       title="Delete Goal"
                     >
                       <Trash2 className="h-4 w-4" />
-                    </button>
+                    </PasswordGatedButton>
                   </div>
                 </td>
               </tr>

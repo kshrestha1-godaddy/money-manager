@@ -102,10 +102,11 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImportModalP
                             Your CSV should include these columns: <strong>Name, Type, Quantity, Purchase Price, Current Price, Purchase Date</strong>
                         </p>
                         <p className="text-sm text-blue-700 mb-2">
-                            Optional columns: Symbol, Account, Bank Name, Interest Rate, Maturity Date, Notes
+                            Optional columns: Symbol, Account, Bank Name, Price Currency, Interest Rate, Maturity Date, Notes
                         </p>
                         <div className="text-xs text-blue-600 space-y-1">
                             <p>• Date format: YYYY-MM-DD, MM/DD/YYYY, or DD-MM-YYYY</p>
+                            <p>• Prices use your ledger currency unless Price Currency is USD, INR, or NPR</p>
                             <p>• Investment types: STOCKS, CRYPTO, MUTUAL_FUNDS, BONDS, REAL_ESTATE, GOLD, SILVER, FIXED_DEPOSIT, EMERGENCY_FUND, MARRIAGE, VACATION, PROVIDENT_FUNDS, SAFE_KEEPINGS, OTHER</p>
                             <p>• Account names from CSV will be automatically matched with existing accounts</p>
                         </div>

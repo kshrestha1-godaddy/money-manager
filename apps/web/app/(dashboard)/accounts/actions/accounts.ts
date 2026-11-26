@@ -19,6 +19,8 @@ import {
     logAccountBalanceFromTransaction,
 } from "../../../utils/accountActivityLog";
 import { requireAppLockPassword } from "../../../lib/security/require-app-lock-password";
+import { convertForDisplayWithDbRates } from "../../../utils/currencyDisplayServer";
+import { normalizeSupportedCurrency } from "../../../utils/currency";
 
 export interface IncomeExpenseAccountActivityRow {
     id: number;
@@ -406,6 +408,19 @@ export async function bulkCreateAccounts(accounts: Omit<AccountInterface, 'id' |
                 }
 
                 try {
+                    const importedAccount = account as typeof account & {
+                        balanceCurrency?: string;
+                    };
+                    const accountCurrency = normalizeSupportedCurrency(user.currency);
+                    const balance = importedAccount.balance || 0;
+                    const balanceInAccountCurrency = importedAccount.balanceCurrency
+                        ? await convertForDisplayWithDbRates(
+                            balance,
+                            importedAccount.balanceCurrency,
+                            accountCurrency
+                        )
+                        : balance;
+
                     // Check for account number uniqueness inside transaction
                     if (account.accountNumber) {
                         const existingAccount = await tx.account.findUnique({
@@ -442,7 +457,7 @@ export async function bulkCreateAccounts(accounts: Omit<AccountInterface, 'id' |
                             bankEmail: account.bankEmail || '',
                             accountOpeningDate: account.accountOpeningDate,
                             securityQuestion: account.securityQuestion || [],
-                            balance: account.balance || 0,
+                            balance: balanceInAccountCurrency,
                             appUsername: account.appUsername || null,
                             appPassword: null, // Not imported for security
                             appPin: null, // Not imported for security

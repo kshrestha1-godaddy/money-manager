@@ -7,7 +7,7 @@ import { getVerifiedUserIdForDataAccess } from "../../../utils/auth";
 import type { LifeEventItem } from "../../../types/life-event";
 import { getLifeEventCsvField } from "../../../utils/lifeEventsCsv";
 import { normalizeExternalLink, parseDateInputToUtcNoon, parseTagsInput } from "../life-event-helpers";
-import { verifyUserAppLockPassword } from "../../../lib/security/app-lock-password";
+import { requireAppLockPassword } from "../../../lib/security/require-app-lock-password";
 
 function mapRow(row: {
   id: number;
@@ -146,9 +146,12 @@ export async function updateLifeEvent(
   }
 }
 
-export async function deleteLifeEvent(id: number): Promise<{ ok: true } | { error: string }> {
+export async function deleteLifeEvent(
+  id: number,
+  appLockPassword: string
+): Promise<{ ok: true } | { error: string }> {
   try {
-    const userId = await getVerifiedUserIdForDataAccess();
+    const userId = await requireAppLockPassword(appLockPassword);
     const result = await prisma.lifeEvent.deleteMany({
       where: { id, userId },
     });
@@ -162,10 +165,11 @@ export async function deleteLifeEvent(id: number): Promise<{ ok: true } | { erro
 }
 
 export async function deleteLifeEvents(
-  ids: number[]
+  ids: number[],
+  appLockPassword: string
 ): Promise<{ ok: true; deleted: number } | { error: string }> {
   try {
-    const userId = await getVerifiedUserIdForDataAccess();
+    const userId = await requireAppLockPassword(appLockPassword);
     const unique = [...new Set(ids)].filter((id) => Number.isFinite(id) && id > 0);
     if (unique.length === 0) return { error: "No events selected" };
 
@@ -174,23 +178,6 @@ export async function deleteLifeEvents(
     });
     revalidatePath("/life-events");
     return { ok: true, deleted: result.count };
-  } catch (e) {
-    console.error(e);
-    return { error: e instanceof Error ? e.message : "Failed to delete life events" };
-  }
-}
-
-export async function deleteLifeEventsWithPassword(
-  ids: number[],
-  screenLockPassword: string
-): Promise<{ ok: true; deleted: number } | { error: string }> {
-  try {
-    const userId = await getVerifiedUserIdForDataAccess();
-    const isPasswordValid = await verifyUserAppLockPassword(userId, screenLockPassword);
-    if (!isPasswordValid) {
-      return { error: "Incorrect screen lock password" };
-    }
-    return deleteLifeEvents(ids);
   } catch (e) {
     console.error(e);
     return { error: e instanceof Error ? e.message : "Failed to delete life events" };

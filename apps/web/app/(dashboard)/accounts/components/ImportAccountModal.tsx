@@ -193,11 +193,11 @@ export function ImportAccountModal({ isOpen, onClose, onImport, isImporting: ser
                             <h4 className="text-sm font-medium text-blue-900 mb-2">ACCOUNT CSV Format:</h4>
                             <div className="text-sm text-blue-800 space-y-1">
                                 <div><strong>Required:</strong> Holder Name, Account Number, Bank Name, Branch Name</div>
-                                <div><strong>Optional:</strong> Branch Code, Bank Address, Account Type, Mobile Numbers, Branch Contacts, SWIFT Code, Bank Email, Account Opening Date, Security Questions, Balance, App Username, Notes, Nickname</div>
+                                <div><strong>Optional:</strong> Branch Code, Bank Address, Account Type, Mobile Numbers, Branch Contacts, SWIFT Code, Bank Email, Account Opening Date, Security Questions, Balance, Balance Currency, App Username, Notes, Nickname</div>
                                 <div><strong>Date format:</strong> YYYY-MM-DD, MM/DD/YYYY, or DD/MM/YYYY</div>
                                 <div><strong>Multiple values:</strong> Separate with semicolons (e.g., "555-1234; 555-5678")</div>
                                 <div><strong>Account numbers:</strong> Must be unique</div>
-                                <div><strong>Balance:</strong> Numbers with or without currency symbols</div>
+                                <div><strong>Balance:</strong> Plain numbers use your ledger currency. Add Balance Currency (USD, INR, or NPR) for another currency; symbols require that column.</div>
                                 <div><strong>Notes:</strong> Can contain line breaks (will be preserved)</div>
                             </div>
                         </div>

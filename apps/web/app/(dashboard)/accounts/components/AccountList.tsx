@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { PasswordGatedButton } from "@repo/applock";
 import { AccountGrid    } from "./AccountCard";
 import { AccountInterface } from "../../../types/accounts";
 
@@ -19,14 +20,14 @@ export function AccountList({
 }: { 
   accounts: AccountInterface[];
   onEdit?: (account: AccountInterface) => void;
-  onDelete?: (account: AccountInterface) => void;
+  onDelete?: (appLockPassword: string, account: AccountInterface) => void;
   onViewDetails?: (account: AccountInterface) => void;
   onShare?: (account: AccountInterface) => void;
   selectedAccounts?: Set<number>;
   onAccountSelect?: (accountId: number, selected: boolean) => void;
   onSelectAll?: (selected: boolean) => void;
   showBulkActions?: boolean;
-  onBulkDelete?: () => void;
+  onBulkDelete?: (appLockPassword: string) => void;
   onClearSelection?: () => void;
 }) {
   const handleSelectAll = () => {
@@ -66,12 +67,20 @@ export function AccountList({
                 >
                   Clear Selection
                 </button>
-                <button
-                  onClick={onBulkDelete}
-                  className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
-                >
-                  Delete Selected ({selectedAccounts.size})
-                </button>
+                {onBulkDelete && (
+                  <PasswordGatedButton
+                    className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                    prompt={{
+                      title: 'Delete selected accounts',
+                      description: `This cannot be undone. Enter your lock screen password to delete ${selectedAccounts.size} selected ${selectedAccounts.size === 1 ? 'account' : 'accounts'}.`,
+                      confirmLabel: 'Delete selected',
+                      force: true,
+                    }}
+                    onConfirm={onBulkDelete}
+                  >
+                    Delete Selected ({selectedAccounts.size})
+                  </PasswordGatedButton>
+                )}
               </div>
             )}
           </div>

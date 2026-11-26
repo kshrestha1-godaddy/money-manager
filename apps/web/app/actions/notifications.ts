@@ -7,11 +7,25 @@ import {
     getAuthenticatedSession,
     decimalToNumber 
 } from "../utils/auth";
-import { getUserCurrency } from "../actions/currency";
 import { getUserTimezone } from "../actions/timezone";
-import { formatCurrency } from "../utils/currency";
+import { formatCurrency, normalizeSupportedCurrency } from "../utils/currency";
 import { convertForDisplayWithDbRates } from "../utils/currencyDisplayServer";
 import { formatDateInTimezone } from "../utils/timezone";
+
+async function getNotificationCurrencies(userId: number) {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { currency: true, displayCurrency: true },
+    });
+    const accountCurrency = normalizeSupportedCurrency(user?.currency);
+    return {
+        accountCurrency,
+        displayCurrency: normalizeSupportedCurrency(
+            user?.displayCurrency,
+            accountCurrency
+        ),
+    };
+}
 
 // Types for notifications
 export interface NotificationData {
@@ -472,7 +486,8 @@ export async function checkLowBalanceAlerts(userId: number): Promise<void> {
         if (!settings?.lowBalanceEnabled) return;
 
         const defaultThreshold = decimalToNumber(settings.lowBalanceThreshold, 'threshold');
-        const userCurrency = await getUserCurrency();
+        const { accountCurrency, displayCurrency } =
+            await getNotificationCurrencies(userId);
         
         // Get accounts with their specific thresholds
         const accounts = await prisma.account.findMany({
@@ -517,10 +532,20 @@ export async function checkLowBalanceAlerts(userId: number): Promise<void> {
                 });
 
                 if (!recentNotification) {
+                    const displayBalance = await convertForDisplayWithDbRates(
+                        convertedBalance,
+                        accountCurrency,
+                        displayCurrency
+                    );
+                    const displayThreshold = await convertForDisplayWithDbRates(
+                        convertedThreshold,
+                        accountCurrency,
+                        displayCurrency
+                    );
                     await createNotification(
                         userId,
                         'Low Account Balance',
-                        `Your <strong>${account.bankName}</strong> account balance <strong>${formatCurrency(convertedBalance, userCurrency)}</strong> is below your threshold of <strong>${formatCurrency(convertedThreshold, userCurrency)}</strong>.`,
+                        `Your <strong>${account.bankName}</strong> account balance <strong>${formatCurrency(displayBalance, displayCurrency)}</strong> is below your threshold of <strong>${formatCurrency(displayThreshold, displayCurrency)}</strong>.`,
                         'LOW_BALANCE',
                         'HIGH',
                         '/accounts',
@@ -573,7 +598,8 @@ export async function checkDueDateAlerts(userId: number): Promise<void> {
         const daysBefore = settings.dueDateDaysBefore;
         const alertDate = new Date();
         alertDate.setDate(alertDate.getDate() + daysBefore);
-        const currency = await getUserCurrency();
+        const { accountCurrency, displayCurrency } =
+            await getNotificationCurrencies(userId);
         // Check debts (both ACTIVE and PARTIALLY_PAID debts can have due dates)
         const debts = await prisma.debt.findMany({
             where: {
@@ -590,10 +616,15 @@ export async function checkDueDateAlerts(userId: number): Promise<void> {
         for (const debt of debts) {
             if (debt.dueDate) {
                 const daysUntilDue = Math.ceil((debt.dueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                const displayAmount = await convertForDisplayWithDbRates(
+                    decimalToNumber(debt.amount, 'amount'),
+                    accountCurrency,
+                    displayCurrency
+                );
                 await createNotification(
                     userId,
                     'Debt Due Soon',
-                    `Debt from <strong>${debt.borrowerName}</strong> (<strong>${formatCurrency(decimalToNumber(debt.amount, 'amount'), currency)}</strong>) is due in <strong>${daysUntilDue} day(s)</strong>.`,
+                    `Debt from <strong>${debt.borrowerName}</strong> (<strong>${formatCurrency(displayAmount, displayCurrency)}</strong>) is due in <strong>${daysUntilDue} day(s)</strong>.`,
                     'DEBT_REMINDER',
                     daysUntilDue <= 1 ? 'URGENT' : 'HIGH',
                     '/debts',
@@ -617,10 +648,15 @@ export async function checkDueDateAlerts(userId: number): Promise<void> {
         for (const loan of loans) {
             if (loan.dueDate) {
                 const daysUntilDue = Math.ceil((loan.dueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                const displayAmount = await convertForDisplayWithDbRates(
+                    decimalToNumber(loan.amount, 'amount'),
+                    accountCurrency,
+                    displayCurrency
+                );
                 await createNotification(
                     userId,
                     'Loan Due Soon',
-                    `Loan from <strong>${loan.lenderName}</strong> (<strong>${formatCurrency(decimalToNumber(loan.amount, 'amount'), currency)}</strong>) is due in <strong>${daysUntilDue} day(s)</strong>.`,
+                    `Loan from <strong>${loan.lenderName}</strong> (<strong>${formatCurrency(displayAmount, displayCurrency)}</strong>) is due in <strong>${daysUntilDue} day(s)</strong>.`,
                     'LOAN_REMINDER',
                     daysUntilDue <= 1 ? 'URGENT' : 'HIGH',
                     '/loans',
@@ -644,7 +680,8 @@ export async function checkInvestmentMaturityAlerts(userId: number): Promise<voi
         if (!settings?.investmentAlertsEnabled) return;
         const alertDate = new Date();
         alertDate.setDate(alertDate.getDate() + 30);
-        const currency = await getUserCurrency();
+        const { accountCurrency, displayCurrency } =
+            await getNotificationCurrencies(userId);
         const investments = await prisma.investment.findMany({
             where: {
                 userId,
@@ -658,10 +695,15 @@ export async function checkInvestmentMaturityAlerts(userId: number): Promise<voi
         for (const investment of investments) {
             if (investment.maturityDate) {
                 const daysUntilMaturity = Math.ceil((investment.maturityDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                const displayAmount = await convertForDisplayWithDbRates(
+                    decimalToNumber(investment.purchasePrice, 'amount'),
+                    accountCurrency,
+                    displayCurrency
+                );
                 await createNotification(
                     userId,
                     'Investment Maturing Soon',
-                    `Your fixed deposit "<strong>${investment.name}</strong>" (<strong>${formatCurrency(decimalToNumber(investment.purchasePrice, 'amount'), currency)}</strong>) matures in <strong>${daysUntilMaturity} day(s)</strong>.`,
+                    `Your fixed deposit "<strong>${investment.name}</strong>" (<strong>${formatCurrency(displayAmount, displayCurrency)}</strong>) matures in <strong>${daysUntilMaturity} day(s)</strong>.`,
                     'INVESTMENT_MATURITY',
                     daysUntilMaturity <= 7 ? 'HIGH' : 'NORMAL',
                     '/investments',
@@ -684,7 +726,8 @@ export async function checkSpendingAlerts(userId: number): Promise<void> {
         });
         if (!settings?.spendingAlertsEnabled) return;
         const monthlyLimit = decimalToNumber(settings.monthlySpendingLimit, 'limit');
-        const currency = await getUserCurrency();
+        const { accountCurrency, displayCurrency } =
+            await getNotificationCurrencies(userId);
         const userTimezone = await getUserTimezone();
         
         // Get current date in user's timezone
@@ -717,16 +760,32 @@ export async function checkSpendingAlerts(userId: number): Promise<void> {
         let totalSpent = 0;
         for (const expense of currentMonthExpenses) {
             const amount = parseFloat(expense.amount.toString());
-            totalSpent += await convertForDisplayWithDbRates(amount, expense.currency, currency);
+            totalSpent += await convertForDisplayWithDbRates(
+                amount,
+                expense.currency,
+                accountCurrency
+            );
         }
         
         const percentageSpent = (totalSpent / monthlyLimit) * 100;
         if (percentageSpent >= 90) {
             const thresholdType = percentageSpent >= 100 ? 'exceeded' : 'approaching';
+            const [displayTotalSpent, displayMonthlyLimit] = await Promise.all([
+                convertForDisplayWithDbRates(
+                    totalSpent,
+                    accountCurrency,
+                    displayCurrency
+                ),
+                convertForDisplayWithDbRates(
+                    monthlyLimit,
+                    accountCurrency,
+                    displayCurrency
+                ),
+            ]);
             await createNotification(
                 userId,
                 'Monthly Spending Limit Alert',
-                `You've spent <strong>${formatCurrency(totalSpent, currency)}</strong> (<strong>${percentageSpent.toFixed(1)}%</strong>) of your monthly limit of <strong>${formatCurrency(monthlyLimit, currency)}</strong>.`,
+                `You've spent <strong>${formatCurrency(displayTotalSpent, displayCurrency)}</strong> (<strong>${percentageSpent.toFixed(1)}%</strong>) of your monthly limit of <strong>${formatCurrency(displayMonthlyLimit, displayCurrency)}</strong>.`,
                 'SPENDING_ALERT',
                 percentageSpent >= 100 ? 'URGENT' : 'HIGH',
                 '/expenses',

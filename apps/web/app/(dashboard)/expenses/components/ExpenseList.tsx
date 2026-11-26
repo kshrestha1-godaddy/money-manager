@@ -8,13 +8,13 @@ interface ExpenseListProps {
     currency?: string;
     onEdit?: (expense: Expense) => void;
     onView?: (expense: Expense) => void;
-    onDelete?: (expense: Expense) => void;
+    onDelete?: (appLockPassword: string, expense: Expense) => void;
     onBookmark?: (expense: Expense) => void;
     selectedExpenses?: Set<number>;
     onExpenseSelect?: (expenseId: number, selected: boolean) => void;
     onSelectAll?: (selected: boolean) => void;
     showBulkActions?: boolean;
-    onBulkDelete?: (ids: number[]) => void;
+    onBulkDelete?: (appLockPassword: string, ids: number[]) => void;
     onClearSelection?: () => void;
     onRefresh?: () => void | Promise<void>;
 }
@@ -34,10 +34,11 @@ export function ExpenseList({
     onClearSelection,
     onRefresh
 }: ExpenseListProps) {
-    // Wrapper functions to handle type conversion between Expense and FinancialTransaction
     const handleEdit = onEdit ? (transaction: any) => onEdit(transaction as Expense) : undefined;
     const handleView = onView ? (transaction: any) => onView(transaction as Expense) : undefined;
-    const handleDelete = onDelete ? (transaction: any) => onDelete(transaction as Expense) : undefined;
+    const handleDelete = onDelete
+        ? (appLockPassword: string, transaction: any) => onDelete(appLockPassword, transaction as Expense)
+        : undefined;
     const handleBookmark = onBookmark ? (transaction: any) => onBookmark(transaction as Expense) : undefined;
 
     return (
@@ -58,4 +59,4 @@ export function ExpenseList({
             onRefresh={onRefresh}
         />
     );
-} 
+}

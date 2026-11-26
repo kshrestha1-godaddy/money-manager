@@ -13,6 +13,7 @@ import {
     ActivityEntityType,
 } from "@prisma/client";
 import { parseInvestmentsCSV, ParsedInvestmentData } from "../../../utils/csvImportInvestments";
+import { convertForDisplayWithDbRates } from "../../../utils/currencyDisplayServer";
 import { ImportResult } from "../../../types/bulkImport";
 import { bulkImportInvestmentTargets } from "./investment-targets";
 import { requireAppLockPassword } from "../../../lib/security/require-app-lock-password";
@@ -917,8 +918,22 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
                             const deduct = investmentShouldDeduct(
                                 deductFromCsv ?? true
                             );
+                            const priceCurrency =
+                                investmentData.priceCurrency || userCurrency;
+                            const [purchasePrice, currentPrice] = await Promise.all([
+                                convertForDisplayWithDbRates(
+                                    investmentData.purchasePrice,
+                                    priceCurrency,
+                                    userCurrency
+                                ),
+                                convertForDisplayWithDbRates(
+                                    investmentData.currentPrice,
+                                    priceCurrency,
+                                    userCurrency
+                                ),
+                            ]);
                             const purchaseCost =
-                                investmentData.quantity * investmentData.purchasePrice;
+                                investmentData.quantity * purchasePrice;
 
                             if (
                                 deduct &&
@@ -960,9 +975,13 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
                                 }
                             }
 
+                            const { priceCurrency: _priceCurrency, ...investmentFields } =
+                                investmentData;
                             const created = await tx.investment.create({
                                 data: {
-                                    ...investmentData,
+                                    ...investmentFields,
+                                    purchasePrice,
+                                    currentPrice,
                                     userId: userId,
                                     deductFromAccount: deductFromCsv ?? true,
                                 },

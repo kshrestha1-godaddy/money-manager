@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { Download, RefreshCw } from "lucide-react";
+import { PasswordGatedButton } from "@repo/applock";
 import { InvestmentInterface } from "../../../types/investments";
 import {
     getInvestmentTypeBadgeClassName,
@@ -44,12 +45,12 @@ interface InvestmentTableProps {
     selectedCurrency: string;
     investments: InvestmentInterface[];
     onEdit: (investment: InvestmentInterface) => void;
-    onDelete: (investment: InvestmentInterface) => void;
+    onDelete: (appLockPassword: string, investment: InvestmentInterface) => void;
     onViewDetails: (investment: InvestmentInterface) => void;
     selectedInvestments?: Set<number>;
     onInvestmentSelect?: (investmentId: number, selected: boolean) => void;
     showBulkActions?: boolean;
-    onBulkDelete?: () => void;
+    onBulkDelete?: (appLockPassword: string) => void;
     onClearSelection?: () => void;
     /** Refetch investments (e.g. invalidate React Query). Shown when set. */
     onRefresh?: () => void | Promise<void>;
@@ -648,7 +649,7 @@ function InvestmentRow({
     investment: InvestmentInterface;
     formatMoney: (amountInStoredCurrency: number) => string;
     onEdit: (investment: InvestmentInterface) => void;
-    onDelete: (investment: InvestmentInterface) => void;
+    onDelete: (appLockPassword: string, investment: InvestmentInterface) => void;
     onViewDetails: (investment: InvestmentInterface) => void;
     isSelected?: boolean;
     onSelect?: (investmentId: number, selected: boolean) => void;
@@ -813,16 +814,20 @@ function InvestmentRow({
                     >
                         Edit
                     </button>
-                    <button 
-                        type="button"
-                        onClick={() => onDelete(investment)}
+                    <PasswordGatedButton
                         className={cn(
                             getActionButtonClasses('delete', 'investments'),
                             'shrink-0 px-2 py-1 text-xs'
                         )}
+                        prompt={{
+                            title: 'Delete investment',
+                            description: 'This cannot be undone. Enter your lock screen password to delete this investment.',
+                            confirmLabel: 'Delete investment',
+                        }}
+                        onConfirm={(appLockPassword) => onDelete(appLockPassword, investment)}
                     >
                         Delete
-                    </button>
+                    </PasswordGatedButton>
                 </div>
             </td>
         </tr>

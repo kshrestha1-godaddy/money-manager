@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { BudgetTarget } from '../types/financial';
-import { getBudgetTargets, createBudgetTarget, updateBudgetTarget, deleteBudgetTarget, getBudgetComparison, updateOrCreateBudgetTarget, updateCategoryBudgetInclusion, getAllCategoriesWithBudgetStatus } from '../actions/budget-targets';
+import { getBudgetTargets, createBudgetTarget, updateBudgetTarget, deleteBudgetTarget, removeBudgetTargetAmount, getBudgetComparison, updateOrCreateBudgetTarget, updateCategoryBudgetInclusion, getAllCategoriesWithBudgetStatus } from '../actions/budget-targets';
 
 export interface BudgetComparisonData {
   categoryName: string;
@@ -93,7 +93,21 @@ export function useBudgetTracking(
 
   // Delete budget target mutation
   const deleteMutation = useMutation({
-    mutationFn: deleteBudgetTarget,
+    mutationFn: ({ id, appLockPassword }: { id: number; appLockPassword: string }) =>
+      deleteBudgetTarget(id, appLockPassword),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['budget-targets'] });
+      queryClient.invalidateQueries({ queryKey: ['budget-comparison'] });
+    },
+  });
+
+  // Remove (zero out) a category's budget target mutation
+  const removeTargetMutation = useMutation({
+    mutationFn: ({ categoryName, period, appLockPassword }: {
+      categoryName: string;
+      period: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
+      appLockPassword: string;
+    }) => removeBudgetTargetAmount(categoryName, period, appLockPassword),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['budget-targets'] });
       queryClient.invalidateQueries({ queryKey: ['budget-comparison'] });
@@ -135,14 +149,20 @@ export function useBudgetTracking(
     error,
     createBudgetTarget: createMutation.mutate,
     updateBudgetTarget: updateMutation.mutate,
-    deleteBudgetTarget: deleteMutation.mutate,
+    deleteBudgetTarget: (id: number, appLockPassword: string) =>
+      deleteMutation.mutateAsync({ id, appLockPassword }),
+    removeBudgetTarget: (
+      categoryName: string,
+      period: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY',
+      appLockPassword: string
+    ) => removeTargetMutation.mutateAsync({ categoryName, period, appLockPassword }),
     updateOrCreateBudgetTarget: (categoryName: string, targetAmount: number, period: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY') => 
       updateOrCreateMutation.mutate({ categoryName, targetAmount, period }),
     updateCategoryBudgetInclusion: (categoryName: string, includedInBudget: boolean) =>
       updateCategoryInclusionMutation.mutate({ categoryName, includedInBudget }),
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending || updateOrCreateMutation.isPending,
-    isDeleting: deleteMutation.isPending,
+    isDeleting: deleteMutation.isPending || removeTargetMutation.isPending,
     isUpdatingInclusion: updateCategoryInclusionMutation.isPending,
   };
 }

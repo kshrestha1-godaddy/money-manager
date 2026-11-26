@@ -14,6 +14,7 @@ import {
     parseMultilineTextField,
     parseEmailField
 } from './csvFieldParsers';
+import { assertCurrencyCode, type CurrencyCode } from '../currency';
 
 /**
  * Interface for parsed account data from CSV
@@ -33,6 +34,7 @@ export interface ParsedAccountData {
     accountOpeningDate: Date;
     securityQuestion: string[];
     balance?: number;
+    balanceCurrency?: CurrencyCode;
     appUsername?: string;
     notes?: string;
     nickname?: string;
@@ -62,6 +64,7 @@ export const ACCOUNT_OPTIONAL_FIELDS = [
     'Account Opening Date',
     'Security Questions',
     'Balance',
+    'Balance Currency',
     'App Username',
     'Notes',
     'Nickname'
@@ -85,6 +88,7 @@ export const FIELD_MAPPINGS: Record<string, string[]> = {
     'accountopeningdate': ['account opening date', 'opening date', 'date opened', 'created date'],
     'securityquestions': ['security questions', 'security question', 'secret questions'],
     'balance': ['balance', 'current balance', 'amount'],
+    'balancecurrency': ['balance currency', 'currency', 'currency code'],
     'appusername': ['app username', 'username', 'login', 'user id'],
     'notes': ['notes', 'comments', 'remarks', 'description'],
     'nickname': ['nickname', 'alias', 'display name', 'account name']
@@ -156,6 +160,18 @@ function processAccountRow(rowData: Record<string, string>, rowIndex: number): P
         
         // Parse optional fields
         const balance = mappedData.balance ? parseCurrencyField(mappedData.balance) : undefined;
+        if (
+            mappedData.balance &&
+            /[$₹₨]/.test(mappedData.balance) &&
+            !mappedData.balancecurrency
+        ) {
+            throw new Error(
+                'Balance Currency is required when Balance contains a currency symbol'
+            );
+        }
+        const balanceCurrency = mappedData.balancecurrency
+            ? assertCurrencyCode(mappedData.balancecurrency)
+            : undefined;
         const appUsername = parseStringField(mappedData.appusername) || undefined;
         const notes = parseMultilineTextField(mappedData.notes) || undefined;
         const nickname = parseStringField(mappedData.nickname) || undefined;
@@ -175,6 +191,7 @@ function processAccountRow(rowData: Record<string, string>, rowIndex: number): P
             accountOpeningDate,
             securityQuestion,
             balance,
+            balanceCurrency,
             appUsername,
             notes,
             nickname

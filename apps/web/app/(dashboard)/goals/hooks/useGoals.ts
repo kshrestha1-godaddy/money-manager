@@ -103,7 +103,8 @@ export function useGoals(filters: GoalFiltersState) {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: deleteGoalAction,
+    mutationFn: ({ id, appLockPassword }: { id: number; appLockPassword: string }) =>
+      deleteGoalAction(id, appLockPassword),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['goals'] });
       queryClient.invalidateQueries({ queryKey: ['goal-stats'] });
@@ -232,8 +233,8 @@ export function useGoals(filters: GoalFiltersState) {
     return result.data;
   }, [updateMutation]);
 
-  const deleteGoal = useCallback(async (id: number) => {
-    const result = await deleteMutation.mutateAsync(id);
+  const deleteGoal = useCallback(async (id: number, appLockPassword: string) => {
+    const result = await deleteMutation.mutateAsync({ id, appLockPassword });
     if (result.error) {
       throw new Error(result.error);
     }

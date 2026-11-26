@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { InvestmentTarget, InvestmentTargetFormData } from "../../../types/investments";
 import { X, Target, Calendar, Plus, Trash2 } from "lucide-react";
+import { PasswordGatedButton } from "@repo/applock";
 import { getCurrencySymbol } from "../../../utils/currency";
 import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
@@ -89,7 +90,7 @@ interface InvestmentTargetModalProps {
     /** Create: one submit can add several targets; types may repeat across goals. */
     onCreate: (items: InvestmentTargetFormData[]) => Promise<void>;
     onUpdate?: (id: number, data: Partial<InvestmentTargetFormData>) => Promise<void>;
-    onDelete?: (id: number) => Promise<void>;
+    onDelete?: (appLockPassword: string, id: number) => Promise<void>;
     existingTarget?: InvestmentTarget | null;
     mode: 'create' | 'edit';
 }
@@ -226,12 +227,12 @@ export function InvestmentTargetModal({
         }
     };
 
-    const handleDelete = useCallback(async () => {
+    const handleDelete = useCallback(async (appLockPassword: string) => {
         if (!existingTarget || !onDelete) return;
         
         setIsLoading(true);
         try {
-            await onDelete(existingTarget.id);
+            await onDelete(appLockPassword, existingTarget.id);
             onClose();
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to delete target");
@@ -493,14 +494,18 @@ export function InvestmentTargetModal({
                     <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
                         <div>
                             {mode === 'edit' && onDelete && (
-                                <button
-                                    type="button"
-                                    onClick={handleDelete}
+                                <PasswordGatedButton
+                                    onConfirm={handleDelete}
+                                    prompt={{
+                                        title: "Delete target",
+                                        description: "This cannot be undone. Enter your lock screen password to delete this investment target.",
+                                        confirmLabel: "Delete target",
+                                    }}
                                     disabled={isLoading}
                                     className="px-4 py-2 text-red-600 hover:text-red-700 font-medium transition-colors disabled:opacity-50"
                                 >
                                     Delete
-                                </button>
+                                </PasswordGatedButton>
                             )}
                         </div>
                         <div className="flex space-x-3">

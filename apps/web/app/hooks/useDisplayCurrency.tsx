@@ -9,6 +9,7 @@ export interface DisplayCurrency {
   currency: string;
   accountCurrency: string;
   displayCurrency: string;
+  currencyRateVersion: number;
   setDisplayCurrency: (currency: string) => Promise<void>;
   toDisplayAmount: (amount: number, sourceCurrency: string) => number;
   formatDisplayAmount: (amount: number, sourceCurrency: string) => string;
@@ -29,12 +30,13 @@ export function useDisplayCurrency(): DisplayCurrency {
     accountCurrency,
     displayCurrency,
     updateDisplayCurrency,
+    currencyRateVersion,
   } = useCurrency();
 
   const toDisplayAmount = useCallback(
     (amount: number, sourceCurrency: string) =>
       convertForDisplaySync(amount, sourceCurrency, displayCurrency),
-    [displayCurrency]
+    [displayCurrency, currencyRateVersion]
   );
   const formatDisplayAmount = useCallback(
     (amount: number, sourceCurrency: string) =>
@@ -49,7 +51,7 @@ export function useDisplayCurrency(): DisplayCurrency {
   const toAccountAmount = useCallback(
     (amount: number) =>
       convertForDisplaySync(amount, displayCurrency, accountCurrency),
-    [accountCurrency, displayCurrency]
+    [accountCurrency, displayCurrency, currencyRateVersion]
   );
   const formatAmount = useCallback(
     (amount: number, fromCurrency: string = accountCurrency) =>
@@ -62,6 +64,7 @@ export function useDisplayCurrency(): DisplayCurrency {
       currency: displayCurrency,
       accountCurrency,
       displayCurrency,
+      currencyRateVersion,
       setDisplayCurrency: updateDisplayCurrency,
       toDisplayAmount,
       formatDisplayAmount,
@@ -73,6 +76,7 @@ export function useDisplayCurrency(): DisplayCurrency {
       accountCurrency,
       convertAmount,
       displayCurrency,
+      currencyRateVersion,
       formatAmount,
       formatDisplayAmount,
       toAccountAmount,

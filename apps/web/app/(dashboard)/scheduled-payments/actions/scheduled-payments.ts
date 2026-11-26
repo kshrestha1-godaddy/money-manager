@@ -13,7 +13,7 @@ import { autoBookmarkHighValueTransaction } from "../../../utils/autoBookmarkUti
 import { Expense, Category } from "../../../types/financial";
 import { ScheduledPaymentItem } from "../../../types/scheduled-payment";
 import { AccountInterface } from "../../../types/accounts";
-import { verifyUserAppLockPassword } from "../../../lib/security/app-lock-password";
+import { requireAppLockPassword } from "../../../lib/security/require-app-lock-password";
 
 function mapAccount(a: {
   id: number;
@@ -397,10 +397,8 @@ export async function postponeScheduledPayment(id: number, newScheduledAt: Date)
   revalidatePath("/dashboard");
 }
 
-export async function deleteScheduledPayment(id: number) {
-  const session = await getServerSession(authOptions);
-  if (!session) throw new Error("Unauthorized");
-  const userId = getUserIdFromSession(session.user.id);
+export async function deleteScheduledPayment(id: number, appLockPassword: string) {
+  const userId = await requireAppLockPassword(appLockPassword);
 
   const existing = await prisma.scheduledPayment.findFirst({
     where: { id, userId },
@@ -416,12 +414,11 @@ export async function deleteScheduledPayment(id: number) {
 }
 
 export async function deleteScheduledPayments(
-  ids: number[]
+  ids: number[],
+  appLockPassword: string
 ): Promise<{ ok: true; deleted: number } | { error: string }> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) return { error: "Unauthorized" };
-    const userId = getUserIdFromSession(session.user.id);
+    const userId = await requireAppLockPassword(appLockPassword);
     const unique = [...new Set(ids)].filter((id) => Number.isFinite(id) && id > 0);
     if (unique.length === 0) return { error: "No payments selected" };
 
@@ -431,26 +428,6 @@ export async function deleteScheduledPayments(
     revalidatePath("/expenses");
     revalidatePath("/scheduled-payments");
     return { ok: true, deleted: result.count };
-  } catch (e) {
-    console.error(e);
-    return { error: e instanceof Error ? e.message : "Failed to delete scheduled payments" };
-  }
-}
-
-export async function deleteScheduledPaymentsWithPassword(
-  ids: number[],
-  screenLockPassword: string
-): Promise<{ ok: true; deleted: number } | { error: string }> {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session) return { error: "Unauthorized" };
-
-    const userId = getUserIdFromSession(session.user.id);
-    const isPasswordValid = await verifyUserAppLockPassword(userId, screenLockPassword);
-    if (!isPasswordValid) {
-      return { error: "Incorrect screen lock password" };
-    }
-    return deleteScheduledPayments(ids);
   } catch (e) {
     console.error(e);
     return { error: e instanceof Error ? e.message : "Failed to delete scheduled payments" };

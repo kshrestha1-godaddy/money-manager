@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Fragment, useState, type ReactNode } from "react";
+import { PasswordGatedButton } from "@repo/applock";
 import { ScheduledPaymentItem } from "../../../types/scheduled-payment";
 import { formatCurrency } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
@@ -52,7 +53,7 @@ interface ScheduledPaymentsRecurrenceSectionTableProps {
   onToggleRowSelection: (id: number) => void;
   onView: (item: ScheduledPaymentItem) => void;
   onEdit: (item: ScheduledPaymentItem) => void;
-  onCancel: (item: ScheduledPaymentItem) => void;
+  onCancel: (appLockPassword: string, item: ScheduledPaymentItem) => void | Promise<void>;
   onAccept: (id: number) => void;
   onReject: (id: number) => void;
   onPostponeDays: (item: ScheduledPaymentItem, days: 1 | 3 | 7) => void | Promise<void>;
@@ -498,7 +499,7 @@ function renderActionCells(
   isBusy: boolean,
   onView: (item: ScheduledPaymentItem) => void,
   onEdit: (item: ScheduledPaymentItem) => void,
-  onCancel: (item: ScheduledPaymentItem) => void,
+  onCancel: (appLockPassword: string, item: ScheduledPaymentItem) => void | Promise<void>,
   onAccept: (id: number) => void,
   onReject: (id: number) => void
 ): ReactNode[] {
@@ -566,15 +567,20 @@ function renderActionCells(
   if (canDelete) {
     pushPipe();
     nodes.push(
-      <button
+      <PasswordGatedButton
         key="cancel"
-        type="button"
         disabled={isBusy}
-        onClick={() => onCancel(item)}
+        onConfirm={(appLockPassword) => onCancel(appLockPassword, item)}
+        prompt={{
+          title: "Cancel scheduled payment",
+          description:
+            "This cannot be undone. Enter your lock screen password to cancel this scheduled payment.",
+          confirmLabel: "Cancel payment",
+        }}
         className="inline-flex shrink-0 items-center rounded-md bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors disabled:opacity-50 hover:bg-red-100 hover:text-red-800"
       >
         Cancel
-      </button>
+      </PasswordGatedButton>
     );
   }
   return nodes;

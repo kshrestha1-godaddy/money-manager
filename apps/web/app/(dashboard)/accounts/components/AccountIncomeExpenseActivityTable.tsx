@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useGatedAction } from "@repo/applock";
+import { PasswordGatedButton } from "@repo/applock";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronDown, Download, RefreshCw, Trash2 } from "lucide-react";
+import { ChevronDown, Download, RefreshCw } from "lucide-react";
 import {
     getIncomeExpenseAccountBalanceActivityLogs,
     deleteOldestAccountBalanceActivityLogs,
@@ -375,18 +375,10 @@ export function AccountIncomeExpenseActivityTable({
     });
 
     // The password prompt carries the confirmation, so no separate dialog.
-    const deleteOldestRecords = useGatedAction(
-        (appLockPassword: string) => {
-            setDeleteNotice("");
-            deleteOldest.mutate(appLockPassword);
-        },
-        {
-            title: "Delete oldest activity records?",
-            description:
-                "This permanently deletes your oldest 25 balance activity records across all accounts, regardless of filters. Account balances and transactions stay unchanged, and this cannot be undone.",
-            confirmLabel: "Delete oldest 25",
-        },
-    );
+    function handleDeleteOldestRecords(appLockPassword: string) {
+        setDeleteNotice("");
+        deleteOldest.mutate(appLockPassword);
+    }
 
     const accountOptions = useMemo(() => {
         if (!data?.length) return [];
@@ -544,17 +536,22 @@ export function AccountIncomeExpenseActivityTable({
                             />
                             Refresh
                         </button>
-                        <button
-                            type="button"
-                            onClick={() => void deleteOldestRecords()}
+                        <PasswordGatedButton
                             disabled={deleteOldest.isPending || isFetching}
                             aria-busy={deleteOldest.isPending}
                             title="Delete the oldest 25 balance activity records across all accounts, regardless of filters"
                             className="inline-flex h-9 items-center gap-1.5 rounded-md border border-red-200 bg-white px-3 text-sm font-medium text-red-600 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500/20 disabled:pointer-events-none disabled:opacity-50"
+                            prompt={{
+                                title: "Delete oldest activity records?",
+                                description:
+                                    "This permanently deletes your oldest 25 balance activity records across all accounts, regardless of filters. Account balances and transactions stay unchanged, and this cannot be undone. Enter your lock screen password to continue.",
+                                confirmLabel: "Delete oldest 25",
+                                force: true,
+                            }}
+                            onConfirm={handleDeleteOldestRecords}
                         >
-                            <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
                             {deleteOldest.isPending ? "Deleting…" : "Delete oldest 25"}
-                        </button>
+                        </PasswordGatedButton>
                         <button
                             style={{ display: "none" }}
                             type="button"

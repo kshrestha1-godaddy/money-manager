@@ -4,11 +4,12 @@ import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Download, Eye, Loader2, Pencil, Plus, RefreshCw, Trash2, Upload, X } from "lucide-react";
 import type { LifeEventCategory } from "@prisma/client";
+import { PasswordGatedButton } from "@repo/applock";
 import type { LifeEventItem } from "../../types/life-event";
 import {
   createLifeEvent,
   deleteLifeEvent,
-  deleteLifeEventsWithPassword,
+  deleteLifeEvents,
   getLifeEvents,
   importLifeEvents,
   type LifeEventImportRowError,
@@ -25,7 +26,6 @@ import {
 } from "./life-event-helpers";
 import { MultiselectFilterDropdown, MultiselectFilterRow } from "./components/MultiselectFilterDropdown";
 import { LifeEventsCharts } from "./components/LifeEventsCharts";
-import { DeleteSelectedLifeEventsModal } from "./components/DeleteSelectedLifeEventsModal";
 import { LifeEventDetailModal } from "./components/LifeEventDetailModal";
 import { LifeEventFormModal } from "./components/LifeEventFormModal";
 import { LifeEventsSummarySection } from "./components/LifeEventsSummarySection";
@@ -101,8 +101,6 @@ export default function LifeEventsPageClient() {
   const [focusedEventId, setFocusedEventId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
   const [isImporting, setIsImporting] = useState(false);
-  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
-  const [bulkDeleteIds, setBulkDeleteIds] = useState<number[]>([]);
   const importFileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async (options?: { silent?: boolean }) => {
@@ -350,9 +348,8 @@ export default function LifeEventsPageClient() {
     await load({ silent: true });
   }
 
-  async function handleDelete(id: number) {
-    if (!confirm("Delete this life event?")) return;
-    const result = await deleteLifeEvent(id);
+  async function handleDelete(id: number, appLockPassword: string) {
+    const result = await deleteLifeEvent(id, appLockPassword);
     if ("error" in result && result.error) {
       setNotification({ title: "Error", message: result.error, type: "error" });
       return;
@@ -368,19 +365,14 @@ export default function LifeEventsPageClient() {
     await load({ silent: true });
   }
 
-  function openBulkDeleteModal() {
+  async function handleBulkDelete(appLockPassword: string) {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
-    setBulkDeleteIds(ids);
-    setBulkDeleteModalOpen(true);
-  }
-
-  async function handleBulkDeleteConfirm(screenLockPassword: string) {
-    const result = await deleteLifeEventsWithPassword(bulkDeleteIds, screenLockPassword);
+    const result = await deleteLifeEvents(ids, appLockPassword);
     if ("error" in result) {
-      throw new Error(result.error);
+      setNotification({ title: "Error", message: result.error, type: "error" });
+      return;
     }
-    const ids = bulkDeleteIds;
     setSelectedIds(new Set());
     setFocusedEventId((prev) => (prev != null && ids.includes(prev) ? null : prev));
     setNotification({
@@ -689,14 +681,20 @@ export default function LifeEventsPageClient() {
                 >
                   Clear selection
                 </button>
-                <button
-                  type="button"
-                  onClick={openBulkDeleteModal}
+                <PasswordGatedButton
+                  onConfirm={handleBulkDelete}
+                  prompt={{
+                    title: "Delete selected life events",
+                    description:
+                      "This cannot be undone. Enter your lock screen password to delete the selected life events.",
+                    confirmLabel: "Delete life events",
+                    force: true,
+                  }}
                   className={`${dangerButton} inline-flex items-center gap-1.5 text-sm`}
                 >
                   <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
                   Delete selected ({selectedIds.size})
-                </button>
+                </PasswordGatedButton>
               </>
             ) : null}
           </div>
@@ -855,14 +853,19 @@ export default function LifeEventsPageClient() {
                               >
                                 <Pencil className="h-4 w-4" />
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDelete(item.id)}
+                              <PasswordGatedButton
+                                onConfirm={(appLockPassword) => handleDelete(item.id, appLockPassword)}
+                                prompt={{
+                                  title: "Delete life event",
+                                  description:
+                                    "This cannot be undone. Enter your lock screen password to delete this life event.",
+                                  confirmLabel: "Delete life event",
+                                }}
                                 className="rounded-lg p-2 text-gray-500 hover:bg-red-50 hover:text-red-600"
                                 aria-label="Delete"
                               >
                                 <Trash2 className="h-4 w-4" />
-                              </button>
+                              </PasswordGatedButton>
                             </div>
                           </div>
                         </li>
@@ -882,13 +885,6 @@ export default function LifeEventsPageClient() {
         isOpen={viewingDetail != null}
         onClose={() => setViewingDetail(null)}
         onEdit={handleEditFromDetail}
-      />
-
-      <DeleteSelectedLifeEventsModal
-        isOpen={bulkDeleteModalOpen}
-        onClose={() => setBulkDeleteModalOpen(false)}
-        selectedCount={bulkDeleteIds.length}
-        onConfirm={handleBulkDeleteConfirm}
       />
 
       <LifeEventFormModal

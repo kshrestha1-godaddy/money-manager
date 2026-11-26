@@ -8,7 +8,6 @@ import { Plus, Search, Filter, SortAsc, Target } from "lucide-react";
 import { AddGoalModal } from "./components/AddGoalModal";
 import { EditGoalModal } from "./components/EditGoalModal";
 import { ViewGoalModal } from "./components/ViewGoalModal";
-import { DeleteGoalModal } from "./components/DeleteGoalModal";
 import { GanttTimelineView } from "./components/GanttTimelineView";
 import { useGoals } from "./hooks/useGoals";
 import { DisappearingNotification, NotificationData } from "../../components/DisappearingNotification";
@@ -58,7 +57,6 @@ export default function GoalsPageClient() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // Custom hook for goals data
   const {
@@ -69,11 +67,9 @@ export default function GoalsPageClient() {
     categories,
     createGoal,
     updateGoal,
-    deleteGoal,
     refetchGoals,
     isCreating,
-    isUpdating,
-    isDeleting
+    isUpdating
   } = useGoals(filters);
 
   // Filter handlers
@@ -140,29 +136,6 @@ export default function GoalsPageClient() {
     }
   }, [selectedGoalId, updateGoal]);
 
-  const handleDeleteGoal = useCallback(async () => {
-    if (!selectedGoalId) return;
-    
-    try {
-      await deleteGoal(selectedGoalId);
-      setIsDeleteModalOpen(false);
-      setSelectedGoalId(null);
-      setNotification({
-        type: 'success',
-        title: 'Success!',
-        message: 'Goal deleted successfully!',
-        duration: 3000
-      });
-    } catch (error) {
-      setNotification({
-        type: 'error',
-        title: 'Error',
-        message: 'Failed to delete goal. Please try again.',
-        duration: 5000
-      });
-    }
-  }, [selectedGoalId, deleteGoal]);
-
   // Modal handlers
   const openEditModal = useCallback((goalId: number) => {
     setSelectedGoalId(goalId);
@@ -172,11 +145,6 @@ export default function GoalsPageClient() {
   const openViewModal = useCallback((goalId: number) => {
     setSelectedGoalId(goalId);
     setIsViewModalOpen(true);
-  }, []);
-
-  const openDeleteModal = useCallback((goalId: number) => {
-    setSelectedGoalId(goalId);
-    setIsDeleteModalOpen(true);
   }, []);
 
   // Get selected goal data
@@ -400,21 +368,6 @@ export default function GoalsPageClient() {
               setIsViewModalOpen(false);
               setIsEditModalOpen(true);
             }}
-            onDelete={() => {
-              setIsViewModalOpen(false);
-              setIsDeleteModalOpen(true);
-            }}
-          />
-
-          <DeleteGoalModal
-            isOpen={isDeleteModalOpen}
-            onClose={() => {
-              setIsDeleteModalOpen(false);
-              setSelectedGoalId(null);
-            }}
-            onConfirm={handleDeleteGoal}
-            goal={selectedGoal}
-            isLoading={isDeleting}
           />
         </>
       )}

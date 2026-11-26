@@ -3,6 +3,7 @@ import { calculateDebtRecovery } from "../../../utils/debtRecovery";
 
 import { addDays, addMonths, differenceInCalendarDays, formatDuration, intervalToDuration, startOfDay } from "date-fns";
 import { Fragment, useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { PasswordGatedButton } from "@repo/applock";
 import { DebtInterface } from "../../../types/debts";
 import { formatDate } from "../../../utils/date";
 import { formatCurrency } from "../../../utils/currency";
@@ -29,7 +30,7 @@ interface DebtTableProps {
     /** Selected display currency for the table (may differ from base). */
     displayCurrency: string;
     onEdit?: (debt: DebtInterface) => void;
-    onDelete?: (debt: DebtInterface) => void;
+    onDelete?: (appLockPassword: string, debt: DebtInterface) => void;
     onViewDetails?: (debt: DebtInterface) => void;
     onAddRepayment?: (debt: DebtInterface) => void;
     onPostpone?: (id: number, dueDate: Date) => Promise<void>;
@@ -37,7 +38,7 @@ interface DebtTableProps {
     onDebtSelect?: (debtId: number, selected: boolean) => void;
     onSelectAll?: (selected: boolean) => void;
     showBulkActions?: boolean;
-    onBulkDelete?: () => void;
+    onBulkDelete?: (appLockPassword: string) => void;
     onClearSelection?: () => void;
 }
 
@@ -693,7 +694,7 @@ function DebtRow({
     baseCurrency: string;
     displayCurrency: string;
     onEdit?: (debt: DebtInterface) => void;
-    onDelete?: (debt: DebtInterface) => void;
+    onDelete?: (appLockPassword: string, debt: DebtInterface) => void;
     onViewDetails?: (debt: DebtInterface) => void;
     onAddRepayment?: (debt: DebtInterface) => void;
     onPostpone?: (id: number, dueDate: Date) => Promise<void>;
@@ -786,12 +787,6 @@ function DebtRow({
     const handleEdit = () => {
         if (onEdit) {
             onEdit(debt);
-        }
-    };
-
-    const handleDelete = () => {
-        if (onDelete) {
-            onDelete(debt);
         }
     };
 
@@ -934,13 +929,17 @@ function DebtRow({
                         </button>
                     )}
                     {onDelete && (
-                        <button 
-                            type="button"
-                            onClick={handleDelete}
+                        <PasswordGatedButton
                             className="inline-flex shrink-0 items-center px-2 py-1 rounded-md text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-800 transition-colors"
+                            prompt={{
+                                title: 'Delete lending record',
+                                description: 'This cannot be undone. Enter your lock screen password to delete this lending record.',
+                                confirmLabel: 'Delete lending record',
+                            }}
+                            onConfirm={(appLockPassword) => onDelete(appLockPassword, debt)}
                         >
                             Delete
-                        </button>
+                        </PasswordGatedButton>
                     )}
                 </div>
             </td>

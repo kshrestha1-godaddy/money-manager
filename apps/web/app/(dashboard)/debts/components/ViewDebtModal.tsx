@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from '@tanstack/react-query';
+import { PasswordGatedButton } from "@repo/applock";
 import { DebtInterface } from "../../../types/debts";
 import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { getUserDebts } from "../actions/debts";
@@ -13,7 +14,7 @@ interface ViewDebtModalProps {
     onClose: () => void;
     onEdit?: (debt: DebtInterface) => void;
     onAddRepayment?: (debt: DebtInterface) => void;
-    onDeleteRepayment?: (repaymentId: number, debtId: number, onVerified?: () => void) => Promise<void>;
+    onDeleteRepayment?: (appLockPassword: string, repaymentId: number, debtId: number) => Promise<void>;
 }
 
 export function ViewDebtModal({ debtId, isOpen, onClose, onEdit, onAddRepayment, onDeleteRepayment }: ViewDebtModalProps) {
@@ -82,16 +83,15 @@ export function ViewDebtModal({ debtId, isOpen, onClose, onEdit, onAddRepayment,
     // Check if debt is overdue
     const isOverdue = debt.dueDate && new Date() > debt.dueDate && remainingAmount > 0;
 
-    const handleDeleteRepayment = async (repaymentId: number) => {
+    // Invoked by PasswordGatedButton only after the lock screen password is
+    // verified, so the row is marked as deleting once the user has confirmed.
+    const handleDeleteRepayment = async (appLockPassword: string, repaymentId: number) => {
         if (deletingRepayments.has(repaymentId) || !onDeleteRepayment) return;
 
-        // The handler may first prompt for the lock screen password, so the
-        // row is only marked as deleting once that has resolved.
-        const markDeleting = () =>
-            setDeletingRepayments(prev => new Set([...prev, repaymentId]));
+        setDeletingRepayments(prev => new Set([...prev, repaymentId]));
 
         try {
-            await onDeleteRepayment(repaymentId, debt.id, markDeleting);
+            await onDeleteRepayment(appLockPassword, repaymentId, debt.id);
         } catch (error) {
             console.error("Error deleting repayment:", error);
             // You could add a toast notification here if you have one
@@ -342,12 +342,17 @@ export function ViewDebtModal({ debtId, isOpen, onClose, onEdit, onAddRepayment,
                                                                     Deleting...
                                                                 </span>
                                                             ) : (
-                                                                <button
-                                                                    onClick={() => handleDeleteRepayment(repayment.id)}
+                                                                <PasswordGatedButton
+                                                                    onConfirm={(appLockPassword) => handleDeleteRepayment(appLockPassword, repayment.id)}
+                                                                    prompt={{
+                                                                        title: "Delete repayment",
+                                                                        description: "This cannot be undone. Enter your lock screen password to delete this repayment.",
+                                                                        confirmLabel: "Delete repayment",
+                                                                    }}
                                                                     className="text-red-500 hover:text-red-700 transition-colors duration-150 ease-in-out text-xs px-2 py-1 rounded"
                                                                 >
                                                                     Delete
-                                                                </button>
+                                                                </PasswordGatedButton>
                                                             )}
                                                         </td>
                                                     </tr>

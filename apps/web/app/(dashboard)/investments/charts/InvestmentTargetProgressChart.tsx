@@ -3,6 +3,7 @@
 import React from "react";
 import { InvestmentTargetProgress } from "../../../types/investments";
 import { Target } from "lucide-react";
+import { PasswordGatedButton } from "@repo/applock";
 import { TargetProgressItem } from "../components/TargetProgressItem";
 import { ProgressLegend } from "../components/ProgressLegend";
 import { formatCurrency } from "../../../utils/currency";
@@ -15,7 +16,7 @@ interface InvestmentTargetProgressChartProps {
     onEditTarget?: (targetId: number) => void;
     onExtendTarget?: (targetId: number, date: Date) => Promise<void>;
     onAddTarget?: () => void;
-    onBulkDelete?: () => void;
+    onBulkDelete?: (appLockPassword: string) => void | Promise<void>;
 }
 
 type TargetSortField = 'date' | 'targetAmount' | 'remainingAmount';
@@ -161,12 +162,17 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
                         </button>
                     )}
                     {onBulkDelete && targets.length > 0 && (
-                        <button
-                            onClick={onBulkDelete}
+                        <PasswordGatedButton
+                            onConfirm={onBulkDelete}
+                            prompt={{
+                                title: "Delete all targets",
+                                description: "This cannot be undone. Enter your lock screen password to delete every investment target.",
+                                confirmLabel: "Delete all targets",
+                            }}
                             className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors"
                         >
                             Delete All
-                        </button>
+                        </PasswordGatedButton>
                     )}
                 </div>
             </div>

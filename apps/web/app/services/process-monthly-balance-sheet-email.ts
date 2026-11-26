@@ -56,6 +56,7 @@ export async function processMonthlyBalanceSheetEmails(): Promise<MonthlyBalance
       name: true,
       timezone: true,
       currency: true,
+      displayCurrency: true,
     },
   });
 
@@ -67,7 +68,8 @@ export async function processMonthlyBalanceSheetEmails(): Promise<MonthlyBalance
   for (const user of eligible) {
     const email = user.email!.trim();
     const timezone = user.timezone?.trim() || "UTC";
-    const displayCurrency = user.currency?.trim() || "USD";
+    const displayCurrency =
+      user.displayCurrency?.trim() || user.currency?.trim() || "USD";
 
     try {
       if (!isLocalFirstOfMonth(now, timezone)) {

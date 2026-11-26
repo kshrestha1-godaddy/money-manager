@@ -44,6 +44,8 @@ const getDisplayIncome = (prismaIncome: any): Income => {
     return {
         ...rest,
         amount: parseFloat(prismaIncome.amount.toString()),
+        accountAmount: prismaIncome.accountAmount === null ? null : Number(prismaIncome.accountAmount),
+        appliedExchangeRate: prismaIncome.appliedExchangeRate === null ? null : Number(prismaIncome.appliedExchangeRate),
         currency: prismaIncome.currency,
         date: new Date(prismaIncome.date),
         createdAt: new Date(prismaIncome.createdAt),
@@ -129,14 +131,15 @@ export async function createIncome(
             const transactionCurrency = assertCurrencyCode(
                 data.currency || accountCurrency
             );
-            const accountAmount =
-                data.accountId && !options?.skipAccountBalanceUpdate
-                    ? await convertForDisplayWithDbRates(
+            const accountAmount = data.accountId
+                ? options?.skipAccountBalanceUpdate
+                    ? 0
+                    : await convertForDisplayWithDbRates(
                         data.amount,
                         transactionCurrency,
                         accountCurrency
                     )
-                    : null;
+                : null;
 
             const createData: any = {
                 title: data.title,
@@ -214,7 +217,11 @@ export async function createIncome(
             }
 
             // adding the amount to the account balance (convert to user's currency)
-            if (data.accountId && accountAmount !== null) {
+            if (
+                data.accountId &&
+                accountAmount !== null &&
+                !options?.skipAccountBalanceUpdate
+            ) {
                 await tx.account.update({
                     where: { id: data.accountId },
                     data: { balance: { increment: accountAmount } }
@@ -353,26 +360,32 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
             const oldAccountId = existingIncome.accountId;
             const newAccountId =
                 data.accountId !== undefined ? data.accountId : oldAccountId;
-            const oldAmountConverted = existingIncome.accountAmount
+            const oldAmountConverted = existingIncome.accountAmount !== null
                 ? parseFloat(existingIncome.accountAmount.toString())
                 : await convertForDisplayWithDbRates(
                     oldAmount,
                     oldCurrency,
                     userCurrency
                 );
-            const newAmountConverted = newAccountId
+            const hasImpactBoundaryChanged =
+                data.amount !== undefined ||
+                data.currency !== undefined ||
+                data.accountId !== undefined;
+            const newAmountConverted = hasImpactBoundaryChanged && newAccountId
                 ? await convertForDisplayWithDbRates(
                     newAmount,
                     newCurrency,
                     userCurrency
                 )
-                : 0;
-            updateData.accountAmount = newAccountId ? newAmountConverted : null;
-            updateData.accountCurrency = newAccountId ? userCurrency : null;
-            updateData.appliedExchangeRate =
-                newAccountId && newAmount !== 0
-                    ? newAmountConverted / newAmount
-                    : null;
+                : oldAmountConverted;
+            if (hasImpactBoundaryChanged) {
+                updateData.accountAmount = newAccountId ? newAmountConverted : null;
+                updateData.accountCurrency = newAccountId ? userCurrency : null;
+                updateData.appliedExchangeRate =
+                    newAccountId && newAmount !== 0
+                        ? newAmountConverted / newAmount
+                        : null;
+            }
 
             const income = await tx.income.update({
                 where: { id },
@@ -602,7 +615,7 @@ export async function deleteIncome(id: number, appLockPassword: string) {
             if (existingIncome.accountId) {
                 const userCurrency = normalizeSupportedCurrency(user?.currency);
                 const incomeAmount = parseFloat(existingIncome.amount.toString());
-                const convertedAmount = existingIncome.accountAmount
+                const convertedAmount = existingIncome.accountAmount !== null
                     ? parseFloat(existingIncome.accountAmount.toString())
                     : await convertForDisplayWithDbRates(
                         incomeAmount,
@@ -850,7 +863,7 @@ export async function bulkDeleteIncomes(incomeIds: number[], appLockPassword: st
         for (const income of existingIncomes) {
             if (income.accountId) {
                 const amt = parseFloat(income.amount.toString());
-                const converted = income.accountAmount
+                const converted = income.accountAmount !== null
                     ? parseFloat(income.accountAmount.toString())
                     : await convertForDisplayWithDbRates(
                         amt,

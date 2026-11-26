@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useOptimizedFinancialData } from '../../hooks/useOptimizedFinancialData';
-import { useGatedAction } from '@repo/applock';
 import { ExpenseList } from './components/ExpenseList';
 import { AddExpenseModal } from './components/AddExpenseModal';
 import { EditExpenseModal } from './components/EditExpenseModal';
@@ -50,7 +49,7 @@ const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
 
 export default function ExpensesPageClient() {
   const { currency: userCurrency } = useCurrency();
-  const { displayCurrency } = useDisplayCurrency();
+  const { displayCurrency, currencyRateVersion } = useDisplayCurrency();
   const { timezone: userTimezone } = useTimezone();
   const searchParams = useSearchParams();
   const [notification, setNotification] = useState<NotificationData | null>(null);
@@ -234,7 +233,7 @@ export default function ExpensesPageClient() {
       currentYear,
       currentMonth
     ),
-    [allExpenses, getTransactionDay, displayCurrency, currentYear, currentMonth]
+    [allExpenses, getTransactionDay, displayCurrency, currencyRateVersion, currentYear, currentMonth]
   );
   const currentQuarter = Math.floor(currentMonth / 3);
   const lastMonth = (currentMonth + 11) % 12;
@@ -272,7 +271,7 @@ export default function ExpensesPageClient() {
 
   const visibleTotal = useMemo(
     () => filteredExpenses.reduce((total, item) => total + convertForDisplaySync(item.amount, item.currency, displayCurrency), 0),
-    [filteredExpenses, displayCurrency]
+    [filteredExpenses, displayCurrency, currencyRateVersion]
   );
 
   const summaryCards = [
@@ -305,26 +304,6 @@ export default function ExpensesPageClient() {
       dotColor: 'bg-orange-500',
     },
   ];
-
-  // Deletions require the lock screen password, which the server action
-  // re-verifies before deleting.
-  const deleteItem = useGatedAction(
-    (appLockPassword: string, itemId: number) => handleDeleteItem(appLockPassword, itemId),
-    {
-      title: 'Delete expense',
-      description: 'This cannot be undone. Enter your lock screen password to delete this expense.',
-      confirmLabel: 'Delete expense',
-    },
-  );
-
-  const bulkDeleteItems = useGatedAction(
-    (appLockPassword: string, visibleIds: number[]) => handleBulkDelete(appLockPassword, visibleIds),
-    {
-      title: 'Delete selected expenses',
-      description: 'This cannot be undone. Enter your lock screen password to delete the selected expenses.',
-      confirmLabel: 'Delete expenses',
-    },
-  );
 
   if (itemsError) {
     return (
@@ -453,14 +432,14 @@ export default function ExpensesPageClient() {
           currency={displayCurrency}
           onEdit={openEditModal}
           onView={openViewModal}
-          onDelete={(item) => void deleteItem(item.id)}
+          onDelete={(appLockPassword, item) => void handleDeleteItem(appLockPassword, item.id)}
           onBookmark={handleBookmarkToggle}
           onRefresh={invalidateQueries}
           selectedExpenses={visibleSelection}
           onExpenseSelect={handleItemSelect}
           onSelectAll={(selected) => handleSelectAll(selected, tableExpenses)}
           showBulkActions={true}
-          onBulkDelete={isBulkDeleting ? undefined : (ids) => void bulkDeleteItems(ids)}
+          onBulkDelete={isBulkDeleting ? undefined : (appLockPassword, ids) => void handleBulkDelete(appLockPassword, ids)}
           onClearSelection={() => handleSelectAll(false)}
         />
       </Suspense>

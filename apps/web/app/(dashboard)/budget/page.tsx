@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { PasswordGatedButton } from "@repo/applock";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency } from "../../utils/currency";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
@@ -14,12 +15,10 @@ import { getAllBudgetTargetsForExport, bulkDeleteAllBudgetTargets, getBudgetComp
 import { exportBudgetTargetsToCSV } from "../../utils/csvExportBudgetTargets";
 import { UnifiedBulkImportModal } from "../../components/shared/UnifiedBulkImportModal";
 import { budgetTargetsImportConfig } from "../../config/bulkImportConfig";
-import { BulkDeleteBudgetTargetsModal } from "./components/BulkDeleteBudgetTargetsModal";
 import { BudgetActionSuccessModal } from "./components/BudgetActionSuccessModal";
 import { CategoryPerformanceGauge } from "./components/CategoryPerformanceGauge";
 import { CategorySpendTrendChart } from "./components/CategorySpendTrendChart";
 import { CategoryBudgetSummary } from "./components/CategoryBudgetSummary";
-import { DeleteBudgetTargetModal } from "./components/DeleteBudgetTargetModal";
 import { MonthNavigation } from "./components/MonthNavigation";
 import { getCategoryHistoricalTrends, CategoryTrendData } from "../../actions/budget-trends";
 
@@ -63,7 +62,7 @@ interface BudgetComparisonData {
 export default function BudgetPage() {
   const session = useSession();
   const { currency: userCurrency } = useCurrency();
-  const { displayCurrency } = useDisplayCurrency();
+  const { displayCurrency, toDisplayAmount, toAccountAmount } = useDisplayCurrency();
   const money = (amount: number) =>
     formatCurrency(convertForDisplaySync(amount, userCurrency, displayCurrency), displayCurrency);
   const [selectedPeriod, setSelectedPeriod] = useState<'MONTHLY' | 'QUARTERLY' | 'YEARLY'>('MONTHLY');
@@ -178,15 +177,6 @@ export default function BudgetPage() {
   // Import modal state
   const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
   
-  // Delete modal states
-  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
-  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
-  
-  // Individual delete modal states
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [deletingCategoryName, setDeletingCategoryName] = useState<string | null>(null);
-  const [isIndividualDeleting, setIsIndividualDeleting] = useState(false);
-  
   // Success/Error modal states
   const [successModal, setSuccessModal] = useState<{
     isOpen: boolean;
@@ -209,7 +199,7 @@ export default function BudgetPage() {
     error,
     updateOrCreateBudgetTarget,
     updateCategoryBudgetInclusion,
-    deleteBudgetTarget,
+    removeBudgetTarget,
     isUpdating,
     isDeleting,
     isUpdatingInclusion
@@ -504,14 +494,18 @@ export default function BudgetPage() {
   // Inline editing handlers
   const handleStartEdit = (categoryName: string, currentAmount: number) => {
     setEditingCategory(categoryName);
-    setEditingValue(currentAmount.toString());
+    setEditingValue(toDisplayAmount(currentAmount, userCurrency).toString());
   };
 
   const handleSaveEdit = async () => {
     if (editingCategory && editingValue !== '') {
       const amount = parseFloat(editingValue);
       if (!isNaN(amount) && amount >= 0) {
-        await updateOrCreateBudgetTarget(editingCategory, amount, selectedPeriod);
+        await updateOrCreateBudgetTarget(
+          editingCategory,
+          toAccountAmount(amount),
+          selectedPeriod
+        );
       }
     }
     setEditingCategory(null);
@@ -523,29 +517,17 @@ export default function BudgetPage() {
     setEditingValue('');
   };
 
-  const handleDeleteTarget = (categoryName: string) => {
-    setDeletingCategoryName(categoryName);
-    setIsDeleteModalOpen(true);
-  };
-
-  const confirmDeleteTarget = async () => {
-    if (!deletingCategoryName) return;
-    
-    setIsIndividualDeleting(true);
+  const handleDeleteTarget = async (categoryName: string, appLockPassword: string) => {
     try {
-      await updateOrCreateBudgetTarget(deletingCategoryName, 0, selectedPeriod);
-      
-      // Close modal and reset state
-      setIsDeleteModalOpen(false);
-      setDeletingCategoryName(null);
-      setIsIndividualDeleting(false);
-      
+      const response = await removeBudgetTarget(categoryName, selectedPeriod, appLockPassword);
+      if (response.error) throw new Error(response.error);
+
       // Show success message
       setSuccessModal({
         isOpen: true,
         type: 'success',
         title: 'Budget Target Removed',
-        message: `Budget target for "${deletingCategoryName}" has been successfully removed.`,
+        message: `Budget target for "${categoryName}" has been successfully removed.`,
         details: [
           'The budget target has been removed',
           'Category remains visible in budget tracking',
@@ -554,22 +536,15 @@ export default function BudgetPage() {
       });
     } catch (error) {
       console.error('Error deleting budget target:', error);
-      setIsIndividualDeleting(false);
-      
+
       setSuccessModal({
         isOpen: true,
         type: 'error',
         title: 'Delete Failed',
-        message: 'Failed to remove budget target. Please try again.',
+        message: error instanceof Error ? error.message : 'Failed to remove budget target. Please try again.',
         details: []
       });
     }
-  };
-
-  const closeDeleteModal = () => {
-    if (isIndividualDeleting) return; // Prevent closing while deleting
-    setIsDeleteModalOpen(false);
-    setDeletingCategoryName(null);
   };
 
   const handleExportBudgetTargets = async () => {
@@ -623,14 +598,9 @@ export default function BudgetPage() {
     window.location.reload();
   };
 
-  const handleBulkDeleteAllBudgetTargets = () => {
-    setIsBulkDeleteModalOpen(true);
-  };
-
-  const confirmBulkDelete = async () => {
-    setIsBulkDeleting(true);
+  const handleBulkDeleteAllBudgetTargets = async (appLockPassword: string) => {
     try {
-      const response = await bulkDeleteAllBudgetTargets();
+      const response = await bulkDeleteAllBudgetTargets(appLockPassword);
       
       if (response.error) {
         setSuccessModal({
@@ -640,8 +610,6 @@ export default function BudgetPage() {
           message: response.error,
           details: []
         });
-        setIsBulkDeleteModalOpen(false);
-        setIsBulkDeleting(false);
         return;
       }
 
@@ -653,13 +621,9 @@ export default function BudgetPage() {
           message: 'No budget targets found to delete.',
           details: []
         });
-        setIsBulkDeleteModalOpen(false);
-        setIsBulkDeleting(false);
         return;
       }
 
-      setIsBulkDeleteModalOpen(false);
-      setIsBulkDeleting(false);
       setSuccessModal({
         isOpen: true,
         type: 'success',
@@ -685,8 +649,6 @@ export default function BudgetPage() {
         message: 'Failed to delete budget targets. Please try again.',
         details: []
       });
-      setIsBulkDeleteModalOpen(false);
-      setIsBulkDeleting(false);
     }
   };
 
@@ -740,14 +702,20 @@ export default function BudgetPage() {
             <Settings className="w-4 h-4" />
             Manage Categories
           </button>
-          <button
-            onClick={handleBulkDeleteAllBudgetTargets}
+          <PasswordGatedButton
+            onConfirm={handleBulkDeleteAllBudgetTargets}
+            prompt={{
+              title: 'Delete all budget targets',
+              description: `This cannot be undone. Enter your lock screen password to delete all ${budgetComparison.length} budget target(s).`,
+              confirmLabel: 'Delete all',
+              force: true,
+            }}
             className="px-4 py-2 border border-red-300 text-red-700 hover:bg-red-50 rounded-md flex items-center gap-2 disabled:opacity-50"
             disabled={budgetComparison.length === 0}
           >
             <Trash className="w-4 h-4" />
             Delete All
-          </button>
+          </PasswordGatedButton>
           <button
             style={{ display: "none" }}
             onClick={handleExportBudgetTargets}
@@ -1179,13 +1147,18 @@ export default function BudgetPage() {
                           <Edit className="w-4 h-4" />
                         </button>
                         {item.budgetTarget.monthlySpend > 0 && (
-                          <button 
-                            onClick={() => handleDeleteTarget(item.categoryName)}
+                          <PasswordGatedButton
+                            onConfirm={(appLockPassword) => handleDeleteTarget(item.categoryName, appLockPassword)}
+                            prompt={{
+                              title: 'Remove budget target',
+                              description: `This cannot be undone. Enter your lock screen password to remove the budget target for "${item.categoryName}".`,
+                              confirmLabel: 'Remove target',
+                            }}
                             className="text-red-600 hover:text-red-900"
                             title="Remove budget target"
                           >
                             <Trash2 className="w-4 h-4" />
-                          </button>
+                          </PasswordGatedButton>
                         )}
                         <button 
                           onClick={() => hideCategory(item.categoryName)}
@@ -1392,13 +1365,18 @@ export default function BudgetPage() {
                           <Edit className="w-4 h-4" />
                         </button>
                         {item.budgetTarget.monthlySpend > 0 && (
-                          <button 
-                            onClick={() => handleDeleteTarget(item.categoryName)}
+                          <PasswordGatedButton
+                            onConfirm={(appLockPassword) => handleDeleteTarget(item.categoryName, appLockPassword)}
+                            prompt={{
+                              title: 'Remove budget target',
+                              description: `This cannot be undone. Enter your lock screen password to remove the budget target for "${item.categoryName}".`,
+                              confirmLabel: 'Remove target',
+                            }}
                             className="text-red-600 hover:text-red-900"
                             title="Remove budget target"
                           >
                             <Trash2 className="w-4 h-4" />
-                          </button>
+                          </PasswordGatedButton>
                         )}
                         <button 
                           onClick={() => hideCategory(item.categoryName)}
@@ -1480,24 +1458,6 @@ export default function BudgetPage() {
         onClose={() => setIsBulkImportModalOpen(false)}
         onSuccess={handleBulkImportSuccess}
         config={budgetTargetsImportConfig}
-      />
-
-      {/* Bulk Delete Modal */}
-      <BulkDeleteBudgetTargetsModal
-        isOpen={isBulkDeleteModalOpen}
-        onClose={() => setIsBulkDeleteModalOpen(false)}
-        onConfirm={confirmBulkDelete}
-        targetCount={budgetComparison.length}
-        isDeleting={isBulkDeleting}
-      />
-
-      {/* Individual Delete Modal */}
-      <DeleteBudgetTargetModal 
-        isOpen={isDeleteModalOpen}
-        onClose={closeDeleteModal}
-        onConfirm={confirmDeleteTarget}
-        categoryName={deletingCategoryName}
-        isDeleting={isIndividualDeleting}
       />
 
       {/* Success/Error Modal */}

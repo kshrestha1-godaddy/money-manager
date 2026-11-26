@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useState, useEffect, useMemo, ReactNode } from "react";
+import React, { createContext, useCallback, useContext, useState, useEffect, useMemo, useRef, ReactNode } from "react";
 import { useSession } from "next-auth/react";
 import {
   getCurrencyPreferences,
@@ -25,9 +25,11 @@ interface CurrencyContextType {
   displayCurrency: CurrencyCode;
   updateCurrency: (newCurrency: string) => Promise<void>;
   updateDisplayCurrency: (newCurrency: string) => Promise<void>;
+  refreshCurrencyPreferences: () => Promise<void>;
   isAccountCurrencyLocked: boolean;
   isLoading: boolean;
   currencyRateAnchors: CurrencyRateAnchors;
+  currencyRateVersion: number;
   isRatesLoading: boolean;
   refreshCurrencyRates: () => Promise<void>;
 }
@@ -55,43 +57,92 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
   const [currencyRateAnchors, setCurrencyRateAnchors] = useState<CurrencyRateAnchors>({
     ...DEFAULT_CURRENCY_ANCHORS,
   });
+  const [currencyRateVersion, setCurrencyRateVersion] = useState(0);
   const [isRatesLoading, setIsRatesLoading] = useState(true);
+  const displayUpdateQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   const applyRateAnchors = useCallback((anchors: CurrencyRateAnchors) => {
     setCurrencyRateAnchors(anchors);
     setClientCurrencyConversionMatrix(anchors.inrToNpr, anchors.nprPerUsd);
+    setCurrencyRateVersion((version) => version + 1);
   }, []);
 
   const refreshCurrencyRates = useCallback(async () => {
-    const rates = await getCurrencyRateConfig();
-    applyRateAnchors(rates);
+    setIsRatesLoading(true);
+    try {
+      const rates = await getCurrencyRateConfig();
+      applyRateAnchors(rates);
+    } catch (error) {
+      applyRateAnchors(DEFAULT_CURRENCY_ANCHORS);
+      throw error;
+    } finally {
+      setIsRatesLoading(false);
+    }
   }, [applyRateAnchors]);
 
+  const refreshCurrencyPreferences = useCallback(async () => {
+    const preferences = await getCurrencyPreferences();
+    setAccountCurrency(preferences.accountCurrency);
+    setDisplayCurrency(preferences.displayCurrency);
+    setIsAccountCurrencyLocked(preferences.isAccountCurrencyLocked);
+  }, []);
+
   useEffect(() => {
+    let isCancelled = false;
+
+    if (status === "loading") {
+      setIsLoading(true);
+      setIsRatesLoading(true);
+      return () => {
+        isCancelled = true;
+      };
+    }
+
     if (status === "authenticated") {
       setIsLoading(true);
       setIsRatesLoading(true);
-      Promise.all([getCurrencyPreferences(), getCurrencyRateConfig()])
-        .then(([preferences, rates]) => {
-          setAccountCurrency(preferences.accountCurrency);
-          setDisplayCurrency(preferences.displayCurrency);
-          setIsAccountCurrencyLocked(preferences.isAccountCurrencyLocked);
-          applyRateAnchors(rates);
-        })
-        .catch((error) => {
-          console.error("Failed to load currency preferences:", error);
-          applyRateAnchors(DEFAULT_CURRENCY_ANCHORS);
+      Promise.allSettled([getCurrencyPreferences(), getCurrencyRateConfig()])
+        .then(([preferencesResult, ratesResult]) => {
+          if (isCancelled) return;
+
+          if (preferencesResult.status === "fulfilled") {
+            setAccountCurrency(preferencesResult.value.accountCurrency);
+            setDisplayCurrency(preferencesResult.value.displayCurrency);
+            setIsAccountCurrencyLocked(
+              preferencesResult.value.isAccountCurrencyLocked
+            );
+          } else {
+            console.error(
+              "Failed to load currency preferences:",
+              preferencesResult.reason
+            );
+          }
+
+          if (ratesResult.status === "fulfilled") {
+            applyRateAnchors(ratesResult.value);
+          } else {
+            console.error("Failed to load currency rates:", ratesResult.reason);
+            applyRateAnchors(DEFAULT_CURRENCY_ANCHORS);
+          }
         })
         .finally(() => {
+          if (isCancelled) return;
           setIsLoading(false);
           setIsRatesLoading(false);
         });
     } else {
+      setAccountCurrency("USD");
+      setDisplayCurrency("USD");
+      setIsAccountCurrencyLocked(false);
       setIsLoading(false);
       setIsRatesLoading(false);
       applyRateAnchors(DEFAULT_CURRENCY_ANCHORS);
     }
-  }, [status]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [applyRateAnchors, status]);
 
   const updateCurrency = useCallback(async (newCurrency: string) => {
     try {
@@ -105,15 +156,13 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
 
   const updateDisplayCurrency = useCallback(async (newCurrency: string) => {
     const normalized = normalizeSupportedCurrency(newCurrency);
-    const previous = displayCurrency;
-    setDisplayCurrency(normalized);
-    try {
+    const persistence = displayUpdateQueueRef.current.then(async () => {
       await persistDisplayCurrency(normalized);
-    } catch (error) {
-      setDisplayCurrency(previous);
-      throw error;
-    }
-  }, [displayCurrency]);
+      setDisplayCurrency(normalized);
+    });
+    displayUpdateQueueRef.current = persistence.catch(() => undefined);
+    await persistence;
+  }, []);
 
   // Memoized so a NextAuth session refetch does not cascade a new context
   // value into every consumer and remount the dashboard charts.
@@ -124,9 +173,11 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
       displayCurrency,
       updateCurrency,
       updateDisplayCurrency,
+      refreshCurrencyPreferences,
       isAccountCurrencyLocked,
       isLoading,
       currencyRateAnchors,
+      currencyRateVersion,
       isRatesLoading,
       refreshCurrencyRates,
     }),
@@ -135,9 +186,11 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
       displayCurrency,
       updateCurrency,
       updateDisplayCurrency,
+      refreshCurrencyPreferences,
       isAccountCurrencyLocked,
       isLoading,
       currencyRateAnchors,
+      currencyRateVersion,
       isRatesLoading,
       refreshCurrencyRates,
     ],

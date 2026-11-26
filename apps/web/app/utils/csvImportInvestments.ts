@@ -1,5 +1,6 @@
 import { InvestmentInterface } from '../types/investments';
 import { ImportResult } from '../types/bulkImport';
+import { assertCurrencyCode, type CurrencyCode } from './currency';
 
 /**
  * Parse CSV content for investment import
@@ -11,6 +12,7 @@ export interface ParsedInvestmentData {
     quantity: number;
     purchasePrice: number;
     currentPrice: number;
+    priceCurrency?: CurrencyCode;
     purchaseDate: Date;
     accountId?: number;
     notes?: string;
@@ -168,6 +170,18 @@ function validateAndConvertRow(
     
     // Create object from row data
     const rowData = mapRowToObject(row, headers);
+    let priceCurrency: CurrencyCode | undefined;
+    if (rowData.pricecurrency || rowData.currency) {
+        try {
+            priceCurrency = assertCurrencyCode(
+                rowData.pricecurrency || rowData.currency
+            );
+        } catch (error) {
+            errors.push(
+                `Row ${rowIndex + 1}: ${error instanceof Error ? error.message : 'Invalid price currency'}`
+            );
+        }
+    }
 
     // Validate required fields
     const requiredFields = ['name', 'type', 'quantity', 'purchaseprice', 'currentprice', 'purchasedate'];
@@ -291,6 +305,7 @@ function validateAndConvertRow(
         quantity: quantity!,
         purchasePrice: purchasePrice!,
         currentPrice: currentPrice!,
+        priceCurrency,
         purchaseDate: purchaseDate!,
         accountId: accountId!,
         notes: rowData.notes || undefined,

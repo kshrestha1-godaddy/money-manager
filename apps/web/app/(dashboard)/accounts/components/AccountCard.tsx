@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { PasswordGatedButton } from "@repo/applock";
 import { AccountInterface } from "../../../types/accounts";
 import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
@@ -16,7 +17,7 @@ export function AccountCard({
 }: { 
     account: AccountInterface;
     onEdit?: (account: AccountInterface) => void;
-    onDelete?: (account: AccountInterface) => void;
+    onDelete?: (appLockPassword: string, account: AccountInterface) => void;
     onViewDetails?: (account: AccountInterface) => void;
     onShare?: (account: AccountInterface) => void;
     isSelected?: boolean;
@@ -117,12 +118,17 @@ export function AccountCard({
                             </button>
                         )}
                         {onDelete && (
-                            <button
-                                onClick={() => onDelete(account)}
+                            <PasswordGatedButton
                                 className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
+                                prompt={{
+                                    title: "Delete account",
+                                    description: "This cannot be undone. Enter your lock screen password to delete this account.",
+                                    confirmLabel: "Delete account",
+                                }}
+                                onConfirm={(appLockPassword) => onDelete(appLockPassword, account)}
                             >
                                 Delete
-                            </button>
+                            </PasswordGatedButton>
                         )}
                     </div>
                 )}
@@ -143,7 +149,7 @@ export function AccountGrid({
 }: { 
     accounts: AccountInterface[];
     onEdit?: (account: AccountInterface) => void;
-    onDelete?: (account: AccountInterface) => void;
+    onDelete?: (appLockPassword: string, account: AccountInterface) => void;
     onViewDetails?: (account: AccountInterface) => void;
     onShare?: (account: AccountInterface) => void;
     selectedAccounts?: Set<number>;

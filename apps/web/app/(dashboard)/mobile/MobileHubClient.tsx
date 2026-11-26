@@ -309,7 +309,10 @@ function groupDebtsByStatus(items: DebtInterface[]): {
 
 export default function MobileHubClient() {
   const { currency: userCurrency } = useCurrency();
-  const { displayCurrency: selectedCurrency } = useDisplayCurrency();
+  const {
+    displayCurrency: selectedCurrency,
+    currencyRateVersion,
+  } = useDisplayCurrency();
   const { isUnlocked, remainingMs } = useAppLock();
   const [isCurrencyConverterOpen, setIsCurrencyConverterOpen] = useState(false);
   const [tab, setTab] = useState<MobileTab>("incomes");
@@ -510,7 +513,7 @@ export default function MobileHubClient() {
       0
     );
     return formatCurrency(sum, selectedCurrency);
-  }, [filteredIncomes, selectedCurrency]);
+  }, [filteredIncomes, selectedCurrency, currencyRateVersion]);
 
   const filteredExpensesTotalFormatted = useMemo(() => {
     const sum = filteredExpenses.reduce(
@@ -518,7 +521,7 @@ export default function MobileHubClient() {
       0
     );
     return formatCurrency(sum, selectedCurrency);
-  }, [filteredExpenses, selectedCurrency]);
+  }, [filteredExpenses, selectedCurrency, currencyRateVersion]);
 
   const filteredScheduledPaymentsTotalFormatted = useMemo(() => {
     const sum = filteredScheduledPayments.reduce(
@@ -526,7 +529,7 @@ export default function MobileHubClient() {
       0
     );
     return formatCurrency(sum, selectedCurrency);
-  }, [filteredScheduledPayments, selectedCurrency]);
+  }, [filteredScheduledPayments, selectedCurrency, currencyRateVersion]);
 
   const filteredAccountsTotalFormatted = useMemo(() => {
     const sum = filteredAccounts.reduce(
@@ -535,7 +538,7 @@ export default function MobileHubClient() {
       0
     );
     return formatCurrency(sum, selectedCurrency);
-  }, [filteredAccounts, selectedCurrency, userCurrency]);
+  }, [filteredAccounts, selectedCurrency, userCurrency, currencyRateVersion]);
 
   const accountsFreeWithheldDisplay = useMemo(() => {
     if (filteredAccounts.length === 0) {
@@ -550,7 +553,7 @@ export default function MobileHubClient() {
       withheldSum += convertForDisplaySync(bal - free, userCurrency, selectedCurrency);
     }
     return { free: freeSum, withheld: withheldSum };
-  }, [filteredAccounts, accounts, withheldAmountsByBank, userCurrency, selectedCurrency]);
+  }, [filteredAccounts, accounts, withheldAmountsByBank, userCurrency, selectedCurrency, currencyRateVersion]);
 
   function formatDisplayAmount(amount: number, storedCurrency: string): string {
     const converted = convertForDisplaySync(amount, storedCurrency, selectedCurrency);

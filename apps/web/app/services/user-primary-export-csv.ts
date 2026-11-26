@@ -443,13 +443,16 @@ export async function buildPrimaryExportCsvAttachments(
       ? prisma.category.findMany({ where: { userId }, orderBy: { name: "asc" } })
       : Promise.resolve([]),
     needsDisplayCurrencyData
-      ? prisma.user.findUnique({ where: { id: userId }, select: { currency: true } })
+      ? prisma.user.findUnique({
+          where: { id: userId },
+          select: { currency: true, displayCurrency: true },
+        })
       : Promise.resolve(null),
     needsDisplayCurrencyData ? getCurrencyRateConfigQuery() : Promise.resolve(null),
   ]);
 
   if (needsDisplayCurrencyData) {
-    displayCurrency = userRow?.currency || "USD";
+    displayCurrency = userRow?.displayCurrency || userRow?.currency || "USD";
     conversionMatrix = rateConfig?.matrix;
   }
 

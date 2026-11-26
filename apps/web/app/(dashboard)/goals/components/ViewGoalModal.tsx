@@ -5,10 +5,9 @@ interface ViewGoalModalProps {
   onClose: () => void;
   goal: any;
   onEdit: () => void;
-  onDelete: () => void;
 }
 
-export function ViewGoalModal({ isOpen, onClose, goal, onEdit, onDelete }: ViewGoalModalProps) {
+export function ViewGoalModal({ isOpen, onClose, goal, onEdit }: ViewGoalModalProps) {
   if (!isOpen) return null;
 
   return (

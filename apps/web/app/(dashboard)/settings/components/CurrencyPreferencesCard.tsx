@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CURRENCIES, getCurrencySymbol } from "../../../utils/currency";
 import { useCurrency } from "../../../providers/CurrencyProvider";
 
@@ -12,9 +12,16 @@ export function CurrencyPreferencesCard() {
     isLoading,
     updateCurrency,
     updateDisplayCurrency,
+    refreshCurrencyPreferences,
   } = useCurrency();
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    void refreshCurrencyPreferences().catch((error) => {
+      console.error("Failed to refresh currency preferences:", error);
+    });
+  }, [refreshCurrencyPreferences]);
 
   async function handleDisplayCurrencyChange(value: string) {
     setIsSaving(true);

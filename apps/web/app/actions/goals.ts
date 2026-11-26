@@ -2,6 +2,7 @@
 
 import prisma from "@repo/db/client";
 import { getAuthenticatedSession, getUserIdFromSession } from "../utils/auth";
+import { requireAppLockPassword } from "../lib/security/require-app-lock-password";
 
 // Types for Goal operations
 interface GoalFormData {
@@ -532,10 +533,9 @@ export async function updateGoal(id: number, data: Partial<GoalFormData>): Promi
   }
 }
 
-export async function deleteGoal(id: number): Promise<{ success?: boolean, error?: string }> {
+export async function deleteGoal(id: number, appLockPassword: string): Promise<{ success?: boolean, error?: string }> {
   try {
-    const session = await getAuthenticatedSession();
-    const userId = getUserIdFromSession(session.user.id);
+    const userId = await requireAppLockPassword(appLockPassword);
 
     // Verify ownership
     const existingGoal = await prisma.goal.findFirst({
@@ -696,10 +696,9 @@ export async function updateGoalPhase(id: number, data: Partial<GoalPhaseFormDat
   }
 }
 
-export async function deleteGoalPhase(id: number): Promise<{ success?: boolean, error?: string }> {
+export async function deleteGoalPhase(id: number, appLockPassword: string): Promise<{ success?: boolean, error?: string }> {
   try {
-    const session = await getAuthenticatedSession();
-    const userId = getUserIdFromSession(session.user.id);
+    const userId = await requireAppLockPassword(appLockPassword);
 
     // Verify ownership
     const existingPhase = await prisma.goalPhase.findFirst({

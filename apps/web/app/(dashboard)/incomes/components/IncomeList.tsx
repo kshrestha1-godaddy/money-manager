@@ -8,13 +8,13 @@ interface IncomeListProps {
     currency?: string;
     onEdit?: (income: Income) => void;
     onView?: (income: Income) => void;
-    onDelete?: (income: Income) => void;
+    onDelete?: (appLockPassword: string, income: Income) => void;
     onBookmark?: (income: Income) => void;
     selectedIncomes?: Set<number>;
     onIncomeSelect?: (incomeId: number, selected: boolean) => void;
     onSelectAll?: (selected: boolean) => void;
     showBulkActions?: boolean;
-    onBulkDelete?: (ids: number[]) => void;
+    onBulkDelete?: (appLockPassword: string, ids: number[]) => void;
     onClearSelection?: () => void;
     onRefresh?: () => void | Promise<void>;
 }
@@ -34,10 +34,11 @@ export function IncomeList({
     onClearSelection,
     onRefresh
 }: IncomeListProps) {
-    // Wrapper functions to handle type conversion between Income and FinancialTransaction
     const handleEdit = onEdit ? (transaction: any) => onEdit(transaction as Income) : undefined;
     const handleView = onView ? (transaction: any) => onView(transaction as Income) : undefined;
-    const handleDelete = onDelete ? (transaction: any) => onDelete(transaction as Income) : undefined;
+    const handleDelete = onDelete
+        ? (appLockPassword: string, transaction: any) => onDelete(appLockPassword, transaction as Income)
+        : undefined;
     const handleBookmark = onBookmark ? (transaction: any) => onBookmark(transaction as Income) : undefined;
 
     return (
@@ -58,4 +59,4 @@ export function IncomeList({
             onRefresh={onRefresh}
         />
     );
-} 
+}

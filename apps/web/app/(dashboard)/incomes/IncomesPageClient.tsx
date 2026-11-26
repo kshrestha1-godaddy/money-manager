@@ -41,7 +41,7 @@ const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
 
 export default function IncomesPageClient() {
   const { currency: userCurrency } = useCurrency();
-  const { displayCurrency } = useDisplayCurrency();
+  const { displayCurrency, currencyRateVersion } = useDisplayCurrency();
   const { timezone: userTimezone } = useTimezone();
   const searchParams = useSearchParams();
   const [notification, setNotification] = useState<NotificationData | null>(null);
@@ -210,7 +210,7 @@ export default function IncomesPageClient() {
       currentYear,
       currentMonth
     ),
-    [allIncomes, getTransactionDay, displayCurrency, currentYear, currentMonth]
+    [allIncomes, getTransactionDay, displayCurrency, currencyRateVersion, currentYear, currentMonth]
   );
   const currentQuarter = Math.floor(currentMonth / 3);
   const lastMonth = (currentMonth + 11) % 12;
@@ -248,7 +248,7 @@ export default function IncomesPageClient() {
 
   const visibleTotal = useMemo(
     () => filteredIncomes.reduce((total, item) => total + convertForDisplaySync(item.amount, item.currency, displayCurrency), 0),
-    [filteredIncomes, displayCurrency]
+    [filteredIncomes, displayCurrency, currencyRateVersion]
   );
 
   const summaryCards = [
@@ -281,26 +281,6 @@ export default function IncomesPageClient() {
       dotColor: 'bg-purple-500',
     },
   ];
-
-  // Deletions require the lock screen password, which the server action
-  // re-verifies before deleting.
-  const deleteItem = useGatedAction(
-    (appLockPassword: string, itemId: number) => handleDeleteItem(appLockPassword, itemId),
-    {
-      title: 'Delete income',
-      description: 'This cannot be undone. Enter your lock screen password to delete this income.',
-      confirmLabel: 'Delete income',
-    },
-  );
-
-  const bulkDeleteItems = useGatedAction(
-    (appLockPassword: string, visibleIds: number[]) => handleBulkDelete(appLockPassword, visibleIds),
-    {
-      title: 'Delete selected incomes',
-      description: 'This cannot be undone. Enter your lock screen password to delete the selected incomes.',
-      confirmLabel: 'Delete incomes',
-    },
-  );
 
   if (itemsError) {
     return (

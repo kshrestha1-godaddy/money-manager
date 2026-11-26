@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback, useId } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Download, Eye } from "lucide-react";
+import { PasswordGatedButton } from "@repo/applock";
 import { AccountInterface } from "../../../types/accounts";
 import { accountOpeningDay, formatAccountOpeningDate } from "../utils/accountOpeningDate";
 import { formatCurrency } from "../../../utils/currency";
