@@ -3,12 +3,12 @@
 import { useState, useEffect } from "react";
 import { Bell, X, Check, Settings, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { PasswordGatedButton } from "@repo/applock";
 import { useRouter } from "next/navigation";
 import { 
     getNotifications, 
     markNotificationAsRead, 
     markAllNotificationsAsRead,
-    deleteNotification,
     clearAllNotifications,
     NotificationData 
 } from "../../actions/notifications";
@@ -22,7 +22,6 @@ export function NotificationBell({ className = "" }: NotificationBellProps) {
     const [notifications, setNotifications] = useState<NotificationData[]>([]);
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [showClearDialog, setShowClearDialog] = useState(false);
     const router = useRouter();
     const { unreadCount: contextUnreadCount, refreshUnreadCount } = useNotificationContext();
     
@@ -67,29 +66,12 @@ export function NotificationBell({ className = "" }: NotificationBellProps) {
         }
     };
 
-    // Handle delete notification
-    const handleDeleteNotification = async (notificationId: number) => {
+    // Handle clear all notifications (gated by the lock screen password)
+    const handleClearAllNotifications = async (appLockPassword: string) => {
         try {
-            await deleteNotification(notificationId);
-            await Promise.all([loadNotifications(), refreshUnreadCount()]);
-        } catch (error) {
-            console.error("Failed to delete notification:", error);
-        }
-    };
-
-    // Handle clear all notifications
-    const handleClearAllNotifications = async () => {
-        setShowClearDialog(true);
-    };
-
-    // Confirm and execute clear all notifications
-    const confirmClearAllNotifications = async () => {
-        try {
-            const result = await clearAllNotifications();
+            const result = await clearAllNotifications(appLockPassword);
             await Promise.all([loadNotifications(), refreshUnreadCount()]);
             
-            // Close both dialogs
-            setShowClearDialog(false);
             setIsOpen(false);
             
             // Show success message (optional)
@@ -340,66 +322,24 @@ export function NotificationBell({ className = "" }: NotificationBellProps) {
                                 Close Notifications
                             </button>
                             {notifications.length > 0 && (
-                                <button
-                                    onClick={handleClearAllNotifications}
+                                <PasswordGatedButton
+                                    onConfirm={handleClearAllNotifications}
+                                    prompt={{
+                                        title: "Clear all notifications",
+                                        description: "This cannot be undone. Enter your lock screen password to clear all notifications.",
+                                        confirmLabel: "Clear all",
+                                        force: true,
+                                    }}
                                     className="flex-1 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded transition-colors flex items-center justify-center"
                                 >
                                     <Trash2 size={14} className="mr-1" />
                                     Clear All
-                                </button>
+                                </PasswordGatedButton>
                             )}
                         </div>
                     </div>
 
 
-                </div>
-            )}
-
-            {/* Clear All Confirmation Dialog */}
-            {showClearDialog && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center min-h-screen p-4">
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowClearDialog(false)} />
-                    <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full p-8 border border-gray-100 my-auto">
-                        {/* Header */}
-                        <div className="text-center mb-6">
-                            <div className="mx-auto w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-4">
-                                <Trash2 className="w-6 h-6 text-red-500" />
-                            </div>
-                            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                                Clear All Notifications?
-                            </h3>
-                            <p className="text-gray-600 text-sm">
-                                This action cannot be undone.
-                            </p>
-                        </div>
-
-                        {/* Warning */}
-                        <div className="bg-amber-50 border-l-4 border-amber-400 p-4 mb-6 rounded-r-lg">
-                            <div className="flex">
-                                <div className="ml-3">
-                                    <p className="text-sm text-amber-800">
-                                        <span className="font-medium">Important:</span> Make sure you've addressed the underlying causes of these notifications, or they may reappear.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex space-x-3">
-                            <button
-                                onClick={() => setShowClearDialog(false)}
-                                className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={confirmClearAllNotifications}
-                                className="flex-1 px-4 py-3 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
-                            >
-                                Clear All
-                            </button>
-                        </div>
-                    </div>
                 </div>
             )}
 

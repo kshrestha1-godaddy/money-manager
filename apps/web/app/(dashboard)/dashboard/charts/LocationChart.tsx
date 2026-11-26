@@ -8,7 +8,7 @@ import { DEFAULT_LOCATION } from "../../../utils/locationDefaults";
 import type { ExpressionSpecification } from "maplibre-gl";
 import { formatCurrency } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
-import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
+import { useDisplayCurrency, useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface LocationChartProps {
   currency: string;
@@ -79,6 +79,7 @@ function hasValidCoordinates(location: { longitude: unknown; latitude: unknown }
 
 export function LocationChart({ currency: currencyProp, heightClass = "h-[850px]" }: LocationChartProps) {
   const currency = useResolvedDisplayCurrency(currencyProp);
+  const { currencyRateVersion } = useDisplayCurrency();
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
   const [datePreset, setDatePreset] = useState("All");
   const [mapTheme, setMapTheme] = useState<"light" | "dark">("light");
@@ -170,7 +171,7 @@ export function LocationChart({ currency: currencyProp, heightClass = "h-[850px]
     return [...incomeLocations, ...expenseLocations].filter(
       (transaction) => Number.isFinite(transaction.latitude) && Number.isFinite(transaction.longitude)
     );
-  }, [dateFiltered, currency]);
+  }, [dateFiltered, currency, currencyRateVersion]);
 
   const transactions = useMemo(
     () => locatedTransactions.filter(item => transactionType === "all" || item.type === transactionType),

@@ -112,7 +112,8 @@ function useChartData(
   categoryType: 'EXPENSE' | 'INCOME' | 'ALL',
   allCategories: Array<{ name: string; type: string; includedInBudget: boolean }> | undefined,
   userCurrency: string,
-  displayCurrency: string
+  displayCurrency: string,
+  currencyRateVersion: number
 ): ChartDataPoint[] {
   return useMemo(() => {
     let filteredData = budgetData.filter(item => item.budgetTarget.monthlySpend > 0);
@@ -166,7 +167,7 @@ function useChartData(
       .sort((a, b) => b.utilization - a.utilization);
     
     return [...expenses, ...incomes];
-  }, [budgetData, categoryType, allCategories, userCurrency, displayCurrency]);
+  }, [budgetData, categoryType, allCategories, userCurrency, displayCurrency, currencyRateVersion]);
 }
 
 function useChartConfig(chartData: ChartDataPoint[], containerWidth: number): ChartConfig {
@@ -633,13 +634,20 @@ export const CategoryPerformanceGauge = memo(({
   isLoading = false,
   allCategories
 }: CategoryPerformanceGaugeProps) => {
-  const { currency: userCurrency } = useCurrency();
+  const { currency: userCurrency, currencyRateVersion } = useCurrency();
   const [hoveredItem, setHoveredItem] = useState<ChartDataPoint | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   
   // Use custom hooks
   const { containerWidth, containerRef } = useContainerWidth();
-  const chartData = useChartData(budgetData, categoryType, allCategories, userCurrency, currency);
+  const chartData = useChartData(
+    budgetData,
+    categoryType,
+    allCategories,
+    userCurrency,
+    currency,
+    currencyRateVersion
+  );
   const config = useChartConfig(chartData, containerWidth);
   const navigate = useNavigation(selectedMonth, selectedYear);
 

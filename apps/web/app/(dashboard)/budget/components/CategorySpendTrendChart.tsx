@@ -57,7 +57,7 @@ export function CategorySpendTrendChart({
   onTimeRangeChange,
   isLoading = false
 }: CategorySpendTrendChartProps) {
-  const { currency: userCurrency } = useCurrency();
+  const { currency: userCurrency, currencyRateVersion } = useCurrency();
   const router = useRouter();
   const [hoveredPoint, setHoveredPoint] = useState<HoveredPoint | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
@@ -204,7 +204,7 @@ export function CategorySpendTrendChart({
         actualAmount: convertForDisplaySync(point.actualAmount, userCurrency, currency),
       })),
     }));
-  }, [trendData, categoryType, selectedCategories, activeSection, showSeparateSections, maxCategories, userCurrency, currency]);
+  }, [trendData, categoryType, selectedCategories, activeSection, showSeparateSections, maxCategories, userCurrency, currency, currencyRateVersion]);
 
   // Calculate chart dimensions and scales
   const { 

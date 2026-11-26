@@ -62,7 +62,10 @@ type PageMode = "single" | "compare" | "premium-irr" | "fd-income-corpus";
 
 export default function AnnuityPageClient() {
   const { currency: userCurrency } = useCurrency();
-  const { displayCurrency: selectedCurrency } = useDisplayCurrency();
+  const {
+    displayCurrency: selectedCurrency,
+    currencyRateVersion,
+  } = useDisplayCurrency();
   const [pageMode, setPageMode] = useState<PageMode>("single");
   const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_ANNUITY_INPUTS);
   const [trackedPresetId, setTrackedPresetId] = useState<number | null>(null);
@@ -171,7 +174,7 @@ export default function AnnuityPageClient() {
         ),
       };
     });
-  }, [rows, baseCurrency, selectedCurrency, trackedCompletedMonths]);
+  }, [rows, baseCurrency, selectedCurrency, currencyRateVersion, trackedCompletedMonths]);
 
   const chartXTicks = useMemo(() => buildChartXTicks(rows), [rows]);
 

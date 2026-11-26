@@ -760,7 +760,7 @@ function ComparisonChart({
 export default function History() {
     const { data: session } = useSession();
     const { currency: userCurrency } = useCurrency();
-    const { displayCurrency } = useDisplayCurrency();
+    const { displayCurrency, currencyRateVersion } = useDisplayCurrency();
     const currency = displayCurrency;
     
     const [selectedPeriod, setSelectedPeriod] = useState<string>("3months_vs_last_year");
@@ -1004,7 +1004,7 @@ export default function History() {
                 expensesByCategory: period1ExpensesByCategoryWithInflation
             }
         };
-    }, [allIncomes, allExpenses, selectedPeriod, customPeriod1Start, customPeriod1End, customPeriod2Start, customPeriod2End, loading, incomeIncrementRate, expenseInflationRate, currency]);
+    }, [allIncomes, allExpenses, selectedPeriod, customPeriod1Start, customPeriod1End, customPeriod2Start, customPeriod2End, loading, incomeIncrementRate, expenseInflationRate, currency, currencyRateVersion]);
 
     // Sorted categories for income table
     const sortedIncomeCategories = useMemo(() => {

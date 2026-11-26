@@ -358,7 +358,7 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
 
     // Enhanced CSV data with detailed statistics
     const csvData = [
-        ['Month', 'Income', 'Expenses', 'Savings', 'Income Transactions', 'Expense Transactions', 'Total Transactions', 'Savings Rate (%)', 'Avg Income', 'Avg Expense'],
+        ['Month', `Income (${currency})`, `Expenses (${currency})`, `Savings (${currency})`, 'Income Transactions', 'Expense Transactions', 'Total Transactions', 'Savings Rate (%)', `Avg Income (${currency})`, `Avg Expense (${currency})`],
         ...chartData.map(item => [
             item.formattedMonth,
             item.income.toString(),

@@ -264,7 +264,7 @@ export const SavingsRateChart = React.memo<SavingsRateChartProps>(({ currency: c
 
     // Enhanced CSV data for export
     const csvData = [
-        ['Month', 'Savings Rate (%)', 'Total Income', 'Total Expenses', 'Net Savings', 'Income Transactions', 'Expense Transactions', 'Total Transactions', 'Avg Income', 'Avg Expense'],
+        ['Month', 'Savings Rate (%)', `Total Income (${currency})`, `Total Expenses (${currency})`, `Net Savings (${currency})`, 'Income Transactions', 'Expense Transactions', 'Total Transactions', `Avg Income (${currency})`, `Avg Expense (${currency})`],
         ...data.map(item => [
             item.formattedMonth,
             (item.savingsRate ?? 0).toFixed(1),

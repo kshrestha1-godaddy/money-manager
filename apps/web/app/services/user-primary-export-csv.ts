@@ -10,7 +10,10 @@ import { convertAccountsToCSV } from "../utils/csvExport";
 import { convertDebtsToCSV, convertRepaymentsToCSV } from "../utils/csvExportDebts";
 import { convertExpensesToCSV, convertExpensesToCSVWithDisplayCurrency } from "../utils/csvExportExpenses";
 import { convertIncomesToCSV, convertIncomesToCSVWithDisplayCurrency } from "../utils/csvExportIncomes";
-import { convertInvestmentsToCSV } from "../utils/csvExportInvestments";
+import {
+  convertInvestmentsToCSV,
+  convertInvestmentsToCSVWithDisplayCurrency,
+} from "../utils/csvExportInvestments";
 import { convertInvestmentTargetsToCSV } from "../utils/csvExportInvestmentTargets";
 import { convertPasswordsToCSV } from "../utils/csvExportPasswords";
 import { convertCategoriesToCsv } from "../utils/csvExportCategories";
@@ -381,7 +384,8 @@ export async function buildPrimaryExportCsvAttachments(
     activeSheets.has("income_categories") ||
     activeSheets.has("expense_categories");
   const needsDisplayCurrencyData =
-    includeDisplayCurrency && (needsExpenses || needsIncomes);
+    includeDisplayCurrency && (needsExpenses || needsIncomes || needsInvestments || needsAccounts);
+  const needsUserCurrencyData = needsDisplayCurrencyData || needsInvestments || needsAccounts;
 
   let displayCurrency: string | undefined;
   let conversionMatrix: ConversionRateMatrix | undefined;
@@ -442,7 +446,7 @@ export async function buildPrimaryExportCsvAttachments(
     needsCategories
       ? prisma.category.findMany({ where: { userId }, orderBy: { name: "asc" } })
       : Promise.resolve([]),
-    needsDisplayCurrencyData
+    needsUserCurrencyData
       ? prisma.user.findUnique({
           where: { id: userId },
           select: { currency: true, displayCurrency: true },
@@ -574,7 +578,7 @@ export async function buildPrimaryExportCsvAttachments(
     }
   };
 
-  tryPushCsv("accounts", () => convertAccountsToCSV(accounts));
+  tryPushCsv("accounts", () => convertAccountsToCSV(accounts, userRow?.currency));
   tryPushCsv("debts", () => convertDebtsToCSV(debts));
   const debtIdMap: Record<number, string> = {};
   for (const d of debts) {
@@ -593,7 +597,16 @@ export async function buildPrimaryExportCsvAttachments(
       ? convertIncomesToCSVWithDisplayCurrency(incomes, displayCurrency, conversionMatrix)
       : convertIncomesToCSV(incomes)
   );
-  tryPushCsv("investments", () => convertInvestmentsToCSV(investments));
+  tryPushCsv("investments", () =>
+    includeDisplayCurrency && displayCurrency && userRow
+      ? convertInvestmentsToCSVWithDisplayCurrency(
+          investments,
+          userRow.currency,
+          displayCurrency,
+          conversionMatrix
+        )
+      : convertInvestmentsToCSV(investments, userRow?.currency)
+  );
 
   const progress = needsInvestmentTargets
     ? await investmentTargetProgressForUser(userId)

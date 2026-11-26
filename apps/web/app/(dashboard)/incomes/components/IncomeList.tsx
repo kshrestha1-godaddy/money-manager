@@ -45,7 +45,7 @@ export function IncomeList({
         <FinancialList
             transactions={incomes as any}
             transactionType="INCOME"
-            currency={currency}
+            currency={currency ?? ""}
             onEdit={handleEdit}
             onView={handleView}
             onDelete={handleDelete}

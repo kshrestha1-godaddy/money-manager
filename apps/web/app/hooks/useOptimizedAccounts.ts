@@ -16,6 +16,7 @@ import { triggerBalanceRefresh } from "./useTotalBalance";
 import { exportAccountsToCSV } from "../utils/csv";
 import { ParsedAccountData } from "../utils/csv";
 import { TransferData } from "../(dashboard)/accounts/components/TransferModal";
+import { useDisplayCurrency } from "./useDisplayCurrency";
 
 interface UseOptimizedAccountsReturn {
     // Data
@@ -99,6 +100,7 @@ interface UseOptimizedAccountsReturn {
 }
 
 export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
+    const { accountCurrency } = useDisplayCurrency();
     const queryClient = useQueryClient();
     const [actionError, setActionError] = useState<string | null>(null);
 
@@ -395,7 +397,7 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         } else {
             setSelectedAccounts(new Set());
         }
-    }, [filteredAccounts]);
+    }, [filteredAccounts, accountCurrency]);
 
     // Utility handlers
     const handleBulkImportSuccess = useCallback((importedAccounts: ParsedAccountData[]) => {
@@ -436,7 +438,7 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
     };
 
     const handleExportToCSV = useCallback(() => {
-        const result = exportAccountsToCSV(filteredAccounts);
+        const result = exportAccountsToCSV(filteredAccounts, undefined, accountCurrency);
         if (!result.success) {
             setActionError(result.error || 'Failed to export accounts');
         }

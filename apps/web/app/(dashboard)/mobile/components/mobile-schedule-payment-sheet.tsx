@@ -21,6 +21,11 @@ import {
   buttonClasses,
 } from "../../../utils/formUtils";
 import { createScheduledPayment } from "../../scheduled-payments/actions/scheduled-payments";
+import { useTimezone } from "../../../providers/TimezoneProvider";
+import {
+  parseDatetimeLocalInTimezone,
+  toDatetimeLocalValue,
+} from "../../../utils/scheduledPaymentTime";
 
 const RECURRING_OPTIONS = ["DAILY", "WEEKLY", "MONTHLY", "YEARLY"] as const;
 type RecurringChoice = (typeof RECURRING_OPTIONS)[number];
@@ -33,10 +38,8 @@ export interface MobileSchedulePaymentSheetProps {
   accounts: AccountInterface[];
 }
 
-function defaultLocalDatetime(): string {
-  const d = new Date();
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
+function defaultLocalDatetime(timezone: string): string {
+  return toDatetimeLocalValue(new Date(), timezone);
 }
 
 export function MobileSchedulePaymentSheet({
@@ -47,6 +50,7 @@ export function MobileSchedulePaymentSheet({
   accounts,
 }: MobileSchedulePaymentSheetProps) {
   const { accountCurrency } = useDisplayCurrency();
+  const { timezone, isLoading: isTimezoneLoading } = useTimezone();
   const defaultCurrency = getUserSupportedCurrency(accountCurrency);
   const expenseCategories = categories.filter((c) => c.type === "EXPENSE");
 
@@ -56,7 +60,7 @@ export function MobileSchedulePaymentSheet({
   const [categoryId, setCategoryId] = useState("");
   const [accountId, setAccountId] = useState("0");
   const [notes, setNotes] = useState("");
-  const [scheduledAtLocal, setScheduledAtLocal] = useState(defaultLocalDatetime());
+  const [scheduledAtLocal, setScheduledAtLocal] = useState("");
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringFrequency, setRecurringFrequency] = useState<RecurringChoice>("MONTHLY");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -76,11 +80,11 @@ export function MobileSchedulePaymentSheet({
     setCategoryId("");
     setAccountId("0");
     setNotes("");
-    setScheduledAtLocal(defaultLocalDatetime());
+    if (!isTimezoneLoading) setScheduledAtLocal(defaultLocalDatetime(timezone));
     setIsRecurring(false);
     setRecurringFrequency("MONTHLY");
     setAmountCurrency(getUserSupportedCurrency(accountCurrency));
-  }, [isOpen, accountCurrency]);
+  }, [isOpen, accountCurrency, timezone, isTimezoneLoading]);
 
   function handleClose() {
     setTitle("");
@@ -109,9 +113,9 @@ export function MobileSchedulePaymentSheet({
       return;
     }
 
-    const scheduledAt = new Date(scheduledAtLocal);
-    if (Number.isNaN(scheduledAt.getTime())) {
-      alert("Invalid date and time");
+    const scheduledAt = parseDatetimeLocalInTimezone(scheduledAtLocal, timezone);
+    if (!scheduledAt) {
+      alert(`Enter a valid date and time in ${timezone}. This time may not exist due to a daylight-saving change.`);
       return;
     }
 
@@ -254,13 +258,13 @@ export function MobileSchedulePaymentSheet({
                 </select>
               </div>
               <div>
-                <label className={labelClasses}>Scheduled date &amp; time</label>
+                <label className={labelClasses}>Scheduled date &amp; time ({timezone})</label>
                 <input
                   type="datetime-local"
                   className={inputClasses}
                   value={scheduledAtLocal}
                   onChange={(e) => setScheduledAtLocal(e.target.value)}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isTimezoneLoading}
                   required
                 />
               </div>

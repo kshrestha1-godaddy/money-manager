@@ -4,6 +4,7 @@ import type { Expense } from "../types/financial";
 import { convertForDisplayWithDbRates } from "./currencyDisplayServer";
 import { logAccountBalanceFromTransaction } from "./accountActivityLog";
 import { assertCurrencyCode } from "./currency";
+import { assertOwnedAccount, getLockedLedgerCurrency } from "./ledgerCurrency";
 
 function serializeTransactionLocation(location: any) {
     if (!location) return null;
@@ -19,9 +20,12 @@ export async function createExpenseInTransaction(
     tx: Prisma.TransactionClient,
     data: Omit<Expense, "id" | "createdAt" | "updatedAt">,
     userId: number,
-    user: { currency: string } | null
+    _user: { currency: string } | null
 ) {
-    const accountCurrency = assertCurrencyCode(user?.currency || "USD");
+    const accountCurrency = await getLockedLedgerCurrency(tx, userId);
+    if (data.accountId) {
+        await assertOwnedAccount(tx, userId, data.accountId);
+    }
     const transactionCurrency = assertCurrencyCode(
         data.currency || accountCurrency
     );

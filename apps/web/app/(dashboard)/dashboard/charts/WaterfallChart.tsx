@@ -166,7 +166,7 @@ export const WaterfallChart = React.memo<WaterfallChartProps>(({ currency: curre
 
     // Enhanced CSV data with detailed statistics
     const csvData = [
-        ['Category', 'Amount', 'Type', 'Transactions', 'Average per Transaction', 'Percentage', 'Description'],
+        ['Category', `Amount (${currency})`, 'Type', 'Transactions', `Average per Transaction (${currency})`, 'Percentage', 'Description'],
         ['Income', totalIncome.toString(), 'Positive', incomeCount.toString(), averageIncome.toFixed(2), `${(totalFlow > 0 ? (totalIncome / totalFlow) * 100 : 0).toFixed(1)}%`, 'Total money earned during this period'],
         ['Expenses', totalExpenses.toString(), 'Negative', expenseCount.toString(), averageExpense.toFixed(2), `${(totalFlow > 0 ? (totalExpenses / totalFlow) * 100 : 0).toFixed(1)}%`, 'Total money spent during this period'],
         ['Net Savings', totalSavings.toString(), totalSavings >= 0 ? 'Positive' : 'Negative', totalTransactions.toString(), (totalTransactions > 0 ? Math.abs(totalSavings) / totalTransactions : 0).toFixed(2), `${Math.abs(savingsRate).toFixed(1)}%`, totalSavings >= 0 ? 'Money saved after all expenses' : 'Amount by which expenses exceeded income'],

@@ -42,6 +42,7 @@ import { getUserIdFromSession } from "../../../utils/auth";
 import { convertForDisplayWithDbRates } from "../../../utils/currencyDisplayServer";
 import { autoBookmarkHighValueTransaction, handleBookmarkOnAmountChange } from "../../../utils/autoBookmarkUtils";
 import { logAccountBalanceFromTransaction } from "../../../utils/accountActivityLog";
+import { assertOwnedAccount } from "../../../utils/ledgerCurrency";
 import { requireAppLockPassword } from "../../../lib/security/require-app-lock-password";
 import {
     ActivityAction,
@@ -274,8 +275,16 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
                 data.currency !== undefined ? data.currency : oldCurrency
             );
             const oldAccountId = existingExpense.accountId;
+            const isHistoricalZeroImpact =
+                existingExpense.accountAmount !== null &&
+                Number(existingExpense.accountAmount) === 0 &&
+                existingExpense.appliedExchangeRate !== null &&
+                Number(existingExpense.appliedExchangeRate) === 0;
             const newAccountId =
                 data.accountId !== undefined ? data.accountId : oldAccountId;
+            if (newAccountId) {
+                await assertOwnedAccount(tx, userId, newAccountId);
+            }
             const oldAmountConverted = existingExpense.accountAmount !== null
                 ? parseFloat(existingExpense.accountAmount.toString())
                 : await convertForDisplayWithDbRates(
@@ -288,17 +297,21 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
                 data.currency !== undefined ||
                 data.accountId !== undefined;
             const newAmountConverted = hasImpactBoundaryChanged && newAccountId
-                ? await convertForDisplayWithDbRates(
-                    newAmount,
-                    newCurrency,
-                    userCurrency
-                )
+                ? isHistoricalZeroImpact
+                    ? 0
+                    : await convertForDisplayWithDbRates(
+                        newAmount,
+                        newCurrency,
+                        userCurrency
+                    )
                 : oldAmountConverted;
             if (hasImpactBoundaryChanged) {
                 updateData.accountAmount = newAccountId ? newAmountConverted : null;
                 updateData.accountCurrency = newAccountId ? userCurrency : null;
                 updateData.appliedExchangeRate =
-                    newAccountId && newAmount !== 0
+                    isHistoricalZeroImpact && newAccountId
+                        ? 0
+                        : newAccountId && newAmount !== 0
                         ? newAmountConverted / newAmount
                         : null;
             }
@@ -1335,6 +1348,14 @@ export async function importCorrectedRow(
             expense: {
                 ...result,
                 amount: parseFloat(result.amount.toString()),
+                accountAmount:
+                    result.accountAmount === null
+                        ? null
+                        : Number(result.accountAmount),
+                appliedExchangeRate:
+                    result.appliedExchangeRate === null
+                        ? null
+                        : Number(result.appliedExchangeRate),
                 currency: result.currency,
                 date: new Date(result.date),
                 createdAt: new Date(result.createdAt),

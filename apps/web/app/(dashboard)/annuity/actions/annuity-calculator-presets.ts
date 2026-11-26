@@ -2,6 +2,7 @@
 
 import prisma from "@repo/db/client";
 import { getAuthenticatedSession, getUserIdFromSession } from "../../../utils/auth";
+import { requireAppLockPassword } from "../../../lib/security/require-app-lock-password";
 import type { CalculatorInputs } from "../types";
 import { normalizeAnnuityInputs } from "../types";
 
@@ -156,9 +157,8 @@ export async function updateAnnuityCalculatorPreset(
   return mapRow(updated);
 }
 
-export async function deleteAnnuityCalculatorPreset(id: number): Promise<void> {
-  const session = await getAuthenticatedSession();
-  const userId = getUserIdFromSession(session.user.id);
+export async function deleteAnnuityCalculatorPreset(id: number, appLockPassword: string): Promise<void> {
+  const userId = await requireAppLockPassword(appLockPassword);
 
   await prisma.annuityCalculatorPreset.deleteMany({
     where: { id, userId },

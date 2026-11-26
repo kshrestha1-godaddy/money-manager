@@ -67,9 +67,11 @@ export default function GoalsPageClient() {
     categories,
     createGoal,
     updateGoal,
+    deleteGoal,
     refetchGoals,
     isCreating,
-    isUpdating
+    isUpdating,
+    isDeleting,
   } = useGoals(filters);
 
   // Filter handlers
@@ -136,6 +138,29 @@ export default function GoalsPageClient() {
     }
   }, [selectedGoalId, updateGoal]);
 
+  const handleDeleteGoal = useCallback(async (appLockPassword: string) => {
+    if (!selectedGoalId) return;
+
+    try {
+      await deleteGoal(selectedGoalId, appLockPassword);
+      setIsViewModalOpen(false);
+      setSelectedGoalId(null);
+      setNotification({
+        type: 'success',
+        title: 'Success!',
+        message: 'Goal deleted successfully!',
+        duration: 3000
+      });
+    } catch (error) {
+      setNotification({
+        type: 'error',
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Failed to delete goal. Please try again.',
+        duration: 5000
+      });
+    }
+  }, [selectedGoalId, deleteGoal]);
+
   // Modal handlers
   const openEditModal = useCallback((goalId: number) => {
     setSelectedGoalId(goalId);
@@ -174,7 +199,8 @@ export default function GoalsPageClient() {
             {error}
           </p>
           <button
-            onClick={refetchGoals}
+            type="button"
+            onClick={() => void refetchGoals()}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
           >
             Try Again
@@ -368,6 +394,8 @@ export default function GoalsPageClient() {
               setIsViewModalOpen(false);
               setIsEditModalOpen(true);
             }}
+            onDelete={handleDeleteGoal}
+            isDeleting={isDeleting}
           />
         </>
       )}

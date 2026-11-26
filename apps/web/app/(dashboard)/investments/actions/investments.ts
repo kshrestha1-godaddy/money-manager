@@ -983,7 +983,7 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
                                     purchasePrice,
                                     currentPrice,
                                     userId: userId,
-                                    deductFromAccount: deductFromCsv ?? true,
+                                    deductFromAccount: deductFromCsv ?? false,
                                 },
                             });
 
@@ -1316,7 +1316,7 @@ export async function importCorrectedRow(rowData: string[], headers: string[]): 
             data: {
                 ...(investmentData as any),
                 userId: userId,
-                deductFromAccount: deductFromCsv ?? true,
+                deductFromAccount: deductFromCsv ?? false,
             } as any,
             include: {
                 account: true,

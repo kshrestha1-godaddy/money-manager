@@ -21,6 +21,7 @@ import {
 import { requireAppLockPassword } from "../../../lib/security/require-app-lock-password";
 import { convertForDisplayWithDbRates } from "../../../utils/currencyDisplayServer";
 import { normalizeSupportedCurrency } from "../../../utils/currency";
+import { getLockedLedgerCurrency } from "../../../utils/ledgerCurrency";
 
 export interface IncomeExpenseAccountActivityRow {
     id: number;
@@ -136,6 +137,7 @@ export async function createAccount(account: Omit<AccountInterface, 'id' | 'user
 
         // Use transaction to handle account creation and uniqueness validation atomically
         const result = await prisma.$transaction(async (tx) => {
+            await getLockedLedgerCurrency(tx, userId);
             // Check for account number uniqueness inside transaction
             if (account.accountNumber) {
                 const existingAccount = await tx.account.findUnique({
@@ -396,6 +398,7 @@ export async function bulkCreateAccounts(accounts: Omit<AccountInterface, 'id' |
 
         // Use transaction to handle bulk account creation with uniqueness validation
         const result = await prisma.$transaction(async (tx) => {
+            await getLockedLedgerCurrency(tx, userId);
             const createdAccounts: any[] = [];
             const errors: string[] = [];
             let successCount = 0;

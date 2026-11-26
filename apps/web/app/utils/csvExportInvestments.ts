@@ -1,6 +1,7 @@
 import { InvestmentInterface } from '../types/investments';
 import { formatDateForCSV } from './csvUtils';
 import { convertForDisplaySync } from './currencyDisplay';
+import type { ConversionRateMatrix } from './currencyRates';
 
 function csvQuoteCell(value: string | number | undefined | null): string {
     const s = String(value ?? "");
@@ -14,7 +15,10 @@ function formatAmountCsvPlain(n: number): string {
 /**
  * Convert investments data to CSV format
  */
-export function convertInvestmentsToCSV(investments: InvestmentInterface[]): string {
+export function convertInvestmentsToCSV(
+    investments: InvestmentInterface[],
+    priceCurrency = 'USD'
+): string {
     if (investments.length === 0) {
         return '';
     }
@@ -28,6 +32,7 @@ export function convertInvestmentsToCSV(investments: InvestmentInterface[]): str
         'Quantity',
         'Purchase Price',
         'Current Price',
+        'Price Currency',
         'Total Value',
         'Gain/Loss',
         'Gain/Loss %',
@@ -57,6 +62,7 @@ export function convertInvestmentsToCSV(investments: InvestmentInterface[]): str
             investment.quantity.toString(),
             investment.purchasePrice.toString(),
             investment.currentPrice.toString(),
+            priceCurrency.toUpperCase(),
             totalValue.toString(),
             gainLoss.toString(),
             gainLossPercentage.toFixed(2) + '%',
@@ -87,7 +93,8 @@ export function convertInvestmentsToCSV(investments: InvestmentInterface[]): str
 export function convertInvestmentsToCSVWithDisplayCurrency(
     investments: InvestmentInterface[],
     storedCurrency: string,
-    displayCurrency: string
+    displayCurrency: string,
+    conversionMatrix?: ConversionRateMatrix
 ): string {
     if (investments.length === 0) {
         return "";
@@ -104,8 +111,11 @@ export function convertInvestmentsToCSVWithDisplayCurrency(
         "Type",
         "Symbol",
         "Quantity",
-        `Purchase Price (per unit, ${dc})`,
-        `Current Price (per unit, ${dc})`,
+        "Purchase Price",
+        "Current Price",
+        "Price Currency",
+        `Purchase Price (${dc})`,
+        `Current Price (${dc})`,
         `Total Value (${dc})`,
         `Gain/Loss (${dc})`,
         "Gain/Loss %",
@@ -124,18 +134,14 @@ export function convertInvestmentsToCSVWithDisplayCurrency(
     const lines: string[][] = [headers];
 
     investments.forEach((investment) => {
-        const pp = convertForDisplaySync(investment.purchasePrice, stored, display);
-        const cp = convertForDisplaySync(investment.currentPrice, stored, display);
-        const totalValue = convertForDisplaySync(
-            investment.quantity * investment.currentPrice,
-            stored,
-            display
-        );
-        const totalPurchaseValue = convertForDisplaySync(
-            investment.quantity * investment.purchasePrice,
-            stored,
-            display
-        );
+        const rate = conversionMatrix?.[sc.toLowerCase()]?.[dc.toLowerCase()];
+        const convertAmount = (amount: number) => rate === undefined
+            ? convertForDisplaySync(amount, stored, display)
+            : amount * rate;
+        const pp = convertAmount(investment.purchasePrice);
+        const cp = convertAmount(investment.currentPrice);
+        const totalValue = convertAmount(investment.quantity * investment.currentPrice);
+        const totalPurchaseValue = convertAmount(investment.quantity * investment.purchasePrice);
         const gainLoss = totalValue - totalPurchaseValue;
         const gainLossPercentage =
             totalPurchaseValue !== 0 ? (gainLoss / totalPurchaseValue) * 100 : 0;
@@ -146,6 +152,9 @@ export function convertInvestmentsToCSVWithDisplayCurrency(
             investment.type,
             investment.symbol || "",
             investment.quantity.toString(),
+            formatAmountCsvPlain(investment.purchasePrice),
+            formatAmountCsvPlain(investment.currentPrice),
+            sc,
             formatAmountCsvPlain(pp),
             formatAmountCsvPlain(cp),
             formatAmountCsvPlain(totalValue),
@@ -172,8 +181,12 @@ export function convertInvestmentsToCSVWithDisplayCurrency(
 /**
  * Download investments data as CSV file
  */
-export function exportInvestmentsToCSV(investments: InvestmentInterface[], filename?: string): void {
-    const csvContent = convertInvestmentsToCSV(investments);
+export function exportInvestmentsToCSV(
+    investments: InvestmentInterface[],
+    storedCurrency: string,
+    filename?: string
+): void {
+    const csvContent = convertInvestmentsToCSV(investments, storedCurrency);
     
     if (!csvContent) {
         alert('No investment data to export');

@@ -4,7 +4,10 @@ import { formatDateForCSV } from './csvUtils';
 /**
  * Convert accounts data to CSV format
  */
-export function convertAccountsToCSV(accounts: AccountInterface[]): string {
+export function convertAccountsToCSV(
+    accounts: AccountInterface[],
+    balanceCurrency = 'USD'
+): string {
     if (accounts.length === 0) {
         return '';
     }
@@ -26,6 +29,7 @@ export function convertAccountsToCSV(accounts: AccountInterface[]): string {
         'Account Opening Date',
         'Security Questions',
         'Balance',
+        'Balance Currency',
         'App Username',
         'Notes',
         'Nickname',
@@ -50,6 +54,7 @@ export function convertAccountsToCSV(accounts: AccountInterface[]): string {
         formatDateForCSV(account.accountOpeningDate),
         account.securityQuestion.join('; '),
         account.balance?.toString() || '0',
+        account.balanceCurrency || balanceCurrency,
         account.appUsername || '',
         account.notes || '',
         account.nickname || '',
@@ -95,8 +100,12 @@ export function downloadCSV(csvContent: string, filename: string): void {
 /**
  * Export accounts to CSV file
  */
-export function exportAccountsToCSV(accounts: AccountInterface[], filename?: string): void {
-    const csvContent = convertAccountsToCSV(accounts);
+export function exportAccountsToCSV(
+    accounts: AccountInterface[],
+    filename?: string,
+    balanceCurrency = 'USD'
+): void {
+    const csvContent = convertAccountsToCSV(accounts, balanceCurrency);
     if (csvContent) {
         const defaultFilename = `accounts_export_${new Date().toISOString().split('T')[0]}.csv`;
         downloadCSV(csvContent, filename || defaultFilename);

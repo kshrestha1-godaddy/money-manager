@@ -21,6 +21,10 @@ import {
     assertCurrencyCode,
     normalizeSupportedCurrency,
 } from "../../../utils/currency";
+import {
+    assertOwnedAccount,
+    getLockedLedgerCurrency,
+} from "../../../utils/ledgerCurrency";
 
 // Helper function to serialize transaction location data
 function serializeTransactionLocation(location: any) {
@@ -120,14 +124,11 @@ export async function createIncome(
 
         const userId = getUserIdFromSession(session.user.id);
 
-        // Get user's preferred currency
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { currency: true }
-        });
-
         const result = await prisma.$transaction(async (tx) => {
-            const accountCurrency = normalizeSupportedCurrency(user?.currency);
+            const accountCurrency = await getLockedLedgerCurrency(tx, userId);
+            if (data.accountId) {
+                await assertOwnedAccount(tx, userId, data.accountId);
+            }
             const transactionCurrency = assertCurrencyCode(
                 data.currency || accountCurrency
             );
@@ -358,8 +359,16 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
                 data.currency !== undefined ? data.currency : oldCurrency
             );
             const oldAccountId = existingIncome.accountId;
+            const isHistoricalZeroImpact =
+                existingIncome.accountAmount !== null &&
+                Number(existingIncome.accountAmount) === 0 &&
+                existingIncome.appliedExchangeRate !== null &&
+                Number(existingIncome.appliedExchangeRate) === 0;
             const newAccountId =
                 data.accountId !== undefined ? data.accountId : oldAccountId;
+            if (newAccountId) {
+                await assertOwnedAccount(tx, userId, newAccountId);
+            }
             const oldAmountConverted = existingIncome.accountAmount !== null
                 ? parseFloat(existingIncome.accountAmount.toString())
                 : await convertForDisplayWithDbRates(
@@ -372,17 +381,21 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
                 data.currency !== undefined ||
                 data.accountId !== undefined;
             const newAmountConverted = hasImpactBoundaryChanged && newAccountId
-                ? await convertForDisplayWithDbRates(
-                    newAmount,
-                    newCurrency,
-                    userCurrency
-                )
+                ? isHistoricalZeroImpact
+                    ? 0
+                    : await convertForDisplayWithDbRates(
+                        newAmount,
+                        newCurrency,
+                        userCurrency
+                    )
                 : oldAmountConverted;
             if (hasImpactBoundaryChanged) {
                 updateData.accountAmount = newAccountId ? newAmountConverted : null;
                 updateData.accountCurrency = newAccountId ? userCurrency : null;
                 updateData.appliedExchangeRate =
-                    newAccountId && newAmount !== 0
+                    isHistoricalZeroImpact && newAccountId
+                        ? 0
+                        : newAccountId && newAmount !== 0
                         ? newAmountConverted / newAmount
                         : null;
             }

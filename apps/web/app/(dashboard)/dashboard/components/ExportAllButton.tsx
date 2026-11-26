@@ -90,7 +90,8 @@ export function ExportAllButton() {
                             ? undefined
                             : toDisplayAmount(account.balance, accountCurrency),
                     })),
-                    `accounts_${displayCurrency}_${dateStr}.csv`
+                    `accounts_${displayCurrency}_${dateStr}.csv`,
+                    displayCurrency
                 );
                 await delay(160);
             }

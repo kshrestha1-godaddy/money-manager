@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Upload, AlertCircle, CheckCircle, X, Download } from "lucide-react";
 import { processAccountImport, ParsedAccountData, createAccountImportTemplate } from "../../../utils/csv";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface ImportResult {
     success: boolean;
@@ -21,6 +22,7 @@ interface ImportAccountModalProps {
 }
 
 export function ImportAccountModal({ isOpen, onClose, onImport, isImporting: serverImporting = false }: ImportAccountModalProps) {
+    const { accountCurrency } = useDisplayCurrency();
     const [file, setFile] = useState<File | null>(null);
     const [importing, setImporting] = useState(false);
     const [result, setResult] = useState<ImportResult | null>(null);
@@ -178,7 +180,7 @@ export function ImportAccountModal({ isOpen, onClose, onImport, isImporting: ser
                                         Browse Files
                                     </button>
                                     <button
-                                        onClick={() => createAccountImportTemplate()}
+                                        onClick={() => createAccountImportTemplate(accountCurrency)}
                                         className="px-4 py-2 bg-gray-600 text-white text-sm rounded-md hover:bg-gray-700 transition-colors flex items-center space-x-2"
                                     >
                                         <Download size={16} />

@@ -2,6 +2,7 @@
 
 import prisma from "@repo/db/client";
 import { getAuthenticatedSession, getUserIdFromSession, decimalToNumber } from "../utils/auth";
+import { requireAppLockPassword } from "../lib/security/require-app-lock-password";
 
 export interface SavedLocationData {
     id: number;
@@ -69,9 +70,8 @@ export async function createSavedLocation(input: CreateSavedLocationInput): Prom
     };
 }
 
-export async function deleteSavedLocation(id: number): Promise<void> {
-    const session = await getAuthenticatedSession();
-    const userId = getUserIdFromSession(session.user.id);
+export async function deleteSavedLocation(id: number, appLockPassword: string): Promise<void> {
+    const userId = await requireAppLockPassword(appLockPassword);
 
     await prisma.savedLocation.delete({
         where: { id, userId }

@@ -586,7 +586,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                     chartRef={chartRef}
                     fileName="investment-targets-timeline"
                     csvData={[
-                        ['Target Type', 'Nickname', 'Target Date', 'Target Amount', 'Present value', 'Progress (%)', 'Days Remaining', 'Status'],
+                        ['Target Type', 'Nickname', 'Target Date', `Target Amount (${currency})`, `Present value (${currency})`, 'Progress (%)', 'Days Remaining', 'Status'],
                         ...timelineData.filter(item => !['TODAY', 'THIRTY_DAYS', 'SIXTY_DAYS'].includes(item.investmentType)).map(item => [
                             TYPE_LABELS[item.investmentType] || item.investmentType,
                             item.nickname || '-',

@@ -11,7 +11,7 @@ import { useChartAnimationState } from "../../../hooks/useChartAnimationContext"
 // Declare Google Charts types
 // Google Charts loader helper
 import { loadGoogleCharts } from "../../../utils/googleCharts";
-import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
+import { useDisplayCurrency, useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface IncomeSankeyChartProps {
     currency?: string;
@@ -49,6 +49,7 @@ const COLORS = [
 
 export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency: currencyProp, title, heightClass }) => {
     const currency = useResolvedDisplayCurrency(currencyProp);
+    const { currencyRateVersion } = useDisplayCurrency();
     const chartRef = useRef<HTMLDivElement>(null);
     const { filteredIncomes, formatTimePeriod } = useChartData();
     
@@ -124,7 +125,7 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency:
 
         // Prepare enhanced CSV data
         const csvData = [
-            ['Income Source', 'Total Amount', 'Percentage', 'Transactions', 'Average Amount', 'Min Amount', 'Max Amount', 'Date Range'],
+            ['Income Source', `Total Amount (${currency})`, 'Percentage', 'Transactions', `Average Amount (${currency})`, `Min Amount (${currency})`, `Max Amount (${currency})`, 'Date Range'],
             ...sankeyData.map((item) => [
                 item.from.replace(/ \(\d+x\)$/, ''), // Remove count from category name for CSV
                 item.size.toString(),
@@ -141,6 +142,7 @@ export const IncomeSankeyChart = React.memo<IncomeSankeyChartProps>(({ currency:
     }, [
         filteredIncomes.length,
         currency,
+        currencyRateVersion,
         // Add checksum to detect actual data changes, not just reference changes
         filteredIncomes.reduce((sum, income) => sum + income.amount + income.id, 0)
     ]);

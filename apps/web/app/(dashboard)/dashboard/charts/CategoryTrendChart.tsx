@@ -429,11 +429,11 @@ export const CategoryTrendChart = React.memo<CategoryTrendChartProps>(
       const headers = [
         "Month",
         "Category",
-        "Amount",
+        `Amount (${currency})`,
         "Transactions",
-        "Average per Transaction",
-        "Min Amount",
-        "Max Amount",
+        `Average per Transaction (${currency})`,
+        `Min Amount (${currency})`,
+        `Max Amount (${currency})`,
         "% of Total",
       ];
       const rows = chartData.flatMap((month) =>

@@ -1,11 +1,16 @@
 import { BudgetTarget } from '../types/financial';
 import { generateTimestampedFilename } from './csv/csvExportCore';
 import { formatDateForExport, formatTimestampForExport } from './csvExportUtils';
+import { convertForDisplaySync } from './currencyDisplay';
 
 /**
  * Convert budget targets data to CSV format
  */
-export function convertBudgetTargetsToCSV(budgetTargets: (BudgetTarget & { categoryType?: string })[]): string {
+export function convertBudgetTargetsToCSV(
+    budgetTargets: (BudgetTarget & { categoryType?: string })[],
+    sourceCurrency: string,
+    displayCurrency: string
+): string {
     if (!budgetTargets || budgetTargets.length === 0) {
         return 'No budget targets to export';
     }
@@ -14,14 +19,14 @@ export function convertBudgetTargetsToCSV(budgetTargets: (BudgetTarget & { categ
         'ID',
         'Category Name',
         'Category Type',
-        'Target Amount',
-        'Current Amount',
+        `Target Amount (${displayCurrency})`,
+        `Current Amount (${displayCurrency})`,
         'Period',
         'Start Date',
         'End Date',
         'Status',
         'Progress (%)',
-        'Variance',
+        `Variance (${displayCurrency})`,
         'Created At',
         'Updated At'
     ];
@@ -29,15 +34,17 @@ export function convertBudgetTargetsToCSV(budgetTargets: (BudgetTarget & { categ
     const rows = budgetTargets.map(target => {
         const progress = target.targetAmount > 0 ? 
             ((target.currentAmount / target.targetAmount) * 100).toFixed(2) : '0.00';
-        const variance = target.currentAmount - target.targetAmount;
+        const targetAmount = convertForDisplaySync(target.targetAmount, sourceCurrency, displayCurrency);
+        const currentAmount = convertForDisplaySync(target.currentAmount, sourceCurrency, displayCurrency);
+        const variance = currentAmount - targetAmount;
         const status = target.isActive ? 'Active' : 'Inactive';
 
         return [
             target.id.toString(),
             target.name,
             target.categoryType || 'UNKNOWN',
-            target.targetAmount.toFixed(2),
-            target.currentAmount.toFixed(2),
+            targetAmount.toFixed(2),
+            currentAmount.toFixed(2),
             target.period,
             formatDateForExport(target.startDate),
             formatDateForExport(target.endDate),
@@ -71,14 +78,19 @@ export function convertBudgetTargetsToCSV(budgetTargets: (BudgetTarget & { categ
 /**
  * Export budget targets to CSV file
  */
-export function exportBudgetTargetsToCSV(budgetTargets: (BudgetTarget & { categoryType?: string })[], filename?: string): void {
+export function exportBudgetTargetsToCSV(
+    budgetTargets: (BudgetTarget & { categoryType?: string })[],
+    sourceCurrency: string,
+    displayCurrency: string,
+    filename?: string
+): void {
     try {
         if (!budgetTargets || budgetTargets.length === 0) {
             alert('No budget targets to export');
             return;
         }
 
-        const csvContent = convertBudgetTargetsToCSV(budgetTargets);
+        const csvContent = convertBudgetTargetsToCSV(budgetTargets, sourceCurrency, displayCurrency);
         const csvFilename = filename || generateTimestampedFilename('budget_targets');
         
         // Create blob and download

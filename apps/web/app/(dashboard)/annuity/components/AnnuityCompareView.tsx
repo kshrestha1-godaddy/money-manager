@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { formatCurrency } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { INPUT_COLORS } from "../../../config/colorConfig";
 import {
   buildChartScrollWidth,
@@ -524,6 +525,7 @@ export function AnnuityCompareView({
   baseCurrency,
   selectedCurrency,
 }: AnnuityCompareViewProps) {
+  const { currencyRateVersion } = useDisplayCurrency();
   const [inputsA, setInputsA] = useState<CalculatorInputs>(() => ({
     ...DEFAULT_ANNUITY_INPUTS,
   }));
@@ -575,11 +577,11 @@ export function AnnuityCompareView({
 
   const chartDataA = useMemo(
     () => buildStackedBarChartData(snapshotA.rows, baseCurrency, displayCurrency),
-    [snapshotA.rows, baseCurrency, displayCurrency]
+    [snapshotA.rows, baseCurrency, displayCurrency, currencyRateVersion]
   );
   const chartDataB = useMemo(
     () => buildStackedBarChartData(snapshotB.rows, baseCurrency, displayCurrency),
-    [snapshotB.rows, baseCurrency, displayCurrency]
+    [snapshotB.rows, baseCurrency, displayCurrency, currencyRateVersion]
   );
 
   const sharedChartYMax = useMemo(() => {

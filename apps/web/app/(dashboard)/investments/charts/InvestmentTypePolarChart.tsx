@@ -98,7 +98,7 @@ const TYPE_DESCRIPTIONS: Record<string, string> = {
 
 const InvestmentTypePolarChartComponent = ({ investments, currency: currencyProp, title = "Portfolio Distribution by Investment Type" }: InvestmentTypePolarChartProps) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
-    const { currency: userCurrency } = useCurrency();
+    const { currency: userCurrency, currencyRateVersion } = useCurrency();
     const currency = useResolvedDisplayCurrency(currencyProp);
     const chartRef = useRef<HTMLDivElement>(null);
 
@@ -194,7 +194,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency: currencyProp
       }
 
       return { data: chartData, legendData, totalPresentValue: total };
-    }, [investments, currency, userCurrency]);
+    }, [investments, currency, userCurrency, currencyRateVersion]);
 
     // Download functions for Chart.js (Canvas-based)
     const downloadPNG = useCallback(async (): Promise<void> => {
@@ -259,7 +259,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency: currencyProp
     // Enhanced CSV data preparation with detailed statistics
     const csvData = useMemo(() => {
       const csvDataArray = [
-        ["Investment Type", "Present value", "Percentage", "Positions", "Average per Position", "Min Amount", "Max Amount", "Description"],
+        ["Investment Type", `Present value (${currency})`, "Percentage", "Positions", `Average per Position (${currency})`, `Min Amount (${currency})`, `Max Amount (${currency})`, "Description"],
         ...data.map((d) => [
           d.name,
           d.value.toString(),
@@ -324,7 +324,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency: currencyProp
       }
 
       return csvDataArray;
-    }, [data, totalPresentValue, investments, currency, userCurrency]);
+    }, [data, totalPresentValue, investments, currency, userCurrency, currencyRateVersion]);
 
     if (!data.length) {
       return (

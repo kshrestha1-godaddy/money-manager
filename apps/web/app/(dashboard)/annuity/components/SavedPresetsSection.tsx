@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Bookmark, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { PasswordGatedButton } from "@repo/applock";
 import { BUTTON_COLORS, INPUT_COLORS } from "../../../config/colorConfig";
 import { CalculatorInputsFields } from "./CalculatorInputsFields";
 import type { CalculatorInputs } from "../types";
@@ -117,10 +118,9 @@ export function SavedPresetsSection({ currentInputs, onLoadPreset, onPresetDelet
     }
   }
 
-  async function handleDelete(id: number) {
-    if (!window.confirm("Delete this saved scenario?")) return;
+  async function handleDelete(id: number, appLockPassword: string) {
     try {
-      await deleteAnnuityCalculatorPreset(id);
+      await deleteAnnuityCalculatorPreset(id, appLockPassword);
       onPresetDeleted?.(id);
       await loadPresets();
     } catch (errorUnknown) {
@@ -232,14 +232,18 @@ export function SavedPresetsSection({ currentInputs, onLoadPreset, onPresetDelet
                             <Pencil className="h-3.5 w-3.5 shrink-0" aria-hidden />
                             Edit
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleDelete(preset.id)}
+                          <PasswordGatedButton
+                            onConfirm={(appLockPassword) => handleDelete(preset.id, appLockPassword)}
+                            prompt={{
+                              title: "Delete saved scenario",
+                              description: "This cannot be undone. Enter your lock screen password to delete this saved scenario.",
+                              confirmLabel: "Delete scenario",
+                            }}
                             className={dangerStyle}
                           >
                             <Trash2 className="h-3.5 w-3.5" aria-hidden />
                             Delete
-                          </button>
+                          </PasswordGatedButton>
                         </div>
                       </div>
                       <div className="grid grid-cols-1 gap-3 p-3 lg:grid-cols-2 lg:gap-4">

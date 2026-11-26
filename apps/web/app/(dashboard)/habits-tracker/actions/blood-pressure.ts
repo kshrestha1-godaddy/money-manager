@@ -3,6 +3,7 @@
 import type { BloodPressureCategory } from "@prisma/client";
 import prisma from "@repo/db/client";
 import { getVerifiedUserIdForDataAccess } from "../../../utils/auth";
+import { requireAppLockPassword } from "../../../lib/security/require-app-lock-password";
 import { classifyBloodPressure, parseMeasuredAtInput } from "../blood-pressure-helpers";
 
 export interface BloodPressureReadingDTO {
@@ -120,9 +121,12 @@ export async function updateBloodPressureReading(
   }
 }
 
-export async function deleteBloodPressureReading(id: number): Promise<{ ok: true } | { error: string }> {
+export async function deleteBloodPressureReading(
+  id: number,
+  appLockPassword: string,
+): Promise<{ ok: true } | { error: string }> {
   try {
-    const userId = await getVerifiedUserIdForDataAccess();
+    const userId = await requireAppLockPassword(appLockPassword);
     if (!Number.isInteger(id) || id < 1) return { error: "Invalid reading" };
 
     const res = await prisma.bloodPressureReading.deleteMany({

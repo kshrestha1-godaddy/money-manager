@@ -231,7 +231,10 @@ export default function ScheduledPaymentsPageClient() {
   });
   const [selectedPaymentIds, setSelectedPaymentIds] = useState<Set<number>>(() => new Set());
   const [isCompletedPaymentsOpen, setIsCompletedPaymentsOpen] = useState(false);
-  const { displayCurrency: tableDisplayCurrency } = useDisplayCurrency();
+  const {
+    displayCurrency: tableDisplayCurrency,
+    currencyRateVersion,
+  } = useDisplayCurrency();
 
   useEffect(() => {
     const clockTime = Date.now();
@@ -322,7 +325,7 @@ export default function ScheduledPaymentsPageClient() {
 
   const compareTableRows = useCallback((a: ScheduledPaymentItem, b: ScheduledPaymentItem) =>
     compareScheduledRows(a, b, tableSort, now, tableDisplayCurrency) || a.id - b.id,
-  [tableSort, now, tableDisplayCurrency]);
+  [tableSort, now, tableDisplayCurrency, currencyRateVersion]);
   const groupedTableSections = useMemo(
     () => groupScheduledRows(activeFilteredItems, compareTableRows), [activeFilteredItems, compareTableRows]
   );
@@ -360,7 +363,7 @@ export default function ScheduledPaymentsPageClient() {
       total += convertForDisplaySync(item.amount, item.currency, tableDisplayCurrency);
     }
     return { count: activeFilteredItems.length, total };
-  }, [activeFilteredItems, tableDisplayCurrency]);
+  }, [activeFilteredItems, tableDisplayCurrency, currencyRateVersion]);
 
   const completedTableSummary = useMemo(() => {
     let total = 0;
@@ -368,7 +371,7 @@ export default function ScheduledPaymentsPageClient() {
       total += convertForDisplaySync(item.amount, item.currency, tableDisplayCurrency);
     }
     return { count: completedFilteredItems.length, total };
-  }, [completedFilteredItems, tableDisplayCurrency]);
+  }, [completedFilteredItems, tableDisplayCurrency, currencyRateVersion]);
 
   const deletableVisibleIds = useMemo(
     () => activeFilteredItems.filter((item) => !busyPaymentIds.has(item.id)).map((item) => item.id),

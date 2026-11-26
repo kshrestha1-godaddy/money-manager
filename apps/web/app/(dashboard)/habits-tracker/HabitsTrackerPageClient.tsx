@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
 import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { PasswordGatedButton } from "@repo/applock";
 import type { BloodPressureReadingDTO } from "./actions/blood-pressure";
 import {
   createBloodPressureReading,
@@ -90,11 +91,10 @@ export default function HabitsTrackerPageClient() {
     });
   }
 
-  async function handleDelete(id: number) {
-    if (!globalThis.confirm("Delete this reading?")) return;
+  async function handleDelete(id: number, appLockPassword: string) {
     setDeletingId(id);
     try {
-      const res = await deleteBloodPressureReading(id);
+      const res = await deleteBloodPressureReading(id, appLockPassword);
       if ("error" in res && res.error) {
         setNotification({ title: "Error", message: res.error, type: "error" });
         return;
@@ -211,9 +211,13 @@ export default function HabitsTrackerPageClient() {
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleDelete(r.id)}
+                          <PasswordGatedButton
+                            onConfirm={(appLockPassword) => handleDelete(r.id, appLockPassword)}
+                            prompt={{
+                              title: "Delete reading",
+                              description: "This cannot be undone. Enter your lock screen password to delete this blood pressure reading.",
+                              confirmLabel: "Delete reading",
+                            }}
                             disabled={deletingId === r.id}
                             className="inline-flex items-center justify-center p-1.5 rounded-lg text-red-600 hover:bg-red-50 disabled:opacity-50"
                             aria-label="Delete reading"
@@ -223,7 +227,7 @@ export default function HabitsTrackerPageClient() {
                             ) : (
                               <Trash2 className="w-4 h-4" />
                             )}
-                          </button>
+                          </PasswordGatedButton>
                         </td>
                       </tr>
                     ))}

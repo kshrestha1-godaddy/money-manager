@@ -7,6 +7,7 @@ import {
     getAuthenticatedSession,
     decimalToNumber 
 } from "../utils/auth";
+import { requireAppLockPassword } from "../lib/security/require-app-lock-password";
 import { getUserTimezone } from "../actions/timezone";
 import { formatCurrency, normalizeSupportedCurrency } from "../utils/currency";
 import { convertForDisplayWithDbRates } from "../utils/currencyDisplayServer";
@@ -163,10 +164,9 @@ export async function markAllNotificationsAsRead(): Promise<void> {
 /**
  * Delete a specific notification
  */
-export async function deleteNotification(id: number): Promise<void> {
+export async function deleteNotification(id: number, appLockPassword: string): Promise<void> {
     try {
-        const session = await getAuthenticatedSession();
-        const userId = getUserIdFromSession(session.user.id);
+        const userId = await requireAppLockPassword(appLockPassword);
 
         await prisma.notification.delete({
             where: { 
@@ -185,10 +185,9 @@ export async function deleteNotification(id: number): Promise<void> {
 /**
  * Clear all notifications for the current user
  */
-export async function clearAllNotifications(): Promise<{ deletedCount: number }> {
+export async function clearAllNotifications(appLockPassword: string): Promise<{ deletedCount: number }> {
     try {
-        const session = await getAuthenticatedSession();
-        const userId = getUserIdFromSession(session.user.id);
+        const userId = await requireAppLockPassword(appLockPassword);
 
         const result = await prisma.notification.deleteMany({
             where: { userId }

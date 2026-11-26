@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { PasswordGatedButton } from "@repo/applock";
 import { Save, Bell, Earth, DollarSign, Calendar, TrendingUp, Shield, Settings, Bookmark, MapPin, Coins } from "lucide-react";
 import {
     getNotificationSettings,
@@ -228,9 +229,9 @@ export function NotificationSettings() {
         }
     };
 
-    const handleDeleteLocation = async (locationId: number) => {
+    const handleDeleteLocation = async (locationId: number, appLockPassword: string) => {
         try {
-            await deleteSavedLocation(locationId);
+            await deleteSavedLocation(locationId, appLockPassword);
             await loadSavedLocations();
         } catch (error) {
             console.error("Failed to delete location:", error);
@@ -773,13 +774,17 @@ export function NotificationSettings() {
                                                 <td className="py-2 pr-4">{location.latitude.toFixed(6)}</td>
                                                 <td className="py-2 pr-4">{location.longitude.toFixed(6)}</td>
                                                 <td className="py-2">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDeleteLocation(location.id)}
+                                                    <PasswordGatedButton
+                                                        onConfirm={(appLockPassword) => handleDeleteLocation(location.id, appLockPassword)}
+                                                        prompt={{
+                                                            title: "Delete saved location",
+                                                            description: `This cannot be undone. Enter your lock screen password to delete the saved location "${location.name}".`,
+                                                            confirmLabel: "Delete location",
+                                                        }}
                                                         className="text-sm text-red-600 hover:text-red-700"
                                                     >
                                                         Delete
-                                                    </button>
+                                                    </PasswordGatedButton>
                                                 </td>
                                             </tr>
                                         ))}

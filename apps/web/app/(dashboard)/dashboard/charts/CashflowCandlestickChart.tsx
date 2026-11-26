@@ -19,7 +19,7 @@ import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { ChartControls } from "../../../components/ChartControls";
-import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
+import { useDisplayCurrency, useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface CashflowCandlestickChartProps {
   currency: string;
@@ -123,6 +123,7 @@ function buildCandlestickData(transactions: CashflowTransaction[], openingBalanc
 
 export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps>(({ currency: currencyProp }) => {
   const currency = useResolvedDisplayCurrency(currencyProp);
+  const { currencyRateVersion } = useDisplayCurrency();
   const chartRef = useRef<HTMLDivElement>(null);
   const {
     filteredIncomes,
@@ -155,7 +156,7 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
       }
     }
     return sum;
-  }, [rawIncomes, rawExpenses, currency, timeRange.startDate]);
+  }, [rawIncomes, rawExpenses, currency, currencyRateVersion, timeRange.startDate]);
 
   const chartData = useMemo(() => {
     const incomeTransactions: CashflowTransaction[] = filteredIncomes.map((income) => ({
@@ -175,11 +176,11 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
     );
 
     return buildCandlestickData(allTransactions, openingBalance);
-  }, [filteredIncomes, filteredExpenses, currency, openingBalance]);
+  }, [filteredIncomes, filteredExpenses, currency, currencyRateVersion, openingBalance]);
 
   const csvData = useMemo(
     () => [
-      ["Month", "Open", "High", "Low", "Close", "Net Movement", "Income", "Expenses", "Transaction Count"],
+      ["Month", `Open (${currency})`, `High (${currency})`, `Low (${currency})`, `Close (${currency})`, `Net Movement (${currency})`, `Income (${currency})`, `Expenses (${currency})`, "Transaction Count"],
       ...chartData.map((point) => [
         point.formattedMonth,
         point.open.toString(),
@@ -192,7 +193,7 @@ export const CashflowCandlestickChart = React.memo<CashflowCandlestickChartProps
         point.transactionVolume.toString(),
       ]),
     ],
-    [chartData],
+    [chartData, currency],
   );
 
   const yDomain = useMemo(() => {

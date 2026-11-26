@@ -446,7 +446,7 @@ export function FinancialAreaChart({
 
     // Enhanced CSV data for chart controls with detailed statistics
     const csvData = [
-        ['Date', 'Formatted Date', 'Total Amount', 'Transaction Count', 'Average Amount', 'Min Amount', 'Max Amount', 'Activity Level'],
+        ['Date', 'Formatted Date', `Total Amount (${currency})`, 'Transaction Count', `Average Amount (${currency})`, `Min Amount (${currency})`, `Max Amount (${currency})`, 'Activity Level'],
         ...chartData.map(item => {
             const activityLevel = item.transactionCount === 0 ? 'None' :
                                item.transactionCount === 1 ? 'Single' :

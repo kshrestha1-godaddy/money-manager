@@ -62,7 +62,7 @@ interface BudgetComparisonData {
 export default function BudgetPage() {
   const session = useSession();
   const { currency: userCurrency } = useCurrency();
-  const { displayCurrency, toDisplayAmount, toAccountAmount } = useDisplayCurrency();
+  const { accountCurrency, displayCurrency, toDisplayAmount, toAccountAmount } = useDisplayCurrency();
   const money = (amount: number) =>
     formatCurrency(convertForDisplaySync(amount, userCurrency, displayCurrency), displayCurrency);
   const [selectedPeriod, setSelectedPeriod] = useState<'MONTHLY' | 'QUARTERLY' | 'YEARLY'>('MONTHLY');
@@ -572,7 +572,7 @@ export default function BudgetPage() {
         return;
       }
 
-      exportBudgetTargetsToCSV(response.data);
+      exportBudgetTargetsToCSV(response.data, accountCurrency, displayCurrency);
       setSuccessModal({
         isOpen: true,
         type: 'success',

@@ -11,6 +11,9 @@ import { NotificationData } from "../components/DisappearingNotification";
 import { createTransactionDayFormatter } from "../utils/transaction-calendar";
 import { getUserThresholds } from "../actions/notifications";
 import { useDisplayCurrency } from "./useDisplayCurrency";
+import { convertExpensesToCSVWithDisplayCurrency } from "../utils/csvExportExpenses";
+import { convertIncomesToCSVWithDisplayCurrency } from "../utils/csvExportIncomes";
+import type { Expense, Income } from "../types/financial";
 
 
 const EMPTY_ITEMS: [] = [];
@@ -29,7 +32,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   options: UseOptimizedFinancialDataOptions = {}
 ) {
   const queryClient = useQueryClient();
-  const { accountCurrency, formatDisplayAmount } = useDisplayCurrency();
+  const { accountCurrency, displayCurrency, formatDisplayAmount } = useDisplayCurrency();
   
   // Query keys for caching - memoize to prevent unnecessary re-renders
   const QUERY_KEYS = useMemo(() => ({
@@ -414,8 +417,18 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     }
     
     try {
-      // Export the main financial data
-      actions.exportToCSV(visibleItems);
+      const csvContent = categoryType === "EXPENSE"
+        ? convertExpensesToCSVWithDisplayCurrency(visibleItems as Expense[], displayCurrency)
+        : convertIncomesToCSVWithDisplayCurrency(visibleItems as Income[], displayCurrency);
+      const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${categoryType.toLowerCase()}s_${new Date().toISOString().slice(0, 10)}_${displayCurrency}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
       
       // Also export categories for this type in a separate file
       if (categories && categories.length > 0) {
@@ -429,7 +442,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
       console.error(`Error exporting ${categoryType.toLowerCase()}s:`, error);
       alert(`Failed to export ${categoryType.toLowerCase()}s. Please try again.`);
     }
-  }, [filteredItems, categoryType, categories, actions]);
+  }, [filteredItems, categoryType, categories, displayCurrency]);
 
   const clearFilters = useCallback(() => {
     setSearchTerm("");

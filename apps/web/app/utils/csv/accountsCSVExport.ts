@@ -35,6 +35,7 @@ export const ACCOUNT_EXPORT_FIELDS: (keyof AccountInterface)[] = [
     'accountOpeningDate',
     'securityQuestion',
     'balance',
+    'balanceCurrency',
     'appUsername',
     'notes',
     'nickname',
@@ -61,6 +62,7 @@ export const ACCOUNT_HEADER_NAMES: Record<keyof AccountInterface, string> = {
     accountOpeningDate: 'Account Opening Date',
     securityQuestion: 'Security Questions',
     balance: 'Balance',
+    balanceCurrency: 'Balance Currency',
     appUsername: 'App Username',
     appPassword: 'App Password',
     appPin: 'App PIN',
@@ -103,6 +105,9 @@ function formatAccountField(
             
         case 'balance':
             return formatCurrencyField(value);
+
+        case 'balanceCurrency':
+            return formatStringField(value);
             
         case 'accountOpeningDate':
             return formatDateField(value);
@@ -179,7 +184,8 @@ function validateAccountsForExport(accounts: AccountInterface[]): { isValid: boo
  */
 export function exportAccountsToCSV(
     accounts: AccountInterface[], 
-    filename?: string
+    filename?: string,
+    balanceCurrency = 'USD'
 ): { success: boolean; error?: string } {
     // Custom validation for accounts
     const validation = validateAccountsForExport(accounts);
@@ -192,7 +198,12 @@ export function exportAccountsToCSV(
     
     const exportFilename = filename || `accounts_export_${new Date().toISOString().split('T')[0]}`;
     
-    return exportToCSV(accounts, {
+    const accountsWithCurrency = accounts.map((account) => ({
+        ...account,
+        balanceCurrency: account.balanceCurrency || balanceCurrency,
+    }));
+
+    return exportToCSV(accountsWithCurrency, {
         filename: exportFilename,
         fields: ACCOUNT_EXPORT_FIELDS,
         headers: ACCOUNT_EXPORT_FIELDS.map(field => ACCOUNT_HEADER_NAMES[field]),
@@ -257,7 +268,9 @@ export function exportAccountsByBank(
 /**
  * Create a CSV template for account import
  */
-export function createAccountImportTemplate(): { success: boolean; error?: string } {
+export function createAccountImportTemplate(
+    balanceCurrency = 'USD'
+): { success: boolean; error?: string } {
     // Create sample data for the template
     const templateData: Partial<AccountInterface>[] = [{
         holderName: 'John Doe',
@@ -274,6 +287,7 @@ export function createAccountImportTemplate(): { success: boolean; error?: strin
         accountOpeningDate: new Date('2024-01-15'),
         securityQuestion: ['What is your favorite color?'],
         balance: 1000.00,
+        balanceCurrency,
         appUsername: 'johndoe123',
         notes: 'Sample account for template',
         nickname: 'My Main Account'
@@ -295,6 +309,7 @@ export function createAccountImportTemplate(): { success: boolean; error?: strin
         'accountOpeningDate',
         'securityQuestion',
         'balance',
+        'balanceCurrency',
         'appUsername',
         'notes',
         'nickname'

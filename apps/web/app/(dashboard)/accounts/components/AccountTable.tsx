@@ -96,14 +96,14 @@ interface AccountTableProps {
     accounts: AccountInterface[];
     selectedCurrency: string;
     onEdit?: (account: AccountInterface) => void;
-    onDelete?: (account: AccountInterface) => void;
+    onDelete?: (appLockPassword: string, account: AccountInterface) => void;
     onViewDetails?: (account: AccountInterface) => void;
     onShare?: (account: AccountInterface) => void;
     selectedAccounts?: Set<number>;
     onAccountSelect?: (accountId: number, selected: boolean) => void;
     onSelectAll?: (selected: boolean) => void;
     showBulkActions?: boolean;
-    onBulkDelete?: () => void;
+    onBulkDelete?: (appLockPassword: string) => void;
     isDeleting?: boolean;
     onClearSelection?: () => void;
     headerActions?: React.ReactNode;
@@ -131,7 +131,7 @@ export function AccountTable({
     withheldDetails = {}
 }: AccountTableProps) {
     const withheldAmounts = useMemo(() => sumAccountWithheld(withheldDetails), [withheldDetails]);
-    const { currency: userCurrency } = useCurrency();
+    const { currency: userCurrency, currencyRateVersion } = useCurrency();
     const [grouping, setGrouping] = useState<AccountGrouping>("nickname");
     const [sortField, setSortField] = useState<SortField>('bankName');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -276,7 +276,7 @@ export function AccountTable({
         });
 
         return sorted;
-    }, [accounts, sortField, sortDirection, withheldAmounts, userCurrency, selectedCurrency]);
+    }, [accounts, sortField, sortDirection, withheldAmounts, userCurrency, selectedCurrency, currencyRateVersion]);
 
     const accountGroups = useMemo(
         () => groupAccounts(sortedAccounts, grouping, withheldDetails),
@@ -319,11 +319,6 @@ export function AccountTable({
         if (onSelectAll) {
             onSelectAll(!allSelected);
         }
-    };
-
-    const handleBulkDelete = () => {
-        if (!onBulkDelete || isDeleting || selectedAccounts.size === 0) return;
-        onBulkDelete();
     };
 
     const isAllSelected = selectedAccounts.size === accounts.length && accounts.length > 0;
@@ -381,14 +376,21 @@ export function AccountTable({
                                 >
                                     Clear Selection
                                 </button>
-                                <button
-                                    type="button"
-                                    onClick={handleBulkDelete}
-                                    disabled={isDeleting}
-                                    className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
-                                >
-                                    {isDeleting ? "Deleting…" : `Delete Selected (${selectedAccounts.size})`}
-                                </button>
+                                {onBulkDelete && (
+                                    <PasswordGatedButton
+                                        disabled={isDeleting}
+                                        className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors disabled:opacity-50"
+                                        prompt={{
+                                            title: "Delete selected accounts",
+                                            description: `This cannot be undone. Enter your lock screen password to delete ${selectedAccounts.size} selected ${selectedAccounts.size === 1 ? "account" : "accounts"}.`,
+                                            confirmLabel: "Delete selected",
+                                            force: true,
+                                        }}
+                                        onConfirm={onBulkDelete}
+                                    >
+                                        {isDeleting ? "Deleting…" : `Delete Selected (${selectedAccounts.size})`}
+                                    </PasswordGatedButton>
+                                )}
                             </div>
                         )}
                         <div className="flex flex-wrap items-center gap-2">
@@ -664,7 +666,7 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
     userCurrency: string;
     displayCurrency: string;
     onEdit?: (account: AccountInterface) => void;
-    onDelete?: (account: AccountInterface) => void;
+    onDelete?: (appLockPassword: string, account: AccountInterface) => void;
     onViewDetails?: (account: AccountInterface) => void;
     onShare?: (account: AccountInterface) => void;
     isSelected?: boolean;
@@ -682,11 +684,6 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
         }
     };
 
-    const handleDelete = () => {
-        if (onDelete) {
-            onDelete(account);
-        }
-    };
 
     const handleViewDetails = () => {
         if (onViewDetails) {
@@ -867,16 +864,20 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
                         </button>
                     )}
                     {onDelete && (
-                        <button
-                            type="button"
-                            onClick={handleDelete}
+                        <PasswordGatedButton
                             className={cn(
                                 getActionButtonClasses('delete', 'accounts'),
                                 'shrink-0 px-2 py-1 text-xs'
                             )}
+                            prompt={{
+                                title: "Delete account",
+                                description: "This cannot be undone. Enter your lock screen password to delete this account.",
+                                confirmLabel: "Delete account",
+                            }}
+                            onConfirm={(appLockPassword) => onDelete(appLockPassword, account)}
                         >
                             Delete
-                        </button>
+                        </PasswordGatedButton>
                     )}
                 </div>
             </td>

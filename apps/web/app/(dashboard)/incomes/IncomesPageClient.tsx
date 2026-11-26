@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useOptimizedFinancialData } from '../../hooks/useOptimizedFinancialData';
-import { useGatedAction } from '@repo/applock';
 import { IncomeList, AddIncomeModal, EditIncomeModal, ViewIncomeModal } from './components';
 import { UnifiedBulkImportModal } from '../../components/shared/UnifiedBulkImportModal';
 import { incomeImportConfig } from '../../config/bulkImportConfig';
@@ -407,14 +406,14 @@ export default function IncomesPageClient() {
           currency={displayCurrency}
           onEdit={openEditModal}
           onView={openViewModal}
-          onDelete={(item) => void deleteItem(item.id)}
+          onDelete={(appLockPassword, item) => void handleDeleteItem(appLockPassword, item.id)}
           onBookmark={handleBookmarkToggle}
           onRefresh={invalidateQueries}
           selectedIncomes={visibleSelection}
           onIncomeSelect={handleItemSelect}
           onSelectAll={(selected) => handleSelectAll(selected, tableIncomes)}
           showBulkActions={true}
-          onBulkDelete={isBulkDeleting ? undefined : (ids) => void bulkDeleteItems(ids)}
+          onBulkDelete={isBulkDeleting ? undefined : (appLockPassword, ids) => void handleBulkDelete(appLockPassword, ids)}
           onClearSelection={() => handleSelectAll(false)}
         />
       </Suspense>

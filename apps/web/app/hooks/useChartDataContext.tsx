@@ -365,11 +365,11 @@ export function ChartDataProvider({
   endDate,
   isAllTime = false,
 }: ChartDataProviderProps) {
-  const { displayCurrency } = useDisplayCurrency();
+  const { displayCurrency, currencyRateVersion } = useDisplayCurrency();
   const targetCurrency = displayCurrency;
   const allMonthlyData = useMemo(
     () => aggregateMonthly(incomes, expenses, targetCurrency),
-    [incomes, expenses, targetCurrency],
+    [incomes, expenses, targetCurrency, currencyRateVersion],
   );
 
   const processedData = useMemo(

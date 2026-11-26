@@ -263,7 +263,7 @@ export function DebtDueDatesChart({ debts, currency: currencyProp }: DebtDueDate
           title="Lending Due Dates"
           subtitle="Timeline of upcoming due dates for lendings with outstanding balance"
           fileName="lending-due-dates"
-          csvData={[["Borrower", "Due Date", "Days Until Due", "Amount"]]}
+          csvData={[["Borrower", "Due Date", "Days Until Due", `Amount (${currency})`]]}
           csvFileName="lending-due-dates-data"
           tooltipText="Shows when active lendings are due"
         />

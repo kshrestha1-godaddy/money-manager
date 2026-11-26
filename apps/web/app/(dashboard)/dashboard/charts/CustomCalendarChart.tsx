@@ -8,7 +8,7 @@ import { ChartControls } from "../../../components/ChartControls";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import { useChartAnimationState } from "../../../hooks/useChartAnimationContext";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
-import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
+import { useDisplayCurrency, useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface CustomCalendarChartProps {
     type: "income" | "expense";
@@ -46,6 +46,7 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
     title
 }) => {
     const currency = useResolvedDisplayCurrency(currencyProp);
+    const { currencyRateVersion } = useDisplayCurrency();
     const router = useRouter();
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
@@ -161,6 +162,7 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
     }, [
         data.length,
         currency,
+        currencyRateVersion,
         selectedYear,
         // Add checksum to detect actual data changes, not just reference changes
         data.reduce((sum, item) => sum + item.amount + item.id, 0)
@@ -424,7 +426,7 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
 
     // Enhanced CSV data for chart controls with detailed statistics
     const csvDataForControls = [
-        ['Day of Month', 'Month', 'Date', 'Year', 'Category Filter', 'Transaction Count', 'Total Amount', 'Average per Transaction', 'Activity Level', 'Valid Day', 'Type'],
+        ['Day of Month', 'Month', 'Date', 'Year', 'Category Filter', 'Transaction Count', `Total Amount (${currency})`, `Average per Transaction (${currency})`, 'Activity Level', 'Valid Day', 'Type'],
         ...calendarData.grid.flatMap((row, rowIndex) => 
             row.map((cellData, colIndex) => {
                 const averageAmount = cellData.count > 0 ? cellData.amount / cellData.count : 0;

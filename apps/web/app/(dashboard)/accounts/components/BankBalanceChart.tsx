@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { AccountInterface } from "../../../types/accounts";
 import { formatCurrency } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
-import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
+import { useDisplayCurrency, useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface BankBalanceChartProps {
     accounts: AccountInterface[];
@@ -28,6 +28,7 @@ interface ChartDataPoint {
 
 export function BankBalanceChart({ accounts, sourceCurrency, currency: currencyProp, withheldAmounts = {} }: BankBalanceChartProps) {
     const currency = useResolvedDisplayCurrency(currencyProp);
+    const { currencyRateVersion } = useDisplayCurrency();
     const chartData = useMemo(() => {
         // Group accounts by bank and calculate total balance per bank
         const bankMap = new Map<string, { balance: number; accountCount: number }>();
@@ -85,7 +86,7 @@ export function BankBalanceChart({ accounts, sourceCurrency, currency: currencyP
         });
 
         return chartDataPoints;
-    }, [accounts, withheldAmounts, sourceCurrency, currency]);
+    }, [accounts, withheldAmounts, sourceCurrency, currency, currencyRateVersion]);
 
     const formatTooltip = (value: number, name: string, props: any) => {
         if (name === 'free') {

@@ -7,7 +7,7 @@ import { ChartControls } from "../../../components/ChartControls";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { useChartAnimationState } from "../../../hooks/useChartAnimationContext";
 import { loadGoogleCharts } from "../../../utils/googleCharts";
-import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
+import { useDisplayCurrency, useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface CashFlowSankeyChartProps {
     currency?: string;
@@ -45,6 +45,7 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
     heightClass 
 }) => {
     const currency = useResolvedDisplayCurrency(currencyProp);
+    const { currencyRateVersion } = useDisplayCurrency();
     const chartRef = useRef<HTMLDivElement>(null);
     const { filteredIncomes, filteredExpenses, totals, formatTimePeriod } = useChartData();
     
@@ -251,7 +252,7 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
 
         // Prepare CSV data
         const csvRows: (string | number)[][] = [
-            ['Flow Type', 'From', 'To', 'Amount', 'Percentage', 'Transactions', 'Average Amount', 'Sub-Categories']
+            ['Flow Type', 'From', 'To', `Amount (${currency})`, 'Percentage', 'Transactions', `Average Amount (${currency})`, 'Sub-Categories']
         ];
         
         flows.forEach((flow) => {
@@ -287,6 +288,7 @@ export const CashFlowSankeyChart = React.memo<CashFlowSankeyChartProps>(({
         filteredIncomes.length,
         filteredExpenses.length,
         currency,
+        currencyRateVersion,
         totals.income,
         totals.expenses,
         totals.savings,

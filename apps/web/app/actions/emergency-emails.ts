@@ -1,6 +1,7 @@
 "use server";
 
 import { getAuthenticatedSession, getUserIdFromSession } from "../utils/auth";
+import { requireAppLockPassword } from "../lib/security/require-app-lock-password";
 import prisma from "@repo/db/client";
 
 export interface EmergencyEmailData {
@@ -182,10 +183,9 @@ export async function updateEmergencyEmail(data: UpdateEmergencyEmailData): Prom
 /**
  * Delete an emergency email
  */
-export async function deleteEmergencyEmail(id: number): Promise<void> {
+export async function deleteEmergencyEmail(id: number, appLockPassword: string): Promise<void> {
   try {
-    const session = await getAuthenticatedSession();
-    const userId = getUserIdFromSession(session.user.id);
+    const userId = await requireAppLockPassword(appLockPassword);
 
     // Verify the email belongs to the user
     const existingEmail = await prisma.emergencyEmail.findFirst({

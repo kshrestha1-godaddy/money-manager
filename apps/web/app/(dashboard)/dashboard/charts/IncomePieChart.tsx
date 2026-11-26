@@ -4,7 +4,7 @@ import React, { useRef, useMemo, useCallback } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { formatCurrency } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
-import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
+import { useDisplayCurrency, useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { ChartControls } from "../../../components/ChartControls";
 import { useChartExpansion } from "../../../utils/chartUtils";
@@ -43,6 +43,7 @@ const OTHERS_COLOR = "#94a3b8";
 
 export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency: currencyProp, title, heightClass }) => {
     const currency = useResolvedDisplayCurrency(currencyProp);
+    const { currencyRateVersion } = useDisplayCurrency();
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { formatTimePeriod, filteredIncomes } = useChartData();
@@ -161,7 +162,7 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency: curre
         }
 
         return { chartData: aggregated, rawChartData, total: totalAmount, smallCategories: smallCats };
-    }, [filteredIncomes, currency]);
+    }, [filteredIncomes, currency, currencyRateVersion]);
 
     const CustomTooltip = useCallback(({ active, payload }: { active?: boolean; payload?: any[] }) => {
             if (!active || !payload?.length) return null;
@@ -298,12 +299,12 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency: curre
         const csvData: (string | number)[][] = [
             [
                 "Category",
-                "Total Amount",
+                `Total Amount (${currency})`,
                 "Percentage",
                 "Transactions",
-                "Average Amount",
-                "Min Amount",
-                "Max Amount",
+                `Average Amount (${currency})`,
+                `Min Amount (${currency})`,
+                `Max Amount (${currency})`,
                 "Date Range",
             ],
             ...chartData.map((item) => [
@@ -338,7 +339,7 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency: curre
         }
 
         return csvData;
-    }, [chartData, total, smallCategories, rawChartData]);
+    }, [chartData, total, smallCategories, rawChartData, currency]);
 
     const totalTransactions = chartData.reduce((sum, item) => sum + item.count, 0);
     const timePeriodText = useMemo(() => formatTimePeriod(), [formatTimePeriod]);

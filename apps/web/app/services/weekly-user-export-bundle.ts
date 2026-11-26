@@ -44,6 +44,8 @@ export async function buildWeeklyUserExportAttachments(
     }
   }
 
-  const primary = await buildPrimaryExportCsvAttachments(userId, dateStr);
+  const primary = await buildPrimaryExportCsvAttachments(userId, dateStr, {
+    includeDisplayCurrency: true,
+  });
   return [...primary, ...supplemental];
 }
