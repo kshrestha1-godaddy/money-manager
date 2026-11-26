@@ -41,7 +41,7 @@ export async function getAllAccounts(): Promise<AccountInterface[]> {
         // Convert Decimal balance to number to prevent serialization issues
         return accounts.map(account => ({
             ...account,
-            balance: account.balance ? decimalToNumber(account.balance, 'balance') : undefined,
+            balance: decimalToNumber(account.balance ?? 0, 'balance'),
             accountOpeningDate: new Date(account.accountOpeningDate),
             createdAt: new Date(account.createdAt),
             updatedAt: new Date(account.updatedAt),
@@ -100,7 +100,7 @@ export async function getUserAccounts() {
         // Convert Decimal balance to number to prevent serialization issues
         const formattedAccounts = accounts.map(account => ({
             ...account,
-            balance: account.balance ? decimalToNumber(account.balance, 'balance') : undefined,
+            balance: decimalToNumber(account.balance ?? 0, 'balance'),
             accountOpeningDate: new Date(account.accountOpeningDate),
             createdAt: new Date(account.createdAt),
             updatedAt: new Date(account.updatedAt),
@@ -137,7 +137,13 @@ export async function createAccount(account: Omit<AccountInterface, 'id' | 'user
 
         // Use transaction to handle account creation and uniqueness validation atomically
         const result = await prisma.$transaction(async (tx) => {
-            await getLockedLedgerCurrency(tx, userId);
+            // Balance from the client must already be in locked ledger currency.
+            const userCurrency = await getLockedLedgerCurrency(tx, userId);
+            const openingBalance = Number(account.balance ?? 0);
+            if (!Number.isFinite(openingBalance)) {
+                throw new Error("Opening balance must be a finite number in ledger currency.");
+            }
+
             // Check for account number uniqueness inside transaction
             if (account.accountNumber) {
                 const existingAccount = await tx.account.findUnique({
@@ -156,9 +162,28 @@ export async function createAccount(account: Omit<AccountInterface, 'id' | 'user
                 data: {
                     ...account,
                     userId: user.id,
-                    balance: account.balance || 0,
+                    balance: openingBalance,
                 },
             });
+
+            if (openingBalance !== 0) {
+                await logAccountBalanceFromTransaction(tx, {
+                    userId,
+                    action: ActivityAction.CREATE,
+                    entityType: ActivityEntityType.ACCOUNT,
+                    entityId: newAccount.id,
+                    category: ActivityCategory.TRANSACTION,
+                    accountId: newAccount.id,
+                    accountBankName: newAccount.bankName,
+                    holderName: newAccount.holderName,
+                    balanceDeltaUserCurrency: openingBalance,
+                    userCurrency,
+                    transactionTitle: `Opening balance · ${newAccount.bankName}`,
+                    transactionAmountOriginal: openingBalance,
+                    transactionCurrency: userCurrency,
+                    reason: "opening_balance",
+                });
+            }
 
             return newAccount;
         });
@@ -168,7 +193,7 @@ export async function createAccount(account: Omit<AccountInterface, 'id' | 'user
         // Convert Decimal balance to number to prevent serialization issues
         return {
             ...result,
-            balance: result.balance ? decimalToNumber(result.balance, 'balance') : undefined,
+            balance: decimalToNumber(result.balance ?? 0, 'balance'),
             accountOpeningDate: new Date(result.accountOpeningDate),
             createdAt: new Date(result.createdAt),
             updatedAt: new Date(result.updatedAt),
@@ -197,6 +222,8 @@ export async function updateAccount(id: number, account: Partial<Omit<AccountInt
 
         // Use transaction to handle account update and uniqueness validation atomically
         const result = await prisma.$transaction(async (tx) => {
+            const userCurrency = await getLockedLedgerCurrency(tx, userId);
+
             // Verify the account belongs to the user
             const existingAccount = await tx.account.findFirst({
                 where: {
@@ -222,11 +249,43 @@ export async function updateAccount(id: number, account: Partial<Omit<AccountInt
                 }
             }
 
+            const nextData = { ...account };
+            if (nextData.balance !== undefined) {
+                const nextBalance = Number(nextData.balance);
+                if (!Number.isFinite(nextBalance)) {
+                    throw new Error("Balance must be a finite number in ledger currency.");
+                }
+                nextData.balance = nextBalance;
+            }
+
             // Update the account
             const updatedAccount = await tx.account.update({
                 where: { id },
-                data: account,
+                data: nextData,
             });
+
+            if (nextData.balance !== undefined) {
+                const previousBalance = decimalToNumber(existingAccount.balance ?? 0, "balance");
+                const delta = nextData.balance - previousBalance;
+                if (delta !== 0) {
+                    await logAccountBalanceFromTransaction(tx, {
+                        userId,
+                        action: ActivityAction.UPDATE,
+                        entityType: ActivityEntityType.ACCOUNT,
+                        entityId: updatedAccount.id,
+                        category: ActivityCategory.TRANSACTION,
+                        accountId: updatedAccount.id,
+                        accountBankName: updatedAccount.bankName,
+                        holderName: updatedAccount.holderName,
+                        balanceDeltaUserCurrency: delta,
+                        userCurrency,
+                        transactionTitle: `Manual balance update · ${updatedAccount.bankName}`,
+                        transactionAmountOriginal: Math.abs(delta),
+                        transactionCurrency: userCurrency,
+                        reason: "manual_balance_adjust",
+                    });
+                }
+            }
 
             return updatedAccount;
         });
@@ -236,7 +295,7 @@ export async function updateAccount(id: number, account: Partial<Omit<AccountInt
         // Convert Decimal balance to number to prevent serialization issues
         return {
             ...result,
-            balance: result.balance ? decimalToNumber(result.balance, 'balance') : undefined,
+            balance: decimalToNumber(result.balance ?? 0, 'balance'),
             accountOpeningDate: new Date(result.accountOpeningDate),
             createdAt: new Date(result.createdAt),
             updatedAt: new Date(result.updatedAt),
@@ -267,7 +326,7 @@ export async function bulkUpdateAccountBalances(updates: { id: number; balance: 
             const accounts = await prisma.account.findMany({ where: { userId } });
             return accounts.map((account) => ({
                 ...account,
-                balance: account.balance ? decimalToNumber(account.balance, "balance") : undefined,
+                balance: decimalToNumber(account.balance ?? 0, "balance"),
                 accountOpeningDate: new Date(account.accountOpeningDate),
                 createdAt: new Date(account.createdAt),
                 updatedAt: new Date(account.updatedAt),
@@ -282,27 +341,63 @@ export async function bulkUpdateAccountBalances(updates: { id: number; balance: 
         const ids = [...new Set(updates.map((u) => u.id))];
         const owned = await prisma.account.findMany({
             where: { userId, id: { in: ids } },
-            select: { id: true },
+            select: { id: true, balance: true, bankName: true, holderName: true },
         });
 
         if (owned.length !== ids.length) {
             throw new Error("One or more accounts were not found or are not yours");
         }
 
-        await prisma.$transaction(
-            updates.map((u) =>
-                prisma.account.update({
-                    where: { id: u.id },
-                    data: { balance: u.balance },
-                })
-            )
-        );
+        const ownedById = new Map(owned.map((account) => [account.id, account]));
+
+        await prisma.$transaction(async (tx) => {
+            const userCurrency = await getLockedLedgerCurrency(tx, userId);
+
+            for (const update of updates) {
+                const nextBalance = Number(update.balance);
+                if (!Number.isFinite(nextBalance)) {
+                    throw new Error("Balance must be a finite number in ledger currency.");
+                }
+
+                const existing = ownedById.get(update.id);
+                if (!existing) {
+                    throw new Error("One or more accounts were not found or are not yours");
+                }
+
+                const previousBalance = decimalToNumber(existing.balance ?? 0, "balance");
+                const delta = nextBalance - previousBalance;
+
+                await tx.account.update({
+                    where: { id: update.id },
+                    data: { balance: nextBalance },
+                });
+
+                if (delta !== 0) {
+                    await logAccountBalanceFromTransaction(tx, {
+                        userId,
+                        action: ActivityAction.UPDATE,
+                        entityType: ActivityEntityType.ACCOUNT,
+                        entityId: update.id,
+                        category: ActivityCategory.BULK_OPERATION,
+                        accountId: update.id,
+                        accountBankName: existing.bankName,
+                        holderName: existing.holderName,
+                        balanceDeltaUserCurrency: delta,
+                        userCurrency,
+                        transactionTitle: `Bulk balance adjust · ${existing.bankName}`,
+                        transactionAmountOriginal: Math.abs(delta),
+                        transactionCurrency: userCurrency,
+                        reason: "bulk_balance_adjust",
+                    });
+                }
+            }
+        });
 
         const refreshed = await prisma.account.findMany({ where: { userId } });
 
         return refreshed.map((account) => ({
             ...account,
-            balance: account.balance ? decimalToNumber(account.balance, "balance") : undefined,
+            balance: decimalToNumber(account.balance ?? 0, "balance"),
             accountOpeningDate: new Date(account.accountOpeningDate),
             createdAt: new Date(account.createdAt),
             updatedAt: new Date(account.updatedAt),
@@ -462,7 +557,7 @@ export async function bulkCreateAccounts(accounts: Omit<AccountInterface, 'id' |
 
                     createdAccounts.push({
                         ...newAccount,
-                        balance: newAccount.balance ? decimalToNumber(newAccount.balance, 'balance') : undefined,
+                        balance: decimalToNumber(newAccount.balance ?? 0, 'balance'),
                         accountOpeningDate: new Date(newAccount.accountOpeningDate),
                         createdAt: new Date(newAccount.createdAt),
                         updatedAt: new Date(newAccount.updatedAt),
@@ -658,7 +753,7 @@ export async function transferMoney(fromAccountId: number, toAccountId: number, 
             }
 
             // Check if source account has sufficient balance
-            const sourceBalance = fromAccount.balance ? decimalToNumber(fromAccount.balance, 'balance') : 0;
+            const sourceBalance = decimalToNumber(fromAccount.balance ?? 0, 'balance');
             if (sourceBalance < amount) {
                 throw new Error(`Insufficient balance. Available: ${sourceBalance} ${userCurrency}`);
             }
@@ -682,13 +777,17 @@ export async function transferMoney(fromAccountId: number, toAccountId: number, 
                 },
             });
 
-            // Create a single expense entry for tracking with zero amount (doesn't affect expense calculations)
+            // Tracking row: amount 0 so expense totals stay clean; snapshot fields
+            // record the ledger transfer amount for audit / reconstruction.
             const transferExpense = await tx.expense.create({
                 data: {
                     title: `Transfer: ${fromAccount.bankName} → ${toAccount.bankName}`,
                     description: `Money transfer between accounts`,
-                    amount: 0, // Zero amount so it doesn't affect expense calculations
+                    amount: 0,
                     currency: userCurrency,
+                    accountAmount: 0,
+                    accountCurrency: userCurrency,
+                    appliedExchangeRate: 0,
                     date: new Date(),
                     category: {
                         connect: { id: transferCategory!.id }
@@ -755,7 +854,7 @@ export async function transferMoney(fromAccountId: number, toAccountId: number, 
             return {
                 fromAccount: {
                     ...updatedFromAccount,
-                    balance: updatedFromAccount.balance ? decimalToNumber(updatedFromAccount.balance, 'balance') : 0,
+                    balance: decimalToNumber(updatedFromAccount.balance ?? 0, 'balance'),
                     accountOpeningDate: new Date(updatedFromAccount.accountOpeningDate),
                     createdAt: new Date(updatedFromAccount.createdAt),
                     updatedAt: new Date(updatedFromAccount.updatedAt),
@@ -767,7 +866,7 @@ export async function transferMoney(fromAccountId: number, toAccountId: number, 
                 },
                 toAccount: {
                     ...updatedToAccount,
-                    balance: updatedToAccount.balance ? decimalToNumber(updatedToAccount.balance, 'balance') : 0,
+                    balance: decimalToNumber(updatedToAccount.balance ?? 0, 'balance'),
                     accountOpeningDate: new Date(updatedToAccount.accountOpeningDate),
                     createdAt: new Date(updatedToAccount.createdAt),
                     updatedAt: new Date(updatedToAccount.updatedAt),

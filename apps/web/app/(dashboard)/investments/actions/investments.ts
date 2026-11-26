@@ -6,12 +6,7 @@ import { authOptions } from "../../../lib/auth";
 import { InvestmentInterface } from "../../../types/investments";
 import { revalidatePath } from "next/cache";
 import { getUserIdFromSession, decimalToNumber } from "../../../utils/auth";
-import { logAccountBalanceFromTransaction } from "../../../utils/accountActivityLog";
-import {
-    ActivityAction,
-    ActivityCategory,
-    ActivityEntityType,
-} from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { parseInvestmentsCSV, ParsedInvestmentData } from "../../../utils/csvImportInvestments";
 import { convertForDisplayWithDbRates } from "../../../utils/currencyDisplayServer";
 import { ImportResult } from "../../../types/bulkImport";
@@ -34,6 +29,48 @@ function investmentPurchaseCost(quantity: unknown, purchasePrice: unknown): numb
     const q = decimalToNumber(quantity, "investment quantity");
     const p = decimalToNumber(purchasePrice, "investment purchase price");
     return q * p;
+}
+
+/**
+ * Withheld investments reserve free balance without changing Account.balance.
+ * Free = ledger balance − other withheld purchase costs on the same account.
+ */
+async function assertAccountHasFreeBalanceForWithheld(
+    tx: Prisma.TransactionClient,
+    userId: number,
+    accountId: number,
+    requiredAmount: number,
+    excludeInvestmentId?: number
+): Promise<{ bankName: string; free: number }> {
+    const account = await tx.account.findUnique({
+        where: { id: accountId },
+        select: { balance: true, bankName: true, userId: true },
+    });
+    if (!account || account.userId !== userId) {
+        throw new Error("Selected account not found");
+    }
+
+    const otherWithheld = await tx.investment.findMany({
+        where: {
+            userId,
+            accountId,
+            deductFromAccount: true,
+            ...(excludeInvestmentId != null ? { id: { not: excludeInvestmentId } } : {}),
+        },
+        select: { quantity: true, purchasePrice: true },
+    });
+    const withheldTotal = otherWithheld.reduce(
+        (sum, row) => sum + investmentPurchaseCost(row.quantity, row.purchasePrice),
+        0
+    );
+    const balance = decimalToNumber(account.balance, "account balance");
+    const free = balance - withheldTotal;
+    if (requiredAmount > free) {
+        throw new Error(
+            `Insufficient free balance in ${account.bankName}. Available: ${free}, required: ${requiredAmount}`
+        );
+    }
+    return { bankName: account.bankName, free };
 }
 
 /** Sum of quantity × currentPrice for all investments linked to this target (same rule as target progress). */
@@ -303,33 +340,18 @@ export async function createInvestment(
         }
 
         const result = await prisma.$transaction(async (tx) => {
-            const userCurrency = await getLockedLedgerCurrency(tx, userId);
+            await getLockedLedgerCurrency(tx, userId);
+            // Withhold reserves free balance; do not mutate Account.balance.
             if (deduct && linkedAccountId && purchaseCost > 0) {
-                const account = await tx.account.findUnique({
-                    where: { id: linkedAccountId },
-                    select: {
-                        balance: true,
-                        bankName: true,
-                        holderName: true,
-                        userId: true,
-                    },
-                });
-                if (!account || account.userId !== userId) {
-                    throw new Error("Selected account not found");
-                }
-                const bal = decimalToNumber(account.balance, "account balance");
-                if (bal < purchaseCost) {
-                    throw new Error(
-                        `Insufficient balance in ${account.bankName}. Available: ${bal}, required for purchase: ${purchaseCost}`
-                    );
-                }
-                await tx.account.update({
-                    where: { id: linkedAccountId },
-                    data: { balance: { decrement: purchaseCost } },
-                });
+                await assertAccountHasFreeBalanceForWithheld(
+                    tx,
+                    userId,
+                    linkedAccountId,
+                    purchaseCost
+                );
             }
 
-            const created = await tx.investment.create({
+            return tx.investment.create({
                 data: {
                     name: investment.name,
                     type: investment.type,
@@ -359,33 +381,6 @@ export async function createInvestment(
                     },
                 },
             });
-
-            if (deduct && linkedAccountId && purchaseCost > 0) {
-                const acc = await tx.account.findUnique({
-                    where: { id: linkedAccountId },
-                    select: { bankName: true, holderName: true },
-                });
-                if (acc) {
-                    await logAccountBalanceFromTransaction(tx, {
-                        userId,
-                        action: ActivityAction.CREATE,
-                        entityType: ActivityEntityType.INVESTMENT,
-                        entityId: created.id,
-                        category: ActivityCategory.TRANSACTION,
-                        accountId: linkedAccountId,
-                        accountBankName: acc.bankName,
-                        holderName: acc.holderName,
-                        balanceDeltaUserCurrency: -purchaseCost,
-                        userCurrency,
-                        transactionTitle: investment.name,
-                        transactionAmountOriginal: purchaseCost,
-                        transactionCurrency: userCurrency,
-                        reason: "investment_create",
-                    });
-                }
-            }
-
-            return created;
         });
 
         // Revalidate related pages
@@ -461,7 +456,7 @@ export async function updateInvestment(
         const userId = getUserIdFromSession(session.user.id);
 
         const result = await prisma.$transaction(async (tx) => {
-            const userCurrency = await getLockedLedgerCurrency(tx, userId);
+            await getLockedLedgerCurrency(tx, userId);
             const existing = await tx.investment.findFirst({
                 where: { id, userId },
             });
@@ -492,13 +487,7 @@ export async function updateInvestment(
                 );
             }
 
-            const oldCost = investmentPurchaseCost(
-                existing.quantity,
-                existing.purchasePrice
-            );
             const oldAccountId = existing.accountId;
-            const oldDeduct = investmentShouldDeduct(existing.deductFromAccount);
-
             const newQty =
                 investment.quantity !== undefined
                     ? Number(investment.quantity)
@@ -516,140 +505,17 @@ export async function updateInvestment(
             const newDeduct =
                 investment.deductFromAccount !== undefined
                     ? investmentShouldDeduct(investment.deductFromAccount)
-                    : oldDeduct;
+                    : investmentShouldDeduct(existing.deductFromAccount);
 
-            if (
-                oldAccountId != null &&
-                newAccountId != null &&
-                oldAccountId === newAccountId &&
-                oldDeduct &&
-                newDeduct
-            ) {
-                const deltaCost = newCost - oldCost;
-                if (deltaCost !== 0) {
-                    const account = await tx.account.findUnique({
-                        where: { id: oldAccountId },
-                        select: {
-                            balance: true,
-                            bankName: true,
-                            holderName: true,
-                            userId: true,
-                        },
-                    });
-                    if (!account || account.userId !== userId) {
-                        throw new Error("Account not found");
-                    }
-                    const bal = decimalToNumber(account.balance, "account balance");
-                    if (deltaCost > 0 && bal < deltaCost) {
-                        throw new Error(
-                            `Insufficient balance in ${account.bankName}. Available: ${bal}, additional required: ${deltaCost}`
-                        );
-                    }
-                    await tx.account.update({
-                        where: { id: oldAccountId },
-                        data: { balance: { decrement: deltaCost } },
-                    });
-                    const acc = await tx.account.findUnique({
-                        where: { id: oldAccountId },
-                        select: { bankName: true, holderName: true },
-                    });
-                    if (acc) {
-                        await logAccountBalanceFromTransaction(tx, {
-                            userId,
-                            action: ActivityAction.UPDATE,
-                            entityType: ActivityEntityType.INVESTMENT,
-                            entityId: id,
-                            category: ActivityCategory.TRANSACTION,
-                            accountId: oldAccountId,
-                            accountBankName: acc.bankName,
-                            holderName: acc.holderName,
-                            balanceDeltaUserCurrency: -deltaCost,
-                            userCurrency,
-                            transactionTitle:
-                                investment.name ?? existing.name,
-                            transactionAmountOriginal: newCost,
-                            transactionCurrency: userCurrency,
-                            reason: "investment_update_cost",
-                        });
-                    }
-                }
-            } else {
-                if (oldDeduct && oldAccountId != null && oldCost > 0) {
-                    await tx.account.update({
-                        where: { id: oldAccountId },
-                        data: { balance: { increment: oldCost } },
-                    });
-                    const accOld = await tx.account.findUnique({
-                        where: { id: oldAccountId },
-                        select: { bankName: true, holderName: true },
-                    });
-                    if (accOld) {
-                        await logAccountBalanceFromTransaction(tx, {
-                            userId,
-                            action: ActivityAction.UPDATE,
-                            entityType: ActivityEntityType.INVESTMENT,
-                            entityId: id,
-                            category: ActivityCategory.TRANSACTION,
-                            accountId: oldAccountId,
-                            accountBankName: accOld.bankName,
-                            holderName: accOld.holderName,
-                            balanceDeltaUserCurrency: oldCost,
-                            userCurrency,
-                            transactionTitle: existing.name,
-                            transactionAmountOriginal: oldCost,
-                            transactionCurrency: userCurrency,
-                            reason: "investment_update_release_prior",
-                        });
-                    }
-                }
-
-                if (newDeduct && newAccountId != null && newCost > 0) {
-                    const account = await tx.account.findUnique({
-                        where: { id: newAccountId },
-                        select: {
-                            balance: true,
-                            bankName: true,
-                            holderName: true,
-                            userId: true,
-                        },
-                    });
-                    if (!account || account.userId !== userId) {
-                        throw new Error("Selected account not found");
-                    }
-                    const bal = decimalToNumber(account.balance, "account balance");
-                    if (bal < newCost) {
-                        throw new Error(
-                            `Insufficient balance in ${account.bankName}. Available: ${bal}, required: ${newCost}`
-                        );
-                    }
-                    await tx.account.update({
-                        where: { id: newAccountId },
-                        data: { balance: { decrement: newCost } },
-                    });
-                    const accNew = await tx.account.findUnique({
-                        where: { id: newAccountId },
-                        select: { bankName: true, holderName: true },
-                    });
-                    if (accNew) {
-                        await logAccountBalanceFromTransaction(tx, {
-                            userId,
-                            action: ActivityAction.UPDATE,
-                            entityType: ActivityEntityType.INVESTMENT,
-                            entityId: id,
-                            category: ActivityCategory.TRANSACTION,
-                            accountId: newAccountId,
-                            accountBankName: accNew.bankName,
-                            holderName: accNew.holderName,
-                            balanceDeltaUserCurrency: -newCost,
-                            userCurrency,
-                            transactionTitle:
-                                investment.name ?? existing.name,
-                            transactionAmountOriginal: newCost,
-                            transactionCurrency: userCurrency,
-                            reason: "investment_update_apply_new",
-                        });
-                    }
-                }
+            // Withhold is a reservation only — validate free balance, never mutate ledger.
+            if (newDeduct && newAccountId != null && newCost > 0) {
+                await assertAccountHasFreeBalanceForWithheld(
+                    tx,
+                    userId,
+                    newAccountId,
+                    newCost,
+                    id
+                );
             }
 
             return tx.investment.update({
@@ -724,12 +590,6 @@ export async function deleteInvestment(id: number, appLockPassword: string) {
     try {
         const userId = await requireAppLockPassword(appLockPassword);
 
-        const userRow = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { currency: true },
-        });
-        const userCurrency = userRow?.currency || "USD";
-
         await prisma.$transaction(async (tx) => {
             const existingInvestment = await tx.investment.findFirst({
                 where: { id, userId },
@@ -739,44 +599,7 @@ export async function deleteInvestment(id: number, appLockPassword: string) {
                 throw new Error("Investment not found or unauthorized");
             }
 
-            const deduct = investmentShouldDeduct(
-                existingInvestment.deductFromAccount
-            );
-            const cost = investmentPurchaseCost(
-                existingInvestment.quantity,
-                existingInvestment.purchasePrice
-            );
-            const accountId = existingInvestment.accountId;
-
-            if (deduct && accountId != null && cost > 0) {
-                await tx.account.update({
-                    where: { id: accountId },
-                    data: { balance: { increment: cost } },
-                });
-                const acc = await tx.account.findUnique({
-                    where: { id: accountId },
-                    select: { bankName: true, holderName: true },
-                });
-                if (acc) {
-                    await logAccountBalanceFromTransaction(tx, {
-                        userId,
-                        action: ActivityAction.DELETE,
-                        entityType: ActivityEntityType.INVESTMENT,
-                        entityId: id,
-                        category: ActivityCategory.TRANSACTION,
-                        accountId,
-                        accountBankName: acc.bankName,
-                        holderName: acc.holderName,
-                        balanceDeltaUserCurrency: cost,
-                        userCurrency,
-                        transactionTitle: existingInvestment.name,
-                        transactionAmountOriginal: cost,
-                        transactionCurrency: userCurrency,
-                        reason: "investment_delete",
-                    });
-                }
-            }
-
+            // Withheld is a reservation only — deleting frees capacity without ledger restore.
             await tx.investment.delete({
                 where: { id },
             });
@@ -939,25 +762,23 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
                                 investmentData.accountId &&
                                 purchaseCost > 0
                             ) {
-                                const accCheck = account!;
-                                const bal = decimalToNumber(
-                                    accCheck.balance,
-                                    "account balance"
-                                );
-                                if (bal < purchaseCost) {
+                                try {
+                                    await assertAccountHasFreeBalanceForWithheld(
+                                        tx,
+                                        userId,
+                                        investmentData.accountId,
+                                        purchaseCost
+                                    );
+                                } catch (error) {
                                     result.errors.push({
                                         row: 0,
-                                        error: `Insufficient balance for ${investmentData.name} (need ${purchaseCost})`,
+                                        error: error instanceof Error
+                                            ? error.message
+                                            : `Insufficient free balance for ${investmentData.name}`,
                                         data: investmentData,
                                     });
                                     continue;
                                 }
-                                await tx.account.update({
-                                    where: { id: investmentData.accountId },
-                                    data: {
-                                        balance: { decrement: purchaseCost },
-                                    },
-                                });
                             }
 
                             if (investmentData.type === "STOCKS") {
@@ -976,7 +797,7 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
 
                             const { priceCurrency: _priceCurrency, ...investmentFields } =
                                 investmentData;
-                            const created = await tx.investment.create({
+                            await tx.investment.create({
                                 data: {
                                     ...investmentFields,
                                     purchasePrice,
@@ -985,30 +806,6 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
                                     deductFromAccount: deductFromCsv ?? false,
                                 },
                             });
-
-                            if (
-                                deduct &&
-                                investmentData.accountId &&
-                                purchaseCost > 0 &&
-                                account
-                            ) {
-                                await logAccountBalanceFromTransaction(tx, {
-                                    userId,
-                                    action: ActivityAction.CREATE,
-                                    entityType: ActivityEntityType.INVESTMENT,
-                                    entityId: created.id,
-                                    category: ActivityCategory.TRANSACTION,
-                                    accountId: investmentData.accountId,
-                                    accountBankName: account.bankName,
-                                    holderName: account.holderName,
-                                    balanceDeltaUserCurrency: -purchaseCost,
-                                    userCurrency,
-                                    transactionTitle: investmentData.name,
-                                    transactionAmountOriginal: purchaseCost,
-                                    transactionCurrency: userCurrency,
-                                    reason: "investment_import_csv",
-                                });
-                            }
 
                             result.importedCount++;
                         } catch (error) {
@@ -1065,71 +862,11 @@ export async function bulkDeleteInvestments(investmentIds: number[], appLockPass
             throw new Error("Some investments not found or unauthorized");
         }
 
-        const userRow = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { currency: true },
-        });
-        const userCurrency = userRow?.currency || "USD";
-
-        await prisma.$transaction(async (tx) => {
-            await tx.investment.deleteMany({
-                where: {
-                    id: { in: investmentIds },
-                    userId: userId,
-                },
-            });
-
-            const accountUpdates = new Map<number, number>();
-            const accountInvestmentIds = new Map<number, number[]>();
-
-            existingInvestments.forEach((inv) => {
-                if (
-                    investmentShouldDeduct(inv.deductFromAccount) &&
-                    inv.accountId != null
-                ) {
-                    const c = investmentPurchaseCost(
-                        inv.quantity,
-                        inv.purchasePrice
-                    );
-                    if (c <= 0) return;
-                    const cur = accountUpdates.get(inv.accountId) || 0;
-                    accountUpdates.set(inv.accountId, cur + c);
-                    const ids = accountInvestmentIds.get(inv.accountId) || [];
-                    ids.push(inv.id);
-                    accountInvestmentIds.set(inv.accountId, ids);
-                }
-            });
-
-            for (const [accountId, totalAmount] of accountUpdates) {
-                await tx.account.update({
-                    where: { id: accountId },
-                    data: { balance: { increment: totalAmount } },
-                });
-                const acc = await tx.account.findUnique({
-                    where: { id: accountId },
-                    select: { bankName: true, holderName: true },
-                });
-                const invIds = accountInvestmentIds.get(accountId) || [];
-                if (acc) {
-                    await logAccountBalanceFromTransaction(tx, {
-                        userId,
-                        action: ActivityAction.BULK_DELETE,
-                        entityType: ActivityEntityType.INVESTMENT,
-                        entityId: null,
-                        category: ActivityCategory.BULK_OPERATION,
-                        accountId,
-                        accountBankName: acc.bankName,
-                        holderName: acc.holderName,
-                        balanceDeltaUserCurrency: totalAmount,
-                        userCurrency,
-                        transactionTitle: `${invIds.length} investment(s) deleted`,
-                        transactionAmountOriginal: totalAmount,
-                        transactionCurrency: userCurrency,
-                        reason: "bulk_delete_investment",
-                        extraMetadata: { investmentIds: invIds },
-                    });
-                }
-            }
+        await prisma.investment.deleteMany({
+            where: {
+                id: { in: investmentIds },
+                userId: userId,
+            },
         });
 
         // Revalidate related pages
@@ -1297,32 +1034,16 @@ export async function importCorrectedRow(rowData: string[], headers: string[]): 
             investmentData.accountId &&
             purchaseCost > 0
         ) {
-            const account = await tx.account.findUnique({
-                where: { id: investmentData.accountId },
-                select: {
-                    balance: true,
-                    bankName: true,
-                    holderName: true,
-                    userId: true,
-                },
-            });
-            if (!account || account.userId !== userId) {
-                throw new Error("Selected account not found");
-            }
-            const bal = decimalToNumber(account.balance, "account balance");
-            if (bal < purchaseCost) {
-                throw new Error(
-                    `Insufficient balance. Available: ${bal}, required: ${purchaseCost}`
-                );
-            }
-            await tx.account.update({
-                where: { id: investmentData.accountId },
-                data: { balance: { decrement: purchaseCost } },
-            });
+            await assertAccountHasFreeBalanceForWithheld(
+                tx,
+                userId,
+                investmentData.accountId,
+                purchaseCost
+            );
         }
 
         const { priceCurrency: _priceCurrency, ...investmentFields } = investmentData;
-        const created = await tx.investment.create({
+        return tx.investment.create({
             data: {
                 ...investmentFields,
                 purchasePrice,
@@ -1334,37 +1055,6 @@ export async function importCorrectedRow(rowData: string[], headers: string[]): 
                 account: true,
             },
         });
-
-        if (
-            deduct &&
-            investmentData.accountId &&
-            purchaseCost > 0
-        ) {
-            const acc = await tx.account.findUnique({
-                where: { id: investmentData.accountId },
-                select: { bankName: true, holderName: true },
-            });
-            if (acc) {
-                await logAccountBalanceFromTransaction(tx, {
-                    userId,
-                    action: ActivityAction.CREATE,
-                    entityType: ActivityEntityType.INVESTMENT,
-                    entityId: created.id,
-                    category: ActivityCategory.TRANSACTION,
-                    accountId: investmentData.accountId,
-                    accountBankName: acc.bankName,
-                    holderName: acc.holderName,
-                    balanceDeltaUserCurrency: -purchaseCost,
-                    userCurrency,
-                    transactionTitle: investmentData.name,
-                    transactionAmountOriginal: purchaseCost,
-                    transactionCurrency: userCurrency,
-                    reason: "investment_import_corrected_row",
-                });
-            }
-        }
-
-        return created;
     });
     
     revalidatePath("/(dashboard)/investments");

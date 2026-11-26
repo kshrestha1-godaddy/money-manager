@@ -79,8 +79,8 @@ export function BulkAdjustBalancesModal({
                     <div>
                         <h2 className="text-xl font-semibold text-gray-900">Adjust all balances</h2>
                         <p className="text-sm text-gray-600 mt-1">
-                            Set each account&apos;s new balance. Withheld amounts follow the same bank-wide split as
-                            your accounts table. Free balance is the new balance minus investments withheld from that account.
+                            Set each account&apos;s new balance. Withheld is per-account and reserved from that
+                            balance. Free (new) = new balance − withheld for that account.
                         </p>
                     </div>
                     <button

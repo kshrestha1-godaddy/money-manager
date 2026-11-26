@@ -9,6 +9,10 @@ export function sumAccountWithheld(details: Record<string, { amount: number }[]>
     );
 }
 
+/**
+ * Balance is the full account ledger. Withheld is a reservation against that
+ * same balance for linked investments (deductFromAccount). Free = balance − withheld.
+ */
 export function getAccountBalanceTotals(
     accounts: Pick<AccountInterface, "id" | "balance">[],
     withheldByAccount: Record<string, number>

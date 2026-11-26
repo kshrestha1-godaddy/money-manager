@@ -564,7 +564,7 @@ export function InvestmentAddForm({
           <p className="text-sm text-gray-500 mt-1">
             {formData.accountId
               ? formData.deductFromAccount
-                ? "Investment amount will be marked as withheld from the selected account."
+                ? "Investment amount will be reserved from the selected account’s free balance (account total stays the same)."
                 : "Investment will be tracked independently without being withheld from the account."
               : "Investment will be tracked independently without being linked to any account."}
           </p>
@@ -585,7 +585,7 @@ export function InvestmentAddForm({
               </label>
               <p className="text-xs text-gray-500 ml-6 mt-1">
                 {formData.deductFromAccount
-                  ? "This investment amount will show as withheld in the accounts section"
+                  ? "Shows as withheld on Accounts. Free balance = account balance − withheld."
                   : "This investment amount will not be considered as withheld from the account"}
               </p>
             </div>

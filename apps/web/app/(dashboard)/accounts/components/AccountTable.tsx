@@ -566,6 +566,7 @@ export function AccountTable({
                     {accountGroups.map((group) => {
                         const balance = group.accounts.reduce((sum, account) => sum + (account.balance ?? 0), 0);
                         const withheld = group.accounts.reduce((sum, account) => sum + (withheldAmounts[account.id] ?? 0), 0);
+                        const free = balance - withheld;
                         const displayAmount = (amount: number) => formatCurrency(convertForDisplaySync(amount, userCurrency, selectedCurrency), selectedCurrency);
                         return (
                     <tbody key={group.key} className="bg-white divide-y divide-gray-200">
@@ -576,7 +577,7 @@ export function AccountTable({
                                 </th>
                                 <td className="px-3 py-3 text-left text-xs font-medium text-gray-500 tabular-nums">{displayAmount(balance)}</td>
                                 <td className="px-3 py-3 text-left text-xs font-medium text-gray-500 tabular-nums">{displayAmount(withheld)}</td>
-                                <td className="px-3 py-3 text-left text-xs font-medium text-gray-500 tabular-nums">{displayAmount(balance - withheld)}</td>
+                                <td className="px-3 py-3 text-left text-xs font-medium text-gray-500 tabular-nums">{displayAmount(free)}</td>
                                 <td />
                             </tr>
                         )}

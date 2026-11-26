@@ -56,7 +56,7 @@ const clearFilterButton = BUTTON_COLORS.clearFilter;
 const standardInput = INPUT_COLORS.standard;
 
 export default function Accounts() {
-    const { currency: userCurrency } = useCurrency();
+    const { currency: userCurrency, isRatesLoading } = useCurrency();
     const { displayCurrency: selectedCurrency } = useDisplayCurrency();
 
     // Use the optimized accounts hook
@@ -183,7 +183,7 @@ export default function Accounts() {
     }
 
     // Loading state
-    if (loading || withheldDetailsLoading) {
+    if (loading || withheldDetailsLoading || isRatesLoading) {
         return (
             <div className={loadingContainer} role="status">
                 <div className={loadingSpinner} aria-hidden="true" />
@@ -262,7 +262,7 @@ export default function Accounts() {
                     <p className={`${cardValue} ${totals.free >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {formatCurrency(convertForDisplaySync(totals.free, userCurrency, selectedCurrency), selectedCurrency)}
                     </p>
-                    <p className={cardSubtitle}>available to use</p>
+                    <p className={cardSubtitle}>available after withheld investments</p>
                 </div>
                 <div className={cardContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRow}>
@@ -272,7 +272,7 @@ export default function Accounts() {
                     <p className={`${cardValue} text-gray-600`}>
                         {formatCurrency(convertForDisplaySync(totals.withheld, userCurrency, selectedCurrency), selectedCurrency)}
                     </p>
-                    <p className={cardSubtitle}>in investments</p>
+                    <p className={cardSubtitle}>reserved in investments</p>
                 </div>
                 <div className={cardContainer}>
                     <div className={UI_STYLES.summaryCard.indicatorRow}>

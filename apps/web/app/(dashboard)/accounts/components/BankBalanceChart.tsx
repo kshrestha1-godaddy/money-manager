@@ -52,34 +52,33 @@ export function BankBalanceChart({ accounts, sourceCurrency, currency: currencyP
         });
 
         // Convert to array format for chart and calculate total balance
+        // Balance is the full account amount. Withheld is reserved from it; free = balance − withheld.
         const initialPoints = Array.from(bankMap.entries())
             .map(([bank, data]) => {
                 const withheld = convertForDisplaySync(withheldAmounts[bank] ?? 0, sourceCurrency, currency);
                 const totalBalance = convertForDisplaySync(data.balance, sourceCurrency, currency);
                 const actualFree = totalBalance - withheld;
-                
+
                 return {
                     bank,
                     balance: totalBalance,
-                    withheld: withheld,
+                    withheld,
                     free: actualFree,
-                    actualFree: actualFree, // Store actual free balance (can be negative) for tooltip
+                    actualFree,
                     accountCount: data.accountCount
                 };
             })
-            .sort((a, b) => b.balance - a.balance); // Sort by total balance descending
+            .sort((a, b) => b.balance - a.balance);
 
-        // Calculate total balance for percentage calculation
         const totalBalance = initialPoints.reduce((sum, item) => sum + item.balance, 0);
 
-        // Add percentage to each data point
         const chartDataPoints: ChartDataPoint[] = initialPoints.map(item => {
-            const withheldPercentage = item.balance > 0 ? ((item.withheld / item.balance) * 100) : 0;
-            const freePercentage = item.balance > 0 ? ((item.actualFree / item.balance) * 100) : 0; // Use actual free for percentage
-            
+            const withheldPercentage = item.balance > 0 ? (item.withheld / item.balance) * 100 : 0;
+            const freePercentage = item.balance > 0 ? (item.actualFree / item.balance) * 100 : 0;
+
             return {
                 ...item,
-                percentage: totalBalance > 0 ? ((item.balance / totalBalance) * 100) : 0,
+                percentage: totalBalance > 0 ? (item.balance / totalBalance) * 100 : 0,
                 withheldPercentage,
                 freePercentage
             };

@@ -561,8 +561,8 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                         </select>
                         <p className="text-sm text-gray-500 mt-1">
                             {formData.accountId 
-                                ? (formData.deductFromAccount 
-                                    ? "Investment amount will be marked as withheld from the selected account." 
+                                ? (formData.deductFromAccount
+                                    ? "Investment amount will be reserved from the selected account’s free balance (account total stays the same)."
                                     : "Investment will be tracked independently without being withheld from the account.")
                                 : "Investment will be tracked independently without being linked to any account."
                             }
@@ -583,8 +583,8 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                                     </span>
                                 </label>
                                 <p className="text-xs text-gray-500 ml-6 mt-1">
-                                    {formData.deductFromAccount 
-                                        ? "This investment amount will show as withheld in the accounts section"
+                                    {formData.deductFromAccount
+                                        ? "Shows as withheld on Accounts. Free balance = account balance − withheld."
                                         : "This investment amount will not be considered as withheld from the account"
                                     }
                                 </p>

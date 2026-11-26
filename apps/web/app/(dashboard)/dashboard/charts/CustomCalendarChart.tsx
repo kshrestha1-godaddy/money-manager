@@ -53,13 +53,14 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
     const router = useRouter();
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
-    const { filteredIncomes, filteredExpenses } = useChartData();
+    // Use raw (unfiltered) data so this chart's year filter can override the dashboard date range
+    const { rawIncomes, rawExpenses } = useChartData();
     
     // Animation control to prevent restart on re-renders
     const chartId = `calendar-${type}`;
     const { hasAnimated } = useChartAnimationState(chartId);
     
-    // Year navigation state
+    // Year navigation state — highest priority filter for this chart
     const currentDate = new Date();
     const [selectedYear, setSelectedYear] = useState<number>(currentDate.getFullYear());
     
@@ -72,8 +73,8 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
     const [isTooltipHovered, setIsTooltipHovered] = useState(false);
     const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     
-    // Respect dashboard date filters so calendar totals match other charts
-    const allData = type === 'income' ? filteredIncomes : filteredExpenses;
+    // Chart-local year filter takes priority over the dashboard date filter
+    const allData = type === 'income' ? rawIncomes : rawExpenses;
     
     // Extract unique categories for the dropdown
     const availableCategories = useMemo(() => {
@@ -172,26 +173,18 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
         data.reduce((sum, item) => sum + item.amount + item.id, 0)
     ]);
 
-    // Get available years from filtered data for year navigation
+    // Available years from all transactions (not constrained by dashboard date filter)
     const availableYears = useMemo(() => {
         const years = new Set<number>();
-        data.forEach(transaction => {
+        allData.forEach(transaction => {
             years.add(new Date(transaction.date).getFullYear());
         });
         return Array.from(years).sort();
     }, [
-        data.length,
+        allData.length,
         // Add checksum to detect actual data changes, not just reference changes
-        data.reduce((sum, item) => sum + item.id, 0)
+        allData.reduce((sum, item) => sum + item.id, 0)
     ]);
-
-    // Keep selected year inside the filtered set when dashboard filters change
-    React.useEffect(() => {
-        if (availableYears.length === 0) return;
-        if (!availableYears.includes(selectedYear)) {
-            setSelectedYear(availableYears[availableYears.length - 1]!);
-        }
-    }, [availableYears, selectedYear]);
 
     // Generate calendar data in row-column format (rows = days of month 1-31, columns = months)
     const calendarData = useMemo(() => {

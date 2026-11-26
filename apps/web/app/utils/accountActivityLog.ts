@@ -20,11 +20,15 @@ export const INVESTMENT_ACCOUNT_BALANCE_SOURCE = "investment_account_balance" as
 /** Self transfer between user bank accounts (debit + credit legs) */
 export const SELF_TRANSFER_ACCOUNT_BALANCE_SOURCE = "self_transfer_account_balance" as const;
 
+/** Manual opening balance / edit / bulk adjust on accounts */
+export const MANUAL_ACCOUNT_BALANCE_SOURCE = "manual_account_balance" as const;
+
 export const ACCOUNT_BALANCE_ACTIVITY_SOURCES = [
     INCOME_EXPENSE_ACCOUNT_BALANCE_SOURCE,
     DEBT_ACCOUNT_BALANCE_SOURCE,
     INVESTMENT_ACCOUNT_BALANCE_SOURCE,
     SELF_TRANSFER_ACCOUNT_BALANCE_SOURCE,
+    MANUAL_ACCOUNT_BALANCE_SOURCE,
 ] as const;
 
 export interface AccountBalanceActivityInput {
@@ -52,13 +56,22 @@ export interface AccountBalanceActivityInput {
 }
 
 function ledgerMetadataSource(
-    entityType: AccountBalanceActivityInput["entityType"]
+    entityType: AccountBalanceActivityInput["entityType"],
+    reason?: string
 ):
     | typeof INCOME_EXPENSE_ACCOUNT_BALANCE_SOURCE
     | typeof DEBT_ACCOUNT_BALANCE_SOURCE
     | typeof INVESTMENT_ACCOUNT_BALANCE_SOURCE
-    | typeof SELF_TRANSFER_ACCOUNT_BALANCE_SOURCE {
+    | typeof SELF_TRANSFER_ACCOUNT_BALANCE_SOURCE
+    | typeof MANUAL_ACCOUNT_BALANCE_SOURCE {
     if (entityType === ActivityEntityType.ACCOUNT) {
+        if (
+            reason === "manual_balance_adjust" ||
+            reason === "opening_balance" ||
+            reason === "bulk_balance_adjust"
+        ) {
+            return MANUAL_ACCOUNT_BALANCE_SOURCE;
+        }
         return SELF_TRANSFER_ACCOUNT_BALANCE_SOURCE;
     }
     if (
@@ -138,6 +151,13 @@ function buildLedgerDescription(input: AccountBalanceActivityInput): string {
     }
 
     if (input.entityType === ActivityEntityType.ACCOUNT) {
+        if (
+            input.reason === "manual_balance_adjust" ||
+            input.reason === "opening_balance" ||
+            input.reason === "bulk_balance_adjust"
+        ) {
+            return `Balance adjusted: "${t}" — ${label} balance ${deltaStr}`;
+        }
         return `Self transfer: "${t}" — ${label} balance ${deltaStr}`;
     }
 
@@ -149,7 +169,7 @@ export async function logAccountBalanceFromTransaction(
     input: AccountBalanceActivityInput
 ): Promise<void> {
     const description = buildLedgerDescription(input);
-    const source = ledgerMetadataSource(input.entityType);
+    const source = ledgerMetadataSource(input.entityType, input.reason);
 
     const accountRow = await tx.account.findUnique({
         where: { id: input.accountId },
