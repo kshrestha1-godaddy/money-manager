@@ -34,8 +34,6 @@ interface UseOptimizedAccountsReturn {
     setIsAddModalOpen: (open: boolean) => void;
     isEditModalOpen: boolean;
     setIsEditModalOpen: (open: boolean) => void;
-    isDeleteModalOpen: boolean;
-    setIsDeleteModalOpen: (open: boolean) => void;
     isViewModalOpen: boolean;
     setIsViewModalOpen: (open: boolean) => void;
     isShareModalOpen: boolean;
@@ -64,8 +62,6 @@ interface UseOptimizedAccountsReturn {
     // Selected items
     accountToEdit: AccountInterface | null;
     setAccountToEdit: (account: AccountInterface | null) => void;
-    accountToDelete: AccountInterface | null;
-    setAccountToDelete: (account: AccountInterface | null) => void;
     accountToView: AccountInterface | null;
     setAccountToView: (account: AccountInterface | null) => void;
     accountToShare: AccountInterface | null;
@@ -78,8 +74,8 @@ interface UseOptimizedAccountsReturn {
     // Handlers
     handleAddAccount: (account: Omit<AccountInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => Promise<void>;
     handleEditAccount: (id: number, account: Partial<Omit<AccountInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>) => Promise<void>;
-    handleDeleteAccount: () => Promise<void>;
-    handleBulkDelete: () => Promise<void>;
+    handleDeleteAccount: (appLockPassword: string, accountId: number) => Promise<void>;
+    handleBulkDelete: (appLockPassword: string) => Promise<void>;
     handleBulkImportSuccess: (accounts: ParsedAccountData[]) => ReturnType<typeof bulkCreateAccounts>;
     handleExportToCSV: () => void;
     handleTransfer: (transfer: TransferData) => Promise<void>;
@@ -89,7 +85,6 @@ interface UseOptimizedAccountsReturn {
     clearFilters: () => void;
     openEditModal: (account: AccountInterface) => void;
     openViewModal: (account: AccountInterface) => void;
-    openDeleteModal: (account: AccountInterface) => void;
     openShareModal: (account: AccountInterface) => void;
 
     // Import status
@@ -115,7 +110,6 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
     // Modal states
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -132,7 +126,6 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
 
     // Selected item states
     const [accountToEdit, setAccountToEdit] = useState<AccountInterface | null>(null);
-    const [accountToDelete, setAccountToDelete] = useState<AccountInterface | null>(null);
     const [accountToView, setAccountToView] = useState<AccountInterface | null>(null);
     const [accountToShare, setAccountToShare] = useState<AccountInterface | null>(null);
 
@@ -245,15 +238,14 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
     });
 
     const deleteAccountMutation = useMutation({
-        mutationFn: deleteAccount,
-        onSuccess: (_, deletedId: number) => {
+        mutationFn: ({ id, appLockPassword }: { id: number; appLockPassword: string }) =>
+            deleteAccount(id, appLockPassword),
+        onSuccess: (_, { id: deletedId }) => {
             // Optimistically update the cache
             queryClient.setQueryData(QUERY_KEYS.accounts, (oldAccounts: AccountInterface[] = []) => {
                 return oldAccounts.filter(account => account.id !== deletedId);
             });
             refreshAccountActivity();
-            setIsDeleteModalOpen(false);
-            setAccountToDelete(null);
             setActionError(null);
         },
         onError: (error: Error) => {
@@ -263,8 +255,9 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
     });
 
     const bulkDeleteMutation = useMutation({
-        mutationFn: (ids: number[]) => bulkDeleteAccounts(ids),
-        onSuccess: (_, deletedIds: number[]) => {
+        mutationFn: ({ ids, appLockPassword }: { ids: number[]; appLockPassword: string }) =>
+            bulkDeleteAccounts(ids, appLockPassword),
+        onSuccess: (_, { ids: deletedIds }) => {
             // Optimistically update the cache
             queryClient.setQueryData(QUERY_KEYS.accounts, (oldAccounts: AccountInterface[] = []) => {
                 return oldAccounts.filter(account => !deletedIds.includes(account.id));
@@ -280,7 +273,7 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
     });
 
     const bulkCreateMutation = useMutation({
-        mutationFn: (accounts: Omit<AccountInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>[]) => 
+        mutationFn: (accounts: Omit<AccountInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt'>[]) =>
             bulkCreateAccounts(accounts),
         onSuccess: (result) => {
             // Optimistically update the cache with successfully created accounts
@@ -354,15 +347,14 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         await updateAccountMutation.mutateAsync({ id, account });
     };
 
-    const handleDeleteAccount = async () => {
-        if (!accountToDelete) return;
-        await deleteAccountMutation.mutateAsync(accountToDelete.id);
+    const handleDeleteAccount = async (appLockPassword: string, accountId: number) => {
+        await deleteAccountMutation.mutateAsync({ id: accountId, appLockPassword });
     };
 
-    const handleBulkDelete = async () => {
+    const handleBulkDelete = async (appLockPassword: string) => {
         if (visibleSelection.size === 0 || bulkDeleteMutation.isPending) return;
         try {
-            await bulkDeleteMutation.mutateAsync([...visibleSelection]);
+            await bulkDeleteMutation.mutateAsync({ ids: [...visibleSelection], appLockPassword });
         } catch {
             // The mutation reports the failure through actionError.
         }
@@ -377,11 +369,6 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
     const openViewModal = useCallback((account: AccountInterface) => {
         setAccountToView(account);
         setIsViewModalOpen(true);
-    }, []);
-
-    const openDeleteModal = useCallback((account: AccountInterface) => {
-        setAccountToDelete(account);
-        setIsDeleteModalOpen(true);
     }, []);
 
     const openShareModal = useCallback((account: AccountInterface) => {
@@ -485,8 +472,6 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         setIsAddModalOpen,
         isEditModalOpen,
         setIsEditModalOpen,
-        isDeleteModalOpen,
-        setIsDeleteModalOpen,
         isViewModalOpen,
         setIsViewModalOpen,
         isShareModalOpen,
@@ -515,8 +500,6 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         // Selected items
         accountToEdit,
         setAccountToEdit,
-        accountToDelete,
-        setAccountToDelete,
         accountToView,
         setAccountToView,
         accountToShare,
@@ -540,7 +523,6 @@ export function useOptimizedAccounts(): UseOptimizedAccountsReturn {
         clearFilters,
         openEditModal,
         openViewModal,
-        openDeleteModal,
         openShareModal,
 
         // Import status

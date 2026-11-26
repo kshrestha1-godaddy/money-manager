@@ -222,17 +222,19 @@ export function NotesPageClient() {
       {/* Page Header */}
       <div className={UI_STYLES.header.container}>
         <div>
-          <h1 className={TEXT_COLORS.title}>Thoughts</h1>
+          <h1 className="sr-only">Thoughts</h1>
           <p className={TEXT_COLORS.subtitle}>Organize your financial thoughts and important reminders</p>
         </div>
         <div className={UI_STYLES.header.buttonGroup}>
-          <button 
+          <button
+            style={{ display: "none" }}
             onClick={() => setShowImportModal(true)} 
             className={secondaryBlueButton}
           >
             Import CSV
           </button>
-          <button 
+          <button
+            style={{ display: "none" }}
             onClick={handleExportToCSV} 
             disabled={notes.length === 0 && archivedNotes.length === 0} 
             className={`${secondaryGreenButton} disabled:opacity-50`}

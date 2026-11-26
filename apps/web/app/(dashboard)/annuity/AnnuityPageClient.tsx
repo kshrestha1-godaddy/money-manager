@@ -46,7 +46,6 @@ import type { CalculatorInputs } from "./types";
 import { DEFAULT_ANNUITY_INPUTS, normalizeAnnuityInputs } from "./types";
 
 const pageContainer = CONTAINER_COLORS.page;
-const pageTitle = TEXT_COLORS.title;
 const pageSubtitle = TEXT_COLORS.subtitle;
 const standardInput = INPUT_COLORS.standard;
 
@@ -207,7 +206,7 @@ export default function AnnuityPageClient() {
     <div className={pageContainer}>
       <div className="flex flex-col items-start gap-4">
         <div>
-          <h1 className={pageTitle}>Annuity & Fixed Deposit</h1>
+          <h1 className="sr-only">Annuity & Fixed Deposit</h1>
           <p className={pageSubtitle}>
             Compare annuity and fixed deposit growth, including target future value planning.
           </p>
@@ -480,6 +479,7 @@ export default function AnnuityPageClient() {
                 ))}
               </select>
               <button
+                style={{ display: "none" }}
                 type="button"
                 onClick={handleDownloadCsv}
                 className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"

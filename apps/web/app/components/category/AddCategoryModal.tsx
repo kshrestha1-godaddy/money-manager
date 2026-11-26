@@ -3,12 +3,17 @@
 import { useState } from "react";
 import { Category } from "../../types/financial";
 import { DeleteCategoryModal } from "./DeleteCategoryModal";
+import { EditCategoryModal } from "./EditCategoryModal";
 
 interface AddCategoryModalProps {
     isOpen: boolean;
     onClose: () => void;
     onAdd: (category: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>) => void;
     onDelete?: (categoryId: number) => Promise<void>;
+    onUpdate?: (
+        categoryId: number,
+        data: { name: string; color: string; icon?: string },
+    ) => Promise<void>;
     onCategoryTabChange?: (categoryId: number, enabled: boolean) => void;
     isSavingCategoryTab?: boolean;
     type: 'EXPENSE' | 'INCOME';
@@ -16,7 +21,7 @@ interface AddCategoryModalProps {
 }
 
 export function AddCategoryModal({
-    isOpen, onClose, onAdd, onDelete, onCategoryTabChange, isSavingCategoryTab, type, categories = [],
+    isOpen, onClose, onAdd, onDelete, onUpdate, onCategoryTabChange, isSavingCategoryTab, type, categories = [],
 }: AddCategoryModalProps) {
     const [formData, setFormData] = useState({
         name: '',
@@ -26,6 +31,8 @@ export function AddCategoryModal({
     const [showDeleteSection, setShowDeleteSection] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [categoryToEdit, setCategoryToEdit] = useState<Category | null>(null);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -81,6 +88,25 @@ export function AddCategoryModal({
             color: '#6366f1',
             icon: ''
         });
+    };
+
+    const handleEditCategory = (category: Category) => {
+        setCategoryToEdit(category);
+        setIsEditModalOpen(true);
+    };
+
+    const handleConfirmEdit = async (
+        categoryId: number,
+        data: { name: string; color: string; icon?: string },
+    ) => {
+        if (onUpdate) await onUpdate(categoryId, data);
+        setIsEditModalOpen(false);
+        setCategoryToEdit(null);
+    };
+
+    const handleCloseEditModal = () => {
+        setIsEditModalOpen(false);
+        setCategoryToEdit(null);
     };
 
     const handleDeleteCategory = (category: Category) => {
@@ -261,7 +287,7 @@ export function AddCategoryModal({
                                             Existing {type === 'EXPENSE' ? 'Expense' : 'Income'} Categories
                                         </h3>
                                         <p className="text-sm text-gray-600">
-                                            Click the delete button to remove a category. Categories that are used in transactions cannot be deleted.
+                                            Edit a category’s name, color, or icon. Categories that are used in transactions cannot be deleted.
                                         </p>
                                     </div>
                                     
@@ -292,6 +318,18 @@ export function AddCategoryModal({
                                                             className="rounded px-2 py-1 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50"
                                                         >
                                                             {category.showAsTransactionTab ? 'Remove tab' : 'Add tab'}
+                                                        </button>
+                                                    )}
+                                                    {onUpdate && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleEditCategory(category)}
+                                                            className="rounded p-1 text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800"
+                                                            title={`Edit ${category.name}`}
+                                                        >
+                                                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                                            </svg>
                                                         </button>
                                                     )}
                                                     {onDelete && (
@@ -327,6 +365,13 @@ export function AddCategoryModal({
             </div>
 
             {/* Delete Category Modal */}
+            <EditCategoryModal
+                isOpen={isEditModalOpen}
+                onClose={handleCloseEditModal}
+                onSave={handleConfirmEdit}
+                category={categoryToEdit}
+            />
+
             <DeleteCategoryModal
                 isOpen={isDeleteModalOpen}
                 onClose={handleCloseDeleteModal}

@@ -228,7 +228,7 @@ export default function GoalsPageClient() {
       <div className="flex-none border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Goals</h1>
+            <h1 className="sr-only">Goals</h1>
             <button
               onClick={() => setIsAddModalOpen(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"

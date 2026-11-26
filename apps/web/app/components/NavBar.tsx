@@ -11,6 +11,7 @@ import Image from "next/image";
 import { Clock, TrendingUp } from "lucide-react";
 import { NotificationBell } from "./notification/NotificationBell";
 import { CheckinButton } from "./CheckinButton";
+import { PageRefreshButton } from "./PageRefreshButton";
 import { formatLockCountdown, useAppLock } from "../providers/AppLockProvider";
 
 export default function NavBar() {
@@ -123,6 +124,7 @@ export default function NavBar() {
 
         {/* Right side: Calendar, Check-in, Currency, Logout and Profile Icon */}
         <div className="flex items-center space-x-4 flex-shrink-0 pr-4">
+          <PageRefreshButton />
           {isUnlocked && (
             <div className="hidden lg:flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5">
               <span className="text-xs font-semibold text-blue-700">
@@ -418,4 +420,4 @@ export default function NavBar() {
       </div>
     </nav>
   );
-} 
+}

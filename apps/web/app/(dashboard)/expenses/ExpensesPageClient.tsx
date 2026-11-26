@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useOptimizedFinancialData } from '../../hooks/useOptimizedFinancialData';
+import { useGatedAction } from '@repo/applock';
 import { ExpenseList } from './components/ExpenseList';
 import { AddExpenseModal } from './components/AddExpenseModal';
 import { EditExpenseModal } from './components/EditExpenseModal';
@@ -10,7 +11,6 @@ import { ViewExpenseModal } from './components/ViewExpenseModal';
 import { ExpenseFrequencyCharts } from './components/ExpenseFrequencyCharts';
 import { UnifiedBulkImportModal } from '../../components/shared/UnifiedBulkImportModal';
 import { expenseImportConfig } from '../../config/bulkImportConfig';
-import { DeleteConfirmationModal } from '../../components/DeleteConfirmationModal';
 import { AddCategoryModal } from '../../components/category/AddCategoryModal';
 import { TransactionCategoryAnalysis } from "../../components/shared/TransactionCategoryAnalysis";
 import { FinancialAreaChart } from '../../components/FinancialAreaChart';
@@ -43,7 +43,6 @@ const cardLargeContainer = CONTAINER_COLORS.cardLarge;
 const cardTitle = TEXT_COLORS.cardTitle;
 const cardValue = TEXT_COLORS.cardValue;
 const cardSubtitle = TEXT_COLORS.cardSubtitle;
-const pageTitle = TEXT_COLORS.title;
 const primaryButton = BUTTON_COLORS.primary;
 const secondaryBlueButton = BUTTON_COLORS.secondaryBlue;
 const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
@@ -90,8 +89,6 @@ export default function ExpensesPageClient() {
     setIsEditModalOpen,
     isViewModalOpen,
     setIsViewModalOpen,
-    isDeleteModalOpen,
-    setIsDeleteModalOpen,
     isAddCategoryModalOpen,
     setIsAddCategoryModalOpen,
     isBulkImportModalOpen,
@@ -101,17 +98,15 @@ export default function ExpensesPageClient() {
     setItemToEdit,
     itemToView,
     setItemToView,
-    itemToDelete,
-    setItemToDelete,
     handleAddItem,
     handleEditItem,
     handleDeleteItem,
     handleAddCategory,
     handleDeleteCategory,
+    handleUpdateCategory,
     categoryTabMutation,
     openEditModal,
     openViewModal,
-    openDeleteModal,
     handleItemSelect,
     handleSelectAll,
     handleBulkDelete,
@@ -309,10 +304,30 @@ export default function ExpensesPageClient() {
     },
   ];
 
+  // Deletions require the lock screen password, which the server action
+  // re-verifies before deleting.
+  const deleteItem = useGatedAction(
+    (appLockPassword: string, itemId: number) => handleDeleteItem(appLockPassword, itemId),
+    {
+      title: 'Delete expense',
+      description: 'This cannot be undone. Enter your lock screen password to delete this expense.',
+      confirmLabel: 'Delete expense',
+    },
+  );
+
+  const bulkDeleteItems = useGatedAction(
+    (appLockPassword: string, visibleIds: number[]) => handleBulkDelete(appLockPassword, visibleIds),
+    {
+      title: 'Delete selected expenses',
+      description: 'This cannot be undone. Enter your lock screen password to delete the selected expenses.',
+      confirmLabel: 'Delete expenses',
+    },
+  );
+
   if (itemsError) {
     return (
       <section className="rounded-lg border border-gray-200 bg-white p-6" role="alert">
-        <h1 className={pageTitle}>Expenses</h1>
+        <h1 className="sr-only">Expenses</h1>
         <p className="my-3 text-sm text-gray-700">Couldn’t load transactions.</p>
         <button type="button" onClick={() => void retryItems()} disabled={itemsFetching} className={primaryButton}>
           {itemsFetching ? "Retrying…" : "Try again"}
@@ -330,17 +345,18 @@ export default function ExpensesPageClient() {
     );
   }
 
+
   return (
     <div className={pageContainer}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className={pageTitle}>Expenses</h1>
+          <h1 className="sr-only">Expenses</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={() => setIsAddModalOpen(true)} className={primaryButton}>Add Expense</button>
           <button onClick={() => setIsAddCategoryModalOpen(true)} className={primaryButton}>Manage Categories</button>
-          <button onClick={() => setIsBulkImportModalOpen(true)} className={secondaryBlueButton}>Import CSV</button>
-          <button onClick={() => handleExportToCSV(filteredExpenses)} disabled={filteredExpenses.length === 0} className={`${secondaryGreenButton} disabled:opacity-50`}>Export CSV</button>
+          <button style={{ display: "none" }} onClick={() => setIsBulkImportModalOpen(true)} className={secondaryBlueButton}>Import CSV</button>
+          <button style={{ display: "none" }} onClick={() => handleExportToCSV(filteredExpenses)} disabled={filteredExpenses.length === 0} className={`${secondaryGreenButton} disabled:opacity-50`}>Export CSV</button>
         </div>
       </div>
 
@@ -436,14 +452,14 @@ export default function ExpensesPageClient() {
           currency={userCurrency}
           onEdit={openEditModal}
           onView={openViewModal}
-          onDelete={openDeleteModal}
+          onDelete={(item) => void deleteItem(item.id)}
           onBookmark={handleBookmarkToggle}
           onRefresh={invalidateQueries}
           selectedExpenses={visibleSelection}
           onExpenseSelect={handleItemSelect}
           onSelectAll={(selected) => handleSelectAll(selected, tableExpenses)}
           showBulkActions={true}
-          onBulkDelete={isBulkDeleting ? undefined : handleBulkDelete}
+          onBulkDelete={isBulkDeleting ? undefined : (ids) => void bulkDeleteItems(ids)}
           onClearSelection={() => handleSelectAll(false)}
         />
       </Suspense>
@@ -451,12 +467,12 @@ export default function ExpensesPageClient() {
       <AddExpenseModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAdd={handleAddItem} categories={categoriesWithFrequency} accounts={accounts} expenses={allExpenses} />
       <EditExpenseModal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setItemToEdit(null); }} onEdit={handleEditItem} categories={categoriesWithFrequency} accounts={accounts} expense={itemToEdit} />
       <ViewExpenseModal isOpen={isViewModalOpen} onClose={() => { setIsViewModalOpen(false); setItemToView(null); }} onEdit={openEditModal} expense={itemToView} />
-      <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setItemToDelete(null); }} onConfirm={handleDeleteItem} />
       <AddCategoryModal
         isOpen={isAddCategoryModalOpen}
         onClose={() => setIsAddCategoryModalOpen(false)}
         onAdd={handleAddCategory}
         onDelete={handleDeleteCategory}
+        onUpdate={handleUpdateCategory}
         onCategoryTabChange={(id, enabled) => categoryTabMutation.mutate({ id, enabled }, {
           onSuccess: () => {
             if (!enabled) setExpenseTab((current) => current === id ? null : current);

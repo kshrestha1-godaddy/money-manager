@@ -78,7 +78,7 @@ export default function ExpensePortfolioPage({
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1
           id={`${portfolioType.toLowerCase()}-heading`}
-          className={TEXT_COLORS.title}
+          className="sr-only"
         >
           {label}
         </h1>

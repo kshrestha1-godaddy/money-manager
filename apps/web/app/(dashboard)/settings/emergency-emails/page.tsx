@@ -70,7 +70,7 @@ export default function EmergencyEmailsPage() {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">Emergency Email Contacts</h1>
+          <h1 className="sr-only">Emergency Email Contacts</h1>
         </div>
         <div className="flex items-center justify-center h-64">
           <div className="text-gray-500">Loading...</div>
@@ -84,7 +84,7 @@ export default function EmergencyEmailsPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Emergency Email Contacts</h1>
+          <h1 className="sr-only">Emergency Email Contacts</h1>
           <p className="text-gray-600 mt-1">
             Configure emails that will receive your passwords if you're inactive for more than 15 days
           </p>

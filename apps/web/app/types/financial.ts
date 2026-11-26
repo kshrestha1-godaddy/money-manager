@@ -21,8 +21,9 @@ export type FinancialDataActions<T extends FinancialItem> = {
   getItems: () => Promise<T[]>;
   createItem: (item: Omit<T, 'id' | 'createdAt' | 'updatedAt'>) => Promise<T>;
   updateItem: (id: number, item: Partial<Omit<T, 'id' | 'createdAt' | 'updatedAt'>>) => Promise<T>;
-  deleteItem: (id: number) => Promise<any>;
-  bulkDeleteItems?: (ids: number[]) => Promise<any>;
+  /** Deletions require the lock screen password, re-verified server-side. */
+  deleteItem: (id: number, appLockPassword: string) => Promise<any>;
+  bulkDeleteItems?: (ids: number[], appLockPassword: string) => Promise<any>;
   exportToCSV: (items: T[]) => void;
 };
 export interface Category {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useId, useRef, useMemo, useCallback } from "react";
+import React, { useRef, useMemo, useCallback } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { formatCurrency } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
@@ -34,56 +34,19 @@ interface CategoryStats {
     earliestDate: Date;
     latestDate: Date;
     amounts: number[];
+    color: string;
 }
 
-const COLOR_PALETTE = [
-    { pie: "#3b82f6", legend: "#3b82f6" },
-    { pie: "#ef4444", legend: "#ef4444" },
-    { pie: "#10b981", legend: "#10b981" },
-    { pie: "#f97316", legend: "#f97316" },
-    { pie: "#a16207", legend: "#a16207" },
-    { pie: "#ec4899", legend: "#ec4899" },
-    { pie: "#14b8a6", legend: "#14b8a6" },
-    { pie: "#eab308", legend: "#eab308" },
-    { pie: "#8b5cf6", legend: "#8b5cf6" },
-    { pie: "#f43f5e", legend: "#f43f5e" },
-    { pie: "#22c55e", legend: "#22c55e" },
-    { pie: "#f59e0b", legend: "#f59e0b" },
-];
-
-function mulberry32(seed: number) {
-    return function () {
-        let t = (seed += 0x6d2b79f5);
-        t = Math.imul(t ^ (t >>> 15), t | 1);
-        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-}
-
-function shuffleWithSeed<T>(items: T[], seed: number): T[] {
-    const random = mulberry32(seed);
-    const result = [...items];
-    for (let i = result.length - 1; i > 0; i -= 1) {
-        const j = Math.floor(random() * (i + 1));
-        const a = result[i];
-        const b = result[j];
-        if (a === undefined || b === undefined) continue;
-        result[i] = b;
-        result[j] = a;
-    }
-    return result;
-}
+const FALLBACK_CATEGORY_COLOR = "#9ca3af";
+const OTHERS_COLOR = "#94a3b8";
 
 export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD", title, heightClass }) => {
     const { isExpanded, toggleExpanded } = useChartExpansion();
     const chartRef = useRef<HTMLDivElement>(null);
     const { formatTimePeriod, filteredIncomes } = useChartData();
-    const patternPrefix = useId().replace(/:/g, "");
-    const paletteSeedRef = useRef<number>(Math.floor(Math.random() * 2 ** 31));
 
     const { chartData, rawChartData, total, smallCategories } = useMemo(() => {
         const transactions = filteredIncomes;
-        const shuffledPalette = shuffleWithSeed(COLOR_PALETTE, paletteSeedRef.current);
 
         const categoryStatsMap = new Map<string, CategoryStats>();
 
@@ -103,6 +66,7 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
                     earliestDate: transactionDate,
                     latestDate: transactionDate,
                     amounts: [amount],
+                    color: transaction.category?.color || FALLBACK_CATEGORY_COLOR,
                 });
             } else {
                 existingStats.totalAmount += amount;
@@ -126,16 +90,15 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
         };
 
         const rawChartData: CategoryData[] = Array.from(categoryStatsMap.entries())
-            .map(([name, stats], index) => {
-                const colorConfig = shuffledPalette[index % shuffledPalette.length];
+            .map(([name, stats]) => {
                 const average = stats.totalAmount / stats.count;
                 const dateRange = formatDateRange(stats.earliestDate, stats.latestDate);
 
                 return {
                     name,
                     value: stats.totalAmount,
-                    color: colorConfig?.pie || "#22c55e",
-                    solidColor: colorConfig?.legend || "#065f46",
+                    color: stats.color,
+                    solidColor: stats.color,
                     count: stats.count,
                     average,
                     minAmount: stats.minAmount,
@@ -185,8 +148,8 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
             aggregated.push({
                 name: "Others",
                 value: othersValue,
-                color: "#94a3b8",
-                solidColor: "#64748b",
+                color: OTHERS_COLOR,
+                solidColor: OTHERS_COLOR,
                 count: othersCount,
                 average: othersAverage,
                 minAmount: othersMin,
@@ -390,52 +353,6 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
         ? "h-[min(70rem,92vh)] min-h-[32rem]"
         : (heightClass ?? "h-80 sm:h-96");
 
-    const piePatterns = useMemo(() => {
-        return chartData.map((entry, index) => {
-            const patternId = `${patternPrefix}-piePattern${index}`;
-            const baseColor = entry.color;
-            const darkerColor = entry.solidColor || baseColor;
-            const patterns = [
-                <pattern key={patternId} id={patternId} patternUnits="userSpaceOnUse" width="6" height="6">
-                    <rect width="6" height="6" fill={baseColor} />
-                    <path
-                        d="M 0,6 l 6,-6 M -1.5,1.5 l 3,-3 M 4.5,7.5 l 3,-3"
-                        stroke={darkerColor}
-                        strokeWidth="0.8"
-                        opacity="0.3"
-                    />
-                </pattern>,
-                <pattern key={patternId} id={patternId} patternUnits="userSpaceOnUse" width="8" height="8">
-                    <rect width="8" height="8" fill={baseColor} />
-                    <circle cx="2" cy="2" r="0.8" fill={darkerColor} opacity="0.4" />
-                    <circle cx="6" cy="6" r="0.8" fill={darkerColor} opacity="0.4" />
-                    <circle cx="4" cy="4" r="0.5" fill={darkerColor} opacity="0.3" />
-                </pattern>,
-                <pattern key={patternId} id={patternId} patternUnits="userSpaceOnUse" width="5" height="5">
-                    <rect width="5" height="5" fill={baseColor} />
-                    <rect x="0" y="0" width="1.5" height="1.5" fill={darkerColor} opacity="0.25" />
-                    <rect x="3.5" y="3.5" width="1.5" height="1.5" fill={darkerColor} opacity="0.25" />
-                    <rect x="1.75" y="1.75" width="1.5" height="1.5" fill={darkerColor} opacity="0.2" />
-                </pattern>,
-                <pattern key={patternId} id={patternId} patternUnits="userSpaceOnUse" width="4" height="4">
-                    <rect width="4" height="4" fill={baseColor} />
-                    <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke={darkerColor} strokeWidth="0.6" opacity="0.3" />
-                    <path d="M 0,0 l 4,4 M -1,3 l 2,2 M 3,-1 l 2,2" stroke={darkerColor} strokeWidth="0.6" opacity="0.2" />
-                </pattern>,
-                <pattern key={patternId} id={patternId} patternUnits="userSpaceOnUse" width="8" height="4">
-                    <rect width="8" height="4" fill={baseColor} />
-                    <path d="M 0,2 Q 2,0 4,2 T 8,2" stroke={darkerColor} strokeWidth="0.8" fill="none" opacity="0.35" />
-                    <path d="M 0,3 Q 2,1 4,3 T 8,3" stroke={darkerColor} strokeWidth="0.6" fill="none" opacity="0.25" />
-                </pattern>,
-                <pattern key={patternId} id={patternId} patternUnits="userSpaceOnUse" width="6" height="6">
-                    <rect width="6" height="6" fill={baseColor} />
-                    <polygon points="3,0.5 5,1.5 5,3.5 3,4.5 1,3.5 1,1.5" fill={darkerColor} opacity="0.25" />
-                </pattern>,
-            ];
-            return patterns[index % patterns.length];
-        });
-    }, [chartData, patternPrefix]);
-
     const renderChartContent = () => (
         <div className="px-1 py-4 sm:px-2 sm:py-5">
             <div className="mb-3 sm:mb-4">
@@ -458,21 +375,6 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
                                     : { top: 12, right: 14, bottom: 12, left: 14 }
                             }
                         >
-                            <defs>
-                                {piePatterns}
-                                <pattern
-                                    id={`${patternPrefix}-othersPattern`}
-                                    patternUnits="userSpaceOnUse"
-                                    width="3"
-                                    height="3"
-                                >
-                                    <rect width="3" height="3" fill="#94a3b8" />
-                                    <rect x="0" y="0" width="1" height="1" fill="#64748b" opacity="0.4" />
-                                    <rect x="2" y="2" width="1" height="1" fill="#64748b" opacity="0.4" />
-                                    <rect x="1" y="1" width="1" height="1" fill="#475569" opacity="0.3" />
-                                </pattern>
-                            </defs>
-
                             <Pie
                                 data={chartData}
                                 cx="50%"
@@ -488,14 +390,10 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
                                 stroke="#ffffff"
                                 strokeWidth={2}
                             >
-                                {chartData.map((entry, index) => (
+                                {chartData.map((entry) => (
                                     <Cell
-                                        key={`cell-${index}`}
-                                        fill={
-                                            entry.name === "Others"
-                                                ? `url(#${patternPrefix}-othersPattern)`
-                                                : `url(#${patternPrefix}-piePattern${index})`
-                                        }
+                                        key={entry.name}
+                                        fill={entry.color}
                                         stroke="#ffffff"
                                         strokeWidth={2}
                                     />
@@ -549,7 +447,13 @@ export const IncomePieChart = React.memo<IncomePieChartProps>(({ currency = "USD
                                                         key={smallCat.name}
                                                         className="flex items-center justify-between gap-6 text-[11px] text-gray-500 sm:gap-8 sm:text-xs"
                                                     >
-                                                        <span className="truncate">{smallCat.name}</span>
+                                                        <span className="flex min-w-0 items-center gap-1.5 truncate">
+                                                            <span
+                                                                className="h-2 w-2 shrink-0 rounded-full"
+                                                                style={{ backgroundColor: smallCat.color }}
+                                                            />
+                                                            <span className="truncate">{smallCat.name}</span>
+                                                        </span>
                                                         <span className="shrink-0 tabular-nums">
                                                             {formatCurrency(smallCat.value, currency)} ({smallPct}%)
                                                         </span>

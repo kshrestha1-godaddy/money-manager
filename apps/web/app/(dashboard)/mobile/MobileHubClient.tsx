@@ -10,6 +10,7 @@ import {
   recurringDisplay,
 } from "../scheduled-payments/scheduled-payment-helpers";
 import { ArrowLeftRight, ChevronDown, Plus, Search } from "lucide-react";
+import { PageRefreshButton } from "../../components/PageRefreshButton";
 import { Income, Expense, type Category } from "../../types/financial";
 import { PasswordInterface } from "../../types/passwords";
 import { getIncomes } from "../incomes/actions/incomes";
@@ -604,7 +605,10 @@ export default function MobileHubClient() {
   return (
     <div className="mx-auto max-w-lg w-full min-w-0 space-y-4">
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-gray-900 tracking-tight">My Money Log [Mobile hub]</h1>
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-xl font-semibold text-gray-900 tracking-tight">My Money Log [Mobile hub]</h1>
+          <PageRefreshButton onRefresh={() => void loadData()} />
+        </div>
         <p className="text-sm text-gray-600 mt-0.5">
           Search finances, accounts, scheduled payments, passwords, life events, investments,
           debts, and notes without the sidebar.
@@ -1648,15 +1652,6 @@ export default function MobileHubClient() {
         onClose={() => setIsCurrencyConverterOpen(false)}
       />
 
-      <p className="text-center text-xs text-gray-400 pt-2">
-        <button
-          type="button"
-          className="text-brand-600 font-medium min-h-[44px] px-2"
-          onClick={() => void loadData()}
-        >
-          Refresh data
-        </button>
-      </p>
     </div>
   );
 }

@@ -72,7 +72,7 @@ export default function DashboardPageClient() {
 
     return (
       <section className={pageContainer}>
-        <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+        <h1 className="sr-only">Dashboard</h1>
         <div role="alert" className="rounded-lg border border-gray-200 bg-white p-6">
           <p className="text-gray-900">Dashboard transactions couldn’t load.</p>
           <button

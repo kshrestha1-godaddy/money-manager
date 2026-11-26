@@ -307,6 +307,7 @@ export function InvestmentTable({
                     </select>
                 </div>
                 <button
+                    style={{ display: "none" }}
                     type="button"
                     onClick={handleDownloadCsv}
                     className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"

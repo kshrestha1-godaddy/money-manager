@@ -1,0 +1,23 @@
+{
+  "name": "@repo/applock",
+  "version": "0.0.0",
+  "description": "Lock-screen password verification: provider, gate wrapper and prompt dialog.",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src --max-warnings 0"
+  },
+  "peerDependencies": {
+    "react": "^19"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/typescript-config": "*",
+    "@types/react": "^19.1.0",
+    "eslint": "^9.25.0",
+    "typescript": "5.8.2"
+  }
+}

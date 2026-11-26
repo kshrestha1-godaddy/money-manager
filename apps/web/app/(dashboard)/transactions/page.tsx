@@ -231,7 +231,7 @@ export default function TransactionsPage() {
     if (loading) {
         return (
             <div className="space-y-6">
-                <h1 className="text-3xl font-bold text-gray-900">All Transactions</h1>
+                <h1 className="sr-only">All Transactions</h1>
                 <div className="bg-white rounded-lg shadow p-8 text-center">
                     <div className="text-gray-400 text-4xl mb-4">⏳</div>
                     <p className="text-gray-500">Loading transactions...</p>
@@ -243,7 +243,7 @@ export default function TransactionsPage() {
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold text-gray-900">All Transactions</h1>
+                <h1 className="sr-only">All Transactions</h1>
                 <div className="flex items-center gap-2 flex-wrap">
                     <TransactionPDFReportGenerator
                         transactions={filteredTransactions}

@@ -101,9 +101,34 @@ export async function updateCategory(id: number, data: {
             throw new Error("Category not found or unauthorized");
         }
 
+        const nextName = data.name?.trim();
+        if (data.name !== undefined && !nextName) {
+            throw new Error("Category name is required");
+        }
+
+        if (nextName && nextName !== existingCategory.name) {
+            const duplicate = await prisma.category.findFirst({
+                where: {
+                    userId,
+                    type: existingCategory.type,
+                    name: nextName,
+                    id: { not: id },
+                },
+            });
+            if (duplicate) {
+                throw new Error(
+                    `A ${existingCategory.type.toLowerCase()} category named "${nextName}" already exists.`,
+                );
+            }
+        }
+
         const category = await prisma.category.update({
             where: { id },
-            data: data
+            data: {
+                ...(nextName ? { name: nextName } : {}),
+                ...(data.color ? { color: data.color } : {}),
+                ...(data.icon !== undefined ? { icon: data.icon.trim() || null } : {}),
+            },
         });
 
         revalidatePath("/(dashboard)/expenses");
@@ -118,6 +143,7 @@ export async function updateCategory(id: number, data: {
         } as Category;
     } catch (error) {
         console.error(`Failed to update category ${id}:`, error);
+        if (error instanceof Error) throw error;
         throw new Error("Failed to update category");
     }
 }

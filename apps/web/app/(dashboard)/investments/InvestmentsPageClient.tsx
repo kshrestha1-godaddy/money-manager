@@ -44,7 +44,6 @@ const loadingContainer = LOADING_COLORS.container;
 const loadingSpinner = LOADING_COLORS.spinner;
 const loadingText = LOADING_COLORS.text;
 
-const pageTitle = TEXT_COLORS.title;
 const pageSubtitle = TEXT_COLORS.subtitle;
 const errorTitle = TEXT_COLORS.errorTitle;
 const errorMessage = TEXT_COLORS.errorMessage;
@@ -428,15 +427,15 @@ export default function InvestmentsPageClient() {
       <div className={pageContainer}>
         <div className={UI_STYLES.header.container}>
           <div>
-            <h1 className={pageTitle}>Investment</h1>
+            <h1 className="sr-only">Investment</h1>
             <p className={pageSubtitle}>Track your investment portfolio and performance</p>
           </div>
           <div className={UI_STYLES.header.buttonGroup}>
             <Link href="/stocks" className={secondaryBlueButton}>Stocks dashboard</Link>
             <Link href="/sip" className={secondaryBlueButton}>SIP dashboard</Link>
             <button onClick={() => openModal('add')} className={primaryButton}>Add Investment</button>
-            <button onClick={() => openModal('import')} className={secondaryBlueButton}>Import CSV</button>
-            <button onClick={handleCombinedExportToCSV} className={secondaryGreenButton} disabled={filteredInvestments.length === 0 && (!targetProgress || targetProgress.length === 0)}>Export CSV</button>
+            <button style={{ display: "none" }} onClick={() => openModal('import')} className={secondaryBlueButton}>Import CSV</button>
+            <button style={{ display: "none" }} onClick={handleCombinedExportToCSV} className={secondaryGreenButton} disabled={filteredInvestments.length === 0 && (!targetProgress || targetProgress.length === 0)}>Export CSV</button>
           </div>
         </div>
 

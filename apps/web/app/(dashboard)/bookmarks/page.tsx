@@ -130,7 +130,7 @@ export default function BookmarksPage() {
         return (
             <div className="space-y-6">
                 <div className="flex justify-between items-center">
-                    <h1 className="text-3xl font-bold text-gray-900">Bookmarks</h1>
+                    <h1 className="sr-only">Bookmarks</h1>
                 </div>
                 <div className="flex items-center justify-center h-64">
                     <div className="text-gray-500">Loading bookmarks...</div>
@@ -144,7 +144,7 @@ export default function BookmarksPage() {
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Bookmarks</h1>
+                    <h1 className="sr-only">Bookmarks</h1>
                     <p className="text-gray-600 mt-1">Manage your saved website links</p>
                 </div>
                 <div className="flex space-x-3">

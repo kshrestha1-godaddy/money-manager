@@ -418,6 +418,7 @@ function ScenarioTableBlock({
             </p>
           </div>
           <button
+            style={{ display: "none" }}
             type="button"
             onClick={onDownloadCsv}
             className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
@@ -1050,7 +1051,7 @@ export function AnnuityCompareView({
       <section>
         <h2 className="text-lg font-semibold text-gray-900">Month-by-month calculations</h2>
         <p className="mt-1 text-sm text-gray-600">
-          Full schedules for both scenarios. Download CSV per side.
+          Full schedules for both scenarios.
         </p>
         <div className="mt-4 grid grid-cols-1 gap-6 xl:grid-cols-2">
           <ScenarioTableBlock

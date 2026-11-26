@@ -11,12 +11,15 @@ import { TutorialProvider } from "./providers/TutorialProvider";
 import { WelcomeBackProvider } from "./providers/WelcomeBackProvider";
 import { AppLockProvider } from "./providers/AppLockProvider";
 import { AppLockOverlay } from "./components/security/AppLockOverlay";
+import { AppLockGuardProvider } from "@repo/applock";
+import { verifyCurrentUserAppLockPassword } from "./actions/app-lock-password";
 
 export const Providers = ({ children }: { children: React.ReactNode }) => {
     return (
         // wrapping all the pages with the providers
         <SessionProvider>
             <AppLockProvider>
+              <AppLockGuardProvider verifyPassword={verifyCurrentUserAppLockPassword}>
                 <WelcomeBackProvider>
                     <NotificationProvider>
                         <QueryProvider>
@@ -33,6 +36,7 @@ export const Providers = ({ children }: { children: React.ReactNode }) => {
                         </QueryProvider>
                     </NotificationProvider>
                 </WelcomeBackProvider>
+              </AppLockGuardProvider>
             </AppLockProvider>
         </SessionProvider>
     );

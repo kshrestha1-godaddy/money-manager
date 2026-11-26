@@ -150,7 +150,7 @@ export default function PasswordsPage() {
         return (
             <div className="space-y-6">
                 <div className="flex justify-between items-center">
-                    <h1 className="text-3xl font-bold text-gray-900">Passwords</h1>
+                    <h1 className="sr-only">Passwords</h1>
                 </div>
                 <div className="flex items-center justify-center h-64">
                     <div className="text-gray-500">Loading passwords...</div>
@@ -164,7 +164,7 @@ export default function PasswordsPage() {
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Passwords</h1>
+                    <h1 className="sr-only">Passwords</h1>
                     <p className="text-gray-600 mt-1">Securely manage your website passwords</p>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -177,6 +177,7 @@ export default function PasswordsPage() {
                         Share Passwords
                     </button>
                     <button
+                        style={{ display: "none" }}
                         onClick={handleExportToCSV}
                         className="h-10 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-md"
                         disabled={passwords.length === 0}
@@ -184,6 +185,7 @@ export default function PasswordsPage() {
                         Export CSV
                     </button>
                     <button
+                        style={{ display: "none" }}
                         onClick={() => setShowImportModal(true)}
                         className="h-10 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-md"
                     >

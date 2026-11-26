@@ -38,6 +38,7 @@ import { getUserIdFromSession } from "../../../utils/auth";
 import { convertForDisplayWithDbRates } from "../../../utils/currencyDisplayServer";
 import { autoBookmarkHighValueTransaction, handleBookmarkOnAmountChange } from "../../../utils/autoBookmarkUtils";
 import { logAccountBalanceFromTransaction } from "../../../utils/accountActivityLog";
+import { requireAppLockPassword } from "../../../lib/security/require-app-lock-password";
 import {
     ActivityAction,
     ActivityCategory,
@@ -502,14 +503,9 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
     }
 }
 
-export async function deleteExpense(id: number) {
+export async function deleteExpense(id: number, appLockPassword: string) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session) {
-            throw new Error("Unauthorized");
-        }
-
-        const userId = getUserIdFromSession(session.user.id);
+        const userId = await requireAppLockPassword(appLockPassword);
 
         // Get user's preferred currency
         const user = await prisma.user.findUnique({
@@ -1034,14 +1030,9 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
     }
 }
 
-export async function bulkDeleteExpenses(expenseIds: number[]) {
+export async function bulkDeleteExpenses(expenseIds: number[], appLockPassword: string) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session) {
-            throw new Error("Unauthorized");
-        }
-
-        const userId = getUserIdFromSession(session.user.id);
+        const userId = await requireAppLockPassword(appLockPassword);
 
         // Get user's preferred currency
         const user = await prisma.user.findUnique({

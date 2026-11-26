@@ -231,7 +231,7 @@ export default function NetWorthPage() {
     <div className="w-full min-w-0 space-y-6 p-4 text-slate-900 sm:p-6 lg:p-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Net worth</h1>
+          <h1 className="sr-only">Net worth</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <label
@@ -256,7 +256,7 @@ export default function NetWorthPage() {
             <RefreshCw size={15} aria-hidden="true" className={isRefreshing ? "animate-spin" : undefined} />
             {isRefreshing ? "Refreshing…" : "Refresh"}
           </button>
-          <button onClick={handleExportCSV} className={button}>
+          <button style={{ display: "none" }} onClick={handleExportCSV} className={button}>
             <Download size={15} />
             Export CSV
           </button>

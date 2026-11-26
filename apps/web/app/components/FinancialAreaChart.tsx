@@ -15,7 +15,7 @@ import {
     overlayForecasts,
     useChartForecast,
 } from "./forecasting";
-import type { Frequency, TimeSeriesPoint } from "../utils/forecasting";
+import type { TimeSeriesPoint } from "../utils/forecasting";
 
 type FinancialTransaction = Income | Expense;
 
@@ -53,6 +53,62 @@ interface ChartDataPoint {
 function parseLocalDay(isoDate: string): Date {
     const [year, month, day] = isoDate.split("-").map(Number);
     return new Date(year ?? 1970, (month ?? 1) - 1, day ?? 1);
+}
+
+function toIsoDay(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+function startOfLocalWeek(date: Date): Date {
+    const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    start.setDate(start.getDate() - start.getDay());
+    return start;
+}
+
+function buildWeeklyAveragePoints(
+    transactions: readonly FinancialTransaction[],
+    getDay: (value: Date | string) => string,
+    currency: string,
+    firstDay: string,
+    lastDay: string,
+): TimeSeriesPoint[] {
+    const amounts = new Map<string, number>();
+    let minDay = firstDay;
+    let maxDay = lastDay;
+    for (const item of transactions) {
+        const day = getDay(item.date);
+        if (!day || (firstDay && day < firstDay) || (lastDay && day > lastDay)) continue;
+        amounts.set(
+            day,
+            (amounts.get(day) ?? 0) + convertForDisplaySync(item.amount, item.currency, currency),
+        );
+        if (!minDay || day < minDay) minDay = day;
+        if (!maxDay || day > maxDay) maxDay = day;
+    }
+    if (!minDay || !maxDay) return [];
+
+    const weeks = new Map<number, { date: Date; sum: number; count: number }>();
+    const cursor = parseLocalDay(minDay);
+    const end = parseLocalDay(maxDay);
+    while (cursor.getTime() <= end.getTime()) {
+        const amount = amounts.get(toIsoDay(cursor)) ?? 0;
+        const week = startOfLocalWeek(cursor);
+        const bucket = weeks.get(week.getTime()) ?? { date: week, sum: 0, count: 0 };
+        bucket.sum += amount;
+        bucket.count += 1;
+        weeks.set(week.getTime(), bucket);
+        cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return [...weeks.values()]
+        .sort((left, right) => left.date.getTime() - right.date.getTime())
+        .map((bucket) => ({
+            date: bucket.date,
+            value: bucket.count > 0 ? bucket.sum / bucket.count : 0,
+        }));
 }
 
 export function FinancialAreaChart({
@@ -97,11 +153,16 @@ export function FinancialAreaChart({
     const effectiveStartDate = startDate || (hasPageFilters ? pageStartDate : "");
     const effectiveEndDate = endDate || (hasPageFilters ? pageEndDate : "");
     const isDefaultRange = !hasPageFilters && !effectiveStartDate && !effectiveEndDate;
+    const chartWindow = useMemo(() => {
+        const defaultRange = getTrailingMonthRange(today, 6);
+        return {
+            firstDay: isDefaultRange ? defaultRange.start : effectiveStartDate,
+            lastDay: isDefaultRange ? defaultRange.end : effectiveEndDate,
+        };
+    }, [today, isDefaultRange, effectiveStartDate, effectiveEndDate]);
 
     const chartData = useMemo(() => {
-        const defaultRange = getTrailingMonthRange(today, 6);
-        const firstDay = isDefaultRange ? defaultRange.start : effectiveStartDate;
-        const lastDay = isDefaultRange ? defaultRange.end : effectiveEndDate;
+        const { firstDay, lastDay } = chartWindow;
 
         // Group data by date with enhanced statistics
         const dateMap = new Map<string, {
@@ -211,32 +272,31 @@ export function FinancialAreaChart({
         }
 
         return chartDataPoints;
-    }, [data, currency, activeThresholds, type, today, effectiveStartDate, effectiveEndDate, isDefaultRange, getTransactionDay]);
+    }, [data, currency, activeThresholds, type, chartWindow, getTransactionDay]);
 
-    const forecastFrequency = useMemo<Frequency>(() => {
-        if (chartData.length < 2) return "daily";
-        const first = parseLocalDay(chartData[0].date).getTime();
-        const second = parseLocalDay(chartData[1].date).getTime();
-        return second - first > 3 * 86_400_000 ? "weekly" : "daily";
-    }, [chartData]);
-
-    const seriesPoints = useMemo<TimeSeriesPoint[]>(
+    const weeklyAveragePoints = useMemo<TimeSeriesPoint[]>(
         () =>
-            chartData.map((point) => ({
-                date: parseLocalDay(point.date),
-                value: point.amount ?? 0,
-            })),
-        [chartData],
+            buildWeeklyAveragePoints(
+                data,
+                getTransactionDay,
+                currency,
+                chartWindow.firstDay,
+                chartWindow.lastDay,
+            ),
+        [data, getTransactionDay, currency, chartWindow],
     );
 
     const { isForecastVisible, toggleForecast, plottedRuns } = useChartForecast({
         chartId: `${type}-trend`,
-        points: seriesPoints,
-        frequency: forecastFrequency,
+        points: weeklyAveragePoints,
+        frequency: "weekly",
+        gapFill: "zero",
+        coverHorizonDays: true,
     });
 
     const plotData = useMemo((): ChartDataPoint[] => {
         if (plottedRuns.length === 0) return chartData;
+        const lastHistoryDate = chartData[chartData.length - 1]?.date ?? "";
         const overlay = overlayForecasts(
             chartData.map((row) => ({
                 month: row.date,
@@ -247,24 +307,26 @@ export function FinancialAreaChart({
             "day",
         );
         const byDate = new Map(chartData.map((row) => [row.date, row]));
-        return overlay.map((row) => {
-            const columns = overlayColumns(row, plottedRuns);
-            const observed = byDate.get(row.month);
-            if (observed && !row.isForecast) return { ...observed, ...columns };
-            return {
-                date: row.month,
-                formattedDate: row.formattedMonth,
-                amount: null,
-                transactionCount: 0,
-                averageAmount: 0,
-                minAmount: 0,
-                maxAmount: 0,
-                transactions: [],
-                isHighValue: false,
-                isForecast: true,
-                ...columns,
-            };
-        });
+        return overlay
+            .map((row) => {
+                const columns = overlayColumns(row, plottedRuns);
+                const observed = byDate.get(row.month);
+                if (observed && !row.isForecast) return { ...observed, ...columns };
+                return {
+                    date: row.month,
+                    formattedDate: row.formattedMonth,
+                    amount: null,
+                    transactionCount: 0,
+                    averageAmount: 0,
+                    minAmount: 0,
+                    maxAmount: 0,
+                    transactions: [],
+                    isHighValue: false,
+                    isForecast: true,
+                    ...columns,
+                };
+            })
+            .filter((row) => !row.isForecast || row.date > lastHistoryDate);
     }, [chartData, plottedRuns]);
 
     const yMax = useMemo(() => {
@@ -535,7 +597,7 @@ export function FinancialAreaChart({
                                                     {hovered.formattedDate}
                                                 </div>
                                                 <p className="mb-2 text-xs uppercase tracking-wide text-gray-500">
-                                                    {type === "income" ? "Income forecast" : "Expense forecast"}
+                                                    {type === "income" ? "Income" : "Expense"} forecast · weekly average
                                                 </p>
                                                 {forecastEntries.map(({ run, value }) => (
                                                     <div

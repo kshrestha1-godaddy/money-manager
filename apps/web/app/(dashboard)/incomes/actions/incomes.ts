@@ -11,6 +11,7 @@ import { parseCategoriesCSV, type ParsedCategoryData } from "../../../utils/csvI
 import { convertForDisplayWithDbRates } from "../../../utils/currencyDisplayServer";
 import { autoBookmarkHighValueTransaction, handleBookmarkOnAmountChange } from "../../../utils/autoBookmarkUtils";
 import { logAccountBalanceFromTransaction } from "../../../utils/accountActivityLog";
+import { requireAppLockPassword } from "../../../lib/security/require-app-lock-password";
 import {
     ActivityAction,
     ActivityCategory,
@@ -530,12 +531,9 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
     }
 }
 
-export async function deleteIncome(id: number) {
+export async function deleteIncome(id: number, appLockPassword: string) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session) throw new Error("Unauthorized");
-
-        const userId = getUserIdFromSession(session.user.id);
+        const userId = await requireAppLockPassword(appLockPassword);
 
         const existingIncome = await prisma.income.findFirst({
             where: { id, userId }
@@ -771,11 +769,8 @@ export async function importCorrectedRow(rowData: string[], headers: string[], t
     return income;
 }
 
-export async function bulkDeleteIncomes(incomeIds: number[]) {
-    const session = await getServerSession(authOptions);
-    if (!session) throw new Error("Unauthorized");
-
-    const userId = getUserIdFromSession(session.user.id);
+export async function bulkDeleteIncomes(incomeIds: number[], appLockPassword: string) {
+    const userId = await requireAppLockPassword(appLockPassword);
 
     const existingIncomes = await prisma.income.findMany({
         where: { id: { in: incomeIds }, userId },

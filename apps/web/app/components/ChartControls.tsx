@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { usePathname } from 'next/navigation';
 import { Info } from "lucide-react";
 import { ChartUtilsConfig, downloadChart, downloadAsSvg, downloadData } from '../utils/chartUtils';
 
@@ -43,6 +44,7 @@ export const ChartControls: React.FC<ChartControlsProps> = ({
     customDownloadPNG,
     customDownloadSVG
 }) => {
+    const pathname = usePathname();
     const config: ChartUtilsConfig = {
         chartRef,
         fileName,
@@ -102,6 +104,7 @@ export const ChartControls: React.FC<ChartControlsProps> = ({
                         {/* Download Data Button */}
                         {csvData && (
                             <button
+                                style={{ display: pathname === "/dashboard" ? undefined : "none" }}
                                 onClick={() => downloadData(config)}
                                 className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
                                 title="Download Data as CSV"
@@ -137,4 +140,4 @@ export const ChartControls: React.FC<ChartControlsProps> = ({
             </div>
         </div>
     );
-}; 
+};

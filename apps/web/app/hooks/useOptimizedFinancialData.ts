@@ -3,7 +3,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Category, FinancialItem, FinancialDataActions } from "../types/financial";
 import { AccountInterface } from "../types/accounts";
-import { getCategories, createCategory, deleteCategory, setCategoryTab } from "../actions/categories";
+import { getCategories, createCategory, updateCategory, deleteCategory, setCategoryTab } from "../actions/categories";
 import { getUserAccounts } from "../(dashboard)/accounts/actions/accounts";
 import { triggerBalanceRefresh } from "./useTotalBalance";
 import { exportCategoriesByType } from "../utils/csvExportCategories";
@@ -43,7 +43,6 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
   const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
 
@@ -59,7 +58,6 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   // Selected item states
   const [itemToEdit, setItemToEdit] = useState<T | null>(null);
   const [itemToView, setItemToView] = useState<T | null>(null);
-  const [itemToDelete, setItemToDelete] = useState<T | null>(null);
 
   // Cached data queries
   const { data: itemData, isLoading: itemsLoading, error: itemsError, refetch: retryItems, isFetching: itemsFetching } = useQuery(
@@ -146,8 +144,9 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   });
 
   const deleteItemMutation = useMutation({
-    mutationFn: actions.deleteItem,
-    onSuccess: (_: any, deletedId: number) => {
+    mutationFn: ({ id, appLockPassword }: { id: number; appLockPassword: string }) =>
+      actions.deleteItem(id, appLockPassword),
+    onSuccess: (_: any, { id: deletedId }) => {
       // Optimistically update the cache
       queryClient.setQueryData(QUERY_KEYS.items, (oldItems: T[] = []) => {
         return oldItems.filter(item => item.id !== deletedId);
@@ -155,8 +154,6 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts });
       if (categoryType === "EXPENSE") queryClient.invalidateQueries({ queryKey: ["investments"] });
       triggerBalanceRefresh();
-      setIsDeleteModalOpen(false);
-      setItemToDelete(null);
     },
     onError: (error: Error) => {
       console.error("Error deleting item:", error);
@@ -165,13 +162,13 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   });
 
   const bulkDeleteMutation = useMutation({
-    mutationFn: (ids: number[]) => {
+    mutationFn: ({ ids, appLockPassword }: { ids: number[]; appLockPassword: string }) => {
       if (actions.bulkDeleteItems) {
-        return actions.bulkDeleteItems(ids);
+        return actions.bulkDeleteItems(ids, appLockPassword);
       }
-      return Promise.all(ids.map(id => actions.deleteItem(id)));
+      return Promise.all(ids.map(id => actions.deleteItem(id, appLockPassword)));
     },
-    onSuccess: (_: any, deletedIds: number[]) => {
+    onSuccess: (_: any, { ids: deletedIds }) => {
       // Optimistically update the cache
       queryClient.setQueryData(QUERY_KEYS.items, (oldItems: T[] = []) => {
         return oldItems.filter(item => !deletedIds.includes(item.id));
@@ -199,6 +196,39 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     onError: (error) => {
       console.error("Error adding category:", error);
       alert("Failed to add category. Please try again.");
+    },
+  });
+
+  const updateCategoryMutation = useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: { name: string; color: string; icon?: string };
+    }) => updateCategory(id, data),
+    onSuccess: (updated) => {
+      const previousName = queryClient
+        .getQueryData<Category[]>(QUERY_KEYS.categories)
+        ?.find((category) => category.id === updated.id)?.name;
+      queryClient.setQueryData(QUERY_KEYS.categories, (oldCategories: Category[] = []) => {
+        return oldCategories.map((category) =>
+          category.id === updated.id ? updated : category,
+        );
+      });
+      queryClient.setQueryData(QUERY_KEYS.items, (oldItems: T[] = []) => {
+        return oldItems.map((item) =>
+          item.category.id === updated.id ? { ...item, category: updated } : item,
+        );
+      });
+      if (previousName && previousName !== updated.name) {
+        setSelectedCategories((current) =>
+          current.map((name) => (name === previousName ? updated.name : name)),
+        );
+      }
+    },
+    onError: (error) => {
+      console.error("Error updating category:", error);
     },
   });
 
@@ -300,10 +330,9 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     return updateItemMutation.mutateAsync({ id, data: updatedItem });
   }, [updateItemMutation]);
 
-  const handleDeleteItem = useCallback(() => {
-    if (!itemToDelete) return;
-    deleteItemMutation.mutate(itemToDelete.id);
-  }, [itemToDelete, deleteItemMutation]);
+  const handleDeleteItem = useCallback((appLockPassword: string, itemId: number) => {
+    deleteItemMutation.mutate({ id: itemId, appLockPassword });
+  }, [deleteItemMutation]);
 
   const handleAddCategory = useCallback((newCategory: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>) => {
     createCategoryMutation.mutate(newCategory);
@@ -314,6 +343,13 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     return deleteCategoryMutation.mutateAsync(categoryId);
   }, [deleteCategoryMutation]);
 
+  const handleUpdateCategory = useCallback(
+    async (categoryId: number, data: { name: string; color: string; icon?: string }) => {
+      return updateCategoryMutation.mutateAsync({ id: categoryId, data });
+    },
+    [updateCategoryMutation],
+  );
+
   // Modal handlers
   const openEditModal = useCallback((item: T) => {
     setItemToEdit(item);
@@ -323,11 +359,6 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   const openViewModal = useCallback((item: T) => {
     setItemToView(item);
     setIsViewModalOpen(true);
-  }, []);
-
-  const openDeleteModal = useCallback((item: T) => {
-    setItemToDelete(item);
-    setIsDeleteModalOpen(true);
   }, []);
 
   // Selection handlers
@@ -351,13 +382,12 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     }
   }, [filteredItems]);
 
-  const handleBulkDelete = useCallback((visibleIds: number[]) => {
+  // The password prompt carries the confirmation, so no native confirm here.
+  const handleBulkDelete = useCallback((appLockPassword: string, visibleIds: number[]) => {
     const itemIds = visibleIds.filter((id) => selectedItems.has(id));
     if (itemIds.length === 0 || bulkDeleteMutation.isPending) return;
 
-    if (confirm(`Delete ${itemIds.length} selected transaction(s)? This cannot be undone.`)) {
-      bulkDeleteMutation.mutate(itemIds);
-    }
+    bulkDeleteMutation.mutate({ ids: itemIds, appLockPassword });
   }, [selectedItems, bulkDeleteMutation]);
 
   const invalidateFinancialQueries = useCallback(async () => {
@@ -429,8 +459,6 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     setIsEditModalOpen,
     isViewModalOpen,
     setIsViewModalOpen,
-    isDeleteModalOpen,
-    setIsDeleteModalOpen,
     isAddCategoryModalOpen,
     setIsAddCategoryModalOpen,
     isBulkImportModalOpen,
@@ -456,8 +484,6 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     setItemToEdit,
     itemToView,
     setItemToView,
-    itemToDelete,
-    setItemToDelete,
 
     // Handlers
     handleAddItem,
@@ -465,9 +491,9 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     handleDeleteItem,
     handleAddCategory,
     handleDeleteCategory,
+    handleUpdateCategory,
     openEditModal,
     openViewModal,
-    openDeleteModal,
     handleItemSelect,
     handleSelectAll,
     handleBulkDelete,
@@ -481,6 +507,7 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     deleteItemMutation,
     bulkDeleteMutation,
     createCategoryMutation,
+    updateCategoryMutation,
     deleteCategoryMutation,
     categoryTabMutation,
     

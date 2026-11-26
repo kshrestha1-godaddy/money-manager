@@ -136,6 +136,7 @@ export function BalanceSheetCsvExport({ transactions }: BalanceSheetCsvExportPro
   return (
     <>
       <button
+        style={{ display: "none" }}
         type="button"
         onClick={openModal}
         disabled={transactions.length === 0}

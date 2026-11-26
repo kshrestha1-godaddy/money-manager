@@ -3,10 +3,10 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useOptimizedFinancialData } from '../../hooks/useOptimizedFinancialData';
+import { useGatedAction } from '@repo/applock';
 import { IncomeList, AddIncomeModal, EditIncomeModal, ViewIncomeModal } from './components';
 import { UnifiedBulkImportModal } from '../../components/shared/UnifiedBulkImportModal';
 import { incomeImportConfig } from '../../config/bulkImportConfig';
-import { DeleteConfirmationModal } from '../../components/DeleteConfirmationModal';
 import { AddCategoryModal } from '../../components/category/AddCategoryModal';
 import { TransactionCategoryAnalysis } from "../../components/shared/TransactionCategoryAnalysis";
 import { FinancialAreaChart } from '../../components/FinancialAreaChart';
@@ -34,7 +34,6 @@ const cardLargeContainer = CONTAINER_COLORS.cardLarge;
 const cardTitle = TEXT_COLORS.cardTitle;
 const cardValue = TEXT_COLORS.cardValue;
 const cardSubtitle = TEXT_COLORS.cardSubtitle;
-const pageTitle = TEXT_COLORS.title;
 const primaryButton = BUTTON_COLORS.primary;
 const secondaryBlueButton = BUTTON_COLORS.secondaryBlue;
 const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
@@ -81,8 +80,6 @@ export default function IncomesPageClient() {
     setIsEditModalOpen,
     isViewModalOpen,
     setIsViewModalOpen,
-    isDeleteModalOpen,
-    setIsDeleteModalOpen,
     isAddCategoryModalOpen,
     setIsAddCategoryModalOpen,
     isBulkImportModalOpen,
@@ -92,17 +89,15 @@ export default function IncomesPageClient() {
     setItemToEdit,
     itemToView,
     setItemToView,
-    itemToDelete,
-    setItemToDelete,
     handleAddItem,
     handleEditItem,
     handleDeleteItem,
     handleAddCategory,
     handleDeleteCategory,
+    handleUpdateCategory,
     categoryTabMutation,
     openEditModal,
     openViewModal,
-    openDeleteModal,
     handleItemSelect,
     handleSelectAll,
     handleBulkDelete,
@@ -285,10 +280,30 @@ export default function IncomesPageClient() {
     },
   ];
 
+  // Deletions require the lock screen password, which the server action
+  // re-verifies before deleting.
+  const deleteItem = useGatedAction(
+    (appLockPassword: string, itemId: number) => handleDeleteItem(appLockPassword, itemId),
+    {
+      title: 'Delete income',
+      description: 'This cannot be undone. Enter your lock screen password to delete this income.',
+      confirmLabel: 'Delete income',
+    },
+  );
+
+  const bulkDeleteItems = useGatedAction(
+    (appLockPassword: string, visibleIds: number[]) => handleBulkDelete(appLockPassword, visibleIds),
+    {
+      title: 'Delete selected incomes',
+      description: 'This cannot be undone. Enter your lock screen password to delete the selected incomes.',
+      confirmLabel: 'Delete incomes',
+    },
+  );
+
   if (itemsError) {
     return (
       <section className="rounded-lg border border-gray-200 bg-white p-6" role="alert">
-        <h1 className={pageTitle}>Incomes</h1>
+        <h1 className="sr-only">Incomes</h1>
         <p className="my-3 text-sm text-gray-700">Couldn’t load transactions.</p>
         <button type="button" onClick={() => void retryItems()} disabled={itemsFetching} className={primaryButton}>
           {itemsFetching ? "Retrying…" : "Try again"}
@@ -306,17 +321,18 @@ export default function IncomesPageClient() {
     );
   }
 
+
   return (
     <div className={pageContainer}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className={pageTitle}>Incomes</h1>
+          <h1 className="sr-only">Incomes</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={() => setIsAddModalOpen(true)} className={primaryButton}>Add Income</button>
           <button onClick={() => setIsAddCategoryModalOpen(true)} className={primaryButton}>Manage Categories</button>
-          <button onClick={() => setIsBulkImportModalOpen(true)} className={secondaryBlueButton}>Import CSV</button>
-          <button onClick={() => handleExportToCSV(filteredIncomes)} disabled={filteredIncomes.length === 0} className={`${secondaryGreenButton} disabled:opacity-50`}>Export CSV</button>
+          <button style={{ display: "none" }} onClick={() => setIsBulkImportModalOpen(true)} className={secondaryBlueButton}>Import CSV</button>
+          <button style={{ display: "none" }} onClick={() => handleExportToCSV(filteredIncomes)} disabled={filteredIncomes.length === 0} className={`${secondaryGreenButton} disabled:opacity-50`}>Export CSV</button>
         </div>
       </div>
 
@@ -410,14 +426,14 @@ export default function IncomesPageClient() {
           currency={userCurrency}
           onEdit={openEditModal}
           onView={openViewModal}
-          onDelete={openDeleteModal}
+          onDelete={(item) => void deleteItem(item.id)}
           onBookmark={handleBookmarkToggle}
           onRefresh={invalidateQueries}
           selectedIncomes={visibleSelection}
           onIncomeSelect={handleItemSelect}
           onSelectAll={(selected) => handleSelectAll(selected, tableIncomes)}
           showBulkActions={true}
-          onBulkDelete={isBulkDeleting ? undefined : handleBulkDelete}
+          onBulkDelete={isBulkDeleting ? undefined : (ids) => void bulkDeleteItems(ids)}
           onClearSelection={() => handleSelectAll(false)}
         />
       </Suspense>
@@ -425,12 +441,12 @@ export default function IncomesPageClient() {
       <AddIncomeModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAdd={handleAddItem} categories={categoriesWithFrequency} accounts={accounts} />
       <EditIncomeModal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setItemToEdit(null); }} onEdit={handleEditItem} categories={categoriesWithFrequency} accounts={accounts} income={itemToEdit} />
       <ViewIncomeModal isOpen={isViewModalOpen} onClose={() => { setIsViewModalOpen(false); setItemToView(null); }} onEdit={openEditModal} income={itemToView} />
-      <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setItemToDelete(null); }} onConfirm={handleDeleteItem} />
       <AddCategoryModal
         isOpen={isAddCategoryModalOpen}
         onClose={() => setIsAddCategoryModalOpen(false)}
         onAdd={handleAddCategory}
         onDelete={handleDeleteCategory}
+        onUpdate={handleUpdateCategory}
         onCategoryTabChange={(id, enabled) => categoryTabMutation.mutate({ id, enabled }, {
           onSuccess: () => {
             if (!enabled) setIncomeTab((current) => current === id ? null : current);

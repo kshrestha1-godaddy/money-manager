@@ -44,7 +44,6 @@ const pageContainer = CONTAINER_COLORS.page;
 const loadingContainer = LOADING_COLORS.container;
 const loadingSpinner = LOADING_COLORS.spinner;
 const loadingText = LOADING_COLORS.text;
-const pageTitle = TEXT_COLORS.title;
 const primaryButton = BUTTON_COLORS.primary;
 const secondaryOutlineButton = BUTTON_COLORS.secondaryBlue;
 const dangerButton = BUTTON_COLORS.danger;
@@ -510,7 +509,7 @@ export default function LifeEventsPageClient() {
 
       <div className={UI_STYLES.header.container}>
         <div>
-          <h1 className={`text-2xl font-bold ${pageTitle}`}>Life events</h1>
+          <h1 className="sr-only">Life events</h1>
           <p className="mt-1 text-sm text-gray-600">
             Important dates, milestones, and references—searchable and organized on a timeline.
           </p>
@@ -539,6 +538,7 @@ export default function LifeEventsPageClient() {
             Refresh
           </button>
           <button
+            style={{ display: "none" }}
             type="button"
             onClick={handleExportLifeEvents}
             className={`${secondaryOutlineButton} inline-flex items-center gap-2`}
@@ -547,6 +547,7 @@ export default function LifeEventsPageClient() {
             Export
           </button>
           <button
+            style={{ display: "none" }}
             type="button"
             onClick={handleImportClick}
             disabled={isImporting}

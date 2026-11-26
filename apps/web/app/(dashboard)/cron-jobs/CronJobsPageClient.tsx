@@ -131,7 +131,7 @@ export default function CronJobsPageClient() {
         <div>
           <div className="flex items-center gap-2">
             <Clock className="h-6 w-6 text-gray-700" />
-            <h1 className="text-2xl font-semibold text-gray-900">Cron Jobs</h1>
+            <h1 className="sr-only">Cron Jobs</h1>
           </div>
           <p className="mt-1 text-sm text-gray-500">
             Monitor scheduled tasks, inspect run history, and trigger jobs manually.

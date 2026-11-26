@@ -52,19 +52,31 @@ function horizonInSteps(
     horizonDays: number,
     frequency: Frequency,
     historyLength: number,
+    coverHorizonDays: boolean,
 ): number {
-    const steps = Math.round(horizonDays / DAYS_PER_STEP[frequency]);
-    return Math.max(1, Math.min(steps, Math.max(historyLength, 14)));
+    const periodDays = DAYS_PER_STEP[frequency];
+    const steps = coverHorizonDays
+        ? Math.ceil(horizonDays / periodDays)
+        : Math.round(horizonDays / periodDays);
+    const bounded = Math.max(1, steps);
+    if (coverHorizonDays) return bounded;
+    return Math.min(bounded, Math.max(historyLength, 14));
 }
 
 async function fitSeriesForecasts(
     points: readonly TimeSeriesPoint[],
     settings: ForecastSettingsState,
     frequency: Frequency,
-    gapFill?: "interpolate" | "zero",
+    gapFill: "interpolate" | "zero" | undefined,
+    coverHorizonDays: boolean,
 ): Promise<ForecastRun[]> {
     const series = toRegularSeries(points, { frequency, gapFill });
-    const horizon = horizonInSteps(settings.horizon, frequency, series.values.length);
+    const horizon = horizonInSteps(
+        settings.horizon,
+        frequency,
+        series.values.length,
+        coverHorizonDays,
+    );
     const runs: ForecastRun[] = [];
     for (const model of FORECAST_MODELS) {
         if (!settings.selectedIds.includes(model.id)) continue;
@@ -92,11 +104,14 @@ export function useChartForecast({
     points,
     frequency = "monthly",
     gapFill,
+    coverHorizonDays = false,
 }: {
     chartId: string;
     points: readonly TimeSeriesPoint[];
     frequency?: Frequency;
     gapFill?: "interpolate" | "zero";
+    /** Project the full saved horizon in days, without capping to history length. */
+    coverHorizonDays?: boolean;
 }): {
     isForecastVisible: boolean;
     toggleForecast: () => void;
@@ -129,8 +144,17 @@ export function useChartForecast({
         points.length >= 2;
 
     const runsQuery = useQuery({
-        queryKey: ["forecast-runs", chartId, frequency, gapFill ?? "", settingsKey, seriesKey],
-        queryFn: () => fitSeriesForecasts(points, settings!, frequency, gapFill),
+        queryKey: [
+            "forecast-runs",
+            chartId,
+            frequency,
+            gapFill ?? "",
+            settingsKey,
+            seriesKey,
+            coverHorizonDays,
+        ],
+        queryFn: () =>
+            fitSeriesForecasts(points, settings!, frequency, gapFill, coverHorizonDays),
         enabled: isReady,
         staleTime: Infinity,
         gcTime: 30 * 60 * 1000,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useGatedAction } from "@repo/applock";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronDown, Download, RefreshCw, Trash2 } from "lucide-react";
 import {
@@ -10,7 +11,6 @@ import {
 } from "../actions/accounts";
 import { formatCurrency } from "../../../utils/currency";
 import { INPUT_COLORS, TEXT_COLORS, UI_STYLES } from "../../../config/colorConfig";
-import { DeleteConfirmationModal } from "../../../components/DeleteConfirmationModal";
 import { CompactPagination } from "../../../components/shared/CompactPagination";
 
 const standardInput = INPUT_COLORS.standard;
@@ -361,22 +361,27 @@ export function AccountIncomeExpenseActivityTable() {
     });
 
     const [deleteNotice, setDeleteNotice] = useState("");
-    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const deleteOldest = useMutation({
         mutationFn: deleteOldestAccountBalanceActivityLogs,
         onSuccess: async (count) => {
-            setIsDeleteDialogOpen(false);
             setDeleteNotice(`Deleted ${count} oldest balance activity ${count === 1 ? "record" : "records"}.`);
             await refetch();
         },
-        onError: () => setIsDeleteDialogOpen(false),
     });
 
-    function handleDeleteOldest() {
-        if (deleteOldest.isPending) return;
-        setDeleteNotice("");
-        deleteOldest.mutate();
-    }
+    // The password prompt carries the confirmation, so no separate dialog.
+    const deleteOldestRecords = useGatedAction(
+        (appLockPassword: string) => {
+            setDeleteNotice("");
+            deleteOldest.mutate(appLockPassword);
+        },
+        {
+            title: "Delete oldest activity records?",
+            description:
+                "This permanently deletes your oldest 25 balance activity records across all accounts, regardless of filters. Account balances and transactions stay unchanged, and this cannot be undone.",
+            confirmLabel: "Delete oldest 25",
+        },
+    );
 
     const accountOptions = useMemo(() => {
         if (!data?.length) return [];
@@ -510,17 +515,6 @@ export function AccountIncomeExpenseActivityTable() {
 
     return (
         <div className={UI_STYLES.chart.container}>
-            <DeleteConfirmationModal
-                isOpen={isDeleteDialogOpen}
-                onClose={() => {
-                    if (!deleteOldest.isPending) setIsDeleteDialogOpen(false);
-                }}
-                onConfirm={handleDeleteOldest}
-                title="Delete oldest activity records?"
-                message="Permanently delete your oldest 25 balance activity records, or all remaining records if fewer than 25. This applies across all accounts, regardless of filters. Account balances and transactions stay unchanged. This cannot be undone."
-                confirmText="Delete oldest 25"
-                isLoading={deleteOldest.isPending}
-            />
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
                     <h2 className={UI_STYLES.chart.title}>
@@ -547,7 +541,7 @@ export function AccountIncomeExpenseActivityTable() {
                         </button>
                         <button
                             type="button"
-                            onClick={() => setIsDeleteDialogOpen(true)}
+                            onClick={() => void deleteOldestRecords()}
                             disabled={deleteOldest.isPending || isFetching}
                             aria-busy={deleteOldest.isPending}
                             title="Delete the oldest 25 balance activity records across all accounts, regardless of filters"
@@ -557,6 +551,7 @@ export function AccountIncomeExpenseActivityTable() {
                             {deleteOldest.isPending ? "Deleting…" : "Delete oldest 25"}
                         </button>
                         <button
+                            style={{ display: "none" }}
                             type="button"
                             onClick={handleDownloadCsv}
                             disabled={filteredRows.length === 0}

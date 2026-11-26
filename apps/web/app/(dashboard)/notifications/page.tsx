@@ -30,7 +30,7 @@ export default function NotificationsPage() {
     return (
         <div className="max-w-7xl mx-auto p-6">
             <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900">Notification Settings</h1>
+                <h1 className="sr-only">Notification Settings</h1>
                 <p className="text-gray-600 mt-2">
                     Manage notification preferences, saved locations, and app-wide USD / INR / NPR exchange rates used for conversions and summaries.
                 </p>

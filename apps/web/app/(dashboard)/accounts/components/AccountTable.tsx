@@ -324,10 +324,8 @@ export function AccountTable({
     };
 
     const handleBulkDelete = () => {
-        if (onBulkDelete && !isDeleting && selectedAccounts.size > 0 &&
-            window.confirm(`Delete ${selectedAccounts.size} selected account(s)? This cannot be undone.`)) {
-            onBulkDelete();
-        }
+        if (!onBulkDelete || isDeleting || selectedAccounts.size === 0) return;
+        onBulkDelete();
     };
 
     const isAllSelected = selectedAccounts.size === accounts.length && accounts.length > 0;
@@ -428,6 +426,7 @@ export function AccountTable({
                                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" aria-hidden="true" />
                             </div>
                             <button
+                                style={{ display: "none" }}
                                 type="button"
                                 onClick={handleDownloadCsv}
                                 className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
@@ -500,12 +499,12 @@ export function AccountTable({
                                 />
                             </th>
                             <th
-                                className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.openingDate}px` }}
                                 aria-sort={sortField === 'accountOpeningDate' ? (sortDirection === "asc" ? "ascending" : "descending") : undefined}
                                 scope="col"
                             >
-                                <button type="button" className="flex w-full items-center justify-center gap-2" onClick={() => handleSort('accountOpeningDate')}>
+                                <button type="button" className="flex w-full items-center justify-start gap-2" onClick={() => handleSort('accountOpeningDate')}>
                                     <span>Opening Date</span>
                                     {getSortIcon('accountOpeningDate')}
                                 </button>
@@ -515,12 +514,12 @@ export function AccountTable({
                                 />
                             </th>
                             <th
-                                className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.accountNumber}px` }}
                                 aria-sort={sortField === 'accountNumber' ? (sortDirection === "asc" ? "ascending" : "descending") : undefined}
                                 scope="col"
                             >
-                                <button type="button" className="flex w-full items-center justify-center gap-2" onClick={() => handleSort('accountNumber')}>
+                                <button type="button" className="flex w-full items-center justify-start gap-2" onClick={() => handleSort('accountNumber')}>
                                     <span>Account Number</span>
                                     {getSortIcon('accountNumber')}
                                 </button>
@@ -530,12 +529,12 @@ export function AccountTable({
                                 />
                             </th>
                             <th
-                                className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.balance}px` }}
                                 aria-sort={sortField === 'balance' ? (sortDirection === "asc" ? "ascending" : "descending") : undefined}
                                 scope="col"
                             >
-                                <button type="button" className="flex w-full items-center justify-center gap-2" onClick={() => handleSort('balance')}>
+                                <button type="button" className="flex w-full items-center justify-start gap-2" onClick={() => handleSort('balance')}>
                                     <span>{balanceHeaderLabel}</span>
                                     {getSortIcon('balance')}
                                 </button>
@@ -545,25 +544,25 @@ export function AccountTable({
                                 />
                             </th>
                             <th
-                                className="relative px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                                className="relative px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                                 style={{ width: `${columnWidths.withheldBalance}px` }}
                                 aria-sort={sortField === 'withheldBalance' ? (sortDirection === "asc" ? "ascending" : "descending") : undefined}
                                 scope="col"
                                 title="Purchase amounts of investments marked withheld from this account"
                             >
-                                <button type="button" className="flex w-full items-center justify-center gap-1" onClick={() => handleSort('withheldBalance')}>
+                                <button type="button" className="flex w-full items-center justify-start gap-1" onClick={() => handleSort('withheldBalance')}>
                                     <span>Withheld ({selectedCurrency.toUpperCase()})</span>
                                     {getSortIcon('withheldBalance')}
                                 </button>
                                 <div className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-blue-500" onMouseDown={(e) => handleMouseDown(e, 'withheldBalance')} />
                             </th>
                             <th
-                                className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
+                                className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none relative border-r border-gray-200"
                                 style={{ width: `${columnWidths.freeBalance}px` }}
                                 aria-sort={sortField === 'freeBalance' ? (sortDirection === "asc" ? "ascending" : "descending") : undefined}
                                 scope="col"
                             >
-                                <button type="button" className="flex w-full items-center justify-center gap-2" onClick={() => handleSort('freeBalance')}>
+                                <button type="button" className="flex w-full items-center justify-start gap-2" onClick={() => handleSort('freeBalance')}>
                                     <span>{freeBalanceHeaderLabel}</span>
                                     {getSortIcon('freeBalance')}
                                 </button>
@@ -573,7 +572,7 @@ export function AccountTable({
                                 />
                             </th>
                             <th
-                                className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                                 style={{ width: `${columnWidths.actions}px` }}
                             >
                                 Actions
@@ -591,9 +590,9 @@ export function AccountTable({
                                 <th scope="rowgroup" colSpan={showBulkActions ? 6 : 5} className="px-6 py-3 text-left text-sm font-medium text-gray-700">
                                     {group.label} <span className="ml-2 font-normal text-gray-400">({group.accounts.length})</span>
                                 </th>
-                                <td className="px-3 py-3 text-center text-xs font-medium text-gray-500 tabular-nums">{displayAmount(balance)}</td>
-                                <td className="px-3 py-3 text-center text-xs font-medium text-gray-500 tabular-nums">{displayAmount(withheld)}</td>
-                                <td className="px-3 py-3 text-center text-xs font-medium text-gray-500 tabular-nums">{displayAmount(balance - withheld)}</td>
+                                <td className="px-3 py-3 text-left text-xs font-medium text-gray-500 tabular-nums">{displayAmount(balance)}</td>
+                                <td className="px-3 py-3 text-left text-xs font-medium text-gray-500 tabular-nums">{displayAmount(withheld)}</td>
+                                <td className="px-3 py-3 text-left text-xs font-medium text-gray-500 tabular-nums">{displayAmount(balance - withheld)}</td>
                                 <td />
                             </tr>
                         )}
@@ -631,12 +630,12 @@ export function AccountTable({
                             <td className="w-9 px-1 py-2" />
                             <td
                                 colSpan={4}
-                                className="px-6 py-3 text-right text-sm font-semibold text-gray-900"
+                                className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
                             >
                                 Total
                             </td>
                             <td
-                                className="px-3 py-3 whitespace-nowrap text-sm font-semibold text-center tabular-nums"
+                                className="px-3 py-3 whitespace-nowrap text-sm font-semibold text-left tabular-nums"
                                 style={{ width: `${columnWidths.balance}px` }}
                             >
                                 <span
@@ -649,11 +648,11 @@ export function AccountTable({
                                     {formatCurrency(displayTotalBalance, selectedCurrency)}
                                 </span>
                             </td>
-                            <td className="px-3 py-3 text-center text-sm font-semibold text-gray-600 tabular-nums" style={{ width: `${columnWidths.withheldBalance}px` }}>
+                            <td className="px-3 py-3 text-left text-sm font-semibold text-gray-600 tabular-nums" style={{ width: `${columnWidths.withheldBalance}px` }}>
                                 {formatCurrency(displayTotalBalance - displayTotalFreeBalance, selectedCurrency)}
                             </td>
                             <td
-                                className="px-3 py-3 whitespace-nowrap text-sm font-semibold text-center tabular-nums"
+                                className="px-3 py-3 whitespace-nowrap text-sm font-semibold text-left tabular-nums"
                                 style={{ width: `${columnWidths.freeBalance}px` }}
                             >
                                 <span
@@ -781,7 +780,7 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
                 </div>
             </td>
             <td
-                className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center truncate"
+                className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-left truncate"
                 style={{ width: `${columnWidths.openingDate}px` }}
             >
                 {formatAccountOpeningDate(account.accountOpeningDate)}
@@ -790,7 +789,7 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
                 className="px-4 py-4 whitespace-nowrap"
                 style={{ width: `${columnWidths.accountNumber}px` }}
             >
-                <div className="flex items-center justify-center gap-2">
+                <div className="flex items-center justify-start gap-2">
                     <div className="text-sm text-gray-900 font-mono truncate min-w-0">
                         {isAccountNumberVisible ? account.accountNumber : maskAccountNumber(account.accountNumber)}
                     </div>
@@ -814,7 +813,7 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
                 </div>
             </td>
             <td
-                className="px-3 py-4 whitespace-nowrap text-sm font-medium text-center tabular-nums truncate"
+                className="px-3 py-4 whitespace-nowrap text-sm font-medium text-left tabular-nums truncate"
                 style={{ width: `${columnWidths.balance}px` }}
             >
                 {account.balance !== undefined ? (
@@ -833,7 +832,7 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
                 />
             </td>
             <td
-                className="px-3 py-4 whitespace-nowrap text-sm font-medium text-center tabular-nums truncate"
+                className="px-3 py-4 whitespace-nowrap text-sm font-medium text-left tabular-nums truncate"
                 style={{ width: `${columnWidths.freeBalance}px` }}
             >
                 {account.balance !== undefined ? (
@@ -845,10 +844,10 @@ function AccountRow({ account, userCurrency, displayCurrency, onEdit, onDelete, 
                 )}
             </td>
             <td
-                className="px-3 py-4 whitespace-nowrap text-center text-sm font-medium"
+                className="px-3 py-4 whitespace-nowrap text-left text-sm font-medium"
                 style={{ width: `${columnWidths.actions}px` }}
             >
-                <div className="flex justify-center flex-nowrap gap-1">
+                <div className="flex justify-start flex-nowrap gap-1">
                     {onShare && (
                         <button
                             type="button"
@@ -956,10 +955,10 @@ function WithheldTooltip({ items, userCurrency, displayCurrency }: {
         };
     }, [position]);
 
-    if (!items.length) return <span className="block text-center text-gray-400 tabular-nums">—</span>;
+    if (!items.length) return <span className="block text-left text-gray-400 tabular-nums">—</span>;
 
     return (
-        <div className="text-center">
+        <div className="text-left">
             <button
                 ref={triggerRef}
                 type="button"

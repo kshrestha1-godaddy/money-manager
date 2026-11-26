@@ -18,6 +18,7 @@ import {
     ACCOUNT_BALANCE_ACTIVITY_SOURCES,
     logAccountBalanceFromTransaction,
 } from "../../../utils/accountActivityLog";
+import { requireAppLockPassword } from "../../../lib/security/require-app-lock-password";
 
 export interface IncomeExpenseAccountActivityRow {
     id: number;
@@ -314,10 +315,9 @@ export async function bulkUpdateAccountBalances(updates: { id: number; balance: 
     }
 }
 
-export async function deleteAccount(id: number) {
+export async function deleteAccount(id: number, appLockPassword: string) {
     try {
-        const session = await getAuthenticatedSession();
-        const userId = getUserIdFromSession(session.user.id);
+        const userId = await requireAppLockPassword(appLockPassword);
 
         // Verify the account belongs to the user
         const existingAccount = await prisma.account.findFirst({
@@ -344,10 +344,9 @@ export async function deleteAccount(id: number) {
     }
 }
 
-export async function bulkDeleteAccounts(accountIds: number[]) {
+export async function bulkDeleteAccounts(accountIds: number[], appLockPassword: string) {
     try {
-        const session = await getAuthenticatedSession();
-        const userId = getUserIdFromSession(session.user.id);
+        const userId = await requireAppLockPassword(appLockPassword);
 
         // Verify all accounts belong to the user
         const userAccounts = await prisma.account.findMany({
@@ -830,9 +829,8 @@ export async function getIncomeExpenseAccountBalanceActivityLogs(
 }
 
 /** Delete only the signed-in user's oldest balance activity records. */
-export async function deleteOldestAccountBalanceActivityLogs(): Promise<number> {
-    const session = await getAuthenticatedSession();
-    const userId = getUserIdFromSession(session.user.id);
+export async function deleteOldestAccountBalanceActivityLogs(appLockPassword: string): Promise<number> {
+    const userId = await requireAppLockPassword(appLockPassword);
 
     return prisma.$transaction(async (tx) => {
         const where = {

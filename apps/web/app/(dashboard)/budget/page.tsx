@@ -710,7 +710,7 @@ export default function BudgetPage() {
       {/* Header */}
       <div className={UI_STYLES.header.container}>
         <div>
-          <h1 className={UI_STYLES.page.title}>Budget Tracking</h1>
+          <h1 className="sr-only">Budget Tracking</h1>
           <p className={`${UI_STYLES.page.subtitle} mt-2`}>
             {isCurrentMonth 
               ? `Compare your current spending against budget targets for ${getSelectedMonthName()} ${selectedYear}`
@@ -744,6 +744,7 @@ export default function BudgetPage() {
             Delete All
           </button>
           <button
+            style={{ display: "none" }}
             onClick={handleExportBudgetTargets}
             className={`${BUTTON_COLORS.secondaryGreen} flex items-center gap-2`}
           >

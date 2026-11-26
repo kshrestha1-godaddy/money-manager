@@ -80,7 +80,7 @@ export default function ForecastSettingsPage(): React.ReactElement {
                     {" / "}
                     Forecast
                 </p>
-                <h1 className="text-3xl font-bold text-gray-900">Forecast settings</h1>
+                <h1 className="sr-only">Forecast settings</h1>
                 <p className="mt-2 text-gray-600">
                     Choose which models to overlay on every forecasting chart, and the
                     orders each one uses. Auto-selected is on by default.

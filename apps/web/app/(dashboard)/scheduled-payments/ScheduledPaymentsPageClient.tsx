@@ -55,7 +55,6 @@ const pageContainer = CONTAINER_COLORS.page;
 const loadingContainer = LOADING_COLORS.container;
 const loadingSpinner = LOADING_COLORS.spinner;
 const loadingText = LOADING_COLORS.text;
-const pageTitle = TEXT_COLORS.title;
 const primaryButton = BUTTON_COLORS.primary;
 const secondaryOutlineButton = BUTTON_COLORS.secondaryBlue;
 const dangerButton = BUTTON_COLORS.danger;
@@ -529,7 +528,7 @@ export default function ScheduledPaymentsPageClient() {
   if (paymentsQuery.isError && !paymentsQuery.data) {
     return (
       <section className="rounded-lg border border-gray-200 bg-white p-6" role="alert">
-        <h1 className={pageTitle}>Scheduled payments</h1>
+        <h1 className="sr-only">Scheduled payments</h1>
         <p className="my-3 text-sm text-gray-700">Couldn’t load scheduled payments.</p>
         <button type="button" onClick={() => void refreshPayments()} disabled={isRefreshing} className={primaryButton}>
           {isRefreshing ? "Retrying…" : "Try again"}
@@ -542,7 +541,7 @@ export default function ScheduledPaymentsPageClient() {
     <div className={pageContainer}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className={pageTitle}>Scheduled payments</h1>
+          <h1 className="sr-only">Scheduled payments</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -681,6 +680,7 @@ export default function ScheduledPaymentsPageClient() {
                   </select>
                 </div>
                 <button
+                  style={{ display: "none" }}
                   type="button"
                   onClick={handleDownloadCsv}
                   disabled={filteredItems.length === 0}

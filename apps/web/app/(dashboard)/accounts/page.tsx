@@ -7,7 +7,6 @@ import { AccountTable } from "./components/AccountTable";
 import { BulkAdjustBalancesModal } from "./components/BulkAdjustBalancesModal";
 import { AddAccountModal } from "./components/AddAccountModal";
 import { EditAccountModal } from "./components/EditAccountModal";
-import { DeleteAccountModal } from "./components/DeleteAccountModal";
 import { ViewAccountModal } from "./components/ViewAccountModal";
 import { ShareAccountModal } from "./components/ShareAccountModal";
 import { ImportAccountModal } from "./components/ImportAccountModal";
@@ -18,6 +17,7 @@ import { useCurrency } from "../../providers/CurrencyProvider";
 import { BankBalanceChart } from "./components/BankBalanceChart";
 import { AccountIncomeExpenseActivityTable } from "./components/AccountIncomeExpenseActivityTable";
 import { useOptimizedAccounts } from "../../hooks/useOptimizedAccounts";
+import { useGatedAction } from "@repo/applock";
 import { getWithheldInvestmentDetailsByAccount } from "./actions/accounts";
 import {
     getSummaryCardClasses,
@@ -37,7 +37,6 @@ const loadingContainer = LOADING_COLORS.container;
 const loadingSpinner = LOADING_COLORS.spinner;
 const loadingText = LOADING_COLORS.text;
 
-const pageTitle = TEXT_COLORS.title;
 const errorTitle = TEXT_COLORS.errorTitle;
 const errorMessage = TEXT_COLORS.errorMessage;
 const cardTitle = TEXT_COLORS.cardTitle;
@@ -81,8 +80,6 @@ export default function Accounts() {
         setIsAddModalOpen,
         isEditModalOpen,
         setIsEditModalOpen,
-        isDeleteModalOpen,
-        setIsDeleteModalOpen,
         isViewModalOpen,
         setIsViewModalOpen,
         isShareModalOpen,
@@ -111,8 +108,6 @@ export default function Accounts() {
         // Selected items
         accountToEdit,
         setAccountToEdit,
-        accountToDelete,
-        setAccountToDelete,
         accountToView,
         setAccountToView,
         accountToShare,
@@ -132,7 +127,6 @@ export default function Accounts() {
         clearFilters,
         openEditModal,
         openViewModal,
-        openDeleteModal,
         openShareModal,
         isImporting,
         allAccounts,
@@ -168,6 +162,22 @@ export default function Accounts() {
             try { localStorage.setItem('user-has-accounts', 'true'); } catch {}
         }
     }, [allAccounts.length]);
+
+    // Deletions require the lock screen password. The gate supplies the
+    // verified password, which the server action re-checks before deleting.
+    const deleteAccount = useGatedAction(
+        (appLockPassword: string, accountId: number) => handleDeleteAccount(appLockPassword, accountId),
+        {
+            title: "Delete account",
+            description: "This cannot be undone. Enter your lock screen password to delete this account.",
+            confirmLabel: "Delete account",
+        },
+    );
+
+    const bulkDeleteAccounts = useGatedAction(
+        (appLockPassword: string) => handleBulkDelete(appLockPassword),
+        { title: "Confirm bulk deletion", description: "Enter your lock screen password to delete the selected accounts.", confirmLabel: "Delete accounts" },
+    );
 
     // Display error if there's one
     if (error || withheldDetailsError) {
@@ -206,7 +216,7 @@ export default function Accounts() {
             {/* Header */}
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <h1 className={pageTitle}>Accounts</h1>
+                    <h1 className="sr-only">Accounts</h1>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     <button
@@ -217,12 +227,14 @@ export default function Accounts() {
                         Add Account
                     </button>
                     <button
+                        style={{ display: "none" }}
                         onClick={() => setIsImportModalOpen(true)}
                         className={secondaryBlueButton}
                     >
                         Import CSV
                     </button>
                     <button
+                        style={{ display: "none" }}
                         onClick={handleExportToCSV}
                         className={secondaryGreenButton}
                         disabled={accounts.length === 0}
@@ -408,11 +420,11 @@ export default function Accounts() {
                     onAccountSelect={handleAccountSelect}
                     onSelectAll={(checked: boolean) => handleSelectAll(checked)}
                     showBulkActions={true}
-                    onBulkDelete={handleBulkDelete}
+                    onBulkDelete={bulkDeleteAccounts}
                     isDeleting={isDeleting}
                     onClearSelection={() => setSelectedAccounts(new Set())}
                     onEdit={openEditModal}
-                    onDelete={openDeleteModal}
+                    onDelete={(account) => void deleteAccount(account.id)}
                     onViewDetails={openViewModal}
                     onShare={openShareModal}
                     withheldDetails={withheldDetails}
@@ -464,17 +476,6 @@ export default function Accounts() {
                 }}
                 onEdit={handleEditAccount}
                 account={accountToEdit}
-            />
-
-            <DeleteAccountModal
-                isOpen={isDeleteModalOpen}
-                onClose={() => {
-                    setIsDeleteModalOpen(false);
-                    setAccountToDelete(null);
-                }}
-                onConfirm={handleDeleteAccount}
-                isDeleting={isDeleting}
-                account={accountToDelete}
             />
 
             <ViewAccountModal

@@ -34,11 +34,11 @@ export function FinancialHeader({
         <Button onClick={onAddClick}>
           {addButtonText}
         </Button>
-        <Button onClick={onBulkImportClick}>
+        <Button style={{ display: "none" }} onClick={onBulkImportClick}>
             Import CSV
         </Button>
         {hasItemsToExport && (
-          <Button onClick={onExportClick}>
+          <Button style={{ display: "none" }} onClick={onExportClick}>
             Export CSV
           </Button>
         )}

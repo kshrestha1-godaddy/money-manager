@@ -35,7 +35,6 @@ const cardLargeContainer = CONTAINER_COLORS.cardLarge;
 const loadingContainer = LOADING_COLORS.container;
 const loadingSpinner = LOADING_COLORS.spinner;
 const loadingText = LOADING_COLORS.text;
-const pageTitle = TEXT_COLORS.title;
 const pageSubtitle = TEXT_COLORS.subtitle;
 const errorTitle = TEXT_COLORS.errorTitle;
 const errorMessage = TEXT_COLORS.errorMessage;
@@ -213,12 +212,12 @@ export default function DebtsPageClient() {
     <div className={pageContainer}>
       <div className={UI_STYLES.header.container}>
         <div>
-          <h1 className={pageTitle}>Lendings</h1>
+          <h1 className="sr-only">Lendings</h1>
           <p className={pageSubtitle}>Track money you've lent to others and manage repayments</p>
         </div>
         <div className={UI_STYLES.header.buttonGroup}>
           <button onClick={() => openModal('add')} className={primaryButton}>Add Debt</button>
-          <button onClick={() => openModal('import')} className={secondaryBlueButton}>Import CSV</button>
+          <button style={{ display: "none" }} onClick={() => openModal('import')} className={secondaryBlueButton}>Import CSV</button>
         </div>
       </div>
 
@@ -329,6 +328,7 @@ export default function DebtsPageClient() {
             ))}
           </select>
           <button
+            style={{ display: "none" }}
             type="button"
             onClick={handleTableDownloadCsv}
             className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"

@@ -28,7 +28,6 @@ const pageContainer = CONTAINER_COLORS.page;
 const loadingContainer = LOADING_COLORS.container;
 const loadingSpinner = LOADING_COLORS.spinner;
 const loadingText = LOADING_COLORS.text;
-const pageTitle = TEXT_COLORS.title;
 const primaryButton = BUTTON_COLORS.primary;
 
 /** Same order as server: measuredAt desc, then id desc. */
@@ -133,7 +132,7 @@ export default function HabitsTrackerPageClient() {
       )}
 
       <div className="mb-8">
-        <h1 className={pageTitle}>Habits Tracker</h1>
+        <h1 className="sr-only">Habits Tracker</h1>
         <p className="text-gray-600 mt-1 max-w-2xl">
           Log wellness habits over time. Blood pressure entries include the time of measurement, systolic and diastolic
           values (mmHg), and an automatic category for your charts.
