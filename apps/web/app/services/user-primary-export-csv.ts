@@ -452,7 +452,7 @@ export async function buildPrimaryExportCsvAttachments(
           select: { currency: true, displayCurrency: true },
         })
       : Promise.resolve(null),
-    needsDisplayCurrencyData ? getCurrencyRateConfigQuery() : Promise.resolve(null),
+    needsDisplayCurrencyData ? getCurrencyRateConfigQuery(userId) : Promise.resolve(null),
   ]);
 
   if (needsDisplayCurrencyData) {

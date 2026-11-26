@@ -32,7 +32,7 @@ export async function getCategoryHistoricalTrends(
       select: { currency: true }
     });
     const userCurrency = user?.currency || 'USD';
-    const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery();
+    const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery(userId);
 
     // Get categories that are included in budget
     const categories = await prisma.category.findMany({

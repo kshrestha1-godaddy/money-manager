@@ -62,7 +62,7 @@ export async function getExpensePortfolioPurchases(
       },
       orderBy: { date: "desc" },
     }),
-    getCurrencyRateConfigQuery(),
+    getCurrencyRateConfigQuery(userId),
   ]);
   const currency = (user?.currency?.trim() || "USD").toUpperCase();
   return {

@@ -24,7 +24,7 @@ export async function getBookmarkedTransactionsForCalendar(): Promise<CalendarBo
     }
     
     const userCurrency = user.currency;
-    const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery();
+    const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery(userId);
 
     const bookmarks = await prisma.transactionBookmark.findMany({
       where: {
@@ -111,7 +111,7 @@ export async function getBookmarkedTransactionsForDateRange(
     }
     
     const userCurrency = user.currency;
-    const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery();
+    const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery(userId);
 
     // Parse the date range
     const start = new Date(startDate);
@@ -217,7 +217,7 @@ export async function getBookmarkedTransactionsForCalendarInTimezone(timezone: s
     }
     
     const userCurrency = user.currency;
-    const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery();
+    const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery(userId);
 
     const bookmarks = await prisma.transactionBookmark.findMany({
       where: {
@@ -309,7 +309,7 @@ export async function getBookmarkedTransactionsForDateRangeInTimezone(
     }
     
     const userCurrency = user.currency;
-    const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery();
+    const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery(userId);
 
     // Parse the date range
     const start = new Date(startDate);

@@ -41,7 +41,7 @@ export async function sumStocksCategoryExpenseAmountsForUser(userId: number, cat
         select: { amount: true, currency: true },
     });
 
-    const { matrix } = await getCurrencyRateConfigQuery();
+    const { matrix } = await getCurrencyRateConfigQuery(userId);
 
     let total = 0;
     for (const e of expenses) {

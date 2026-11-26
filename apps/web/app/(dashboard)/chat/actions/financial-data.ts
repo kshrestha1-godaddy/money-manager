@@ -16,6 +16,7 @@ import { convertCurrencySync } from "../../../utils/currencyConversion";
 import { formatDate } from "../../../utils/date";
 import { getUserCurrency } from "../../../actions/currency";
 import { calculateRemainingWithInterest } from "../../../utils/interestCalculation";
+import { getUserIdFromSession } from "../../../utils/auth";
 import { 
   formatFinancialDataAsMarkdown, 
   FinancialDataSummary 
@@ -48,7 +49,8 @@ export async function getFinancialDataForChat(request: FinancialDataRequest) {
     
     // Get user's preferred currency from database
     const currency = await getUserCurrency();
-    const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery();
+    const userId = getUserIdFromSession(session.user.id);
+    const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery(userId);
 
     // Fetch data in parallel - income/expenses/transactions are date-dependent
     const [incomes, expenses, transactions, debtsResult, investmentsResult, investmentTargetsResult, accountsResult, budgetTargetsResult, withheldAmountsResult, netWorthResult] = await Promise.all([

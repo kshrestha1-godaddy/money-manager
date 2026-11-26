@@ -75,7 +75,7 @@ export async function getBudgetRangeSummary(
             prisma.budgetTarget.findMany({ where: { userId, isActive: true, period }, orderBy: { updatedAt: 'desc' } }),
             prisma.expense.findMany({ where: { userId, date: { gte: from, lt: until } }, select: { categoryId: true, amount: true, currency: true, date: true } }),
             prisma.income.findMany({ where: { userId, date: { gte: from, lt: until } }, select: { categoryId: true, amount: true, currency: true, date: true } }),
-            getCurrencyRateConfigQuery(),
+            getCurrencyRateConfigQuery(userId),
         ]);
         // Compute one prorated target per calendar month, including empty months.
         const weights = new Map<string, number>();
@@ -384,7 +384,7 @@ export async function getBudgetComparison(
         });
         const userCurrency = user?.currency || 'USD';
         const userTimezone = user?.timezone && isValidTimezone(user.timezone) ? user.timezone : "UTC";
-        const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery();
+        const { matrix: conversionMatrix } = await getCurrencyRateConfigQuery(userId);
 
         // Get all user's categories that are included in budget (both expense and income)
         const categories = await prisma.category.findMany({

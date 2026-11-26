@@ -534,12 +534,14 @@ export async function checkLowBalanceAlerts(userId: number): Promise<void> {
                     const displayBalance = await convertForDisplayWithDbRates(
                         convertedBalance,
                         accountCurrency,
-                        displayCurrency
+                        displayCurrency,
+                        userId
                     );
                     const displayThreshold = await convertForDisplayWithDbRates(
                         convertedThreshold,
                         accountCurrency,
-                        displayCurrency
+                        displayCurrency,
+                        userId
                     );
                     await createNotification(
                         userId,
@@ -618,7 +620,8 @@ export async function checkDueDateAlerts(userId: number): Promise<void> {
                 const displayAmount = await convertForDisplayWithDbRates(
                     decimalToNumber(debt.amount, 'amount'),
                     accountCurrency,
-                    displayCurrency
+                    displayCurrency,
+                    userId
                 );
                 await createNotification(
                     userId,
@@ -650,7 +653,8 @@ export async function checkDueDateAlerts(userId: number): Promise<void> {
                 const displayAmount = await convertForDisplayWithDbRates(
                     decimalToNumber(loan.amount, 'amount'),
                     accountCurrency,
-                    displayCurrency
+                    displayCurrency,
+                    userId
                 );
                 await createNotification(
                     userId,
@@ -697,7 +701,8 @@ export async function checkInvestmentMaturityAlerts(userId: number): Promise<voi
                 const displayAmount = await convertForDisplayWithDbRates(
                     decimalToNumber(investment.purchasePrice, 'amount'),
                     accountCurrency,
-                    displayCurrency
+                    displayCurrency,
+                    userId
                 );
                 await createNotification(
                     userId,
@@ -762,7 +767,8 @@ export async function checkSpendingAlerts(userId: number): Promise<void> {
             totalSpent += await convertForDisplayWithDbRates(
                 amount,
                 expense.currency,
-                accountCurrency
+                accountCurrency,
+                userId
             );
         }
         
@@ -773,12 +779,14 @@ export async function checkSpendingAlerts(userId: number): Promise<void> {
                 convertForDisplayWithDbRates(
                     totalSpent,
                     accountCurrency,
-                    displayCurrency
+                    displayCurrency,
+                    userId
                 ),
                 convertForDisplayWithDbRates(
                     monthlyLimit,
                     accountCurrency,
-                    displayCurrency
+                    displayCurrency,
+                    userId
                 ),
             ]);
             await createNotification(

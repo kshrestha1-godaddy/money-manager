@@ -22,8 +22,8 @@ export {
   sortTransactionsAsc,
 } from "./balance-sheet-core";
 
-export async function createServerConvertAmount(displayCurrency: string) {
-  const { matrix } = await getCurrencyRateConfigQuery();
+export async function createServerConvertAmount(displayCurrency: string, userId?: number) {
+  const { matrix } = await getCurrencyRateConfigQuery(userId);
   return createSyncConvertAmount(displayCurrency, matrix);
 }
 
@@ -44,7 +44,10 @@ export async function buildBalanceSheetXlsxBuffer(params: {
   rangeEnd: Date;
   periodLabel: string;
 }): Promise<BuildBalanceSheetXlsxResult | null> {
-  const convertAmount = await createServerConvertAmount(params.displayCurrency);
+  const convertAmount = await createServerConvertAmount(
+    params.displayCurrency,
+    params.userId
+  );
 
   const periodTransactions = await loadUnifiedTransactionsForUser(params.userId, {
     startDate: params.rangeStart,
