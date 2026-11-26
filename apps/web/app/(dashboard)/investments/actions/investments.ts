@@ -17,6 +17,7 @@ import { convertForDisplayWithDbRates } from "../../../utils/currencyDisplayServ
 import { ImportResult } from "../../../types/bulkImport";
 import { bulkImportInvestmentTargets } from "./investment-targets";
 import { requireAppLockPassword } from "../../../lib/security/require-app-lock-password";
+import { getLockedLedgerCurrency } from "../../../utils/ledgerCurrency";
 import {
     presentValueForPosition,
     resolvePurchasePriceForInvestmentDisplay,
@@ -285,7 +286,6 @@ export async function createInvestment(
             }
         }
 
-        const userCurrency = user.currency || "USD";
         const deduct = investmentShouldDeduct(investment.deductFromAccount);
         const linkedAccountId = investment.accountId ?? null;
         const purchaseCost =
@@ -303,6 +303,7 @@ export async function createInvestment(
         }
 
         const result = await prisma.$transaction(async (tx) => {
+            const userCurrency = await getLockedLedgerCurrency(tx, userId);
             if (deduct && linkedAccountId && purchaseCost > 0) {
                 const account = await tx.account.findUnique({
                     where: { id: linkedAccountId },
@@ -459,13 +460,8 @@ export async function updateInvestment(
 
         const userId = getUserIdFromSession(session.user.id);
 
-        const userRow = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { currency: true },
-        });
-        const userCurrency = userRow?.currency || "USD";
-
         const result = await prisma.$transaction(async (tx) => {
+            const userCurrency = await getLockedLedgerCurrency(tx, userId);
             const existing = await tx.investment.findFirst({
                 where: { id, userId },
             });
@@ -885,6 +881,7 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
         for (const batch of batches) {
             try {
                 await prisma.$transaction(async (tx) => {
+                    const userCurrency = await getLockedLedgerCurrency(tx, userId);
                     for (const investmentData of batch) {
                         try {
                             let account = null;
@@ -916,7 +913,7 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
                                 investmentData as { deductFromAccount?: boolean }
                             ).deductFromAccount;
                             const deduct = investmentShouldDeduct(
-                                deductFromCsv ?? true
+                                deductFromCsv ?? false
                             );
                             const priceCurrency =
                                 investmentData.priceCurrency || userCurrency;
@@ -924,12 +921,14 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
                                 convertForDisplayWithDbRates(
                                     investmentData.purchasePrice,
                                     priceCurrency,
-                                    userCurrency
+                                    userCurrency,
+                                    userId
                                 ),
                                 convertForDisplayWithDbRates(
                                     investmentData.currentPrice,
                                     priceCurrency,
-                                    userCurrency
+                                    userCurrency,
+                                    userId
                                 ),
                             ]);
                             const purchaseCost =
@@ -1239,12 +1238,6 @@ export async function importCorrectedRow(rowData: string[], headers: string[]): 
 
     const userId = getUserIdFromSession(session.user.id);
 
-    const userRow = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { currency: true },
-    });
-    const userCurrency = userRow?.currency || "USD";
-
     // Get user accounts for validation
     const accounts = await prisma.account.findMany({
         where: { userId: userId }
@@ -1267,9 +1260,7 @@ export async function importCorrectedRow(rowData: string[], headers: string[]): 
     }
     const deductFromCsv = (investmentData as { deductFromAccount?: boolean })
         .deductFromAccount;
-    const deduct = investmentShouldDeduct(deductFromCsv ?? true);
-    const purchaseCost =
-        investmentData.quantity * investmentData.purchasePrice;
+    const deduct = investmentShouldDeduct(deductFromCsv ?? false);
 
     if (investmentData.type === "STOCKS") {
         const existingStocks = await prisma.investment.count({
@@ -1283,6 +1274,24 @@ export async function importCorrectedRow(rowData: string[], headers: string[]): 
     }
 
     const newInvestment = await prisma.$transaction(async (tx) => {
+        const userCurrency = await getLockedLedgerCurrency(tx, userId);
+        const priceCurrency = investmentData.priceCurrency || userCurrency;
+        const [purchasePrice, currentPrice] = await Promise.all([
+            convertForDisplayWithDbRates(
+                investmentData.purchasePrice,
+                priceCurrency,
+                userCurrency,
+                userId
+            ),
+            convertForDisplayWithDbRates(
+                investmentData.currentPrice,
+                priceCurrency,
+                userCurrency,
+                userId
+            ),
+        ]);
+        const purchaseCost = investmentData.quantity * purchasePrice;
+
         if (
             deduct &&
             investmentData.accountId &&
@@ -1312,12 +1321,15 @@ export async function importCorrectedRow(rowData: string[], headers: string[]): 
             });
         }
 
+        const { priceCurrency: _priceCurrency, ...investmentFields } = investmentData;
         const created = await tx.investment.create({
             data: {
-                ...(investmentData as any),
+                ...investmentFields,
+                purchasePrice,
+                currentPrice,
                 userId: userId,
                 deductFromAccount: deductFromCsv ?? false,
-            } as any,
+            },
             include: {
                 account: true,
             },

@@ -138,7 +138,8 @@ export async function createIncome(
                     : await convertForDisplayWithDbRates(
                         data.amount,
                         transactionCurrency,
-                        accountCurrency
+                        accountCurrency,
+                        userId
                     )
                 : null;
 
@@ -374,7 +375,8 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
                 : await convertForDisplayWithDbRates(
                     oldAmount,
                     oldCurrency,
-                    userCurrency
+                    userCurrency,
+                    userId
                 );
             const hasImpactBoundaryChanged =
                 data.amount !== undefined ||
@@ -386,7 +388,8 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
                     : await convertForDisplayWithDbRates(
                         newAmount,
                         newCurrency,
-                        userCurrency
+                        userCurrency,
+                        userId
                     )
                 : oldAmountConverted;
             if (hasImpactBoundaryChanged) {
@@ -633,7 +636,8 @@ export async function deleteIncome(id: number, appLockPassword: string) {
                     : await convertForDisplayWithDbRates(
                         incomeAmount,
                         existingIncome.currency,
-                        userCurrency
+                        userCurrency,
+                        userId
                     );
                 
                 await tx.account.update({
@@ -760,11 +764,7 @@ export async function bulkImportIncomes(file: File, defaultAccountId: string, tr
     let successCount = 0;
     const errors: { row: number; message: string }[] = [];
 
-    const [user, categories, accounts] = await Promise.all([
-        prisma.user.findUnique({
-            where: { id: userId },
-            select: { currency: true }
-        }),
+    const [categories, accounts] = await Promise.all([
         prisma.category.findMany({ where: { type: "INCOME", userId } }),
         prisma.account.findMany({ where: { userId } })
     ]);
@@ -781,7 +781,7 @@ export async function bulkImportIncomes(file: File, defaultAccountId: string, tr
         const rowNumber = i + 2;
 
         try {
-            const income = await processIncomeRow(rowData, headers, categories, accounts, defaultAccountId, userId, user?.currency);
+            const income = await processIncomeRow(rowData, headers, categories, accounts, defaultAccountId, userId);
             if (income) successCount++;
         } catch (error) {
             errors.push({
@@ -823,16 +823,12 @@ export async function importCorrectedRow(rowData: string[], headers: string[], t
 
     const userId = getUserIdFromSession(session.user.id);
 
-    const [user, categories, accounts] = await Promise.all([
-        prisma.user.findUnique({
-            where: { id: userId },
-            select: { currency: true }
-        }),
+    const [categories, accounts] = await Promise.all([
         prisma.category.findMany({ where: { type: "INCOME", userId } }),
         prisma.account.findMany({ where: { userId } })
     ]);
 
-    const income = await processIncomeRow(rowData, headers, categories, accounts, '', userId, user?.currency);
+    const income = await processIncomeRow(rowData, headers, categories, accounts, '', userId);
     
     revalidateIncomePaths();
     return income;
@@ -881,7 +877,8 @@ export async function bulkDeleteIncomes(incomeIds: number[], appLockPassword: st
                     : await convertForDisplayWithDbRates(
                         amt,
                         income.currency,
-                        userCurrency
+                        userCurrency,
+                        userId
                     );
                 const currentTotal = accountUpdates.get(income.accountId) || 0;
                 accountUpdates.set(income.accountId, currentTotal + converted);
@@ -933,8 +930,7 @@ async function processIncomeRow(
     categories: any[], 
     accounts: any[], 
     defaultAccountId: string, 
-    userId: number,
-    userCurrency?: string
+    userId: number
 ): Promise<any> {
     const rowObj: Record<string, string> = {};
     headers.forEach((header, index) => {
@@ -1006,11 +1002,9 @@ async function processIncomeRow(
         title: rowObj.title,
         description: rowObj.description || undefined,
         amount: parseFloat(amountRaw),
-        currency: assertCurrencyCode(
-            rowObj.originalcurrency ||
-            rowObj.currency ||
-            normalizeSupportedCurrency(userCurrency)
-        ),
+        currency: rowObj.originalcurrency || rowObj.currency
+            ? assertCurrencyCode(rowObj.originalcurrency || rowObj.currency)
+            : undefined,
         date: date,
         categoryId: category.id,
         tags: tags,

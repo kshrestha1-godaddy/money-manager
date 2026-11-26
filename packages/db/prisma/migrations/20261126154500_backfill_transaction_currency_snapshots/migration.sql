@@ -36,7 +36,8 @@ SET
     ELSE c.account_amount / e."amount"
   END
 FROM converted c
-WHERE e."id" = c."id";
+WHERE e."id" = c."id"
+  AND c.account_amount IS NOT NULL;
 
 WITH rates AS (
   SELECT
@@ -74,4 +75,5 @@ SET
     ELSE c.account_amount / i."amount"
   END
 FROM converted c
-WHERE i."id" = c."id";
+WHERE i."id" = c."id"
+  AND c.account_amount IS NOT NULL;

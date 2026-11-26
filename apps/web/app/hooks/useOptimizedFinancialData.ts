@@ -418,8 +418,8 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     
     try {
       const csvContent = categoryType === "EXPENSE"
-        ? convertExpensesToCSVWithDisplayCurrency(visibleItems as Expense[], displayCurrency)
-        : convertIncomesToCSVWithDisplayCurrency(visibleItems as Income[], displayCurrency);
+        ? convertExpensesToCSVWithDisplayCurrency(visibleItems as unknown as Expense[], displayCurrency)
+        : convertIncomesToCSVWithDisplayCurrency(visibleItems as unknown as Income[], displayCurrency);
       const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");

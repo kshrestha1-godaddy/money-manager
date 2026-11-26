@@ -6,6 +6,7 @@ import { Expense } from "../../../types/financial";
 import prisma from "@repo/db/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
+import { getLockedLedgerCurrency } from "../../../utils/ledgerCurrency";
 import {
     assertCurrencyCode,
     normalizeSupportedCurrency,
@@ -290,7 +291,8 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
                 : await convertForDisplayWithDbRates(
                     oldAmount,
                     oldCurrency,
-                    userCurrency
+                    userCurrency,
+                    userId
                 );
             const hasImpactBoundaryChanged =
                 data.amount !== undefined ||
@@ -302,7 +304,8 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
                     : await convertForDisplayWithDbRates(
                         newAmount,
                         newCurrency,
-                        userCurrency
+                        userCurrency,
+                        userId
                     )
                 : oldAmountConverted;
             if (hasImpactBoundaryChanged) {
@@ -597,7 +600,8 @@ export async function deleteExpense(id: number, appLockPassword: string) {
                     : await convertForDisplayWithDbRates(
                         expenseAmount,
                         existingExpense.currency,
-                        userCurrency
+                        userCurrency,
+                        userId
                     );
                 
                 await tx.account.update({
@@ -880,11 +884,7 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
         const dataRows = rows.slice(1);
 
         // Get user's preferred currency, categories and accounts for validation
-        const [user, categories, accounts] = await Promise.all([
-            prisma.user.findUnique({
-                where: { id: userId },
-                select: { currency: true }
-            }),
+        const [categories, accounts] = await Promise.all([
             prisma.category.findMany({
                 where: { 
                     type: 'EXPENSE',
@@ -909,7 +909,9 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
             data: ImportExpenseRow;
             rowIndex: number;
             originalRow: string[];
+            hasExplicitCurrency: boolean;
         }> = [];
+        const currencyColumnIndex = headers.indexOf('currency');
 
         for (let i = 0; i < dataRows.length; i++) {
             const rowIndex = i + 2; // +2 for header and 1-based indexing
@@ -932,13 +934,14 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
                     categories, 
                     accounts,
                     defaultAccountId,
-                    user?.currency
+                    undefined
                 );
 
                 validatedRows.push({
                     data: expenseData,
                     rowIndex,
-                    originalRow: row
+                    originalRow: row,
+                    hasExplicitCurrency: currencyColumnIndex >= 0 && Boolean(row[currencyColumnIndex]?.trim()),
                 });
 
             } catch (error) {
@@ -962,12 +965,15 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
         for (const batch of batches) {
             try {
                 await prisma.$transaction(async (tx) => {
+                    const lockedLedgerCurrency = await getLockedLedgerCurrency(tx, userId);
                     for (const validatedRow of batch) {
                         const createData: any = {
                             title: validatedRow.data.title,
                             description: validatedRow.data.description,
                             amount: validatedRow.data.amount,
-                            currency: validatedRow.data.currency,
+                            currency: validatedRow.hasExplicitCurrency
+                                ? validatedRow.data.currency
+                                : lockedLedgerCurrency,
                             date: validatedRow.data.date,
                             category: {
                                 connect: { id: validatedRow.data.categoryId }
@@ -990,7 +996,7 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
                                 connect: { id: validatedRow.data.accountId }
                             };
                             createData.accountAmount = 0;
-                            createData.accountCurrency = normalizeSupportedCurrency(user?.currency);
+                            createData.accountCurrency = normalizeSupportedCurrency(lockedLedgerCurrency);
                             createData.appliedExchangeRate = 0;
                         }
 
@@ -1152,7 +1158,8 @@ export async function bulkDeleteExpenses(expenseIds: number[], appLockPassword: 
                         : await convertForDisplayWithDbRates(
                             expenseAmount,
                             expense.currency,
-                            userCurrency
+                            userCurrency,
+                            userId
                         );
                     const currentTotal = accountUpdates.get(expense.accountId) || 0;
                     accountUpdates.set(expense.accountId, currentTotal + convertedAmount);
@@ -1249,6 +1256,7 @@ export async function importCorrectedRow(
 
         // Use a transaction to create the expense and update account balance
         const result = await prisma.$transaction(async (tx) => {
+            const lockedLedgerCurrency = await getLockedLedgerCurrency(tx, userId);
             // Validate and transform row
             const expenseData = await validateAndTransformRow(
                 row, 
@@ -1257,14 +1265,19 @@ export async function importCorrectedRow(
                 categories, 
                 accounts,
                 defaultAccountId,
-                user?.currency
+                lockedLedgerCurrency
             );
+            const currencyColumnIndex = headers.findIndex(
+                (header) => header.toLowerCase().replace(/\s+/g, '') === 'currency'
+            );
+            const hasExplicitCurrency =
+                currencyColumnIndex >= 0 && Boolean(row[currencyColumnIndex]?.trim());
 
             const createData: any = {
                 title: expenseData.title,
                 description: expenseData.description,
                 amount: expenseData.amount,
-                currency: expenseData.currency,
+                currency: hasExplicitCurrency ? expenseData.currency : lockedLedgerCurrency,
                 date: expenseData.date,
                 category: {
                     connect: { id: expenseData.categoryId }
@@ -1287,7 +1300,7 @@ export async function importCorrectedRow(
                     connect: { id: expenseData.accountId }
                 };
                 createData.accountAmount = 0;
-                createData.accountCurrency = normalizeSupportedCurrency(user?.currency);
+                createData.accountCurrency = normalizeSupportedCurrency(lockedLedgerCurrency);
                 createData.appliedExchangeRate = 0;
             }
 

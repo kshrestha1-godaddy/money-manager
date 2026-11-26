@@ -68,6 +68,7 @@ export const ACCOUNT_HEADER_NAMES: Record<keyof AccountInterface, string> = {
     appPin: 'App PIN',
     notes: 'Notes',
     nickname: 'Nickname',
+    showInBalanceChart: 'Show in Balance Chart',
     userId: 'User ID',
     createdAt: 'Created At',
     updatedAt: 'Updated At'

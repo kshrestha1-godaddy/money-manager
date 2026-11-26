@@ -2,7 +2,7 @@
 
 import prisma from "@repo/db/client";
 import { revalidatePath } from "next/cache";
-import { getAuthenticatedSession } from "../utils/auth";
+import { getAuthenticatedSession, getUserIdFromSession } from "../utils/auth";
 import { DEFAULT_CURRENCY_ANCHORS } from "../utils/currencyRates";
 
 export interface CurrencyRateConfigData {
@@ -10,24 +10,20 @@ export interface CurrencyRateConfigData {
   nprPerUsd: number;
 }
 
-export async function canManageCurrencyRates(): Promise<boolean> {
-  const session = await getAuthenticatedSession();
-  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-  return Boolean(
-    adminEmail &&
-    session.user.email?.trim().toLowerCase() === adminEmail
-  );
-}
-
 export async function getCurrencyRateConfig(): Promise<CurrencyRateConfigData> {
-  await getAuthenticatedSession();
-  const row = await prisma.currencyRateConfig.findUnique({ where: { id: 1 } });
-  if (!row) {
+  const session = await getAuthenticatedSession();
+  const userId = getUserIdFromSession(session.user.id);
+  const row = await prisma.currencyRateConfig.findUnique({ where: { userId } });
+  const fallback = row
+    ? null
+    : await prisma.currencyRateConfig.findUnique({ where: { id: 1 } });
+  const resolved = row || fallback;
+  if (!resolved) {
     return { ...DEFAULT_CURRENCY_ANCHORS };
   }
   return {
-    inrToNpr: Number(row.inrToNpr),
-    nprPerUsd: Number(row.nprPerUsd),
+    inrToNpr: Number(resolved.inrToNpr),
+    nprPerUsd: Number(resolved.nprPerUsd),
   };
 }
 
@@ -35,11 +31,7 @@ export async function updateCurrencyRateConfig(
   data: CurrencyRateConfigData
 ): Promise<void> {
   const session = await getAuthenticatedSession();
-  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-  const userEmail = session.user.email?.trim().toLowerCase();
-  if (!adminEmail || userEmail !== adminEmail) {
-    throw new Error("Only the configured administrator can update global exchange rates.");
-  }
+  const userId = getUserIdFromSession(session.user.id);
 
   if (
     !Number.isFinite(data.inrToNpr) ||
@@ -51,9 +43,9 @@ export async function updateCurrencyRateConfig(
   }
 
   await prisma.currencyRateConfig.upsert({
-    where: { id: 1 },
+    where: { userId },
     create: {
-      id: 1,
+      userId,
       inrToNpr: data.inrToNpr,
       nprPerUsd: data.nprPerUsd,
     },
@@ -63,5 +55,5 @@ export async function updateCurrencyRateConfig(
     },
   });
 
-  revalidatePath("/notifications");
+  revalidatePath("/settings");
 }

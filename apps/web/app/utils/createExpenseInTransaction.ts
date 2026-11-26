@@ -33,7 +33,8 @@ export async function createExpenseInTransaction(
         ? await convertForDisplayWithDbRates(
             data.amount,
             transactionCurrency,
-            accountCurrency
+            accountCurrency,
+            userId
         )
         : null;
 

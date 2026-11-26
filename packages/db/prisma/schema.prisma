@@ -39,6 +39,7 @@ model User {
   notifications Notification[]
   dismissedNotifications DismissedNotification[]
   notificationSettings NotificationSettings?
+  currencyRateConfig CurrencyRateConfig?
   accountThresholds AccountThreshold[]
   userCheckins UserCheckin[]
   emergencyEmails EmergencyEmail[]
@@ -497,7 +498,9 @@ model NotificationSettings {
 
 /// App-wide USD / INR / NPR exchange anchors. Single row (id = 1).
 model CurrencyRateConfig {
-  id        Int      @id @default(1)
+  id        Int      @id @default(autoincrement())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int?     @unique
   /// How many NPR equal 1 INR
   inrToNpr  Decimal  @db.Decimal(18, 8)
   /// How many NPR equal 1 USD

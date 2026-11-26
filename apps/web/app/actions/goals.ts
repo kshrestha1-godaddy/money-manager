@@ -122,12 +122,6 @@ export async function getGoals(filters?: {
   try {
     const session = await getAuthenticatedSession();
     const userId = getUserIdFromSession(session.user.id);
-    const user = data.currency ? null : await prisma.user.findUnique({
-      where: { id: userId },
-      select: { currency: true },
-    });
-    if (!data.currency && !user) return { error: "User not found" };
-
     const whereClause: any = {
       userId: userId,
     };
@@ -329,6 +323,11 @@ export async function createGoal(data: GoalFormData): Promise<{ data?: Formatted
   try {
     const session = await getAuthenticatedSession();
     const userId = getUserIdFromSession(session.user.id);
+    const user = data.currency ? null : await prisma.user.findUnique({
+      where: { id: userId },
+      select: { currency: true },
+    });
+    if (!data.currency && !user) return { error: "User not found" };
 
     // Validate account ownership if accountId provided
     if (data.accountId) {

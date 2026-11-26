@@ -385,20 +385,9 @@ export async function bulkCreateAccounts(accounts: Omit<AccountInterface, 'id' |
         const session = await getAuthenticatedSession();
         const userId = getUserIdFromSession(session.user.id);
         
-        const user = await prisma.user.findUnique({
-            where: {
-                id: userId,
-            },
-        });
-
-        if (!user) {
-            console.error(`User not found when creating accounts for user ID: ${userId}`);
-            throw new Error("User not found");
-        }
-
         // Use transaction to handle bulk account creation with uniqueness validation
         const result = await prisma.$transaction(async (tx) => {
-            await getLockedLedgerCurrency(tx, userId);
+            const lockedLedgerCurrency = await getLockedLedgerCurrency(tx, userId);
             const createdAccounts: any[] = [];
             const errors: string[] = [];
             let successCount = 0;
@@ -414,13 +403,14 @@ export async function bulkCreateAccounts(accounts: Omit<AccountInterface, 'id' |
                     const importedAccount = account as typeof account & {
                         balanceCurrency?: string;
                     };
-                    const accountCurrency = normalizeSupportedCurrency(user.currency);
+                    const accountCurrency = normalizeSupportedCurrency(lockedLedgerCurrency);
                     const balance = importedAccount.balance || 0;
                     const balanceInAccountCurrency = importedAccount.balanceCurrency
                         ? await convertForDisplayWithDbRates(
                             balance,
                             importedAccount.balanceCurrency,
-                            accountCurrency
+                            accountCurrency,
+                            userId
                         )
                         : balance;
 

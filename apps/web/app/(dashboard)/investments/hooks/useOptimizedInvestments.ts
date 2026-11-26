@@ -565,8 +565,8 @@ export function useOptimizedInvestments() {
             alert("No investments to export");
             return;
         }
-        exportInvestmentsToCSV(filteredInvestments);
-    }, [filteredInvestments]);
+        exportInvestmentsToCSV(filteredInvestments, currency);
+    }, [filteredInvestments, currency]);
 
     // Filter handlers
     const clearFilters = useCallback(() => {

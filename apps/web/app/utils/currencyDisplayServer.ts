@@ -7,8 +7,9 @@ import { getCurrencyRateConfigQuery } from "../data/currency-rate-config";
 export async function convertForDisplayWithDbRates(
   amount: number,
   storedCurrency: string,
-  userCurrency: string
+  userCurrency: string,
+  userId?: number
 ): Promise<number> {
-  const { matrix } = await getCurrencyRateConfigQuery();
+  const { matrix } = await getCurrencyRateConfigQuery(userId);
   return convertCurrencySync(amount, storedCurrency, userCurrency, matrix);
 }

@@ -60,6 +60,8 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
   const [currencyRateVersion, setCurrencyRateVersion] = useState(0);
   const [isRatesLoading, setIsRatesLoading] = useState(true);
   const displayUpdateQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const preferencesRequestGenerationRef = useRef(0);
+  const ratesRequestGenerationRef = useRef(0);
 
   const applyRateAnchors = useCallback((anchors: CurrencyRateAnchors) => {
     setCurrencyRateAnchors(anchors);
@@ -68,20 +70,25 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
   }, []);
 
   const refreshCurrencyRates = useCallback(async () => {
+    const generation = ++ratesRequestGenerationRef.current;
     setIsRatesLoading(true);
     try {
       const rates = await getCurrencyRateConfig();
-      applyRateAnchors(rates);
+      if (generation === ratesRequestGenerationRef.current) applyRateAnchors(rates);
     } catch (error) {
-      applyRateAnchors(DEFAULT_CURRENCY_ANCHORS);
+      if (generation === ratesRequestGenerationRef.current) {
+        applyRateAnchors(DEFAULT_CURRENCY_ANCHORS);
+      }
       throw error;
     } finally {
-      setIsRatesLoading(false);
+      if (generation === ratesRequestGenerationRef.current) setIsRatesLoading(false);
     }
   }, [applyRateAnchors]);
 
   const refreshCurrencyPreferences = useCallback(async () => {
+    const generation = ++preferencesRequestGenerationRef.current;
     const preferences = await getCurrencyPreferences();
+    if (generation !== preferencesRequestGenerationRef.current) return;
     setAccountCurrency(preferences.accountCurrency);
     setDisplayCurrency(preferences.displayCurrency);
     setIsAccountCurrencyLocked(preferences.isAccountCurrencyLocked);
@@ -99,36 +106,54 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
     }
 
     if (status === "authenticated") {
+      const preferencesGeneration = ++preferencesRequestGenerationRef.current;
+      const ratesGeneration = ++ratesRequestGenerationRef.current;
       setIsLoading(true);
       setIsRatesLoading(true);
       Promise.allSettled([getCurrencyPreferences(), getCurrencyRateConfig()])
         .then(([preferencesResult, ratesResult]) => {
           if (isCancelled) return;
 
-          if (preferencesResult.status === "fulfilled") {
+          if (
+            preferencesResult.status === "fulfilled" &&
+            preferencesGeneration === preferencesRequestGenerationRef.current
+          ) {
             setAccountCurrency(preferencesResult.value.accountCurrency);
             setDisplayCurrency(preferencesResult.value.displayCurrency);
             setIsAccountCurrencyLocked(
               preferencesResult.value.isAccountCurrencyLocked
             );
-          } else {
+          } else if (
+            preferencesResult.status === "rejected" &&
+            preferencesGeneration === preferencesRequestGenerationRef.current
+          ) {
             console.error(
               "Failed to load currency preferences:",
               preferencesResult.reason
             );
           }
 
-          if (ratesResult.status === "fulfilled") {
+          if (
+            ratesResult.status === "fulfilled" &&
+            ratesGeneration === ratesRequestGenerationRef.current
+          ) {
             applyRateAnchors(ratesResult.value);
-          } else {
+          } else if (
+            ratesResult.status === "rejected" &&
+            ratesGeneration === ratesRequestGenerationRef.current
+          ) {
             console.error("Failed to load currency rates:", ratesResult.reason);
             applyRateAnchors(DEFAULT_CURRENCY_ANCHORS);
           }
         })
         .finally(() => {
           if (isCancelled) return;
-          setIsLoading(false);
-          setIsRatesLoading(false);
+          if (preferencesGeneration === preferencesRequestGenerationRef.current) {
+            setIsLoading(false);
+          }
+          if (ratesGeneration === ratesRequestGenerationRef.current) {
+            setIsRatesLoading(false);
+          }
         });
     } else {
       setAccountCurrency("USD");
@@ -145,6 +170,7 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
   }, [applyRateAnchors, status]);
 
   const updateCurrency = useCallback(async (newCurrency: string) => {
+    ++preferencesRequestGenerationRef.current;
     try {
       await updateUserCurrency(newCurrency);
       setAccountCurrency(normalizeSupportedCurrency(newCurrency));
@@ -156,6 +182,7 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
 
   const updateDisplayCurrency = useCallback(async (newCurrency: string) => {
     const normalized = normalizeSupportedCurrency(newCurrency);
+    ++preferencesRequestGenerationRef.current;
     const persistence = displayUpdateQueueRef.current.then(async () => {
       await persistDisplayCurrency(normalized);
       setDisplayCurrency(normalized);
