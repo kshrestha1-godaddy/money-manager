@@ -21,7 +21,8 @@ model User {
   number String @unique
   password String
   profilePictureUrl String?
-  currency String @default("USD") // User's preferred currency
+  currency String @default("USD") // Immutable ledger/base currency once monetary data exists
+  displayCurrency String @default("USD") // User's preferred presentation currency
   timezone String @default("UTC") // User's preferred timezone
   accounts Account[]
   categories Category[]
@@ -133,6 +134,9 @@ model Expense {
   description String?
   amount Decimal
   currency String @default("USD") // Currency for the expense amount
+  accountAmount Decimal? // Exact ledger amount applied to the linked account
+  accountCurrency String? // Ledger currency when the account impact was calculated
+  appliedExchangeRate Decimal? // accountAmount / native amount
   date DateTime @default(now())
   category Category @relation(fields: [categoryId], references: [id])
   categoryId Int
@@ -187,6 +191,9 @@ model Income {
   description String?
   amount Decimal
   currency String @default("USD") // Currency for the income amount
+  accountAmount Decimal? // Exact ledger amount applied to the linked account
+  accountCurrency String? // Ledger currency when the account impact was calculated
+  appliedExchangeRate Decimal? // accountAmount / native amount
   date DateTime @default(now())
   category Category @relation(fields: [categoryId], references: [id])
   categoryId Int
