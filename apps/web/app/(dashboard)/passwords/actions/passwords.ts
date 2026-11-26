@@ -3,6 +3,7 @@
 import { PasswordInterface, PasswordFormData, PasswordUpdateData, DecryptPasswordData } from "../../../types/passwords";
 import prisma from "@repo/db/client";
 import { getAuthenticatedSession, getUserIdFromSession } from "../../../utils/auth";
+import { requireAppLockPassword } from "../../../lib/security/require-app-lock-password";
 import crypto from 'crypto';
 import { ParsedPasswordData } from "../../../utils/csvImportPasswords";
 
@@ -265,10 +266,9 @@ export async function updatePassword(data: PasswordUpdateData): Promise<Password
   }
 }
 
-export async function deletePassword(id: number): Promise<void> {
+export async function deletePassword(id: number, appLockPassword: string): Promise<void> {
   try {
-    const session = await getAuthenticatedSession();
-    const userId = getUserIdFromSession(session.user.id);
+    const userId = await requireAppLockPassword(appLockPassword);
     
     // Verify the password belongs to the user
     const existingPassword = await prisma.password.findFirst({

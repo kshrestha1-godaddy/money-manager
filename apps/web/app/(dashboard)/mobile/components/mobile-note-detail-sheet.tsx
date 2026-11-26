@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Note } from "@prisma/client";
+import { PasswordGatedButton } from "@repo/applock";
 import { deleteNote, toggleNoteArchive, toggleNotePin } from "../../notes/actions/notes";
 import { NoteForm } from "../../notes/components/NoteForm";
 
@@ -83,12 +84,11 @@ export function MobileNoteDetailSheet({
     }
   }
 
-  async function handleDelete() {
-    if (!confirm("Delete this note? This cannot be undone.")) return;
+  async function handleDelete(appLockPassword: string) {
     setBusy(true);
     setActionError(null);
     try {
-      const result = await deleteNote(noteId);
+      const result = await deleteNote(noteId, appLockPassword);
       if (result.success) {
         onDeleted(noteId);
         onClose();
@@ -253,14 +253,18 @@ export function MobileNoteDetailSheet({
           >
             {note.isArchived ? "Unarchive" : "Archive"}
           </button>
-          <button
-            type="button"
-            onClick={() => void handleDelete()}
+          <PasswordGatedButton
+            onConfirm={handleDelete}
+            prompt={{
+              title: "Delete note",
+              description: "This cannot be undone. Enter your lock screen password to delete this note.",
+              confirmLabel: "Delete note",
+            }}
             disabled={busy}
             className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-100 disabled:opacity-50"
           >
             Delete
-          </button>
+          </PasswordGatedButton>
         </div>
       </div>
     </div>

@@ -11,8 +11,8 @@ import { UI_STYLES, TEXT_COLORS, CONTAINER_COLORS, LOADING_COLORS, BUTTON_COLORS
 import { exportNotesToCSV } from "../../utils/csvExportNotes";
 import { UnifiedBulkImportModal } from "../../components/shared/UnifiedBulkImportModal";
 import { notesImportConfig } from "../../config/bulkImportConfig";
+import { PasswordGatedButton } from "@repo/applock";
 import { deleteAllNotes, getNotes, getArchivedNotes } from "./actions/notes";
-import { DeleteConfirmationModal } from "../../components/DeleteConfirmationModal";
 
 const loadingContainer = LOADING_COLORS.container;
 const loadingSpinner = LOADING_COLORS.spinner;
@@ -28,7 +28,6 @@ export function NotesPageClient() {
   const [showArchived, setShowArchived] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
@@ -161,12 +160,11 @@ export function NotesPageClient() {
     loadNotes();
   };
 
-  const handleDeleteAllNotes = async () => {
+  const handleDeleteAllNotes = async (appLockPassword: string) => {
     setLoading(true);
     try {
-      const result = await deleteAllNotes();
+      const result = await deleteAllNotes(appLockPassword);
       if (result.success) {
-        setShowDeleteAllModal(false);
         // Optimistically clear all notes
         setNotes([]);
         setArchivedNotes([]);
@@ -241,13 +239,19 @@ export function NotesPageClient() {
           >
             Export CSV
           </button>
-          <button 
-            onClick={() => setShowDeleteAllModal(true)} 
+          <PasswordGatedButton
+            onConfirm={handleDeleteAllNotes}
+            prompt={{
+              title: "Delete all notes",
+              description: `This cannot be undone. Enter your lock screen password to delete all ${notes.length + archivedNotes.length} notes.`,
+              confirmLabel: "Delete all notes",
+              force: true,
+            }}
             disabled={notes.length === 0 && archivedNotes.length === 0} 
             className={`${dangerButton} disabled:opacity-50`}
           >
             Delete All Notes
-          </button>
+          </PasswordGatedButton>
         </div>
       </div>
 
@@ -345,17 +349,6 @@ export function NotesPageClient() {
         onClose={() => setShowImportModal(false)}
         onSuccess={handleImportSuccess}
         config={notesImportConfig}
-      />
-
-      {/* Delete All Confirmation Modal */}
-      <DeleteConfirmationModal
-        isOpen={showDeleteAllModal}
-        onClose={() => setShowDeleteAllModal(false)}
-        onConfirm={handleDeleteAllNotes}
-        title="Delete All Notes"
-        message={`Are you sure you want to delete all ${notes.length + archivedNotes.length} notes? This action cannot be undone.`}
-        confirmText="Delete All Notes"
-        isLoading={loading}
       />
     </div>
   );

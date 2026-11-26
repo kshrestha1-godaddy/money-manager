@@ -1,15 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { PasswordGatedButton } from "@repo/applock";
 import { Category } from "../../types/financial";
-import { DeleteCategoryModal } from "./DeleteCategoryModal";
 import { EditCategoryModal } from "./EditCategoryModal";
 
 interface AddCategoryModalProps {
     isOpen: boolean;
     onClose: () => void;
     onAdd: (category: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>) => void;
-    onDelete?: (categoryId: number) => Promise<void>;
+    onDelete?: (categoryId: number, appLockPassword: string) => Promise<void>;
     onUpdate?: (
         categoryId: number,
         data: { name: string; color: string; icon?: string },
@@ -29,8 +29,7 @@ export function AddCategoryModal({
         icon: ''
     });
     const [showDeleteSection, setShowDeleteSection] = useState(false);
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+    const [deleteError, setDeleteError] = useState<string>('');
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [categoryToEdit, setCategoryToEdit] = useState<Category | null>(null);
 
@@ -109,22 +108,15 @@ export function AddCategoryModal({
         setCategoryToEdit(null);
     };
 
-    const handleDeleteCategory = (category: Category) => {
-        setCategoryToDelete(category);
-        setIsDeleteModalOpen(true);
-    };
-
-    const handleConfirmDelete = async (categoryId: number) => {
-        if (onDelete) {
-            await onDelete(categoryId);
+    const handleDeleteCategory = async (categoryId: number, appLockPassword: string) => {
+        if (!onDelete) return;
+        setDeleteError('');
+        try {
+            await onDelete(categoryId, appLockPassword);
+        } catch (error) {
+            console.error("Failed to delete category:", error);
+            setDeleteError(error instanceof Error ? error.message : "Failed to delete category");
         }
-        setIsDeleteModalOpen(false);
-        setCategoryToDelete(null);
-    };
-
-    const handleCloseDeleteModal = () => {
-        setIsDeleteModalOpen(false);
-        setCategoryToDelete(null);
     };
 
     if (!isOpen) return null;
@@ -291,6 +283,13 @@ export function AddCategoryModal({
                                         </p>
                                     </div>
                                     
+                                    {deleteError && (
+                                        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                                            <h4 className="text-sm font-medium text-red-800">Cannot Delete Category</h4>
+                                            <div className="mt-1 text-sm text-red-700">{deleteError}</div>
+                                        </div>
+                                    )}
+
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
                                         {filteredCategories.map((category) => (
                                             <div
@@ -333,15 +332,20 @@ export function AddCategoryModal({
                                                         </button>
                                                     )}
                                                     {onDelete && (
-                                                        <button
-                                                            onClick={() => handleDeleteCategory(category)}
+                                                        <PasswordGatedButton
+                                                            onConfirm={(appLockPassword) => handleDeleteCategory(category.id, appLockPassword)}
+                                                            prompt={{
+                                                                title: 'Delete category',
+                                                                description: `This cannot be undone. Enter your lock screen password to delete the ${category.type.toLowerCase()} category "${category.name}".`,
+                                                                confirmLabel: 'Delete category',
+                                                            }}
                                                             className="text-red-600 hover:text-red-800 hover:bg-red-50 p-1 rounded transition-colors"
                                                             title={`Delete ${category.name}`}
                                                         >
                                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                             </svg>
-                                                        </button>
+                                                        </PasswordGatedButton>
                                                     )}
                                                 </div>
                                             </div>
@@ -370,13 +374,6 @@ export function AddCategoryModal({
                 onClose={handleCloseEditModal}
                 onSave={handleConfirmEdit}
                 category={categoryToEdit}
-            />
-
-            <DeleteCategoryModal
-                isOpen={isDeleteModalOpen}
-                onClose={handleCloseDeleteModal}
-                onConfirm={handleConfirmDelete}
-                category={categoryToDelete}
             />
         </>
     );

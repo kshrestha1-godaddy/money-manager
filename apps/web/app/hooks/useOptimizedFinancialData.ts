@@ -235,15 +235,16 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
   });
 
   const deleteCategoryMutation = useMutation({
-    mutationFn: deleteCategory,
-    onSuccess: (_: any, deletedId: number) => {
+    mutationFn: ({ id, appLockPassword }: { id: number; appLockPassword: string }) =>
+      deleteCategory(id, appLockPassword),
+    onSuccess: (_: any, { id: deletedId }: { id: number; appLockPassword: string }) => {
       // Optimistically update categories cache
       queryClient.setQueryData(QUERY_KEYS.categories, (oldCategories: Category[] = []) => {
         return oldCategories.filter(category => category.id !== deletedId);
       });
     },
     onError: (error) => {
-      // Don't show alert here - let the modal handle it
+      // Don't show alert here - let the caller handle it
       console.error("Error deleting category:", error);
     },
   });
@@ -340,9 +341,9 @@ export function useOptimizedFinancialData<T extends FinancialItem>(
     createCategoryMutation.mutate(newCategory);
   }, [createCategoryMutation]);
 
-  const handleDeleteCategory = useCallback(async (categoryId: number) => {
-    // Return a promise that the modal can handle
-    return deleteCategoryMutation.mutateAsync(categoryId);
+  const handleDeleteCategory = useCallback(async (categoryId: number, appLockPassword: string) => {
+    // Return a promise that the caller can handle
+    return deleteCategoryMutation.mutateAsync({ id: categoryId, appLockPassword });
   }, [deleteCategoryMutation]);
 
   const handleUpdateCategory = useCallback(

@@ -159,7 +159,9 @@ function processAccountRow(rowData: Record<string, string>, rowIndex: number): P
         }
         
         // Parse optional fields
-        const balance = mappedData.balance ? parseCurrencyField(mappedData.balance) : undefined;
+        const balance = mappedData.balance
+            ? parseCurrencyField(mappedData.balance) ?? undefined
+            : undefined;
         if (
             mappedData.balance &&
             /[$₹₨]/.test(mappedData.balance) &&

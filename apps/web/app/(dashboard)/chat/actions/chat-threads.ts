@@ -5,6 +5,7 @@ import { authOptions } from "../../../lib/auth";
 import prisma from "@repo/db/client";
 import { revalidatePath } from "next/cache";
 import { getUserIdFromSession } from "../../../utils/auth";
+import { AppLockPasswordError, requireAppLockPassword } from "../../../lib/security/require-app-lock-password";
 import { Prisma } from "@prisma/client";
 type ChatSender = "USER" | "ASSISTANT";
 type ChatMessageType = "TEXT" | "IMAGE" | "FILE" | "SYSTEM" | "ERROR";
@@ -180,9 +181,9 @@ export async function updateChatThread(
 }
 
 // Delete chat thread
-export async function deleteChatThread(threadId: number) {
+export async function deleteChatThread(threadId: number, appLockPassword: string) {
   try {
-    const userId = await requireUserId();
+    const userId = await requireAppLockPassword(appLockPassword);
     
     console.log(`Attempting to delete thread ${threadId} for user ${userId}`);
 
@@ -201,6 +202,9 @@ export async function deleteChatThread(threadId: number) {
     revalidatePath("/chat");
     return { success: true };
   } catch (error) {
+    if (error instanceof AppLockPasswordError) {
+      return { success: false, error: error.message };
+    }
     if (error instanceof Error && error.message === "Unauthorized") {
       return { success: false, error: "Unauthorized" };
     }
@@ -417,9 +421,9 @@ export async function updateConversationFeedback(
   }
 }
 
-export async function deleteAllChatThreads() {
+export async function deleteAllChatThreads(appLockPassword: string) {
   try {
-    const userId = await requireUserId();
+    const userId = await requireAppLockPassword(appLockPassword);
 
     console.log(`Attempting to delete all threads for user ${userId}`);
 
@@ -445,6 +449,9 @@ export async function deleteAllChatThreads() {
       message: `Successfully deleted ${deletedThreads.count} threads` 
     };
   } catch (error) {
+    if (error instanceof AppLockPasswordError) {
+      return { success: false, error: error.message };
+    }
     if (error instanceof Error && error.message === "Unauthorized") {
       return { success: false, error: "Unauthorized" };
     }

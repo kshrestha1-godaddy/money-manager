@@ -7,6 +7,7 @@ import {
     getUserIdFromSession, 
     getAuthenticatedSession 
 } from "../utils/auth";
+import { requireAppLockPassword } from "../lib/security/require-app-lock-password";
 
 export async function getCategories(type?: "EXPENSE" | "INCOME") {
     try {
@@ -183,10 +184,9 @@ export async function checkCategoryUsage(id: number) {
     }
 }
 
-export async function deleteCategory(id: number) {
+export async function deleteCategory(id: number, appLockPassword: string) {
     try {
-        const session = await getAuthenticatedSession();
-        const userId = getUserIdFromSession(session.user.id);
+        const userId = await requireAppLockPassword(appLockPassword);
 
         // Verify the category belongs to the user
         const existingCategory = await prisma.category.findFirst({

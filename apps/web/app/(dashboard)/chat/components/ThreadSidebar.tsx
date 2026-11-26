@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import { PasswordGatedButton } from "@repo/applock";
 import { getChatThreads, createChatThread, deleteChatThread, updateChatThread, deleteAllChatThreads } from "../actions/chat-threads";
 
 interface ChatThread {
@@ -42,7 +43,6 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
   const [searchQuery, setSearchQuery] = useState("");
   const [editingThreadId, setEditingThreadId] = useState<number | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
-  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
 
   useEffect(() => {
     loadThreads();
@@ -118,23 +118,13 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
     setEditingTitle("");
   };
 
-  const handleDeleteAllThreads = async () => {
-    console.log("DELETE ALL BUTTON CLICKED!", { threadsLength: threads.length, isDeletingAll });
-    if (threads.length === 0 || isDeletingAll) {
-      console.log("Early return - no threads or already deleting");
-      return;
-    }
-    
-    setShowDeleteAllConfirm(true);
-  };
-
-  const confirmDeleteAll = async () => {
-    setShowDeleteAllConfirm(false);
+  const handleDeleteAllThreads = async (appLockPassword: string) => {
+    if (threads.length === 0 || isDeletingAll) return;
 
     try {
       setIsDeletingAll(true);
       console.log(`UI: Starting delete all threads (${threads.length} threads)`);
-      const result = await deleteAllChatThreads();
+      const result = await deleteAllChatThreads(appLockPassword);
       console.log("UI: Delete all result:", result);
       
       if (result.success) {
@@ -157,13 +147,10 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
     }
   };
 
-  const handleDeleteThread = async (threadId: number, e: React.MouseEvent) => {
-    console.log("DELETE THREAD BUTTON CLICKED!", { threadId });
-    e.stopPropagation();
-    
+  const handleDeleteThread = async (appLockPassword: string, threadId: number) => {
     try {
       console.log(`UI: Starting delete thread ${threadId}`);
-      const result = await deleteChatThread(threadId);
+      const result = await deleteChatThread(threadId, appLockPassword);
       console.log(`UI: Delete thread ${threadId} result:`, result);
       
       if (result.success) {
@@ -283,8 +270,14 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-gray-900">Chats</h2>
           <div className="flex gap-1">
-            <button
-              onClick={handleDeleteAllThreads}
+            <PasswordGatedButton
+              onConfirm={handleDeleteAllThreads}
+              prompt={{
+                title: "Delete all chats",
+                description: `This cannot be undone. Enter your lock screen password to delete all ${threads.length} chats.`,
+                confirmLabel: "Delete all chats",
+                force: true,
+              }}
               className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
               title="Delete All Threads"
               disabled={threads.length === 0 || isDeletingAll}
@@ -303,7 +296,7 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
                   d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
                 />
               </svg>
-            </button>
+            </PasswordGatedButton>
             <button
               onClick={handleNewChat}
               className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
@@ -440,33 +433,6 @@ export const ThreadSidebar = forwardRef<ThreadSidebarRef, ThreadSidebarProps>(({
         )}
       </div>
 
-      {/* Delete All Confirmation Dialog */}
-      {showDeleteAllConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Delete All Chats</h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete all {threads.length} chats? This action cannot be undone.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowDeleteAllConfirm(false)}
-                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDeleteAll}
-                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
-                disabled={isDeletingAll}
-              >
-                {isDeletingAll ? "Deleting..." : "Delete All"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 });
@@ -488,7 +454,7 @@ interface ThreadItemProps {
   handleSaveTitle: (threadId: number) => void;
   handleCancelEdit: () => void;
   handlePinThread: (threadId: number, isPinned: boolean, e: React.MouseEvent) => void;
-  handleDeleteThread: (threadId: number, e: React.MouseEvent) => void;
+  handleDeleteThread: (appLockPassword: string, threadId: number) => void | Promise<void>;
   formatDate: (date: Date | string) => string;
   formatFullDateTime: (date: Date | string) => string;
 }
@@ -604,8 +570,14 @@ const ThreadItem = ({
               />
             </svg>
           </button>
-          <button
-            onClick={(e) => handleDeleteThread(thread.id, e)}
+          <span onClick={(e) => e.stopPropagation()}>
+          <PasswordGatedButton
+            onConfirm={(appLockPassword) => handleDeleteThread(appLockPassword, thread.id)}
+            prompt={{
+              title: "Delete chat",
+              description: `This cannot be undone. Enter your lock screen password to delete "${thread.title}".`,
+              confirmLabel: "Delete chat",
+            }}
             className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
             title="Delete"
           >
@@ -623,7 +595,8 @@ const ThreadItem = ({
                 d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
               />
             </svg>
-          </button>
+          </PasswordGatedButton>
+          </span>
           </div>
         </div>
       </div>

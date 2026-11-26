@@ -3,6 +3,7 @@
 import { BookmarkInterface, BookmarkFormData, BookmarkUpdateData } from "../types/bookmarks";
 import prisma from "@repo/db/client";
 import { getAuthenticatedSession, getUserIdFromSession } from "../utils/auth";
+import { requireAppLockPassword } from "../lib/security/require-app-lock-password";
 
 export async function getBookmarks(): Promise<BookmarkInterface[]> {
     try {
@@ -113,10 +114,9 @@ export async function updateBookmark(data: BookmarkUpdateData): Promise<Bookmark
     }
 }
 
-export async function deleteBookmark(id: number): Promise<void> {
+export async function deleteBookmark(id: number, appLockPassword: string): Promise<void> {
     try {
-        const session = await getAuthenticatedSession();
-        const userId = getUserIdFromSession(session.user.id);
+        const userId = await requireAppLockPassword(appLockPassword);
         
         // Verify the bookmark belongs to the user
         const existingBookmark = await prisma.bookmark.findFirst({

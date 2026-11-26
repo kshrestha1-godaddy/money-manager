@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useId, useMemo, useRef, useCallback, useEffect } from "react";
+import { PasswordGatedButton } from "@repo/applock";
 import { PasswordInterface } from "../../../types/passwords";
 import { formatDate } from "../../../utils/date";
 import { decryptPasswordValue, decryptTransactionPin } from "../actions/passwords";
@@ -396,12 +397,12 @@ export function PasswordSearch({ query, onQueryChange }: {
 interface PasswordTableProps {
     passwords: PasswordInterface[];
     onEdit?: (password: PasswordInterface) => void;
-    onDelete?: (password: PasswordInterface) => void;
+    onDelete?: (appLockPassword: string, password: PasswordInterface) => void | Promise<void>;
     selectedPasswords?: Set<number>;
     onPasswordSelect?: (passwordId: number, selected: boolean) => void;
     onSelectAll?: (selected: boolean) => void;
     showBulkActions?: boolean;
-    onBulkDelete?: () => void;
+    onBulkDelete?: (appLockPassword: string) => void | Promise<void>;
     onClearSelection?: () => void;
     hideHeader?: boolean;
     hideCategoryColumn?: boolean;
@@ -653,12 +654,20 @@ export function PasswordTable({
                                     <span className="text-sm text-gray-500">
                                         {selectedPasswords.size} selected
                                     </span>
-                                    <button
-                                        onClick={onBulkDelete}
-                                        className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
-                                    >
-                                        Delete
-                                    </button>
+                                    {onBulkDelete && (
+                                        <PasswordGatedButton
+                                            onConfirm={onBulkDelete}
+                                            prompt={{
+                                                title: "Delete selected passwords",
+                                                description: "This cannot be undone. Enter your lock screen password to delete the selected passwords.",
+                                                confirmLabel: "Delete passwords",
+                                                force: true,
+                                            }}
+                                            className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
+                                        >
+                                            Delete
+                                        </PasswordGatedButton>
+                                    )}
                                     <button
                                         onClick={onClearSelection}
                                         className="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-400 transition-colors"
@@ -714,8 +723,13 @@ export function PasswordTable({
                                     </button>
                                 )}
                                 {onDelete && (
-                                    <button
-                                        onClick={() => onDelete(password)}
+                                    <PasswordGatedButton
+                                        onConfirm={(appLockPassword) => onDelete(appLockPassword, password)}
+                                        prompt={{
+                                            title: "Delete password",
+                                            description: `This cannot be undone. Enter your lock screen password to delete the password for "${password.websiteName}".`,
+                                            confirmLabel: "Delete password",
+                                        }}
                                         className="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-red-600 hover:bg-red-50 rounded-md transition-colors"
                                         title="Delete"
                                         type="button"
@@ -723,7 +737,7 @@ export function PasswordTable({
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                         </svg>
-                                    </button>
+                                    </PasswordGatedButton>
                                 )}
                             </div>
                         </div>
@@ -759,12 +773,20 @@ export function PasswordTable({
                                 >
                                     Clear Selection
                                 </button>
-                                <button
-                                    onClick={onBulkDelete}
-                                    className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
-                                >
-                                    Delete Selected ({selectedPasswords.size})
-                                </button>
+                                {onBulkDelete && (
+                                    <PasswordGatedButton
+                                        onConfirm={onBulkDelete}
+                                        prompt={{
+                                            title: "Delete selected passwords",
+                                            description: "This cannot be undone. Enter your lock screen password to delete the selected passwords.",
+                                            confirmLabel: "Delete passwords",
+                                            force: true,
+                                        }}
+                                        className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                                    >
+                                        Delete Selected ({selectedPasswords.size})
+                                    </PasswordGatedButton>
+                                )}
                             </div>
                         )}
                     </div>
@@ -906,7 +928,7 @@ function PasswordRow({
 }: { 
     password: PasswordInterface;
     onEdit?: (password: PasswordInterface) => void;
-    onDelete?: (password: PasswordInterface) => void;
+    onDelete?: (appLockPassword: string, password: PasswordInterface) => void | Promise<void>;
     isSelected?: boolean;
     onSelect?: (passwordId: number, selected: boolean) => void;
     showCheckbox?: boolean;
@@ -926,12 +948,6 @@ function PasswordRow({
     const handleEdit = () => {
         if (onEdit) {
             onEdit(password);
-        }
-    };
-
-    const handleDelete = () => {
-        if (onDelete) {
-            onDelete(password);
         }
     };
 
@@ -1029,12 +1045,17 @@ function PasswordRow({
                         </button>
                     )}
                     {onDelete && (
-                        <button 
-                            onClick={handleDelete}
+                        <PasswordGatedButton
+                            onConfirm={(appLockPassword) => onDelete(appLockPassword, password)}
+                            prompt={{
+                                title: "Delete password",
+                                description: `This cannot be undone. Enter your lock screen password to delete the password for "${password.websiteName}".`,
+                                confirmLabel: "Delete password",
+                            }}
                             className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-800 transition-colors"
                         >
                             Delete
-                        </button>
+                        </PasswordGatedButton>
                     )}
                 </div>
             </td>

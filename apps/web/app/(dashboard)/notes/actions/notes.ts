@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
 import prisma from "@repo/db/client";
 import { getUserIdFromSession } from "../../../utils/auth";
+import { requireAppLockPassword } from "../../../lib/security/require-app-lock-password";
 import { Decimal } from "@prisma/client/runtime/library";
 import { ImportResult } from "../../../types/bulkImport";
 
@@ -123,14 +124,9 @@ export async function updateNote(data: UpdateNoteData) {
   }
 }
 
-export async function deleteNote(noteId: number) {
+export async function deleteNote(noteId: number, appLockPassword: string) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      throw new Error("Unauthorized");
-    }
-
-    const userId = getUserIdFromSession(session.user.id);
+    const userId = await requireAppLockPassword(appLockPassword);
 
     await prisma.note.delete({
       where: {
@@ -587,14 +583,9 @@ export async function importCorrectedRow(rowData: string[], headers: string[]): 
 /**
  * Bulk delete notes
  */
-export async function bulkDeleteNotes(noteIds: number[]) {
+export async function bulkDeleteNotes(noteIds: number[], appLockPassword: string) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      throw new Error("Unauthorized");
-    }
-
-    const userId = getUserIdFromSession(session.user.id);
+    const userId = await requireAppLockPassword(appLockPassword);
 
     // Verify all notes belong to the user
     const existingNotes = await prisma.note.findMany({
@@ -632,14 +623,9 @@ export async function bulkDeleteNotes(noteIds: number[]) {
 /**
  * Delete all notes for a user
  */
-export async function deleteAllNotes() {
+export async function deleteAllNotes(appLockPassword: string) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      throw new Error("Unauthorized");
-    }
-
-    const userId = getUserIdFromSession(session.user.id);
+    const userId = await requireAppLockPassword(appLockPassword);
 
     // Get count of notes to be deleted
     const noteCount = await prisma.note.count({

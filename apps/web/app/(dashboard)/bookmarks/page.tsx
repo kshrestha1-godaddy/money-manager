@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Button } from "@repo/ui/button";
+import { PasswordGatedButton } from "@repo/applock";
 import { BookmarkInterface } from "../../types/bookmarks";
 import { getBookmarks, createBookmark, deleteBookmark } from "../../actions/bookmarks";
 import { BookmarkGrid } from "./components/BookmarkCard";
@@ -17,7 +18,6 @@ export default function BookmarksPage() {
     // Modal states
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingBookmark, setEditingBookmark] = useState<BookmarkInterface | null>(null);
-    const [deletingBookmark, setDeletingBookmark] = useState<BookmarkInterface | null>(null);
     const [viewingBookmark, setViewingBookmark] = useState<BookmarkInterface | null>(null);
 
     // Load bookmarks on component mount
@@ -66,21 +66,14 @@ export default function BookmarksPage() {
         setEditingBookmark(bookmark);
     };
 
-    const handleDeleteBookmark = (bookmark: BookmarkInterface) => {
-        setDeletingBookmark(bookmark);
-    };
-
     const handleViewDetails = (bookmark: BookmarkInterface) => {
         setViewingBookmark(bookmark);
     };
 
-    const confirmDelete = async () => {
-        if (!deletingBookmark) return;
-        
+    const handleDeleteBookmark = async (appLockPassword: string, bookmark: BookmarkInterface) => {
         try {
-            await deleteBookmark(deletingBookmark.id);
-            setBookmarks(prev => prev.filter(b => b.id !== deletingBookmark.id));
-            setDeletingBookmark(null);
+            await deleteBookmark(bookmark.id, appLockPassword);
+            setBookmarks(prev => prev.filter(b => b.id !== bookmark.id));
         } catch (error) {
             console.error("Error deleting bookmark:", error);
         }
@@ -106,11 +99,11 @@ export default function BookmarksPage() {
         setSelectedBookmarks(new Set());
     };
 
-    const deleteBulkBookmarks = async () => {
+    const deleteBulkBookmarks = async (appLockPassword: string) => {
         if (selectedBookmarks.size === 0) return;
         
         try {
-            await Promise.all(Array.from(selectedBookmarks).map(id => deleteBookmark(id)));
+            await Promise.all(Array.from(selectedBookmarks).map(id => deleteBookmark(id, appLockPassword)));
             setBookmarks(prev => prev.filter(b => !selectedBookmarks.has(b.id)));
             setSelectedBookmarks(new Set());
         } catch (error) {
@@ -198,12 +191,18 @@ export default function BookmarksPage() {
                                 >
                                     Clear Selection
                                 </button>
-                                <button
-                                    onClick={deleteBulkBookmarks}
+                                <PasswordGatedButton
+                                    onConfirm={deleteBulkBookmarks}
+                                    prompt={{
+                                        title: "Delete selected bookmarks",
+                                        description: `This cannot be undone. Enter your lock screen password to delete ${selectedBookmarks.size} selected bookmark(s).`,
+                                        confirmLabel: "Delete bookmarks",
+                                        force: true,
+                                    }}
                                     className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
                                 >
                                     Delete Selected ({selectedBookmarks.size})
-                                </button>
+                                </PasswordGatedButton>
                             </div>
                         )}
                     </div>
@@ -246,32 +245,6 @@ export default function BookmarksPage() {
                 onClose={() => setShowAddModal(false)}
                 onSubmit={handleAddBookmark}
             />
-
-            {/* Delete Confirmation Modal */}
-            {deletingBookmark && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-                        <h3 className="text-lg font-semibold mb-4">Delete Bookmark</h3>
-                        <p className="text-gray-600 mb-6">
-                            Are you sure you want to delete "{deletingBookmark.title}"? This action cannot be undone.
-                        </p>
-                        <div className="flex justify-end space-x-3">
-                            <button
-                                onClick={() => setDeletingBookmark(null)}
-                                className="px-4 py-2 bg-gray-300 text-gray-700 hover:bg-gray-400 rounded-md"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={confirmDelete}
-                                className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-md"
-                            >
-                                Delete
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* View Details Modal */}
             {viewingBookmark && (

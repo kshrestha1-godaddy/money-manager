@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { PasswordGatedButton } from "@repo/applock";
 import { PasswordInterface } from "../../../types/passwords";
 import { decryptPasswordValue } from "../actions/passwords";
 
@@ -14,7 +15,7 @@ export function PasswordCard({
 }: { 
     password: PasswordInterface;
     onEdit?: (password: PasswordInterface) => void;
-    onDelete?: (password: PasswordInterface) => void;
+    onDelete?: (appLockPassword: string, password: PasswordInterface) => void | Promise<void>;
     isSelected?: boolean;
     onSelect?: (passwordId: number, selected: boolean) => void;
     showCheckbox?: boolean;
@@ -242,12 +243,17 @@ export function PasswordCard({
                     )}
                     
                     {onDelete && (
-                        <button
-                            onClick={() => onDelete(password)}
+                        <PasswordGatedButton
+                            onConfirm={(appLockPassword) => onDelete(appLockPassword, password)}
+                            prompt={{
+                                title: "Delete password",
+                                description: `This cannot be undone. Enter your lock screen password to delete the password for "${password.websiteName}".`,
+                                confirmLabel: "Delete password",
+                            }}
                             className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
                         >
                             Delete
-                        </button>
+                        </PasswordGatedButton>
                     )}
                 </div>
             </div>
@@ -265,7 +271,7 @@ export function PasswordGrid({
 }: { 
     passwords: PasswordInterface[];
     onEdit?: (password: PasswordInterface) => void;
-    onDelete?: (password: PasswordInterface) => void;
+    onDelete?: (appLockPassword: string, password: PasswordInterface) => void | Promise<void>;
     selectedPasswords?: Set<number>;
     onPasswordSelect?: (passwordId: number, selected: boolean) => void;
     showBulkActions?: boolean;

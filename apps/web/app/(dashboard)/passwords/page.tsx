@@ -5,7 +5,6 @@ import { PasswordInterface } from "../../types/passwords";
 import { getPasswords, createPassword, updatePassword, deletePassword } from "./actions/passwords";
 import { PasswordSearch, PasswordTable } from "./components/PasswordTable";
 import { AddPasswordModal } from "./components/AddPasswordModal";
-import { DeleteConfirmationModal } from "../../components/DeleteConfirmationModal";
 import { exportPasswordsToCSV } from "../../utils/csvExportPasswords";
 import { BulkImportModal } from "./components/BulkImportModal";
 import { SharePasswordsModal } from "./components/SharePasswordsModal";
@@ -23,8 +22,6 @@ export default function PasswordsPage() {
     const [showShareSuccessDialog, setShowShareSuccessDialog] = useState(false);
     const [shareResult, setShareResult] = useState<PasswordShareResult | null>(null);
     const [editingPassword, setEditingPassword] = useState<PasswordInterface | null>(null);
-    const [deletingPassword, setDeletingPassword] = useState<PasswordInterface | null>(null);
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
 
     // Load passwords on component mount
     useEffect(() => {
@@ -106,19 +103,10 @@ export default function PasswordsPage() {
         }
     };
 
-    const handleDeletePassword = (password: PasswordInterface) => {
-        setDeletingPassword(password);
-        setShowDeleteModal(true);
-    };
-
-    const confirmDelete = async () => {
-        if (!deletingPassword) return;
-        
+    const handleDeletePassword = async (appLockPassword: string, password: PasswordInterface) => {
         try {
-            await deletePassword(deletingPassword.id);
-            setPasswords(prev => prev.filter(p => p.id !== deletingPassword.id));
-            setDeletingPassword(null);
-            setShowDeleteModal(false);
+            await deletePassword(password.id, appLockPassword);
+            setPasswords(prev => prev.filter(p => p.id !== password.id));
         } catch (error) {
             console.error("Error deleting password:", error);
         }
@@ -309,15 +297,6 @@ export default function PasswordsPage() {
                     category: editingPassword.category || "",
                     tags: editingPassword.tags || []
                 } : undefined}
-            />
-
-            {/* Delete Confirmation Modal */}
-            <DeleteConfirmationModal
-                isOpen={showDeleteModal}
-                onClose={() => setShowDeleteModal(false)}
-                onConfirm={confirmDelete}
-                title="Delete Password"
-                message={`Are you sure you want to delete the password for "${deletingPassword?.websiteName}"? This action cannot be undone.`}
             />
 
             {/* Bulk Import Modal */}

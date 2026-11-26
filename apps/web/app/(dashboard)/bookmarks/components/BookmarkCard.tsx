@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { PasswordGatedButton } from "@repo/applock";
 import { BookmarkInterface } from "../../../types/bookmarks";
 
 export function BookmarkCard({ 
@@ -14,7 +15,7 @@ export function BookmarkCard({
 }: { 
     bookmark: BookmarkInterface;
     onEdit?: (bookmark: BookmarkInterface) => void;
-    onDelete?: (bookmark: BookmarkInterface) => void;
+    onDelete?: (appLockPassword: string, bookmark: BookmarkInterface) => void | Promise<void>;
     onViewDetails?: (bookmark: BookmarkInterface) => void;
     isSelected?: boolean;
     onSelect?: (bookmarkId: number, selected: boolean) => void;
@@ -142,12 +143,17 @@ export function BookmarkCard({
                     )}
                     
                     {onDelete && (
-                        <button
-                            onClick={() => onDelete(bookmark)}
+                        <PasswordGatedButton
+                            onConfirm={(appLockPassword) => onDelete(appLockPassword, bookmark)}
+                            prompt={{
+                                title: "Delete bookmark",
+                                description: `This cannot be undone. Enter your lock screen password to delete "${bookmark.title}".`,
+                                confirmLabel: "Delete bookmark",
+                            }}
                             className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
                         >
                             Delete
-                        </button>
+                        </PasswordGatedButton>
                     )}
                 </div>
             </div>
@@ -166,7 +172,7 @@ export function BookmarkGrid({
 }: { 
     bookmarks: BookmarkInterface[];
     onEdit?: (bookmark: BookmarkInterface) => void;
-    onDelete?: (bookmark: BookmarkInterface) => void;
+    onDelete?: (appLockPassword: string, bookmark: BookmarkInterface) => void | Promise<void>;
     onViewDetails?: (bookmark: BookmarkInterface) => void;
     selectedBookmarks?: Set<number>;
     onBookmarkSelect?: (bookmarkId: number, selected: boolean) => void;
