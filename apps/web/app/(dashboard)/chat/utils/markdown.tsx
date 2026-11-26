@@ -1,3 +1,10 @@
+/**
+ * Renders assistant and user chat messages written in markdown.
+ *
+ * Every element is styled explicitly so the output does not depend on a
+ * typography plugin being present.
+ */
+
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -6,11 +13,20 @@ interface MarkdownRendererProps {
   variant: "assistant" | "user";
 }
 
+/**
+ * Paragraph spacing inside list items.
+ *
+ * A markdown list is "loose" when its items are separated by blank lines, and
+ * remark then wraps each item's content in a `<p>`. Those paragraphs must not
+ * carry the default bottom margin, or every bullet gains a gap under it.
+ */
+const LIST_ITEM_PARAGRAPH = "[&>p]:mb-0 [&>p:not(:last-child)]:mb-2";
+
 export function MarkdownRenderer({ content, variant }: MarkdownRendererProps) {
   return (
-    <div className="markdown-content [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+    <div className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]} // ⬅️ removed remark-breaks
+        remarkPlugins={[remarkGfm]}
         components={{
           // Links
           a: ({ children, href }) => (
@@ -36,40 +52,47 @@ export function MarkdownRenderer({ content, variant }: MarkdownRendererProps) {
           ),
 
           h1: ({ children }) => (
-            <h1 className="text-lg sm:text-xl font-bold mt-3 mb-1 first:mt-0">
+            <h1 className="text-lg sm:text-xl font-bold mt-5 mb-2 first:mt-0">
               {children}
             </h1>
           ),
           h2: ({ children }) => (
-            <h2 className="text-base sm:text-lg font-semibold mt-2 mb-1 first:mt-0">
+            <h2 className="text-base sm:text-lg font-semibold mt-5 mb-2 first:mt-0">
               {children}
             </h2>
           ),
           h3: ({ children }) => (
-            <h3 className="text-sm sm:text-base font-medium mt-2 mb-1 first:mt-0">
+            <h3 className="text-sm sm:text-base font-semibold mt-4 mb-1.5 first:mt-0">
               {children}
             </h3>
           ),
+          h4: ({ children }) => (
+            <h4 className="text-sm font-semibold mt-3 mb-1 first:mt-0">
+              {children}
+            </h4>
+          ),
 
-          // Lists
+          // Lists — markers sit outside the content box so that a loose list,
+          // whose items remark wraps in <p>, keeps its text beside the marker
+          // instead of below it.
           ul: ({ children }) => (
-            <ul className="list-disc list-inside mb-2 space-y-0">
+            <ul className="list-disc list-outside mb-3 last:mb-0 space-y-1 pl-5 marker:text-gray-400">
               {children}
             </ul>
           ),
           ol: ({ children }) => (
-            <ol className="list-decimal list-inside mb-2 space-y-0">
+            <ol className="list-decimal list-outside mb-3 last:mb-0 space-y-1 pl-5 marker:text-gray-400 marker:font-medium">
               {children}
             </ol>
           ),
           li: ({ children }) => (
-            <li className="leading-relaxed">
+            <li className={`leading-relaxed pl-1 text-sm sm:text-base ${LIST_ITEM_PARAGRAPH}`}>
               {children}
             </li>
           ),
 
           blockquote: ({ children }) => (
-            <blockquote className="border-l-4 border-gray-300 pl-3 py-1 mb-2 italic text-gray-700 bg-gray-50 rounded-r">
+            <blockquote className="border-l-4 border-gray-300 pl-3 py-1 mb-3 italic text-gray-700 bg-gray-50 rounded-r">
               {children}
             </blockquote>
           ),

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { Message as MessageType } from "../types/chat";
+import { estimateMessageCost, formatCost } from "../utils/cost";
 
 interface MessageProps {
   message: MessageType;
@@ -239,23 +240,44 @@ function MessageFooter({ message }: { message: MessageType }) {
                 <span>• {message.responseTimeSeconds.toFixed(1)} s</span>
               )}
               {(message.inputTokens || message.outputTokens || message.tokenCount) && (
-                <span>• 
+                <span>•
                   {message.inputTokens && message.outputTokens ? (
                     <>
-                        <span className="text-gray-500"> ↑ {message.inputTokens} tokens</span>
+                      <span className="text-gray-500"> ↑ {message.inputTokens} tokens</span>
                       <span className="mx-1">•</span>
-                        <span className="text-gray-500"> ↓ {message.outputTokens} tokens</span>
+                      <span className="text-gray-500"> ↓ {message.outputTokens} tokens</span>
                     </>
                   ) : (
-                    <span className="text-gray-500">{message.tokenCount} tokens</span>
+                    <span className="text-gray-500"> {message.tokenCount} tokens</span>
                   )}
                 </span>
               )}
+              <MessageCostLabel message={message} />
             </>
           )}
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Shows the estimated USD cost of an assistant message beside its token counts.
+ *
+ * Renders nothing when the message's model has no published rate, so an
+ * unpriced model shows tokens only rather than a misleading zero.
+ */
+function MessageCostLabel({ message }: { message: MessageType }) {
+  const cost = estimateMessageCost(message.model, message.inputTokens, message.outputTokens);
+  if (!cost) return null;
+
+  return (
+    <span
+      className="text-gray-500"
+      title={`${cost.model}: ${formatCost(cost.inputCost)} in + ${formatCost(cost.outputCost)} out (estimated)`}
+    >
+      • ~{formatCost(cost.totalCost)}
+    </span>
   );
 }
 

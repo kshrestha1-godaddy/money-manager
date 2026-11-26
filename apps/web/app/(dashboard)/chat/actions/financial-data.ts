@@ -221,7 +221,7 @@ export async function getFinancialDataForChat(request: FinancialDataRequest) {
     };
 
     // Format as markdown
-    const markdownData = formatFinancialDataAsMarkdown(incomes, expenses, debts, investments, transactions, investmentTargets, enhancedAccounts, budgetTargets, currency, summary);
+    const markdownData = formatFinancialDataAsMarkdown(incomes, expenses, transactions, summary.period);
 
     return {
       success: true,

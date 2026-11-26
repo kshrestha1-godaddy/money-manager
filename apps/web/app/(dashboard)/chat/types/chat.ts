@@ -11,6 +11,8 @@ export interface Message {
   tokenCount?: number;
   inputTokens?: number;
   outputTokens?: number;
+  /** Model that produced this message; used to price its token usage. */
+  model?: string;
   systemPrompt?: SystemPrompt;
 }
 

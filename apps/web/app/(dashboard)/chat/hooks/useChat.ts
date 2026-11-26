@@ -66,6 +66,24 @@ async function* readSseEvents(response: Response): AsyncGenerator<StreamEvent, v
   }
 }
 
+/**
+ * Recover the model id from a reloaded message's persisted processing steps.
+ *
+ * Messages do not store their model directly, but the run recorded it in the
+ * context of the step that opened the AI connection.
+ *
+ * @param steps - The `intermediateSteps` JSON as loaded from the database.
+ * @returns The model id, or undefined when no step recorded one.
+ */
+function findStepModel(steps: unknown): string | undefined {
+  if (!Array.isArray(steps)) return undefined;
+
+  const withModel = steps.find(
+    (step) => typeof step?.context?.model === "string" && step.context.model !== "",
+  );
+  return withModel?.context?.model;
+}
+
 export function useChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
@@ -141,6 +159,7 @@ export function useChat() {
             }))
           : undefined,
         systemPrompt: conv.systemPrompt || undefined,
+        model: findStepModel(conv.intermediateSteps),
       }));
 
       setMessages(nextMessages);
@@ -394,6 +413,7 @@ export function useChat() {
                 tokenCount: tokenCounts.totalTokens,
                 inputTokens: tokenCounts.inputTokens,
                 outputTokens: tokenCounts.outputTokens,
+                model: chatSettings.model,
               }
             : m
         )
