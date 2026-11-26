@@ -222,12 +222,6 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
             throw new Error("Expense not found or unauthorized");
         }
 
-        // Get user's preferred currency
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { currency: true }
-        });
-
         const updateData: any = {};
         
         if (data.title !== undefined) updateData.title = data.title;
@@ -268,7 +262,7 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
                 updateData.transactionLocation = { disconnect: true };
             }
 
-            const userCurrency = normalizeSupportedCurrency(user?.currency);
+            const userCurrency = await getLockedLedgerCurrency(tx, userId);
             const oldAmount = parseFloat(existingExpense.amount.toString());
             const oldCurrency = assertCurrencyCode(existingExpense.currency);
             const newAmount = data.amount !== undefined ? data.amount : oldAmount;
@@ -276,7 +270,9 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
                 data.currency !== undefined ? data.currency : oldCurrency
             );
             const oldAccountId = existingExpense.accountId;
-            const isHistoricalZeroImpact =
+            // Transfer / zero-impact markers: amount 0 with zero snapshots.
+            const isTransferMarker =
+                Number(existingExpense.amount) === 0 &&
                 existingExpense.accountAmount !== null &&
                 Number(existingExpense.accountAmount) === 0 &&
                 existingExpense.appliedExchangeRate !== null &&
@@ -294,10 +290,28 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
                     userCurrency,
                     userId
                 );
+            const amountActuallyChanged =
+                data.amount !== undefined && Number(data.amount) !== oldAmount;
+            const currencyActuallyChanged =
+                data.currency !== undefined &&
+                assertCurrencyCode(data.currency) !== oldCurrency;
+            const accountActuallyChanged =
+                data.accountId !== undefined && data.accountId !== oldAccountId;
+            if (
+                isTransferMarker &&
+                (amountActuallyChanged ||
+                    currencyActuallyChanged ||
+                    accountActuallyChanged)
+            ) {
+                throw new Error(
+                    "Transfer tracking rows cannot change amount, currency, or account. Manage transfers from Accounts."
+                );
+            }
             const hasImpactBoundaryChanged =
-                data.amount !== undefined ||
-                data.currency !== undefined ||
-                data.accountId !== undefined;
+                amountActuallyChanged ||
+                currencyActuallyChanged ||
+                accountActuallyChanged;
+            const isHistoricalZeroImpact = isTransferMarker;
             const newAmountConverted = hasImpactBoundaryChanged && newAccountId
                 ? isHistoricalZeroImpact
                     ? 0
@@ -371,12 +385,9 @@ export async function updateExpense(id: number, data: Partial<Omit<Expense, 'id'
                 }
             }
 
-            // Same linked account: adjust balance when amount or currency changes (edit modal may send both).
-            const expenseValueChangedForBalance =
-                data.amount !== undefined || data.currency !== undefined;
-
+            // Same linked account: adjust balance only when amount/currency actually changed.
             if (
-                expenseValueChangedForBalance &&
+                (amountActuallyChanged || currencyActuallyChanged) &&
                 oldAccountId === newAccountId &&
                 oldAccountId
             ) {
@@ -557,12 +568,6 @@ export async function deleteExpense(id: number, appLockPassword: string) {
     try {
         const userId = await requireAppLockPassword(appLockPassword);
 
-        // Get user's preferred currency
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { currency: true }
-        });
-
         // Use a transaction to handle expense deletion and account balance restoration
         await prisma.$transaction(async (tx) => {
             // Verify the expense belongs to the user and get its details
@@ -591,9 +596,17 @@ export async function deleteExpense(id: number, appLockPassword: string) {
                 where: { id },
             });
 
-            // Restore the account balance if there was an account associated (convert to user's currency)
-            if (existingExpense.accountId) {
-                const userCurrency = normalizeSupportedCurrency(user?.currency);
+            // Transfer markers (amount 0 + zero snapshots) only track a move already
+            // applied via Accounts; deleting them must not touch balances.
+            const isTransferMarker =
+                Number(existingExpense.amount) === 0 &&
+                existingExpense.accountAmount !== null &&
+                Number(existingExpense.accountAmount) === 0 &&
+                existingExpense.appliedExchangeRate !== null &&
+                Number(existingExpense.appliedExchangeRate) === 0;
+
+            if (existingExpense.accountId && !isTransferMarker) {
+                const userCurrency = await getLockedLedgerCurrency(tx, userId);
                 const expenseAmount = parseFloat(existingExpense.amount.toString());
                 const convertedAmount = existingExpense.accountAmount !== null
                     ? parseFloat(existingExpense.accountAmount.toString())
@@ -603,36 +616,38 @@ export async function deleteExpense(id: number, appLockPassword: string) {
                         userCurrency,
                         userId
                     );
-                
-                await tx.account.update({
-                    where: { id: existingExpense.accountId },
-                    data: {
-                        balance: {
-                            increment: convertedAmount
+
+                if (convertedAmount !== 0) {
+                    await tx.account.update({
+                        where: { id: existingExpense.accountId },
+                        data: {
+                            balance: {
+                                increment: convertedAmount
+                            }
                         }
-                    }
-                });
-                const acc = await tx.account.findUnique({
-                    where: { id: existingExpense.accountId },
-                    select: { bankName: true, holderName: true },
-                });
-                if (acc) {
-                    await logAccountBalanceFromTransaction(tx, {
-                        userId,
-                        action: ActivityAction.DELETE,
-                        entityType: ActivityEntityType.EXPENSE,
-                        entityId: id,
-                        category: ActivityCategory.TRANSACTION,
-                        accountId: existingExpense.accountId,
-                        accountBankName: acc.bankName,
-                        holderName: acc.holderName,
-                        balanceDeltaUserCurrency: convertedAmount,
-                        userCurrency,
-                        transactionTitle: existingExpense.title,
-                        transactionAmountOriginal: expenseAmount,
-                        transactionCurrency: existingExpense.currency,
-                        reason: "expense_delete",
                     });
+                    const acc = await tx.account.findUnique({
+                        where: { id: existingExpense.accountId },
+                        select: { bankName: true, holderName: true },
+                    });
+                    if (acc) {
+                        await logAccountBalanceFromTransaction(tx, {
+                            userId,
+                            action: ActivityAction.DELETE,
+                            entityType: ActivityEntityType.EXPENSE,
+                            entityId: id,
+                            category: ActivityCategory.TRANSACTION,
+                            accountId: existingExpense.accountId,
+                            accountBankName: acc.bankName,
+                            holderName: acc.holderName,
+                            balanceDeltaUserCurrency: convertedAmount,
+                            userCurrency,
+                            transactionTitle: existingExpense.title,
+                            transactionAmountOriginal: expenseAmount,
+                            transactionCurrency: existingExpense.currency,
+                            reason: "expense_delete",
+                        });
+                    }
                 }
             }
         });
@@ -995,9 +1010,11 @@ export async function bulkImportExpenses(csvText: string, defaultAccountId?: num
                             createData.account = {
                                 connect: { id: validatedRow.data.accountId }
                             };
-                            createData.accountAmount = 0;
-                            createData.accountCurrency = normalizeSupportedCurrency(lockedLedgerCurrency);
-                            createData.appliedExchangeRate = 0;
+                            // Historical import: leave snapshots null so display
+                            // falls back to native amount (do not stamp 0 like transfers).
+                            createData.accountAmount = null;
+                            createData.accountCurrency = null;
+                            createData.appliedExchangeRate = null;
                         }
 
                         if (validatedRow.data.recurringFrequency) {
@@ -1106,12 +1123,6 @@ export async function bulkDeleteExpenses(expenseIds: number[], appLockPassword: 
     try {
         const userId = await requireAppLockPassword(appLockPassword);
 
-        // Get user's preferred currency
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { currency: true }
-        });
-
         // Verify all expenses belong to the user and get expense details for account balance updates
         const existingExpenses = await prisma.expense.findMany({
             where: {
@@ -1129,6 +1140,8 @@ export async function bulkDeleteExpenses(expenseIds: number[], appLockPassword: 
 
         // Use a transaction to ensure both expense deletion and account balance updates
         await prisma.$transaction(async (tx) => {
+            const userCurrency = await getLockedLedgerCurrency(tx, userId);
+
             // Delete any associated transaction images from database
             await tx.transactionImage.deleteMany({
                 where: {
@@ -1146,24 +1159,31 @@ export async function bulkDeleteExpenses(expenseIds: number[], appLockPassword: 
                 }
             });
 
-            // Update account balances (increase by expense amounts since expenses are removed, convert to user's currency)
+            // Update account balances (increase by expense amounts since expenses are removed).
+            // Skip transfer markers — deleting them must not reverse the Accounts transfer.
             const accountUpdates = new Map<number, number>();
-            const userCurrency = user?.currency || 'USD';
             
             for (const expense of existingExpenses) {
-                if (expense.accountId) {
-                    const expenseAmount = parseFloat(expense.amount.toString());
-                    const convertedAmount = expense.accountAmount !== null
-                        ? parseFloat(expense.accountAmount.toString())
-                        : await convertForDisplayWithDbRates(
-                            expenseAmount,
-                            expense.currency,
-                            userCurrency,
-                            userId
-                        );
-                    const currentTotal = accountUpdates.get(expense.accountId) || 0;
-                    accountUpdates.set(expense.accountId, currentTotal + convertedAmount);
-                }
+                const isTransferMarker =
+                    Number(expense.amount) === 0 &&
+                    expense.accountAmount !== null &&
+                    Number(expense.accountAmount) === 0 &&
+                    expense.appliedExchangeRate !== null &&
+                    Number(expense.appliedExchangeRate) === 0;
+                if (!expense.accountId || isTransferMarker) continue;
+
+                const expenseAmount = parseFloat(expense.amount.toString());
+                const convertedAmount = expense.accountAmount !== null
+                    ? parseFloat(expense.accountAmount.toString())
+                    : await convertForDisplayWithDbRates(
+                        expenseAmount,
+                        expense.currency,
+                        userCurrency,
+                        userId
+                    );
+                if (convertedAmount === 0) continue;
+                const currentTotal = accountUpdates.get(expense.accountId) || 0;
+                accountUpdates.set(expense.accountId, currentTotal + convertedAmount);
             }
 
             // Apply account balance updates
@@ -1299,9 +1319,11 @@ export async function importCorrectedRow(
                 createData.account = {
                     connect: { id: expenseData.accountId }
                 };
-                createData.accountAmount = 0;
-                createData.accountCurrency = normalizeSupportedCurrency(lockedLedgerCurrency);
-                createData.appliedExchangeRate = 0;
+                // Historical import: leave snapshots null so display
+                // falls back to native amount (do not stamp 0 like transfers).
+                createData.accountAmount = null;
+                createData.accountCurrency = null;
+                createData.appliedExchangeRate = null;
             }
 
             if (expenseData.recurringFrequency) {

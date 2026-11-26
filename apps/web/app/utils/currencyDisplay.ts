@@ -135,11 +135,17 @@ export function convertTransactionForDisplaySync(
         transaction.accountAmount != null &&
         transaction.accountCurrency
     ) {
-        return convertForDisplaySync(
-            transaction.accountAmount,
-            transaction.accountCurrency,
-            displayCurrency
-        );
+        // False zero-impact (non-zero native + zero snapshot) falls back to native
+        // until a cleanup migration clears those import stamps.
+        const isFalseZeroImpact =
+            transaction.accountAmount === 0 && transaction.amount !== 0;
+        if (!isFalseZeroImpact) {
+            return convertForDisplaySync(
+                transaction.accountAmount,
+                transaction.accountCurrency,
+                displayCurrency
+            );
+        }
     }
 
     return convertForDisplaySync(
@@ -153,6 +159,10 @@ export function convertTransactionForDisplaySync(
 export function hasNonZeroTransactionAmount(
     transaction: DisplayConvertibleAmount
 ): boolean {
-    if (transaction.accountAmount != null) return transaction.accountAmount !== 0;
+    if (transaction.accountAmount != null) {
+        if (transaction.accountAmount !== 0) return true;
+        // Zero snapshot with non-zero native is dirty import data — still count.
+        return transaction.amount !== 0;
+    }
     return transaction.amount !== 0;
 }

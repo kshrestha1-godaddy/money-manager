@@ -3,7 +3,7 @@
 import { useResizableColumnWidths } from "../../hooks/usePersistentColumnWidths";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { Bookmark, Download, RefreshCw } from "lucide-react";
-import { convertForDisplaySync } from "../../utils/currencyDisplay";
+import { convertTransactionForDisplaySync } from "../../utils/currencyDisplay";
 import { formatCurrency } from "../../utils/currency";
 import {
     useDisplayCurrency,
@@ -23,6 +23,9 @@ interface FinancialTransaction {
     description?: string;
     amount: number;
     currency: string;
+    accountAmount?: number | null;
+    accountCurrency?: string | null;
+    appliedExchangeRate?: number | null;
     date: Date;
     category: {
         id: number;
@@ -135,9 +138,8 @@ function buildCsvFromTransactions(
     ];
     const lines: string[][] = [headers];
     rows.forEach((t) => {
-        const displayAmount = convertForDisplaySync(
-            t.amount,
-            t.currency,
+        const displayAmount = convertTransactionForDisplaySync(
+            t,
             displayCurrencySafe
         );
         const currencyCode = (t.currency ?? "").trim();
@@ -242,7 +244,7 @@ export function FinancialList({
         }
 
         const totalAmount = transactions.reduce(
-            (sum, t) => sum + convertForDisplaySync(t.amount, t.currency, selectedCurrency),
+            (sum, t) => sum + convertTransactionForDisplaySync(t, selectedCurrency),
             0
         );
 
@@ -289,8 +291,8 @@ export function FinancialList({
                     bValue = new Date(b.date);
                     break;
                 case 'amount':
-                    aValue = convertForDisplaySync(a.amount, a.currency, selectedCurrency);
-                    bValue = convertForDisplaySync(b.amount, b.currency, selectedCurrency);
+                    aValue = convertTransactionForDisplaySync(a, selectedCurrency);
+                    bValue = convertTransactionForDisplaySync(b, selectedCurrency);
                     break;
                 default:
                     return 0;
@@ -839,11 +841,7 @@ function FinancialRow({
             </td>
             <td className={`px-3 py-4 text-sm font-medium text-center tabular-nums align-middle ${amountColorClass}`} style={{ width: `${columnWidths.amount}px` }}>
                 {formatCurrency(
-                    convertForDisplaySync(
-                        transaction.amount,
-                        transaction.currency || accountCurrency,
-                        currency
-                    ),
+                    convertTransactionForDisplaySync(transaction, currency),
                     currency
                 )}
             </td>

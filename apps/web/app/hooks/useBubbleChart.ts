@@ -1,6 +1,6 @@
 import { createTransactionDayFormatter, getTrailingMonthRange } from "../utils/transaction-calendar";
 import { useEffect, useRef, useMemo, useState, useCallback, type PointerEvent, type MouseEvent, type KeyboardEvent } from 'react';
-import { convertForDisplaySync } from '../utils/currencyDisplay';
+import { convertTransactionForDisplaySync } from '../utils/currencyDisplay';
 import { loadGoogleCharts } from "../utils/googleCharts";
 
 const EMPTY_EXCLUSIONS = new Set<string>();
@@ -115,7 +115,7 @@ export function useBubbleChart({ transactions, timeframeTransactions, currency, 
     
     filteredTransactions.forEach(transaction => {
       const { categoryId, category } = transaction;
-      const amount = convertForDisplaySync(transaction.amount, transaction.currency, currency);
+      const amount = convertTransactionForDisplaySync(transaction, currency);
       
       const existing = categoryMap.get(categoryId);
       if (existing) {

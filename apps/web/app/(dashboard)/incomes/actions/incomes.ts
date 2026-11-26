@@ -17,10 +17,7 @@ import {
     ActivityCategory,
     ActivityEntityType,
 } from "@prisma/client";
-import {
-    assertCurrencyCode,
-    normalizeSupportedCurrency,
-} from "../../../utils/currency";
+import { assertCurrencyCode } from "../../../utils/currency";
 import {
     assertOwnedAccount,
     getLockedLedgerCurrency,
@@ -132,9 +129,11 @@ export async function createIncome(
             const transactionCurrency = assertCurrencyCode(
                 data.currency || accountCurrency
             );
+            // Historical CSV imports skip ledger apply: leave snapshot null so
+            // display falls back to native amount (do not stamp 0 like transfers).
             const accountAmount = data.accountId
                 ? options?.skipAccountBalanceUpdate
-                    ? 0
+                    ? null
                     : await convertForDisplayWithDbRates(
                         data.amount,
                         transactionCurrency,
@@ -308,12 +307,6 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
             throw new Error("Income not found or unauthorized");
         }
 
-        // Get user's preferred currency
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { currency: true }
-        });
-
         const updateData: any = {};
         if (data.title !== undefined) updateData.title = data.title;
         if (data.description !== undefined) updateData.description = data.description;
@@ -352,7 +345,7 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
                 updateData.transactionLocation = { disconnect: true };
             }
 
-            const userCurrency = normalizeSupportedCurrency(user?.currency);
+            const userCurrency = await getLockedLedgerCurrency(tx, userId);
             const oldAmount = parseFloat(existingIncome.amount.toString());
             const oldCurrency = assertCurrencyCode(existingIncome.currency);
             const newAmount = data.amount !== undefined ? data.amount : oldAmount;
@@ -360,7 +353,9 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
                 data.currency !== undefined ? data.currency : oldCurrency
             );
             const oldAccountId = existingIncome.accountId;
-            const isHistoricalZeroImpact =
+            // Transfer / zero-impact markers: amount 0 with zero snapshots.
+            const isZeroImpactMarker =
+                Number(existingIncome.amount) === 0 &&
                 existingIncome.accountAmount !== null &&
                 Number(existingIncome.accountAmount) === 0 &&
                 existingIncome.appliedExchangeRate !== null &&
@@ -378,10 +373,28 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
                     userCurrency,
                     userId
                 );
+            const amountActuallyChanged =
+                data.amount !== undefined && Number(data.amount) !== oldAmount;
+            const currencyActuallyChanged =
+                data.currency !== undefined &&
+                assertCurrencyCode(data.currency) !== oldCurrency;
+            const accountActuallyChanged =
+                data.accountId !== undefined && data.accountId !== oldAccountId;
+            if (
+                isZeroImpactMarker &&
+                (amountActuallyChanged ||
+                    currencyActuallyChanged ||
+                    accountActuallyChanged)
+            ) {
+                throw new Error(
+                    "Zero-impact tracking rows cannot change amount, currency, or account."
+                );
+            }
             const hasImpactBoundaryChanged =
-                data.amount !== undefined ||
-                data.currency !== undefined ||
-                data.accountId !== undefined;
+                amountActuallyChanged ||
+                currencyActuallyChanged ||
+                accountActuallyChanged;
+            const isHistoricalZeroImpact = isZeroImpactMarker;
             const newAmountConverted = hasImpactBoundaryChanged && newAccountId
                 ? isHistoricalZeroImpact
                     ? 0
@@ -453,12 +466,9 @@ export async function updateIncome(id: number, data: Partial<Omit<Income, 'id' |
                 }
             }
 
-            // Same linked account: adjust balance when amount or currency changes (edit modal may send both).
-            const incomeValueChangedForBalance =
-                data.amount !== undefined || data.currency !== undefined;
-
+            // Same linked account: adjust balance only when amount/currency actually changed.
             if (
-                incomeValueChangedForBalance &&
+                (amountActuallyChanged || currencyActuallyChanged) &&
                 oldAccountId === newAccountId &&
                 oldAccountId
             ) {
@@ -610,12 +620,6 @@ export async function deleteIncome(id: number, appLockPassword: string) {
             throw new Error("Income not found or unauthorized");
         }
 
-        // Get user's preferred currency
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { currency: true }
-        });
-
         await prisma.$transaction(async (tx) => {
             // Delete any associated transaction images from database
             await tx.transactionImage.deleteMany({
@@ -628,8 +632,15 @@ export async function deleteIncome(id: number, appLockPassword: string) {
 
             await tx.income.delete({ where: { id } });
 
-            if (existingIncome.accountId) {
-                const userCurrency = normalizeSupportedCurrency(user?.currency);
+            const isZeroImpactMarker =
+                Number(existingIncome.amount) === 0 &&
+                existingIncome.accountAmount !== null &&
+                Number(existingIncome.accountAmount) === 0 &&
+                existingIncome.appliedExchangeRate !== null &&
+                Number(existingIncome.appliedExchangeRate) === 0;
+
+            if (existingIncome.accountId && !isZeroImpactMarker) {
+                const userCurrency = await getLockedLedgerCurrency(tx, userId);
                 const incomeAmount = parseFloat(existingIncome.amount.toString());
                 const convertedAmount = existingIncome.accountAmount !== null
                     ? parseFloat(existingIncome.accountAmount.toString())
@@ -639,32 +650,34 @@ export async function deleteIncome(id: number, appLockPassword: string) {
                         userCurrency,
                         userId
                     );
-                
-                await tx.account.update({
-                    where: { id: existingIncome.accountId },
-                    data: { balance: { decrement: convertedAmount } }
-                });
-                const acc = await tx.account.findUnique({
-                    where: { id: existingIncome.accountId },
-                    select: { bankName: true, holderName: true },
-                });
-                if (acc) {
-                    await logAccountBalanceFromTransaction(tx, {
-                        userId,
-                        action: ActivityAction.DELETE,
-                        entityType: ActivityEntityType.INCOME,
-                        entityId: id,
-                        category: ActivityCategory.TRANSACTION,
-                        accountId: existingIncome.accountId,
-                        accountBankName: acc.bankName,
-                        holderName: acc.holderName,
-                        balanceDeltaUserCurrency: -convertedAmount,
-                        userCurrency,
-                        transactionTitle: existingIncome.title,
-                        transactionAmountOriginal: incomeAmount,
-                        transactionCurrency: existingIncome.currency,
-                        reason: "income_delete",
+
+                if (convertedAmount !== 0) {
+                    await tx.account.update({
+                        where: { id: existingIncome.accountId },
+                        data: { balance: { decrement: convertedAmount } }
                     });
+                    const acc = await tx.account.findUnique({
+                        where: { id: existingIncome.accountId },
+                        select: { bankName: true, holderName: true },
+                    });
+                    if (acc) {
+                        await logAccountBalanceFromTransaction(tx, {
+                            userId,
+                            action: ActivityAction.DELETE,
+                            entityType: ActivityEntityType.INCOME,
+                            entityId: id,
+                            category: ActivityCategory.TRANSACTION,
+                            accountId: existingIncome.accountId,
+                            accountBankName: acc.bankName,
+                            holderName: acc.holderName,
+                            balanceDeltaUserCurrency: -convertedAmount,
+                            userCurrency,
+                            transactionTitle: existingIncome.title,
+                            transactionAmountOriginal: incomeAmount,
+                            transactionCurrency: existingIncome.currency,
+                            reason: "income_delete",
+                        });
+                    }
                 }
             }
         });
@@ -846,13 +859,9 @@ export async function bulkDeleteIncomes(incomeIds: number[], appLockPassword: st
         throw new Error("Some incomes not found or unauthorized");
     }
 
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { currency: true },
-    });
-    const userCurrency = user?.currency || "USD";
-
     await prisma.$transaction(async (tx) => {
+        const userCurrency = await getLockedLedgerCurrency(tx, userId);
+
         // Delete any associated transaction images from database
         await tx.transactionImage.deleteMany({
             where: {
@@ -870,22 +879,29 @@ export async function bulkDeleteIncomes(incomeIds: number[], appLockPassword: st
         const accountIncomeIds = new Map<number, number[]>();
 
         for (const income of existingIncomes) {
-            if (income.accountId) {
-                const amt = parseFloat(income.amount.toString());
-                const converted = income.accountAmount !== null
-                    ? parseFloat(income.accountAmount.toString())
-                    : await convertForDisplayWithDbRates(
-                        amt,
-                        income.currency,
-                        userCurrency,
-                        userId
-                    );
-                const currentTotal = accountUpdates.get(income.accountId) || 0;
-                accountUpdates.set(income.accountId, currentTotal + converted);
-                const ids = accountIncomeIds.get(income.accountId) || [];
-                ids.push(income.id);
-                accountIncomeIds.set(income.accountId, ids);
-            }
+            const isZeroImpactMarker =
+                Number(income.amount) === 0 &&
+                income.accountAmount !== null &&
+                Number(income.accountAmount) === 0 &&
+                income.appliedExchangeRate !== null &&
+                Number(income.appliedExchangeRate) === 0;
+            if (!income.accountId || isZeroImpactMarker) continue;
+
+            const amt = parseFloat(income.amount.toString());
+            const converted = income.accountAmount !== null
+                ? parseFloat(income.accountAmount.toString())
+                : await convertForDisplayWithDbRates(
+                    amt,
+                    income.currency,
+                    userCurrency,
+                    userId
+                );
+            if (converted === 0) continue;
+            const currentTotal = accountUpdates.get(income.accountId) || 0;
+            accountUpdates.set(income.accountId, currentTotal + converted);
+            const ids = accountIncomeIds.get(income.accountId) || [];
+            ids.push(income.id);
+            accountIncomeIds.set(income.accountId, ids);
         }
 
         for (const [accountId, totalAmount] of accountUpdates) {

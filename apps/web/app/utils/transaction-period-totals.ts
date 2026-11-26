@@ -4,6 +4,7 @@ export function getTransactionPeriodTotals<T extends { date: Date | string }>(
     getAmount: (item: T) => number,
     year: number,
     month: number,
+    shouldCount: (item: T) => boolean = () => true,
 ) {
     const currentMonthIndex = year * 12 + month;
     const currentQuarterIndex = Math.floor(currentMonthIndex / 3);
@@ -12,12 +13,15 @@ export function getTransactionPeriodTotals<T extends { date: Date | string }>(
         previousMonth: { amount: 0, count: 0 },
         currentQuarter: { amount: 0, count: 0 },
         previousQuarter: { amount: 0, count: 0 },
-        allTime: { amount: 0, count: items.length },
+        allTime: { amount: 0, count: 0 },
     };
 
     for (const item of items) {
         const amount = getAmount(item);
+        const counts = shouldCount(item);
         totals.allTime.amount += amount;
+        if (counts) totals.allTime.count += 1;
+
         const day = getDay(item.date);
         if (!day) continue;
 
@@ -31,7 +35,7 @@ export function getTransactionPeriodTotals<T extends { date: Date | string }>(
         for (const period of [monthTotal, quarterTotal]) {
             if (!period) continue;
             period.amount += amount;
-            period.count++;
+            if (counts) period.count += 1;
         }
     }
 

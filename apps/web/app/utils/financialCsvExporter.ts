@@ -29,6 +29,8 @@ interface BaseFinancialItem {
     description?: string | null;
     amount: number;
     currency: string;
+    accountAmount?: number | null;
+    accountCurrency?: string | null;
     date: Date;
     category: {
         id: number;
@@ -51,6 +53,33 @@ interface BaseFinancialItem {
     isBookmarked?: boolean;
     createdAt: Date;
     updatedAt: Date;
+}
+
+function convertItemAmountForDisplay(
+    item: BaseFinancialItem,
+    displayCurrency: string,
+    conversionMatrix?: ConversionRateMatrix
+): number {
+    // Prefer ledger snapshot so exports match on-screen / dashboard totals.
+    if (
+        item.accountAmount != null &&
+        item.accountCurrency &&
+        !(item.accountAmount === 0 && item.amount !== 0)
+    ) {
+        return convertCurrencySync(
+            item.accountAmount,
+            item.accountCurrency,
+            displayCurrency,
+            conversionMatrix
+        );
+    }
+
+    return convertCurrencySync(
+        item.amount,
+        item.currency || 'INR',
+        displayCurrency,
+        conversionMatrix
+    );
 }
 
 // Extended interfaces for specific types
@@ -150,9 +179,8 @@ function convertItemToRow(
     ];
 
     if (options.displayCurrency) {
-        const converted = convertCurrencySync(
-            item.amount,
-            item.currency || 'INR',
+        const converted = convertItemAmountForDisplay(
+            item,
             options.displayCurrency,
             options.conversionMatrix
         );

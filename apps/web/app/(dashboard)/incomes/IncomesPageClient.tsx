@@ -22,7 +22,10 @@ import { createTransactionDayFormatter, getVisibleSelection } from "../../utils/
 import { useTimezone } from '../../providers/TimezoneProvider';
 import { DisappearingNotification, NotificationData } from '../../components/DisappearingNotification';
 import { BUTTON_COLORS, TEXT_COLORS, CONTAINER_COLORS, LOADING_COLORS } from '../../config/colorConfig';
-import { convertForDisplaySync } from '../../utils/currencyDisplay';
+import {
+  convertTransactionForDisplaySync,
+  hasNonZeroTransactionAmount,
+} from '../../utils/currencyDisplay';
 import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { getCategoriesWithFrequency, CategoryWithFrequencyData } from '../../utils/categoryFrequency';
 
@@ -39,7 +42,7 @@ const secondaryBlueButton = BUTTON_COLORS.secondaryBlue;
 const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
 
 export default function IncomesPageClient() {
-  const { currency: userCurrency } = useCurrency();
+  const { currency: userCurrency, isRatesLoading } = useCurrency();
   const { displayCurrency, currencyRateVersion } = useDisplayCurrency();
   const { timezone: userTimezone } = useTimezone();
   const searchParams = useSearchParams();
@@ -205,9 +208,10 @@ export default function IncomesPageClient() {
     () => getTransactionPeriodTotals(
       allIncomes,
       getTransactionDay,
-      (item) => convertForDisplaySync(item.amount, item.currency, displayCurrency),
+      (item) => convertTransactionForDisplaySync(item, displayCurrency),
       currentYear,
-      currentMonth
+      currentMonth,
+      hasNonZeroTransactionAmount,
     ),
     [allIncomes, getTransactionDay, displayCurrency, currencyRateVersion, currentYear, currentMonth]
   );
@@ -245,16 +249,20 @@ export default function IncomesPageClient() {
   const currentMonthName = monthNames[currentMonth];
   const currentQuarterName = quarterNames[currentQuarter];
 
+  const visibleIncomes = useMemo(
+    () => filteredIncomes.filter(hasNonZeroTransactionAmount),
+    [filteredIncomes],
+  );
   const visibleTotal = useMemo(
-    () => filteredIncomes.reduce((total, item) => total + convertForDisplaySync(item.amount, item.currency, displayCurrency), 0),
-    [filteredIncomes, displayCurrency, currencyRateVersion]
+    () => visibleIncomes.reduce((total, item) => total + convertTransactionForDisplaySync(item, displayCurrency), 0),
+    [visibleIncomes, displayCurrency, currencyRateVersion]
   );
 
   const summaryCards = [
     {
       title: 'Incomes in View',
       value: formatCurrency(visibleTotal, displayCurrency),
-      subtitle: `${filteredIncomes.length} transaction${filteredIncomes.length !== 1 ? 's' : ''}`,
+      subtitle: `${visibleIncomes.length} transaction${visibleIncomes.length !== 1 ? 's' : ''}`,
       dotColor: 'bg-green-500'
     },
     {
@@ -276,7 +284,7 @@ export default function IncomesPageClient() {
     {
       title: 'Average per Transaction',
       value: formatCurrency(averagePerIncome, displayCurrency),
-      subtitle: `across ${allIncomes.length} transaction${allIncomes.length !== 1 ? 's' : ''}`,
+      subtitle: `across ${periods.allTime.count} transaction${periods.allTime.count !== 1 ? 's' : ''}`,
       dotColor: 'bg-purple-500',
     },
   ];
@@ -293,7 +301,7 @@ export default function IncomesPageClient() {
     );
   }
 
-  if (isLoading) {
+  if (isLoading || isRatesLoading) {
     return (
       <div className={loadingContainer} role="status">
         <div className={loadingSpinner} aria-hidden="true" />

@@ -22,7 +22,7 @@ import {
   type CategoryRow,
 } from "../utils/expenseBreakdown";
 import { formatCurrency } from "../../../utils/currency";
-import { convertForDisplaySync } from "../../../utils/currencyDisplay";
+import { convertTransactionForDisplaySync } from "../../../utils/currencyDisplay";
 interface ExpenseFrequencyChartsProps {
   expenses: Expense[];
   currency: string;
@@ -188,7 +188,7 @@ export function ExpenseFrequencyCharts({ expenses, currency: userCurrency }: Exp
   const totalCount = expenses.length;
 
   const { accountRows, categoryRows, displayedCategories, totalAmount } = useMemo(
-    () => buildExpenseBreakdown(expenses, (expense) => convertForDisplaySync(expense.amount, expense.currency, userCurrency)),
+    () => buildExpenseBreakdown(expenses, (expense) => convertTransactionForDisplaySync(expense, userCurrency)),
     [expenses, userCurrency]
   );
   const accountByFrequency = accountRows;

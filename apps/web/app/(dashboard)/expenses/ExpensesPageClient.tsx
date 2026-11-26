@@ -25,7 +25,10 @@ import { getTransactionPeriodTotals } from "../../utils/transaction-period-total
 import { createTransactionDayFormatter, getVisibleSelection } from "../../utils/transaction-calendar";
 import { useTimezone } from '../../providers/TimezoneProvider';
 import { DisappearingNotification, NotificationData } from '../../components/DisappearingNotification';
-import { convertForDisplaySync } from '../../utils/currencyDisplay';
+import {
+  convertTransactionForDisplaySync,
+  hasNonZeroTransactionAmount,
+} from '../../utils/currencyDisplay';
 import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { getCategoriesWithFrequency, CategoryWithFrequencyData } from '../../utils/categoryFrequency';
 import {
@@ -48,7 +51,7 @@ const secondaryBlueButton = BUTTON_COLORS.secondaryBlue;
 const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
 
 export default function ExpensesPageClient() {
-  const { currency: userCurrency } = useCurrency();
+  const { currency: userCurrency, isRatesLoading } = useCurrency();
   const { displayCurrency, currencyRateVersion } = useDisplayCurrency();
   const { timezone: userTimezone } = useTimezone();
   const searchParams = useSearchParams();
@@ -229,9 +232,10 @@ export default function ExpensesPageClient() {
     () => getTransactionPeriodTotals(
       allExpenses,
       getTransactionDay,
-      (item) => convertForDisplaySync(item.amount, item.currency, displayCurrency),
+      (item) => convertTransactionForDisplaySync(item, displayCurrency),
       currentYear,
-      currentMonth
+      currentMonth,
+      hasNonZeroTransactionAmount,
     ),
     [allExpenses, getTransactionDay, displayCurrency, currencyRateVersion, currentYear, currentMonth]
   );
@@ -269,16 +273,20 @@ export default function ExpensesPageClient() {
   const currentMonthName = monthNames[currentMonth];
   const currentQuarterName = quarterNames[currentQuarter];
 
+  const visibleExpenses = useMemo(
+    () => filteredExpenses.filter(hasNonZeroTransactionAmount),
+    [filteredExpenses],
+  );
   const visibleTotal = useMemo(
-    () => filteredExpenses.reduce((total, item) => total + convertForDisplaySync(item.amount, item.currency, displayCurrency), 0),
-    [filteredExpenses, displayCurrency, currencyRateVersion]
+    () => visibleExpenses.reduce((total, item) => total + convertTransactionForDisplaySync(item, displayCurrency), 0),
+    [visibleExpenses, displayCurrency, currencyRateVersion]
   );
 
   const summaryCards = [
     {
       title: 'Expenses in View',
       value: formatCurrency(visibleTotal, displayCurrency),
-      subtitle: `${filteredExpenses.length} transaction${filteredExpenses.length !== 1 ? 's' : ''}`,
+      subtitle: `${visibleExpenses.length} transaction${visibleExpenses.length !== 1 ? 's' : ''}`,
       dotColor: 'bg-red-500'
     },
     {
@@ -300,7 +308,7 @@ export default function ExpensesPageClient() {
     {
       title: 'Average per Transaction',
       value: formatCurrency(averagePerExpense, displayCurrency),
-      subtitle: `across ${allExpenses.length} transaction${allExpenses.length !== 1 ? 's' : ''}`,
+      subtitle: `across ${periods.allTime.count} transaction${periods.allTime.count !== 1 ? 's' : ''}`,
       dotColor: 'bg-orange-500',
     },
   ];
@@ -317,7 +325,7 @@ export default function ExpensesPageClient() {
     );
   }
 
-  if (isLoading) {
+  if (isLoading || isRatesLoading) {
     return (
       <div className={loadingContainer} role="status">
         <div className={loadingSpinner} aria-hidden="true" />

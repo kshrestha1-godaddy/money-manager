@@ -7,7 +7,7 @@ import { formatCurrency } from "../utils/currency";
 import { useChartExpansion } from "../utils/chartUtils";
 import { ChartControls } from "./ChartControls";
 import { createTransactionDayFormatter, getTrailingMonthRange } from "../utils/transaction-calendar";
-import { convertForDisplaySync } from "../utils/currencyDisplay";
+import { convertTransactionForDisplaySync } from "../utils/currencyDisplay";
 import {
     useDisplayCurrency,
     useResolvedDisplayCurrency,
@@ -87,7 +87,7 @@ function buildWeeklyAveragePoints(
         if (!day || (firstDay && day < firstDay) || (lastDay && day > lastDay)) continue;
         amounts.set(
             day,
-            (amounts.get(day) ?? 0) + convertForDisplaySync(item.amount, item.currency, currency),
+            (amounts.get(day) ?? 0) + convertTransactionForDisplaySync(item, currency),
         );
         if (!minDay || day < minDay) minDay = day;
         if (!maxDay || day > maxDay) maxDay = day;
@@ -167,7 +167,7 @@ export function FinancialAreaChart({
         };
     }, [today, isDefaultRange, effectiveStartDate, effectiveEndDate]);
 
-    const chartData = useMemo(() => {
+    const { chartData, isWeeklyAggregation } = useMemo(() => {
         const { firstDay, lastDay } = chartWindow;
 
         // Group data by date with enhanced statistics
@@ -182,7 +182,7 @@ export function FinancialAreaChart({
             const day = getTransactionDay(item.date);
             if (!day || (firstDay && day < firstDay) || (lastDay && day > lastDay)) continue;
 
-            const amount = convertForDisplaySync(item.amount, item.currency, currency);
+            const amount = convertTransactionForDisplaySync(item, currency);
             const entry = dateMap.get(day) ?? { amount: 0, count: 0, transactions: [], amounts: [] };
             entry.amount += amount;
             entry.count += 1;
@@ -251,33 +251,36 @@ export function FinancialAreaChart({
                 current.amounts.push(...item.transactions.map(t => t.amount));
             });
 
-            return Array.from(weekMap.entries())
-                .map(([date, weekData]) => {
-                    const dateObj = new Date(date);
-                    const month = dateObj.toLocaleDateString('en', { month: 'short', timeZone: 'UTC' });
-                    const day = dateObj.getUTCDate().toString();
-                    
-                    const averageAmount = weekData.count > 0 ? weekData.amount / weekData.count : 0;
-                    const minAmount = weekData.amounts.length > 0 ? Math.min(...weekData.amounts) : 0;
-                    const maxAmount = weekData.amounts.length > 0 ? Math.max(...weekData.amounts) : 0;
-                    const isHighValue = weekData.amount > activeThresholds[type];
-                    
-                    return {
-                        date,
-                        amount: weekData.amount,
-                        formattedDate: `${month} ${day}`,
-                        transactionCount: weekData.count,
-                        averageAmount,
-                        minAmount,
-                        maxAmount,
-                        transactions: weekData.transactions,
-                        isHighValue
-                    };
-                })
-                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            return {
+                isWeeklyAggregation: true,
+                chartData: Array.from(weekMap.entries())
+                    .map(([date, weekData]) => {
+                        const dateObj = new Date(date);
+                        const month = dateObj.toLocaleDateString('en', { month: 'short', timeZone: 'UTC' });
+                        const day = dateObj.getUTCDate().toString();
+                        
+                        const averageAmount = weekData.count > 0 ? weekData.amount / weekData.count : 0;
+                        const minAmount = weekData.amounts.length > 0 ? Math.min(...weekData.amounts) : 0;
+                        const maxAmount = weekData.amounts.length > 0 ? Math.max(...weekData.amounts) : 0;
+                        const isHighValue = weekData.amount > activeThresholds[type];
+                        
+                        return {
+                            date,
+                            amount: weekData.amount,
+                            formattedDate: `${month} ${day}`,
+                            transactionCount: weekData.count,
+                            averageAmount,
+                            minAmount,
+                            maxAmount,
+                            transactions: weekData.transactions,
+                            isHighValue
+                        };
+                    })
+                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+            };
         }
 
-        return chartDataPoints;
+        return { chartData: chartDataPoints, isWeeklyAggregation: false };
     }, [data, currency, activeThresholds, type, chartWindow, getTransactionDay]);
 
     const weeklyAveragePoints = useMemo<TimeSeriesPoint[]>(
@@ -585,138 +588,175 @@ export function FinancialAreaChart({
                             domain={[0, yMax > 0 ? yMax * 1.1 : 1]}
                         />
                         <Tooltip
-                            content={({ active, payload, label }) => {
-                                if (active && payload && payload.length > 0) {
-                                    const hovered = payload[0]?.payload as ChartDataPoint | undefined;
-                                    if (hovered?.isForecast) {
-                                        const forecastEntries = plottedRuns
-                                            .map((run) => ({
-                                                run,
-                                                value: hovered[forecastSeriesKey(run.modelId)],
-                                            }))
-                                            .filter((entry) => typeof entry.value === "number");
-                                        return (
-                                            <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-4 min-w-64">
-                                                <div className="font-bold text-gray-900 mb-2 text-sm">
-                                                    {hovered.formattedDate}
-                                                </div>
-                                                <p className="mb-2 text-xs uppercase tracking-wide text-gray-500">
-                                                    {type === "income" ? "Income" : "Expense"} forecast · weekly average
-                                                </p>
-                                                {forecastEntries.map(({ run, value }) => (
-                                                    <div
-                                                        key={run.modelId}
-                                                        className="flex items-center justify-between gap-4 py-0.5 text-sm"
-                                                    >
-                                                        <span className="flex items-center gap-2 text-gray-700">
-                                                            <span
-                                                                aria-hidden="true"
-                                                                className="inline-block h-0.5 w-4 rounded-full"
-                                                                style={{ backgroundColor: run.colour }}
-                                                            />
-                                                            {run.label}
-                                                        </span>
-                                                        <span className="tabular-nums font-medium text-gray-900">
-                                                            {formatCurrency(Number(value), currency)}
-                                                        </span>
-                                                    </div>
-                                                ))}
+                            cursor={{ stroke: chartConfig.color, strokeWidth: 1, strokeDasharray: "4 4" }}
+                            content={({ active, payload }) => {
+                                if (!active || !payload?.length) return null;
+
+                                const dataPoint = payload[0]?.payload as ChartDataPoint | undefined;
+                                if (!dataPoint) return null;
+
+                                if (dataPoint.isForecast) {
+                                    const forecastEntries = plottedRuns
+                                        .map((run) => ({
+                                            run,
+                                            value: dataPoint[forecastSeriesKey(run.modelId)],
+                                        }))
+                                        .filter((entry) => typeof entry.value === "number");
+                                    return (
+                                        <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-4 min-w-64">
+                                            <div className="font-bold text-gray-900 mb-2 text-sm">
+                                                {dataPoint.formattedDate}
                                             </div>
-                                        );
-                                    }
-                                    const dataPoint = plotData.find(d => d.formattedDate === label);
-                                    if (dataPoint && !dataPoint.isForecast) {
-                                        const date = new Date(dataPoint.date);
-                                        const weekday = date.toLocaleDateString('en', { weekday: 'short', timeZone: 'UTC' });
-                                        const month = date.toLocaleDateString('en', { month: 'short', timeZone: 'UTC' });
-                                        const day = date.getUTCDate();
-                                        const year = date.getUTCFullYear();
-                                        const formattedDate = `${weekday}, ${month} ${day}, ${year}`;
-                                        const isWeekly = true;
-
-                                        return (
-                                            <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-4 min-w-80 max-w-md">
-                                                <div className="font-bold text-gray-900 mb-3 text-base">
-                                                    {formattedDate} {isWeekly && <span className="text-xs text-gray-500">(Week)</span>}
-                                                </div>
-                                                
-                                                {/* Main Amount */}
-                                                <div className="flex items-center justify-between mb-3">
-                                                    <span className="font-medium text-gray-700">
-                                                        Total {type === 'income' ? 'Income' : 'Expenses'}:
+                                            <p className="mb-2 text-xs uppercase tracking-wide text-gray-500">
+                                                {type === "income" ? "Income" : "Expense"} forecast · weekly average
+                                            </p>
+                                            {forecastEntries.map(({ run, value }) => (
+                                                <div
+                                                    key={run.modelId}
+                                                    className="flex items-center justify-between gap-4 py-0.5 text-sm"
+                                                >
+                                                    <span className="flex items-center gap-2 text-gray-700">
+                                                        <span
+                                                            aria-hidden="true"
+                                                            className="inline-block h-0.5 w-4 rounded-full"
+                                                            style={{ backgroundColor: run.colour }}
+                                                        />
+                                                        {run.label}
                                                     </span>
-                                                    <span className={`font-bold text-lg ${type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                                                        {formatCurrency(dataPoint.amount ?? 0, currency)}
+                                                    <span className="tabular-nums font-medium text-gray-900">
+                                                        {formatCurrency(Number(value), currency)}
                                                     </span>
                                                 </div>
+                                            ))}
+                                        </div>
+                                    );
+                                }
 
-                                                {/* Transaction Statistics */}
-                                                <div className="space-y-2 mb-3 text-sm">
+                                const date = new Date(dataPoint.date);
+                                const weekday = date.toLocaleDateString("en", {
+                                    weekday: "short",
+                                    timeZone: "UTC",
+                                });
+                                const month = date.toLocaleDateString("en", {
+                                    month: "short",
+                                    timeZone: "UTC",
+                                });
+                                const day = date.getUTCDate();
+                                const year = date.getUTCFullYear();
+                                const formattedDate = `${weekday}, ${month} ${day}, ${year}`;
+                                const isWeekly = isWeeklyAggregation;
+
+                                return (
+                                    <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-4 min-w-80 max-w-md">
+                                        <div className="font-bold text-gray-900 mb-3 text-base">
+                                            {formattedDate}
+                                            {isWeekly && (
+                                                <span className="text-xs text-gray-500"> (Week)</span>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center justify-between mb-3">
+                                            <span className="font-medium text-gray-700">
+                                                Total {type === "income" ? "Income" : "Expenses"}:
+                                            </span>
+                                            <span
+                                                className={`font-bold text-lg ${
+                                                    type === "income"
+                                                        ? "text-green-600"
+                                                        : "text-red-600"
+                                                }`}
+                                            >
+                                                {formatCurrency(dataPoint.amount ?? 0, currency)}
+                                            </span>
+                                        </div>
+
+                                        <div className="space-y-2 mb-3 text-sm">
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Transactions:</span>
+                                                <span className="font-medium">
+                                                    {dataPoint.transactionCount}
+                                                </span>
+                                            </div>
+
+                                            {dataPoint.transactionCount > 0 && (
+                                                <>
                                                     <div className="flex justify-between">
-                                                        <span className="text-gray-600">Transactions:</span>
-                                                        <span className="font-medium">{dataPoint.transactionCount}</span>
+                                                        <span className="text-gray-600">
+                                                            Average per Transaction:
+                                                        </span>
+                                                        <span className="font-medium">
+                                                            {formatCurrency(
+                                                                dataPoint.averageAmount,
+                                                                currency
+                                                            )}
+                                                        </span>
                                                     </div>
-                                                    
-                                                    {dataPoint.transactionCount > 0 && (
-                                                        <>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-gray-600">Average per Transaction:</span>
-                                                                <span className="font-medium">{formatCurrency(dataPoint.averageAmount, currency)}</span>
-                                                            </div>
-                                                            
-                                                            <div className="flex justify-between">
-                                                                <span className="text-gray-600">Range:</span>
-                                                                <span className="font-medium">
-                                                                    {formatCurrency(dataPoint.minAmount, currency)} - {formatCurrency(dataPoint.maxAmount, currency)}
+
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600">Range:</span>
+                                                        <span className="font-medium">
+                                                            {formatCurrency(
+                                                                dataPoint.minAmount,
+                                                                currency
+                                                            )}{" "}
+                                                            -{" "}
+                                                            {formatCurrency(
+                                                                dataPoint.maxAmount,
+                                                                currency
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+
+                                        {dataPoint.transactions.length > 0 && (
+                                            <div className="border-t border-gray-200 pt-3">
+                                                <div className="text-xs text-gray-600 mb-2">
+                                                    {dataPoint.transactions.length > 6
+                                                        ? "Top 6 Transactions:"
+                                                        : "Transactions:"}
+                                                </div>
+                                                <div className="space-y-1">
+                                                    {[...dataPoint.transactions]
+                                                        .sort((a, b) => b.amount - a.amount)
+                                                        .slice(0, 6)
+                                                        .map((transaction, index) => (
+                                                            <div
+                                                                key={index}
+                                                                className="flex justify-between text-xs"
+                                                            >
+                                                                <span className="text-gray-600 truncate max-w-32">
+                                                                    {transaction.title}
+                                                                    {transaction.category && (
+                                                                        <span className="text-gray-400 ml-1">
+                                                                            ({transaction.category})
+                                                                        </span>
+                                                                    )}
+                                                                </span>
+                                                                <span className="font-medium ml-2">
+                                                                    {formatCurrency(
+                                                                        transaction.amount,
+                                                                        currency
+                                                                    )}
                                                                 </span>
                                                             </div>
-                                                        </>
+                                                        ))}
+                                                    {dataPoint.transactions.length > 6 && (
+                                                        <div className="text-xs text-gray-400 text-center pt-1">
+                                                            +
+                                                            {dataPoint.transactions.length - 6} more
+                                                            transaction
+                                                            {dataPoint.transactions.length - 6 !== 1
+                                                                ? "s"
+                                                                : ""}
+                                                        </div>
                                                     )}
                                                 </div>
-
-                                                {/* Top Transactions Preview */}
-                                                {dataPoint.transactions.length > 0 && (
-                                                    <div className="border-t border-gray-200 pt-3">
-                                                        <div className="text-xs text-gray-600 mb-2">
-                                                            {dataPoint.transactions.length > 6 ? 'Top 5 Transactions:' : 'Transactions:'}
-                                                        </div>
-                                                        <div className="space-y-1">
-                                                            {dataPoint.transactions
-                                                                .sort((a, b) => b.amount - a.amount)
-                                                                .slice(0, 6)
-                                                                .map((transaction, index) => (
-                                                                    <div key={index} className="flex justify-between text-xs">
-                                                                        <span className="text-gray-600 truncate max-w-32">
-                                                                            {transaction.title}
-                                                                            {transaction.category && (
-                                                                                <span className="text-gray-400 ml-1">({transaction.category})</span>
-                                                                            )}
-                                                                        </span>
-                                                                        <span className="font-medium ml-2">
-                                                                            {formatCurrency(transaction.amount, currency)}
-                                                                        </span>
-                                                                    </div>
-                                                                ))
-                                                            }
-                                                            {dataPoint.transactions.length > 6 && (
-                                                                <div className="text-xs text-gray-400 text-center pt-1">
-                                                                    +{dataPoint.transactions.length - 6} more transaction{dataPoint.transactions.length - 6 !== 1 ? 's' : ''}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                )}
                                             </div>
-                                        );
-                                    }
-                                }
-                                return null;
-                            }}
-                            contentStyle={{
-                                backgroundColor: '#fff',
-                                border: '1px solid #e5e7eb',
-                                borderRadius: '6px',
-                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                        )}
+                                    </div>
+                                );
                             }}
                         />
                         <Area
@@ -727,6 +767,12 @@ export function FinancialAreaChart({
                             fillOpacity={0.2}
                             strokeWidth={2}
                             dot={renderCustomDot}
+                            activeDot={{
+                                r: 5,
+                                stroke: chartConfig.color,
+                                strokeWidth: 2,
+                                fill: "#fff",
+                            }}
                             connectNulls={false}
                         />
                         {plottedRuns.map((run, index) => (

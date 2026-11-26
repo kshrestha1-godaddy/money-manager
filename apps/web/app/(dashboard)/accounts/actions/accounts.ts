@@ -777,8 +777,9 @@ export async function transferMoney(fromAccountId: number, toAccountId: number, 
                 },
             });
 
-            // Tracking row: amount 0 so expense totals stay clean; snapshot fields
-            // record the ledger transfer amount for audit / reconstruction.
+            // Tracking row only: amount + snapshots stay 0 so expense totals ignore
+            // this row. The real ledger move is on Account.balance; transfer size is
+            // recorded in notes and the activity log (not in accountAmount).
             const transferExpense = await tx.expense.create({
                 data: {
                     title: `Transfer: ${fromAccount.bankName} → ${toAccount.bankName}`,
