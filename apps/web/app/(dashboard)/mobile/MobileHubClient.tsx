@@ -60,10 +60,9 @@ import { computeAccountFreeBalance } from "./utils/account-free-balance";
 import { PasswordTable } from "../passwords/components/PasswordTable";
 import type { Note } from "@prisma/client";
 import { useCurrency } from "../../providers/CurrencyProvider";
-import { useDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { formatCurrency } from "../../utils/currency";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
-import { SUPPORTED_CURRENCIES } from "../../utils/currencyConversion";
 import { calculateRemainingWithInterest } from "../../utils/interestCalculation";
 import { getCategoriesWithFrequency } from "../../utils/categoryFrequency";
 import { getCategories } from "../../actions/categories";
@@ -310,7 +309,7 @@ function groupDebtsByStatus(items: DebtInterface[]): {
 
 export default function MobileHubClient() {
   const { currency: userCurrency } = useCurrency();
-  const { displayCurrency: selectedCurrency, setDisplayCurrency: setSelectedCurrency } = useDisplayCurrency();
+  const { displayCurrency: selectedCurrency } = useDisplayCurrency();
   const { isUnlocked, remainingMs } = useAppLock();
   const [isCurrencyConverterOpen, setIsCurrencyConverterOpen] = useState(false);
   const [tab, setTab] = useState<MobileTab>("incomes");
@@ -326,7 +325,6 @@ export default function MobileHubClient() {
   const [loading, setLoading] = useState(true);
   const [failedLoads, setFailedLoads] = useState<string[]>([]);
   const loadVersions = useRef(new Map<string, number>());
-
 
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -628,24 +626,6 @@ export default function MobileHubClient() {
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <label htmlFor="mobile-hub-display-currency" className="sr-only">
-            Display currency for amounts
-          </label>
-          <div className="relative">
-            <select
-              id="mobile-hub-display-currency"
-              value={selectedCurrency}
-              onChange={(e) => setSelectedCurrency(e.target.value)}
-              className={`${typography.currencySelect} h-9 appearance-none rounded-md border border-gray-300 bg-white pl-2.5 pr-7 font-semibold text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
-            >
-              {SUPPORTED_CURRENCIES.map((currencyOption) => (
-                <option key={currencyOption} value={currencyOption}>
-                  {currencyOption}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-600" aria-hidden />
-          </div>
           <button
             type="button"
             onClick={() => setIsCurrencyConverterOpen(true)}

@@ -7,7 +7,7 @@ import { ChartControls } from "../../../components/ChartControls";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { useChartAnimationState } from "../../../hooks/useChartAnimationContext";
 import { loadGoogleCharts } from "../../../utils/googleCharts";
-import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface CashFlowSankeyChartProps {
     currency?: string;

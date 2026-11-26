@@ -3,7 +3,7 @@
 import { X } from "lucide-react";
 import { InvestmentInterface } from "../../../types/investments";
 import { formatDateYearMonthDay } from "../../../utils/date";
-import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { cn } from "@/lib/utils";
 import {
     getInvestmentTypeBadgeClassName,

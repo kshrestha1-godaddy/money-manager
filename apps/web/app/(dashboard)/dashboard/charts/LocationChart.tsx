@@ -8,7 +8,7 @@ import { DEFAULT_LOCATION } from "../../../utils/locationDefaults";
 import type { ExpressionSpecification } from "maplibre-gl";
 import { formatCurrency } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
-import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface LocationChartProps {
   currency: string;

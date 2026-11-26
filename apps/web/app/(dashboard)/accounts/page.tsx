@@ -15,7 +15,7 @@ import { getAccountBalanceTotals, sumAccountWithheld } from "./utils/accountWith
 import { formatCurrency } from "../../utils/currency";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { useCurrency } from "../../providers/CurrencyProvider";
-import { PageDisplayCurrencySelect, useDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { BankBalanceChart } from "./components/BankBalanceChart";
 import { AccountIncomeExpenseActivityTable } from "./components/AccountIncomeExpenseActivityTable";
 import { useOptimizedAccounts } from "../../hooks/useOptimizedAccounts";
@@ -217,11 +217,7 @@ export default function Accounts() {
                     <h1 className="sr-only">Accounts</h1>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <PageDisplayCurrencySelect
-                        id="accounts-display-currency"
-                        value={selectedCurrency}
-                    />
-                    <button
+                                        <button
                         id="add-account-btn"
                         onClick={() => setIsAddModalOpen(true)}
                         className={primaryButton}

@@ -4,11 +4,10 @@ import React, { useRef, useMemo, useCallback } from "react";
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, Cell, LabelList } from "recharts";
 import { Info } from "lucide-react";
 import { formatCurrency } from "../../../utils/currency";
-import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { Income, Expense } from "../../../types/financial";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { ChartControls } from "../../../components/ChartControls";
-
 
 interface MonthlyTrendChartProps {
     currency?: string;
@@ -706,7 +705,6 @@ export const MonthlyTrendChart = React.memo<MonthlyTrendChartProps>(({
             </ResponsiveContainer>
         </div>
     );
-
 
     if (chartData.length === 0) {
         return (

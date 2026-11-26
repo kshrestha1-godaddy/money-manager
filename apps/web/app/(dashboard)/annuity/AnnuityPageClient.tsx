@@ -16,7 +16,7 @@ import {
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency } from "../../utils/currency";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
-import { PageDisplayCurrencySelect, useDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import {
   CONTAINER_COLORS,
   INPUT_COLORS,
@@ -257,11 +257,7 @@ export default function AnnuityPageClient() {
             FD target income
           </button>
         </div>
-        <PageDisplayCurrencySelect
-          id="annuity-display-currency"
-          value={selectedCurrency}
-        />
-      </div>
+              </div>
 
       {pageMode === "compare" ? (
         <AnnuityCompareView

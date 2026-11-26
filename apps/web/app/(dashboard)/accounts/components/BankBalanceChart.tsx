@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { AccountInterface } from "../../../types/accounts";
 import { formatCurrency } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
-import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface BankBalanceChartProps {
     accounts: AccountInterface[];
@@ -121,7 +121,6 @@ export function BankBalanceChart({ accounts, sourceCurrency, currency: currencyP
         }
         return formatCurrency(value, currency);
     };
-
 
     if (chartData.length === 0) {
         return (

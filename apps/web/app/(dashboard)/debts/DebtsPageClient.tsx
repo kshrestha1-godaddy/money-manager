@@ -15,7 +15,7 @@ import { AddRepaymentModal } from './components/AddRepaymentModal';
 import { BulkImportModal } from './components/BulkImportModal';
 import { formatCurrency } from '../../utils/currency';
 import { convertForDisplaySync } from '../../utils/currencyDisplay';
-import { PageDisplayCurrencySelect, useDisplayCurrency } from '../../components/PageDisplayCurrencySelect';
+import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { exportDebtsToCSVWithDisplayCurrency } from '../../utils/csvExportDebts';
 import DebtStatusWaterfallChart from './charts/DebtStatusWaterfallChart';
 import DebtDueDatesChart from './charts/DebtDueDatesChart';
@@ -176,7 +176,6 @@ export default function DebtsPageClient() {
     }
   };
 
-
   // Edit, repay and delete each require the lock screen password, which the
   // server action re-verifies before it mutates anything.
   const editDebt = useGatedAction(
@@ -209,8 +208,10 @@ export default function DebtsPageClient() {
   );
 
   const deleteRepayment = useGatedAction(
-    (appLockPassword: string, repaymentId: number, debtId: number) =>
-      handleDeleteRepayment(repaymentId, debtId, appLockPassword),
+    (appLockPassword: string, repaymentId: number, debtId: number, onVerified?: () => void) => {
+      onVerified?.();
+      return handleDeleteRepayment(repaymentId, debtId, appLockPassword);
+    },
     {
       title: 'Delete repayment',
       description: 'This cannot be undone. Enter your lock screen password to delete this repayment.',
@@ -260,11 +261,7 @@ export default function DebtsPageClient() {
           <p className={pageSubtitle}>Track money you've lent to others and manage repayments</p>
         </div>
         <div className={UI_STYLES.header.buttonGroup}>
-          <PageDisplayCurrencySelect
-            id="debts-display-currency"
-            value={tableDisplayCurrency}
-          />
-          <button onClick={() => openModal('add')} className={primaryButton}>Add Debt</button>
+                    <button onClick={() => openModal('add')} className={primaryButton}>Add Debt</button>
           <button style={{ display: "none" }} onClick={() => openModal('import')} className={secondaryBlueButton}>Import CSV</button>
         </div>
       </div>
@@ -490,7 +487,7 @@ export default function DebtsPageClient() {
 
       <AddDebtModal isOpen={modal.type === 'add'} onClose={closeModal} onAdd={data => handleModalAction('add', data)} />
       <EditDebtModal isOpen={modal.type === 'edit'} onClose={closeModal} onEdit={(id, data) => void editDebt(id, data)} debt={modal.debt || null} />
-      <ViewDebtModal debtId={modal.debt?.id || null} isOpen={modal.type === 'view'} onClose={closeModal} onEdit={debt => openModal('edit', debt)} onAddRepayment={debt => openModal('repayment', debt)} onDeleteRepayment={(repaymentId, debtId) => deleteRepayment(repaymentId, debtId).then(() => undefined)} />
+      <ViewDebtModal debtId={modal.debt?.id || null} isOpen={modal.type === 'view'} onClose={closeModal} onEdit={debt => openModal('edit', debt)} onAddRepayment={debt => openModal('repayment', debt)} onDeleteRepayment={(repaymentId, debtId, onVerified) => deleteRepayment(repaymentId, debtId, onVerified).then(() => undefined)} />
       <AddRepaymentModal debt={modal.debt || null} isOpen={modal.type === 'repayment'} onClose={closeModal} onAdd={data => { const debtId = modal.debt?.id; if (!debtId) return undefined; closeModal(); return addRepayment(debtId, data); }} />
       <BulkImportModal isOpen={modal.type === 'import'} onClose={closeModal} onSuccess={() => { closeModal(); }} />
       
@@ -506,5 +503,4 @@ export default function DebtsPageClient() {
     if (action === 'add') return handleAddDebt(data);
   }
 }
-
 

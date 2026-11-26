@@ -8,7 +8,7 @@ import { Message } from "./components/Message";
 import { SettingsModal } from "./components/SettingsModal";
 import { useChat } from "./hooks/useChat";
 import { getFinancialDataForChat, FinancialDataRequest } from "./actions/financial-data";
-import { useDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { FinancialContext } from "./types/chat";
 
 export default function ChatPage() {

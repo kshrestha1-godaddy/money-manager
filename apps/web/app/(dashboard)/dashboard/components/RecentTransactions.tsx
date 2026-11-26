@@ -22,7 +22,7 @@ function recentTxRowStyle(type: UnifiedTransactionType): {
     return { circle: "bg-indigo-500", icon: "◇", amount: "text-indigo-600", prefix: "-" };
 }
 import { formatDate } from "../../../utils/date";
-import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { getRecentTransactions } from "../../transactions/actions/transactions";
 
 export function RecentTransactions() {

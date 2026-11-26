@@ -6,7 +6,7 @@ import { Target } from "lucide-react";
 import { TargetProgressItem } from "../components/TargetProgressItem";
 import { ProgressLegend } from "../components/ProgressLegend";
 import { formatCurrency } from "../../../utils/currency";
-import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface InvestmentTargetProgressChartProps {
     targets: InvestmentTargetProgress[];
@@ -18,13 +18,10 @@ interface InvestmentTargetProgressChartProps {
     onBulkDelete?: () => void;
 }
 
-
 type TargetSortField = 'date' | 'targetAmount' | 'remainingAmount';
 type TargetSortConfig = { field: TargetSortField; direction: 'asc' | 'desc' };
 const SORT_STORAGE_KEY = 'investment-target-progress-sort';
 const DEFAULT_SORT: TargetSortConfig = { field: 'date', direction: 'asc' };
-
-
 
 export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgressChartProps>(({ 
     targets, 
@@ -195,7 +192,6 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
                     </div>
                 </div>
             </div>
-
 
             <div className="flex flex-wrap items-center justify-end gap-2 mb-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
                 <label htmlFor="investment-target-sort" className="text-gray-600">Sort by</label>

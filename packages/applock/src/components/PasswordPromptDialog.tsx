@@ -5,6 +5,7 @@
  */
 
 import { FormEvent, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface PasswordPromptDialogProps {
   isOpen: boolean;
@@ -33,6 +34,12 @@ export function PasswordPromptDialog({
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+  // Portals need a client-side target, so it is resolved after mount.
+  useEffect(() => {
+    setPortalTarget(document.body);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -52,7 +59,7 @@ export function PasswordPromptDialog({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onCancel]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !portalTarget) return null;
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -70,9 +77,9 @@ export function PasswordPromptDialog({
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-[2147483000] flex items-center justify-center bg-black/70 p-4"
       role="presentation"
       onClick={onCancel}
     >
@@ -125,6 +132,7 @@ export function PasswordPromptDialog({
           </button>
         </div>
       </form>
-    </div>
+    </div>,
+    portalTarget,
   );
 }

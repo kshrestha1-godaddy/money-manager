@@ -11,7 +11,7 @@ import { useChartAnimationState } from "../../../hooks/useChartAnimationContext"
 // Declare Google Charts types
 // Google Charts loader helper
 import { loadGoogleCharts } from "../../../utils/googleCharts";
-import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface IncomeSankeyChartProps {
     currency?: string;

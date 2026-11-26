@@ -8,7 +8,7 @@ import { useChartExpansion } from "../utils/chartUtils";
 import { ChartControls } from "./ChartControls";
 import { createTransactionDayFormatter, getTrailingMonthRange } from "../utils/transaction-calendar";
 import { convertForDisplaySync } from "../utils/currencyDisplay";
-import { useResolvedDisplayCurrency } from "./PageDisplayCurrencySelect";
+import { useResolvedDisplayCurrency } from "../hooks/useDisplayCurrency";
 import {
     ForecastToggleButton,
     forecastSeriesKey,
@@ -342,7 +342,6 @@ export function FinancialAreaChart({
         return max;
     }, [plotData]);
 
-
     const formatYAxisTick = (value: number) => {
         if (value >= 1000000) {
             return `${(value / 1000000).toFixed(1)}M`;
@@ -407,7 +406,6 @@ export function FinancialAreaChart({
             </g>
         );
     };
-
 
     const clearFilters = () => {
         setStartDate("");

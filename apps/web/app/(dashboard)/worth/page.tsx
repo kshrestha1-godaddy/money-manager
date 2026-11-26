@@ -16,7 +16,7 @@ import {
 import { LOADING_COLORS } from "../../config/colorConfig";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
-import { PageDisplayCurrencySelect, useDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { downloadCSV } from "../../utils/csvUtils";
 import { formatCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
@@ -233,11 +233,7 @@ export default function NetWorthPage() {
           <h1 className="sr-only">Net worth</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <PageDisplayCurrencySelect
-            id="worth-display-currency"
-            value={displayCurrency}
-          />
-          <button onClick={refresh} className={button} disabled={isRefreshing}>
+                    <button onClick={refresh} className={button} disabled={isRefreshing}>
             <RefreshCw size={15} aria-hidden="true" className={isRefreshing ? "animate-spin" : undefined} />
             {isRefreshing ? "Refreshing…" : "Refresh"}
           </button>

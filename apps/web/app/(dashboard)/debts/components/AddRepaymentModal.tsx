@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { DebtInterface } from "../../../types/debts";
 import { AccountInterface } from "../../../types/accounts";
 import { formatCurrency } from "../../../utils/currency";
-import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { getUserAccounts } from "../../accounts/actions/accounts";
 import { calculateRemainingWithInterest } from "../../../utils/interestCalculation";
 

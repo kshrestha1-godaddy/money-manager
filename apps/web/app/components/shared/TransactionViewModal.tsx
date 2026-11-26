@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Income, Expense, TransactionImage, TransactionImageType } from "../../types/financial";
 import { formatCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
-import { useDisplayCurrency } from "../PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { CurrencyAmount } from "./CurrencyAmount";
 import { getTransactionImages } from "../../actions/transaction-images";
 import { Map, MapMarker, MarkerContent } from "@/components/ui/map";

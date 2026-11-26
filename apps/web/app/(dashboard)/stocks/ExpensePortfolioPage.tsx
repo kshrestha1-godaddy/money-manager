@@ -9,7 +9,7 @@ import {
 } from "./purchaseFilters";
 import { useState } from "react";
 import { convertCurrencySync } from "../../utils/currencyConversion";
-import { PageDisplayCurrencySelect, usePageDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { buildStaticConversionRates } from "../../utils/currencyRates";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { useOptimizedInvestments } from "../investments/hooks/useOptimizedInvestments";
@@ -27,7 +27,7 @@ export default function ExpensePortfolioPage({
     currencyRateAnchors,
     isRatesLoading,
   } = useCurrency();
-  const { displayCurrency, setDisplayCurrency } = usePageDisplayCurrency(accountCurrency);
+  const { displayCurrency } = useDisplayCurrency();
   const [search, setSearch] = useState("");
   const [period, setPeriod] = useState<StockPeriod>("ALL");
   const [startDate, setStartDate] = useState("");
@@ -75,19 +75,12 @@ export default function ExpensePortfolioPage({
 
   return (
     <div className={CONTAINER_COLORS.page}>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1
-          id={`${portfolioType.toLowerCase()}-heading`}
-          className="sr-only"
-        >
-          {label}
-        </h1>
-        <PageDisplayCurrencySelect
-          id={`${portfolioType.toLowerCase()}-display-currency`}
-          value={currency}
-          onChange={setDisplayCurrency}
-        />
-      </div>
+      <h1
+        id={`${portfolioType.toLowerCase()}-heading`}
+        className="sr-only"
+      >
+        {label}
+      </h1>
       <p className={TEXT_COLORS.subtitle}>
         Track purchases, update your portfolio value, and see how your {label}{" "}
         investments grow month by month.

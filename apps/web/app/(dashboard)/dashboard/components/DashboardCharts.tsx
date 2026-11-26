@@ -12,7 +12,7 @@ import { CashflowCandlestickChart } from "../charts/CashflowCandlestickChart";
 import { LocationChart } from "../charts/LocationChart";
 import Link from "next/link";
 import { useChartData } from "../../../hooks/useChartDataContext";
-import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface DashboardChartsProps {
   currency: string;

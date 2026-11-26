@@ -11,7 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
-import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 function formatCompactAxisValue(value: number, currencyCode: string): string {
   const sym = getCurrencySymbol(currencyCode).trimEnd();

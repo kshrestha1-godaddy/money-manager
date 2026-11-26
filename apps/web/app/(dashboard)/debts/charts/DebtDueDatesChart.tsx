@@ -16,7 +16,7 @@ import {
 import type { TooltipProps } from "recharts";
 import { ChartControls } from "../../../components/ChartControls";
 import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
-import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import type { DebtInterface } from "../../../types/debts";
 import {
@@ -285,7 +285,6 @@ export function DebtDueDatesChart({ debts, currency: currencyProp }: DebtDueDate
   const dueSoon = chartData.data.filter(entry => !entry.isOverdue && entry.daysUntilDue <= 30);
   const dueSoonAmount = dueSoon.reduce((sum, entry) => sum + entry.remainingAmount, 0);
   const nextDue = chartData.data.filter(entry => !entry.isOverdue).sort((a, b) => a.daysUntilDue - b.daysUntilDue)[0];
-
 
   return (
     <div

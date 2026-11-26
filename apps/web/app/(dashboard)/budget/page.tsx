@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency } from "../../utils/currency";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
-import { PageDisplayCurrencySelect, usePageDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle, Plus, Edit, Trash2, Check, X, ChevronUp, ChevronDown, EyeOff, Eye, Settings, Download, Upload, Trash } from "lucide-react";
 import { LOADING_COLORS, UI_STYLES, getSummaryCardClasses, BUTTON_COLORS } from "../../config/colorConfig";
 import { useBudgetTracking, useAllCategories } from "../../hooks/useBudgetTracking";
@@ -63,7 +63,7 @@ interface BudgetComparisonData {
 export default function BudgetPage() {
   const session = useSession();
   const { currency: userCurrency } = useCurrency();
-  const { displayCurrency, setDisplayCurrency } = usePageDisplayCurrency(userCurrency);
+  const { displayCurrency } = useDisplayCurrency();
   const money = (amount: number) =>
     formatCurrency(convertForDisplaySync(amount, userCurrency, displayCurrency), displayCurrency);
   const [selectedPeriod, setSelectedPeriod] = useState<'MONTHLY' | 'QUARTERLY' | 'YEARLY'>('MONTHLY');
@@ -724,12 +724,7 @@ export default function BudgetPage() {
           </p>
         </div>
         <div className={UI_STYLES.header.buttonGroup}>
-          <PageDisplayCurrencySelect
-            id="budget-display-currency"
-            value={displayCurrency}
-            onChange={setDisplayCurrency}
-          />
-          <select
+                    <select
             value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(e.target.value as 'MONTHLY' | 'QUARTERLY' | 'YEARLY')}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -768,7 +763,6 @@ export default function BudgetPage() {
             <Upload className="w-4 h-4" />
             Import
           </button>
-
 
         </div>
       </div>
@@ -880,7 +874,6 @@ export default function BudgetPage() {
           </div>
         </div>
       </div>
-
 
       {/* Month Navigation - Always visible */}
       <div className="mb-6">
@@ -1472,7 +1465,6 @@ export default function BudgetPage() {
           </p>
         </div>
       )}
-
 
       <CategoryBudgetSummary
         month={selectedMonth}

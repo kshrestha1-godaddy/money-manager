@@ -28,7 +28,7 @@ import { CalendarBookmarkEvent, CalendarDebtEvent } from "../../types/transactio
 import { formatCurrency } from "../../utils/currency";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { useCurrency } from "../../providers/CurrencyProvider";
-import { PageDisplayCurrencySelect, usePageDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { LOADING_COLORS } from "../../config/colorConfig";
 
 interface CalendarEvent {
@@ -68,7 +68,7 @@ export default function CalendarPage() {
     noteEvents: CalendarNoteEvent[];
   }>());
   const { currency: userCurrency } = useCurrency();
-  const { displayCurrency, setDisplayCurrency } = usePageDisplayCurrency(userCurrency);
+  const { displayCurrency } = useDisplayCurrency();
   const money = (amount: number) =>
     formatCurrency(convertForDisplaySync(amount, userCurrency, displayCurrency), displayCurrency);
 
@@ -373,12 +373,7 @@ export default function CalendarPage() {
             )}
           </div>
         <div className="flex items-center gap-2 justify-end flex-wrap">
-          <PageDisplayCurrencySelect
-            id="calendar-display-currency"
-            value={displayCurrency}
-            onChange={setDisplayCurrency}
-          />
-          {/* Timezone selector */}
+                    {/* Timezone selector */}
           <TimezoneSelector compact={true} showAutoDetect={false} className="min-w-[140px]" />
           
           {/* Year / Month / Day selectors */}
@@ -546,5 +541,4 @@ export default function CalendarPage() {
     </div>
   );
 }
-
 

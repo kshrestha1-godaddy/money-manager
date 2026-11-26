@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { AccountInterface } from "../../../types/accounts";
-import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 export function AccountCard({ 
     account, 

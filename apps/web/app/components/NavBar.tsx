@@ -3,24 +3,20 @@
 import { signIn, signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { CURRENCIES, getCurrencySymbol } from "../utils/currency";
-import { useCurrency } from "../providers/CurrencyProvider";
-import { useTotalBalance } from "../hooks/useTotalBalance";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { Clock, TrendingUp } from "lucide-react";
 import { NotificationBell } from "./notification/NotificationBell";
 import { CheckinButton } from "./CheckinButton";
-import { useDisplayCurrency } from "./PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../hooks/useDisplayCurrency";
 import { PageRefreshButton } from "./PageRefreshButton";
 import { formatLockCountdown, useAppLock } from "../providers/AppLockProvider";
 
 export default function NavBar() {
   const { data: session, status } = useSession();
   const pathname = usePathname();
-  const { currency: selectedCurrency, updateCurrency } = useCurrency();
-  const { formatAmount, setDisplayCurrency } = useDisplayCurrency();
-  const { totalBalance, loading: balanceLoading } = useTotalBalance();
+  const { displayCurrency: selectedCurrency, setDisplayCurrency } = useDisplayCurrency();
   const { isUnlocked, remainingMs, lockNow, refreshLockTimer } = useAppLock();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
@@ -43,16 +39,10 @@ export default function NavBar() {
   }, [isProfileDropdownOpen]);
 
   // Handle currency change
-  const handleCurrencyChange = async (currencyCode: string) => {
-    try {
-      await updateCurrency(currencyCode);
-      setDisplayCurrency(currencyCode);
-      setIsDropdownOpen(false);
-    } catch (error) {
-      console.error("Error updating currency:", error);
-      alert("Failed to update currency. Please try again.");
-    }
-  };
+  function handleCurrencyChange(currencyCode: string) {
+    setDisplayCurrency(currencyCode);
+    setIsDropdownOpen(false);
+  }
 
   // Wait until session is loaded to render anything session-dependent
   if (status === "loading") {
@@ -118,7 +108,7 @@ export default function NavBar() {
                 <span className="text-sm text-gray-500">Loading balance...</span>
               ) : (
                 <span className="text-sm font-medium text-green-600">
-                  Balance: {formatAmount(totalBalance, selectedCurrency)}
+                  Balance: {formatAmount(totalBalance, accountCurrency)}
                 </span>
               )}
             </div> */}

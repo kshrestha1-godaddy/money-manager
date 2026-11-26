@@ -1,6 +1,6 @@
 import React from 'react';
 import { Eye, Edit2, Trash2, Calendar, Target, TrendingUp, Clock } from 'lucide-react';
-import { useDisplayCurrency } from '../../../components/PageDisplayCurrencySelect';
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { BUTTON_COLORS, TEXT_COLORS, CONTAINER_COLORS } from '../../../config/colorConfig';
 
 interface Goal {

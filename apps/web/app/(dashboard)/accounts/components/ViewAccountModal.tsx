@@ -1,7 +1,7 @@
 import { AccountInterface } from "../../../types/accounts";
 import { formatDate } from "../../../utils/date";
 import { formatAccountOpeningDate } from "../utils/accountOpeningDate";
-import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface ViewAccountModalProps {
     isOpen: boolean;

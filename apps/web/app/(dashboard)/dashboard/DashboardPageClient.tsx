@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useCurrency } from "../../providers/CurrencyProvider";
-import { usePageDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { ChartDataProvider } from "../../hooks/useChartDataContext";
 import { ChartAnimationProvider } from "../../hooks/useChartAnimationContext";
 import { financialItemsQuery } from "../../hooks/financial-items-query";
@@ -21,8 +20,7 @@ const loadingSpinner = LOADING_COLORS.spinner;
 const loadingText = LOADING_COLORS.text;
 
 export default function DashboardPageClient() {
-  const { currency } = useCurrency();
-  const { displayCurrency, setDisplayCurrency } = usePageDisplayCurrency(currency);
+  const { displayCurrency } = useDisplayCurrency();
   const pageContainer = CONTAINER_COLORS.page;
 
   const incomesQuery = useQuery(financialItemsQuery("INCOME", getIncomes));
@@ -103,10 +101,7 @@ export default function DashboardPageClient() {
         isAllTime={isAllTime}
       >
         <div className={pageContainer}>
-          <DashboardHeader
-            displayCurrency={displayCurrency}
-            onDisplayCurrencyChange={setDisplayCurrency}
-          />
+          <DashboardHeader />
           <DashboardCharts
             currency={displayCurrency}
             startDate={startDate}

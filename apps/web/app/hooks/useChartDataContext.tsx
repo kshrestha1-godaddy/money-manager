@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useMemo, ReactNode } from 'react';
 import { Income, Expense } from '../types/financial';
 import { convertForDisplaySync } from '../utils/currencyDisplay';
-import { useDisplayCurrency } from '../components/PageDisplayCurrencySelect';
+import { useDisplayCurrency } from "./useDisplayCurrency";
 
 interface MonthlyAggregatedData {
   monthKey: string;

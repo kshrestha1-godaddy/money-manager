@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ScheduledPaymentItem } from "../../../types/scheduled-payment";
 import { formatCurrency } from "../../../utils/currency";
-import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { CONTAINER_COLORS, TEXT_COLORS } from "../../../config/colorConfig";
 import {

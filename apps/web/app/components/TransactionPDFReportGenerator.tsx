@@ -13,7 +13,7 @@ function pdfOutflowAmountClass(type: UnifiedTransactionType): string {
 import { formatDate } from "../utils/date";
 import { formatCurrency } from "../utils/currency";
 import { convertForDisplaySync } from "../utils/currencyDisplay";
-import { useDisplayCurrency } from "./PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../hooks/useDisplayCurrency";
 
 interface TransactionPDFReportGeneratorProps {
     transactions: Transaction[];
@@ -73,12 +73,15 @@ export function TransactionPDFReportGenerator({
         return filters.length > 0 ? filters.join(', ') : 'No filters applied';
     };
 
+    const getDisplayAmount = (transaction: Transaction) =>
+        convertForDisplaySync(transaction.amount, transaction.currency, currency);
+
     // Calculate category breakdowns
     const getCategoryBreakdown = (type: 'INCOME' | 'EXPENSE') => {
         const categoryTotals = transactions
             .filter(t => t.type === type)
             .reduce((acc, transaction) => {
-                acc[transaction.category] = (acc[transaction.category] || 0) + transaction.amount;
+                acc[transaction.category] = (acc[transaction.category] || 0) + getDisplayAmount(transaction);
                 return acc;
             }, {} as Record<string, number>);
 
@@ -94,9 +97,9 @@ export function TransactionPDFReportGenerator({
                 acc[key] = { income: 0, expense: 0, net: 0, count: 0 };
             }
             if (transaction.type === 'INCOME') {
-                acc[key].income += transaction.amount;
+                acc[key].income += getDisplayAmount(transaction);
             } else {
-                acc[key].expense += transaction.amount;
+                acc[key].expense += getDisplayAmount(transaction);
             }
             acc[key].net = acc[key].income - acc[key].expense;
             acc[key].count += 1;
@@ -393,7 +396,7 @@ export function TransactionPDFReportGenerator({
                                     <td>${transaction.category}</td>
                                     <td>${transaction.account}</td>
                                     <td style="text-align: right; font-weight: 600;" class="${transaction.type === 'INCOME' ? 'income' : pdfOutflowAmountClass(transaction.type)}">
-                                        ${transaction.type === 'INCOME' ? '+' : '-'}${formatCurrency(convertForDisplaySync(transaction.amount, transaction.currency, currency), currency)}
+                                        ${transaction.type === 'INCOME' ? '+' : '-'}${formatCurrency(getDisplayAmount(transaction), currency)}
                                     </td>
                                 </tr>
                             `).join('')}

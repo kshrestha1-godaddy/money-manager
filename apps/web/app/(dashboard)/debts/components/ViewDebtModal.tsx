@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery } from '@tanstack/react-query';
 import { DebtInterface } from "../../../types/debts";
-import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { getUserDebts } from "../actions/debts";
 import { calculateRemainingWithInterest, calculateInterest } from "../../../utils/interestCalculation";
 
@@ -13,7 +13,7 @@ interface ViewDebtModalProps {
     onClose: () => void;
     onEdit?: (debt: DebtInterface) => void;
     onAddRepayment?: (debt: DebtInterface) => void;
-    onDeleteRepayment?: (repaymentId: number, debtId: number) => Promise<void>;
+    onDeleteRepayment?: (repaymentId: number, debtId: number, onVerified?: () => void) => Promise<void>;
 }
 
 export function ViewDebtModal({ debtId, isOpen, onClose, onEdit, onAddRepayment, onDeleteRepayment }: ViewDebtModalProps) {
@@ -85,9 +85,13 @@ export function ViewDebtModal({ debtId, isOpen, onClose, onEdit, onAddRepayment,
     const handleDeleteRepayment = async (repaymentId: number) => {
         if (deletingRepayments.has(repaymentId) || !onDeleteRepayment) return;
 
-        try {
+        // The handler may first prompt for the lock screen password, so the
+        // row is only marked as deleting once that has resolved.
+        const markDeleting = () =>
             setDeletingRepayments(prev => new Set([...prev, repaymentId]));
-            await onDeleteRepayment(repaymentId, debt.id);
+
+        try {
+            await onDeleteRepayment(repaymentId, debt.id, markDeleting);
         } catch (error) {
             console.error("Error deleting repayment:", error);
             // You could add a toast notification here if you have one

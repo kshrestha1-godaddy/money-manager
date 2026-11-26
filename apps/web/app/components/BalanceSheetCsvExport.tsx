@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Table2, X } from "lucide-react";
 import { Transaction } from "../types/financial";
-import { useDisplayCurrency } from "./PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../hooks/useDisplayCurrency";
 import {
   buildBalanceSheetRows,
   createSyncConvertAmount,

@@ -15,7 +15,7 @@ import {
 } from "recharts";
 import { Activity, Plus, RefreshCw } from "lucide-react";
 import { useCurrency } from "../../../providers/CurrencyProvider";
-import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
 import { formatDate } from "../../../utils/date";

@@ -15,7 +15,7 @@ import { InvestmentInterface } from "../../../types/investments";
 import { presentValueForPosition } from "../utils/stocksExpenseBasis";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { useCurrency } from "../../../providers/CurrencyProvider";
-import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { ChartControls } from "../../../components/ChartControls";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import { useChartAnimationState } from "../../../hooks/useChartAnimationContext";
@@ -711,5 +711,4 @@ const arePropsEqual = (prevProps: InvestmentTypePolarChartProps, nextProps: Inve
 export const InvestmentTypePolarChart = React.memo(InvestmentTypePolarChartComponent, arePropsEqual);
 
 InvestmentTypePolarChart.displayName = "InvestmentTypePolarChart";
-
 

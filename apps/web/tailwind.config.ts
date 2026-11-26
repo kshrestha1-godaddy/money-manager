@@ -7,7 +7,8 @@ const config: Pick<Config, "content" | "presets"> = {
     darkMode: ["class"],
     content: [
     "./app/**/*.tsx",
-    "../../packages/ui/src/**/*.tsx"
+    "../../packages/ui/src/**/*.tsx",
+    "../../packages/applock/src/**/*.tsx"
   ],
   presets: [sharedConfig],
     plugins: [require("tailwindcss-animate")],

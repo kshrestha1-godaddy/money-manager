@@ -8,7 +8,7 @@ import { ChartControls } from "../../../components/ChartControls";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import { useChartAnimationState } from "../../../hooks/useChartAnimationContext";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
-import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface CustomCalendarChartProps {
     type: "income" | "expense";
@@ -1072,7 +1072,6 @@ export const CustomCalendarChart = React.memo<CustomCalendarChartProps>(({
                                                             </span>
                                                         </div>
                                                     </div>
-
 
                                                     {/* Activity Context */}
                                                     <div className="border-t border-gray-200 pt-2 space-y-1 text-xs">

@@ -5,7 +5,7 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { Bookmark, Download, RefreshCw } from "lucide-react";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { formatCurrency } from "../../utils/currency";
-import { useResolvedDisplayCurrency } from "../PageDisplayCurrencySelect";
+import { useResolvedDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { splitLocationFieldForExport } from "../../utils/csvExportUtils";
 import { useTimezone } from "../../providers/TimezoneProvider";
 import { createTransactionDayFormatter } from "../../utils/transaction-calendar";
@@ -217,7 +217,6 @@ export function FinancialList({
             setSortDirection('asc');
         }
     }, [sortField, sortDirection]);
-
 
     const getSortIcon = (field: SortField) => {
         if (sortField !== field) {

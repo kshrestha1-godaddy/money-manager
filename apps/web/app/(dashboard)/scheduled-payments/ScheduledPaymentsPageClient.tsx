@@ -15,7 +15,7 @@ import {
 import { ScheduledPaymentItem } from "../../types/scheduled-payment";
 import { useTimezone } from "../../providers/TimezoneProvider";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
-import { PageDisplayCurrencySelect, useDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import {
   BUTTON_COLORS,
   CONTAINER_COLORS,
@@ -538,11 +538,7 @@ export default function ScheduledPaymentsPageClient() {
           <h1 className="sr-only">Scheduled payments</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <PageDisplayCurrencySelect
-            id="scheduled-payments-display-currency"
-            value={tableDisplayCurrency}
-          />
-          <button
+                    <button
             type="button"
             onClick={() => void refreshPayments()}
             disabled={isRefreshing}

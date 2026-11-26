@@ -8,7 +8,7 @@ import { formatDate } from "../../utils/date";
 import { formatCurrency } from "../../utils/currency";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
 import { useCurrency } from "../../providers/CurrencyProvider";
-import { PageDisplayCurrencySelect, usePageDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { getAllTransactions } from "./actions/transactions";
 import { createTransactionBookmark, deleteTransactionBookmarkByTransaction } from "./actions/transaction-bookmarks";
 import { TransactionPDFReportGenerator } from "../../components/TransactionPDFReportGenerator";
@@ -88,7 +88,7 @@ export default function TransactionsPage() {
     const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const { currency: userCurrency } = useCurrency();
-    const { displayCurrency, setDisplayCurrency } = usePageDisplayCurrency(userCurrency);
+    const { displayCurrency } = useDisplayCurrency();
 
     useEffect(() => {
         const loadTransactions = async () => {
@@ -247,12 +247,7 @@ export default function TransactionsPage() {
             <div className="flex justify-between items-center">
                 <h1 className="sr-only">All Transactions</h1>
                 <div className="flex items-center gap-2 flex-wrap">
-                    <PageDisplayCurrencySelect
-                        id="transactions-display-currency"
-                        value={displayCurrency}
-                        onChange={setDisplayCurrency}
-                    />
-                    <TransactionPDFReportGenerator
+                                        <TransactionPDFReportGenerator
                         transactions={filteredTransactions}
                         totalIncome={totalIncome}
                         totalExpenses={totalExpenses}

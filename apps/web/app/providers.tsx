@@ -3,7 +3,7 @@
 import React from "react";
 import { SessionProvider } from "next-auth/react";
 import { CurrencyProvider } from "./providers/CurrencyProvider";
-import { DisplayCurrencyProvider } from "./components/PageDisplayCurrencySelect";
+import { DisplayCurrencyProvider } from "./hooks/useDisplayCurrency";
 import { TimezoneProvider } from "./providers/TimezoneProvider";
 import { QueryProvider } from "./providers/QueryProvider";
 import { ModalsProvider } from "./providers/ModalsProvider";

@@ -17,7 +17,7 @@ import { BulkDeleteInvestmentModal } from "./components/BulkDeleteInvestmentModa
 import { InvestmentTargetModal } from "./components/InvestmentTargetModal";
 import { BulkDeleteTargetsModal } from "./components/BulkDeleteTargetsModal";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
-import { PageDisplayCurrencySelect, useDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { formatCurrency } from "../../utils/currency";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { useOptimizedInvestments } from "./hooks/useOptimizedInvestments";
@@ -428,11 +428,7 @@ export default function InvestmentsPageClient() {
             <p className={pageSubtitle}>Track your investment portfolio and performance</p>
           </div>
           <div className={UI_STYLES.header.buttonGroup}>
-            <PageDisplayCurrencySelect
-              id="investments-display-currency"
-              value={displayCurrency}
-            />
-            <Link href="/stocks" className={secondaryBlueButton}>Stocks dashboard</Link>
+                        <Link href="/stocks" className={secondaryBlueButton}>Stocks dashboard</Link>
             <Link href="/sip" className={secondaryBlueButton}>SIP dashboard</Link>
             <button onClick={() => openModal('add')} className={primaryButton}>Add Investment</button>
             <button style={{ display: "none" }} onClick={() => openModal('import')} className={secondaryBlueButton}>Import CSV</button>
@@ -784,5 +780,4 @@ export default function InvestmentsPageClient() {
     closeTargetModal();
   }
 }
-
 

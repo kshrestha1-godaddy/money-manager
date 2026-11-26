@@ -4,7 +4,7 @@ import React, { useMemo, useRef, useCallback, useState } from "react";
 import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea, Dot, Text } from "recharts";
 import { Banknote, Calendar, Target, TrendingUp } from "lucide-react";
 import { formatCurrency } from "../../../utils/currency";
-import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { InvestmentTargetProgress } from "../../../types/investments";
 import { ChartControls } from "../../../components/ChartControls";
 
@@ -467,7 +467,6 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
         );
     }, []);
 
-
     const formatYAxisTick = useCallback((value: number) => {
         if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
         if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
@@ -575,7 +574,6 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
             </div>
         );
     }
-
 
     return (
         <div className="min-w-0 bg-white rounded-lg shadow-sm border border-gray-200 p-6">

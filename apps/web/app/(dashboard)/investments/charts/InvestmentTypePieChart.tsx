@@ -3,7 +3,7 @@
 import React, { useState, useRef, useMemo } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { formatCurrency } from "../../../utils/currency";
-import { useDisplayCurrency, useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency, useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { InvestmentInterface } from "../../../types/investments";
 import { ChartControls } from "../../../components/ChartControls";
 import { useChartExpansion } from "../../../utils/chartUtils";

@@ -6,7 +6,7 @@ import { FileText, Loader2 } from "lucide-react";
 import { Income, Expense } from "../../../types/financial";
 import { InvestmentInterface } from "../../../types/investments";
 import { DebtInterface } from "../../../types/debts";
-import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { formatCurrency as formatMoney } from "../../../utils/currency";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { useChartData } from "../../../hooks/useChartDataContext";

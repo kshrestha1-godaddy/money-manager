@@ -17,7 +17,7 @@ import {
 import { AcceptedRecurringHistoryDropdown } from "../(dashboard)/scheduled-payments/components/AcceptedRecurringHistoryDropdown";
 import { ScheduledPaymentItem } from "../types/scheduled-payment";
 import { formatCurrency } from "../utils/currency";
-import { useDisplayCurrency } from "./PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../hooks/useDisplayCurrency";
 import { useTimezone } from "../providers/TimezoneProvider";
 import { convertForDisplaySync } from "../utils/currencyDisplay";
 import Link from "next/link";

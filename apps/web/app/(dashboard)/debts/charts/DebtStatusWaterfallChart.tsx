@@ -6,7 +6,7 @@ import { formatCurrency } from "../../../utils/currency";
 import { useChartExpansion } from "../../../utils/chartUtils";
 import type { DebtInterface } from "../../../types/debts";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
-import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { calculateDebtRecovery } from "../../../utils/debtRecovery";
 
 interface DebtStatusWaterfallChartProps {

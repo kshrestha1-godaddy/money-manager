@@ -10,7 +10,7 @@ import { getCategories } from "../../actions/categories";
 import { useCurrency } from "../../providers/CurrencyProvider";
 import { formatCurrency } from "../../utils/currency";
 import { convertForDisplaySync } from "../../utils/currencyDisplay";
-import { PageDisplayCurrencySelect, usePageDisplayCurrency } from "../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { formatDate } from "../../utils/date";
 import { 
     getSummaryCardClasses,
@@ -760,7 +760,7 @@ function ComparisonChart({
 export default function History() {
     const { data: session } = useSession();
     const { currency: userCurrency } = useCurrency();
-    const { displayCurrency, setDisplayCurrency } = usePageDisplayCurrency(userCurrency);
+    const { displayCurrency } = useDisplayCurrency();
     const currency = displayCurrency;
     
     const [selectedPeriod, setSelectedPeriod] = useState<string>("3months_vs_last_year");
@@ -1306,12 +1306,7 @@ export default function History() {
                     <h1 className="sr-only">History & Comparison</h1>
                     <p className={pageSubtitle}>Compare your financial performance across different time periods</p>
                 </div>
-                <PageDisplayCurrencySelect
-                    id="history-display-currency"
-                    value={displayCurrency}
-                    onChange={setDisplayCurrency}
-                />
-            </div>
+                            </div>
 
             {/* Time Period Selection */}
             <div className="bg-white rounded-lg shadow p-6">

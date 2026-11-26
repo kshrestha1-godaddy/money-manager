@@ -14,7 +14,7 @@ import { recurringDisplay } from "../scheduled-payment-helpers";
 import { formatCurrency } from "../../../utils/currency";
 import { ScheduledPaymentItem } from "../../../types/scheduled-payment";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
-import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { CONTAINER_COLORS } from "../../../config/colorConfig";
 
 const card = `${CONTAINER_COLORS.whiteWithPadding} text-left`;

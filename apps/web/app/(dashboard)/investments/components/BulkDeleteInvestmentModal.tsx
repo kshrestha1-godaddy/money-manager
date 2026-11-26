@@ -1,7 +1,7 @@
 "use client";
 
 import { InvestmentInterface } from "../../../types/investments";
-import { useDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface BulkDeleteInvestmentModalProps {
     isOpen: boolean;

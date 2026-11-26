@@ -155,8 +155,6 @@ export function InlineFinancialSelector({
     }
   }, [isVisible]);
 
-  if (!isVisible) return null;
-
   const toggleDataType = (type: DataType) => {
     const newSelected = new Set(selectedTypes);
     if (newSelected.has(type)) {
@@ -208,6 +206,8 @@ export function InlineFinancialSelector({
       applySelection(typesToApply);
     }, 500); // 500ms debounce delay
   }, [applySelection]);
+
+  if (!isVisible) return null;
 
   const selectedPresetData = presets.find(p => p.key === selectedPreset);
   const hasDateFilteredTypes = Array.from(selectedTypes).some(type => 

@@ -19,7 +19,7 @@ import { formatCurrency, getCurrencySymbol } from "../../../utils/currency";
 import { useChartData } from "../../../hooks/useChartDataContext";
 import { convertForDisplaySync } from "../../../utils/currencyDisplay";
 import { ChartControls } from "../../../components/ChartControls";
-import { useResolvedDisplayCurrency } from "../../../components/PageDisplayCurrencySelect";
+import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 
 interface CashflowCandlestickChartProps {
   currency: string;

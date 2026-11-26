@@ -24,7 +24,7 @@ import { useTimezone } from '../../providers/TimezoneProvider';
 import { DisappearingNotification, NotificationData } from '../../components/DisappearingNotification';
 import { BUTTON_COLORS, TEXT_COLORS, CONTAINER_COLORS, LOADING_COLORS } from '../../config/colorConfig';
 import { convertForDisplaySync } from '../../utils/currencyDisplay';
-import { PageDisplayCurrencySelect, usePageDisplayCurrency } from '../../components/PageDisplayCurrencySelect';
+import { useDisplayCurrency } from "../../hooks/useDisplayCurrency";
 import { getCategoriesWithFrequency, CategoryWithFrequencyData } from '../../utils/categoryFrequency';
 
 const pageContainer = CONTAINER_COLORS.page;
@@ -41,7 +41,7 @@ const secondaryGreenButton = BUTTON_COLORS.secondaryGreen;
 
 export default function IncomesPageClient() {
   const { currency: userCurrency } = useCurrency();
-  const { displayCurrency, setDisplayCurrency } = usePageDisplayCurrency(userCurrency);
+  const { displayCurrency } = useDisplayCurrency();
   const { timezone: userTimezone } = useTimezone();
   const searchParams = useSearchParams();
   const [notification, setNotification] = useState<NotificationData | null>(null);
@@ -323,7 +323,6 @@ export default function IncomesPageClient() {
     );
   }
 
-
   return (
     <div className={pageContainer}>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -331,12 +330,7 @@ export default function IncomesPageClient() {
           <h1 className="sr-only">Incomes</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <PageDisplayCurrencySelect
-            id="incomes-display-currency"
-            value={displayCurrency}
-            onChange={setDisplayCurrency}
-          />
-          <button onClick={() => setIsAddModalOpen(true)} className={primaryButton}>Add Income</button>
+                    <button onClick={() => setIsAddModalOpen(true)} className={primaryButton}>Add Income</button>
           <button onClick={() => setIsAddCategoryModalOpen(true)} className={primaryButton}>Manage Categories</button>
           <button style={{ display: "none" }} onClick={() => setIsBulkImportModalOpen(true)} className={secondaryBlueButton}>Import CSV</button>
           <button style={{ display: "none" }} onClick={() => handleExportToCSV(filteredIncomes)} disabled={filteredIncomes.length === 0} className={`${secondaryGreenButton} disabled:opacity-50`}>Export CSV</button>
@@ -473,5 +467,4 @@ export default function IncomesPageClient() {
     </div>
   );
 }
-
 
