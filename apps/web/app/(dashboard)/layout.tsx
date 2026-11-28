@@ -33,11 +33,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             id="dashboard-nav-item"
                         />
                         <SidebarItem
-                            href="/pattern-analysis"
-                            icon={<ChartNoAxesCombined className="size-6 shrink-0" strokeWidth={1.5} aria-hidden />}
-                            title="Pattern Analysis"
-                        />
-                        <SidebarItem
                             href="/worth"
                             icon={<NetWorthIcon />}
                             title="Net Worth"
@@ -107,6 +102,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             icon={<HistoryIcon />}
                             title="History"
                             showSeparator={true}
+                        />
+                        <SidebarItem
+                            href="/pattern-analysis"
+                            icon={<ChartNoAxesCombined className="size-6 shrink-0" strokeWidth={1.5} aria-hidden />}
+                            title="Pattern Analysis"
                         />
                         <SidebarItem
                             href="/life-events"
