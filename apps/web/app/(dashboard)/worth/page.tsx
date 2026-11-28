@@ -575,91 +575,125 @@ export default function NetWorthPage() {
                       No assets in this category yet.
                     </p>
                   ) : (
-                    items.map((item) => {
-                      const isIncluded = map.get(item.id) ?? true;
-                      const isUpdating = updatingItems.has(
-                        getItemKey(entityType, item.id),
-                      );
-                      const value =
-                        key === "investments"
-                          ? item.quantity * item.currentPrice
-                          : key === "debts"
-                            ? Math.max(
-                                0,
-                                calculateRemainingWithInterest(
-                                  item.amount,
-                                  item.interestRate,
-                                  item.lentDate,
-                                  item.dueDate,
-                                  item.repayments || [],
-                                  new Date(),
-                                  item.status,
-                                ).remainingAmount,
-                              )
-                            : item.balance || 0;
-                      const name =
-                        item.holderName ||
-                        item.name ||
-                        item.borrowerName ||
-                        "Unnamed asset";
-                      return (
-                        <div
-                          key={item.id}
-                          className={`flex items-center gap-3 border-b border-slate-100 px-5 py-4 last:border-0 sm:px-6 ${!isIncluded ? "bg-slate-50 text-slate-400" : ""}`}
-                        >
-                          <button
-                            aria-label={`${isIncluded ? "Exclude" : "Include"} ${name} ${isIncluded ? "from" : "in"} net worth`}
-                            aria-pressed={isIncluded}
-                            disabled={updatingItems.size > 0 || isBulkUpdating}
-                            onClick={() =>
-                              handleToggleInclusion(
-                                entityType,
-                                item.id,
-                                isIncluded,
-                              )
-                            }
-                            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-teal-500 disabled:opacity-40"
+                    <>
+                      {items.map((item) => {
+                        const isIncluded = map.get(item.id) ?? true;
+                        const isUpdating = updatingItems.has(
+                          getItemKey(entityType, item.id),
+                        );
+                        const value =
+                          key === "investments"
+                            ? item.quantity * item.currentPrice
+                            : key === "debts"
+                              ? Math.max(
+                                  0,
+                                  calculateRemainingWithInterest(
+                                    item.amount,
+                                    item.interestRate,
+                                    item.lentDate,
+                                    item.dueDate,
+                                    item.repayments || [],
+                                    new Date(),
+                                    item.status,
+                                  ).remainingAmount,
+                                )
+                              : item.balance || 0;
+                        const name =
+                          item.holderName ||
+                          item.name ||
+                          item.borrowerName ||
+                          "Unnamed asset";
+                        const categoryShare =
+                          isIncluded && section.value !== 0
+                            ? ((value / section.value) * 100).toFixed(1)
+                            : null;
+
+                        return (
+                          <div
+                            key={item.id}
+                            className={`grid grid-cols-[auto_minmax(0,1fr)_5.75rem_minmax(6.5rem,auto)] items-center gap-3 border-b border-slate-100 px-5 py-4 sm:grid-cols-[auto_minmax(0,1fr)_7rem_minmax(8rem,auto)] sm:gap-4 sm:px-6 ${!isIncluded ? "bg-slate-50 text-slate-400" : ""}`}
                           >
-                            {isUpdating ? (
-                              <RefreshCw size={17} className="animate-spin" />
-                            ) : isIncluded ? (
-                              <Eye size={17} className="text-teal-600" />
-                            ) : (
-                              <EyeOff size={17} />
-                            )}
-                          </button>
-                          <div className="min-w-0 flex-1">
-                            <p className="break-words text-sm font-medium">
-                              {name}
-                            </p>
-                            <p className="mt-1 break-words text-xs text-slate-400">
-                              {item.bankName ||
-                                item.symbol ||
-                                item.purpose ||
-                                "No description"}
-                              {!isIncluded && " · Excluded"}
-                            </p>
-                            {key === "debts" && item.dueDate && (
-                              <p className="mt-1 text-xs text-slate-500">
-                                Due {formatDate(new Date(item.dueDate))}
+                            <button
+                              aria-label={`${isIncluded ? "Exclude" : "Include"} ${name} ${isIncluded ? "from" : "in"} net worth`}
+                              aria-pressed={isIncluded}
+                              disabled={updatingItems.size > 0 || isBulkUpdating}
+                              onClick={() =>
+                                handleToggleInclusion(
+                                  entityType,
+                                  item.id,
+                                  isIncluded,
+                                )
+                              }
+                              className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-teal-500 disabled:opacity-40"
+                            >
+                              {isUpdating ? (
+                                <RefreshCw size={17} className="animate-spin" />
+                              ) : isIncluded ? (
+                                <Eye size={17} className="text-teal-600" />
+                              ) : (
+                                <EyeOff size={17} />
+                              )}
+                            </button>
+                            <div className="min-w-0">
+                              <p className="break-words text-sm font-medium">
+                                {name}
                               </p>
-                            )}
+                              <p className="mt-1 break-words text-xs text-slate-400">
+                                {item.bankName ||
+                                  item.symbol ||
+                                  item.purpose ||
+                                  "No description"}
+                                {!isIncluded && " · Excluded"}
+                              </p>
+                              {key === "debts" && item.dueDate && (
+                                <p className="mt-1 text-xs text-slate-500">
+                                  Due {formatDate(new Date(item.dueDate))}
+                                </p>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-semibold tabular-nums">
+                                {categoryShare != null
+                                  ? `${categoryShare}%`
+                                  : "—"}
+                              </p>
+                              <p className="mt-1 text-xs text-slate-400">
+                                {isIncluded ? "% of category" : "Excluded"}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="break-words text-sm font-semibold tabular-nums">
+                                {money(value)}
+                              </p>
+                            </div>
                           </div>
-                          <div className="max-w-[45%] text-right">
-                            <p className="break-words text-sm font-semibold tabular-nums">
-                              {money(value)}
-                            </p>
-                            <p className="mt-1 text-xs text-slate-400">
-                              {isIncluded && section.value !== 0
-                                ? `${((value / section.value) * 100).toFixed(1)}% of category`
-                                : isIncluded
-                                  ? "Included"
-                                  : "Excluded"}
-                            </p>
-                          </div>
+                        );
+                      })}
+                      <div className="grid grid-cols-[auto_minmax(0,1fr)_5.75rem_minmax(6.5rem,auto)] items-center gap-3 bg-slate-50 px-5 py-4 sm:grid-cols-[auto_minmax(0,1fr)_7rem_minmax(8rem,auto)] sm:gap-4 sm:px-6">
+                        <span className="w-9" aria-hidden />
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-900">
+                            Total
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {included} of {items.length} included
+                          </p>
                         </div>
-                      );
-                    })
+                        <div className="text-right">
+                          <p className="text-sm font-semibold tabular-nums text-slate-900">
+                            {section.value !== 0 ? "100.0%" : "—"}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-400">
+                            % of category
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="break-words text-sm font-semibold tabular-nums text-slate-900">
+                            {money(section.value)}
+                          </p>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               )}
