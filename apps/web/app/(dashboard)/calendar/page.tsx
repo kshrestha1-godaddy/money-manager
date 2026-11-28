@@ -21,6 +21,11 @@ import { getTodayInTimezone } from "../../utils/timezone";
 import { getBookmarkedTransactionsForCalendar, getBookmarkedTransactionsForCalendarInTimezone } from "./actions/calendar-bookmarks";
 import { getActiveDebtsWithDueDates, getActiveDebtsWithDueDatesInTimezone } from "./actions/calendar-debts";
 import { getNotesWithRemindersForCalendar, getNotesWithRemindersForCalendarInTimezone, CalendarNoteEvent } from "./actions/calendar-notes";
+import {
+  getScheduledPaymentsForCalendar,
+  getScheduledPaymentsForCalendarInTimezone,
+  CalendarScheduledPaymentEvent,
+} from "./actions/calendar-scheduled-payments";
 import { useTimezone } from "../../providers/TimezoneProvider";
 import { TimezoneSelector } from "../../components/shared/TimezoneSelector";
 
@@ -35,7 +40,7 @@ interface CalendarEvent {
   id: string;
   date: string; // Human-readable format like "January 15, 2024"
   title: string;
-  type?: "INCOME" | "EXPENSE" | "DEBT_DUE" | "NOTE_REMINDER";
+  type?: "INCOME" | "EXPENSE" | "DEBT_DUE" | "NOTE_REMINDER" | "SCHEDULED_PAYMENT";
   amount?: number;
   category?: string;
   borrowerName?: string;
@@ -44,6 +49,8 @@ interface CalendarEvent {
   content?: string;
   tags?: string[];
   noteId?: number;
+  isInvestmentContribution?: boolean;
+  investmentName?: string;
 }
 
 const loadingContainer = LOADING_COLORS.container;
@@ -60,12 +67,14 @@ export default function CalendarPage() {
   const [bookmarkedEvents, setBookmarkedEvents] = useState<CalendarBookmarkEvent[]>([]);
   const [debtEvents, setDebtEvents] = useState<CalendarDebtEvent[]>([]);
   const [noteEvents, setNoteEvents] = useState<CalendarNoteEvent[]>([]);
+  const [scheduledPaymentEvents, setScheduledPaymentEvents] = useState<CalendarScheduledPaymentEvent[]>([]);
   const [calendarDataLoading, setCalendarDataLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const calendarDataCacheRef = useRef(new Map<string, {
     bookmarkedEvents: CalendarBookmarkEvent[];
     debtEvents: CalendarDebtEvent[];
     noteEvents: CalendarNoteEvent[];
+    scheduledPaymentEvents: CalendarScheduledPaymentEvent[];
   }>());
   const { currency: userCurrency } = useCurrency();
   const { displayCurrency } = useDisplayCurrency();
@@ -114,6 +123,7 @@ export default function CalendarPage() {
       setBookmarkedEvents(cachedData.bookmarkedEvents);
       setDebtEvents(cachedData.debtEvents);
       setNoteEvents(cachedData.noteEvents);
+      setScheduledPaymentEvents(cachedData.scheduledPaymentEvents);
       setIsInitialized(true);
       return;
     }
@@ -123,36 +133,42 @@ export default function CalendarPage() {
       
       // Use timezone-aware functions when timezone is available
       if (timezone && !timezoneLoading) {
-        // Fetch bookmarked transactions, debt due dates, and note reminders in parallel with timezone
-        const [bookmarkedTransactions, debtsWithDueDates, notesWithReminders] = await Promise.all([
-          getBookmarkedTransactionsForCalendarInTimezone(timezone),
-          getActiveDebtsWithDueDatesInTimezone(timezone),
-          getNotesWithRemindersForCalendarInTimezone(timezone)
-        ]);
+        const [bookmarkedTransactions, debtsWithDueDates, notesWithReminders, scheduledPayments] =
+          await Promise.all([
+            getBookmarkedTransactionsForCalendarInTimezone(timezone),
+            getActiveDebtsWithDueDatesInTimezone(timezone),
+            getNotesWithRemindersForCalendarInTimezone(timezone),
+            getScheduledPaymentsForCalendarInTimezone(timezone),
+          ]);
         
         setBookmarkedEvents(bookmarkedTransactions);
         setDebtEvents(debtsWithDueDates);
         setNoteEvents(notesWithReminders);
+        setScheduledPaymentEvents(scheduledPayments);
         calendarDataCacheRef.current.set(cacheKey, {
           bookmarkedEvents: bookmarkedTransactions,
           debtEvents: debtsWithDueDates,
-          noteEvents: notesWithReminders
+          noteEvents: notesWithReminders,
+          scheduledPaymentEvents: scheduledPayments,
         });
       } else {
-        // Fallback to timezone-unaware functions
-        const [bookmarkedTransactions, debtsWithDueDates, notesWithReminders] = await Promise.all([
-          getBookmarkedTransactionsForCalendar(),
-          getActiveDebtsWithDueDates(),
-          getNotesWithRemindersForCalendar()
-        ]);
+        const [bookmarkedTransactions, debtsWithDueDates, notesWithReminders, scheduledPayments] =
+          await Promise.all([
+            getBookmarkedTransactionsForCalendar(),
+            getActiveDebtsWithDueDates(),
+            getNotesWithRemindersForCalendar(),
+            getScheduledPaymentsForCalendar(),
+          ]);
         
         setBookmarkedEvents(bookmarkedTransactions);
         setDebtEvents(debtsWithDueDates);
         setNoteEvents(notesWithReminders);
+        setScheduledPaymentEvents(scheduledPayments);
         calendarDataCacheRef.current.set(cacheKey, {
           bookmarkedEvents: bookmarkedTransactions,
           debtEvents: debtsWithDueDates,
-          noteEvents: notesWithReminders
+          noteEvents: notesWithReminders,
+          scheduledPaymentEvents: scheduledPayments,
         });
       }
     } catch (error) {
@@ -160,6 +176,7 @@ export default function CalendarPage() {
       setBookmarkedEvents([]);
       setDebtEvents([]);
       setNoteEvents([]);
+      setScheduledPaymentEvents([]);
     } finally {
       setCalendarDataLoading(false);
       setIsInitialized(true);
@@ -181,6 +198,8 @@ export default function CalendarPage() {
     } else if (event.type === "NOTE_REMINDER") {
       // Navigate to notes page
       router.push("/notes");
+    } else if (event.type === "SCHEDULED_PAYMENT") {
+      router.push("/scheduled-payments");
     } else if (event.type === "EXPENSE" || event.type === "INCOME") {
       // Calculate d-1, d, d+1 date range
       const eventDateCopy = new Date(eventDate);
@@ -282,9 +301,28 @@ export default function CalendarPage() {
       arr.push(calendarEvent);
       map.set(dateKey, arr);
     });
+
+    scheduledPaymentEvents.forEach((event) => {
+      const calendarEvent: CalendarEvent = {
+        id: event.id,
+        date: event.date,
+        title: event.title,
+        type: event.type,
+        amount: event.amount,
+        category: event.category,
+        isOverdue: event.isOverdue,
+        isInvestmentContribution: event.isInvestmentContribution,
+        investmentName: event.investmentName,
+      };
+
+      const dateKey = getDateKeyFromHumanDate(event.date);
+      const arr = map.get(dateKey) ?? [];
+      arr.push(calendarEvent);
+      map.set(dateKey, arr);
+    });
     
     return map;
-  }, [bookmarkedEvents, debtEvents, noteEvents, timezone, timezoneLoading]);
+  }, [bookmarkedEvents, debtEvents, noteEvents, scheduledPaymentEvents, timezone, timezoneLoading]);
 
   function prevMonth() {
     const { year, monthIndex } = getPreviousMonth(viewYear, viewMonth);
@@ -361,9 +399,12 @@ export default function CalendarPage() {
                   <div className="text-center">
             <h1 className="text-xl font-semibold">{monthFormatter.format(new Date(viewYear, viewMonth, 1))}</h1>
             <p className="text-sm text-gray-500 mt-1">
-              {bookmarkedEvents.length === 0 && debtEvents.length === 0
+              {bookmarkedEvents.length === 0 &&
+              debtEvents.length === 0 &&
+              noteEvents.length === 0 &&
+              scheduledPaymentEvents.length === 0
                 ? "No events to display"
-                : `${bookmarkedEvents.length} bookmarked transaction${bookmarkedEvents.length !== 1 ? 's' : ''}, ${debtEvents.length} debt due date${debtEvents.length !== 1 ? 's' : ''}`
+                : `${bookmarkedEvents.length} bookmarked, ${debtEvents.length} debts, ${noteEvents.length} notes, ${scheduledPaymentEvents.length} scheduled`
               }
             </p>
             {timezone && !timezoneLoading && (
@@ -421,18 +462,24 @@ export default function CalendarPage() {
       </div>
 
       <div className="bg-white rounded-lg border shadow-sm w-full flex-1 flex flex-col">
-        {bookmarkedEvents.length === 0 && debtEvents.length === 0 && (
+        {bookmarkedEvents.length === 0 &&
+          debtEvents.length === 0 &&
+          noteEvents.length === 0 &&
+          scheduledPaymentEvents.length === 0 && (
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="text-center">
               <div className="text-gray-400 text-6xl mb-4">📅</div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">No Calendar Events</h3>
               <p className="text-gray-500 max-w-sm">
-                Bookmark important transactions and create debts with due dates to see them displayed here on the calendar.
+                Bookmark transactions, add debt due dates, note reminders, or schedule payments to see them here.
               </p>
             </div>
           </div>
         )}
-        {(bookmarkedEvents.length > 0 || debtEvents.length > 0) && (
+        {(bookmarkedEvents.length > 0 ||
+          debtEvents.length > 0 ||
+          noteEvents.length > 0 ||
+          scheduledPaymentEvents.length > 0) && (
           <>
         
         <div className="grid grid-cols-7 text-xs font-medium text-slate-500 border-b w-full">
@@ -497,6 +544,10 @@ export default function CalendarPage() {
                       bgColor = "bg-purple-50";
                       textColor = "text-purple-700";
                       borderColor = "border-purple-200";
+                    } else if (ev.type === "SCHEDULED_PAYMENT") {
+                      bgColor = ev.isOverdue ? "bg-amber-100" : "bg-teal-50";
+                      textColor = ev.isOverdue ? "text-amber-900" : "text-teal-800";
+                      borderColor = ev.isOverdue ? "border-amber-300" : "border-teal-200";
                     } else {
                       // Default styling
                       bgColor = "bg-blue-50";
@@ -506,6 +557,8 @@ export default function CalendarPage() {
                     
                     const tooltip = ev.type === "DEBT_DUE" 
                       ? `${ev.borrowerName} - ${ev.amount ? money(ev.amount) : ''} (${ev.status}${ev.isOverdue ? ' - OVERDUE' : ''})`
+                      : ev.type === "SCHEDULED_PAYMENT"
+                        ? `${ev.title}${ev.isInvestmentContribution && ev.investmentName ? ` → ${ev.investmentName}` : ""} - ${ev.amount ? money(ev.amount) : ""}${ev.isOverdue ? " (due)" : ""}`
                       : `${ev.category || 'Event'} - ${ev.amount ? money(ev.amount) : ''}`;
                     
                     return (

@@ -10,6 +10,7 @@ import {
   accountDisplay,
   formatScheduledPaymentWhenDate,
   getAcceptedRecurringHistoryFromItems,
+  investmentContributionLabel,
   isScheduledUnresolved,
   isScheduledWithinNextTwoDays,
   recurringDisplay,
@@ -171,6 +172,11 @@ export function ScheduledPaymentsRecurrenceSectionTable({
                     <span className="block break-words leading-snug" title={item.title}>
                       {item.title}
                     </span>
+                    {investmentContributionLabel(item) ? (
+                      <span className="mt-1 inline-block rounded bg-teal-50 px-1.5 py-0.5 text-[11px] font-medium text-teal-800">
+                        {investmentContributionLabel(item)}
+                      </span>
+                    ) : null}
                     <div className="mt-1.5">
                       <AcceptedRecurringHistoryToggle
                         count={acceptedHistory.length}

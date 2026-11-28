@@ -67,6 +67,7 @@ function toScheduledPaymentItem(row: {
   resolution: "ACCEPTED" | "REJECTED" | null;
   resolvedAt: Date | null;
   createdExpenseId: number | null;
+  investmentId?: number | null;
   createdAt: Date;
   updatedAt: Date;
   category: { id: number; name: string; type: string };
@@ -75,6 +76,7 @@ function toScheduledPaymentItem(row: {
     holderName: string;
     bankName: string;
   } | null;
+  investment?: { id: number; name: string; type: string } | null;
 }): ScheduledPaymentItem {
   return {
     id: row.id,
@@ -114,6 +116,10 @@ function toScheduledPaymentItem(row: {
     resolution: row.resolution,
     resolvedAt: row.resolvedAt ? new Date(row.resolvedAt) : null,
     createdExpenseId: row.createdExpenseId,
+    investmentId: row.investmentId ?? null,
+    investment: row.investment
+      ? { id: row.investment.id, name: row.investment.name, type: row.investment.type }
+      : null,
     createdAt: new Date(row.createdAt),
     updatedAt: new Date(row.updatedAt),
   };

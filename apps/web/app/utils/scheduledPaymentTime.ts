@@ -132,6 +132,38 @@ export function parseDatetimeLocalInTimezone(value: string, timezone: string): D
   }
 }
 
+/** End of the calendar day (23:59:59.999) for `date` in the given timezone. */
+export function endOfDayInTimezone(date: Date, timezone: string): Date {
+  const parts = getDatePartsInTimezone(date, timezone);
+  return zonedDateTimeToUtc(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    23,
+    59,
+    59,
+    999,
+    timezone
+  );
+}
+
+/**
+ * End of a date-only value (e.g. targetCompletionDate stored as UTC midnight YYYY-MM-DD)
+ * in the user's timezone. Uses UTC Y/M/D so west-of-UTC zones do not shift back a day.
+ */
+export function endOfCalendarDateInTimezone(date: Date, timezone: string): Date {
+  return zonedDateTimeToUtc(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    23,
+    59,
+    59,
+    999,
+    timezone
+  );
+}
+
 /** Advance by a calendar period in the saved timezone, preserving wall-clock time. */
 export function computeNextScheduledAt(
   from: Date,

@@ -865,6 +865,21 @@ export default function ScheduledPaymentsPageClient() {
             type: "success",
           });
         }}
+        onEarlyAcceptSuccess={async () => {
+          await refreshPayments();
+          triggerBalanceRefresh();
+          void queryClient.invalidateQueries({ queryKey: ["expenses"] });
+          void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+          void queryClient.invalidateQueries({ queryKey: ["account-balance-activity"] });
+          void queryClient.invalidateQueries({ queryKey: ["investments"] });
+          void queryClient.invalidateQueries({ queryKey: ["investment-contribution-plan"] });
+          void queryClient.invalidateQueries({ queryKey: ["withheld-amounts"] });
+          setNotification({
+            title: "Accepted early",
+            message: "Payment recorded. Original scheduled date was kept.",
+            type: "success",
+          });
+        }}
         onEdit={
           viewingItem && !viewingItem.resolution && formQuery.data && !busyPaymentIds.has(viewingItem.id)
             ? () => {

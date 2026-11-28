@@ -45,7 +45,7 @@ interface InvestmentTableProps {
     selectedCurrency: string;
     investments: InvestmentInterface[];
     onEdit: (investment: InvestmentInterface) => void;
-    onDelete: (appLockPassword: string, investment: InvestmentInterface) => void;
+    onDelete: (appLockPassword: string, investment: InvestmentInterface) => void | Promise<void>;
     onViewDetails: (investment: InvestmentInterface) => void;
     selectedInvestments?: Set<number>;
     onInvestmentSelect?: (investmentId: number, selected: boolean) => void;
@@ -141,7 +141,7 @@ export function InvestmentTable({
     const handleSelectAll = () => {
         if (!onInvestmentSelect) return;
         
-        const currentTableInvestmentIds = investments.map(inv => inv.id);
+        const currentTableInvestmentIds = investments.filter(inv => inv.id > 0).map(inv => inv.id);
         const allCurrentSelected = currentTableInvestmentIds.every(id => selectedInvestments.has(id));
         
         // Toggle selection for only the investments in this table
@@ -150,8 +150,9 @@ export function InvestmentTable({
         });
     };
 
-    const isAllSelected = investments.length > 0 && investments.every(inv => selectedInvestments.has(inv.id));
-    const isPartiallySelected = investments.some(inv => selectedInvestments.has(inv.id)) && !isAllSelected;
+    const selectableInvestments = investments.filter(inv => inv.id > 0);
+    const isAllSelected = selectableInvestments.length > 0 && selectableInvestments.every(inv => selectedInvestments.has(inv.id));
+    const isPartiallySelected = selectableInvestments.some(inv => selectedInvestments.has(inv.id)) && !isAllSelected;
 
     const sortedInvestments = [...investments].sort((a, b) => {
         let aValue: any;
@@ -236,8 +237,10 @@ export function InvestmentTable({
                 withheldPositionCount += 1;
             }
         }
-        const totalGain = totalValue - totalCost;
-        const gainPct = totalCost > 0 ? (totalGain / totalCost) * 100 : 0;
+        const valuedCost = sortedInvestments.reduce((sum, inv) =>
+            sum + (inv.id > 0 ? inv.quantity * inv.purchasePrice : 0), 0);
+        const totalGain = totalValue - valuedCost;
+        const gainPct = valuedCost > 0 ? (totalGain / valuedCost) * 100 : 0;
         return {
             totalCost,
             totalValue,
@@ -308,6 +311,7 @@ export function InvestmentTable({
                                 <input
                                     type="checkbox"
                                     checked={isAllSelected}
+                                    disabled={selectableInvestments.length === 0}
                                     ref={(el) => {
                                         if (el) el.indeterminate = isPartiallySelected;
                                     }}
@@ -649,7 +653,7 @@ function InvestmentRow({
     investment: InvestmentInterface;
     formatMoney: (amountInStoredCurrency: number) => string;
     onEdit: (investment: InvestmentInterface) => void;
-    onDelete: (appLockPassword: string, investment: InvestmentInterface) => void;
+    onDelete: (appLockPassword: string, investment: InvestmentInterface) => void | Promise<void>;
     onViewDetails: (investment: InvestmentInterface) => void;
     isSelected?: boolean;
     onSelect?: (investmentId: number, selected: boolean) => void;
@@ -768,10 +772,10 @@ function InvestmentRow({
                         : undefined
                 }
             >
-                <div className="break-words font-medium">{formatMoney(investment.currentPrice)}</div>
+                <div className="break-words font-medium">{investment.id < 0 ? "Awaiting valuation" : formatMoney(investment.currentPrice)}</div>
             </td>
             <td className="px-3 py-4 text-sm font-medium text-gray-900 text-center tabular-nums align-top" style={{ width: `${columnWidths.totalValue}px` }}>
-                <div className="break-words">{formatMoney(totalValue)}</div>
+                <div className="break-words">{investment.id < 0 ? "—" : formatMoney(totalValue)}</div>
             </td>
             <td className="px-3 py-4 text-sm text-center align-top" style={{ width: `${columnWidths.isWithheld}px` }}>
                 {isWithheld ? (
@@ -783,14 +787,14 @@ function InvestmentRow({
                 )}
             </td>
             <td className="px-3 py-4 text-sm text-center tabular-nums align-top" style={{ width: `${columnWidths.gainLoss}px` }}>
-                <div className="space-y-1">
+                {investment.id < 0 ? "—" : <div className="space-y-1">
                     <div className={`font-medium break-words ${getGainColor(gain)}`}>
                         {formatMoney(gain)}
                     </div>
                     <div className={`text-xs break-words ${getGainColor(gain)}`}>
                         ({gainPercentage}%)
                     </div>
-                </div>
+                </div>}
             </td>
             <td className="px-3 py-4 whitespace-nowrap text-center text-sm font-medium align-top" style={{ width: `${columnWidths.actions}px` }}>
                 <div className="flex justify-center flex-nowrap gap-1">

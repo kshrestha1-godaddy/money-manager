@@ -19,6 +19,9 @@ export function isInvestmentGrouping(value: unknown): value is InvestmentGroupin
 }
 
 function groupFor(inv: InvestmentInterface, grouping: InvestmentGrouping) {
+    if (inv.id < 0 && (grouping === "performance" || grouping === "profitMargin")) {
+        return { key: "unvalued", label: "Awaiting valuation", order: 3 };
+    }
     switch (grouping) {
         case "bank": {
             const bank = inv.account?.bankName?.trim();
@@ -68,7 +71,9 @@ export function groupInvestments(investments: InvestmentInterface[], grouping: I
         .map(group => {
             const totalInvested = group.investments.reduce((sum, inv) => sum + inv.quantity * inv.purchasePrice, 0);
             const currentValue = group.investments.reduce((sum, inv) => sum + inv.quantity * inv.currentPrice, 0);
-            const gainLoss = currentValue - totalInvested;
+            const valuedCost = group.investments.reduce((sum, inv) =>
+                sum + (inv.id > 0 ? inv.quantity * inv.purchasePrice : 0), 0);
+            const gainLoss = currentValue - valuedCost;
             return {
                 key: group.key,
                 title: `${group.label} (${group.investments.length})`,
@@ -77,7 +82,7 @@ export function groupInvestments(investments: InvestmentInterface[], grouping: I
                 totalInvested,
                 currentValue,
                 gainLoss,
-                gainLossPercentage: totalInvested > 0 ? (gainLoss / totalInvested) * 100 : 0,
+                gainLossPercentage: valuedCost > 0 ? (gainLoss / valuedCost) * 100 : 0,
             };
         });
 }

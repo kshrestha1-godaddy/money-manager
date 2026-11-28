@@ -681,6 +681,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                     >
                         <ResponsiveContainer width="100%" height="100%" onResize={setChartWidth}>
                         <ComposedChart
+                            barCategoryGap="42%"
                             data={timelineData}
                             margin={{ top: 18, right: 32, left: 52, bottom: 16 }}
                         >
@@ -794,7 +795,6 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                                 name="Completed Progress"
                                 barSize={44}
                                 maxBarSize={52}
-                                barCategoryGap="42%"
                             />
                             <Bar
                                 dataKey="remainingBar"

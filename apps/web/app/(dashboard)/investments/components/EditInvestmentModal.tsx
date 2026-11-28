@@ -173,10 +173,10 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                 setError("Quantity must be greater than 0");
                 return;
             }
-            const expenseBacked = resolvedType === "SIP" || resolvedType === "STOCKS";
+            const allowsZeroCost = investment.isScheduledContribution || resolvedType === "SIP" || resolvedType === "STOCKS";
             const cost = Number(formData.purchasePrice);
-            if (!formData.purchasePrice || !Number.isFinite(cost) || (expenseBacked ? cost < 0 : cost <= 0)) {
-                setError(expenseBacked ? "Purchase price must be 0 or greater" : "Purchase price must be greater than 0");
+            if (!formData.purchasePrice || !Number.isFinite(cost) || (allowsZeroCost ? cost < 0 : cost <= 0)) {
+                setError(allowsZeroCost ? "Purchase price must be 0 or greater" : "Purchase price must be greater than 0");
                 return;
             }
             if (needsCurrentPrice && (!formData.currentPrice || parseFloat(formData.currentPrice) < 0)) {
@@ -191,7 +191,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                 name: formData.name.trim(),
                 type: resolvedType,
                 symbol: formData.symbol.trim() || undefined,
-                quantity: isQuantityBased ? parseFloat(formData.quantity || "0") : 1,
+                quantity: isQuantityBased ? parseFloat(formData.quantity || "0") : investment.isScheduledContribution ? investment.quantity : 1,
                 purchasePrice: purchasePriceNum,
                 currentPrice: needsCurrentPrice
                     ? toAccountAmount(parseFloat(formData.currentPrice || "0"))

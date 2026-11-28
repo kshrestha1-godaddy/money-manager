@@ -27,6 +27,11 @@ function setup({ failNext = false, loseClaim = false, resolveBeforeWrite = false
     '@prisma/client': enums,
     './currencyDisplayServer': { convertForDisplayWithDbRates: async amount => amount },
     './accountActivityLog': { logAccountBalanceFromTransaction: async () => {} },
+    './currency': { assertCurrencyCode: (c) => c || 'USD' },
+    './ledgerCurrency': {
+      getLockedLedgerCurrency: async () => 'USD',
+      assertOwnedAccount: async () => {},
+    },
   });
   const prisma = {
     scheduledPayment: {
@@ -55,7 +60,7 @@ function setup({ failNext = false, loseClaim = false, resolveBeforeWrite = false
         const draft = structuredClone(state);
         const tx = {
           scheduledPayment: {
-            findFirst: async () => ({ id: 1, userId: 1, title: 'Rent', amount: 100, currency: 'USD', scheduledAt, categoryId: 3, category: { id: 3 }, accountId, tags: [], notes: null, description: null, isRecurring: true, recurringFrequency, resolution: draft.resolution }),
+            findFirst: async () => ({ id: 1, userId: 1, title: 'Rent', amount: 100, currency: 'USD', scheduledAt, categoryId: 3, category: { id: 3 }, accountId, tags: [], notes: null, description: null, isRecurring: true, recurringFrequency, resolution: draft.resolution, investmentId: null }),
             updateMany: async ({ data }) => {
               if (loseClaim || draft.resolution !== null) return { count: 0 };
               draft.resolution = data.resolution;
@@ -94,7 +99,11 @@ function setup({ failNext = false, loseClaim = false, resolveBeforeWrite = false
     '../../../utils/auth': { getUserIdFromSession: () => 1 },
     '../../../utils/createExpenseInTransaction': { createExpenseInTransaction },
     '../../../utils/autoBookmarkUtils': { autoBookmarkHighValueTransaction: async () => {} },
+    '../../../utils/currencyDisplayServer': { convertForDisplayWithDbRates: async amount => amount },
+    '../../../utils/ledgerCurrency': { getLockedLedgerCurrency: async () => 'USD' },
+    '../../investments/actions/investments': { applyContributionToInvestmentInTransaction: async () => {} },
     '../../../lib/security/app-lock-password': {},
+    '../../../lib/security/require-app-lock-password': { requireAppLockPassword: async () => 1 },
     '../../../actions/notifications': { generateNotificationsForUser: async () => {} },
   });
   return { ...actions, state: () => state };

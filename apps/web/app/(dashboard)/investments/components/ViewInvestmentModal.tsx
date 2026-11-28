@@ -11,6 +11,7 @@ import {
     normalizeInvestmentType,
 } from "../utils/investmentTypeUi";
 import { InvestmentSavingsTargetChart } from "./InvestmentSavingsTargetChart";
+import { InvestmentContributionScheduleSection } from "./InvestmentContributionScheduleSection";
 
 interface ViewInvestmentModalProps {
     investment: InvestmentInterface | null;
@@ -27,7 +28,7 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
     const totalValue = investment.quantity * investment.currentPrice;
     const totalCost = investment.quantity * investment.purchasePrice;
     const gain = totalValue - totalCost;
-    const gainPercentage = ((investment.currentPrice - investment.purchasePrice) / investment.purchasePrice * 100).toFixed(2);
+    const gainPercentage = (investment.purchasePrice > 0 ? (investment.currentPrice - investment.purchasePrice) / investment.purchasePrice * 100 : 0).toFixed(2);
 
     const getGainColor = (gain: number) => {
         if (gain > 0) return 'text-green-600';
@@ -45,7 +46,7 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-start gap-4 mb-4">
                     <div className="min-w-0">
                         <h2 className="text-2xl font-bold text-gray-900 break-words">{investment.name}</h2>
@@ -146,7 +147,7 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
                                             : "Current price"}
                                     </span>
                                     <span className="text-sm font-medium tabular-nums text-gray-900">
-                                        {formatAmount(investment.currentPrice)}
+                                        {investment.id < 0 ? "Awaiting valuation" : formatAmount(investment.currentPrice)}
                                     </span>
                                 </div>
                                 {investment.type === "GOLD" || investment.type === "SILVER" ? (
@@ -194,17 +195,17 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
                                 <div className="flex justify-between gap-3 py-2.5">
                                     <span className="text-xs text-gray-500">Current value</span>
                                     <span className="text-sm font-semibold tabular-nums text-gray-900">
-                                        {formatAmount(totalValue)}
+                                        {investment.id < 0 ? "Awaiting valuation" : formatAmount(totalValue)}
                                     </span>
                                 </div>
                                 <div className="flex justify-between gap-3 py-2.5 last:pb-0">
                                     <span className="text-xs text-gray-500">Gain / loss</span>
                                     <div className="text-right">
                                         <div className={`text-sm font-semibold tabular-nums ${getGainColor(gain)}`}>
-                                            {formatAmount(gain)}
+                                            {investment.id < 0 ? "—" : formatAmount(gain)}
                                         </div>
                                         <div className={`mt-0.5 text-xs tabular-nums ${getGainColor(gain)}`}>
-                                            {gainPercentage}%
+                                            {investment.id < 0 ? "—" : `${gainPercentage}%`}
                                         </div>
                                     </div>
                                 </div>
@@ -219,13 +220,15 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
                                 Overall performance
                             </h3>
                             <div className={`text-xl font-bold tabular-nums ${getGainColor(gain)}`}>
-                                {formatAmount(gain)}
+                                {investment.id < 0 ? "—" : formatAmount(gain)}
                             </div>
                             <div className={`mt-1 text-sm ${getGainColor(gain)}`}>
-                                {gainPercentage}% {gain >= 0 ? "gain" : "loss"}
+                                {investment.id < 0 ? "—" : `${gainPercentage}%`} {gain >= 0 ? "gain" : "loss"}
                             </div>
                         </div>
                     </div>
+
+                    <InvestmentContributionScheduleSection investmentId={investment.id} />
 
                     {/* Notes */}
                     {investment.notes && (

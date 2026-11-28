@@ -97,28 +97,24 @@ export function useOptimizedInvestments() {
     });
     const sipPurchases = useMemo(() => sipPurchasesQuery.data?.purchases ?? [], [sipPurchasesQuery.data]);
     const investmentsWithStocks = useMemo(() => {
-        let result = [...investmentsRaw];
+        const result = [...investmentsRaw];
         for (const portfolio of [
-            { type: 'STOCKS' as const, label: 'Stocks', purchases: stockPurchases, data: stockPurchasesQuery.data, id: -1 },
-            { type: 'SIP' as const, label: 'SIP', purchases: sipPurchases, data: sipPurchasesQuery.data, id: -2 },
+            { type: 'STOCKS' as const, label: 'Stocks', purchases: stockPurchases, id: -1 },
+            { type: 'SIP' as const, label: 'SIP', purchases: sipPurchases, id: -2 },
         ]) {
-            const positions = result.filter(i => i.type === portfolio.type);
-            const cost = portfolio.purchases.reduce((sum, p) => sum + p.amount, 0);
-            if (positions.length) {
-                if (portfolio.data) result = result.map(i => i.type === portfolio.type
-                    ? { ...i, purchasePrice: i.quantity > 0 ? cost / positions.length / i.quantity : 0 }
-                    : i);
-            } else if (portfolio.purchases.length) {
-                const date = new Date(portfolio.purchases[portfolio.purchases.length - 1]!.date);
-                result.push({
-                    id: portfolio.id, userId: 0, name: `${portfolio.label} portfolio`, type: portfolio.type,
-                    quantity: 1, purchasePrice: cost, currentPrice: 0, purchaseDate: date, createdAt: date,
-                    updatedAt: date, deductFromAccount: false,
-                });
-            }
+            const hasPosition = result.some(inv => inv.type === portfolio.type && !inv.isScheduledContribution);
+            const oldestPurchase = portfolio.purchases.at(-1);
+            if (hasPosition || !oldestPurchase) continue;
+            const cost = portfolio.purchases.reduce((sum, purchase) => sum + purchase.amount, 0);
+            const date = new Date(oldestPurchase.date);
+            result.push({
+                id: portfolio.id, userId: 0, name: `${portfolio.label} portfolio`, type: portfolio.type,
+                quantity: 1, purchasePrice: cost, currentPrice: 0, purchaseDate: date, createdAt: date,
+                updatedAt: date, deductFromAccount: false,
+            });
         }
         return result;
-    }, [investmentsRaw, stockPurchases, stockPurchasesQuery.data, sipPurchases, sipPurchasesQuery.data]);
+    }, [investmentsRaw, stockPurchases, sipPurchases]);
 
     const investments = useMemo(
         () =>
@@ -170,9 +166,7 @@ export function useOptimizedInvestments() {
     const [selectedInvestments, setSelectedInvestments] = useState<Set<number>>(new Set());
 
     // UI states
-    const [error, setError] = useState<string | null>(
-        queryError ? String(queryError) : null
-    );
+    const [error, setError] = useState<string | null>(null);
 
     // ==================== COMPUTED VALUES ====================
     
@@ -199,14 +193,13 @@ export function useOptimizedInvestments() {
             // Date filtering based on purchase date
             let matchesDateRange = true;
             if (startDate) {
-                const start = new Date(startDate);
+                const start = new Date(`${startDate}T00:00:00`);
                 const investmentDate = investment.purchaseDate instanceof Date ? investment.purchaseDate : new Date(investment.purchaseDate);
                 matchesDateRange = matchesDateRange && investmentDate >= start;
             }
             
             if (endDate) {
-                const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999); // Include the entire end date
+                const end = new Date(`${endDate}T23:59:59.999`);
                 const investmentDate = investment.purchaseDate instanceof Date ? investment.purchaseDate : new Date(investment.purchaseDate);
                 matchesDateRange = matchesDateRange && investmentDate <= end;
             }
@@ -247,17 +240,19 @@ export function useOptimizedInvestments() {
         const totalCurrentValue = investments.reduce((sum, investment) => 
             sum + (investment.quantity * investment.currentPrice), 0);
         
-        const totalGainLoss = totalCurrentValue - totalInvested;
-        const totalGainLossPercentage = totalInvested > 0 ? 
-            ((totalGainLoss / totalInvested) * 100) : 0;
+        const valuedInvestments = investments.filter(investment => investment.id > 0);
+        const valuedCost = valuedInvestments.reduce((sum, investment) =>
+            sum + investment.quantity * investment.purchasePrice, 0);
+        const totalGainLoss = totalCurrentValue - valuedCost;
+        const totalGainLossPercentage = valuedCost > 0 ? (totalGainLoss / valuedCost) * 100 : 0;
 
-        const gainersCount = investments.filter(investment => 
+        const gainersCount = valuedInvestments.filter(investment =>
             investment.currentPrice > investment.purchasePrice).length;
         
-        const losersCount = investments.filter(investment => 
+        const losersCount = valuedInvestments.filter(investment =>
             investment.currentPrice < investment.purchasePrice).length;
         
-        const breakEvenCount = investments.filter(investment => 
+        const breakEvenCount = valuedInvestments.filter(investment =>
             investment.currentPrice === investment.purchasePrice).length;
 
         return {
@@ -355,6 +350,7 @@ export function useOptimizedInvestments() {
             queryClient.invalidateQueries({ queryKey: ['investment-target-progress'] });
             // Invalidate withheld amounts since investment was added
             queryClient.invalidateQueries({ queryKey: ['withheld-amounts'] });
+            queryClient.invalidateQueries({ queryKey: ['scheduled-payments'] });
             triggerBalanceRefresh();
             closeModal();
             setError(null);
@@ -408,6 +404,7 @@ export function useOptimizedInvestments() {
             queryClient.invalidateQueries({ queryKey: ['investment-target-progress'] });
             // Invalidate withheld amounts since investment was updated
             queryClient.invalidateQueries({ queryKey: ['withheld-amounts'] });
+            queryClient.invalidateQueries({ queryKey: ['scheduled-payments'] });
             triggerBalanceRefresh();
             closeModal();
             setError(null);
@@ -449,6 +446,7 @@ export function useOptimizedInvestments() {
             queryClient.invalidateQueries({ queryKey: ['investment-target-progress'] });
             // Invalidate withheld amounts since investment was deleted
             queryClient.invalidateQueries({ queryKey: ['withheld-amounts'] });
+            queryClient.invalidateQueries({ queryKey: ['scheduled-payments'] });
             triggerBalanceRefresh();
             closeModal();
             setError(null);
@@ -490,8 +488,8 @@ export function useOptimizedInvestments() {
             queryClient.invalidateQueries({ queryKey: ['investment-target-progress'] });
             // Invalidate withheld amounts since investments were deleted
             queryClient.invalidateQueries({ queryKey: ['withheld-amounts'] });
+            queryClient.invalidateQueries({ queryKey: ['scheduled-payments'] });
             triggerBalanceRefresh();
-            setSelectedInvestments(new Set());
             setError(null);
         },
         onError: (error, variables, context) => {
@@ -517,7 +515,7 @@ export function useOptimizedInvestments() {
 
     // Investment handlers
     const handleAddInvestment = useCallback(async (data: Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account' | 'investmentTarget'>) => {
-        createMutation.mutate(data);
+        return createMutation.mutateAsync(data);
     }, [createMutation]);
 
     const handleEditInvestment = useCallback(async (id: number, data: Partial<Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account' | 'investmentTarget'>>) => {
@@ -525,7 +523,7 @@ export function useOptimizedInvestments() {
     }, [updateMutation]);
 
     const handleDeleteInvestment = useCallback(async (investment: InvestmentInterface, appLockPassword: string) => {
-        deleteMutation.mutate({ id: investment.id, appLockPassword });
+        return deleteMutation.mutateAsync({ id: investment.id, appLockPassword });
     }, [deleteMutation]);
 
     // Selection handlers
@@ -595,7 +593,9 @@ export function useOptimizedInvestments() {
         stocksError: stockPurchasesQuery.error,
         filteredInvestments,
         loading,
-        error: error || queryError?.message || null,
+        error: queryError?.message || null,
+        mutationError: error,
+        retryInvestments: () => queryClient.invalidateQueries({ queryKey: ["investments"] }),
         sections,
         uniqueTypes,
         uniqueBanks,

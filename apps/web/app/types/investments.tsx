@@ -6,6 +6,7 @@ export interface InvestmentInterface {
     quantity: number;
     purchasePrice: number;
     currentPrice: number;
+    isScheduledContribution?: boolean;
     purchaseDate: Date;
     accountId?: number;
     userId: number;

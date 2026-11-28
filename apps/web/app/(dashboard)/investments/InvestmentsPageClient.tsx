@@ -2,13 +2,14 @@
 
 import { FilterMultiselect } from "../../components/shared/FilterMultiselect";
 import { cn } from "@/lib/utils";
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from "next/navigation";
 import { InvestmentTable } from "./components/InvestmentTable";
 import { AddInvestmentModal } from "./components/AddInvestmentModal";
 import { EditInvestmentModal } from "./components/EditInvestmentModal";
 import { ViewInvestmentModal } from "./components/ViewInvestmentModal";
+import { ScheduleInvestmentModal } from "./components/ScheduleInvestmentModal";
 import { UnifiedBulkImportModal } from "../../components/shared/UnifiedBulkImportModal";
 import { investmentImportConfig } from "../../config/bulkImportConfig";
 import { InvestmentTargetModal } from "./components/InvestmentTargetModal";
@@ -31,7 +32,6 @@ import { DEFAULT_GOLD_SPOT_INR_PER_UNIT } from "./utils/goldSpotStorage";
 import { DEFAULT_SILVER_SPOT_INR_PER_UNIT } from "./utils/silverSpotStorage";
 import { DisappearingNotification, NotificationData } from "../../components/DisappearingNotification";
 import { exportInvestmentTargetsToCSV } from "../../utils/csvExportInvestmentTargets";
-import { presentValueForPosition } from "./utils/stocksExpenseBasis";
 import { INVESTMENT_GROUPING_OPTIONS, isInvestmentGrouping } from "./utils/investmentGrouping";
 // import { InvestmentTypePieChart } from "./charts/InvestmentTypePieChart";
 
@@ -77,9 +77,9 @@ export default function InvestmentsPageClient() {
 
   const router = useRouter();
   const queryClient = useQueryClient();
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [notification, setNotification] = useState<NotificationData | null>(null);
   const [metalRateModal, setMetalRateModal] = useState<null | "gold" | "silver">(null);
+  const [isScheduleInvestmentOpen, setIsScheduleInvestmentOpen] = useState(false);
 
   const {
     targets: actualTargets,
@@ -103,6 +103,8 @@ export default function InvestmentsPageClient() {
     filteredInvestments,
     loading,
     error,
+    mutationError,
+    retryInvestments,
     sections,
     groupBy,
     setGroupBy,
@@ -154,27 +156,6 @@ export default function InvestmentsPageClient() {
     setSilverSpotRateFromDisplay,
   } = useOptimizedInvestments();
 
-  useEffect(() => {
-    return () => {
-      if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-    };
-  }, []);
-
-  const debouncedSetSearchTerm = useCallback((value: string) => {
-    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-    debounceTimeoutRef.current = setTimeout(() => setSearchTerm(value), 200);
-  }, [setSearchTerm]);
-
-  const debouncedSetStartDate = useCallback((value: string) => {
-    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-    debounceTimeoutRef.current = setTimeout(() => setStartDate(value), 150);
-  }, [setStartDate]);
-
-  const debouncedSetEndDate = useCallback((value: string) => {
-    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-    debounceTimeoutRef.current = setTimeout(() => setEndDate(value), 150);
-  }, [setEndDate]);
-
   const formatType = (type: string) => type === 'SIP' ? 'SIP' : type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
 
   function labelForInvestmentTarget(t: (typeof actualTargets)[number]): string {
@@ -188,6 +169,15 @@ export default function InvestmentsPageClient() {
     () => investments.some((inv) => inv.investmentTargetId == null),
     [investments]
   );
+
+  useEffect(() => {
+    if (targetsLoading || targetsError) return;
+    const available = new Set(actualTargets.map(target => String(target.id)));
+    setSelectedTargets(selected => {
+      const valid = selected.filter(id => id === "none" || available.has(id));
+      return valid.length === selected.length ? selected : valid;
+    });
+  }, [actualTargets, targetsError, targetsLoading, setSelectedTargets]);
 
   const handleInvestmentsRefresh = useCallback(() => {
     return queryClient.invalidateQueries({ queryKey: ["investments"] });
@@ -255,31 +245,7 @@ export default function InvestmentsPageClient() {
     [filteredInvestments, filteredInvestmentsStableKey]
   );
 
-  /**
-   * Progress bars / timeline must match the investments table: same quantity × current price,
-   * including browser gold/silver spot overrides. Server-only getInvestmentTargetProgress uses DB
-   * currentPrice and was also stuck behind a stale memo when progress stayed at 100%.
-   */
-  const targetProgressForCharts = useMemo(() => {
-    if (!targetProgress?.length) return targetProgress ?? [];
-    if (!investments?.length) return targetProgress;
-    const pvByTargetId = new Map<number, number>();
-    for (const inv of investments) {
-      if (inv.investmentTargetId == null) continue;
-      const tid = inv.investmentTargetId;
-      pvByTargetId.set(tid, (pvByTargetId.get(tid) || 0) + presentValueForPosition(inv));
-    }
-    return targetProgress.map((t) => {
-      const pv = pvByTargetId.get(t.targetId) ?? 0;
-      const rawProgress = t.targetAmount > 0 ? (pv / t.targetAmount) * 100 : 0;
-      return {
-        ...t,
-        currentAmount: pv,
-        progress: Math.min(rawProgress, 100),
-        isComplete: rawProgress >= 100,
-      };
-    });
-  }, [targetProgress, investments]);
+  const targetProgressForCharts = targetProgress;
 
   const timelineTargets = useMemo(() => targetProgressForCharts.map(target => ({
     ...target,
@@ -302,7 +268,7 @@ export default function InvestmentsPageClient() {
       setNotification({
         type: 'error',
         title: 'Delete Failed',
-        message: 'Failed to delete investment targets. Please try again.'
+        message: error instanceof Error ? error.message : 'Failed to delete investment targets.'
       });
     }
   }, [handleBulkDeleteAllTargets]);
@@ -319,7 +285,7 @@ export default function InvestmentsPageClient() {
     onEditTarget: openEditTargetModal,
     onExtendTarget: handleExtendTarget,
     onAddTarget: openAddTargetModal,
-    onBulkDelete: (appLockPassword: string) => void bulkDeleteAllTargetsConfirm(appLockPassword)
+    onBulkDelete: bulkDeleteAllTargetsConfirm
   }), [timelineTargets, displayCurrency, openEditTargetModal, openAddTargetModal, bulkDeleteAllTargetsConfirm, handleExtendTarget]);
 
   const deleteSectionInvestments = async (
@@ -331,7 +297,12 @@ export default function InvestmentsPageClient() {
       .map(inv => inv.id);
     if (investmentIds.length === 0) return;
 
-    await handleBulkDeleteIds(investmentIds, appLockPassword);
+    try {
+      await handleBulkDeleteIds(investmentIds, appLockPassword);
+    } catch {
+      // The mutation error is rendered on the dashboard.
+      return;
+    }
     setSelectedInvestments(prev => {
       const newSet = new Set(prev);
       investmentIds.forEach(id => newSet.delete(id));
@@ -387,8 +358,7 @@ export default function InvestmentsPageClient() {
           <h3 className={errorTitle}>Error Loading Investments</h3>
           <p className={errorMessage}>{error}</p>
           <div className="flex gap-2 mt-4 justify-center">
-            <button onClick={() => window.location.reload()} className={primaryButton}>Retry</button>
-            <button onClick={clearError} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">Dismiss</button>
+            <button onClick={retryInvestments} className={primaryButton}>Retry</button>
           </div>
         </div>
       </div>
@@ -414,11 +384,30 @@ export default function InvestmentsPageClient() {
           </div>
           <div className={UI_STYLES.header.buttonGroup}>
             <button onClick={() => openModal('add')} className={primaryButton}>Add Investment</button>
+            <button
+              type="button"
+              onClick={() => setIsScheduleInvestmentOpen(true)}
+              className={secondaryBlueButton}
+            >
+              Schedule an Investment
+            </button>
             <button style={{ display: "none" }} onClick={() => openModal('import')} className={secondaryBlueButton}>Import CSV</button>
             <button style={{ display: "none" }} onClick={handleCombinedExportToCSV} className={secondaryGreenButton} disabled={filteredInvestments.length === 0 && (!targetProgress || targetProgress.length === 0)}>Export CSV</button>
           </div>
         </div>
 
+        {hasActiveFilters && (
+          <p className={cardSubtitle}>Filters apply to the allocation chart and investment tables. Portfolio totals and targets cover all investments.</p>
+        )}
+        {investments.some(inv => inv.id < 0) && (
+          <p className={cardSubtitle}>Portfolios awaiting valuation count toward invested cost. Their returns are excluded.</p>
+        )}
+        {mutationError && (
+          <div role="alert" className={errorContainer}>
+            {mutationError}
+            <button type="button" onClick={clearError} className={clearButton}>Dismiss</button>
+          </div>
+        )}
         <div className="grid grid-cols-6 gap-6">
           <div className={`${cardLargeContainer} relative`}>
             <Target className={`absolute top-4 left-4 h-4 w-4 ${blueIcon}`} />
@@ -479,7 +468,18 @@ export default function InvestmentsPageClient() {
             <InvestmentTypePolarChart {...polarChartProps} />
           </div>
           <div>
-            <InvestmentTargetProgressChart {...targetChartProps} />
+            <p className={cardSubtitle}>Target progress uses saved prices, the same basis as contribution schedules.</p>
+            {targetsError ? (
+              <div role="alert" className={errorContainer}>
+                {targetsError}
+                <button type="button" className={clearButton} onClick={() => {
+                  void queryClient.invalidateQueries({ queryKey: ["investment-targets"] });
+                  void queryClient.invalidateQueries({ queryKey: ["investment-target-progress"] });
+                }}>Retry targets</button>
+              </div>
+            ) : targetsLoading ? <p role="status">Loading investment targets…</p> : (
+              <InvestmentTargetProgressChart {...targetChartProps} />
+            )}
           </div>
         </div>
 
@@ -496,7 +496,7 @@ export default function InvestmentsPageClient() {
           <div className="grid w-full grid-cols-1 items-end gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,2fr)_repeat(7,minmax(0,1fr))]">
             <div className="min-w-0">
               <label className={labelText}>Search Investments</label>
-              <input type="text" placeholder="Search by name, symbol, notes..." value={searchTerm} onChange={e => debouncedSetSearchTerm(e.target.value)} className={standardInput} />
+              <input type="text" placeholder="Search by name, symbol, notes..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={standardInput} />
             </div>
             <FilterMultiselect
               label="Filter by Type"
@@ -530,11 +530,11 @@ export default function InvestmentsPageClient() {
             />
             <div className="min-w-0">
               <label className={labelText}>Start Date</label>
-              <input type="date" value={startDate} onChange={e => debouncedSetStartDate(e.target.value)} className={standardInput} />
+              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={standardInput} />
             </div>
             <div className="min-w-0">
               <label className={labelText}>End Date</label>
-              <input type="date" value={endDate} onChange={e => debouncedSetEndDate(e.target.value)} className={standardInput} />
+              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className={standardInput} />
             </div>
             <div className="min-w-0">
               <label htmlFor="investment-group-by" className={labelText}>Group by</label>
@@ -661,7 +661,17 @@ export default function InvestmentsPageClient() {
                   selectedInvestments={selectedInvestments}
                   onInvestmentSelect={handleInvestmentSelect}
                   onEdit={(investment: InvestmentInterface) => openModal('edit', investment)}
-                  onDelete={(appLockPassword: string, investment: InvestmentInterface) => investment.id < 0 ? router.push(investment.type === 'SIP' ? '/sip' : '/stocks') : void handleDeleteInvestment(investment, appLockPassword)}
+                  onDelete={async (appLockPassword, investment) => {
+                    if (investment.id < 0) {
+                      router.push(investment.type === 'SIP' ? '/sip' : '/stocks');
+                      return;
+                    }
+                    try {
+                      await handleDeleteInvestment(investment, appLockPassword);
+                    } catch {
+                      // The mutation error is rendered on the dashboard.
+                    }
+                  }}
                   onViewDetails={(investment: InvestmentInterface) => openModal('view', investment)}
                   showBulkActions={true}
                   onRefresh={handleInvestmentsRefresh}
@@ -700,7 +710,25 @@ export default function InvestmentsPageClient() {
           isOpen={modal.type === 'add'}
           onClose={closeModal}
           onAdd={(data) => handleModalAction('add', data)}
-          hasExistingStocksInvestment={true}
+          hasExistingStocksInvestment={investments.some(inv => inv.id > 0 && inv.type === "STOCKS")}
+        />
+        <ScheduleInvestmentModal
+          isOpen={isScheduleInvestmentOpen}
+          onClose={() => setIsScheduleInvestmentOpen(false)}
+          onSuccess={(reminderCreated) => {
+            void queryClient.invalidateQueries({ queryKey: ["investments"] });
+            void queryClient.invalidateQueries({ queryKey: ["investment-target-progress"] });
+            void queryClient.invalidateQueries({ queryKey: ["withheld-amounts"] });
+            void queryClient.invalidateQueries({ queryKey: ["scheduled-payments"] });
+            setNotification({
+              title: reminderCreated ? "Investment scheduled" : "Contribution saved",
+              message: reminderCreated
+                ? "Contribution reminders are scheduled."
+                : "Your contribution was withheld against the linked account.",
+              type: "success",
+              duration: 3000,
+            });
+          }}
         />
         <EditInvestmentModal
           key={modal.type === 'edit' && modal.investment ? `edit-investment-${modal.investment.id}` : 'edit-investment-closed'}
@@ -741,7 +769,7 @@ export default function InvestmentsPageClient() {
       const result = await handleAddInvestment(data);
       
       // Show success notification
-      const totalValue = data.quantity * data.purchasePrice;
+      const totalValue = result.quantity * result.purchasePrice;
       const formattedAmount = formatCurrency(
         convertForDisplaySync(totalValue, userCurrency, displayCurrency),
         displayCurrency
@@ -759,7 +787,7 @@ export default function InvestmentsPageClient() {
       // Show error notification
       setNotification({
         title: 'Failed to Add Investment',
-        message: "Please try again or contact support if the issue persists",
+        message: error instanceof Error ? error.message : "Please try again.",
         type: "error",
         duration: 4000
       });

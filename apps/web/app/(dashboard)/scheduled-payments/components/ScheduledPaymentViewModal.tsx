@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  acceptScheduledPayment,
   getAcceptedRecurringHistory,
   postponeScheduledPayment,
 } from "../actions/scheduled-payments";
@@ -13,6 +14,7 @@ import {
   accountDisplay,
   formatScheduledPaymentWhenDate,
   getAcceptedRecurringHistoryFromItems,
+  investmentContributionLabel,
   isScheduledUnresolved,
   parseDatetimeLocalInTimezone,
   postponeFromOriginalScheduledDate,
@@ -29,6 +31,7 @@ interface ScheduledPaymentViewModalProps {
   displayCurrency: string;
   userTimezone: string;
   onPostponeSuccess: () => void | Promise<void>;
+  onEarlyAcceptSuccess?: () => void | Promise<void>;
   onEdit?: () => void;
   /** All payments for client-side series history; falls back to server fetch when omitted. */
   allItems?: ScheduledPaymentItem[];
@@ -43,6 +46,7 @@ export function ScheduledPaymentViewModal({
   displayCurrency,
   userTimezone,
   onPostponeSuccess,
+  onEarlyAcceptSuccess,
   onEdit,
   allItems,
 }: ScheduledPaymentViewModalProps) {
@@ -110,18 +114,35 @@ export function ScheduledPaymentViewModal({
   const now = new Date();
   const status = scheduledPaymentStatusLabel(item, now);
   const canPostpone = item.resolution === null;
+  const scheduledAtDate = new Date(item.scheduledAt);
+  const canEarlyAccept =
+    item.resolution === null && scheduledAtDate.getTime() > now.getTime();
   const displayAmount = convertForDisplaySync(
     item.amount,
     item.currency,
     displayCurrency
   );
-  const scheduledAtDate = new Date(item.scheduledAt);
   const minDatetimeLocal = toDatetimeLocalValue(new Date(Date.now() + 60_000), userTimezone);
   const acceptedHistory = clientHistory ?? fetchedHistory;
   const showHistorySection =
     item.isRecurring &&
     isScheduledUnresolved(item) &&
     (acceptedHistory.length > 0 || isLoadingHistory);
+
+  async function handleEarlyAccept() {
+    if (acting || !canEarlyAccept) return;
+    setActionError(null);
+    setActing(true);
+    try {
+      await acceptScheduledPayment(paymentId, { allowEarly: true });
+      await onEarlyAcceptSuccess?.();
+      onClose();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Could not accept early");
+    } finally {
+      setActing(false);
+    }
+  }
 
   async function handlePostpone(when: Date) {
     if (acting || when <= new Date()) {
@@ -201,6 +222,11 @@ export function ScheduledPaymentViewModal({
             <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
               {recurringDisplay(item)}
             </span>
+            {investmentContributionLabel(item) ? (
+              <span className="rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-medium text-teal-800">
+                {investmentContributionLabel(item)}
+              </span>
+            ) : null}
           </div>
 
           <div className="rounded-lg bg-gray-50 p-4 space-y-2">
@@ -349,9 +375,20 @@ export function ScheduledPaymentViewModal({
             <button
               type="button"
               onClick={onEdit}
+              disabled={acting}
               className={`${secondaryOutlineButton} px-4 py-2.5 text-sm font-medium`}
             >
               Edit
+            </button>
+          ) : null}
+          {canEarlyAccept ? (
+            <button
+              type="button"
+              onClick={() => void handleEarlyAccept()}
+              disabled={acting}
+              className="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
+            >
+              Early accept
             </button>
           ) : null}
           <button

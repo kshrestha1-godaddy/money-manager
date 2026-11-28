@@ -1,0 +1,92 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Schedule an Investment",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "create-path",
+        "label": "Create schedule",
+        "focus": ["modal", "validate", "create", "preview"],
+        "note": "Modal sizes N installments from PV remaining, but only the first payment row is stored."
+      },
+      {
+        "id": "accept-path",
+        "label": "Accept installment",
+        "focus": ["due", "expense", "withhold", "recalc"],
+        "note": "Accept writes expense without debiting balance, withholds on the investment, then creates the next row and recalcs."
+      },
+      {
+        "id": "bug-collapse",
+        "label": "Recalc collapse bug",
+        "focus": ["withhold", "recalc", "bug"],
+        "note": "Recalc divides remaining by open row count (usually 1), so installment 2 becomes the entire remaining gap."
+      }
+    ]
+  },
+  "lanes": [
+    { "id": "ui", "label": "UI" },
+    { "id": "server", "label": "Server actions" },
+    { "id": "ledger", "label": "Ledger effects" },
+    { "id": "risk", "label": "Risk path", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "plan", "label": "Plan", "fromCol": 0, "toCol": 2 },
+    { "id": "due", "label": "Due + accept", "fromCol": 3, "toCol": 4, "variant": "emphasis" },
+    { "id": "follow", "label": "Follow-on", "fromCol": 5, "toCol": 5, "variant": "dashed" }
+  ],
+  "groups": [
+    { "id": "create_group", "label": "Create once", "lane": "server", "fromCol": 1, "toCol": 2, "variant": "emphasis" },
+    { "id": "accept_group", "label": "Accept txn", "lane": "ledger", "fromCol": 3, "toCol": 4, "variant": "dashed" },
+    { "id": "bug_group", "label": "Known bug", "lane": "risk", "fromCol": 5, "toCol": 5, "variant": "security" }
+  ],
+  "mainPath": ["modal", "validate", "create", "due", "expense", "withhold", "recalc"],
+  "nodes": [
+    { "id": "modal", "lane": "ui", "col": 0, "type": "frontend", "label": "Schedule modal", "sublabel": "target + account + initial", "width": 148 },
+    { "id": "preview", "lane": "ui", "col": 1, "type": "frontend", "label": "N-installment preview", "sublabel": "remaining ÷ periods", "width": 148 },
+    { "id": "validate", "lane": "server", "col": 1, "type": "backend", "label": "Validate + PV gap", "sublabel": "target − Σ current value", "width": 148 },
+    { "id": "create", "lane": "server", "col": 2, "type": "database", "label": "Shell + first payment", "sublabel": "1 open row · withhold on", "tag": "rolling series", "width": 156 },
+    { "id": "due", "lane": "ui", "col": 3, "type": "frontend", "label": "Due prompt / calendar", "sublabel": "accept · reject · postpone", "width": 148 },
+    { "id": "expense", "lane": "ledger", "col": 3, "type": "backend", "label": "Expense (no debit)", "sublabel": "affectAccountBalance false", "width": 148 },
+    { "id": "withhold", "lane": "ledger", "col": 4, "type": "backend", "label": "Apply contribution", "sublabel": "raise cost · free ↓", "width": 148 },
+    { "id": "recalc", "lane": "server", "col": 5, "type": "backend", "label": "Next row + recalc", "sublabel": "remaining ÷ open count", "width": 148 },
+    { "id": "bug", "lane": "risk", "col": 5, "type": "security", "label": "Collapse bug", "sublabel": "next amount = full gap", "tag": "critical", "width": 148 }
+  ],
+  "edges": [
+    { "id": "e1", "from": "modal", "to": "validate", "label": "submit", "variant": "emphasis" },
+    { "id": "e2", "from": "modal", "to": "preview", "label": "live preview", "variant": "dashed", "role": "branch" },
+    { "id": "e3", "from": "validate", "to": "create", "variant": "default" },
+    { "id": "e5", "from": "create", "to": "due", "label": "when due", "variant": "default" },
+    { "id": "e6", "from": "due", "to": "expense", "label": "accept", "variant": "emphasis" },
+    { "id": "e7", "from": "expense", "to": "withhold", "variant": "default" },
+    { "id": "e8", "from": "withhold", "to": "recalc", "variant": "emphasis" },
+    { "id": "e9", "from": "recalc", "to": "bug", "label": "open count = 1", "variant": "security", "role": "error" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Remaining (correct basis)",
+      "items": [
+        "targetAmount − Σ(quantity × currentPrice)",
+        "Same rule as target progress chart"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Critical defect",
+      "items": [
+        "Only one open payment exists at a time",
+        "Recalc sets that row to the entire remaining gap"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Withhold model",
+      "items": [
+        "Account.balance never decrements on accept",
+        "Free balance = balance − Σ withheld purchase cost"
+      ]
+    }
+  ]
+}

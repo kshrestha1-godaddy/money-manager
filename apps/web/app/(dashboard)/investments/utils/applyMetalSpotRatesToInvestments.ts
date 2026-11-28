@@ -21,6 +21,7 @@ export function applyMetalSpotRatesToInvestments(
   if (!goldOk && !silverOk) return investments;
 
   return investments.map((inv) => {
+    if (inv.isScheduledContribution) return inv;
     if (inv.type === "GOLD" && goldOk)
       return { ...inv, currentPrice: goldSpotPerUnit! };
     if (inv.type === "SILVER" && silverOk)

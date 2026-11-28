@@ -1,6 +1,9 @@
 "use server";
 
-import { computeNextScheduledAt } from "../../../utils/scheduledPaymentTime";
+import {
+  computeNextScheduledAt,
+  endOfCalendarDateInTimezone,
+} from "../../../utils/scheduledPaymentTime";
 import { SUPPORTED_CURRENCIES } from "../../../utils/currency";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
@@ -14,6 +17,9 @@ import { Expense, Category } from "../../../types/financial";
 import { ScheduledPaymentItem } from "../../../types/scheduled-payment";
 import { AccountInterface } from "../../../types/accounts";
 import { requireAppLockPassword } from "../../../lib/security/require-app-lock-password";
+import { convertForDisplayWithDbRates } from "../../../utils/currencyDisplayServer";
+import { getLockedLedgerCurrency } from "../../../utils/ledgerCurrency";
+import { applyContributionToInvestmentInTransaction } from "../../investments/actions/investments";
 
 function mapAccount(a: {
   id: number;
@@ -59,10 +65,12 @@ function toScheduledPaymentItem(row: {
   resolution: ScheduledPaymentResolution | null;
   resolvedAt: Date | null;
   createdExpenseId: number | null;
+  investmentId: number | null;
   createdAt: Date;
   updatedAt: Date;
   category: Category & { type: string };
   account: Parameters<typeof mapAccount>[0] | null;
+  investment?: { id: number; name: string; type: string } | null;
 }): ScheduledPaymentItem {
   return {
     id: row.id,
@@ -83,6 +91,10 @@ function toScheduledPaymentItem(row: {
     resolution: row.resolution,
     resolvedAt: row.resolvedAt ? new Date(row.resolvedAt) : null,
     createdExpenseId: row.createdExpenseId,
+    investmentId: row.investmentId ?? null,
+    investment: row.investment
+      ? { id: row.investment.id, name: row.investment.name, type: row.investment.type }
+      : null,
     createdAt: new Date(row.createdAt),
     updatedAt: new Date(row.updatedAt),
   };
@@ -102,12 +114,35 @@ async function createNextRecurringOccurrence(
     notes: string | null;
     isRecurring: boolean;
     recurringFrequency: RecurringFrequency | null;
+    investmentId?: number | null;
   },
   tx: Prisma.TransactionClient
 ) {
   if (!source.isRecurring || !source.recurringFrequency) return;
   const user = await tx.user.findUnique({ where: { id: source.userId }, select: { timezone: true } });
-  const nextAt = computeNextScheduledAt(source.scheduledAt, source.recurringFrequency, user?.timezone ?? "UTC");
+  const timezone = user?.timezone ?? "UTC";
+  const nextAt = computeNextScheduledAt(source.scheduledAt, source.recurringFrequency, timezone);
+
+  // Investment contribution series require a linked target with a completion date.
+  if (source.investmentId != null) {
+    const linked = await tx.investment.findFirst({
+      where: { id: source.investmentId, userId: source.userId },
+      select: {
+        investmentTargetId: true,
+        investmentTarget: { select: { targetCompletionDate: true } },
+      },
+    });
+    // Target deleted/unlinked → stop the series (do not recur forever).
+    if (!linked?.investmentTargetId || !linked.investmentTarget?.targetCompletionDate) {
+      return;
+    }
+    const completionEnd = endOfCalendarDateInTimezone(
+      new Date(linked.investmentTarget.targetCompletionDate),
+      timezone
+    );
+    if (nextAt.getTime() > completionEnd.getTime()) return;
+  }
+
   await tx.scheduledPayment.create({
     data: {
       title: source.title,
@@ -122,6 +157,7 @@ async function createNextRecurringOccurrence(
       notes: source.notes,
       isRecurring: true,
       recurringFrequency: source.recurringFrequency,
+      investmentId: source.investmentId ?? null,
     },
   });
 }
@@ -129,6 +165,7 @@ async function createNextRecurringOccurrence(
 const includeRelations = {
   category: true,
   account: true,
+  investment: { select: { id: true, name: true, type: true } },
 } as const;
 
 export async function getScheduledPayments(): Promise<ScheduledPaymentItem[]> {
@@ -140,6 +177,33 @@ export async function getScheduledPayments(): Promise<ScheduledPaymentItem[]> {
     where: { userId },
     include: includeRelations,
     orderBy: [{ scheduledAt: "desc" }],
+  });
+
+  return rows.map((r) => toScheduledPaymentItem(r as never));
+}
+
+/** All scheduled payments linked to an investment (completed + open), for the investment view. */
+export async function getScheduledPaymentsForInvestment(
+  investmentId: number
+): Promise<ScheduledPaymentItem[]> {
+  const session = await getServerSession(authOptions);
+  if (!session) throw new Error("Unauthorized");
+  const userId = getUserIdFromSession(session.user.id);
+
+  if (!Number.isSafeInteger(investmentId) || investmentId <= 0) {
+    throw new Error("Invalid investment");
+  }
+
+  const owned = await prisma.investment.findFirst({
+    where: { id: investmentId, userId },
+    select: { id: true },
+  });
+  if (!owned) throw new Error("Investment not found");
+
+  const rows = await prisma.scheduledPayment.findMany({
+    where: { userId, investmentId },
+    include: includeRelations,
+    orderBy: [{ scheduledAt: "asc" }],
   });
 
   return rows.map((r) => toScheduledPaymentItem(r as never));
@@ -190,10 +254,15 @@ export async function getAcceptedRecurringHistory(
       resolution: ScheduledPaymentResolution.ACCEPTED,
       isRecurring: true,
       recurringFrequency: current.recurringFrequency,
-      title: current.title,
-      categoryId: current.categoryId,
-      accountId: current.accountId,
-      currency: current.currency,
+      ...(current.investmentId != null
+        ? { investmentId: current.investmentId }
+        : {
+            title: current.title,
+            categoryId: current.categoryId,
+            accountId: current.accountId,
+            currency: current.currency,
+            investmentId: null,
+          }),
     },
     include: includeRelations,
     orderBy: { scheduledAt: "desc" },
@@ -214,6 +283,7 @@ export interface CreateScheduledPaymentInput {
   notes?: string;
   isRecurring?: boolean;
   recurringFrequency?: RecurringFrequency;
+  investmentId?: number | null;
 }
 
 function validateScheduledPaymentInput(input: CreateScheduledPaymentInput) {
@@ -252,6 +322,13 @@ function validateScheduledPaymentInput(input: CreateScheduledPaymentInput) {
   if (input.tags !== undefined && (!Array.isArray(input.tags) || input.tags.some(tag => typeof tag !== "string"))) {
     throw new Error("Tags must be a list of strings");
   }
+  if (
+    input.investmentId !== undefined &&
+    input.investmentId !== null &&
+    (!Number.isSafeInteger(input.investmentId) || input.investmentId <= 0)
+  ) {
+    throw new Error("Invalid investment");
+  }
 }
 
 export async function createScheduledPayment(input: CreateScheduledPaymentInput) {
@@ -272,6 +349,18 @@ export async function createScheduledPayment(input: CreateScheduledPaymentInput)
     if (!account) throw new Error("Invalid account");
   }
 
+  let investmentId: number | null = input.investmentId ?? null;
+  if (investmentId != null) {
+    const investment = await prisma.investment.findFirst({
+      where: { id: investmentId, userId },
+      select: { id: true, accountId: true },
+    });
+    if (!investment) throw new Error("Invalid investment");
+    if (!investment.accountId) {
+      throw new Error("Linked investment must have an account for contribution schedules");
+    }
+  }
+
   const isRecurring = Boolean(input.isRecurring && input.recurringFrequency);
   const row = await prisma.scheduledPayment.create({
     data: {
@@ -287,11 +376,14 @@ export async function createScheduledPayment(input: CreateScheduledPaymentInput)
       notes: input.notes?.trim() || null,
       isRecurring,
       recurringFrequency: isRecurring ? input.recurringFrequency : null,
+      investmentId,
     },
     include: includeRelations,
   });
 
   revalidatePath("/expenses");
+  revalidatePath("/scheduled-payments");
+  revalidatePath("/calendar");
   return toScheduledPaymentItem(row as never);
 }
 
@@ -308,6 +400,7 @@ export interface UpdateScheduledPaymentInput {
   notes?: string;
   isRecurring?: boolean;
   recurringFrequency?: RecurringFrequency;
+  investmentId?: number | null;
 }
 
 export async function updateScheduledPayment(input: UpdateScheduledPaymentInput) {
@@ -339,6 +432,16 @@ export async function updateScheduledPayment(input: UpdateScheduledPaymentInput)
     if (!account) throw new Error("Invalid account");
   }
 
+  const investmentId =
+    input.investmentId !== undefined ? input.investmentId : existing.investmentId;
+  if (investmentId != null) {
+    const investment = await prisma.investment.findFirst({
+      where: { id: investmentId, userId },
+      select: { id: true },
+    });
+    if (!investment) throw new Error("Invalid investment");
+  }
+
   const isRecurring = Boolean(input.isRecurring && input.recurringFrequency);
 
   const row = await prisma.scheduledPayment.update({
@@ -357,12 +460,14 @@ export async function updateScheduledPayment(input: UpdateScheduledPaymentInput)
       notes: input.notes?.trim() || null,
       isRecurring,
       recurringFrequency: isRecurring ? input.recurringFrequency : null,
+      ...(input.investmentId !== undefined ? { investmentId: input.investmentId } : {}),
     },
     include: includeRelations,
   });
 
   revalidatePath("/expenses");
   revalidatePath("/scheduled-payments");
+  revalidatePath("/calendar");
   return toScheduledPaymentItem(row as never);
 }
 
@@ -395,6 +500,7 @@ export async function postponeScheduledPayment(id: number, newScheduledAt: Date)
   revalidatePath("/expenses");
   revalidatePath("/scheduled-payments");
   revalidatePath("/dashboard");
+  revalidatePath("/calendar");
 }
 
 export async function deleteScheduledPayment(id: number, appLockPassword: string) {
@@ -411,6 +517,7 @@ export async function deleteScheduledPayment(id: number, appLockPassword: string
   await prisma.scheduledPayment.delete({ where: { id, userId, resolution: null } });
   revalidatePath("/expenses");
   revalidatePath("/scheduled-payments");
+  revalidatePath("/calendar");
 }
 
 export async function deleteScheduledPayments(
@@ -427,6 +534,7 @@ export async function deleteScheduledPayments(
     });
     revalidatePath("/expenses");
     revalidatePath("/scheduled-payments");
+    revalidatePath("/calendar");
     return { ok: true, deleted: result.count };
   } catch (e) {
     console.error(e);
@@ -434,16 +542,33 @@ export async function deleteScheduledPayments(
   }
 }
 
-export async function acceptScheduledPayment(id: number) {
+export async function acceptScheduledPayment(
+  id: number,
+  options?: { allowEarly?: boolean }
+) {
   const session = await getServerSession(authOptions);
   if (!session) throw new Error("Unauthorized");
   const userId = getUserIdFromSession(session.user.id);
+  const allowEarly = options?.allowEarly === true;
 
   const expense = await prisma.$transaction(async (tx) => {
-    const sp = await tx.scheduledPayment.findFirst({ where: { id, userId }, include: { category: true } });
+    const where = { id, userId };
+    let sp = await tx.scheduledPayment.findFirst({ where, include: { category: true } });
+    const contributionCurrency = sp?.investmentId != null
+      ? await getLockedLedgerCurrency(tx, userId)
+      : null;
+    if (contributionCurrency) {
+      sp = await tx.scheduledPayment.findFirst({ where, include: { category: true } });
+    }
     if (!sp) throw new Error("Scheduled payment not found");
+    if (sp.investmentId == null && sp.tags?.includes("investment-contribution")) {
+      throw new Error("This contribution no longer has a linked investment. Delete the reminder to clear it.");
+    }
     if (sp.resolution !== null) throw new Error("This scheduled payment was already resolved");
-    if (sp.scheduledAt > new Date()) throw new Error("This payment is not due yet");
+    // Early accept keeps scheduledAt unchanged; only skips the due-date gate.
+    if (!allowEarly && sp.scheduledAt > new Date()) {
+      throw new Error("This payment is not due yet");
+    }
 
     // The conditional write locks this occurrence. Concurrent accept/reject requests
     // cannot claim it again; all changes roll back if any following step fails.
@@ -454,6 +579,7 @@ export async function acceptScheduledPayment(id: number) {
     if (claimed.count !== 1) throw new Error("This scheduled payment was already resolved");
 
     const user = await tx.user.findUnique({ where: { id: userId }, select: { currency: true } });
+    const isInvestmentContribution = sp.investmentId != null;
     const expensePayload: Omit<Expense, "id" | "createdAt" | "updatedAt"> = {
       title: sp.title,
       description: sp.description ?? undefined,
@@ -473,10 +599,40 @@ export async function acceptScheduledPayment(id: number) {
       transactionLocation: null,
       transactionLocationId: null,
     };
-    const created = await createExpenseInTransaction(tx, expensePayload, userId, user);
+    const created = await createExpenseInTransaction(tx, expensePayload, userId, user, {
+      affectAccountBalance: !isInvestmentContribution,
+    });
     await tx.scheduledPayment.update({ where: { id }, data: { createdExpenseId: created.id } });
+
+    let targetIdForRecalc: number | null = null;
+    if (sp.investmentId != null && contributionCurrency) {
+      const contributionInLedger = await convertForDisplayWithDbRates(
+        parseFloat(String(sp.amount)),
+        sp.currency,
+        contributionCurrency,
+        userId
+      );
+      await applyContributionToInvestmentInTransaction(
+        tx,
+        userId,
+        sp.investmentId,
+        contributionInLedger
+      );
+      const inv = await tx.investment.findFirst({
+        where: { id: sp.investmentId, userId },
+        select: { investmentTargetId: true },
+      });
+      targetIdForRecalc = inv?.investmentTargetId ?? null;
+    }
+
     await createNextRecurringOccurrence(sp, tx);
-    return { id: created.id, title: sp.title, amount: Number(sp.amount) };
+    return {
+      id: created.id,
+      title: sp.title,
+      amount: Number(sp.amount),
+      isInvestmentContribution,
+      targetIdForRecalc,
+    };
   });
 
   // These optional side effects run only after the financial transaction commits.
@@ -492,10 +648,26 @@ export async function acceptScheduledPayment(id: number) {
     console.error("Failed to check notifications after scheduled expense:", error);
   }
 
+  if (expense.targetIdForRecalc) {
+    try {
+      const { recalcOpenContributionSchedulesForTarget } = await import(
+        "../../investments/actions/schedule-investment"
+      );
+      await recalcOpenContributionSchedulesForTarget(userId, expense.targetIdForRecalc);
+    } catch (error) {
+      // Accept already committed; don't surface recalc failure as an accept failure.
+      console.error("Failed to recalc contribution schedule after accept:", error);
+    }
+  }
+
   revalidatePath("/expenses");
   revalidatePath("/accounts");
   revalidatePath("/dashboard");
   revalidatePath("/scheduled-payments");
+  revalidatePath("/calendar");
+  if (expense.isInvestmentContribution) {
+    revalidatePath("/investments");
+  }
 }
 
 export async function rejectScheduledPayment(id: number) {
@@ -503,8 +675,14 @@ export async function rejectScheduledPayment(id: number) {
   if (!session) throw new Error("Unauthorized");
   const userId = getUserIdFromSession(session.user.id);
 
+  let targetIdForRecalc: number | null = null;
   await prisma.$transaction(async (tx) => {
-    const sp = await tx.scheduledPayment.findFirst({ where: { id, userId } });
+    const where = { id, userId };
+    let sp = await tx.scheduledPayment.findFirst({ where });
+    if (sp?.investmentId != null) {
+      await getLockedLedgerCurrency(tx, userId);
+      sp = await tx.scheduledPayment.findFirst({ where });
+    }
     if (!sp) throw new Error("Scheduled payment not found");
     if (sp.resolution !== null) throw new Error("This scheduled payment was already resolved");
     if (sp.scheduledAt > new Date()) throw new Error("This payment is not due yet");
@@ -515,9 +693,30 @@ export async function rejectScheduledPayment(id: number) {
     });
     if (claimed.count !== 1) throw new Error("This scheduled payment was already resolved");
     await createNextRecurringOccurrence(sp, tx);
+
+    if (sp.investmentId != null) {
+      const inv = await tx.investment.findFirst({
+        where: { id: sp.investmentId, userId },
+        select: { investmentTargetId: true },
+      });
+      targetIdForRecalc = inv?.investmentTargetId ?? null;
+    }
   });
+
+  if (targetIdForRecalc) {
+    try {
+      const { recalcOpenContributionSchedulesForTarget } = await import(
+        "../../investments/actions/schedule-investment"
+      );
+      await recalcOpenContributionSchedulesForTarget(userId, targetIdForRecalc);
+    } catch (error) {
+      console.error("Failed to recalc contribution schedule after reject:", error);
+    }
+  }
 
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
   revalidatePath("/scheduled-payments");
+  revalidatePath("/calendar");
+  if (targetIdForRecalc) revalidatePath("/investments");
 }

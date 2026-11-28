@@ -62,3 +62,24 @@ test('only supported saved grouping values are accepted', () => {
         assert.equal(isInvestmentGrouping(value), false);
     }
 });
+
+test('a portfolio awaiting valuation retains its cost without reporting a loss', () => {
+    const items = [position(1), position(-1, { currentPrice: 0 })];
+    const [byType] = groupInvestments(items, 'type');
+    assert.equal(byType.totalInvested, 400);
+    assert.equal(byType.currentValue, 220);
+    assert.equal(byType.gainLoss, 20);
+    assert.equal(byType.gainLossPercentage, 10);
+    assert.equal(groupInvestments(items, 'performance')[1].key, 'unvalued');
+});
+
+test('a metal contribution keeps its cash value while a metal holding uses spot', () => {
+    const { applyMetalSpotRatesToInvestments } = load('applyMetalSpotRatesToInvestments');
+    const items = [
+        position(1, { type: 'GOLD', isScheduledContribution: true, currentPrice: 0 }),
+        position(2, { type: 'GOLD' }),
+    ];
+    const [contribution, holding] = applyMetalSpotRatesToInvestments(items, 250, undefined);
+    assert.equal(contribution.currentPrice, 0);
+    assert.equal(holding.currentPrice, 250);
+});

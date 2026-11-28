@@ -186,13 +186,21 @@ export function PendingScheduledPaymentsPrompt() {
           Scheduled payment due
         </h2>
         <p className="text-sm text-gray-600 mb-4">
-          Confirm whether this payment should be recorded as an expense.
+          {current.investmentId
+            ? "Confirm this investment contribution. An expense is recorded without reducing the bank balance; the amount is withheld on the investment."
+            : "Confirm whether this payment should be recorded as an expense."}
         </p>
         <div className="rounded-lg bg-gray-50 p-4 mb-4 space-y-2 text-sm">
           <p>
             <span className="text-gray-500">Title:</span>{" "}
             <span className="font-medium text-gray-900">{current.title}</span>
           </p>
+          {current.investment?.name ? (
+            <p>
+              <span className="text-gray-500">Investment:</span>{" "}
+              <span className="font-medium text-teal-800">{current.investment.name}</span>
+            </p>
+          ) : null}
           <p>
             <span className="text-gray-500">Amount:</span>{" "}
             <span className="font-semibold text-gray-900 whitespace-nowrap tabular-nums">

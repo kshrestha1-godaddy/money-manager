@@ -1,5 +1,7 @@
 "use server";
 
+import { getLockedLedgerCurrency } from "../../../utils/ledgerCurrency";
+
 import prisma from "@repo/db/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
@@ -171,12 +173,17 @@ export async function updateInvestmentTarget(id: number, data: Partial<Investmen
             throw new Error("Investment target not found or unauthorized");
         }
 
-        const updatedTarget = await prisma.investmentTarget.update({
-            where: { id },
-            data: data,
+        const updatedTarget = await prisma.$transaction(async (tx) => {
+            await getLockedLedgerCurrency(tx, userId);
+            const updated = await tx.investmentTarget.update({ where: { id, userId }, data });
+            if (data.targetAmount !== undefined || data.targetCompletionDate !== undefined) {
+                const { recalcOpenContributionSchedulesForTarget } = await import("./schedule-investment");
+                await recalcOpenContributionSchedulesForTarget(userId, id, tx);
+            }
+            return updated;
         });
 
-        revalidatePath("/(dashboard)/investments");
+        for (const path of ["/investments", "/scheduled-payments", "/calendar"]) revalidatePath(path);
 
         // Convert Decimal to number for client component compatibility
         return {
@@ -194,23 +201,7 @@ export async function deleteInvestmentTarget(id: number, appLockPassword: string
     try {
         const userId = await requireAppLockPassword(appLockPassword);
 
-        // Verify the target belongs to the user
-        const existingTarget = await prisma.investmentTarget.findFirst({
-            where: {
-                id,
-                userId: userId,
-            },
-        });
-
-        if (!existingTarget) {
-            throw new Error("Investment target not found or unauthorized");
-        }
-
-        await prisma.investmentTarget.delete({
-            where: { id },
-        });
-
-        revalidatePath("/(dashboard)/investments");
+        await deleteTargetsForUser(userId, id);
     } catch (error) {
         console.error("Error deleting investment target:", error);
         throw error;
@@ -306,6 +297,7 @@ export async function bulkImportInvestmentTargets(file: File): Promise<{
     success: number;
     errors: Array<{ row: number; error: string }>;
     importedCount: number;
+    targetIds?: Record<number, number>;
 }> {
     try {
         const session = await getServerSession(authOptions);
@@ -328,18 +320,21 @@ export async function bulkImportInvestmentTargets(file: File): Promise<{
 
         const validTargets = parseResult.data;
         let importedCount = 0;
+        const targetIds: Record<number, number> = {};
         const errors: Array<{ row: number; error: string }> = [...parseResult.errors];
 
         // Process targets in batches to avoid timeout
         for (const targetData of validTargets) {
             try {
-                await prisma.investmentTarget.create({
+                const { sourceTargetId, ...fields } = targetData;
+                const created = await prisma.investmentTarget.create({
                     data: {
-                        ...targetData,
+                        ...fields,
                         userId: userId,
                     },
                 });
 
+                if (sourceTargetId !== undefined) targetIds[sourceTargetId] = created.id;
                 importedCount++;
             } catch (error) {
                 errors.push({
@@ -354,7 +349,8 @@ export async function bulkImportInvestmentTargets(file: File): Promise<{
         return {
             success: importedCount,
             errors,
-            importedCount
+            importedCount,
+            targetIds,
         };
     } catch (error) {
         console.error("Error importing investment targets:", error);
@@ -441,18 +437,29 @@ export async function bulkDeleteAllInvestmentTargets(appLockPassword: string): P
     try {
         const userId = await requireAppLockPassword(appLockPassword);
 
-        // Delete all targets for this user
-        const deleteResult = await prisma.investmentTarget.deleteMany({
-            where: {
-                userId: userId,
-            },
-        });
-
-        revalidatePath("/(dashboard)/investments");
-
-        return { deletedCount: deleteResult.count };
+        return { deletedCount: await deleteTargetsForUser(userId) };
     } catch (error) {
         console.error("Error bulk deleting investment targets:", error);
         throw error;
     }
+}
+async function deleteTargetsForUser(userId: number, targetId?: number) {
+    const count = await prisma.$transaction(async (tx) => {
+        await getLockedLedgerCurrency(tx, userId);
+        const where = { userId, id: targetId };
+        await tx.scheduledPayment.deleteMany({
+            where: {
+                userId,
+                resolution: null,
+                investment: { userId, investmentTarget: { is: where } },
+            },
+        });
+        const result = await tx.investmentTarget.deleteMany({ where });
+        if (targetId !== undefined && result.count === 0) {
+            throw new Error("Investment target not found or unauthorized");
+        }
+        return result.count;
+    });
+    for (const path of ["/investments", "/scheduled-payments", "/calendar"]) revalidatePath(path);
+    return count;
 }

@@ -115,14 +115,25 @@ export function recurringDisplay(item: ScheduledPaymentItem): string {
   return m[item.recurringFrequency] ?? item.recurringFrequency;
 }
 
+export function isInvestmentContribution(item: ScheduledPaymentItem): boolean {
+  return item.investmentId != null;
+}
+
+export function investmentContributionLabel(item: ScheduledPaymentItem): string | null {
+  if (!isInvestmentContribution(item)) return null;
+  return item.investment?.name
+    ? `Investment: ${item.investment.name}`
+    : "Investment contribution";
+}
+
 /** Still upcoming or awaiting confirmation (not accepted/rejected). */
 export function isScheduledUnresolved(item: ScheduledPaymentItem): boolean {
   return item.resolution === null;
 }
 
 /**
- * Heuristic series match for recurring occurrences created by accept/reject
- * (same title, category, account, currency, and frequency).
+ * Heuristic series match for recurring occurrences created by accept/reject.
+ * Investment-linked series prefer matching on investmentId.
  */
 export function belongsToSameRecurringSeries(
   current: ScheduledPaymentItem,
@@ -131,6 +142,10 @@ export function belongsToSameRecurringSeries(
   if (!current.isRecurring || !current.recurringFrequency) return false;
   if (!candidate.isRecurring) return false;
   if (candidate.recurringFrequency !== current.recurringFrequency) return false;
+  if (current.investmentId != null) {
+    return candidate.investmentId === current.investmentId;
+  }
+  if (candidate.investmentId != null) return false;
   if (candidate.title.trim() !== current.title.trim()) return false;
   if (candidate.categoryId !== current.categoryId) return false;
   if ((candidate.accountId ?? null) !== (current.accountId ?? null)) return false;
@@ -185,6 +200,7 @@ export function matchesSearch(item: ScheduledPaymentItem, q: string): boolean {
     item.title,
     item.description ?? "",
     item.notes ?? "",
+    item.investment?.name ?? "",
     ...(item.tags ?? []),
   ]
     .join(" ")

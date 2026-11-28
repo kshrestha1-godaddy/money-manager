@@ -100,6 +100,8 @@ export function useOptimizedInvestmentTargets() {
         },
         onSuccess: () => {
             // Invalidate both targets and progress data
+            queryClient.invalidateQueries({ queryKey: ['investments'] });
+            queryClient.invalidateQueries({ queryKey: ['scheduled-payments'] });
             queryClient.invalidateQueries({ queryKey: ['investment-targets'] });
             queryClient.invalidateQueries({ queryKey: ['investment-target-progress'] });
             closeModal();
@@ -118,6 +120,8 @@ export function useOptimizedInvestmentTargets() {
         },
         onSuccess: () => {
             // Invalidate both targets and progress data
+            queryClient.invalidateQueries({ queryKey: ['investments'] });
+            queryClient.invalidateQueries({ queryKey: ['scheduled-payments'] });
             queryClient.invalidateQueries({ queryKey: ['investment-targets'] });
             queryClient.invalidateQueries({ queryKey: ['investment-target-progress'] });
             closeModal();
@@ -132,6 +136,8 @@ export function useOptimizedInvestmentTargets() {
         mutationFn: (appLockPassword: string) => bulkDeleteAllInvestmentTargets(appLockPassword),
         onSuccess: (result) => {
             // Invalidate both targets and progress data
+            queryClient.invalidateQueries({ queryKey: ['investments'] });
+            queryClient.invalidateQueries({ queryKey: ['scheduled-payments'] });
             queryClient.invalidateQueries({ queryKey: ['investment-targets'] });
             queryClient.invalidateQueries({ queryKey: ['investment-target-progress'] });
             console.log(`Successfully deleted ${result.deletedCount} targets`);

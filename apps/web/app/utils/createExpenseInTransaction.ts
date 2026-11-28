@@ -15,13 +15,24 @@ function serializeTransactionLocation(location: any) {
     };
 }
 
+export interface CreateExpenseInTransactionOptions {
+    /**
+     * When false, still links the expense to the account for history/reporting
+     * but does not decrement Account.balance (used for investment contribution accepts
+     * that withhold free balance instead).
+     */
+    affectAccountBalance?: boolean;
+}
+
 /** Keep expense creation and its balance change inside the caller's transaction. */
 export async function createExpenseInTransaction(
     tx: Prisma.TransactionClient,
     data: Omit<Expense, "id" | "createdAt" | "updatedAt">,
     userId: number,
-    _user: { currency: string } | null
+    _user: { currency: string } | null,
+    options?: CreateExpenseInTransactionOptions
 ) {
+    const affectAccountBalance = options?.affectAccountBalance !== false;
     const accountCurrency = await getLockedLedgerCurrency(tx, userId);
     if (data.accountId) {
         await assertOwnedAccount(tx, userId, data.accountId);
@@ -126,7 +137,7 @@ export async function createExpenseInTransaction(
     }
 
     // Update the account balance (decrease by expense amount, convert to user's currency)
-    if (data.accountId && accountAmount !== null) {
+    if (affectAccountBalance && data.accountId && accountAmount !== null) {
         await tx.account.update({
             where: { id: data.accountId },
             data: {

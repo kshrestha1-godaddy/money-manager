@@ -16,7 +16,7 @@ export interface BulkImportConfig {
     supportsTargetsImport?: boolean;
     bulkImportFunction: (file: File, categoryFile?: File, defaultAccountId?: string) => Promise<any>;
     parseCSVFunction: (csvText: string) => Promise<string[][]>;
-    importCorrectedRowFunction: (rowData: string[], headers: string[]) => Promise<any>;
+    importCorrectedRowFunction: (rowData: string[], headers: string[], targetIds?: Record<number, number>) => Promise<any>;
     targetsParseCSVFunction?: (csvText: string) => Promise<string[][]>;
     targetsImportCorrectedRowFunction?: (rowData: string[], headers: string[]) => Promise<any>;
     targetsTemplateDownload?: () => void;
@@ -53,6 +53,7 @@ export function UnifiedBulkImportModal({
         success: number;
         errors: Array<{ row: number; error: string }>;
         importedCount: number;
+        targetIds?: Record<number, number>;
     } | null>(null);
     
     // UI states
@@ -189,7 +190,9 @@ export function UnifiedBulkImportModal({
             const transformedResult: ImportResult = {
                 success: (importResult.success || importResult.importedCount) > 0,
                 importedCount: importResult.success || importResult.importedCount || 0,
-                errors: importResult.errors || [],
+                errors: (importResult.errors || []).map((item: { row: number; error?: string; message?: string }) => ({
+                    ...item, error: item.error ?? item.message ?? "Import failed",
+                })),
                 skippedCount: 0
             };
             
@@ -242,7 +245,10 @@ export function UnifiedBulkImportModal({
         if (!errorItem) return;
 
         try {
-            await config.importCorrectedRowFunction(errorItem.editedData, csvHeaders);
+            const targetIds = config.supportsTargetsImport && targetFile
+                ? categoryResult?.targetIds ?? {}
+                : undefined;
+            await config.importCorrectedRowFunction(errorItem.editedData, csvHeaders, targetIds);
             
             // Remove this error from the list
             setEditableErrors(prev => prev.filter((_, i) => i !== errorIndex));

@@ -1,6 +1,7 @@
 import { InvestmentInterface } from '../types/investments';
 import { ImportResult } from '../types/bulkImport';
 import { assertCurrencyCode, type CurrencyCode } from './currency';
+import { parseCSV } from './csvUtils';
 
 /**
  * Parse CSV content for investment import
@@ -15,50 +16,11 @@ export interface ParsedInvestmentData {
     priceCurrency?: CurrencyCode;
     purchaseDate: Date;
     accountId?: number;
+    investmentTargetId?: number;
+    deductFromAccount?: boolean;
     notes?: string;
     interestRate?: number;
     maturityDate?: Date;
-}
-
-/**
- * Parse CSV string to array of arrays
- */
-function parseCSV(csvContent: string): string[][] {
-    const lines = csvContent.split('\n').filter(line => line.trim() !== '');
-    const result: string[][] = [];
-
-    for (const line of lines) {
-        const row: string[] = [];
-        let current = '';
-        let inQuotes = false;
-        let i = 0;
-
-        while (i < line.length) {
-            const char = line[i];
-            const nextChar = line[i + 1];
-
-            if (char === '"' && !inQuotes) {
-                inQuotes = true;
-            } else if (char === '"' && inQuotes) {
-                if (nextChar === '"') {
-                    current += '"';
-                    i++; // skip next quote
-                } else {
-                    inQuotes = false;
-                }
-            } else if (char === ',' && !inQuotes) {
-                row.push(current.trim());
-                current = '';
-            } else {
-                current += char;
-            }
-            i++;
-        }
-        row.push(current.trim());
-        result.push(row);
-    }
-
-    return result;
 }
 
 /**
@@ -208,8 +170,8 @@ function validateAndConvertRow(
 
     try {
         purchasePrice = parseFloat(rowData.purchaseprice);
-        if (isNaN(purchasePrice) || purchasePrice <= 0) {
-            errors.push(`Row ${rowIndex + 1}: Invalid purchase price value (${rowData.purchaseprice}). Must be a positive number.`);
+        if (!Number.isFinite(purchasePrice) || purchasePrice < 0) {
+            errors.push(`Row ${rowIndex + 1}: Invalid purchase price value (${rowData.purchaseprice}). Must be zero or greater.`);
         }
     } catch {
         errors.push(`Row ${rowIndex + 1}: Invalid purchase price format (${rowData.purchaseprice})`);
@@ -217,8 +179,8 @@ function validateAndConvertRow(
 
     try {
         currentPrice = parseFloat(rowData.currentprice);
-        if (isNaN(currentPrice) || currentPrice <= 0) {
-            errors.push(`Row ${rowIndex + 1}: Invalid current price value (${rowData.currentprice}). Must be a positive number.`);
+        if (!Number.isFinite(currentPrice) || currentPrice < 0) {
+            errors.push(`Row ${rowIndex + 1}: Invalid current price value (${rowData.currentprice}). Must be zero or greater.`);
         }
     } catch {
         errors.push(`Row ${rowIndex + 1}: Invalid current price format (${rowData.currentprice})`);
@@ -263,34 +225,39 @@ function validateAndConvertRow(
         investmentType = 'OTHER';
     }
 
+    const rawTargetId = rowData.investmenttargetid;
+    const investmentTargetId = rawTargetId ? Number(rawTargetId) : undefined;
+    if (investmentTargetId !== undefined && (!Number.isSafeInteger(investmentTargetId) || investmentTargetId <= 0)) {
+        errors.push(`Row ${rowIndex + 1}: Invalid investment target ID`);
+    }
+    const withheld = rowData.withheld?.toLowerCase();
+    if (withheld && withheld !== "yes" && withheld !== "no") {
+        errors.push(`Row ${rowIndex + 1}: Withheld must be Yes or No`);
+    }
+    const deductFromAccount = withheld ? withheld === "yes" : undefined;
+
     // Find account by account name or bank name (optional)
     let accountId: number | undefined;
     const accountName = rowData.account || rowData.bankname || '';
-    
-    if (accountName) {
-        const account = accounts.find(a => {
-            if (!accountName) return false;
-            
-            // Try to match against the exported format: "holderName - bankName"
-            const exportedFormat = `${a.holderName} - ${a.bankName}`;
-            if (exportedFormat.toLowerCase() === accountName.toLowerCase()) {
-                return true;
-            }
-            
-            // Fallback: Match against individual components
-            const holderNameMatch = a.holderName && a.holderName.toLowerCase().includes(accountName.toLowerCase());
-            const bankNameMatch = a.bankName && a.bankName.toLowerCase().includes(accountName.toLowerCase());
-            const accountNumberMatch = a.accountNumber && a.accountNumber.toLowerCase() === accountName.toLowerCase();
-            
-            return holderNameMatch || bankNameMatch || accountNumberMatch;
+    const accountNumber = rowData.accountnumber;
+    if (accountNumber || accountName) {
+        const normalized = String(accountNumber || accountName).toLowerCase();
+        const matches = accounts.filter(account => {
+            const number = account.accountNumber?.toLowerCase();
+            if (accountNumber) return number === normalized;
+            const exportedName = `${account.holderName} - ${account.bankName}`.toLowerCase();
+            return exportedName === normalized || number === normalized ||
+                account.bankName?.toLowerCase().includes(normalized) ||
+                account.holderName?.toLowerCase().includes(normalized);
         });
-        
-        if (account) {
-            accountId = account.id;
+        if (matches.length === 1) {
+            accountId = matches[0].id;
         } else {
-            errors.push(`Row ${rowIndex + 1}: Account not found (${accountName}). Please ensure the account exists or matches the exported format.`);
+            const reason = matches.length > 1 ? "Multiple accounts match" : "Account not found";
+            errors.push(`Row ${rowIndex + 1}: ${reason} (${accountNumber || accountName})`);
         }
     }
+
     // Account information is now optional - investments can be tracked independently
 
     if (errors.length > 0) {
@@ -307,7 +274,9 @@ function validateAndConvertRow(
         currentPrice: currentPrice!,
         priceCurrency,
         purchaseDate: purchaseDate!,
-        accountId: accountId!,
+        accountId,
+        investmentTargetId,
+        deductFromAccount,
         notes: rowData.notes || undefined,
         interestRate: interestRate,
         maturityDate: maturityDate,

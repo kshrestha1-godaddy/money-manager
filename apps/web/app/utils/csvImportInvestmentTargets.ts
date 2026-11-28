@@ -1,7 +1,8 @@
 import { parseCSV } from './csvUtils';
 
 export interface ParsedInvestmentTargetData {
-    investmentType: 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'SILVER' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'EMERGENCY_FUND' | 'MARRIAGE' | 'VACATION' | 'OTHER';
+    sourceTargetId?: number;
+    investmentType: 'SIP' | 'STOCKS' | 'CRYPTO' | 'MUTUAL_FUNDS' | 'BONDS' | 'REAL_ESTATE' | 'GOLD' | 'SILVER' | 'FIXED_DEPOSIT' | 'PROVIDENT_FUNDS' | 'SAFE_KEEPINGS' | 'EMERGENCY_FUND' | 'MARRIAGE' | 'VACATION' | 'OTHER';
     targetAmount: number;
     targetCompletionDate?: Date;
     nickname?: string;
@@ -31,7 +32,7 @@ export function parseInvestmentTargetsCSV(csvContent: string): ImportResult {
             };
         }
 
-        const headers = rows[0].map(h => h.toLowerCase().trim());
+        const headers = (rows[0] ?? []).map(h => h.toLowerCase().trim());
         const dataRows = rows.slice(1);
         
         // Required headers
@@ -52,12 +53,13 @@ export function parseInvestmentTargetsCSV(csvContent: string): ImportResult {
         const targetAmountIndex = headers.indexOf('target amount');
         const targetDateIndex = headers.indexOf('target completion date');
         const nicknameIndex = headers.indexOf('nickname');
+        const targetIdIndex = headers.indexOf('investment target id');
 
         const validTargets: ParsedInvestmentTargetData[] = [];
         const errors: Array<{ row: number; error: string }> = [];
 
         for (let i = 0; i < dataRows.length; i++) {
-            const row = dataRows[i];
+            const row = dataRows[i] ?? [];
             const rowNumber = i + 2; // Account for header row and 0-based index
 
             try {
@@ -94,7 +96,7 @@ export function parseInvestmentTargetsCSV(csvContent: string): ImportResult {
                 // Parse optional target completion date
                 let targetCompletionDate: Date | undefined;
                 if (targetDateIndex >= 0 && row[targetDateIndex]?.trim()) {
-                    const dateStr = row[targetDateIndex].trim();
+                    const dateStr = row[targetDateIndex]?.trim() ?? "";
                     const parsedDate = new Date(dateStr);
                     if (isNaN(parsedDate.getTime())) {
                         errors.push({ row: rowNumber, error: `Invalid target completion date: ${dateStr}. Use YYYY-MM-DD format` });
@@ -106,7 +108,15 @@ export function parseInvestmentTargetsCSV(csvContent: string): ImportResult {
                 // Get optional nickname
                 const nickname = nicknameIndex >= 0 ? row[nicknameIndex]?.trim() || undefined : undefined;
 
+                const rawTargetId = row[targetIdIndex]?.trim();
+                const sourceTargetId = rawTargetId ? Number(rawTargetId) : undefined;
+                if (sourceTargetId !== undefined && (!Number.isSafeInteger(sourceTargetId) || sourceTargetId <= 0 ||
+                    validTargets.some(target => target.sourceTargetId === sourceTargetId))) {
+                    errors.push({ row: rowNumber, error: "Invalid or duplicate investment target ID" });
+                    continue;
+                }
                 validTargets.push({
+                    sourceTargetId,
                     investmentType,
                     targetAmount,
                     targetCompletionDate,
@@ -146,6 +156,7 @@ function normalizeInvestmentType(type: string): ParsedInvestmentTargetData['inve
     const normalized = type.toUpperCase().replace(/[^A-Z]/g, '_');
     
     const typeMap: Record<string, ParsedInvestmentTargetData['investmentType']> = {
+        'SIP': 'SIP',
         'STOCKS': 'STOCKS',
         'STOCK': 'STOCKS',
         'EQUITY': 'STOCKS',
@@ -159,7 +170,6 @@ function normalizeInvestmentType(type: string): ParsedInvestmentTargetData['inve
         'BONDS': 'BONDS',
         'BOND': 'BONDS',
         'TREASURY': 'BONDS',
-        'REAL_ESTATE': 'REAL_ESTATE',
         'REAL_ESTATE': 'REAL_ESTATE',
         'PROPERTY': 'REAL_ESTATE',
         'REALTY': 'REAL_ESTATE',

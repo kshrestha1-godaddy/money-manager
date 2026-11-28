@@ -10,6 +10,7 @@ import type { Prisma } from "@prisma/client";
 import { parseInvestmentsCSV, ParsedInvestmentData } from "../../../utils/csvImportInvestments";
 import { convertForDisplayWithDbRates } from "../../../utils/currencyDisplayServer";
 import { ImportResult } from "../../../types/bulkImport";
+import { parseCSV } from "../../../utils/csvUtils";
 import { bulkImportInvestmentTargets } from "./investment-targets";
 import { requireAppLockPassword } from "../../../lib/security/require-app-lock-password";
 import { getLockedLedgerCurrency } from "../../../utils/ledgerCurrency";
@@ -35,7 +36,7 @@ function investmentPurchaseCost(quantity: unknown, purchasePrice: unknown): numb
  * Withheld investments reserve free balance without changing Account.balance.
  * Free = ledger balance − other withheld purchase costs on the same account.
  */
-async function assertAccountHasFreeBalanceForWithheld(
+export async function assertAccountHasFreeBalanceForWithheld(
     tx: Prisma.TransactionClient,
     userId: number,
     accountId: number,
@@ -170,6 +171,7 @@ export async function getUserInvestments(): Promise<{ data?: InvestmentInterface
             },
             include: {
                 account: true,
+                _count: { select: { scheduledPayments: true } },
                 investmentTarget: {
                     select: {
                         id: true,
@@ -195,8 +197,16 @@ export async function getUserInvestments(): Promise<{ data?: InvestmentInterface
             sumStocksCategoryExpenseAmountsForUser(userId),
             sumStocksCategoryExpenseAmountsForUser(userId, "SIP"),
         ]);
-        const sipPositionCount = investments.filter(inv => inv.type === "SIP").length;
-        const stocksPositionCount = investments.filter((inv) => inv.type === "STOCKS").length;
+        const isScheduleCreatedShell = (investment: (typeof investments)[number]) =>
+            Boolean(investment._count?.scheduledPayments) ||
+            investment.notes === "Created via Schedule an Investment";
+
+        const sipPositionCount = investments.filter(
+            (inv) => inv.type === "SIP" && !isScheduleCreatedShell(inv)
+        ).length;
+        const stocksPositionCount = investments.filter(
+            (inv) => inv.type === "STOCKS" && !isScheduleCreatedShell(inv)
+        ).length;
 
         const fulfilledByTargetId = new Map<number, number>();
         for (const inv of investments) {
@@ -213,15 +223,22 @@ export async function getUserInvestments(): Promise<{ data?: InvestmentInterface
         const transformedInvestments = investments.map(investment => {
             try {
                 const quantity = parseFloat(investment.quantity.toString());
-                const purchasePrice = resolvePurchasePriceForInvestmentDisplay(
-                    {
-                        type: investment.type,
-                        quantity: investment.quantity,
-                        purchasePrice: investment.purchasePrice,
-                    },
-                    investment.type === "SIP" ? sipExpenseTotal : stocksExpenseTotal,
-                    investment.type === "SIP" ? sipPositionCount : stocksPositionCount
-                );
+                const dbPurchasePrice = parseFloat(investment.purchasePrice.toString());
+                // Schedule shells use DB cost (withhold basis). Expense-split display is for
+                // the primary Stocks/SIP portfolio position only.
+                const purchasePrice =
+                    isScheduleCreatedShell(investment) ||
+                    (investment.type !== "STOCKS" && investment.type !== "SIP")
+                        ? dbPurchasePrice
+                        : resolvePurchasePriceForInvestmentDisplay(
+                              {
+                                  type: investment.type,
+                                  quantity: investment.quantity,
+                                  purchasePrice: investment.purchasePrice,
+                              },
+                              investment.type === "SIP" ? sipExpenseTotal : stocksExpenseTotal,
+                              investment.type === "SIP" ? sipPositionCount : stocksPositionCount
+                          );
                 const currentPrice = parseFloat(investment.currentPrice.toString());
                 
                 // Validate converted numbers
@@ -248,6 +265,7 @@ export async function getUserInvestments(): Promise<{ data?: InvestmentInterface
                     id: investment.id,
                     name: investment.name,
                     type: investment.type,
+                    isScheduledContribution: isScheduleCreatedShell(investment),
                     symbol: investment.symbol,
                     quantity,
                     purchasePrice,
@@ -282,6 +300,82 @@ export async function getUserInvestments(): Promise<{ data?: InvestmentInterface
         console.error("Failed to fetch user investments:", error);
         return { error: "Failed to fetch investments" };
     }
+}
+
+/**
+ * Increase an investment's quantity so purchase cost grows by `contributionAmount`
+ * (ledger currency). When the position is withheld, asserts free balance first.
+ */
+export async function applyContributionToInvestmentInTransaction(
+    tx: Prisma.TransactionClient,
+    userId: number,
+    investmentId: number,
+    contributionAmount: number
+): Promise<void> {
+    if (!Number.isFinite(contributionAmount) || contributionAmount <= 0) {
+        throw new Error("Contribution amount must be positive");
+    }
+
+    const investment = await tx.investment.findFirst({
+        where: { id: investmentId, userId },
+        select: {
+            id: true,
+            accountId: true,
+            deductFromAccount: true,
+            quantity: true,
+            purchasePrice: true,
+            currentPrice: true,
+        },
+    });
+    if (!investment) throw new Error("Linked investment not found");
+    if (!investment.accountId) {
+        throw new Error("Linked investment has no account to withhold from");
+    }
+
+    const purchasePrice = decimalToNumber(investment.purchasePrice, "investment purchase price");
+    const quantity = decimalToNumber(investment.quantity, "investment quantity");
+    const currentPrice = decimalToNumber(investment.currentPrice, "investment current price");
+
+    // Zero-basis scheduled shell (initial contribution was 0): first accept establishes cost.
+    if (purchasePrice <= 0) {
+        await assertAccountHasFreeBalanceForWithheld(
+            tx,
+            userId,
+            investment.accountId,
+            contributionAmount,
+            investment.id
+        );
+        await tx.investment.update({
+            where: { id: investment.id },
+            data: {
+                quantity: 1,
+                purchasePrice: contributionAmount,
+                currentPrice: currentPrice > 0 ? currentPrice : contributionAmount,
+                deductFromAccount: true,
+            },
+        });
+        return;
+    }
+
+    const addedQuantity = contributionAmount / purchasePrice;
+    const newQuantity = quantity + addedQuantity;
+    const newCost = newQuantity * purchasePrice;
+
+    await assertAccountHasFreeBalanceForWithheld(
+        tx,
+        userId,
+        investment.accountId,
+        newCost,
+        investment.id
+    );
+
+    await tx.investment.update({
+        where: { id: investment.id },
+        data: {
+            quantity: newQuantity,
+            deductFromAccount: true,
+        },
+    });
 }
 
 export async function createInvestment(
@@ -328,19 +422,18 @@ export async function createInvestment(
         const purchaseCost =
             Number(investment.quantity) * Number(investment.purchasePrice);
 
-        if (investment.type === "STOCKS") {
-            const existingStocks = await prisma.investment.count({
-                where: { userId: user.id, type: "STOCKS" },
-            });
-            if (existingStocks > 0) {
-                throw new Error(
-                    "You already have a Stocks investment. Only one Stocks position is allowed—edit or remove it before adding another."
-                );
-            }
-        }
-
         const result = await prisma.$transaction(async (tx) => {
             await getLockedLedgerCurrency(tx, userId);
+            if (investment.type === "STOCKS") {
+                const existingStocks = await tx.investment.count({
+                    where: { userId, type: "STOCKS" },
+                });
+                if (existingStocks > 0) {
+                    throw new Error(
+                        "You already have a Stocks investment. Only one Stocks position is allowed—edit or remove it before adding another."
+                    );
+                }
+            }
             // Withhold reserves free balance; do not mutate Account.balance.
             if (deduct && linkedAccountId && purchaseCost > 0) {
                 await assertAccountHasFreeBalanceForWithheld(
@@ -351,7 +444,7 @@ export async function createInvestment(
                 );
             }
 
-            return tx.investment.create({
+            const saved = await tx.investment.create({
                 data: {
                     name: investment.name,
                     type: investment.type,
@@ -381,12 +474,18 @@ export async function createInvestment(
                     },
                 },
             });
+            if (validatedTargetId) {
+                const { recalcOpenContributionSchedulesForTarget } = await import("./schedule-investment");
+                await recalcOpenContributionSchedulesForTarget(userId, validatedTargetId, tx);
+            }
+            return saved;
         });
 
         // Revalidate related pages
         revalidatePath("/(dashboard)/investments");
         revalidatePath("/(dashboard)/accounts");
-        
+        revalidatePath("/scheduled-payments");
+        revalidatePath("/calendar");
         console.info(`Investment created successfully: ${investment.name} - $${investment.purchasePrice} for user ${userId}`);
 
         // Trigger notification checks
@@ -455,6 +554,7 @@ export async function updateInvestment(
 
         const userId = getUserIdFromSession(session.user.id);
 
+        let previousTargetId: number | null = null;
         const result = await prisma.$transaction(async (tx) => {
             await getLockedLedgerCurrency(tx, userId);
             const existing = await tx.investment.findFirst({
@@ -464,6 +564,7 @@ export async function updateInvestment(
             if (!existing) {
                 throw new Error("Investment not found or unauthorized");
             }
+            previousTargetId = existing.investmentTargetId;
 
             const nextType =
                 investment.type !== undefined ? investment.type : existing.type;
@@ -507,6 +608,17 @@ export async function updateInvestment(
                     ? investmentShouldDeduct(investment.deductFromAccount)
                     : investmentShouldDeduct(existing.deductFromAccount);
 
+            if (nextType !== existing.type || newAccountId !== oldAccountId || !newDeduct ||
+                (rawTargetId !== undefined && rawTargetId !== previousTargetId)) {
+                const openPayment = await tx.scheduledPayment.findFirst({
+                    where: { userId, investmentId: id, resolution: null },
+                    select: { id: true },
+                });
+                if (openPayment) {
+                    throw new Error("Finish or cancel the contribution schedule before changing its type, account, withholding, or target.");
+                }
+            }
+
             // Withhold is a reservation only — validate free balance, never mutate ledger.
             if (newDeduct && newAccountId != null && newCost > 0) {
                 await assertAccountHasFreeBalanceForWithheld(
@@ -518,7 +630,7 @@ export async function updateInvestment(
                 );
             }
 
-            return tx.investment.update({
+            const saved = await tx.investment.update({
                 where: { id },
                 data: updateData,
                 include: {
@@ -534,11 +646,30 @@ export async function updateInvestment(
                     },
                 },
             });
+
+            // Target cleared or changed — drop open contribution reminders on this investment
+            // so the series cannot recur without a completion bound.
+            if (
+                rawTargetId !== undefined &&
+                previousTargetId !== saved.investmentTargetId
+            ) {
+                await tx.scheduledPayment.deleteMany({
+                    where: { userId, investmentId: id, resolution: null },
+                });
+            }
+
+            const { recalcOpenContributionSchedulesForTarget } = await import("./schedule-investment");
+            for (const targetId of new Set([previousTargetId, saved.investmentTargetId])) {
+                if (targetId) await recalcOpenContributionSchedulesForTarget(userId, targetId, tx);
+            }
+            return saved;
         });
 
         // Revalidate related pages
         revalidatePath("/(dashboard)/investments");
         revalidatePath("/(dashboard)/accounts");
+        revalidatePath("/scheduled-payments");
+        revalidatePath("/calendar");
 
         console.info(`Investment updated successfully: ${id} for user ${userId}`);
         
@@ -590,24 +721,7 @@ export async function deleteInvestment(id: number, appLockPassword: string) {
     try {
         const userId = await requireAppLockPassword(appLockPassword);
 
-        await prisma.$transaction(async (tx) => {
-            const existingInvestment = await tx.investment.findFirst({
-                where: { id, userId },
-            });
-
-            if (!existingInvestment) {
-                throw new Error("Investment not found or unauthorized");
-            }
-
-            // Withheld is a reservation only — deleting frees capacity without ledger restore.
-            await tx.investment.delete({
-                where: { id },
-            });
-        });
-
-        // Revalidate related pages
-        revalidatePath("/(dashboard)/investments");
-        revalidatePath("/(dashboard)/accounts");
+        await deleteInvestmentsForUser(userId, [id]);
 
         console.info(`Investment deleted successfully: ${id} for user ${userId}`);
         return { success: true };
@@ -655,6 +769,10 @@ export async function getUserAccounts(): Promise<{ data?: any[], error?: string 
  * Bulk import investments from CSV
  */
 export async function bulkImportInvestments(csvContent: string): Promise<ImportResult> {
+    return importInvestmentRows(csvContent);
+}
+
+async function importInvestmentRows(csvContent: string, targetIds?: Record<number, number>): Promise<ImportResult> {
     try {
         const session = await getServerSession(authOptions);
         if (!session) {
@@ -795,11 +913,22 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
                                 }
                             }
 
-                            const { priceCurrency: _priceCurrency, ...investmentFields } =
+                            const { priceCurrency: _priceCurrency, investmentTargetId: sourceTargetId, ...investmentFields } =
                                 investmentData;
+                            const investmentTargetId = sourceTargetId && targetIds ? targetIds[sourceTargetId] : sourceTargetId;
+                            if (sourceTargetId && !investmentTargetId) {
+                                throw new Error(`Investment target ${sourceTargetId} was not restored from the targets file`);
+                            }
+                            if (investmentTargetId && !await tx.investmentTarget.findFirst({
+                                where: { id: investmentTargetId, userId },
+                                select: { id: true },
+                            })) {
+                                throw new Error(`Investment target ${investmentTargetId} was not found in this workspace`);
+                            }
                             await tx.investment.create({
                                 data: {
                                     ...investmentFields,
+                                    investmentTargetId,
                                     purchasePrice,
                                     currentPrice,
                                     userId: userId,
@@ -846,38 +975,39 @@ export async function bulkImportInvestments(csvContent: string): Promise<ImportR
 /**
  * Bulk delete investments
  */
+async function deleteInvestmentsForUser(userId: number, ids: number[]) {
+    const deletedCount = await prisma.$transaction(async (tx) => {
+        await getLockedLedgerCurrency(tx, userId);
+        const where = { userId, id: { in: ids } };
+        const rows = await tx.investment.findMany({
+            where,
+            select: { investmentTargetId: true },
+        });
+        if (rows.length !== ids.length) {
+            throw new Error("Some investments not found or unauthorized");
+        }
+        await tx.scheduledPayment.deleteMany({
+            where: { userId, investmentId: { in: ids }, resolution: null },
+        });
+        const result = await tx.investment.deleteMany({ where });
+        const { recalcOpenContributionSchedulesForTarget } = await import("./schedule-investment");
+        for (const targetId of new Set(rows.map(row => row.investmentTargetId))) {
+            if (targetId) await recalcOpenContributionSchedulesForTarget(userId, targetId, tx);
+        }
+        return result.count;
+    });
+    for (const path of ["/investments", "/accounts", "/scheduled-payments", "/calendar"]) {
+        revalidatePath(path);
+    }
+    return deletedCount;
+}
+
 export async function bulkDeleteInvestments(investmentIds: number[], appLockPassword: string) {
     try {
         const userId = await requireAppLockPassword(appLockPassword);
 
-        // Verify all investments belong to the user
-        const existingInvestments = await prisma.investment.findMany({
-            where: {
-                id: { in: investmentIds },
-                userId: userId,
-            },
-        });
-
-        if (existingInvestments.length !== investmentIds.length) {
-            throw new Error("Some investments not found or unauthorized");
-        }
-
-        await prisma.investment.deleteMany({
-            where: {
-                id: { in: investmentIds },
-                userId: userId,
-            },
-        });
-
-        // Revalidate related pages
-        revalidatePath("/(dashboard)/investments");
-        revalidatePath("/(dashboard)/accounts");
-        
-        console.info(`Bulk investment deletion successful: ${investmentIds.length} investments for user ${userId}`);
-        return { 
-            success: true, 
-            deletedCount: existingInvestments.length 
-        };
+        const deletedCount = await deleteInvestmentsForUser(userId, investmentIds);
+        return { success: true, deletedCount };
     } catch (error) {
         console.error(`Failed to bulk delete investments:`, error);
         throw error;
@@ -919,7 +1049,7 @@ export async function bulkImportInvestmentsWithTargets(
 
     // Import investments
     const investmentText = await investmentFile.text();
-    const investmentImportResult = await bulkImportInvestments(investmentText);
+    const investmentImportResult = await importInvestmentRows(investmentText, targetFile ? targetImportResult?.targetIds ?? {} : undefined);
 
     return {
         investmentImport: {
@@ -937,39 +1067,14 @@ export async function bulkImportInvestmentsWithTargets(
  * Parse CSV for UI preview (compatible with unified modal)
  */
 export async function parseCSVForUI(csvText: string): Promise<string[][]> {
-    try {
-        const lines = csvText.split('\n');
-        return lines.map(line => {
-            const cells: string[] = [];
-            let current = '';
-            let inQuotes = false;
-            
-            for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-                
-                if (char === '"') {
-                    inQuotes = !inQuotes;
-                } else if (char === ',' && !inQuotes) {
-                    cells.push(current.trim());
-                    current = '';
-                } else {
-                    current += char;
-                }
-            }
-            
-            cells.push(current.trim());
-            return cells;
-        }).filter(row => row.some(cell => cell.length > 0));
-    } catch (error) {
-        console.error("Error parsing CSV for UI:", error);
-        return [];
-    }
+    return parseCSV(csvText);
 }
 
-/**
- * Import a corrected investment row (compatible with unified modal)
- */
-export async function importCorrectedRow(rowData: string[], headers: string[]): Promise<any> {
+export async function importCorrectedRow(
+    rowData: string[],
+    headers: string[],
+    targetIds?: Record<number, number>,
+): Promise<any> {
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -1042,10 +1147,21 @@ export async function importCorrectedRow(rowData: string[], headers: string[]): 
             );
         }
 
-        const { priceCurrency: _priceCurrency, ...investmentFields } = investmentData;
+        const { priceCurrency: _priceCurrency, investmentTargetId: sourceTargetId, ...investmentFields } = investmentData;
+        const investmentTargetId = sourceTargetId && targetIds ? targetIds[sourceTargetId] : sourceTargetId;
+        if (sourceTargetId && !investmentTargetId) {
+            throw new Error(`Investment target ${sourceTargetId} was not restored from the targets file`);
+        }
+        if (investmentTargetId && !await tx.investmentTarget.findFirst({
+            where: { id: investmentTargetId, userId },
+            select: { id: true },
+        })) {
+            throw new Error(`Investment target ${investmentTargetId} was not found in this workspace`);
+        }
         return tx.investment.create({
             data: {
                 ...investmentFields,
+                investmentTargetId,
                 purchasePrice,
                 currentPrice,
                 userId: userId,

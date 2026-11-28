@@ -11,6 +11,7 @@ export function convertInvestmentTargetsToCSV(targets: InvestmentTargetProgress[
 
     // Define CSV headers
     const headers = [
+        'Investment Target ID',
         'Investment Type',
         'Nickname',
         'Target Amount',
@@ -34,6 +35,7 @@ export function convertInvestmentTargetsToCSV(targets: InvestmentTargetProgress[
                 : 'In Progress';
 
         return [
+            target.targetId.toString(),
             target.investmentType,
             target.nickname || '',
             target.targetAmount.toString(),
