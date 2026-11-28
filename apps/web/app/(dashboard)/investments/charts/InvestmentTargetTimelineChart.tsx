@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useRef, useCallback, useState } from "react";
-import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea, Dot, Text } from "recharts";
+import { ComposedChart, Line, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea, Dot, Text } from "recharts";
 import { Banknote, Calendar, Target, TrendingUp } from "lucide-react";
 import { formatCurrency } from "../../../utils/currency";
 import { useResolvedDisplayCurrency } from "../../../hooks/useDisplayCurrency";
@@ -15,6 +15,9 @@ interface InvestmentTargetTimelineChartProps {
     currency?: string;
     title?: string;
 }
+
+/** Light sky border for targets with a scheduled contribution. */
+const SCHEDULED_BAR_BORDER = "#38bdf8";
 
 interface TimelineDataPoint {
     /** Stable unique key for Recharts X-axis (displayLabel alone can duplicate when dates and type labels match). */
@@ -34,6 +37,7 @@ interface TimelineDataPoint {
     // For stacked bar chart - showing progress as percentage of max amount
     completedBar: number;
     remainingBar: number;
+    hasScheduledContribution?: boolean;
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -141,7 +145,8 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                 isComplete: target.isComplete,
                 sortDate: targetDate,
                 completedBar: completedBar,
-                remainingBar: remainingBar
+                remainingBar: remainingBar,
+                hasScheduledContribution: Boolean(target.hasScheduledContribution),
             };
         }).sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime());
 
@@ -167,6 +172,7 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                 sortDate: noDateSort,
                 completedBar,
                 remainingBar,
+                hasScheduledContribution: Boolean(target.hasScheduledContribution),
             };
         });
 
@@ -212,7 +218,8 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
             isComplete: false,
             sortDate: today,
             completedBar: 0,
-            remainingBar: 0
+            remainingBar: 0,
+            hasScheduledContribution: false,
         };
 
         const thirtyDaysData: TimelineDataPoint = {
@@ -228,7 +235,8 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
             isComplete: false,
             sortDate: thirtyDaysFromNow,
             completedBar: 0,
-            remainingBar: 0
+            remainingBar: 0,
+            hasScheduledContribution: false,
         };
 
         const sixtyDaysData: TimelineDataPoint = {
@@ -244,7 +252,8 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
             isComplete: false,
             sortDate: sixtyDaysFromNow,
             completedBar: 0,
-            remainingBar: 0
+            remainingBar: 0,
+            hasScheduledContribution: false,
         };
 
         // Insert reference data points in the correct chronological positions
@@ -791,21 +800,35 @@ export const InvestmentTargetTimelineChart = React.memo<InvestmentTargetTimeline
                                 stackId="progress"
                                 fill="#10b981"
                                 fillOpacity={0.4}
-                                stroke="none"
                                 name="Completed Progress"
                                 barSize={44}
                                 maxBarSize={52}
-                            />
+                            >
+                                {timelineData.map((entry) => (
+                                    <Cell
+                                        key={`completed-${entry.axisKey}`}
+                                        stroke={entry.hasScheduledContribution ? SCHEDULED_BAR_BORDER : undefined}
+                                        strokeWidth={entry.hasScheduledContribution ? 2 : 0}
+                                    />
+                                ))}
+                            </Bar>
                             <Bar
                                 dataKey="remainingBar"
                                 stackId="progress"
                                 fill="#f59e0b"
                                 fillOpacity={0.4}
-                                stroke="none"
                                 name="Remaining Progress"
                                 barSize={44}
                                 maxBarSize={52}
-                            />
+                            >
+                                {timelineData.map((entry) => (
+                                    <Cell
+                                        key={`remaining-${entry.axisKey}`}
+                                        stroke={entry.hasScheduledContribution ? SCHEDULED_BAR_BORDER : undefined}
+                                        strokeWidth={entry.hasScheduledContribution ? 2 : 0}
+                                    />
+                                ))}
+                            </Bar>
 
                             {/* Target amounts line */}
                             <Line

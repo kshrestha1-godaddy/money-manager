@@ -87,4 +87,6 @@ export interface InvestmentTargetProgress {
     nickname?: string;
     daysRemaining?: number; // calculated field for days until target date
     isOverdue?: boolean; // calculated field if current date is past target date
+    /** True when a Schedule-an-Investment series is linked to this target. */
+    hasScheduledContribution?: boolean;
 } 

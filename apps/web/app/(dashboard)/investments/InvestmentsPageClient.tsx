@@ -247,11 +247,22 @@ export default function InvestmentsPageClient() {
 
   const targetProgressForCharts = targetProgress;
 
+  const scheduledTargetIds = useMemo(
+    () =>
+      new Set(
+        investments
+          .filter((inv) => inv.isScheduledContribution && inv.investmentTargetId != null)
+          .map((inv) => inv.investmentTargetId as number)
+      ),
+    [investments]
+  );
+
   const timelineTargets = useMemo(() => targetProgressForCharts.map(target => ({
     ...target,
     targetAmount: convertForDisplaySync(target.targetAmount, userCurrency, displayCurrency),
     currentAmount: convertForDisplaySync(target.currentAmount, userCurrency, displayCurrency),
-  })), [targetProgressForCharts, userCurrency, displayCurrency, currencyRateVersion]);
+    hasScheduledContribution: scheduledTargetIds.has(target.targetId),
+  })), [targetProgressForCharts, userCurrency, displayCurrency, currencyRateVersion, scheduledTargetIds]);
 
   const polarChartProps = useMemo(() => ({ investments: stableFilteredInvestments, currency: displayCurrency, title: "Portfolio Distribution by Investment Type" }), [stableFilteredInvestments, displayCurrency]);
 

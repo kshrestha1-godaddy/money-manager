@@ -335,7 +335,7 @@ export async function scheduleInvestmentTowardTarget(
 
       const typeLabel = getInvestmentTypeLabel(target.investmentType);
       const investmentLabel = target.nickname?.trim() || typeLabel;
-      const name = input.name?.trim() || `[SCHEDULED] : ${investmentLabel}`;
+      const name = input.name?.trim() || `[Scheduled] : [${investmentLabel}]`;
 
       const created = await tx.investment.create({
         data: {

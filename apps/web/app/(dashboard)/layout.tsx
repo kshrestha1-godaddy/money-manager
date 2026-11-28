@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { ChartCandlestick, Repeat, PiggyBank, Sparkles } from "lucide-react";
+import { ChartCandlestick, ChartNoAxesCombined, Repeat, PiggyBank, Sparkles } from "lucide-react";
 import { SidebarItem } from "../components/sidebar/SidebarItem";
 import { TutorialOverlay } from "../components/TutorialOverlay";
 import { TutorialButton } from "../components/TutorialButton";
@@ -31,6 +31,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             icon={<DashboardIcon />} 
                             title="Dashboard" 
                             id="dashboard-nav-item"
+                        />
+                        <SidebarItem
+                            href="/pattern-analysis"
+                            icon={<ChartNoAxesCombined className="size-6 shrink-0" strokeWidth={1.5} aria-hidden />}
+                            title="Pattern Analysis"
                         />
                         <SidebarItem
                             href="/worth"
