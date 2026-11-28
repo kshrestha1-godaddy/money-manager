@@ -179,11 +179,15 @@ model ScheduledPayment {
   resolvedAt DateTime?
   createdExpense Expense? @relation(fields: [createdExpenseId], references: [id])
   createdExpenseId Int? @unique
+  /// When set, accepting this payment records an expense without ledger debit and increases withhold on the linked investment.
+  investmentId Int?
+  investment Investment? @relation(fields: [investmentId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId, scheduledAt])
   @@index([userId, resolution])
+  @@index([investmentId])
 }
 
 model Income {
@@ -269,6 +273,7 @@ model Investment {
   isInflationHedge Boolean @default(false)
   investmentTargetId Int?
   investmentTarget InvestmentTarget? @relation(fields: [investmentTargetId], references: [id], onDelete: SetNull)
+  scheduledPayments ScheduledPayment[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
