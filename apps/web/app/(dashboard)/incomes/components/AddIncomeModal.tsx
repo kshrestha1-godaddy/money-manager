@@ -1,5 +1,6 @@
 "use client";
 
+import { INCOMES_MODAL_MAX_WIDTH } from "../../constants/incomes-constants";
 import React from "react";
 import { FinancialModal } from "../../../components/shared/FinancialModal";
 import type { Income } from "../../../types/financial";
@@ -21,6 +22,7 @@ export function AddIncomeModal({ isOpen, onClose, onAdd, categories, accounts }:
 
     return (
         <FinancialModal
+            maxWidthClassName={INCOMES_MODAL_MAX_WIDTH}
             isOpen={isOpen}
             onClose={onClose}
             onSubmit={handleSubmit}

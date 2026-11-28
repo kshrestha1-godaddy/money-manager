@@ -7,6 +7,7 @@ import { EditCategoryModal } from "./EditCategoryModal";
 
 interface AddCategoryModalProps {
     isOpen: boolean;
+    maxWidthClassName: string;
     onClose: () => void;
     onAdd: (category: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>) => void;
     onDelete?: (categoryId: number, appLockPassword: string) => Promise<void>;
@@ -21,7 +22,7 @@ interface AddCategoryModalProps {
 }
 
 export function AddCategoryModal({
-    isOpen, onClose, onAdd, onDelete, onUpdate, onCategoryTabChange, isSavingCategoryTab, type, categories = [],
+    isOpen, maxWidthClassName, onClose, onAdd, onDelete, onUpdate, onCategoryTabChange, isSavingCategoryTab, type, categories = [],
 }: AddCategoryModalProps) {
     const [formData, setFormData] = useState({
         name: '',
@@ -148,7 +149,7 @@ export function AddCategoryModal({
     return (
         <>
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div className="bg-white rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+                <div className={`bg-white rounded-lg p-6 w-full ${maxWidthClassName} mx-4 max-h-[90vh] overflow-y-auto`}>
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-xl font-semibold text-gray-900">
                             Manage {type === 'EXPENSE' ? 'Expense' : 'Income'} Categories
@@ -370,6 +371,7 @@ export function AddCategoryModal({
 
             {/* Delete Category Modal */}
             <EditCategoryModal
+                maxWidthClassName={maxWidthClassName}
                 isOpen={isEditModalOpen}
                 onClose={handleCloseEditModal}
                 onSave={handleConfirmEdit}

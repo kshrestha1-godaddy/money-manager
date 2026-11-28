@@ -1,4 +1,4 @@
-import { ACTIONS_COLUMN_WIDTH_PX, BULK_SELECT_COLUMN_WIDTH_PX } from "../scheduled-payments-table-constants";
+import { ACTIONS_COLUMN_WIDTH_PX, BULK_SELECT_COLUMN_WIDTH_PX } from "../../constants/scheduled-payments-constants";
 import type { ScheduledColumnWidths } from "../scheduled-payments-table-types";
 
 export function ScheduledPaymentsTableColgroup({ columnWidths }: { columnWidths: ScheduledColumnWidths }) {

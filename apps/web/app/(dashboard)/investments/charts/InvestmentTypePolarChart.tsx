@@ -328,7 +328,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency: currencyProp
 
     if (!data.length) {
       return (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 h-[50rem] flex flex-col" data-chart-type="investment-type-polar">
+        <div className="flex h-[50rem] flex-col rounded-lg border border-gray-200 bg-white p-8 shadow-sm" data-chart-type="investment-type-polar">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
               <PieChart className="w-5 h-5 text-blue-600 mr-2" />
@@ -634,7 +634,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency: currencyProp
 
     return (
       <>
-        <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-5 h-[50rem] flex flex-col overflow-hidden" data-chart-type="investment-type-polar">
+        <div className="flex h-[50rem] flex-col overflow-hidden rounded-lg border border-gray-200 bg-white p-3 shadow-sm sm:p-4 md:p-5" data-chart-type="investment-type-polar">
           <ChartControls
             chartRef={chartRef}
             isExpanded={isExpanded}
@@ -652,7 +652,7 @@ const InvestmentTypePolarChartComponent = ({ investments, currency: currencyProp
 
         {isExpanded && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-            <div className="bg-white rounded-lg p-4 sm:p-6 max-w-7xl w-full max-h-full overflow-auto">
+            <div className="bg-white rounded-lg p-4 sm:p-6 max-w-2xl w-full max-h-full overflow-auto">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 gap-2 sm:gap-0">
                 <div>
                   <h2 className="text-lg sm:text-2xl font-semibold truncate">{title}</h2>

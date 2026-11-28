@@ -18,7 +18,7 @@ import {
     getTransactionPlaceholders,
     buttonClasses,
     modalOverlayClasses,
-    modalContentClasses
+    modalContentBaseClasses
 } from "../../utils/formUtils";
 
 interface FinancialModalProps {
@@ -30,6 +30,7 @@ interface FinancialModalProps {
     transactionType: TransactionType;
     transaction?: any;
     mode: 'add' | 'edit';
+    maxWidthClassName: string;
 }
 
 export function FinancialModal({ 
@@ -40,7 +41,8 @@ export function FinancialModal({
     accounts, 
     transactionType,
     transaction, 
-    mode 
+    mode,
+    maxWidthClassName,
 }: FinancialModalProps) {
     const { accountCurrency } = useDisplayCurrency();
     const defaultCurrency = getUserSupportedCurrency(accountCurrency);
@@ -119,7 +121,7 @@ export function FinancialModal({
 
     return (
         <div className={modalOverlayClasses}>
-            <div className={modalContentClasses}>
+            <div className={`${modalContentBaseClasses} ${maxWidthClassName}`}>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
                     <button

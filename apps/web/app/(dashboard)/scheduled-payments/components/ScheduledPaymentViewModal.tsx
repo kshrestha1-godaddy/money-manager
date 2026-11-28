@@ -1,5 +1,6 @@
 "use client";
 
+import { SCHEDULED_PAYMENTS_MODAL_MAX_WIDTH } from "../../constants/scheduled-payments-constants";
 import { useEffect, useMemo, useState } from "react";
 import {
   acceptScheduledPayment,
@@ -175,7 +176,7 @@ export function ScheduledPaymentViewModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg border border-gray-200 bg-white p-6 shadow-xl"
+        className={`max-h-[90vh] w-full ${SCHEDULED_PAYMENTS_MODAL_MAX_WIDTH} overflow-y-auto rounded-lg border border-gray-200 bg-white p-6 shadow-xl`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="scheduled-payment-view-title"

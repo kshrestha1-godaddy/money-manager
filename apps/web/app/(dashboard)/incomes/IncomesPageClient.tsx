@@ -1,5 +1,6 @@
 "use client";
 
+import { INCOMES_MODAL_MAX_WIDTH } from "../constants/incomes-constants";
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useOptimizedFinancialData } from '../../hooks/useOptimizedFinancialData';
@@ -430,6 +431,7 @@ export default function IncomesPageClient() {
       <EditIncomeModal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setItemToEdit(null); }} onEdit={handleEditItem} categories={categoriesWithFrequency} accounts={accounts} income={itemToEdit} />
       <ViewIncomeModal isOpen={isViewModalOpen} onClose={() => { setIsViewModalOpen(false); setItemToView(null); }} onEdit={openEditModal} income={itemToView} />
       <AddCategoryModal
+        maxWidthClassName={INCOMES_MODAL_MAX_WIDTH}
         isOpen={isAddCategoryModalOpen}
         onClose={() => setIsAddCategoryModalOpen(false)}
         onAdd={handleAddCategory}

@@ -1,5 +1,6 @@
 "use client";
 
+import { BOOKMARKS_MODAL_MAX_WIDTH } from "../constants/bookmarks-constants";
 import React, { useState, useEffect } from "react";
 import { Button } from "@repo/ui/button";
 import { PasswordGatedButton } from "@repo/applock";
@@ -249,7 +250,7 @@ export default function BookmarksPage() {
             {/* View Details Modal */}
             {viewingBookmark && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-lg mx-4">
+                    <div className={`bg-white rounded-lg p-6 w-full ${BOOKMARKS_MODAL_MAX_WIDTH} mx-4`}>
                         <div className="flex justify-between items-start mb-4">
                             <h3 className="text-lg font-semibold">Bookmark Details</h3>
                             <button

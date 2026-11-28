@@ -1,3 +1,5 @@
+export const SCHEDULED_PAYMENTS_MODAL_MAX_WIDTH = "max-w-7xl";
+
 /** Fixed width incl. horizontal padding (`box-border`); remaining cols share the rest. */
 export const BULK_SELECT_COLUMN_WIDTH_PX = 52;
 

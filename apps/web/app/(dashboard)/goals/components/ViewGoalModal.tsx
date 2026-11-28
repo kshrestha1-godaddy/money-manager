@@ -1,5 +1,6 @@
 "use client";
 
+import { GOALS_MODAL_MAX_WIDTH } from "../../constants/goals-constants";
 import { PasswordGatedButton } from "@repo/applock";
 
 interface ViewGoalModalProps {
@@ -23,7 +24,7 @@ export function ViewGoalModal({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-600 bg-opacity-50">
-      <div className="relative top-20 mx-auto w-96 rounded-md border bg-white p-5 shadow-lg dark:bg-gray-800">
+      <div className={`relative top-20 mx-auto w-[calc(100%-2rem)] ${GOALS_MODAL_MAX_WIDTH} rounded-md border bg-white p-5 shadow-lg dark:bg-gray-800`}>
         <div className="mt-1">
           <h3 className="text-lg font-medium text-gray-900 dark:text-white">{goal.title}</h3>
           {goal.description ? (

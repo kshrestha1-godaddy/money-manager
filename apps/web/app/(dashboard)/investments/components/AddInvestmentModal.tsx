@@ -1,5 +1,6 @@
 "use client";
 
+import { INVESTMENT_MODAL_MAX_WIDTH } from "../../constants/investment-constants";
 import { InvestmentInterface } from "../../../types/investments";
 import { InvestmentAddForm } from "./investment-add-form";
 
@@ -26,7 +27,7 @@ export function AddInvestmentModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className={`bg-white rounded-lg p-6 w-full ${INVESTMENT_MODAL_MAX_WIDTH} max-h-[90vh] overflow-y-auto`}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">Add New Investment</h2>
           <button

@@ -1,5 +1,6 @@
 "use client";
 
+import { PASSWORDS_MODAL_MAX_WIDTH } from "../../constants/passwords-constants";
 import { useState, useId, useMemo, useRef, useCallback, useEffect } from "react";
 import { PasswordGatedButton } from "@repo/applock";
 import { PasswordInterface } from "../../../types/passwords";
@@ -95,7 +96,7 @@ function ViewPasswordModal({ isOpen, onClose, password }: ViewPasswordModalProps
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className={`bg-white rounded-lg shadow-lg ${PASSWORDS_MODAL_MAX_WIDTH} w-full max-h-[90vh] overflow-y-auto`}>
                 {/* Header */}
                 <div className="px-4 sm:px-6 py-4 border-b border-gray-200 sticky top-0 bg-white z-10">
                     <div className="flex justify-between items-center">

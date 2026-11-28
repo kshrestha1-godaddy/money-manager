@@ -1,5 +1,6 @@
 "use client";
 
+import { BOOKMARKS_MODAL_MAX_WIDTH } from "../../constants/bookmarks-constants";
 import React, { useState } from "react";
 import { BookmarkFormData } from "../../../types/bookmarks";
 
@@ -74,7 +75,7 @@ export function AddBookmarkModal({ isOpen, onClose, onSubmit }: AddBookmarkModal
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className={`bg-white rounded-lg p-6 w-full ${BOOKMARKS_MODAL_MAX_WIDTH} mx-4`}>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold">Add New Bookmark</h2>
                     <button

@@ -1,5 +1,6 @@
 "use client";
 
+import { CHAT_MODAL_MAX_WIDTH } from "../../constants/chat-constants";
 import { ChatSettings } from "../types/chat";
 
 interface SettingsModalProps {
@@ -14,7 +15,7 @@ export function SettingsModal({ isOpen, onClose, chatSettings, setChatSettings }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div className={`bg-white rounded-lg shadow-xl ${CHAT_MODAL_MAX_WIDTH} w-full mx-4 max-h-[90vh] overflow-y-auto`}>
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-900">Chat Settings</h2>

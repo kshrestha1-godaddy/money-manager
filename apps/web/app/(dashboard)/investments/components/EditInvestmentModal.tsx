@@ -1,8 +1,13 @@
 "use client";
 
+import { INVESTMENT_MODAL_MAX_WIDTH } from "../../constants/investment-constants";
 import { useState, useEffect, useMemo } from "react";
 import { InvestmentInterface, InvestmentTarget } from "../../../types/investments";
-import { getUserAccounts } from "../../accounts/actions/accounts";
+import {
+    getUserAccounts,
+    getWithheldInvestmentDetailsByAccount,
+} from "../../accounts/actions/accounts";
+import { sumAccountWithheld } from "../../accounts/utils/accountWithheld";
 import { getInvestmentTargets } from "../actions/investment-targets";
 import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { formatCurrency } from "../../../utils/currency";
@@ -15,20 +20,16 @@ import {
     requiresCurrentPriceField,
     getInvestmentTypeLabel,
 } from "../utils/investmentTypeUi";
+import {
+    AccountBalancePicker,
+    type AccountBalanceOption,
+} from "./AccountBalancePicker";
 
 interface EditInvestmentModalProps {
     investment: InvestmentInterface | null;
     isOpen: boolean;
     onClose: () => void;
     onEdit: (id: number, investment: Partial<Omit<InvestmentInterface, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'account' | 'investmentTarget'>>) => void;
-}
-
-interface Account {
-    id: number;
-    holderName: string;
-    bankName: string;
-    accountNumber: string;
-    balance?: number;
 }
 
 const INVESTMENT_TYPE_OPTIONS: { value: InvestmentInterface["type"]; label: string }[] = [
@@ -76,7 +77,10 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
         investmentTargetId: "",
     });
 
-    const [accounts, setAccounts] = useState<Account[]>([]);
+    const [accounts, setAccounts] = useState<AccountBalanceOption[]>([]);
+    const [withheldByAccount, setWithheldByAccount] = useState<Record<string, number>>(
+        {}
+    );
     const [targets, setTargets] = useState<InvestmentTarget[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -131,24 +135,28 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
 
     const loadAccounts = async () => {
         try {
-            const result = await getUserAccounts();
+            const [result, withheldDetails] = await Promise.all([
+                getUserAccounts(),
+                getWithheldInvestmentDetailsByAccount().catch(() => ({})),
+            ]);
             if (Array.isArray(result)) {
-                // Successfully got accounts array
                 setAccounts(result);
+                setWithheldByAccount(sumAccountWithheld(withheldDetails));
                 setError(null);
             } else if (result.error) {
-                // Got error response
                 setError(result.error);
                 setAccounts([]);
+                setWithheldByAccount({});
             } else {
-                // Unexpected response format
                 setError("Failed to load accounts");
                 setAccounts([]);
+                setWithheldByAccount({});
             }
         } catch (err) {
             console.error("Error loading accounts:", err);
             setError("Failed to load accounts");
             setAccounts([]);
+            setWithheldByAccount({});
         }
     };
 
@@ -252,7 +260,7 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className={`bg-white rounded-lg p-6 w-full ${INVESTMENT_MODAL_MAX_WIDTH} max-h-[90vh] overflow-y-auto`}>
                 <div className="flex justify-between items-start gap-3 mb-4">
                     <div>
                         <h2 className="text-xl font-semibold">Edit Investment</h2>
@@ -545,20 +553,16 @@ export function EditInvestmentModal({ investment, isOpen, onClose, onEdit }: Edi
                                 return null;
                             })()}
                         </label>
-                        <select
+                        <AccountBalancePicker
                             id="accountId"
+                            accounts={accounts}
+                            withheldByAccount={withheldByAccount}
                             value={formData.accountId}
-                            onChange={(e) => handleInputChange("accountId", e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="">No account selected</option>
-                            {accounts.map(account => (
-                                <option key={account.id} value={account.id}>
-                                    {account.bankName} - {account.accountNumber} (
-                                    {formatAmount(account.balance || 0)})
-                                </option>
-                            ))}
-                        </select>
+                            onChange={(accountId) => handleInputChange("accountId", accountId)}
+                            formatAmount={formatAmount}
+                            disabled={loading || isExpensePreview}
+                            allowNone
+                        />
                         <p className="text-sm text-gray-500 mt-1">
                             {formData.accountId 
                                 ? (formData.deductFromAccount

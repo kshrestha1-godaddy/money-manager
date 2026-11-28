@@ -1,5 +1,6 @@
 "use client";
 
+import { INVESTMENT_MODAL_MAX_WIDTH } from "../../constants/investment-constants";
 import { X } from "lucide-react";
 import { InvestmentInterface } from "../../../types/investments";
 import { formatDateYearMonthDay } from "../../../utils/date";
@@ -46,7 +47,7 @@ export function ViewInvestmentModal({ investment, isOpen, onClose, onEdit }: Vie
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className={`bg-white rounded-lg p-6 w-full ${INVESTMENT_MODAL_MAX_WIDTH} max-h-[90vh] overflow-y-auto`}>
                 <div className="flex justify-between items-start gap-4 mb-4">
                     <div className="min-w-0">
                         <h2 className="text-2xl font-bold text-gray-900 break-words">{investment.name}</h2>

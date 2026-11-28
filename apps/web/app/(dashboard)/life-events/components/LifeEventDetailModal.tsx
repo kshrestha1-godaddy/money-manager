@@ -1,5 +1,6 @@
 "use client";
 
+import { LIFE_EVENTS_MODAL_MAX_WIDTH } from "../../constants/life-events-constants";
 import type { LifeEventCategory } from "@prisma/client";
 import type { LifeEventItem } from "../../../types/life-event";
 import {
@@ -36,7 +37,7 @@ export function LifeEventDetailModal({ event, isOpen, onClose, onEdit }: LifeEve
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+      <div className={`max-h-[90vh] w-full ${LIFE_EVENTS_MODAL_MAX_WIDTH} overflow-y-auto rounded-lg bg-white p-6 shadow-xl`}>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-xl font-semibold text-gray-900">{event.title}</h2>

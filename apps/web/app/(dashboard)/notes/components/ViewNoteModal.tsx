@@ -1,5 +1,6 @@
 "use client";
 
+import { NOTES_MODAL_MAX_WIDTH } from "../../constants/notes-constants";
 import { Note } from "@prisma/client";
 
 interface ViewNoteModalProps {
@@ -42,7 +43,7 @@ export function ViewNoteModal({ note, isOpen, onClose, onEdit }: ViewNoteModalPr
         />
 
         {/* Modal panel */}
-        <div className="inline-block w-full max-w-2xl p-6 my- overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
+        <div className={`inline-block w-full ${NOTES_MODAL_MAX_WIDTH} p-6 my- overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl`}>
           {/* Header */}
           <div className="flex items-start justify-between mb-6">
             <div className="flex-1">

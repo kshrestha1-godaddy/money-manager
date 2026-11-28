@@ -1,5 +1,6 @@
 "use client";
 
+import { GOALS_MODAL_MAX_WIDTH } from "../../constants/goals-constants";
 import React, { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
@@ -74,7 +75,7 @@ export function EditGoalModal({ isOpen, onClose, onSubmit, goal, isLoading = fal
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-lg bg-white shadow-xl dark:bg-gray-800">
+      <div className={`w-full ${GOALS_MODAL_MAX_WIDTH} rounded-lg bg-white shadow-xl dark:bg-gray-800`}>
         <div className="flex items-center justify-between border-b p-5 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Edit Goal</h3>
           <button type="button" onClick={onClose} aria-label="Close">

@@ -16,6 +16,7 @@ interface TransactionViewModalProps {
     transactionType: TransactionImageType;
     isOpen: boolean;
     onClose: () => void;
+    maxWidthClassName: string;
     onEdit?: (transaction: Transaction) => void;
 }
 
@@ -24,7 +25,8 @@ export function TransactionViewModal({
     transactionType,
     isOpen, 
     onClose, 
-    onEdit 
+    onEdit,
+    maxWidthClassName,
 }: TransactionViewModalProps) {
     const { displayCurrency: userCurrency } = useDisplayCurrency();
     const [images, setImages] = useState<TransactionImage[]>([]);
@@ -157,7 +159,7 @@ export function TransactionViewModal({
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className={`bg-white rounded-lg shadow-xl ${maxWidthClassName} w-full max-h-[90vh] overflow-hidden`}>
                 {/* Header */}
                 <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
                     <div className="flex justify-between items-center">

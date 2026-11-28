@@ -1,3 +1,4 @@
+import { GOALS_MODAL_MAX_WIDTH } from "../../constants/goals-constants";
 import React, { useState, useCallback } from 'react';
 import { X, Target, Calendar, DollarSign, Flag, Tag, Palette, AlertCircle } from 'lucide-react';
 import { useDisplayCurrency } from '../../../hooks/useDisplayCurrency';
@@ -159,7 +160,7 @@ export function AddGoalModal({ isOpen, onClose, onSubmit, isLoading = false }: A
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
         
-        <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+        <div className={`inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle ${GOALS_MODAL_MAX_WIDTH} sm:w-full`}>
           {/* Header */}
           <div className="bg-gray-50 dark:bg-gray-750 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">

@@ -4,7 +4,7 @@ import {
   BULK_SELECT_COLUMN_WIDTH_PX,
   TABLE_CELL_X,
   TABLE_HEAD_Y,
-} from "../scheduled-payments-table-constants";
+} from "../../constants/scheduled-payments-constants";
 import type { ResizeScheduledColumn, ScheduledPaymentsSortKey, ScheduledPaymentsTableSortState } from "../scheduled-payments-table-types";
 
 interface SortableThProps {

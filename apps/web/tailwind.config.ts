@@ -7,6 +7,7 @@ const config: Pick<Config, "content" | "presets"> = {
     darkMode: ["class"],
     content: [
     "./app/**/*.tsx",
+    "./app/(dashboard)/constants/*.ts",
     "../../packages/ui/src/**/*.tsx",
     "../../packages/applock/src/**/*.tsx"
   ],

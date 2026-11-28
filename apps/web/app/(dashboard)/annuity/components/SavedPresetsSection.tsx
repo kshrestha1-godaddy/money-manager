@@ -1,5 +1,6 @@
 "use client";
 
+import { ANNUITY_MODAL_MAX_WIDTH } from "../../constants/annuity-constants";
 import { useCallback, useEffect, useState } from "react";
 import { Bookmark, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { PasswordGatedButton } from "@repo/applock";
@@ -296,7 +297,7 @@ export function SavedPresetsSection({ currentInputs, onLoadPreset, onPresetDelet
       {modalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
           <div
-            className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6"
+            className={`bg-white rounded-lg shadow-xl ${ANNUITY_MODAL_MAX_WIDTH} w-full max-h-[90vh] overflow-y-auto p-6`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="preset-modal-title"

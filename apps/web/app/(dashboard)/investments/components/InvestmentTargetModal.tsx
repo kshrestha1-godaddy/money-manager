@@ -1,5 +1,6 @@
 "use client";
 
+import { INVESTMENT_MODAL_MAX_WIDTH } from "../../constants/investment-constants";
 import React, { useState, useEffect, useCallback } from "react";
 import { InvestmentTarget, InvestmentTargetFormData } from "../../../types/investments";
 import { X, Target, Calendar, Plus, Trash2 } from "lucide-react";
@@ -245,7 +246,7 @@ export function InvestmentTargetModal({
 
     return (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-            <div className={`relative bg-white rounded-2xl shadow-xl w-full mx-4 ${mode === 'create' ? 'max-w-2xl' : 'max-w-md'}`}>
+            <div className={`relative bg-white rounded-2xl shadow-xl w-full mx-4 ${INVESTMENT_MODAL_MAX_WIDTH}`}>
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-gray-200">
                     <div className="flex items-center">

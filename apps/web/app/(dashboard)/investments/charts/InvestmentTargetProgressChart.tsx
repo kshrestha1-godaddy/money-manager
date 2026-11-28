@@ -112,15 +112,15 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
 
     if (!targets?.length) {
         return (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 h-[50rem] flex flex-col">
-                <div className="flex items-center justify-between mb-6">
+            <div className="flex h-[50rem] flex-col overflow-hidden rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+                <div className="mb-6 flex items-center justify-between">
                     <div className="flex items-center">
-                        <Target className="w-5 h-5 text-blue-600 mr-2" />
+                        <Target className="mr-2 h-5 w-5 text-blue-600" />
                         <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
                     </div>
                 </div>
                 
-                <div className="text-center py-12 flex-1 flex flex-col justify-center">
+                <div className="flex flex-1 flex-col justify-center py-12 text-center">
                     <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                     <h4 className="text-lg font-medium text-gray-900 mb-2">No Investment Targets Set</h4>
                     <p className="text-gray-500 mb-6">
@@ -144,42 +144,46 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
     }
 
     return (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 h-[50rem] flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center">
-                    <Target className="w-5 h-5 text-blue-600 mr-2" />
-                    <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+        <div className="flex h-[50rem] flex-col overflow-hidden rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="mb-4 flex shrink-0 flex-col gap-1">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center">
+                        <Target className="mr-2 h-5 w-5 text-blue-600" />
+                        <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+                    </div>
+                    <ProgressLegend />
+                    <div className="flex items-center gap-3">
+                        {onAddTarget && (
+                            <button
+                                onClick={onAddTarget}
+                                className="text-sm font-medium text-blue-600 transition-colors hover:text-blue-700"
+                            >
+                                + Add Target
+                            </button>
+                        )}
+                        {onBulkDelete && targets.length > 0 && (
+                            <PasswordGatedButton
+                                onConfirm={onBulkDelete}
+                                prompt={{
+                                    title: "Delete all targets",
+                                    description: "This cannot be undone. Enter your lock screen password to delete every investment target.",
+                                    confirmLabel: "Delete all targets",
+                                }}
+                                className="text-sm font-medium text-red-600 transition-colors hover:text-red-700"
+                            >
+                                Delete All
+                            </PasswordGatedButton>
+                        )}
+                    </div>
                 </div>
-                {/* Progress Legend */}
-                <ProgressLegend className="mb-4" />
-                <div className="flex items-center gap-3">
-                    {onAddTarget && (
-                        <button
-                            onClick={onAddTarget}
-                            className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
-                        >
-                            + Add Target
-                        </button>
-                    )}
-                    {onBulkDelete && targets.length > 0 && (
-                        <PasswordGatedButton
-                            onConfirm={onBulkDelete}
-                            prompt={{
-                                title: "Delete all targets",
-                                description: "This cannot be undone. Enter your lock screen password to delete every investment target.",
-                                confirmLabel: "Delete all targets",
-                            }}
-                            className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors"
-                        >
-                            Delete All
-                        </PasswordGatedButton>
-                    )}
-                </div>
+                <p className="text-xs text-gray-500">
+                    Target progress uses saved prices, the same basis as contribution schedules.
+                </p>
             </div>
 
             {/* Summary */}
-            <div className="mb-6 pb-4 border-b border-gray-200">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div className="mb-6 shrink-0 border-b border-gray-200 pb-4">
+                <div className="grid grid-cols-2 gap-4 text-center md:grid-cols-4">
                     <div>
                         <p className="text-sm text-gray-600">Total Targets</p>
                         <p className="text-lg font-semibold text-gray-900">{summary.total}</p>
@@ -199,7 +203,7 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
                 </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-end gap-2 mb-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
+            <div className="mb-4 flex shrink-0 flex-wrap items-center justify-end gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
                 <label htmlFor="investment-target-sort" className="text-gray-600">Sort by</label>
                 <select
                     id="investment-target-sort"
@@ -222,7 +226,7 @@ export const InvestmentTargetProgressChart = React.memo<InvestmentTargetProgress
                 </select>
             </div>
 
-            <div className="space-y-5 overflow-y-auto pr-2 pb-1 flex-1">
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-2 pb-1">
                 {sortedTargets.map((target) => (
                     <TargetProgressItem
                         key={target.targetId}

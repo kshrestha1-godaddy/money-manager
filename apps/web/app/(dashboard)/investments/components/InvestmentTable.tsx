@@ -410,20 +410,6 @@ export function InvestmentTable({
                         </th>
                         <th 
                             className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
-                            style={{ width: `${columnWidths.purchasePrincipal}px` }}
-                            onClick={() => handleSort('purchasePrice')}
-                        >
-                            <div className="flex items-center justify-center gap-2">
-                                <span title="Total cost: quantity × purchase price per unit">Cost Price</span>
-                                {getSortIcon('purchasePrice')}
-                            </div>
-                            <div 
-                                className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
-                                onMouseDown={(e) => handleMouseDown(e, 'purchasePrincipal')}
-                            />
-                        </th>
-                        <th 
-                            className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
                             style={{ width: `${columnWidths.currentValue}px` }}
                             onClick={() => handleSort('currentPrice')}
                         >
@@ -434,6 +420,20 @@ export function InvestmentTable({
                             <div 
                                 className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
                                 onMouseDown={(e) => handleMouseDown(e, 'currentValue')}
+                            />
+                        </th>
+                        <th 
+                            className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 relative border-r border-gray-200"
+                            style={{ width: `${columnWidths.purchasePrincipal}px` }}
+                            onClick={() => handleSort('purchasePrice')}
+                        >
+                            <div className="flex items-center justify-center gap-2">
+                                <span title="Total cost: quantity × purchase price per unit">Cost Price</span>
+                                {getSortIcon('purchasePrice')}
+                            </div>
+                            <div 
+                                className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:bg-opacity-50"
+                                onMouseDown={(e) => handleMouseDown(e, 'purchasePrincipal')}
                             />
                         </th>
                         <th 
@@ -562,16 +562,16 @@ export function InvestmentTable({
                             </span>
                         </td>
                         <td
-                            className="px-3 py-4 text-center text-sm font-semibold text-gray-900 tabular-nums"
-                            style={{ width: `${columnWidths.purchasePrincipal}px` }}
-                        >
-                            {formatMoney(tableFooterSummary.totalCost)}
-                        </td>
-                        <td
                             className="px-3 py-4 text-center text-sm text-gray-400"
                             style={{ width: `${columnWidths.currentValue}px` }}
                         >
                             —
+                        </td>
+                        <td
+                            className="px-3 py-4 text-center text-sm font-semibold text-gray-900 tabular-nums"
+                            style={{ width: `${columnWidths.purchasePrincipal}px` }}
+                        >
+                            {formatMoney(tableFooterSummary.totalCost)}
                         </td>
                         <td
                             className="px-3 py-4 text-center text-sm font-semibold text-gray-900 tabular-nums"
@@ -753,6 +753,17 @@ function InvestmentRow({
             </td>
             <td
                 className="px-3 py-4 text-sm text-gray-900 text-center tabular-nums align-top"
+                style={{ width: `${columnWidths.currentValue}px` }}
+                title={
+                    investment.type === "GOLD" || investment.type === "SILVER"
+                        ? "Spot per unit (from investments page). Present value = quantity × this rate."
+                        : undefined
+                }
+            >
+                <div className="break-words font-medium">{investment.id < 0 ? "Awaiting valuation" : formatMoney(investment.currentPrice)}</div>
+            </td>
+            <td
+                className="px-3 py-4 text-sm text-gray-900 text-center tabular-nums align-top"
                 style={{ width: `${columnWidths.purchasePrincipal}px` }}
                 title={`${investment.quantity} × ${formatMoney(investment.purchasePrice)} per unit`}
             >
@@ -762,17 +773,6 @@ function InvestmentRow({
                         ({formatMoney(investment.purchasePrice)}/unit)
                     </div>
                 </div>
-            </td>
-            <td
-                className="px-3 py-4 text-sm text-gray-900 text-center tabular-nums align-top"
-                style={{ width: `${columnWidths.currentValue}px` }}
-                title={
-                    investment.type === "GOLD" || investment.type === "SILVER"
-                        ? "Spot per unit (from investments page). Present value = quantity × this rate."
-                        : undefined
-                }
-            >
-                <div className="break-words font-medium">{investment.id < 0 ? "Awaiting valuation" : formatMoney(investment.currentPrice)}</div>
             </td>
             <td className="px-3 py-4 text-sm font-medium text-gray-900 text-center tabular-nums align-top" style={{ width: `${columnWidths.totalValue}px` }}>
                 <div className="break-words">{investment.id < 0 ? "—" : formatMoney(totalValue)}</div>

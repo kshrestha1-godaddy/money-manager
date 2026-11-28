@@ -1,5 +1,6 @@
 "use client";
 
+import { HABITS_TRACKER_MODAL_MAX_WIDTH } from "../../constants/habits-tracker-constants";
 import { useEffect, useState } from "react";
 import type { BloodPressureReadingDTO } from "../actions/blood-pressure";
 import { datetimeLocalValue } from "../blood-pressure-helpers";
@@ -70,7 +71,7 @@ export function BloodPressureReadingModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 border border-gray-200" onClick={(e) => e.stopPropagation()}>
+      <div className={`bg-white rounded-xl shadow-xl ${HABITS_TRACKER_MODAL_MAX_WIDTH} w-full p-6 border border-gray-200`} onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-semibold text-gray-900 mb-4">
           {editing ? "Edit BP reading" : "Log BP reading"}
         </h2>

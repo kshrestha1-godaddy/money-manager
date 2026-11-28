@@ -1,5 +1,6 @@
 "use client";
 
+import { DEBTS_MODAL_MAX_WIDTH } from "../../constants/debts-constants";
 import { DebtInterface } from "../../../types/debts";
 import { DebtAddForm } from "./debt-add-form";
 
@@ -14,7 +15,7 @@ export function AddDebtModal({ isOpen, onClose, onAdd }: AddDebtModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="mx-4 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6">
+      <div className={`mx-4 max-h-[90vh] w-full ${DEBTS_MODAL_MAX_WIDTH} overflow-y-auto rounded-lg bg-white p-6`}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900">Add New Debt</h2>
           <button

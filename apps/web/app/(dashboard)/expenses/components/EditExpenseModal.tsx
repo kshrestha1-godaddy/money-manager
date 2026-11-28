@@ -1,5 +1,6 @@
 "use client";
 
+import { EXPENSES_MODAL_MAX_WIDTH } from "../../constants/expenses-constants";
 import { FinancialModal } from "../../../components/shared/FinancialModal";
 import { Expense, Category } from "../../../types/financial";
 import { AccountInterface } from "../../../types/accounts";
@@ -23,6 +24,7 @@ export function EditExpenseModal({ isOpen, onClose, onEdit, categories, accounts
 
     return (
         <FinancialModal
+            maxWidthClassName={EXPENSES_MODAL_MAX_WIDTH}
             isOpen={isOpen}
             onClose={onClose}
             onSubmit={handleSubmit}

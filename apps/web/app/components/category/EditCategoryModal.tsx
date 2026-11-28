@@ -26,6 +26,7 @@ const COLOR_OPTIONS = [
 
 interface EditCategoryModalProps {
     isOpen: boolean;
+    maxWidthClassName: string;
     onClose: () => void;
     onSave: (
         categoryId: number,
@@ -36,6 +37,7 @@ interface EditCategoryModalProps {
 
 export function EditCategoryModal({
     isOpen,
+    maxWidthClassName,
     onClose,
     onSave,
     category,
@@ -90,7 +92,7 @@ export function EditCategoryModal({
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50">
-            <div className="mx-4 w-full max-w-md rounded-lg bg-white p-6">
+            <div className={`mx-4 w-full ${maxWidthClassName} rounded-lg bg-white p-6`}>
                 <div className="mb-4 flex items-center justify-between">
                     <h3 className="text-lg font-medium text-gray-900">Edit Category</h3>
                     <button

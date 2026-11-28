@@ -1,5 +1,6 @@
 "use client";
 
+import { NOTES_MODAL_MAX_WIDTH } from "../constants/notes-constants";
 import { useState, useEffect } from "react";
 import { Note } from "@prisma/client";
 import { NoteForm } from "./components/NoteForm";
@@ -302,7 +303,7 @@ export function NotesPageClient() {
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
             <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={handleCloseEdit} />
-            <div className="inline-block w-full max-w-2xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
+            <div className={`inline-block w-full ${NOTES_MODAL_MAX_WIDTH} my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl`}>
               <NoteForm
                 note={editingNote}
                 onSubmit={handleEditComplete}

@@ -1,3 +1,4 @@
+import { ACCOUNTS_MODAL_MAX_WIDTH } from "../../constants/accounts-constants";
 import { AccountInterface } from "../../../types/accounts";
 import { formatDate } from "../../../utils/date";
 import { formatAccountOpeningDate } from "../utils/accountOpeningDate";
@@ -48,7 +49,7 @@ export function ViewAccountModal({ isOpen, onClose, account }: ViewAccountModalP
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className={`bg-white rounded-lg shadow-xl w-full ${ACCOUNTS_MODAL_MAX_WIDTH} max-h-[90vh] overflow-y-auto`}>
                 {/* Header */}
                 <div className="border-b border-gray-200 px-6 py-4">
                     <div className="flex items-center justify-between">

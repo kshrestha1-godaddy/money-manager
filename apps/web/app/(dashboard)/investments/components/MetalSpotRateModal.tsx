@@ -69,7 +69,7 @@ export function MetalSpotRateModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
       <div
-        className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg"
+        className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-lg"
         role="dialog"
         aria-labelledby="metal-spot-modal-title"
       >

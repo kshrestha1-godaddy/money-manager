@@ -5,7 +5,7 @@ import {
   BULK_SELECT_COLUMN_WIDTH_PX,
   TABLE_CELL_X,
   TABLE_CELL_Y,
-} from "../scheduled-payments-table-constants";
+} from "../../constants/scheduled-payments-constants";
 import type { ScheduledColumnWidths } from "../scheduled-payments-table-types";
 import { ScheduledPaymentsTableColgroup } from "./scheduled-payments-table-colgroup";
 

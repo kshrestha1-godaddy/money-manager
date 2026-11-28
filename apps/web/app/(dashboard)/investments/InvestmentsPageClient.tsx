@@ -463,12 +463,11 @@ export default function InvestmentsPageClient() {
           </div>
         </div>
 
-        <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="mt-2 grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div>
             <InvestmentTypePolarChart {...polarChartProps} />
           </div>
           <div>
-            <p className={cardSubtitle}>Target progress uses saved prices, the same basis as contribution schedules.</p>
             {targetsError ? (
               <div role="alert" className={errorContainer}>
                 {targetsError}
@@ -477,7 +476,9 @@ export default function InvestmentsPageClient() {
                   void queryClient.invalidateQueries({ queryKey: ["investment-target-progress"] });
                 }}>Retry targets</button>
               </div>
-            ) : targetsLoading ? <p role="status">Loading investment targets…</p> : (
+            ) : targetsLoading ? (
+              <p role="status">Loading investment targets…</p>
+            ) : (
               <InvestmentTargetProgressChart {...targetChartProps} />
             )}
           </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { EXPENSES_MODAL_MAX_WIDTH } from "../constants/expenses-constants";
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useOptimizedFinancialData } from '../../hooks/useOptimizedFinancialData';
@@ -456,6 +457,7 @@ export default function ExpensesPageClient() {
       <EditExpenseModal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setItemToEdit(null); }} onEdit={handleEditItem} categories={categoriesWithFrequency} accounts={accounts} expense={itemToEdit} />
       <ViewExpenseModal isOpen={isViewModalOpen} onClose={() => { setIsViewModalOpen(false); setItemToView(null); }} onEdit={openEditModal} expense={itemToView} />
       <AddCategoryModal
+        maxWidthClassName={EXPENSES_MODAL_MAX_WIDTH}
         isOpen={isAddCategoryModalOpen}
         onClose={() => setIsAddCategoryModalOpen(false)}
         onAdd={handleAddCategory}

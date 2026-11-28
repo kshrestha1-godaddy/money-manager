@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { InvestmentInterface, InvestmentTarget } from "../../../types/investments";
-import { getUserAccounts } from "../../accounts/actions/accounts";
+import {
+  getUserAccounts,
+  getWithheldInvestmentDetailsByAccount,
+} from "../../accounts/actions/accounts";
+import { sumAccountWithheld } from "../../accounts/utils/accountWithheld";
 import { getInvestmentTargets } from "../actions/investment-targets";
 import {
   getInvestmentTypeLabel,
@@ -16,14 +20,10 @@ import {
 import { useDisplayCurrency } from "../../../hooks/useDisplayCurrency";
 import { formatCurrency } from "../../../utils/currency";
 import { getLocalDateString, buttonClasses } from "../../../utils/formUtils";
-
-interface Account {
-  id: number;
-  holderName: string;
-  bankName: string;
-  accountNumber: string;
-  balance?: number;
-}
+import {
+  AccountBalancePicker,
+  type AccountBalanceOption,
+} from "./AccountBalancePicker";
 
 export interface InvestmentAddFormProps {
   /** When true, loads accounts and targets (e.g. sheet/modal open). */
@@ -95,7 +95,10 @@ export function InvestmentAddForm({
     investmentTargetId: "",
   });
 
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accounts, setAccounts] = useState<AccountBalanceOption[]>([]);
+  const [withheldByAccount, setWithheldByAccount] = useState<Record<string, number>>(
+    {}
+  );
   const [targets, setTargets] = useState<InvestmentTarget[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -119,21 +122,28 @@ export function InvestmentAddForm({
 
   const loadAccounts = async () => {
     try {
-      const result = await getUserAccounts();
+      const [result, withheldDetails] = await Promise.all([
+        getUserAccounts(),
+        getWithheldInvestmentDetailsByAccount().catch(() => ({})),
+      ]);
       if (Array.isArray(result)) {
         setAccounts(result);
+        setWithheldByAccount(sumAccountWithheld(withheldDetails));
         setError(null);
       } else if (result && "error" in result && result.error) {
         setError(result.error);
         setAccounts([]);
+        setWithheldByAccount({});
       } else {
         setError("Failed to load accounts");
         setAccounts([]);
+        setWithheldByAccount({});
       }
     } catch (err) {
       console.error("Error loading accounts:", err);
       setError("Failed to load accounts");
       setAccounts([]);
+      setWithheldByAccount({});
     }
   };
 
@@ -529,16 +539,19 @@ export function InvestmentAddForm({
         </div>
 
         <div>
-          <label htmlFor="inv-add-accountId" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="inv-add-accountId" className="mb-1 block text-sm font-medium text-gray-700">
             Account (Optional){" "}
             {formData.accountId
               ? (() => {
-                  const selectedAccount = accounts.find((acc) => acc.id === parseInt(formData.accountId, 10));
+                  const selectedAccount = accounts.find(
+                    (acc) => acc.id === parseInt(formData.accountId, 10)
+                  );
                   const totalAmount =
-                    parseFloat(formData.quantity || "0") * parseFloat(formData.purchasePrice || "0");
+                    parseFloat(formData.quantity || "0") *
+                    parseFloat(formData.purchasePrice || "0");
                   if (selectedAccount && totalAmount > 0) {
                     return (
-                      <span className="text-sm text-gray-500">
+                      <span className="text-sm font-normal text-gray-500">
                         (Investment: {formatCurrency(totalAmount, displayCurrency)})
                       </span>
                     );
@@ -547,21 +560,17 @@ export function InvestmentAddForm({
                 })()
               : null}
           </label>
-          <select
+          <AccountBalancePicker
             id="inv-add-accountId"
+            accounts={accounts}
+            withheldByAccount={withheldByAccount}
             value={formData.accountId}
-            onChange={(e) => handleInputChange("accountId", e.target.value)}
-            className={inputClass}
+            onChange={(accountId) => handleInputChange("accountId", accountId)}
+            formatAmount={formatAmount}
             disabled={loading}
-          >
-            <option value="">No account selected</option>
-            {accounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.bankName} - {account.accountNumber} ({formatAmount(account.balance || 0)})
-              </option>
-            ))}
-          </select>
-          <p className="text-sm text-gray-500 mt-1">
+            allowNone
+          />
+          <p className="mt-1 text-sm text-gray-500">
             {formData.accountId
               ? formData.deductFromAccount
                 ? "Investment amount will be reserved from the selected account’s free balance (account total stays the same)."
@@ -575,7 +584,9 @@ export function InvestmentAddForm({
                 <input
                   type="checkbox"
                   checked={formData.deductFromAccount}
-                  onChange={(e) => handleInputChange("deductFromAccount", e.target.checked.toString())}
+                  onChange={(e) =>
+                    handleInputChange("deductFromAccount", e.target.checked.toString())
+                  }
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   disabled={loading}
                 />
@@ -583,7 +594,7 @@ export function InvestmentAddForm({
                   Mark investment amount as withheld from account
                 </span>
               </label>
-              <p className="text-xs text-gray-500 ml-6 mt-1">
+              <p className="ml-6 mt-1 text-xs text-gray-500">
                 {formData.deductFromAccount
                   ? "Shows as withheld on Accounts. Free balance = account balance − withheld."
                   : "This investment amount will not be considered as withheld from the account"}

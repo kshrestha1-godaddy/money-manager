@@ -1,5 +1,6 @@
 "use client";
 
+import { NOTES_MODAL_MAX_WIDTH } from "../../constants/notes-constants";
 import { useState } from "react";
 import { createNote, CreateNoteData } from "../actions/notes";
 import { Note } from "@prisma/client";
@@ -113,7 +114,7 @@ export function AddNoteModal({ isOpen, onClose, onSuccess }: AddNoteModalProps) 
         />
 
         {/* Modal panel */}
-        <div className="inline-block w-full max-w-2xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
+        <div className={`inline-block w-full ${NOTES_MODAL_MAX_WIDTH} p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl`}>
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-gray-900">

@@ -1,5 +1,6 @@
 "use client";
 
+import { INCOMES_MODAL_MAX_WIDTH } from "../../constants/incomes-constants";
 import { FinancialModal } from "../../../components/shared/FinancialModal";
 import type { Income } from "../../../types/financial";
 import { AccountInterface } from "../../../types/accounts";
@@ -23,6 +24,7 @@ export function EditIncomeModal({ isOpen, onClose, onEdit, categories, accounts,
 
     return (
         <FinancialModal
+            maxWidthClassName={INCOMES_MODAL_MAX_WIDTH}
             isOpen={isOpen}
             onClose={onClose}
             onSubmit={handleSubmit}

@@ -47,7 +47,7 @@ import {
   scheduledPaymentStatusLabel,
 } from "./scheduled-payment-helpers";
 import { useResizableColumnWidths } from "../../hooks/usePersistentColumnWidths";
-import { ACTIONS_COLUMN_WIDTH_PX, BULK_SELECT_COLUMN_WIDTH_PX, DEFAULT_SCHEDULED_COLUMN_WIDTHS, TABLE_HEAD_Y } from "./scheduled-payments-table-constants";
+import { ACTIONS_COLUMN_WIDTH_PX, BULK_SELECT_COLUMN_WIDTH_PX, DEFAULT_SCHEDULED_COLUMN_WIDTHS, TABLE_HEAD_Y } from "../constants/scheduled-payments-constants";
 
 const pageContainer = CONTAINER_COLORS.page;
 const loadingContainer = LOADING_COLORS.container;
