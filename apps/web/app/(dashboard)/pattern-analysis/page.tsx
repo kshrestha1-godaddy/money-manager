@@ -44,6 +44,8 @@ type Period = { time: number; groups: PeriodGroup[]; entries: Entry[]; totals: R
 
 const MAX_HORIZONTAL_PADDING = 88;
 const Y_AXIS_WIDTH = 76;
+const KDE_Y_AXIS_WIDTH = 148;
+const KDE_PADDING = { left: 12, right: 20, top: 12, bottom: 12 };
 const CHART_MARGIN = { top: 24, right: 132, bottom: 8, left: 4 };
 
 const pointButtonClass = "inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100";
@@ -62,6 +64,12 @@ const GROUPING_OPTIONS = (Object.keys(GROUPINGS) as Grouping[]).map((value) => (
   value,
   label: GROUPINGS[value].label,
 }));
+
+const CHART_VIEWS = [
+  { value: "trend", label: "Line" },
+  { value: "kde", label: "KDE" },
+] as const;
+type ChartView = (typeof CHART_VIEWS)[number]["value"];
 
 const DATE_PRESETS = [
   { label: "1M", months: 1 },
@@ -86,97 +94,136 @@ type CategoryDistribution = {
   name: string;
   color: string;
   points: number;
+  values: number[];
   mean: number;
   deviation: number;
 };
 
-function PeriodDistribution({ categories, minAmount, maxAmount, currency, offset }: {
+function quantile(sorted: number[], probability: number) {
+  const index = (sorted.length - 1) * probability;
+  const lower = Math.floor(index);
+  const upper = Math.ceil(index);
+  if (lower === upper) return sorted[lower];
+  return sorted[lower] + (sorted[upper] - sorted[lower]) * (index - lower);
+}
+
+function kdeBandwidth(values: number[], deviation: number) {
+  if (values.length < 2 || deviation === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const iqr = quantile(sorted, 0.75) - quantile(sorted, 0.25);
+  const spread = Math.min(deviation, iqr > 0 ? iqr / 1.34 : deviation) || deviation;
+  return 1.06 * spread * values.length ** -0.2;
+}
+
+function kdeDensity(values: number[], bandwidth: number, amount: number) {
+  let sum = 0;
+  for (const value of values) {
+    const z = (amount - value) / bandwidth;
+    sum += Math.exp(-0.5 * z * z);
+  }
+  return sum / (values.length * bandwidth * Math.SQRT2 * Math.sqrt(Math.PI));
+}
+
+function PeriodDistribution({ categories, minAmount, maxAmount, fillRatio = 0.25, offset, yAxisMap }: {
   categories: CategoryDistribution[];
   minAmount: number;
   maxAmount: number;
-  currency: string;
+  fillRatio?: number;
   offset?: { left: number; top: number; width: number; height: number };
+  yAxisMap?: Record<string, { scale?: (value: number) => number }>;
 }) {
   if (!offset || offset.width <= 0 || offset.height <= 40 || !categories.length) return null;
 
-  const { left, top, width, height } = offset;
-  const right = left + width;
-  const bottom = top + height - 24;
-  const curveHeight = (height - 24) * 0.25;
-  const xFor = (amount: number) => left + width * (amount - minAmount) / (maxAmount - minAmount);
-  const labelEdges: number[] = [];
-  const labels = [...categories].sort((a, b) => a.mean - b.mean).map((category) => {
-    const stats = `μ ${formatCurrency(category.mean, currency)} · σ ${formatCurrency(category.deviation, currency)}`;
-    const halfWidth = Math.min(width / 2, Math.max(64, stats.length * 3.4));
-    const x = Math.max(left + halfWidth, Math.min(right - halfWidth, xFor(category.mean)));
-    const openRow = labelEdges.findIndex((edge) => edge + 8 <= x - halfWidth);
-    const row = openRow === -1 ? labelEdges.length : openRow;
-    labelEdges[row] = x + halfWidth;
-    return { ...category, stats, x, y: bottom - curveHeight - 22 - row * 28, width: halfWidth * 2 };
-  });
+  const { left: plotLeft, top: plotTop, width: plotWidth, height: plotHeight } = offset;
+  const left = plotLeft + KDE_PADDING.left;
+  const right = plotLeft + plotWidth - KDE_PADDING.right;
+  const top = plotTop + KDE_PADDING.top;
+  const bottom = plotTop + plotHeight - KDE_PADDING.bottom;
+  const width = Math.max(0, right - left);
+  const height = Math.max(0, bottom - top);
+  if (width <= 24 || height <= 40) return null;
+
+  const span = maxAmount - minAmount || 1;
+  const yAxis = yAxisMap && Object.values(yAxisMap)[0];
+  const yForAmount = (amount: number) => {
+    if (yAxis?.scale) return yAxis.scale(amount);
+    return bottom - height * (amount - minAmount) / span;
+  };
+  const curveWidth = Math.max(24, width * fillRatio);
 
   return (
     <g pointerEvents="none" role="img"
-      aria-label="Gaussian fits of visible category totals. Mu is the mean and sigma is the standard deviation.">
-      <line x1={left} y1={bottom} x2={right} y2={bottom} stroke="#cbd5e1" />
-      {categories.map(({ key, color, mean, deviation }) => {
-        const center = xFor(mean);
-        if (deviation === 0) {
-          return <line key={key} x1={center} x2={center} y1={bottom - curveHeight} y2={bottom}
+      aria-label="Empirical density of visible category totals on the amount axis.">
+      <line x1={left} y1={yForAmount(maxAmount)} x2={left} y2={yForAmount(minAmount)} stroke="#cbd5e1" />
+      {categories.map(({ key, color, mean, deviation, values }) => {
+        const midY = yForAmount(mean);
+        const bandwidth = kdeBandwidth(values, deviation);
+        if (bandwidth === 0) {
+          return <line key={key} x1={left} x2={left + curveWidth} y1={midY} y2={midY}
             stroke={color} strokeOpacity={0.5} strokeDasharray="3 4" />;
         }
 
-        const yFor = (amount: number) => {
-          const z = (amount - mean) / deviation;
-          return bottom - curveHeight * Math.exp(-0.5 * z ** 2);
-        };
-        const curvePoints = (from: number, to: number) => Array.from({ length: 101 }, (_, index) => {
-          const amount = from + (to - from) * index / 100;
-          return `${xFor(amount)},${yFor(amount)}`;
+        const samples = Array.from({ length: 121 }, (_, index) => {
+          const amount = minAmount + span * index / 120;
+          return { amount, density: kdeDensity(values, bandwidth, amount) };
         });
-        const bandPoints = (from: number, to: number) =>
-          [`${xFor(from)},${bottom}`, ...curvePoints(from, to), `${xFor(to)},${bottom}`].join(" ");
+        const peak = Math.max(...samples.map(({ density }) => density), Number.EPSILON);
+        const xForDensity = (density: number) => left + curveWidth * density / peak;
+        const pointAt = (amount: number) => {
+          const density = kdeDensity(values, bandwidth, amount);
+          return `${xForDensity(density)},${yForAmount(amount)}`;
+        };
+        const curvePoints = samples.map(({ amount, density }) =>
+          `${xForDensity(density)},${yForAmount(amount)}`);
+        const bandPoints = (from: number, to: number) => {
+          const slice = samples.filter(({ amount }) => amount >= from && amount <= to)
+            .map(({ amount, density }) => `${xForDensity(density)},${yForAmount(amount)}`);
+          if (!slice.length) return "";
+          return [
+            `${left},${yForAmount(from)}`,
+            pointAt(from),
+            ...slice,
+            pointAt(to),
+            `${left},${yForAmount(to)}`,
+          ].join(" ");
+        };
 
-        const curveMin = Math.max(minAmount, mean - 4 * deviation);
-        const curveMax = Math.min(maxAmount, mean + 4 * deviation);
+        const sorted = [...values].sort((a, b) => a - b);
+        const q1 = quantile(sorted, 0.25);
+        const q3 = quantile(sorted, 0.75);
+        const iqrBand = q3 > q1 ? bandPoints(q1, q3) : "";
+        const markers = [
+          { id: "q1", amount: q1, opacity: 0.25 },
+          { id: "mean-2sd", amount: mean - 2 * deviation, opacity: 0.3 },
+          { id: "mean-sd", amount: mean - deviation, opacity: 0.4 },
+          { id: "mean", amount: mean, opacity: 0.65 },
+          { id: "mean+sd", amount: mean + deviation, opacity: 0.4 },
+          { id: "mean+2sd", amount: mean + 2 * deviation, opacity: 0.3 },
+          { id: "q3", amount: q3, opacity: 0.25 },
+        ].filter(({ amount }) => amount >= minAmount && amount <= maxAmount);
+
         return (
           <g key={key}>
-            <polygon points={bandPoints(curveMin, curveMax)} fill={color} fillOpacity={0.05} />
-            {[2, 1].map((deviations) => (
-              <polygon key={deviations} fill={color} fillOpacity={0.11}
-                points={bandPoints(mean - deviations * deviation, mean + deviations * deviation)} />
-            ))}
-            <polyline points={curvePoints(curveMin, curveMax).join(" ")}
-              fill="none" stroke={color} strokeOpacity={0.55} />
-            {[-2, -1, 0, 1, 2].map((step) => {
-              const amount = mean + step * deviation;
-              const x = xFor(amount);
+            <polygon
+              points={[
+                `${left},${yForAmount(minAmount)}`,
+                ...curvePoints,
+                `${left},${yForAmount(maxAmount)}`,
+              ].join(" ")}
+              fill={color} fillOpacity={0.05} />
+            {iqrBand && <polygon points={iqrBand} fill={color} fillOpacity={0.14} />}
+            <polyline points={curvePoints.join(" ")} fill="none" stroke={color} strokeOpacity={0.55} />
+            {markers.map(({ id, amount, opacity }) => {
+              const density = kdeDensity(values, bandwidth, amount);
+              const y = yForAmount(amount);
               return (
-                <line key={step} x1={x} x2={x} y1={yFor(amount)} y2={bottom}
-                  stroke={color} strokeOpacity={step === 0 ? 0.65 : 0.35} strokeDasharray="3 4" />
+                <line key={id} x1={left} x2={xForDensity(density)} y1={y} y2={y}
+                  stroke={color} strokeOpacity={opacity} strokeDasharray="3 4" />
               );
             })}
           </g>
         );
       })}
-      {width >= 360 && (
-        <>
-          <text x={left + 3} y={bottom + 15} fill="#475569" fontSize={11}>
-            {formatCurrency(minAmount, currency)}
-          </text>
-          <text x={right - 3} y={bottom + 15} textAnchor="end" fill="#475569" fontSize={11}>
-            {formatCurrency(maxAmount, currency)}
-          </text>
-        </>
-      )}
-      {labels.map(({ key, name, color, stats, x, y, width }) => (
-        <g key={key} stroke="white" strokeWidth={3} paintOrder="stroke">
-          <Text x={x} y={y} width={width} maxLines={1} textAnchor="middle"
-            fill={color} fontSize={11} fontWeight={700}>{name}</Text>
-          <Text x={x} y={y + 12} width={width} maxLines={1} textAnchor="middle"
-            fill={color} fontSize={10}>{stats}</Text>
-        </g>
-      ))}
     </g>
   );
 }
@@ -268,14 +315,17 @@ function PeriodTooltip({ active, period, grouping, currency, multipleCategories,
   );
 }
 
-function TrendView({ type, grouping, entries, currency, excluded, setEntriesExcluded }: {
+function TrendView({ type, grouping, entries, currency, charts, excluded, setEntriesExcluded }: {
   type: TransactionType;
   grouping: Grouping;
   entries: Entry[];
   currency: string;
+  charts: readonly ChartView[];
   excluded: ReadonlySet<string>;
   setEntriesExcluded: (entries: Entry[], hide: boolean) => void;
 }) {
+  const showTrend = charts.includes("trend");
+  const showKde = charts.includes("kde");
   const [activeTime, setActiveTime] = useState<number | null>(null);
   const restoreButton = useRef<HTMLButtonElement>(null);
   const [horizontalPadding, setHorizontalPadding] = useState(MAX_HORIZONTAL_PADDING);
@@ -340,7 +390,7 @@ function TrendView({ type, grouping, entries, currency, excluded, setEntriesExcl
         const points = values.length;
         const mean = points ? values.reduce((sum, value) => sum + value, 0) / points : 0;
         const variance = points ? values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / points : 0;
-        return { key, ...category, points, mean, deviation: Math.sqrt(variance) };
+        return { key, ...category, points, values, mean, deviation: Math.sqrt(variance) };
       }),
       totals,
     };
@@ -351,12 +401,22 @@ function TrendView({ type, grouping, entries, currency, excluded, setEntriesExcl
   const maxAmount = totals.reduce((max, value) => Math.max(max, value), totals[0] ?? 0);
   const axisPadding = (maxAmount - minAmount) * 0.01 || Math.max(Math.abs(minAmount) * 0.05, 1);
   const distributions = series.filter(({ points }) => points > 0);
-  const distributionMin = distributions.reduce(
-    (min, { mean, deviation }) => Math.min(min, mean - 3 * deviation), minAmount - axisPadding,
+  const distributionMin = distributions.reduce((min, { values, deviation }) => {
+    const pad = Math.max(3 * kdeBandwidth(values, deviation), axisPadding);
+    return Math.min(min, Math.min(...values) - pad);
+  }, minAmount - axisPadding);
+  const distributionMax = distributions.reduce((max, { values, deviation }) => {
+    const pad = Math.max(3 * kdeBandwidth(values, deviation), axisPadding);
+    return Math.max(max, Math.max(...values) + pad);
+  }, maxAmount + axisPadding);
+  const sigmaPadMin = distributions.reduce(
+    (min, { mean, deviation }) => Math.min(min, mean - 2 * deviation), minAmount - axisPadding,
   );
-  const distributionMax = distributions.reduce(
-    (max, { mean, deviation }) => Math.max(max, mean + 3 * deviation), maxAmount + axisPadding,
+  const sigmaPadMax = distributions.reduce(
+    (max, { mean, deviation }) => Math.max(max, mean + 2 * deviation), maxAmount + axisPadding,
   );
+  const yMin = showKde ? Math.min(showTrend ? minAmount - axisPadding : distributionMin, sigmaPadMin) : minAmount - axisPadding;
+  const yMax = showKde ? Math.max(showTrend ? maxAmount + axisPadding : distributionMax, sigmaPadMax) : maxAmount + axisPadding;
   const excludedPeriods = periods.flatMap(({ time, entries }) => {
     const hidden = entries.filter(({ key }) => excluded.has(key));
     return hidden.length ? [{ time, entries: hidden }] : [];
@@ -369,7 +429,12 @@ function TrendView({ type, grouping, entries, currency, excluded, setEntriesExcl
       <div className="min-w-0 rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-gray-900">
-            {GROUPINGS[grouping].label} {type === "EXPENSE" ? "expense" : "income"} trend · {currency}
+            {[
+              `${GROUPINGS[grouping].label} ${type === "EXPENSE" ? "expense" : "income"}`,
+              showTrend && "Line",
+              showKde && "KDE",
+              currency,
+            ].filter(Boolean).join(" · ")}
           </h2>
           <div className="ml-auto flex min-w-0 flex-col items-end gap-2">
             {excludedCount > 0 && (
@@ -428,20 +493,77 @@ function TrendView({ type, grouping, entries, currency, excluded, setEntriesExcl
             {periods.length ? "All entries in this view are excluded." : "No transactions match these filters."}
           </p>
         ) : (
-          <div className="mt-4 h-[1050px] [container-type:inline-size] sm:h-[1400px]" onMouseLeave={() => setActiveTime(null)}>
+          <div
+            className={`mt-4 [container-type:inline-size] ${showTrend || showKde ? "h-[1050px] sm:h-[1400px]" : "h-[420px] sm:h-[520px]"}`}
+            onMouseLeave={() => setActiveTime(null)}>
             <ResponsiveContainer width="100%" height="100%" onResize={(width) => {
-              const plotWidth = width - Y_AXIS_WIDTH - CHART_MARGIN.left - CHART_MARGIN.right;
+              const axisWidth = showKde ? KDE_Y_AXIS_WIDTH : Y_AXIS_WIDTH;
+              const plotWidth = width - axisWidth - CHART_MARGIN.left - CHART_MARGIN.right;
               setHorizontalPadding(Math.min(MAX_HORIZONTAL_PADDING, Math.max(0, Math.floor(plotWidth / 4))));
             }}>
               <LineChart data={periods} margin={CHART_MARGIN}
-                onClick={({ activeLabel }) => {
+                onClick={showTrend ? ({ activeLabel }) => {
                   const time = typeof activeLabel === "number" ? activeLabel : null;
                   setActiveTime((current) => current === time ? null : time);
-                }}>
-                <Customized component={<PeriodDistribution categories={distributions}
-                  minAmount={distributionMin} maxAmount={distributionMax} currency={currency} />} />
-                <CartesianGrid stroke="#e5e7eb" vertical={false} />
-                {series.map(({ key, points, mean, color }) => points > 0 && (
+                } : undefined}>
+                {showKde && (
+                  <Customized component={<PeriodDistribution categories={distributions}
+                    minAmount={yMin} maxAmount={yMax}
+                    fillRatio={showTrend ? 0.22 : 0.55} />} />
+                )}
+                {(showTrend || showKde) && (
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal vertical={showTrend} />
+                )}
+                {showKde && distributions.flatMap(({ key, color, mean, deviation }) => (
+                  [
+                    {
+                      id: `${key}-mu`,
+                      amount: mean,
+                      text: `μ : ${formatCurrency(mean, currency)}`,
+                      weight: 700,
+                      opacity: 0.7,
+                    },
+                    {
+                      id: `${key}-sd1-hi`,
+                      amount: mean + deviation,
+                      text: `σ : ${formatCurrency(mean + deviation, currency)}`,
+                      weight: 600,
+                      opacity: 0.5,
+                    },
+                    {
+                      id: `${key}-sd1-lo`,
+                      amount: mean - deviation,
+                      text: null as string | null,
+                      weight: 600,
+                      opacity: 0.4,
+                    },
+                    {
+                      id: `${key}-sd2-hi`,
+                      amount: mean + 2 * deviation,
+                      text: `2σ : ${formatCurrency(mean + 2 * deviation, currency)}`,
+                      weight: 600,
+                      opacity: 0.4,
+                    },
+                    {
+                      id: `${key}-sd2-lo`,
+                      amount: mean - 2 * deviation,
+                      text: null as string | null,
+                      weight: 600,
+                      opacity: 0.3,
+                    },
+                  ].filter(({ amount }) => amount >= yMin && amount <= yMax).map(({ id, amount, text, weight, opacity }) => (
+                    <ReferenceLine key={id} y={amount} stroke={color} strokeWidth={text?.startsWith("μ") ? 2 : 1.5}
+                      strokeDasharray="2 5" strokeLinecap="round" strokeOpacity={opacity}
+                      label={text ? ({ viewBox }: { viewBox?: { x: number; y: number } }) => viewBox ? (
+                        <text x={viewBox.x - 10} y={viewBox.y} textAnchor="end" dominantBaseline="middle"
+                          fill={color} stroke="white" strokeWidth={3} paintOrder="stroke"
+                          fontSize={10} fontWeight={weight} pointerEvents="none">
+                          {text}
+                        </text>
+                      ) : <g /> : undefined} />
+                  ))
+                ))}
+                {showTrend && !showKde && series.map(({ key, points, mean, color }) => points > 0 && (
                   <ReferenceLine key={key} y={mean} stroke={color} strokeWidth={2}
                     strokeDasharray="2 5" strokeLinecap="round"
                     label={({ viewBox }: { viewBox?: { x: number; y: number } }) => viewBox ? (
@@ -453,16 +575,22 @@ function TrendView({ type, grouping, entries, currency, excluded, setEntriesExcl
                     ) : <g />} />
                 ))}
                 <XAxis dataKey="time" type="number" scale="time" domain={["dataMin", "dataMax"]}
-                  tickFormatter={periodLabel} minTickGap={36} padding={{ left: horizontalPadding, right: horizontalPadding }} />
-                <YAxis domain={[minAmount - axisPadding, maxAmount + axisPadding]} tickCount={16}
-                  width={Y_AXIS_WIDTH} padding={{ top: 80, bottom: 80 }} tickMargin={8} tick={{ fontSize: 12 }}
+                  hide={!showTrend} ticks={periods.map(({ time }) => time)} interval={0}
+                  tickFormatter={periodLabel} tick={{ fontSize: 11 }} tickMargin={8}
+                  padding={{ left: horizontalPadding, right: horizontalPadding }} />
+                <YAxis domain={[yMin, yMax]} tickCount={16}
+                  hide={!(showTrend || showKde)} width={showKde ? KDE_Y_AXIS_WIDTH : Y_AXIS_WIDTH}
+                  padding={{ top: horizontalPadding, bottom: horizontalPadding }}
+                  interval={0} tickMargin={8} tick={{ fontSize: 12 }}
                   tickFormatter={(amount) => axisAmount.format(amount)} />
-                <Tooltip trigger="click" active={Boolean(activePeriod)} filterNull={false} isAnimationActive={false}
-                  wrapperStyle={{ pointerEvents: "auto" }}
-                  content={<PeriodTooltip key={activePeriod?.time} period={activePeriod}
-                    grouping={grouping} currency={currency} multipleCategories={series.length > 1}
-                    excluded={excluded} setEntriesExcluded={setEntriesExcluded} />} />
-                {series.map(({ key, name, color, points, lastIndex }) => (
+                {showTrend && (
+                  <Tooltip trigger="click" active={Boolean(activePeriod)} filterNull={false} isAnimationActive={false}
+                    wrapperStyle={{ pointerEvents: "auto" }}
+                    content={<PeriodTooltip key={activePeriod?.time} period={activePeriod}
+                      grouping={grouping} currency={currency} multipleCategories={series.length > 1}
+                      excluded={excluded} setEntriesExcluded={setEntriesExcluded} />} />
+                )}
+                {showTrend && series.map(({ key, name, color, points, lastIndex }) => (
                   <Line key={key} name={name} dataKey={`totals.${key}`} stroke={color} strokeWidth={2.5}
                     dot={{ r: points > 36 ? 2 : 3 }} activeDot={Boolean(activePeriod) && { r: 6, cursor: "pointer" }}
                     connectNulls isAnimationActive={false}
@@ -508,6 +636,7 @@ export default function PatternAnalysisPage() {
   const [end, setEnd] = useState("");
   const [years, setYears] = useState<string[] | null>(() => [format(new Date(), "yyyy")]);
   const [groupings, setGroupings] = useState<Grouping[]>(["month"]);
+  const [charts, setCharts] = useState<ChartView[]>(["trend", "kde"]);
   const [excluded, setExcluded] = useState<Set<string>>(() => new Set());
 
   const showExpenses = types.includes("EXPENSE");
@@ -723,10 +852,25 @@ export default function PatternAnalysisPage() {
             ))}
           </div>
         </fieldset>
+        <fieldset className="min-w-0 rounded-lg border border-gray-200 p-3">
+          <legend className="px-1 text-sm font-semibold text-gray-900">Chart</legend>
+          <div className="flex flex-wrap gap-2">
+            {CHART_VIEWS.map(({ value, label }) => (
+              <button key={value} type="button" className={presetClass} aria-pressed={charts.includes(value)}
+                onClick={() => setCharts((current) => current.includes(value)
+                  ? current.filter((chart) => chart !== value)
+                  : [...current, value])}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
       </div>
 
       {!entriesByType.length || !activeGroupings.length ? (
         <p className="text-sm text-gray-600">Select at least one transaction type and grouping.</p>
+      ) : !charts.length ? (
+        <p className="text-sm text-gray-600">Select at least one chart.</p>
       ) : expensesFailed || incomesFailed ? (
         <div role="alert">
           <p className="mb-2 text-sm text-gray-700">Transactions couldn’t load.</p>
@@ -742,7 +886,7 @@ export default function PatternAnalysisPage() {
       ) : (
         entriesByType.map(({ type, entries }) => activeGroupings.map(({ value: grouping }) => (
           <TrendView key={`${type}:${grouping}`} type={type} grouping={grouping} entries={entries}
-            currency={currency} excluded={excluded} setEntriesExcluded={setEntriesExcluded} />
+            currency={currency} charts={charts} excluded={excluded} setEntriesExcluded={setEntriesExcluded} />
         )))
       )}
     </section>
